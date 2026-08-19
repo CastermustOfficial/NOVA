@@ -1,0 +1,15 @@
+# --- nucleo (obbligatorie) ---
+PyQt6>=6.6
+requests>=2.31
+
+# --- consigliate (migliorano i tool, l'app funziona anche senza) ---
+psutil>=5.9
+pywinctl>=0.3
+keyboard>=0.13
+send2trash>=1.8
+pycaw>=20240210
+comtypes>=1.2
+
+# --- fase 2: voce (installare quando servira') ---
+# faster-whisper>=1.0
+# sounddevice>=0.4

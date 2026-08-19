@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.pyo
+
+# runtime llama.cpp scaricato da get_cuda_runtime.ps1 (~560 MB)
+runtime/
+
+# la memoria e' personale: togli questa riga se vuoi versionarla
+vault/
+!vault/.gitkeep
+
+# log e configurazione locale
+*.log
+config.local.json
