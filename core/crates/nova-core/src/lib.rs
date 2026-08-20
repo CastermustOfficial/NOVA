@@ -15,6 +15,7 @@
 pub mod bus;
 pub mod capability;
 pub mod caps;
+pub mod caps_ui;
 pub mod config;
 pub mod policy;
 pub mod server;
@@ -38,16 +39,31 @@ pub fn build(config: Config) -> Result<Arc<Server>> {
     let supervisor = Arc::new(Supervisor::new(bus.clone()));
     let policy = Arc::new(Policy::from_config(&config));
 
+    // se il sistema ha un backend di accessibilita' lo accendiamo qui: un
+    // fallimento non deve impedire al demone di partire, si perde solo ui.*
+    let ui: Option<Arc<dyn nova_platform::UiTree>> = match nova_platform::backend() {
+        Ok(b) => {
+            tracing::info!(backend = b.backend(), "albero di accessibilita' pronto");
+            Some(Arc::from(b))
+        }
+        Err(e) => {
+            tracing::warn!(errore = %e, "albero di accessibilita' non disponibile");
+            None
+        }
+    };
+
     let ctx = Arc::new(Ctx {
         bus: bus.clone(),
         policy,
         config: config.clone(),
         supervisor: supervisor.clone(),
+        ui,
         started_at: std::time::Instant::now(),
     });
 
     let mut registry = Registry::new();
     caps::register_builtins(&mut registry);
+    caps_ui::register(&mut registry);
 
     Ok(Server::new(Arc::new(registry), ctx, config))
 }

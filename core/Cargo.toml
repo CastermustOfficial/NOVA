@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/nova-proto",
     "crates/nova-core",
+    "crates/nova-platform",
     "crates/novad",
     "crates/nova-cli",
 ]

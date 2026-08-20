@@ -17,6 +17,7 @@ use crate::bus::Bus;
 use crate::config::Config;
 use crate::policy::Policy;
 use crate::supervisor::Supervisor;
+use nova_platform::UiTree;
 
 /// Tutto cio' a cui una capacita' puo' accedere mentre gira.
 pub struct Ctx {
@@ -24,6 +25,8 @@ pub struct Ctx {
     pub policy: Arc<Policy>,
     pub config: Arc<Config>,
     pub supervisor: Arc<Supervisor>,
+    /// L'albero di accessibilita' del sistema, se questo OS ha un backend.
+    pub ui: Option<Arc<dyn UiTree>>,
     pub started_at: std::time::Instant,
 }
 

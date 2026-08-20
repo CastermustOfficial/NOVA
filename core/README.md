@@ -146,3 +146,83 @@ with CoreClient() as c:
 3. Snapshot: VSS / APFS / overlayfs dietro un trait `Snapshot`, per poter
    osare e tornare indietro.
 4. Migrazione progressiva di tool e KB dal lato Python al demone.
+
+---
+
+## nova-platform: usare le applicazioni senza guardarle
+
+Il primo dei tre strati previsti e' scritto: `crates/nova-platform` espone il
+trait **`UiTree`**, con il backend Windows su UI Automation.
+
+Non pixel: **oggetti**. L'albero di accessibilita' restituisce pulsanti, campi,
+voci di menu e celle con nome, ruolo, valore e stato — e ogni applicazione che
+rispetta l'accessibilita' lo espone, cioe' quasi tutte, per obbligo di legge.
+
+### Come si indirizza un elemento
+
+Con un **percorso di indici** dalla radice della finestra: `[1,1,1,6,7]`.
+
+Niente stato tenuto aperto fra una chiamata e l'altra, niente puntatori COM da
+custodire: `ui.find` restituisce i percorsi, `ui.click` li risolve rifacendo la
+discesa. Se l'interfaccia e' cambiata nel frattempo il percorso non risolve e
+l'errore lo dice — molto meglio di premere il pulsante sbagliato.
+
+### Capacita'
+
+| Capacita' | Rischio | Cosa fa |
+|---|---|---|
+| `ui.windows` | safe | finestre aperte con titolo, processo, handle |
+| `ui.tree` | safe | albero dei controlli di una finestra |
+| `ui.find` | safe | cerca per nome, ruolo, automation id |
+| `ui.focus` | moderate | porta il fuoco su un elemento |
+| `ui.click` | dangerous | preme, sceglie, spunta, seleziona |
+| `ui.set_text` | dangerous | scrive in un campo senza simulare la tastiera |
+
+```powershell
+nova call ui.windows
+nova call ui.tree window="Blocco note" depth=3
+nova call ui.find window=Calcolatrice name=Sette role=button
+nova call ui.click window=Calcolatrice "path=[1,1,1,6,7]"
+nova call ui.set_text window="appunti" "path=[0,0]" text="ciao"
+```
+
+### Prove fatte
+
+Blocco note: `ui.set_text` sul nodo `document [0,0]`, poi riletto dall'albero —
+`value: "Scritto da NOVA senza toccare la tastiera."`, e la barra di stato
+dell'applicazione confermava «42 caratteri».
+
+Calcolatrice: quattro `ui.click` su `Sette`, `Più`, `Cinque`, `Uguale`, e il
+risultato riletto dai nodi di testo:
+
+```
+1,1,1,0   L'espressione è 7 + 5=
+1,1,1,1   Lo schermo è 12
+```
+
+Nessun mouse, nessuno screenshot, nessun pixel.
+
+### COM in un mondo async
+
+UIA e' COM: gli oggetti non sono `Send` e l'apartment va inizializzato una
+volta sola. Tutto il lavoro vive quindi in **un thread dedicato** che possiede
+l'apartment e la `IUIAutomation`; il resto del demone gli parla per messaggi.
+Fuori si vede un backend normale, `Send + Sync`, tenuto in un `Arc` dentro
+tokio, e le capacita' lo chiamano da `spawn_blocking`.
+
+Se il backend non parte, il demone parte lo stesso: si perdono le `ui.*` e lo
+dice nei log. Sugli altri sistemi c'e' un backend segnaposto che fallisce
+nominando l'API da usare (AT-SPI2, AXUIElement) invece di restituire un albero
+vuoto facendo credere che la finestra non abbia controlli.
+
+### Limiti onesti
+
+- I ruoli sono quelli di UIA, non quelli che uno si aspetta: l'editor del Blocco
+  note e' `document`, non `edit`. Conviene guardare l'albero prima di cercare.
+- Il campo `actions` di ogni nodo e' **dedotto dal ruolo**, non verificato:
+  interrogare i pattern di ogni nodo costerebbe un giro COM per nodo. La verita'
+  si scopre al momento dell'azione, che fallisce con un messaggio chiaro.
+- Giochi, applicazioni disegnate su canvas e vecchia roba Java non espongono
+  niente. Li' l'albero e' vuoto e servirebbe la visione: e' il ~5% dei casi.
+- L'albero si ferma a 200 figli per nodo: certe liste ne hanno decine di
+  migliaia e un albero che non finisce mai non serve a nessuno.

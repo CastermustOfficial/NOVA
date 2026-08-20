@@ -7,6 +7,7 @@ description = "Il motore di NOVA: bus di eventi, registro di capacita', supervis
 
 [dependencies]
 nova-proto = { path = "../nova-proto" }
+nova-platform = { path = "../nova-platform" }
 tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true
