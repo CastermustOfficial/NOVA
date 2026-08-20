@@ -1,4 +1,9 @@
-"""Il cervello di NOVA: dialogo con il modello e ciclo di esecuzione dei tool."""
+"""Il cervello di NOVA: dialogo con il modello e ciclo di esecuzione dei tool.
+
+Il modello vero e proprio sta dietro l'astrazione `brains`: puo' essere il
+GGUF locale, Claude Code CLI o un'API esterna, e si cambia a caldo senza
+perdere la conversazione.
+"""
 from __future__ import annotations
 
 import getpass
@@ -11,13 +16,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
-import requests
-
+from .brains import crea_brain
 from .config import AUTONOMY_ASK_ALL, AUTONOMY_FULL, Config
 from .tools import REGISTRY, Risk, ToolError, openai_schema, run_tool
-
-THINK_RE = re.compile(r"<think>(.*?)</think>", re.S | re.I)
-OPEN_THINK_RE = re.compile(r"<think>.*", re.S | re.I)
 
 
 class Denied(Exception):
@@ -80,23 +81,50 @@ class AgentCallbacks:
     on_tool_result: Callable[[str, str, bool], None] = lambda n, r, ok: None
     # deve restituire True/False; bloccante finche' l'utente decide
     ask_approval: Callable[[str, dict, str, Risk], bool] = lambda n, a, d, r: True
+    on_brain: Callable[[str], None] = lambda s: None
 
 
 # ---------------------------------------------------------------- agente
 class Agent:
     def __init__(self, cfg: Config, callbacks: AgentCallbacks | None = None,
-                 kb_engine=None, memory=None):
+                 kb_engine=None, memory=None, vault=None, brain=None):
         self.cfg = cfg
         self.cb = callbacks or AgentCallbacks()
-        self.kb = kb_engine
-        self.memory = memory
-        self._mem_idx: int | None = None
         self.safety = SafetyContext(cfg)
+        self.kb = kb_engine
+        self.vault = vault
+        self.memory = memory
         self.messages: list[dict] = []
         self.cancel_event = threading.Event()
-        self._session = requests.Session()
-        self.model_name = "local-model"
+        self._mem_idx: int | None = None
+        self._system_base = ""
+        self.brain = brain or crea_brain(cfg.brains.active, cfg, vault)
         self.reset()
+
+    # -- cervello ------------------------------------------------------
+    @property
+    def model_name(self) -> str:
+        return self.brain.descrizione_stato()
+
+    def detect_model(self) -> str:
+        rileva = getattr(self.brain, "rileva_modello", None)
+        if callable(rileva):
+            rileva()
+        return self.brain.descrizione_stato()
+
+    def cambia_brain(self, nome: str) -> str:
+        """Sostituisce il cervello senza perdere la conversazione."""
+        self.brain = crea_brain(nome, self.cfg, self.vault)
+        self.cfg.brains.active = nome
+        pronto, motivo = self.brain.disponibile()
+        self.detect_model()
+        stato = self.brain.descrizione_stato() if pronto else f"NON disponibile - {motivo}"
+        self.cb.on_brain(stato)
+        return stato
+
+    def llm_semplice(self, prompt: str, max_tokens: int = 600) -> str:
+        """Chiamata secca senza tool: la usa il modulo di memoria."""
+        return self.brain.semplice(prompt, max_tokens)
 
     # -- conversazione ------------------------------------------------
     def system_prompt(self) -> str:
@@ -114,72 +142,45 @@ class Agent:
         self._system_base = self.system_prompt()
         self.messages = [{"role": "system", "content": self._system_base}]
         self._mem_idx = None
+        self.brain.reset()
 
     def trim_history(self, max_messages: int = 60) -> None:
         if len(self.messages) <= max_messages:
             return
-        fissi = 2 if self._mem_idx is not None else 1
-        head = self.messages[:fissi]
-        tail = self.messages[-(max_messages - fissi):]
+        head = self.messages[:1]
+        tail = self.messages[-(max_messages - 1):]
         while tail and tail[0].get("role") == "tool":
             tail.pop(0)
         self.messages = head + tail
-        if self._mem_idx is not None:
-            self._mem_idx = 1
 
-    # -- rete ---------------------------------------------------------
-    def detect_model(self) -> str:
+    # -- memoria nel prompt --------------------------------------------
+    def _contesto_kb(self, user_text: str) -> str:
+        if not self.kb or not self.cfg.kb.inject_context:
+            return ""
         try:
-            r = self._session.get(f"{self.cfg.base_url}/v1/models", timeout=8)
-            data = r.json().get("data") or []
-            if data:
-                self.model_name = data[0].get("id", self.model_name)
+            return self.kb.contesto_per(user_text, top_k=self.cfg.kb.top_k)
         except Exception:
-            pass
-        return self.model_name
+            return ""
 
-    def _normalizza_messaggi(self) -> list[dict]:
-        """Un solo messaggio di sistema, in testa: molti template lo pretendono."""
-        sistema = [m for m in self.messages if m.get("role") == "system"]
-        resto = [m for m in self.messages if m.get("role") != "system"]
-        if not sistema:
-            return resto
-        testa = {"role": "system",
-                 "content": "\n\n".join(m.get("content") or "" for m in sistema).strip()}
-        return [testa, *resto]
-
-    def _chat(self, tools: list[dict]) -> dict:
-        payload = {
-            "model": self.model_name,
-            "messages": self._normalizza_messaggi(),
-            "tools": tools,
-            "tool_choice": "auto",
-            "temperature": self.cfg.model.temperature,
-            "top_p": self.cfg.model.top_p,
-            "top_k": self.cfg.model.top_k,
-            "max_tokens": self.cfg.model.max_tokens,
-            "stream": False,
-        }
-        ultimo = None
-        for tentativo in range(3):
-            try:
-                r = self._session.post(
-                    f"{self.cfg.base_url}/v1/chat/completions",
-                    json=payload, timeout=(10, 900),
-                )
-            except (requests.ConnectionError, requests.Timeout) as e:
-                # il server puo' essere in riavvio: aspetta e riprova
-                ultimo = e
-                if self.cancel_event.is_set():
-                    raise Cancelled()
-                time.sleep(2 + 3 * tentativo)
-                continue
-            if r.status_code >= 400:
-                raise RuntimeError(f"Errore dal modello ({r.status_code}): {r.text[:600]}")
-            return r.json()
-        raise RuntimeError(
-            f"Il modello non risponde su {self.cfg.base_url} ({ultimo}). "
-            "Controlla che llama-server sia attivo.")
+    def _aggiorna_memoria_nel_prompt(self, user_text: str) -> None:
+        contesto = self._contesto_kb(user_text)
+        if getattr(self.brain, "agentico", False):
+            # i cervelli agentici ricevono il contesto nel proprio system prompt
+            self.brain.kb_context = contesto
+            return
+        if not contesto:
+            return
+        blocco = (
+            "Quello che gia' sai, dalla tua memoria a grafo. Usalo se pertinente; "
+            "non ripeterlo all'utente come se fosse una novita'. Se scopri che "
+            "qualcosa qui e' superato, correggilo con kb_note o kb_forget.\n\n"
+            + contesto
+        )
+        # Il template di chat di Qwen3.5 accetta un solo messaggio di sistema,
+        # e solo in testa: la memoria si fonde li' dentro.
+        base = self._system_base or self.system_prompt()
+        self._system_base = base
+        self.messages[0] = {"role": "system", "content": base + "\n\n" + blocco}
 
     # -- fallback per modelli che scrivono i tool call nel testo ------
     @staticmethod
@@ -202,83 +203,37 @@ class Agent:
                 continue
         return calls
 
-    @staticmethod
-    def _split_reasoning(msg: dict) -> tuple[str, str]:
-        content = msg.get("content") or ""
-        reasoning = msg.get("reasoning_content") or msg.get("reasoning") or ""
-        found = THINK_RE.findall(content)
-        if found:
-            reasoning = (reasoning + "\n" + "\n".join(found)).strip()
-            content = THINK_RE.sub("", content)
-        content = OPEN_THINK_RE.sub("", content)
-        return content.strip(), reasoning.strip()
-
     # -- ciclo principale ---------------------------------------------
-    def llm_semplice(self, prompt: str, max_tokens: int = 600) -> str:
-        """Una singola chiamata senza tool: la usa il modulo di memoria."""
-        r = self._session.post(
-            f"{self.cfg.base_url}/v1/chat/completions",
-            json={
-                "model": self.model_name,
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.2,
-                "max_tokens": max_tokens,
-                "stream": False,
-            },
-            timeout=(10, 600),
-        )
-        r.raise_for_status()
-        msg = (r.json().get("choices") or [{}])[0].get("message") or {}
-        testo, _ragionamento = self._split_reasoning(msg)
-        return testo
-
-    def _aggiorna_memoria_nel_prompt(self, user_text: str) -> None:
-        """Inietta cio' che la KB sa di rilevante per questo messaggio."""
-        if not self.kb or not self.cfg.kb.inject_context:
-            return
-        try:
-            contesto = self.kb.contesto_per(user_text, top_k=self.cfg.kb.top_k)
-        except Exception:
-            return
-        if not contesto:
-            return
-        blocco = (
-            "Quello che gia' sai, dalla tua memoria a grafo. Usalo se pertinente; "
-            "non ripeterlo all'utente come se fosse una novita'. Se scopri che "
-            "qualcosa qui e' superato, correggilo con kb_note o kb_forget.\n\n"
-            + contesto
-        )
-        # Il template di chat di Qwen3.5 accetta un solo messaggio di sistema,
-        # e solo in testa: la memoria si fonde li' dentro invece di aggiungerne uno.
-        base = getattr(self, "_system_base", None) or self.system_prompt()
-        self._system_base = base
-        self.messages[0] = {"role": "system", "content": base + "\n\n" + blocco}
-
     def send(self, user_text: str) -> str:
         self.cancel_event.clear()
         self._aggiorna_memoria_nel_prompt(user_text)
         self.messages.append({"role": "user", "content": user_text})
         self.trim_history()
-        tools = openai_schema()
+        agentico = getattr(self.brain, "agentico", False)
+        tools = [] if agentico else openai_schema()
         final_text = ""
 
         for step in range(self.cfg.model.max_tool_iterations):
             if self.cancel_event.is_set():
                 raise Cancelled()
-            self.cb.on_status("Sto pensando..." if step == 0 else f"Elaboro (passo {step + 1})...")
-            data = self._chat(tools)
-            choice = (data.get("choices") or [{}])[0]
-            msg = choice.get("message") or {}
-            content, reasoning = self._split_reasoning(msg)
-            tool_calls = msg.get("tool_calls") or []
+            self.cb.on_status(
+                f"{self.brain.etichetta} sta lavorando..." if agentico
+                else ("Sto pensando..." if step == 0 else f"Elaboro (passo {step + 1})..."))
+
+            risposta = self.brain.chat(self.messages, tools, self.cfg)
+
+            content = risposta.contenuto
+            tool_calls = list(risposta.tool_calls)
             if not tool_calls and content:
                 inline = self._parse_inline_tool_calls(content)
                 if inline:
                     tool_calls = inline
                     content = re.sub(r"<tool_call>.*?</tool_call>", "", content, flags=re.S).strip()
 
-            if reasoning:
-                self.cb.on_reasoning(reasoning)
+            if risposta.ragionamento:
+                self.cb.on_reasoning(risposta.ragionamento)
+            if risposta.note:
+                self.cb.on_tool_result(self.brain.etichetta, risposta.note, True)
 
             assistant_msg: dict = {"role": "assistant", "content": content}
             if tool_calls:

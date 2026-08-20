@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
 )
 
 from ..agent import Agent, AgentCallbacks, Cancelled
+from ..brains import BRAINS, ETICHETTE
 from ..config import AUTONOMY_LABELS, AUTONOMY_ORDER, Config
 from ..runtime import LlamaServer
 from ..tools import REGISTRY, Risk
@@ -157,6 +158,7 @@ class MainWindow(QMainWindow):
     sig_ask = pyqtSignal(str, dict, str, int)
     sig_server_log = pyqtSignal(str)
     sig_learned = pyqtSignal(list)
+    sig_brain = pyqtSignal(str)
 
     def __init__(self, cfg: Config):
         super().__init__()
@@ -176,13 +178,15 @@ class MainWindow(QMainWindow):
         self.vault, self.kb_engine = prepara_kb(cfg, log=self.sig_server_log.emit)
         self.vault_path = percorso_vault(cfg)
 
-        self.agent = Agent(cfg, kb_engine=self.kb_engine, callbacks=AgentCallbacks(
+        self.agent = Agent(cfg, kb_engine=self.kb_engine, vault=self.vault,
+                           callbacks=AgentCallbacks(
             on_status=self.sig_status.emit,
             on_reasoning=self.sig_reasoning.emit,
             on_assistant=self.sig_assistant.emit,
             on_tool_start=lambda n, a, d: self.sig_tool_start.emit(n, d, _risk_of(n)),
             on_tool_result=self.sig_tool_result.emit,
             ask_approval=self._ask_approval_blocking,
+            on_brain=self.sig_brain.emit,
         ))
 
         from ..kb_setup import collega_memoria
@@ -208,6 +212,15 @@ class MainWindow(QMainWindow):
         self.lbl_model.setObjectName("status")
         top.addWidget(self.lbl_model)
         top.addStretch(1)
+        top.addWidget(QLabel("Cervello:"))
+        self.cmb_brain = QComboBox()
+        for nome in BRAINS:
+            self.cmb_brain.addItem(ETICHETTE[nome], nome)
+        attivo = self.cfg.brains.active if self.cfg.brains.active in BRAINS else "locale"
+        self.cmb_brain.setCurrentIndex(BRAINS.index(attivo))
+        self.cmb_brain.currentIndexChanged.connect(self._on_brain_changed)
+        top.addWidget(self.cmb_brain)
+
         top.addWidget(QLabel("Autonomia:"))
         self.cmb_autonomy = QComboBox()
         for key in AUTONOMY_ORDER:
@@ -283,6 +296,7 @@ class MainWindow(QMainWindow):
         self.sig_ask.connect(self._show_approval)
         self.sig_server_log.connect(self._log_server)
         self.sig_learned.connect(self._log_learned)
+        self.sig_brain.connect(self._on_brain_state)
 
     def _build_tray(self) -> None:
         self.tray = QSystemTrayIcon(make_icon(), self)
@@ -317,6 +331,17 @@ class MainWindow(QMainWindow):
 
     # -- avvio modello -------------------------------------------------
     def _boot_model(self) -> None:
+        if self.cfg.brains.active != "locale":
+            pronto, motivo = self.agent.brain.disponibile()
+            self.lbl_model.setText(
+                self.agent.brain.descrizione_stato() if pronto
+                else f"{self.agent.brain.etichetta}: NON disponibile - {motivo}")
+            self._append_system(
+                f"Cervello attivo: {self.agent.brain.etichetta}. "
+                "Il modello locale non viene caricato."
+                if pronto else f"{self.agent.brain.etichetta} non disponibile: {motivo}")
+            QTimer.singleShot(200, self._seed_kb_se_serve)
+            return
         if not self.cfg.server.autostart_model:
             self.lbl_model.setText("Modello: avvio automatico disattivato")
             return
@@ -421,6 +446,21 @@ class MainWindow(QMainWindow):
         self.chat.clear()
         self.actions.clear()
         self._append_system("Nuova conversazione.")
+
+    def _on_brain_changed(self, idx: int) -> None:
+        nome = self.cmb_brain.itemData(idx)
+        self._append_system(f"Passo a: {ETICHETTE.get(nome, nome)}...")
+        stato = self.agent.cambia_brain(nome)
+        self.cfg.save()
+        self.lbl_model.setText(stato)
+        if nome == "locale" and not self.server.is_ready():
+            self._boot_model()
+        elif nome != "locale":
+            self._append_system(
+                "Il modello locale resta caricato: puoi tornare indietro quando vuoi.")
+
+    def _on_brain_state(self, stato: str) -> None:
+        self.lbl_model.setText(stato)
 
     def _on_autonomy_changed(self, idx: int) -> None:
         key = self.cmb_autonomy.itemData(idx)

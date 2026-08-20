@@ -54,7 +54,7 @@ def run_cli(cfg: Config, once: str | None = None, no_server: bool = False) -> in
     vault, kb_engine = prepara_kb(cfg, log=lambda m: print("[nova]", m, flush=True))
     esegui_seed_se_serve(cfg, vault, kb_engine, log=lambda m: print("[kb]", m, flush=True))
 
-    agent = Agent(cfg, kb_engine=kb_engine, callbacks=AgentCallbacks(
+    agent = Agent(cfg, kb_engine=kb_engine, vault=vault, callbacks=AgentCallbacks(
         on_status=lambda s: None,
         on_assistant=lambda t: print(f"\nNOVA: {t}", flush=True),
         on_tool_start=lambda n, a, d: print(f"\n  -> {d}", flush=True),
@@ -105,6 +105,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--kb", metavar="QUERY", help="cerca nella knowledge base e termina")
     ap.add_argument("--kb-stats", action="store_true",
                     help="statistiche della knowledge base")
+    ap.add_argument("--brain", choices=["locale", "claude", "api"],
+                    help="quale cervello usare in questa esecuzione")
+    ap.add_argument("--brains", action="store_true",
+                    help="elenca i cervelli e il loro stato")
     args = ap.parse_args(argv)
 
     if args.config:
@@ -118,6 +122,19 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     cfg = _prepare_config(args.reconfigure)
+    if args.brain:
+        cfg.brains.active = args.brain
+        cfg.save()
+
+    if args.brains:
+        from .brains import BRAINS, crea_brain
+        for nome in BRAINS:
+            b = crea_brain(nome, cfg)
+            pronto, motivo = b.disponibile()
+            attivo = "*" if nome == cfg.brains.active else " "
+            print(f"{attivo} {nome:<8} {'pronto' if pronto else 'non disponibile':<16} "
+                  f"{b.descrizione_stato() if pronto else motivo}")
+        return 0
 
     if args.seed_kb or args.kb or args.kb_stats:
         from .kb_setup import esegui_seed_se_serve, prepara_kb
@@ -142,8 +159,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.no_server:
         cfg.server.autostart_model = False
 
+    if cfg.brains.active != "locale":
+        cfg.server.autostart_model = False
+
     if args.cli or args.ask:
-        return run_cli(cfg, once=args.ask, no_server=args.no_server)
+        return run_cli(cfg, once=args.ask,
+                       no_server=args.no_server or cfg.brains.active != "locale")
     return run_gui(cfg)
 
 

@@ -107,6 +107,28 @@ class SafetyConfig:
 
 
 @dataclass
+class BrainsConfig:
+    """Quale cervello pensa: il modello locale, Claude Code o un'API esterna."""
+    active: str = "locale"          # locale | claude | api
+
+    # --- Claude Code CLI ---
+    claude_binary: str = ""         # vuoto = cercato nel PATH (claude.cmd su Windows)
+    claude_model: str = "sonnet"    # 'opus' punta a un modello ritirato su CLI vecchie
+    claude_model_veloce: str = "haiku"   # per le estrazioni di memoria
+    claude_cwd: str = ""            # vuoto = cartella utente
+    claude_max_turns: int = 24
+    claude_timeout: int = 900
+    claude_kb_via_mcp: bool = True  # espone la KB a Claude come server MCP
+    claude_extra_args: list[str] = field(default_factory=list)
+
+    # --- API esterna OpenAI-compatibile ---
+    api_base_url: str = "https://api.openai.com"
+    api_model: str = ""
+    api_key: str = ""               # meglio lasciarlo vuoto e usare la variabile d'ambiente
+    api_key_env: str = "OPENAI_API_KEY"
+
+
+@dataclass
 class KBConfig:
     """Knowledge base a grafo: il vault e' una cartella di .md apribile in Obsidian."""
     enabled: bool = True
@@ -150,6 +172,7 @@ class Config:
     ui: UIConfig = field(default_factory=UIConfig)
     voice: VoiceConfig = field(default_factory=VoiceConfig)
     kb: KBConfig = field(default_factory=KBConfig)
+    brains: BrainsConfig = field(default_factory=BrainsConfig)
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
 
     # ------------------------------------------------------------------
@@ -180,7 +203,7 @@ def _merge(cfg: Config, raw: dict[str, Any]) -> Config:
     """Applica il JSON salvato sopra i default, tollerando chiavi mancanti."""
     sections = {
         "server": cfg.server, "model": cfg.model, "safety": cfg.safety,
-        "ui": cfg.ui, "voice": cfg.voice, "kb": cfg.kb,
+        "ui": cfg.ui, "voice": cfg.voice, "kb": cfg.kb, "brains": cfg.brains,
     }
     for name, obj in sections.items():
         for k, v in (raw.get(name) or {}).items():

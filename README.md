@@ -245,3 +245,66 @@ ragionamento per turno, che a 7 t/s significa due minuti di attesa. Per questo
 il server parte con `--reasoning-budget 512`. Alzalo in
 `server.extra_args` se preferisci risposte piu' ragionate e piu' lente,
 mettilo a `0` per disattivare del tutto il ragionamento.
+
+---
+
+## Tre cervelli intercambiabili
+
+Quello che *pensa* sta dietro l'astrazione `nova/brains`. Si cambia a caldo
+dal menu **Cervello** in alto, senza perdere la conversazione ne' la memoria.
+
+| Cervello | Cos'e' | Agentico |
+|---|---|---|
+| `locale` | il GGUF servito da llama-server sul tuo PC | no |
+| `claude` | Claude Code CLI in headless | si' |
+| `api` | qualunque endpoint OpenAI-compatibile | no |
+
+**Agentico** e' la differenza che conta. `locale` e `api` *propongono* tool
+call e NOVA li esegue applicando guardie e livelli di autonomia. `claude` ha
+mani proprie: NOVA gli fa da tramite, gli passa il contesto e la memoria, e
+riporta cosa ha fatto, in quanti turni e quanto e' costato.
+
+```powershell
+python -m nova --brains                    # chi c'e' e chi e' pronto
+python -m nova --brain claude              # cambia e avvia
+python -m nova --brain claude --ask "..."  # una richiesta sola
+```
+
+### Claude Code come cervello
+
+Serve `npm install -g @anthropic-ai/claude-code` e un `claude` gia'
+autenticato. NOVA:
+
+- lo lancia in headless (`-p --output-format json`), prompt via stdin
+- mantiene la sessione fra un turno e l'altro con `--resume <session_id>`
+- traduce i **tuoi** livelli di autonomia nei suoi permessi:
+
+  | Autonomia NOVA | `--permission-mode` |
+  |---|---|
+  | Conferma sempre | `plan` (analizza e propone, non tocca nulla) |
+  | Conferma azioni rischiose | `acceptEdits` |
+  | Autonomo | `bypassPermissions` |
+
+- gli espone la memoria a grafo come **server MCP** (`nova/mcp_kb.py`), quindi
+  Claude usa `mcp__nova__kb_search` e `mcp__nova__kb_note`: stessa pipeline di
+  retrieval del modello locale, stesso formato dei nodi. Se l'MCP non parte,
+  ricade sulla lettura diretta dei file .md del vault.
+- riporta costo e token di ogni turno nel registro azioni.
+
+Attenzione a `brains.claude_model`: l'alias `opus` su CLI datate punta a
+`claude-opus-4-1`, che e' stato ritirato e risponde 404. Il default e'
+`sonnet`, che funziona.
+
+### API esterna
+
+`brains.api_base_url` + `brains.api_model` + una chiave (in `brains.api_key`
+oppure nella variabile d'ambiente indicata da `brains.api_key_env`). Va con
+OpenAI, OpenRouter, Groq, Together e chiunque parli lo stesso dialetto. Usa il
+ciclo di tool di NOVA, quindi guardie e autonomia restano identiche.
+
+### Cosa esce dal PC
+
+Con `locale` niente, mai. Con `claude` e `api` escono la richiesta, il
+contesto della conversazione e i nodi di memoria pertinenti al messaggio: e'
+la scelta che rende quei cervelli utili, ma va fatta sapendo cosa comporta.
+Il selettore e' li' apposta: per il lavoro sensibile torna su `locale`.
