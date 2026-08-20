@@ -257,15 +257,18 @@ def routing_predefinito() -> dict:
             },
             "standard": {
                 "brain": "claude",
-                "model": "sonnet",
+                # Gli alias del CLI invecchiano: su 2.0.42 «sonnet» risolve
+                # ancora la generazione 4.5 e «opus» un modello ritirato.
+                # Scriverli per esteso costa una riga e non riserva sorprese.
+                "model": "claude-sonnet-5",
                 "descrizione": "Il cavallo da lavoro: codice, analisi, compiti "
                                "articolati.",
             },
             "difficile": {
                 "brain": "claude",
-                # l'alias «opus» su CLI datate punta a un modello ritirato
-                "model": "claude-opus-4-5-20251101",
-                "descrizione": "Quando il compito lo merita davvero. Pesa sulla quota.",
+                "model": "claude-opus-5",
+                "descrizione": "Quando il compito lo merita davvero. Pesa sulla quota. "
+                               "In alternativa: claude-fable-5.",
             },
             "alternativo": {
                 "brain": "gemini",

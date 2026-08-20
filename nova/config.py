@@ -148,7 +148,8 @@ class BrainsConfig:
 
     # --- Claude Code CLI ---
     claude_binary: str = ""         # vuoto = cercato nel PATH (claude.cmd su Windows)
-    claude_model: str = "sonnet"    # 'opus' punta a un modello ritirato su CLI vecchie
+    # per esteso di proposito: gli alias del CLI restano indietro di una generazione
+    claude_model: str = "claude-sonnet-5"
     claude_model_veloce: str = "haiku"   # per le estrazioni di memoria
     claude_cwd: str = ""            # vuoto = cartella utente
     claude_max_turns: int = 24
