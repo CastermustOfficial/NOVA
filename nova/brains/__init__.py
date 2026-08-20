@@ -55,7 +55,11 @@ def crea_brain(nome: str, cfg, vault=None, kb_context: str = "",
             if cfg.brains.claude_kb_via_mcp:
                 try:
                     from ..mcp_kb import scrivi_config
-                    mcp = str(scrivi_config(vault_path, Path(vault.root) / ".nova" / "mcp.json"))
+                    mcp = str(scrivi_config(
+                        vault_path,
+                        Path(vault.root) / ".nova" / "mcp.json",
+                        orchestratore=(cfg.brains.routing or {}).get("orchestratore", ""),
+                    ))
                 except Exception:
                     mcp = ""
         return ClaudeCodeBrain(cfg, kb_context=kb_context, vault_path=vault_path,

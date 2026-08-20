@@ -11,8 +11,34 @@ retrieval del modello locale, e scrive nodi nello stesso formato.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
+
+# quanto si allega al massimo, per non far esplodere il prompt di chi riceve
+MAX_CARATTERI_ALLEGATI = 120_000
+
+
+def _allega(contesto: str, file) -> str:
+    """Legge i file indicati e li mette in coda al contesto."""
+    if not file:
+        return contesto
+    pezzi = [contesto] if contesto else []
+    rimasti = MAX_CARATTERI_ALLEGATI
+    for percorso in list(file)[:20]:
+        p = Path(str(percorso)).expanduser()
+        try:
+            testo = p.read_text(encoding="utf-8", errors="replace")
+        except OSError as e:
+            pezzi.append(f"### {p}\n(non leggibile: {e})")
+            continue
+        if len(testo) > rimasti:
+            testo = testo[:rimasti] + "\n... [troncato]"
+        rimasti -= len(testo)
+        pezzi.append(f"### {p}\n```\n{testo}\n```")
+        if rimasti <= 0:
+            break
+    return "\n\n".join(pezzi)
 
 PROTOCOLLO = "2024-11-05"
 
@@ -32,6 +58,34 @@ STRUMENTI = [
             },
             "required": ["query"],
         },
+    },
+    {
+        "name": "delega",
+        "description": (
+            "Passa un compito a un modello piu' capace di te e ricevi la risposta. "
+            "Usalo quando il compito lo merita: ragionamenti difficili, codice "
+            "delicato, decisioni che pesano. Scrivi il compito per intero, perche' "
+            "chi lo riceve non vede questa conversazione, e passa i percorsi dei "
+            "file in «file» invece di ricopiarne il contenuto."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "a": {"type": "string",
+                      "description": "Gradino a cui delegare, es. 'difficile'"},
+                "compito": {"type": "string", "description": "Il compito, autoconsistente"},
+                "motivo": {"type": "string", "description": "Perche' non lo fai tu"},
+                "contesto": {"type": "string", "description": "Vincoli e dati brevi"},
+                "file": {"type": "array", "items": {"type": "string"},
+                         "description": "Percorsi da allegare"},
+            },
+            "required": ["a", "compito"],
+        },
+    },
+    {
+        "name": "modelli",
+        "description": "Elenca i gradini disponibili e il loro stato.",
+        "inputSchema": {"type": "object", "properties": {}, "required": []},
     },
     {
         "name": "kb_note",
@@ -61,6 +115,45 @@ class ServerKB:
         from .kb import HashEmbedder, KBEngine, Vault
         self.vault = Vault(vault_path)
         self.engine = KBEngine(self.vault, HashEmbedder())
+        self._router = None
+
+    @property
+    def router(self):
+        """Router costruito su richiesta: questo processo e' figlio, non il padre."""
+        if self._router is None:
+            from .config import Config
+            from .routing import Router
+            self._router = Router(Config.load(), self.vault)
+        return self._router
+
+    # -- deleghe -------------------------------------------------------
+    def delega(self, a: str, compito: str, motivo: str = "", contesto: str = "",
+               file=None) -> str:
+        r = self.router
+        chiamante = os.environ.get("NOVA_ORCHESTRATORE", "")
+        scala = r.scala()
+        # Si sale, non si gira in tondo: delegare a se stessi sarebbe un ciclo.
+        if chiamante in scala and a in scala:
+            if scala.index(a) <= scala.index(chiamante):
+                return (f"ERRORE: «{a}» non e' piu' capace di te ({chiamante}). "
+                        f"Puoi salire a: {', '.join(scala[scala.index(chiamante) + 1:]) or 'nessuno'}")
+        contesto = _allega(contesto, file)
+        try:
+            t = r.delega(a=a, compito=compito, motivo=motivo,
+                         da=chiamante or "claude", contesto=contesto)
+        except (ValueError, PermissionError) as e:
+            return f"ERRORE: {e}"
+        if t.esito.startswith("ERRORE"):
+            return t.esito
+        testa = f"[risposta da «{a}»"
+        if t.costo_usd:
+            testa += f", {t.costo_usd:.4f} $ equivalenti"
+        if t.durata_ms:
+            testa += f", {t.durata_ms / 1000:.1f}s"
+        return f"{testa}]\n{t.esito}"
+
+    def modelli(self) -> str:
+        return json.dumps(self.router.stato(), indent=1, ensure_ascii=False)
 
     # -- strumenti -----------------------------------------------------
     def kb_search(self, query: str, top_k: int = 5) -> str:
@@ -119,7 +212,12 @@ class ServerKB:
             params = richiesta.get("params") or {}
             nome = params.get("name")
             argomenti = params.get("arguments") or {}
-            funzione = {"kb_search": self.kb_search, "kb_note": self.kb_note}.get(nome)
+            funzione = {
+                "kb_search": self.kb_search,
+                "kb_note": self.kb_note,
+                "delega": self.delega,
+                "modelli": self.modelli,
+            }.get(nome)
             if funzione is None:
                 return _errore(rid, -32601, f"strumento sconosciuto: {nome}")
             try:
@@ -170,20 +268,39 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def scrivi_config(vault_path: str, destinazione: str | Path) -> Path:
+def _ponte_demone(progetto: Path) -> str:
+    """L'eseguibile del client di nova-core, se compilato."""
+    nome = "nova.exe" if sys.platform == "win32" else "nova"
+    for profilo in ("release", "debug"):
+        p = progetto / "core" / "target" / profilo / nome
+        if p.exists():
+            return str(p)
+    return ""
+
+
+def scrivi_config(vault_path: str, destinazione: str | Path,
+                  orchestratore: str = "") -> Path:
     """Genera il file --mcp-config da passare a Claude Code."""
     destinazione = Path(destinazione)
     destinazione.parent.mkdir(parents=True, exist_ok=True)
-    config = {
-        "mcpServers": {
-            "nova": {
-                "command": sys.executable,
-                "args": ["-m", "nova.mcp_kb", str(vault_path)],
-                "cwd": str(Path(__file__).resolve().parent.parent),
-                "env": {"PYTHONIOENCODING": "utf-8"},
-            }
+    progetto = Path(__file__).resolve().parent.parent
+    server = {
+        "nova": {
+            "command": sys.executable,
+            "args": ["-m", "nova.mcp_kb", str(vault_path)],
+            "cwd": str(progetto),
+            "env": {
+                "PYTHONIOENCODING": "utf-8",
+                "NOVA_ORCHESTRATORE": orchestratore,
+            },
         }
     }
+    # il demone parla gia' MCP: se e' compilato, Claude riceve anche l'albero
+    # di accessibilita' e le capacita' native senza scrivere un altro ponte
+    ponte = _ponte_demone(progetto)
+    if ponte:
+        server["nova-core"] = {"command": ponte, "args": ["mcp"], "cwd": str(progetto)}
+    config = {"mcpServers": server}
     destinazione.write_text(json.dumps(config, indent=2), encoding="utf-8")
     return destinazione
 

@@ -45,7 +45,12 @@ Quello che NOVA gia' sa e che riguarda questa richiesta:
 """
 
 HINT_MCP = ("Hai i tool MCP `mcp__nova__kb_search` e `mcp__nova__kb_note` per "
-            "consultarla e aggiornarla: usali invece di leggere i file a mano.\n")
+            "consultarla e aggiornarla: usali invece di leggere i file a mano.\n"
+            "Hai anche `mcp__nova__delega` per passare la palla a un modello piu' "
+            "capace quando il compito lo merita, e `mcp__nova__modelli` per sapere "
+            "quali gradini esistono. Se il demone e' acceso, i tool `mcp__nova-core__*` "
+            "ti danno l'albero di accessibilita' delle applicazioni (ui.find, ui.click, "
+            "ui.set_text): per pilotare un programma sono meglio di uno screenshot.\n")
 HINT_FILE = ("Puoi leggerla e scriverla direttamente come file markdown in quella "
              "cartella, rispettando il formato del frontmatter.\n")
 
@@ -144,7 +149,10 @@ class ClaudeCodeBrain:
             args += ["--append-system-prompt", sistema]
         if self.mcp_config:
             args += ["--mcp-config", self.mcp_config,
-                     "--allowedTools", "mcp__nova__kb_search,mcp__nova__kb_note"]
+                     "--allowedTools",
+                     "mcp__nova__kb_search,mcp__nova__kb_note,"
+                     "mcp__nova__delega,mcp__nova__modelli,"
+                     "mcp__nova-core"]
         args += self.extra_args
         return args
 

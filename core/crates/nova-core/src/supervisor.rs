@@ -9,6 +9,7 @@ use std::collections::{HashMap, VecDeque};
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU32, Ordering};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
 use nova_proto::ChildStatus;
@@ -21,6 +22,9 @@ use crate::bus::Bus;
 
 const RITARDO_RIAVVIO_MS: u64 = 1500;
 const RIAVVII_MASSIMI: u32 = 5;
+/// Se un processo e' rimasto in piedi almeno questo, il crash successivo
+/// non fa parte di un ciclo: il contatore dei riavvii riparte da zero.
+const SOGLIA_STABILITA: Duration = Duration::from_secs(60);
 /// Righe di output tenute in memoria per ogni processo.
 const RIGHE_IN_MEMORIA: usize = 500;
 
@@ -157,6 +161,7 @@ impl Supervisor {
                 }
             };
 
+            let acceso_alle = Instant::now();
             let vero_pid = child.id().unwrap_or(0);
             pid.store(vero_pid, Ordering::Relaxed);
             running.store(true, Ordering::Relaxed);
@@ -181,9 +186,19 @@ impl Supervisor {
             let fermato = tokio::select! {
                 esito = child.wait() => {
                     let code = esito.ok().and_then(|s| s.code()).unwrap_or(-1);
+                    let in_piedi = acceso_alle.elapsed();
                     last_exit.store(code, Ordering::Relaxed);
                     running.store(false, Ordering::Relaxed);
-                    self.bus.emit("proc.exited", json!({ "name": spec.name, "code": code }));
+                    // un processo che ha retto a lungo non e' in crash-loop:
+                    // il suo prossimo riavvio non deve consumare il budget
+                    if in_piedi >= SOGLIA_STABILITA {
+                        restarts.store(0, Ordering::Relaxed);
+                    }
+                    self.bus.emit("proc.exited", json!({
+                        "name": spec.name,
+                        "code": code,
+                        "in_piedi_s": in_piedi.as_secs(),
+                    }));
                     false
                 }
                 _ = &mut stop_rx => {
@@ -199,10 +214,16 @@ impl Supervisor {
             }
             let n = restarts.fetch_add(1, Ordering::Relaxed) + 1;
             if n > RIAVVII_MASSIMI {
+                tracing::error!(
+                    processo = %spec.name,
+                    riavvii = n,
+                    "mi arrendo: troppi riavvii ravvicinati, il processo resta giu'"
+                );
                 self.bus.emit(
                     "proc.gave_up",
                     json!({ "name": spec.name, "restarts": n,
-                            "motivo": "troppi riavvii ravvicinati" }),
+                            "motivo": "troppi riavvii ravvicinati",
+                            "rimedio": "proc.spawn o service.start per ripartire" }),
                 );
                 break;
             }
