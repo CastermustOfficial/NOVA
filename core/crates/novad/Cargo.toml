@@ -1,0 +1,20 @@
+[package]
+name = "novad"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Il demone di NOVA."
+
+[[bin]]
+name = "novad"
+path = "src/main.rs"
+
+[dependencies]
+nova-core = { path = "../nova-core" }
+nova-proto = { path = "../nova-proto" }
+tokio.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+serde_json.workspace = true

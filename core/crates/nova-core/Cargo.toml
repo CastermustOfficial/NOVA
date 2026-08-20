@@ -1,0 +1,15 @@
+[package]
+name = "nova-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Il motore di NOVA: bus di eventi, registro di capacita', supervisione processi, server RPC locale."
+
+[dependencies]
+nova-proto = { path = "../nova-proto" }
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+async-trait.workspace = true
+tracing.workspace = true

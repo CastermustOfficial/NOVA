@@ -12,3 +12,7 @@ vault/
 # log e configurazione locale
 *.log
 config.local.json
+
+# build Rust (~1 GB)
+core/target/
+
