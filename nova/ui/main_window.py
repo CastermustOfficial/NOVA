@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (
 )
 
 from ..agent import Agent, AgentCallbacks, Cancelled
-from ..brains import BRAINS, ETICHETTE
+from ..brains import BRAINS, ETICHETTE, elenco_brains, etichetta_brain
 from ..config import AUTONOMY_LABELS, AUTONOMY_ORDER, Config
 from ..runtime import LlamaServer
 from ..tools import REGISTRY, Risk
@@ -159,6 +159,7 @@ class MainWindow(QMainWindow):
     sig_server_log = pyqtSignal(str)
     sig_learned = pyqtSignal(list)
     sig_brain = pyqtSignal(str)
+    sig_delega = pyqtSignal(str, str, float)
 
     def __init__(self, cfg: Config):
         super().__init__()
@@ -188,6 +189,7 @@ class MainWindow(QMainWindow):
             on_tool_result=self.sig_tool_result.emit,
             ask_approval=self._ask_approval_blocking,
             on_brain=self.sig_brain.emit,
+            on_delega=lambda a, motivo, costo: self.sig_delega.emit(a, motivo, costo),
         ))
 
         from ..kb_setup import collega_memoria
@@ -215,10 +217,12 @@ class MainWindow(QMainWindow):
         top.addStretch(1)
         top.addWidget(QLabel("Cervello:"))
         self.cmb_brain = QComboBox()
-        for nome in BRAINS:
-            self.cmb_brain.addItem(ETICHETTE[nome], nome)
-        attivo = self.cfg.brains.active if self.cfg.brains.active in BRAINS else "locale"
-        self.cmb_brain.setCurrentIndex(BRAINS.index(attivo))
+        self._brains = elenco_brains(self.cfg)
+        for nome in self._brains:
+            self.cmb_brain.addItem(etichetta_brain(self.cfg, nome), nome)
+        attivo = (self.cfg.brains.active if self.cfg.brains.active in self._brains
+                  else "locale")
+        self.cmb_brain.setCurrentIndex(self._brains.index(attivo))
         self.cmb_brain.currentIndexChanged.connect(self._on_brain_changed)
         top.addWidget(self.cmb_brain)
 
@@ -298,6 +302,7 @@ class MainWindow(QMainWindow):
         self.sig_server_log.connect(self._log_server)
         self.sig_learned.connect(self._log_learned)
         self.sig_brain.connect(self._on_brain_state)
+        self.sig_delega.connect(self._log_delega)
 
     def _build_tray(self) -> None:
         self.tray = QSystemTrayIcon(make_icon(), self)
@@ -454,6 +459,18 @@ class MainWindow(QMainWindow):
             os.startfile(str(self.vault_path))
         except Exception as e:
             self._append_system(f"Impossibile aprire il vault: {e}")
+
+    def _log_delega(self, a: str, motivo: str, costo: float) -> None:
+        stamp = datetime.now().strftime("%H:%M:%S")
+        prezzo = f"  {costo:.4f} $" if costo else ""
+        self.actions.append(
+            f'<div style="margin-top:8px;"><span style="color:#6e7681;">{stamp}</span> '
+            f'<span style="color:#d29922;font-weight:700;">delega -> {html.escape(a)}</span>'
+            f'<span style="color:#8b949e;">{prezzo}<br>&nbsp;&nbsp;{html.escape(motivo)}</span></div>')
+        self.actions.verticalScrollBar().setValue(self.actions.verticalScrollBar().maximum())
+        speso = getattr(self.agent.router, "speso_usd", 0.0) if self.agent.router else 0.0
+        if speso:
+            self.lbl_status.setText(f"Speso in deleghe: {speso:.3f} $")
 
     def _log_learned(self, titoli: list) -> None:
         if not titoli:

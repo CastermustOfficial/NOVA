@@ -56,11 +56,12 @@ class ClaudeCodeBrain:
     agentico = True
 
     def __init__(self, cfg, kb_context: str = "", vault_path: str = "",
-                 mcp_config: str = ""):
+                 mcp_config: str = "", model_override: str = ""):
         b = cfg.brains
         self.cfg = cfg
         self.eseguibile = b.claude_binary or _trova_claude()
-        self.model = b.claude_model or "sonnet"
+        # il gradino del router vince sulla configurazione generale
+        self.model = model_override or b.claude_model or "sonnet"
         self.cwd = b.claude_cwd or str(Path.home())
         self.max_turns = b.claude_max_turns
         self.timeout = b.claude_timeout

@@ -345,3 +345,104 @@ Chiavi in `server` di `config.json`:
 
 La finestra si sottoscrive a `proc.*` e mostra nel registro azioni i log del
 modello presi dal bus, non piu' da un processo che possiede lei.
+
+---
+
+## Chi risponde a cosa: il router
+
+Il modello locale **orchestra**. È gratis, è privato, sta già in VRAM, e per
+capire cosa vuoi e chiamare i tool giusti basta e avanza. Quando il compito lo
+supera non ci prova lo stesso: passa la palla e riprende in mano il risultato.
+
+I gradini sono in `brains.routing.tiers` di `config.json`, in ordine di
+potenza. Quelli predefiniti:
+
+| Gradino | Cervello | Modello | Quando |
+|---|---|---|---|
+| `locale` | GGUF sul PC | Qwen3.8-27B | orchestrazione e compiti semplici |
+| `standard` | Claude Code | `sonnet` | il cavallo da lavoro |
+| `difficile` | Claude Code | `claude-opus-4-5-20251101` | quando il compito lo merita |
+| `alternativo` | Gemini CLI | `gemini-2.5-pro` | seconda opinione |
+
+```powershell
+python -m nova --modelli     # gradini, stato, speso / tetto
+```
+
+### Come passa la palla
+
+Tre strade, in ordine di intelligenza:
+
+1. **`delega`** — il modello sceglie. Scrive il compito per intero (chi lo
+   riceve non vede la conversazione) e passa i **percorsi** dei file in `file`:
+   li allega NOVA, gratis. Poi riprende lui con la risposta.
+2. **Escalation automatica** — se NOVA sbaglia due volte di fila, o fa sei
+   chiamate senza arrivare a una risposta, sale di gradino da sola e infila il
+   risultato nella conversazione. Sono due modi diversi di non farcela:
+   sbattere contro un muro, e girare a vuoto.
+3. **`secondo_parere`** — la stessa domanda a due gradini, per confrontare.
+
+### Guardie
+
+| Chiave (`brains.routing`) | Default | Cosa fa |
+|---|---|---|
+| `orchestratore` | `locale` | chi guida la conversazione |
+| `escalation_automatica` | `true` | sale da sola quando serve |
+| `fallimenti_prima_di_salire` | `2` | tentativi andati male |
+| `passi_prima_di_salire` | `6` | chiamate senza risposta |
+| `salite_massime` | `1` | quante volte per turno |
+| `tetto_usd_sessione` | `5.0` | oltre, le deleghe a pagamento si fermano |
+| `solo_locale` | `false` | `true` = niente esce dal PC, punto |
+
+### Aggiungere un modello senza scrivere codice
+
+Le CLI agentiche esterne si dichiarano in `brains.cli`; poi si citano in un
+gradino. `{model}` viene sostituito.
+
+```json
+"cli": {
+  "deepseek": {
+    "etichetta": "DeepSeek",
+    "binary": "deepseek",
+    "args": ["--model", "{model}"],
+    "model": "deepseek-reasoner",
+    "prompt": "stdin"
+  }
+}
+```
+
+### Numeri misurati
+
+| | tempo | costo |
+|---|---|---|
+| `standard` (Sonnet), domanda secca | 7,1 s | 0,016 $ |
+| `alternativo` (Gemini), domanda secca | 21,7 s | 0 $ |
+| `difficile` (Opus), review di un file da 300 righe | 112,7 s | **0,89 $** |
+
+Opus costa: con il tetto a 5 $ ci stanno cinque review come quella. È il motivo
+per cui l'orchestratore è il locale e non lui.
+
+### Cosa ha insegnato la prova
+
+Alla prima versione il modello locale **non delegava**: davanti a «critica
+architetturale severa di questo file» ha fatto dieci chiamate di tool per
+raccogliere contesto senza mai passare la palla. Due correzioni:
+
+- il prompt ora elenca i casi concreti in cui delegare *subito* (giudicare
+  codice, progettare, ragionamenti lunghi, molti file insieme) invece di dire
+  genericamente «se ti supera»;
+- l'escalation automatica guarda anche il numero di passi, non solo i
+  fallimenti — perché girare a vuoto è l'altro modo di non farcela.
+
+Dopo le correzioni, con la stessa richiesta: legge il file, annuncia
+«ora delego la critica a un modello più capace», sceglie **`difficile`** da
+solo e motiva — *«richiede ragionamento fine su race condition tokio e
+correctness concorrente; supera le mie possibilità di analisi affidabile»* —
+allega i file e riprende il controllo con la risposta.
+
+## Lo screenshot è un accessorio
+
+C'è un tool `screenshot`, e serve per le domande sull'aspetto delle cose
+(«che ne pensi di questa interfaccia?»). **Non è una fondamenta**: per *agire*
+su un'applicazione NOVA usa l'albero di accessibilità, che è preciso,
+istantaneo e non costa niente. Dare la vista a un modello per fargli premere
+un pulsante è lento e caro; averla per esprimere un giudizio è un di più.

@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .base import Brain, Risposta
 from .claude_cli import ClaudeCodeBrain
+from .cli_generic import CliBrain
 from .openai_compat import ApiBrain, LocalBrain, OpenAICompatBrain
 
 BRAINS = ["locale", "claude", "api"]
@@ -15,12 +16,37 @@ ETICHETTE = {
 }
 
 __all__ = ["Brain", "Risposta", "LocalBrain", "ApiBrain", "ClaudeCodeBrain",
-           "OpenAICompatBrain", "BRAINS", "ETICHETTE", "crea_brain"]
+           "CliBrain", "OpenAICompatBrain", "BRAINS", "ETICHETTE", "crea_brain",
+           "elenco_brains", "etichetta_brain"]
 
 
-def crea_brain(nome: str, cfg, vault=None, kb_context: str = ""):
+def elenco_brains(cfg) -> list[str]:
+    """I cervelli scelti dal menu: i tre nativi piu' le CLI configurate."""
+    extra = [n for n in (getattr(cfg.brains, "cli", None) or {}) if n not in BRAINS]
+    return [*BRAINS, *extra]
+
+
+def etichetta_brain(cfg, nome: str) -> str:
+    if nome in ETICHETTE:
+        return ETICHETTE[nome]
+    spec = (getattr(cfg.brains, "cli", None) or {}).get(nome) or {}
+    return spec.get("etichetta") or nome.capitalize()
+
+
+def crea_brain(nome: str, cfg, vault=None, kb_context: str = "",
+               model_override: str = ""):
     """Costruisce il cervello richiesto. Sconosciuto -> locale."""
     nome = (nome or "locale").strip().lower()
+
+    # CLI agentiche descritte in configurazione (gemini, deepseek, glm, ...)
+    spec = (getattr(cfg.brains, "cli", None) or {}).get(nome)
+    if spec is not None:
+        spec = dict(spec)
+        if model_override:
+            spec["model"] = model_override
+        vault_path = str(vault.root) if vault is not None else ""
+        return CliBrain(nome, spec, cfg, kb_context=kb_context, vault_path=vault_path)
+
     if nome == "claude":
         mcp = ""
         vault_path = ""
@@ -33,7 +59,7 @@ def crea_brain(nome: str, cfg, vault=None, kb_context: str = ""):
                 except Exception:
                     mcp = ""
         return ClaudeCodeBrain(cfg, kb_context=kb_context, vault_path=vault_path,
-                               mcp_config=mcp)
+                               mcp_config=mcp, model_override=model_override)
     if nome == "api":
         return ApiBrain(cfg)
     return LocalBrain(cfg)

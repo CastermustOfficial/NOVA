@@ -82,12 +82,13 @@ class AgentCallbacks:
     # deve restituire True/False; bloccante finche' l'utente decide
     ask_approval: Callable[[str, dict, str, Risk], bool] = lambda n, a, d, r: True
     on_brain: Callable[[str], None] = lambda s: None
+    on_delega: Callable[[str, str, float], None] = lambda a, motivo, costo: None
 
 
 # ---------------------------------------------------------------- agente
 class Agent:
     def __init__(self, cfg: Config, callbacks: AgentCallbacks | None = None,
-                 kb_engine=None, memory=None, vault=None, brain=None):
+                 kb_engine=None, memory=None, vault=None, brain=None, router=None):
         self.cfg = cfg
         self.cb = callbacks or AgentCallbacks()
         self.safety = SafetyContext(cfg)
@@ -99,7 +100,18 @@ class Agent:
         self._mem_idx: int | None = None
         self._system_base = ""
         self.brain = brain or crea_brain(cfg.brains.active, cfg, vault)
+        self.router = router or self._crea_router()
         self.reset()
+
+    def _crea_router(self):
+        """Il router che sa quali modelli esistono e quanto si e' speso."""
+        if not (self.cfg.brains.routing or {}).get("abilitato", True):
+            return None
+        from .routing import Router
+        from .tools import deleghe
+        r = Router(self.cfg, self.vault, log=lambda m: self.cb.on_status(m))
+        deleghe.collega(r)
+        return r
 
     # -- cervello ------------------------------------------------------
     @property
@@ -212,6 +224,9 @@ class Agent:
         agentico = getattr(self.brain, "agentico", False)
         tools = [] if agentico else openai_schema()
         final_text = ""
+        fallimenti = 0
+        salite = 0
+        errori_recenti: list[str] = []
 
         for step in range(self.cfg.model.max_tool_iterations):
             if self.cancel_event.is_set():
@@ -252,7 +267,19 @@ class Agent:
             for call in tool_calls:
                 if self.cancel_event.is_set():
                     raise Cancelled()
-                self._execute_call(call)
+                if self._execute_call(call):
+                    fallimenti = 0
+                    errori_recenti.clear()
+                else:
+                    fallimenti += 1
+                    ultimo = self.messages[-1].get("content", "")
+                    errori_recenti.append(str(ultimo)[:400])
+
+            if self._serve_salire(fallimenti, salite, step + 1):
+                salite += 1
+                fallimenti = 0
+                self._sali_di_gradino(user_text, errori_recenti)
+                errori_recenti.clear()
 
         self.cb.on_status("")
         limit_msg = ("Ho raggiunto il numero massimo di passaggi consentiti. "
@@ -261,7 +288,7 @@ class Agent:
         self.cb.on_assistant(limit_msg)
         return limit_msg
 
-    def _execute_call(self, call: dict) -> None:
+    def _execute_call(self, call: dict) -> bool:
         fn = call.get("function") or {}
         name = fn.get("name") or ""
         raw_args = fn.get("arguments")
@@ -271,7 +298,7 @@ class Agent:
             except json.JSONDecodeError:
                 self._append_tool_result(call, name,
                                          f"ERRORE: argomenti JSON non validi: {raw_args[:300]}")
-                return
+                return False
         else:
             args = raw_args or {}
         if not isinstance(args, dict):
@@ -282,7 +309,7 @@ class Agent:
             self._append_tool_result(
                 call, name,
                 f"ERRORE: tool '{name}' inesistente. Disponibili: {', '.join(sorted(REGISTRY))}")
-            return
+            return False
 
         desc = spec.describe_call(args)
         self.cb.on_tool_start(name, args, desc)
@@ -296,7 +323,7 @@ class Agent:
                     call, name,
                     "AZIONE RIFIUTATA dall'utente. Non ripeterla: chiedi come procedere "
                     "oppure proponi un'alternativa.")
-                return
+                return True  # non e' un fallimento del modello: e' una tua scelta
 
         self.cb.on_status(f"Eseguo {name}...")
         started = time.time()
@@ -307,6 +334,64 @@ class Agent:
         if elapsed > 0.5:
             result += f"\n[durata: {elapsed:.1f}s]"
         self._append_tool_result(call, name, result)
+        if name == "delega" and ok and self.router is not None:
+            ultima = self.router.storico[-1] if self.router.storico else None
+            if ultima is not None:
+                self.cb.on_delega(ultima.a, ultima.motivo or ultima.compito[:80],
+                                  ultima.costo_usd)
+        return ok
+
+    # -- escalation automatica ----------------------------------------
+    def _serve_salire(self, fallimenti: int, salite: int, passi: int = 0) -> bool:
+        """Due modi di non farcela: sbattere contro un muro, o girare a vuoto.
+
+        Il primo si vede dai fallimenti di fila. Il secondo — quello che fa
+        davvero il modello locale — si vede dal numero di chiamate senza mai
+        arrivare a una risposta.
+        """
+        r = self.cfg.brains.routing or {}
+        if self.router is None or not r.get("escalation_automatica", True):
+            return False
+        if salite >= int(r.get("salite_massime", 1)):
+            return False
+        if fallimenti >= int(r.get("fallimenti_prima_di_salire", 2)):
+            return True
+        limite_passi = int(r.get("passi_prima_di_salire", 0))
+        return bool(limite_passi) and passi >= limite_passi
+
+    def _sali_di_gradino(self, richiesta: str, errori: list[str]) -> None:
+        """Passa la palla da solo e rimette il risultato nelle mani del modello."""
+        r = self.cfg.brains.routing or {}
+        partenza = r.get("orchestratore", "locale")
+        destinazione = self.router.successivo(partenza) or "standard"
+        motivo = (f"{len(errori)} tentativi falliti di fila" if errori
+                  else "troppe chiamate senza arrivare a una risposta")
+        self.cb.on_status(f"Passo la palla a «{destinazione}»...")
+        contesto = ("Un assistente meno capace ci ha provato senza riuscirci.\n"
+                    + ("Ecco cosa e' andato storto:\n- " + "\n- ".join(errori[-3:])
+                       if errori else
+                       "Ha raccolto contesto a lungo senza produrre una risposta."))
+        try:
+            traccia = self.router.delega(
+                a=destinazione, compito=richiesta, motivo=motivo,
+                da=partenza, contesto=contesto)
+        except Exception as e:
+            self.messages.append({
+                "role": "tool", "tool_call_id": "escalation", "name": "delega",
+                "content": f"ERRORE: non sono riuscito a salire di gradino: {e}",
+            })
+            return
+        self.cb.on_delega(destinazione, motivo, traccia.costo_usd)
+        self.cb.on_tool_result("delega automatica",
+                               f"{destinazione}: {traccia.esito[:300]}",
+                               not traccia.esito.startswith("ERRORE"))
+        self.messages.append({
+            "role": "tool", "tool_call_id": "escalation", "name": "delega",
+            "content": (f"[escalation automatica dopo {motivo}]\n"
+                        f"Risposta di «{destinazione}»:\n{traccia.esito}\n\n"
+                        "Usa questa risposta per completare il compito. Se contiene "
+                        "istruzioni da eseguire, eseguile tu."),
+        })
 
     def _append_tool_result(self, call: dict, name: str, result: str) -> None:
         if len(result) > 24000:

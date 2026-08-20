@@ -61,6 +61,9 @@ def run_cli(cfg: Config, once: str | None = None, no_server: bool = False) -> in
         on_tool_result=lambda n, r, ok: print(
             f"  <- {'OK' if ok else 'ERR'}: {r[:400]}", flush=True),
         ask_approval=ask,
+        on_delega=lambda a, motivo, costo: print(
+            f"\n  ~> delega a «{a}»: {motivo}"
+            + (f"  ({costo:.4f} $)" if costo else ""), flush=True),
     ))
     memoria = collega_memoria(agent, vault, cfg,
                     on_learn=lambda nodi: print(
@@ -109,6 +112,8 @@ def main(argv: list[str] | None = None) -> int:
                     help="quale cervello usare in questa esecuzione")
     ap.add_argument("--brains", action="store_true",
                     help="elenca i cervelli e il loro stato")
+    ap.add_argument("--modelli", action="store_true",
+                    help="mostra i gradini del router e quanto si e' speso")
     args = ap.parse_args(argv)
 
     if args.config:
@@ -125,6 +130,22 @@ def main(argv: list[str] | None = None) -> int:
     if args.brain:
         cfg.brains.active = args.brain
         cfg.save()
+
+    if args.modelli:
+        from .routing import Router
+        stato = Router(cfg).stato()
+        print(f"orchestratore: {stato['orchestratore']}   "
+              f"speso: {stato['speso_usd']} $ / tetto {stato['tetto_usd']} $\n")
+        for g in stato["gradini"]:
+            segno = "*" if g["gradino"] == stato["orchestratore"] else " "
+            dove = "locale" if g["locale"] else "cloud"
+            print(f"{segno} {g['gradino']:<12} {g['cervello']:<8} {g['modello']:<28} "
+                  f"{dove:<7} {'pronto' if g['pronto'] else 'NON pronto'}")
+            if g["descrizione"]:
+                print(f"    {g['descrizione']}")
+            if not g["pronto"] and g["nota"]:
+                print(f"    ! {g['nota']}")
+        return 0
 
     if args.brains:
         from .brains import BRAINS, crea_brain

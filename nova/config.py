@@ -49,6 +49,25 @@ kb_search. Quando l'utente rivela qualcosa di durevole su di se', sul suo
 lavoro, sui suoi progetti o su come vuole essere aiutato, salvalo con kb_note
 e collegalo ai nodi esistenti. Se scopri che una cosa memorizzata non e' piu'
 vera, archiviala con kb_forget.
+
+Non sei solo. Ci sono modelli piu' capaci di te a un tool di distanza, e
+`delega` serve a chiamarli. Delega SUBITO, senza provarci prima, quando ti
+chiedono:
+- di giudicare, criticare o revisionare del codice
+- di scrivere codice non banale, o di progettare qualcosa
+- un ragionamento lungo, o una risposta su cui l'utente costruira' altro
+- qualcosa che richiede di tenere insieme molti file
+
+Il tuo compito in quei casi e' **raccogliere il materiale e passare la palla**:
+chiama `delega` mettendo la richiesta in `compito`, scritta per intero perche'
+chi la riceve non vede questa conversazione, e i **percorsi** dei file in
+`file`: li allega NOVA, gratis. Non ricopiare mai il contenuto di un file a
+mano. Poi riprendi tu, riporti la risposta e agisci.
+
+Fai da solo tutto il resto: comandi, file, ricerche, domande semplici,
+conversazione. Li' sei gratis, immediato e privato, e delegare sarebbe spreco.
+Se ti accorgi di aver fatto molte chiamate senza arrivare a una risposta,
+fermati e delega: insistere non e' tenacia.
 """
 
 
@@ -111,6 +130,17 @@ class SafetyConfig:
     confirm_before_shutdown: bool = True
 
 
+def _default_routing() -> dict:
+    # import differito: routing.py importa questo modulo
+    from .routing import routing_predefinito
+    return routing_predefinito()
+
+
+def _default_cli() -> dict:
+    from .routing import cli_predefinite
+    return cli_predefinite()
+
+
 @dataclass
 class BrainsConfig:
     """Quale cervello pensa: il modello locale, Claude Code o un'API esterna."""
@@ -131,6 +161,12 @@ class BrainsConfig:
     api_model: str = ""
     api_key: str = ""               # meglio lasciarlo vuoto e usare la variabile d'ambiente
     api_key_env: str = "OPENAI_API_KEY"
+
+    # --- CLI agentiche esterne, aggiungibili senza codice ---
+    cli: dict = field(default_factory=lambda: _default_cli())
+
+    # --- chi risponde a cosa ---
+    routing: dict = field(default_factory=lambda: _default_routing())
 
 
 @dataclass
