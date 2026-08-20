@@ -16,6 +16,19 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 
+class LimiteUso(RuntimeError):
+    """Il gradino ha esaurito la sua quota: non e' un errore del compito.
+
+    Con un abbonamento e' il limite di utilizzo; con una chiave a consumo e'
+    il rate limit del provider. In entrambi i casi la cura e' la stessa:
+    mettere in pausa quel gradino e provarne un altro.
+    """
+
+    def __init__(self, messaggio: str, riprova_fra_s: int = 900):
+        super().__init__(messaggio)
+        self.riprova_fra_s = riprova_fra_s
+
+
 @dataclass
 class Risposta:
     """Ciò che un cervello restituisce dopo un turno."""

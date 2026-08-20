@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 
 from ..config import AUTONOMY_ASK_ALL, AUTONOMY_ASK_RISKY, AUTONOMY_FULL
-from .base import Risposta
+from .base import LimiteUso, Risposta
 
 # I tre livelli di autonomia di NOVA, tradotti nel vocabolario di Claude Code.
 PERMESSI = {
@@ -84,9 +84,19 @@ class ClaudeCodeBrain:
             return False, "Claude Code non autenticato: esegui `claude` una volta dal terminale"
         return True, ""
 
+    @property
+    def a_consumo(self) -> bool:
+        """True se ogni chiamata costa davvero. Con l'abbonamento, no."""
+        return tipo_accesso()[0] != "abbonamento"
+
     def descrizione_stato(self) -> str:
         s = f"Claude Code: {self.model}"
-        if self.costo_sessione:
+        tipo, dettaglio = tipo_accesso()
+        if tipo == "abbonamento":
+            s += f"  (abbonamento {dettaglio})" if dettaglio else "  (abbonamento)"
+            if self.costo_sessione:
+                s += f", {self.costo_sessione:.2f} $ equivalenti"
+        elif self.costo_sessione:
             s += f"  ({self.costo_sessione:.3f} $ questa sessione)"
         return s
 
@@ -156,6 +166,8 @@ class ClaudeCodeBrain:
         testo = dati.get("result") or ""
 
         if dati.get("is_error"):
+            if _e_limite_uso(testo):
+                raise LimiteUso(f"Claude Code ha esaurito la quota: {testo[:300]}")
             raise RuntimeError(f"Claude Code: {testo[:600]}")
 
         note = f"sessione {self.session_id[:8]}, {dati.get('num_turns', '?')} turni"
@@ -213,6 +225,46 @@ class ClaudeCodeBrain:
                 except json.JSONDecodeError:
                     pass
             raise RuntimeError(f"Risposta di Claude Code non interpretabile: {uscita[:400]}")
+
+
+def tipo_accesso() -> tuple[str, str]:
+    """Come si paga Claude Code: («abbonamento»|«consumo»|«sconosciuto», dettaglio).
+
+    Serve a non confondere il costo *riportato* con una spesa reale: con un
+    abbonamento il campo total_cost_usd e' l'equivalente API, utile per capire
+    quanto pesa una richiesta, inutile come contabilita'.
+    """
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return "consumo", "chiave API nell'ambiente"
+    percorso = Path.home() / ".claude" / ".credentials.json"
+    try:
+        dati = json.loads(percorso.read_text(encoding="utf-8"))
+    except Exception:
+        return "sconosciuto", ""
+    oauth = dati.get("claudeAiOauth") or {}
+    abbonamento = str(oauth.get("subscriptionType") or "").strip()
+    if abbonamento:
+        livello = str(oauth.get("rateLimitTier") or "").replace("default_claude_", "")
+        return "abbonamento", (livello or abbonamento)
+    return "sconosciuto", ""
+
+
+# frasi con cui Claude Code dice «hai finito la quota», non «non ci riesco»
+_SEGNI_DI_LIMITE = (
+    "usage limit",
+    "rate limit",
+    "rate_limit",
+    "limite di utilizzo",
+    "too many requests",
+    "429",
+    "quota",
+    "overloaded",
+)
+
+
+def _e_limite_uso(testo: str) -> bool:
+    t = (testo or "").lower()
+    return any(s in t for s in _SEGNI_DI_LIMITE)
 
 
 def _trova_claude() -> str:

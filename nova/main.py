@@ -134,13 +134,19 @@ def main(argv: list[str] | None = None) -> int:
     if args.modelli:
         from .routing import Router
         stato = Router(cfg).stato()
-        print(f"orchestratore: {stato['orchestratore']}   "
-              f"speso: {stato['speso_usd']} $ / tetto {stato['tetto_usd']} $\n")
+        if stato["spesa_reale"]:
+            print(f"orchestratore: {stato['orchestratore']}   "
+                  f"speso: {stato['equivalente_usd']} $ / tetto {stato['tetto_usd']} $\n")
+        else:
+            print(f"orchestratore: {stato['orchestratore']}   "
+                  f"nessun gradino a consumo: {stato['equivalente_usd']} $ "
+                  f"e' l'equivalente API, non una spesa\n")
         for g in stato["gradini"]:
             segno = "*" if g["gradino"] == stato["orchestratore"] else " "
-            dove = "locale" if g["locale"] else "cloud"
+            dove = ("locale" if g["locale"]
+                    else ("a consumo" if g["a_consumo"] else "incluso"))
             print(f"{segno} {g['gradino']:<12} {g['cervello']:<8} {g['modello']:<28} "
-                  f"{dove:<7} {'pronto' if g['pronto'] else 'NON pronto'}")
+                  f"{dove:<12} {'pronto' if g['pronto'] else 'NON pronto'}")
             if g["descrizione"]:
                 print(f"    {g['descrizione']}")
             if not g["pronto"] and g["nota"]:

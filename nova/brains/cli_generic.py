@@ -61,6 +61,15 @@ class CliBrain:
                 return trovato
         return ""
 
+    @property
+    def a_consumo(self) -> bool:
+        """Se questa CLI fa spendere davvero lo sa l'utente, non NOVA.
+
+        Default: no. Chi paga a token lo dichiara con "a_consumo": true nella
+        specifica, e allora il tetto in dollari torna a valere.
+        """
+        return bool(self.spec.get("a_consumo", False))
+
     def disponibile(self) -> tuple[bool, str]:
         if not self._eseguibile:
             return False, (f"«{self.spec.get('binary', self.nome)}» non trovato nel PATH. "

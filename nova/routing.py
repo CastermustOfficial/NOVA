@@ -18,6 +18,7 @@ gradino zero e resta tale.
 from __future__ import annotations
 
 import threading
+import time
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -56,8 +57,9 @@ class Router:
         self.vault = vault
         self.log = log
         self._lock = threading.Lock()
-        self.speso_usd = 0.0
+        self.speso_usd = 0.0          # equivalente API: con l'abbonamento non e' spesa
         self.storico: list[Delega] = []
+        self._in_pausa: dict[str, float] = {}   # gradino -> quando riprovare
 
     # -- gradini -------------------------------------------------------
     def tiers(self) -> dict[str, Tier]:
@@ -106,11 +108,55 @@ class Router:
             raise PermissionError(
                 f"«{t.nome}» manderebbe dati fuori dal PC, ma brains.routing.solo_locale "
                 "e' attivo. Disattivalo se vuoi usarlo.")
+        fra = self.pausa_residua(t.nome)
+        if fra > 0:
+            raise PermissionError(
+                f"«{t.nome}» ha esaurito la quota: riprovabile fra {fra // 60} minuti.")
+        # Il tetto in dollari ha senso solo per chi paga a consumo. Con un
+        # abbonamento il costo riportato e' un equivalente API: utile per
+        # capire quanto pesa una richiesta, non una spesa da limitare.
         tetto = float(r.get("tetto_usd_sessione") or 0)
-        if t.a_pagamento and tetto and self.speso_usd >= tetto:
+        if tetto and self.a_consumo(t) and self.speso_usd >= tetto:
             raise PermissionError(
                 f"tetto di spesa raggiunto ({self.speso_usd:.2f} $ su {tetto:.2f} $). "
                 "Alza brains.routing.tetto_usd_sessione oppure resta sul locale.")
+
+    def a_consumo(self, t: Tier) -> bool:
+        """Questo gradino fa spendere davvero, o e' coperto da abbonamento?"""
+        if t.locale:
+            return False
+        try:
+            from .brains import crea_brain
+            b = crea_brain(t.brain, self.cfg, self.vault, model_override=t.model)
+            return bool(getattr(b, "a_consumo", t.a_pagamento))
+        except Exception:
+            return t.a_pagamento
+
+    # -- quote esaurite -------------------------------------------------
+    def pausa_residua(self, nome: str) -> int:
+        """Secondi che mancano prima di poter riprovare un gradino in pausa."""
+        fine = self._in_pausa.get(nome, 0.0)
+        return max(0, int(fine - time.time()))
+
+    def metti_in_pausa(self, nome: str, secondi: int) -> None:
+        with self._lock:
+            self._in_pausa[nome] = time.time() + max(60, secondi)
+        self.log(f"«{nome}» in pausa per {max(60, secondi) // 60} minuti: quota esaurita")
+
+    def _ripieghi(self, fallito: str) -> list[str]:
+        """Chi puo' sostituire un gradino a quota esaurita.
+
+        Un altro modello dello stesso fornitore non serve: il limite e' sul
+        conto, non sul modello. Si cambia fornitore, e in ultimo si torna a
+        casa.
+        """
+        tiers = self.tiers()
+        brand_fallito = tiers[fallito].brain if fallito in tiers else ""
+        altri = [n for n, t in tiers.items()
+                 if n != fallito and t.brain != brand_fallito and not t.locale
+                 and self.pausa_residua(n) == 0]
+        locali = [n for n, t in tiers.items() if t.locale]
+        return [*altri, *locali]
 
     # -- delega --------------------------------------------------------
     def delega(self, a: str, compito: str, motivo: str = "",
@@ -131,6 +177,7 @@ class Router:
 
         prompt = compito if not contesto else f"{contesto}\n\n---\n\n{compito}"
         self.log(f"delega a «{a}»: {motivo or compito[:60]}")
+        from .brains.base import LimiteUso
         try:
             risposta = cervello.chat(
                 [{"role": "user", "content": prompt}], [], self.cfg
@@ -138,6 +185,18 @@ class Router:
             traccia.esito = risposta.contenuto
             traccia.costo_usd = risposta.costo_usd
             traccia.durata_ms = risposta.durata_ms
+        except LimiteUso as e:
+            self.metti_in_pausa(a, e.riprova_fra_s)
+            traccia.esito = f"ERRORE: quota esaurita su «{a}»"
+            if self.cfg.brains.routing.get("ripiego_su_limite", True):
+                for alternativa in self._ripieghi(a):
+                    self.log(f"«{a}» e' a quota: ripiego su «{alternativa}»")
+                    ripiego = self.delega(alternativa, compito, motivo=motivo,
+                                          da=da, kb_context=kb_context,
+                                          contesto=contesto)
+                    if not ripiego.esito.startswith("ERRORE"):
+                        ripiego.motivo = (motivo + f" (ripiego: «{a}» a quota)").strip()
+                        return ripiego
         except Exception as e:
             traccia.esito = f"ERRORE: {e}"
         finally:
@@ -157,20 +216,28 @@ class Router:
                 pronto, motivo = b.disponibile()
             except Exception as e:
                 pronto, motivo = False, str(e)
+            pausa = self.pausa_residua(nome)
+            if pronto and pausa:
+                pronto, motivo = False, f"quota esaurita, riprovabile fra {pausa // 60} min"
             fuori.append({
                 "gradino": nome,
                 "cervello": t.brain,
                 "modello": t.model or "predefinito",
                 "locale": t.locale,
+                "a_consumo": self.a_consumo(t),
                 "pronto": pronto,
                 "nota": "" if pronto else motivo,
                 "descrizione": t.descrizione,
             })
+        a_consumo = any(g["a_consumo"] for g in fuori)
         return {
             "gradini": fuori,
             "orchestratore": self.cfg.brains.routing.get("orchestratore", "locale"),
-            "speso_usd": round(self.speso_usd, 4),
-            "tetto_usd": self.cfg.brains.routing.get("tetto_usd_sessione"),
+            # con l'abbonamento non e' una spesa: e' quanto sarebbe costato via API
+            "equivalente_usd": round(self.speso_usd, 4),
+            "spesa_reale": a_consumo,
+            "tetto_usd": (self.cfg.brains.routing.get("tetto_usd_sessione")
+                          if a_consumo else None),
             "deleghe": len(self.storico),
         }
 
@@ -198,7 +265,7 @@ def routing_predefinito() -> dict:
                 "brain": "claude",
                 # l'alias «opus» su CLI datate punta a un modello ritirato
                 "model": "claude-opus-4-5-20251101",
-                "descrizione": "Quando il compito lo merita davvero. Costa.",
+                "descrizione": "Quando il compito lo merita davvero. Pesa sulla quota.",
             },
             "alternativo": {
                 "brain": "gemini",
@@ -213,7 +280,10 @@ def routing_predefinito() -> dict:
         "passi_prima_di_salire": 6,
         "salite_massime": 1,
         "solo_locale": False,
+        # vale solo per i gradini a consumo: con un abbonamento non si applica
         "tetto_usd_sessione": 5.0,
+        # se un gradino esaurisce la quota, prova un altro fornitore
+        "ripiego_su_limite": True,
     }
 
 
@@ -227,5 +297,6 @@ def cli_predefinite() -> dict:
             "model": "gemini-2.5-pro",
             "prompt": "stdin",
             "timeout": 600,
+            "a_consumo": False,
         },
     }

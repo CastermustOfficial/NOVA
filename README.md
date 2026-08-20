@@ -446,3 +446,51 @@ C'è un tool `screenshot`, e serve per le domande sull'aspetto delle cose
 su un'applicazione NOVA usa l'albero di accessibilità, che è preciso,
 istantaneo e non costa niente. Dare la vista a un modello per fargli premere
 un pulsante è lento e caro; averla per esprimere un giudizio è un di più.
+
+### Abbonamento, non spesa
+
+NOVA legge `~/.claude/.credentials.json` e riconosce il tipo di accesso. Su
+questo PC:
+
+```
+accesso: ('abbonamento', 'max_5x')
+```
+
+Con un abbonamento il `total_cost_usd` che Claude Code riporta è un
+**equivalente API**: dice quanto pesa una richiesta, non quanto hai speso. Il
+tetto in dollari quindi **non si applica** ai gradini coperti da abbonamento —
+si applica solo a chi paga a token (`brain: "api"`, oppure una CLI dichiarata
+con `"a_consumo": true`).
+
+```
+orchestratore: locale   nessun gradino a consumo:
+0.0 $ è l'equivalente API, non una spesa
+
+* locale       locale   predefinito                locale       pronto
+  standard     claude   sonnet                     abbonamento  pronto
+  difficile    claude   claude-opus-4-5-...        abbonamento  pronto
+  alternativo  gemini   gemini-2.5-pro             incluso      pronto
+```
+
+### Quando finisce la quota
+
+Con l'abbonamento il vincolo vero non sono i soldi, sono i **limiti d'uso**. È
+una cosa diversa da un errore: non vuol dire «non ci riesco», vuol dire
+«riprova più tardi». NOVA la tratta come tale:
+
+1. riconosce il messaggio di quota esaurita (`usage limit`, `rate limit`, 429, …)
+   e solleva `LimiteUso`, non un errore generico;
+2. mette **quel gradino in pausa** per il tempo indicato;
+3. **ripiega su un altro fornitore** — non su un altro modello dello stesso,
+   perché il limite è sul conto, non sul modello — e in ultima istanza torna
+   sul locale.
+
+```
+«difficile» in pausa per 30 minuti: quota esaurita
+«difficile» è a quota: ripiego su «alternativo»
+esito finale: da «alternativo»
+motivo: prova (ripiego: «difficile» a quota)
+```
+
+Si disattiva con `ripiego_su_limite: false`, se preferisci che si fermi e te lo
+dica invece di cambiare modello da solo.
