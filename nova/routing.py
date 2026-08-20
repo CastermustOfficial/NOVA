@@ -60,6 +60,8 @@ class Router:
         self.speso_usd = 0.0          # equivalente API: con l'abbonamento non e' spesa
         self.storico: list[Delega] = []
         self._in_pausa: dict[str, float] = {}   # gradino -> quando riprovare
+        self._prenotato = 0.0                  # stime delle deleghe in volo
+        self._stime: dict[str, float] = {}
 
     # -- gradini -------------------------------------------------------
     def tiers(self) -> dict[str, Tier]:
@@ -116,10 +118,23 @@ class Router:
         # abbonamento il costo riportato e' un equivalente API: utile per
         # capire quanto pesa una richiesta, non una spesa da limitare.
         tetto = float(r.get("tetto_usd_sessione") or 0)
-        if tetto and self.a_consumo(t) and self.speso_usd >= tetto:
-            raise PermissionError(
-                f"tetto di spesa raggiunto ({self.speso_usd:.2f} $ su {tetto:.2f} $). "
-                "Alza brains.routing.tetto_usd_sessione oppure resta sul locale.")
+        if tetto and self.a_consumo(t):
+            # Verificare e incrementare in due momenti diversi lascia passare
+            # due chiamate concorrenti sopra il tetto. Si prenota una stima
+            # sotto lock, e a chiamata finita si sostituisce col costo vero.
+            stima = float(r.get("costo_stimato_delega") or 0.10)
+            with self._lock:
+                # conta anche *questa*: sapere di essere sotto il tetto prima
+                # di partire non serve, serve sapere di esserci ancora dopo
+                proiezione = self.speso_usd + self._prenotato + stima
+                if proiezione > tetto:
+                    raise PermissionError(
+                        f"tetto di spesa raggiunto ({self.speso_usd:.2f} $ spesi "
+                        f"+ {self._prenotato:.2f} $ in corso + {stima:.2f} $ stimati "
+                        f"= {proiezione:.2f} $, su {tetto:.2f} $). "
+                        "Alza brains.routing.tetto_usd_sessione oppure resta sul locale.")
+                self._prenotato += stima
+                self._stime[t.nome] = stima
 
     def a_consumo(self, t: Tier) -> bool:
         """Questo gradino fa spendere davvero, o e' coperto da abbonamento?"""
@@ -155,7 +170,10 @@ class Router:
         altri = [n for n, t in tiers.items()
                  if n != fallito and t.brain != brand_fallito and not t.locale
                  and self.pausa_residua(n) == 0]
-        locali = [n for n, t in tiers.items() if t.locale]
+        # anche il locale puo' essere in pausa (llama-server giu'): filtrarlo
+        # qui evita di riproporre un candidato che rifiutera' comunque
+        locali = [n for n, t in tiers.items()
+                  if t.locale and n != fallito and self.pausa_residua(n) == 0]
         return [*altri, *locali]
 
     # -- delega --------------------------------------------------------
@@ -168,17 +186,18 @@ class Router:
         indietro la risposta da usare come qualunque altro risultato.
         """
         traccia = Delega(da=da, a=a, motivo=motivo, compito=compito)
-        cervello = self.costruisci(a, kb_context=kb_context)
-        pronto, perche = cervello.disponibile()
-        if not pronto:
-            traccia.esito = f"ERRORE: {perche}"
-            self.storico.append(traccia)
-            return traccia
-
         prompt = compito if not contesto else f"{contesto}\n\n---\n\n{compito}"
         self.log(f"delega a «{a}»: {motivo or compito[:60]}")
         from .brains.base import LimiteUso
         try:
+            # Costruzione e disponibilita' stanno *dentro* il try: anche loro
+            # possono fallire per quota o per policy, e in quel caso deve
+            # scattare il ripiego, non un'eccezione in faccia al chiamante.
+            cervello = self.costruisci(a, kb_context=kb_context)
+            pronto, perche = cervello.disponibile()
+            if not pronto:
+                traccia.esito = f"ERRORE: {perche}"
+                return traccia
             risposta = cervello.chat(
                 [{"role": "user", "content": prompt}], [], self.cfg
             )
@@ -191,17 +210,41 @@ class Router:
             if self.cfg.brains.routing.get("ripiego_su_limite", True):
                 for alternativa in self._ripieghi(a):
                     self.log(f"«{a}» e' a quota: ripiego su «{alternativa}»")
-                    ripiego = self.delega(alternativa, compito, motivo=motivo,
-                                          da=da, kb_context=kb_context,
-                                          contesto=contesto)
+                    # Un ripiego che solleva interrompe la catena prima del
+                    # locale, che deve restare l'ultima spiaggia garantita.
+                    try:
+                        ripiego = self.delega(alternativa, compito, motivo=motivo,
+                                              da=da, kb_context=kb_context,
+                                              contesto=contesto)
+                    except Exception as errore_ripiego:
+                        self.log(f"«{alternativa}» non utilizzabile: {errore_ripiego}")
+                        continue
                     if not ripiego.esito.startswith("ERRORE"):
                         ripiego.motivo = (motivo + f" (ripiego: «{a}» a quota)").strip()
                         return ripiego
+        except PermissionError as e:
+            # policy o tetto: ha senso provare un gradino consentito prima di
+            # arrendersi, ma se non ce n'e' l'utente deve sapere il perche'
+            traccia.esito = f"ERRORE: {e}"
+            for alternativa in self._ripieghi(a):
+                try:
+                    ripiego = self.delega(alternativa, compito, motivo=motivo,
+                                          da=da, kb_context=kb_context,
+                                          contesto=contesto)
+                except Exception:
+                    continue
+                if not ripiego.esito.startswith("ERRORE"):
+                    ripiego.motivo = (motivo + f" (ripiego: «{a}» non consentito)").strip()
+                    return ripiego
+            raise
         except Exception as e:
             traccia.esito = f"ERRORE: {e}"
         finally:
             with self._lock:
                 self.speso_usd += traccia.costo_usd
+                # la prenotazione ha fatto il suo lavoro: ora vale il costo vero
+                stima = self._stime.pop(a, 0.0)
+                self._prenotato = max(0.0, self._prenotato - stima)
             self.storico.append(traccia)
         return traccia
 
@@ -287,6 +330,8 @@ def routing_predefinito() -> dict:
         "tetto_usd_sessione": 5.0,
         # se un gradino esaurisce la quota, prova un altro fornitore
         "ripiego_su_limite": True,
+        # quanto si prenota su una delega prima di sapere quanto costera'
+        "costo_stimato_delega": 0.10,
     }
 
 

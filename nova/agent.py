@@ -227,6 +227,9 @@ class Agent:
         fallimenti = 0
         salite = 0
         errori_recenti: list[str] = []
+        # da dove si sale: cambia a ogni escalation, altrimenti la seconda
+        # ridelegherebbe allo stesso gradino della prima
+        gradino = (self.cfg.brains.routing or {}).get("orchestratore", "locale")
 
         for step in range(self.cfg.model.max_tool_iterations):
             if self.cancel_event.is_set():
@@ -278,7 +281,7 @@ class Agent:
             if self._serve_salire(fallimenti, salite, step + 1):
                 salite += 1
                 fallimenti = 0
-                self._sali_di_gradino(user_text, errori_recenti)
+                gradino = self._sali_di_gradino(user_text, errori_recenti, gradino)
                 errori_recenti.clear()
 
         self.cb.on_status("")
@@ -359,11 +362,23 @@ class Agent:
         limite_passi = int(r.get("passi_prima_di_salire", 0))
         return bool(limite_passi) and passi >= limite_passi
 
-    def _sali_di_gradino(self, richiesta: str, errori: list[str]) -> None:
-        """Passa la palla da solo e rimette il risultato nelle mani del modello."""
-        r = self.cfg.brains.routing or {}
-        partenza = r.get("orchestratore", "locale")
-        destinazione = self.router.successivo(partenza) or "standard"
+    def _sali_di_gradino(self, richiesta: str, errori: list[str],
+                         partenza: str) -> str:
+        """Passa la palla da solo e rimette il risultato nelle mani del modello.
+
+        Ritorna il gradino raggiunto: la prossima salita deve partire da li',
+        altrimenti con salite_massime > 1 si ridelega sempre allo stesso.
+        """
+        destinazione = self.router.successivo(partenza)
+        if destinazione is None:
+            self.cb.on_status("")
+            self.messages.append({
+                "role": "user",
+                "content": ("[nota di sistema] Non c'e' un gradino piu' alto di "
+                            f"«{partenza}» a cui delegare: prosegui come puoi, "
+                            "oppure spiega all'utente cosa ti blocca."),
+            })
+            return partenza
         motivo = (f"{len(errori)} tentativi falliti di fila" if errori
                   else "troppe chiamate senza arrivare a una risposta")
         self.cb.on_status(f"Passo la palla a «{destinazione}»...")
@@ -377,21 +392,40 @@ class Agent:
                 da=partenza, contesto=contesto)
         except Exception as e:
             self.messages.append({
-                "role": "tool", "tool_call_id": "escalation", "name": "delega",
-                "content": f"ERRORE: non sono riuscito a salire di gradino: {e}",
+                "role": "user",
+                "content": f"[nota di sistema] Non sono riuscito a salire di gradino: {e}",
             })
-            return
+            return partenza
         self.cb.on_delega(destinazione, motivo, traccia.costo_usd)
         self.cb.on_tool_result("delega automatica",
                                f"{destinazione}: {traccia.esito[:300]}",
                                not traccia.esito.startswith("ERRORE"))
+        # Un messaggio 'tool' senza il 'tool_calls' corrispondente e' una
+        # trascrizione invalida: le API OpenAI-compatibili la rifiutano. Si
+        # sintetizza la coppia completa, come se il modello avesse chiamato lui.
+        identificativo = f"escalation-{len(self.messages)}"
         self.messages.append({
-            "role": "tool", "tool_call_id": "escalation", "name": "delega",
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [{
+                "id": identificativo,
+                "type": "function",
+                "function": {
+                    "name": "delega",
+                    "arguments": json.dumps(
+                        {"a": destinazione, "compito": richiesta, "motivo": motivo},
+                        ensure_ascii=False),
+                },
+            }],
+        })
+        self.messages.append({
+            "role": "tool", "tool_call_id": identificativo, "name": "delega",
             "content": (f"[escalation automatica dopo {motivo}]\n"
                         f"Risposta di «{destinazione}»:\n{traccia.esito}\n\n"
                         "Usa questa risposta per completare il compito. Se contiene "
                         "istruzioni da eseguire, eseguile tu."),
         })
+        return destinazione
 
     def _append_tool_result(self, call: dict, name: str, result: str) -> None:
         if len(result) > 24000:
