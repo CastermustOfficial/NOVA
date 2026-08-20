@@ -42,10 +42,17 @@ impl Server {
     }
 
     pub async fn attendi_spegnimento(&self) {
+        // `notify_waiters()` sveglia solo chi e' gia' registrato: fra il
+        // controllo del flag e l'await c'e' una finestra in cui la notifica si
+        // perde e il task resta appeso. `enable()` registra l'attesa *prima*
+        // di guardare il flag, cosi' la finestra non esiste.
+        let attesa = self.spegnimento.notified();
+        tokio::pin!(attesa);
+        attesa.as_mut().enable();
         if self.chiuso.load(Ordering::SeqCst) {
             return;
         }
-        self.spegnimento.notified().await;
+        attesa.await;
     }
 
     // ------------------------------------------------------------ dispatch
@@ -289,7 +296,19 @@ impl Server {
         loop {
             tokio::select! {
                 esito = server.connect() => {
-                    esito?;
+                    // Un client che si connette e si stacca subito fa fallire
+                    // connect(): non e' un motivo per chiudere bottega.
+                    if let Err(e) = esito {
+                        tracing::warn!(errore = %e, "connessione non riuscita, proseguo");
+                        server = match ServerOptions::new().create(&nome) {
+                            Ok(s) => s,
+                            Err(e) => {
+                                tracing::error!(errore = %e, "impossibile ricreare la pipe");
+                                return Err(e.into());
+                            }
+                        };
+                        continue;
+                    }
                     let connesso = server;
                     server = ServerOptions::new().create(&nome)?;
                     let me = self.clone();
@@ -316,7 +335,13 @@ impl Server {
         loop {
             tokio::select! {
                 esito = listener.accept() => {
-                    let (stream, _) = esito?;
+                    let (stream, _) = match esito {
+                        Ok(v) => v,
+                        Err(e) => {
+                            tracing::warn!(errore = %e, "accept fallita, proseguo");
+                            continue;
+                        }
+                    };
                     let me = self.clone();
                     tokio::spawn(async move { me.servi(stream).await });
                 }

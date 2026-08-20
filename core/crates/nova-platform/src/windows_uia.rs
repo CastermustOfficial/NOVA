@@ -6,8 +6,9 @@
 //! resto del mondo gli parla per messaggi. Fuori si vede un backend normale,
 //! `Send + Sync`, che si puo' tenere in un `Arc` dentro un runtime async.
 
-use std::sync::mpsc::{channel, Sender};
+use std::sync::mpsc::{channel, RecvTimeoutError, Sender};
 use std::sync::Mutex;
+use std::time::Duration;
 
 use anyhow::{anyhow, bail, Result};
 use windows::core::{Interface, BOOL, BSTR};
@@ -35,6 +36,14 @@ use crate::{ElementRef, UiNode, UiQuery, UiTree, WindowInfo, WindowSel};
 /// un albero che non finisce mai non serve a nessuno.
 const MAX_FIGLI: usize = 200;
 
+/// Oltre questo, si smette di aspettare.
+///
+/// Una chiamata UI Automation entra nel message loop del processo bersaglio:
+/// se quello e' appeso, la chiamata non torna mai. Senza un limite, l'unico
+/// thread worker resta ostaggio e *ogni* richiesta successiva — su qualunque
+/// finestra, da qualunque client — muore in coda dietro di lei.
+const TIMEOUT_CHIAMATA: Duration = Duration::from_secs(20);
+
 // ------------------------------------------------------------- messaggi
 
 type Esito<T> = Sender<Result<T, String>>;
@@ -49,7 +58,9 @@ enum Cmd {
 }
 
 pub struct Uia {
-    tx: Mutex<Sender<Cmd>>,
+    /// `None` quando il worker precedente e' rimasto bloccato: la prossima
+    /// richiesta ne accende uno nuovo invece di ereditarne il blocco.
+    tx: Mutex<Option<Sender<Cmd>>>,
 }
 
 impl Uia {
@@ -78,26 +89,80 @@ impl Uia {
             .map_err(|e| anyhow!("impossibile avviare il thread UIA: {e}"))?;
 
         match pronto_rx.recv() {
-            Ok(Ok(())) => Ok(Self { tx: Mutex::new(tx) }),
+            Ok(Ok(())) => Ok(Self { tx: Mutex::new(Some(tx)) }),
             Ok(Err(e)) => bail!(e),
             Err(_) => bail!("il thread UIA e' morto durante l'avvio"),
+        }
+    }
+
+    /// Accende un thread UIA nuovo. Il vecchio, se e' bloccato in COM, non si
+    /// puo' uccidere: restera' li' finche' l'applicazione non risponde, poi
+    /// trovera' il canale chiuso e uscira' da solo.
+    fn rimpiazza_worker(&self) -> Result<Sender<Cmd>> {
+        let (tx, rx) = channel::<Cmd>();
+        let (pronto_tx, pronto_rx) = channel::<Result<(), String>>();
+        std::thread::Builder::new()
+            .name("nova-uia".into())
+            .spawn(move || unsafe {
+                let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+                let automation: IUIAutomation =
+                    match CoCreateInstance(&CUIAutomation, None, CLSCTX_INPROC_SERVER) {
+                        Ok(a) => a,
+                        Err(e) => {
+                            let _ = pronto_tx.send(Err(format!("{e}")));
+                            return;
+                        }
+                    };
+                let _ = pronto_tx.send(Ok(()));
+                servi(&automation, rx);
+            })
+            .map_err(|e| anyhow!("impossibile riavviare il thread UIA: {e}"))?;
+        match pronto_rx.recv() {
+            Ok(Ok(())) => Ok(tx),
+            Ok(Err(e)) => bail!("UI Automation non disponibile: {e}"),
+            Err(_) => bail!("il thread UIA e' morto durante il riavvio"),
         }
     }
 
     fn invia<T>(&self, costruisci: impl FnOnce(Esito<T>) -> Cmd) -> Result<T> {
         let (tx, rx) = channel::<Result<T, String>>();
         {
-            let guardia = self
+            let mut guardia = self
                 .tx
                 .lock()
                 .map_err(|_| anyhow!("canale UIA avvelenato"))?;
-            guardia
-                .send(costruisci(tx))
-                .map_err(|_| anyhow!("il thread UIA non risponde piu'"))?;
+            if guardia.is_none() {
+                *guardia = Some(self.rimpiazza_worker()?);
+            }
+            let mittente = guardia.as_ref().expect("appena creato");
+            if mittente.send(costruisci(tx)).is_err() {
+                // il worker e' morto: uno nuovo e la richiesta si ripete
+                *guardia = None;
+                bail!("il thread UIA non risponde piu': riprova");
+            }
         }
-        rx.recv()
-            .map_err(|_| anyhow!("il thread UIA e' morto durante la richiesta"))?
-            .map_err(|e| anyhow!(e))
+        match rx.recv_timeout(TIMEOUT_CHIAMATA) {
+            Ok(esito) => esito.map_err(|e| anyhow!(e)),
+            Err(RecvTimeoutError::Timeout) => {
+                // Il worker e' ostaggio di un'applicazione che non risponde.
+                // Si lascia andare e la prossima richiesta ne accende un altro:
+                // meglio perdere un thread che perdere tutto il sottosistema.
+                if let Ok(mut guardia) = self.tx.lock() {
+                    *guardia = None;
+                }
+                bail!(
+                    "l'applicazione non ha risposto entro {}s: probabilmente e' bloccata. \
+                     Il canale UIA e' stato rigenerato, puoi riprovare.",
+                    TIMEOUT_CHIAMATA.as_secs()
+                )
+            }
+            Err(RecvTimeoutError::Disconnected) => {
+                if let Ok(mut guardia) = self.tx.lock() {
+                    *guardia = None;
+                }
+                bail!("il thread UIA e' morto durante la richiesta")
+            }
+        }
     }
 }
 
