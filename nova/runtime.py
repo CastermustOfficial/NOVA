@@ -140,6 +140,9 @@ class LlamaServer:
         self._reader: threading.Thread | None = None
         self._stop = threading.Event()
         self._logfile = None
+        # quando c'e' nova-core il processo non e' nostro: e' suo
+        self.bridge = None
+        self.via_demone = False
 
     # -- utility ------------------------------------------------------
     def _log(self, msg: str) -> None:
@@ -152,6 +155,8 @@ class LlamaServer:
         return "\n".join(self._tail[-60:])
 
     def is_running(self) -> bool:
+        if self.via_demone and self.bridge is not None:
+            return self.bridge.modello_attivo()
         return self.proc is not None and self.proc.poll() is None
 
     def is_ready(self, timeout: float = 1.5) -> bool:
@@ -201,8 +206,19 @@ class LlamaServer:
     def start(self, wait: bool = True) -> bool:
         if self.is_running():
             return True
+
+        # 1. il demone lo possiede gia'? allora si adotta, non si "riusa e basta":
+        #    serve il collegamento al bus e ai suoi log.
+        if self.cfg.server.use_daemon and self._adotta_dal_demone():
+            return True
+
+        # 2. qualcun altro sulla porta (LM Studio, un server avviato a mano)
         if self.external_server_present():
             self._log(f"Server gia' attivo su {self.cfg.base_url}: lo riutilizzo.")
+            try:
+                self.binary = self.resolve_binary()
+            except Exception:
+                pass
             return True
 
         self.binary = self.resolve_binary()
@@ -211,6 +227,10 @@ class LlamaServer:
             raise FileNotFoundError(f"Modello GGUF non trovato: {model}")
 
         self._log(f"Runtime: {self.binary} [{self.accelerator}]")
+
+        if self.cfg.server.use_daemon and self._prova_con_demone(wait):
+            return True
+
         ladder = self._gpu_layer_ladder()
         last_err = ""
         for attempt, ngl in enumerate(ladder):
@@ -227,6 +247,93 @@ class LlamaServer:
             if attempt + 1 < len(ladder):
                 self._log(f"Memoria insufficiente con -ngl {ngl}: riprovo con meno layer.")
         raise RuntimeError(f"llama-server non e' partito.\n{last_err}\n\n{self.log_tail}")
+
+    # -- percorso nova-core -------------------------------------------
+    def _adotta_dal_demone(self) -> bool:
+        """Il modello gira gia' sotto nova-core: prendine il controllo."""
+        from .daemon import DaemonBridge
+
+        bridge = DaemonBridge()
+        if not bridge.attivo() or not bridge.modello_attivo():
+            bridge.chiudi()
+            return False
+        self.bridge = bridge
+        self.via_demone = True
+        try:
+            self.binary = self.resolve_binary()
+        except Exception:
+            pass
+        self.gpu_layers = self._layer_dal_demone() or self.gpu_layers
+        self._log("Il modello e' gia' caricato in nova-core: lo adotto.")
+        return self.is_ready(3.0) or self._attendi_salute()
+
+    def _layer_dal_demone(self) -> int:
+        """Con quanti -ngl e' stato avviato il processo che sto adottando."""
+        if self.bridge is None:
+            return 0
+        figlio = self.bridge.figlio() or {}
+        args = figlio.get("args") or []
+        for i, a in enumerate(args):
+            if a in ("-ngl", "--gpu-layers", "--n-gpu-layers") and i + 1 < len(args):
+                try:
+                    return int(args[i + 1])
+                except (TypeError, ValueError):
+                    return 0
+        return 0
+
+    def _prova_con_demone(self, wait: bool) -> bool:
+        """Affida llama-server al demone. False = ripiega sul processo figlio."""
+        from .daemon import DaemonBridge, avvia_demone_se_serve
+
+        if not avvia_demone_se_serve(
+                log=lambda m: self._log(f"nova-core: {m}")) \
+                and not self.cfg.server.daemon_autostart:
+            return False
+        bridge = DaemonBridge()
+        if not bridge.attivo():
+            return False
+        self.bridge = bridge
+
+        if bridge.modello_attivo():
+            self.via_demone = True
+            self._log("Il modello e' gia' caricato in nova-core: lo riuso.")
+            return self.is_ready(3.0) or self._attendi_salute()
+
+        for tentativo, ngl in enumerate(self._gpu_layer_ladder()):
+            self.gpu_layers = ngl
+            args = self._build_args(ngl)[1:]  # gli argomenti, senza l'eseguibile
+            ok, msg = bridge.avvia_modello(str(self.binary), args,
+                                           cwd=str(self.binary.parent))
+            if not ok:
+                self._log(f"nova-core non ha potuto avviare il modello: {msg}")
+                return False
+            self.via_demone = True
+            self._log(f"Modello affidato a nova-core (-ngl {ngl}).")
+            if not wait:
+                return True
+            if self._attendi_salute():
+                return True
+            coda = "\n".join(bridge.log_modello(80))
+            for riga in coda.splitlines()[-12:]:
+                self._log(riga)
+            bridge.ferma_modello()
+            if not _OOM_PATTERNS.search(coda) and not self.cfg.server.auto_tune_gpu_layers:
+                self.via_demone = False
+                return False
+            self._log("Memoria insufficiente: riprovo con meno layer.")
+        self.via_demone = False
+        return False
+
+    def _attendi_salute(self) -> bool:
+        scadenza = time.time() + self.cfg.server.startup_timeout
+        while time.time() < scadenza:
+            if self.bridge is not None and not self.bridge.modello_attivo():
+                return False
+            if self.is_ready():
+                self._log(f"Modello pronto su {self.cfg.base_url}")
+                return True
+            time.sleep(1.0)
+        return False
 
     def _gpu_layer_ladder(self) -> list[int]:
         base = self.cfg.server.n_gpu_layers
@@ -310,6 +417,14 @@ class LlamaServer:
 
     # -- arresto ------------------------------------------------------
     def stop(self, timeout: float = 15.0) -> None:
+        if self.via_demone and self.bridge is not None:
+            if self.cfg.server.stop_model_on_exit:
+                self.bridge.ferma_modello()
+                self._log("Modello fermato in nova-core.")
+            else:
+                self._log("Il modello resta caricato in nova-core.")
+            self.bridge.chiudi()
+            return
         self._stop.set()
         p, self.proc = self.proc, None
         if p and p.poll() is None:

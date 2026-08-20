@@ -35,6 +35,8 @@ pub struct ChildSpec {
 }
 
 struct Entry {
+    program: String,
+    args: Vec<String>,
     pid: Arc<AtomicU32>,
     running: Arc<AtomicBool>,
     restarts: Arc<AtomicU32>,
@@ -80,6 +82,8 @@ impl Supervisor {
             entries.insert(
                 spec.name.clone(),
                 Entry {
+                    program: spec.program.clone(),
+                    args: spec.args.clone(),
                     pid: pid.clone(),
                     running: running.clone(),
                     restarts: restarts.clone(),
@@ -287,6 +291,8 @@ impl Supervisor {
                     running: e.running.load(Ordering::Relaxed),
                     restarts: e.restarts.load(Ordering::Relaxed),
                     last_exit: if uscita == i32::MIN { None } else { Some(uscita) },
+                    program: e.program.clone(),
+                    args: e.args.clone(),
                 }
             })
             .collect()

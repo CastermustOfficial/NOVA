@@ -198,6 +198,11 @@ pub struct ChildStatus {
     pub running: bool,
     pub restarts: u32,
     pub last_exit: Option<i32>,
+    /// Come e' stato avviato: serve a chi lo adotta dopo un riavvio della UI.
+    #[serde(default)]
+    pub program: String,
+    #[serde(default)]
+    pub args: Vec<String>,
 }
 
 #[cfg(test)]

@@ -168,6 +168,7 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(make_icon())
         self.setStyleSheet(STYLE)
 
+        self._bus_client = None
         self._approval_event = threading.Event()
         self._approval_result = False
         self._busy = False
@@ -370,11 +371,35 @@ class MainWindow(QMainWindow):
                 f"Memoria inizializzata: {s['nodi_attivi']} nodi, "
                 f"{s['collegamenti']} collegamenti. Apri il vault con il pulsante Memoria.")
 
+    def _collega_bus(self) -> None:
+        """I log del modello arrivano dal bus: il processo non e' piu' nostro."""
+        if not getattr(self.server, "via_demone", False) or self.server.bridge is None:
+            return
+
+        def su_evento(ev: dict) -> None:
+            dati = ev.get("data") or {}
+            topic = ev.get("topic", "")
+            if topic == "proc.output" and dati.get("name") == "llama-server":
+                self.sig_server_log.emit(str(dati.get("line", "")))
+            elif topic in ("proc.exited", "proc.restarting", "proc.gave_up"):
+                self.sig_server_log.emit(f"[nova-core] {topic}: {dati}")
+
+        self._bus_client = self.server.bridge.osserva(su_evento, "proc.*")
+
     def _on_model_ready(self) -> None:
         name = self.agent.detect_model()
-        self.lbl_model.setText(
-            f"Modello: {name}  [{self.server.accelerator}, {self.server.gpu_layers} layer su GPU]")
-        self._append_system("Modello caricato e pronto.")
+        etichetta = (f"Modello: {name}  [{self.server.accelerator}, "
+                     f"{self.server.gpu_layers} layer su GPU]")
+        if getattr(self.server, "via_demone", False):
+            etichetta += "  ·  nova-core"
+        self.lbl_model.setText(etichetta)
+        self._collega_bus()
+        if getattr(self.server, "via_demone", False):
+            self._append_system(
+                "Modello pronto, in carico a nova-core: resta caricato anche se "
+                "chiudi questa finestra.")
+        else:
+            self._append_system("Modello caricato e pronto.")
         QTimer.singleShot(200, self._seed_kb_se_serve)
 
     def _on_model_failed(self, err: str) -> None:
@@ -547,6 +572,11 @@ class MainWindow(QMainWindow):
 
     def _quit(self) -> None:
         self.agent.cancel()
+        if self._bus_client is not None:
+            try:
+                self._bus_client.close()
+            except Exception:
+                pass
         self.server.stop()
         self.tray.hide()
         QApplication.quit()

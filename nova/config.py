@@ -70,6 +70,11 @@ class ServerConfig:
         "--reasoning-format", "deepseek",
     ])
     autostart_model: bool = True  # avvia il server all'apertura dell'app
+    # nova-core (il demone in Rust) possiede i processi lunghi: il modello
+    # sopravvive alla chiusura della finestra e il riavvio costa zero.
+    use_daemon: bool = True
+    daemon_autostart: bool = True   # accende nova-core se non gira
+    stop_model_on_exit: bool = False  # chiudere NOVA non scarica il modello
     startup_timeout: int = 600    # secondi di attesa per il caricamento
     auto_tune_gpu_layers: bool = True
 

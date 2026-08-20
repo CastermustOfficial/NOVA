@@ -122,8 +122,20 @@ class CoreClient:
     def capabilities(self) -> list[dict]:
         return (self.request("capabilities/list") or {}).get("capabilities", [])
 
-    def call(self, name: str, **args: Any) -> Any:
-        return self.request("capabilities/call", {"name": name, "args": args})
+    def call(self, capability: str, args: dict | None = None, /, **kwargs: Any) -> Any:
+        """Chiama una capacita'.
+
+        I primi due parametri sono posizionali di proposito: capacita' come
+        `proc.spawn` hanno argomenti che si chiamano proprio `name` e `args`,
+        e con i soli kwargs si scontrerebbero con la firma del metodo.
+
+            c.call("sys.info")
+            c.call("fs.write", path="x.txt", content="ciao")
+            c.call("proc.spawn", {"name": "eco", "args": ["/c", "echo"]})
+        """
+        payload = dict(args or {})
+        payload.update(kwargs)
+        return self.request("capabilities/call", {"name": capability, "args": payload})
 
     def shutdown(self) -> Any:
         return self.request("daemon/shutdown")

@@ -308,3 +308,40 @@ Con `locale` niente, mai. Con `claude` e `api` escono la richiesta, il
 contesto della conversazione e i nodi di memoria pertinenti al messaggio: e'
 la scelta che rende quei cervelli utili, ma va fatta sapendo cosa comporta.
 Il selettore e' li' apposta: per il lavoro sensibile torna su `locale`.
+
+---
+
+## Il modello appartiene al demone
+
+Da quando c'e' `core/` (vedi `core/README.md`), NOVA non genera piu' llama-server
+come processo figlio: lo affida a **nova-core**, che lo supervisiona.
+
+```
+llama-server pid 2760 -> padre: novad
+```
+
+Conseguenze pratiche:
+
+| | prima | adesso |
+|---|---|---|
+| Chiudi la finestra | il modello si scarica | resta caricato |
+| Riapri NOVA | ~2 minuti di caricamento | **2 secondi** |
+| Il server cade | resta giu' | il demone lo rialza |
+| Log del modello | file che nessuno legge | eventi `proc.output` sul bus, piu' buffer circolare |
+
+All'avvio NOVA prova nella sequenza: *il demone possiede gia' il modello?* →
+lo **adotta** (recupera anche con quanti `-ngl` era partito, chiedendolo al
+demone); *c'e' qualcosa sulla porta?* → lo riusa; altrimenti chiede a nova-core
+di avviarlo, e solo se il demone manca ricade sul vecchio processo figlio. Se
+`core/` non e' compilato NOVA funziona esattamente come prima.
+
+Chiavi in `server` di `config.json`:
+
+| Chiave | Default | Cosa fa |
+|---|---|---|
+| `use_daemon` | `true` | affida il modello a nova-core |
+| `daemon_autostart` | `true` | accende nova-core se non gira |
+| `stop_model_on_exit` | `false` | chiudere NOVA **non** scarica il modello |
+
+La finestra si sottoscrive a `proc.*` e mostra nel registro azioni i log del
+modello presi dal bus, non piu' da un processo che possiede lei.
