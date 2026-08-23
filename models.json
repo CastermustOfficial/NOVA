@@ -1,55 +1,56 @@
 {
-  "$schema": "https://nova.invalid/schemas/models-1.json",
   "_nota": [
     "Il catalogo dei modelli locali. NON e' codice: e' un dato.",
-    "«Il migliore in commercio» cambia ogni mese; se stesse nel codice, ogni",
-    "modello nuovo sarebbe una release. Qui basta aggiornare questo file.",
+    "«Il migliore» cambia ogni mese; se stesse nel codice, ogni modello nuovo",
+    "sarebbe una release. Qui basta aggiornare questo file.",
     "",
-    "vram_gb e ram_gb sono i minimi realistici per far girare la",
-    "quantizzazione indicata, non i minimi teorici. qualita e' una stima",
-    "onesta e comparativa, non una promessa: serve a scegliere, non a vendere."
+    "COME SI SCEGLIE (la stessa matematica di LM Studio):",
+    "  richiesto = dimensione_file + contesto + margine",
+    "Il file deve stare in VRAM insieme alla cache del contesto e a un margine",
+    "per il desktop. Se non ci sta tutto, llama.cpp mette solo una parte dei",
+    "layer su GPU e il resto in RAM: funziona, ma va molto piu' piano.",
+    "Percio' si sceglie la quantizzazione piu' grande che ENTRA, non la piu'",
+    "grande che si riesce a caricare."
   ],
   "revisione": "2026-08-23",
-  "modelli": [
+  "regole_di_adattamento": {
+    "margine_vram_gb": 1.5,
+    "vram_per_8k_contesto_gb": 0.5,
+    "contesto_predefinito": 8192,
+    "_perche": "1.5 GB restano al desktop e al browser: senza margine il modello entra sulla carta e in pratica fa sfarfallare lo schermo o non parte proprio.",
+    "solo_ram_penalita": "Senza GPU adeguata si puo' comunque girare in RAM, ma si passa da decine di token al secondo a pochi. Va detto prima, non scoperto dopo."
+  },
+  "famiglie": [
     {
-      "id": "qwen3-8b-q4km",
-      "nome": "Qwen3 8B",
-      "quantizzazione": "Q4_K_M",
-      "vram_gb": 6,
-      "ram_gb": 16,
-      "dimensione_gb": 5.0,
-      "qualita": "buona",
-      "consigliato": true,
-      "note": "Il compromesso migliore su una GPU di fascia media. Regge gli strumenti e l'italiano.",
-      "fonte": "https://huggingface.co/Qwen/Qwen3-8B-GGUF"
-    },
-    {
-      "id": "qwen3-4b-q4km",
-      "nome": "Qwen3 4B",
-      "quantizzazione": "Q4_K_M",
-      "vram_gb": 3,
-      "ram_gb": 8,
-      "dimensione_gb": 2.6,
-      "qualita": "discreta",
-      "consigliato": false,
-      "note": "Per macchine modeste. Sbaglia piu' spesso le chiamate agli strumenti.",
-      "fonte": "https://huggingface.co/Qwen/Qwen3-4B-GGUF"
-    },
-    {
-      "id": "qwen3-30b-a3b-q4km",
-      "nome": "Qwen3 30B A3B",
-      "quantizzazione": "Q4_K_M",
-      "vram_gb": 20,
-      "ram_gb": 32,
-      "dimensione_gb": 18.0,
-      "qualita": "ottima",
-      "consigliato": false,
-      "note": "Mixture-of-experts: attiva 3B per volta, quindi va veloce se ci sta in VRAM.",
-      "fonte": "https://huggingface.co/Qwen/Qwen3-30B-A3B-GGUF"
+      "id": "qwen38-27b",
+      "nome": "Qwen3.8 27B",
+      "repo": "unsloth/Qwen3.8-27B-GGUF",
+      "url_base": "https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main/",
+      "licenza": "apache-2.0",
+      "contesto_massimo": 262144,
+      "consigliata": true,
+      "note": "Il consiglio predefinito. Quantizzazioni «UD» di unsloth: a parita' di dimensione rendono meglio delle quantizzazioni classiche.",
+      "varianti": [
+        { "file": "Qwen3.8-27B-UD-Q6_K_XL.gguf", "gb": 25.3, "vram_gb": 28, "qualita": "massima",  "nota": "Praticamente indistinguibile dal modello pieno. Serve una GPU da 32 GB." },
+        { "file": "Qwen3.8-27B-UD-Q5_K_M.gguf",  "gb": 19.8, "vram_gb": 23, "qualita": "ottima",   "nota": "Ottimo compromesso su schede da 24 GB." },
+        { "file": "Qwen3.8-27B-UD-Q4_K_M.gguf",  "gb": 16.5, "vram_gb": 19, "qualita": "molto buona", "nota": "Lo standard di fatto: la perdita rispetto a Q8 e' minima e ci sta su 20-24 GB.", "predefinita": true },
+        { "file": "Qwen3.8-27B-UD-IQ4_XS.gguf",  "gb": 14.3, "vram_gb": 17, "qualita": "buona",    "nota": "Per schede da 16 GB, con contesto ridotto." },
+        { "file": "Qwen3.8-27B-UD-Q3_K_XL.gguf", "gb": 13.1, "vram_gb": 15, "qualita": "discreta", "nota": "Sotto Q4 gli errori sulle chiamate agli strumenti aumentano in modo percepibile." },
+        { "file": "Qwen3.8-27B-UD-Q2_K_XL.gguf", "gb":  9.8, "vram_gb": 12, "qualita": "scarsa",   "nota": "Ultima spiaggia. Gira, ma sbaglia spesso: meglio un modello piu' piccolo ben quantizzato." }
+      ]
     }
   ],
   "onesta": {
     "titolo": "Cosa aspettarsi da un modello locale",
     "testo": "Un modello che gira sul tuo PC e' piu' lento e meno capace dei modelli a pagamento, soprattutto sui compiti lunghi e sulle catene di strumenti. In cambio e' gratuito, funziona senza rete e non manda niente fuori dalla tua macchina. NOVA lo usa volentieri come orchestratore e chiama un modello piu' capace solo quando serve."
+  },
+  "voce": {
+    "_nota": "La trascrizione locale usa i modelli ggml di whisper.cpp. Il file va in runtime/voce/.",
+    "url_base": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/",
+    "varianti": [
+      { "file": "ggml-base.bin",  "mb": 148, "qualita": "discreta", "nota": "Basta per i comandi brevi.", "predefinita": true },
+      { "file": "ggml-small.bin", "mb": 488, "qualita": "buona",    "nota": "Consigliato se hai RAM a sufficienza: sbaglia meno sui nomi propri." },
+      { "file": "ggml-medium.bin","mb": 1530,"qualita": "ottima",   "nota": "Lento su CPU modeste." }
+    ]
   }
 }

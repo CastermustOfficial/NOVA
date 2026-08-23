@@ -29,8 +29,21 @@ tastiera, cosi' puoi continuare a lavorare mentre lei fa il suo pezzo.
 
 ## Installazione
 
-Serve **Python 3.10+**. Non serve ne' Rust ne' Visual Studio: il core arriva
-gia' compilato.
+### Requisiti
+
+| | |
+|---|---|
+| Sistema | **Windows 10/11 a 64 bit** |
+| Python | 3.10 o superiore |
+| Disco | 3 GB per il minimo; 15-30 GB se scegli un modello locale |
+| GPU | facoltativa: serve solo per il modello locale |
+
+NOVA e' legata a Windows in profondita': l'automazione usa UI Automation e
+l'archivio credenziali usa DPAPI. Su macOS e Linux il codice compila ma non
+fa niente. **Non serve ne' Rust ne' Visual Studio**: il core arriva gia'
+compilato.
+
+### Passi
 
 ```powershell
 git clone https://github.com/CastermustOfficial/NOVA.git
@@ -56,7 +69,7 @@ NOVA non e' legata a un modello. Scegli tu chi ragiona:
 | Strada | Per chi | Nota |
 |---|---|---|
 | **Chiave API** | qualita' massima, si paga a consumo | **consigliata** |
-| **Modello locale** | gratuito, offline, privato | serve una GPU decente |
+| **Modello locale** | gratuito, offline, privato | Qwen3.8 27B; l'installer sceglie la quantizzazione che sta nella tua VRAM |
 | **CLI di un abbonamento** | utenti avanzati | vedi l'avvertenza sotto |
 
 > **Avvertenza sugli abbonamenti.** Usare la CLI di un abbonamento consumer
