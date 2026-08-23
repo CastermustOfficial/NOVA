@@ -7,7 +7,7 @@
 
 use std::collections::{HashMap, VecDeque};
 use std::process::Stdio;
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -26,6 +26,11 @@ const RIAVVII_MASSIMI: u32 = 5;
 /// non fa parte di un ciclo: il contatore dei riavvii riparte da zero.
 const SOGLIA_STABILITA: Duration = Duration::from_secs(60);
 /// Righe di output tenute in memoria per ogni processo.
+/// Dopo essersi arreso il supervisor non muore: aspetta, azzera il conto e
+/// riprova. Una morte definitiva e silenziosa non e' mai la risposta giusta:
+/// un guasto permanente costa un tentativo ogni tanto, uno transitorio si
+/// ripara da solo senza che nessuno se ne accorga.
+const QUARANTENA: Duration = Duration::from_secs(300);
 const RIGHE_IN_MEMORIA: usize = 500;
 
 #[derive(Debug, Clone)]
@@ -44,6 +49,9 @@ struct Entry {
     pid: Arc<AtomicU32>,
     running: Arc<AtomicBool>,
     restarts: Arc<AtomicU32>,
+    rese: Arc<AtomicU32>,
+    /// Unix secondi dell'ultima resa; 0 = non e' in resa.
+    arreso_da: Arc<AtomicU64>,
     last_exit: Arc<AtomicI32>,
     /// Inviare qui ferma il processo e disattiva il riavvio automatico.
     stop: Option<oneshot::Sender<()>>,
@@ -78,6 +86,8 @@ impl Supervisor {
         let pid = Arc::new(AtomicU32::new(0));
         let running = Arc::new(AtomicBool::new(false));
         let restarts = Arc::new(AtomicU32::new(0));
+        let rese = Arc::new(AtomicU32::new(0));
+        let arreso_da = Arc::new(AtomicU64::new(0));
         let last_exit = Arc::new(AtomicI32::new(i32::MIN));
         let (stop_tx, stop_rx) = oneshot::channel();
 
@@ -91,6 +101,8 @@ impl Supervisor {
                     pid: pid.clone(),
                     running: running.clone(),
                     restarts: restarts.clone(),
+                    rese: rese.clone(),
+                    arreso_da: arreso_da.clone(),
                     last_exit: last_exit.clone(),
                     stop: Some(stop_tx),
                 },
@@ -102,7 +114,7 @@ impl Supervisor {
         let segnale = avviato.clone();
         let pid_task = pid.clone();
         tokio::spawn(async move {
-            sup.ciclo_di_vita(spec, pid_task, running, restarts, last_exit, stop_rx, segnale)
+            sup.ciclo_di_vita(spec, pid_task, running, restarts, rese, arreso_da, last_exit, stop_rx, segnale)
                 .await;
         });
 
@@ -120,6 +132,8 @@ impl Supervisor {
         pid: Arc<AtomicU32>,
         running: Arc<AtomicBool>,
         restarts: Arc<AtomicU32>,
+        rese: Arc<AtomicU32>,
+        arreso_da: Arc<AtomicU64>,
         last_exit: Arc<AtomicI32>,
         mut stop_rx: oneshot::Receiver<()>,
         avviato: Arc<tokio::sync::Notify>,
@@ -173,6 +187,21 @@ impl Supervisor {
                 avviato.notify_one();
                 primo_giro = false;
             }
+            // Se veniva da una resa, la ripresa va detta: l'allarme che si e'
+            // acceso quando si e' arreso deve potersi spegnere da solo.
+            let era_in_resa = arreso_da.swap(0, Ordering::Relaxed);
+            if era_in_resa != 0 {
+                let giu_per = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0).saturating_sub(era_in_resa);
+                tracing::info!(processo = %spec.name, giu_per_s = giu_per, "ripreso dopo la resa");
+                self.bus.emit(
+                    "proc.recovered",
+                    json!({ "name": spec.name, "giu_per_s": giu_per }),
+                );
+                self.bus.emit(
+                    "stato.cambiato",
+                    json!({ "stato": crate::risveglio::stato_a_riposo() }),
+                );
+            }
 
             if spec.capture_output {
                 if let Some(out) = child.stdout.take() {
@@ -214,18 +243,47 @@ impl Supervisor {
             }
             let n = restarts.fetch_add(1, Ordering::Relaxed) + 1;
             if n > RIAVVII_MASSIMI {
+                // Arrendersi «per ora», non «per sempre». Prima qui c'era un
+                // break: il ciclo di vita finiva e nessuno riprovava mai piu'.
+                // L'unico ad ascoltare proc.gave_up era la finestra PyQt, cioe'
+                // proprio quella che il progetto rende sacrificabile — quindi il
+                // modello poteva restare giu' per sempre senza un testimone.
+                let quante = rese.fetch_add(1, Ordering::Relaxed) + 1;
+                arreso_da.store(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0), Ordering::Relaxed);
+                running.store(false, Ordering::Relaxed);
                 tracing::error!(
                     processo = %spec.name,
                     riavvii = n,
-                    "mi arrendo: troppi riavvii ravvicinati, il processo resta giu'"
+                    rese = quante,
+                    attesa_s = QUARANTENA.as_secs(),
+                    "mi arrendo per ora: troppi riavvii ravvicinati, riprovo dopo la quarantena"
                 );
                 self.bus.emit(
                     "proc.gave_up",
-                    json!({ "name": spec.name, "restarts": n,
+                    json!({ "name": spec.name, "restarts": n, "rese": quante,
                             "motivo": "troppi riavvii ravvicinati",
-                            "rimedio": "proc.spawn o service.start per ripartire" }),
+                            "riprovo_fra_s": QUARANTENA.as_secs(),
+                            "rimedio": "riprovo da solo; proc.spawn per non aspettare" }),
                 );
-                break;
+                // L'attesa non deve rendere sordo lo stop: chi ferma il processo
+                // durante la quarantena non puo' restare appeso cinque minuti.
+                let fermato_in_attesa = tokio::select! {
+                    _ = tokio::time::sleep(QUARANTENA) => false,
+                    _ = &mut stop_rx => true,
+                };
+                if fermato_in_attesa {
+                    // chi lo spegne apposta non lascia dietro un allarme: la resa
+                    // vale finche' qualcuno la sta ancora subendo.
+                    arreso_da.store(0, Ordering::Relaxed);
+                    self.bus.emit("proc.stopped", json!({ "name": spec.name }));
+                    break;
+                }
+                restarts.store(0, Ordering::Relaxed);
+                self.bus.emit(
+                    "proc.riprovo",
+                    json!({ "name": spec.name, "dopo_resa": quante }),
+                );
+                continue;
             }
             self.bus
                 .emit("proc.restarting", json!({ "name": spec.name, "tentativo": n }));
@@ -312,6 +370,11 @@ impl Supervisor {
                     running: e.running.load(Ordering::Relaxed),
                     restarts: e.restarts.load(Ordering::Relaxed),
                     last_exit: if uscita == i32::MIN { None } else { Some(uscita) },
+                    rese: e.rese.load(Ordering::Relaxed),
+                    arreso_da_s: match e.arreso_da.load(Ordering::Relaxed) {
+                        0 => None,
+                        t => Some((std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)).saturating_sub(t)),
+                    },
                     program: e.program.clone(),
                     args: e.args.clone(),
                 }

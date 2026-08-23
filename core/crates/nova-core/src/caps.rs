@@ -78,7 +78,7 @@ impl Capability for DaemonStatusCap {
             uptime_s: ctx.started_at.elapsed().as_secs(),
             endpoint: ctx.config.endpoint.clone(),
             clients: ctx.bus.listeners(),
-            capabilities: 0, // riempito dal server, che possiede il registro
+            capabilities: crate::capability::quante_capacita(),
             children: ctx.supervisor.status().await,
         };
         Ok(serde_json::to_value(stato)?)
@@ -379,7 +379,23 @@ impl Capability for ProcListCap {
     }
 
     async fn call(&self, _args: Value, ctx: &Ctx) -> Result<Value> {
-        Ok(json!({ "children": ctx.supervisor.status().await }))
+        let figli = ctx.supervisor.status().await;
+        // Un processo assente e uno che si e' arreso si assomigliavano, e per
+        // questo l'autodiagnostica riferiva «il modello non e' attivo» con la
+        // faccia di chi dice una cosa normale. Non lo e': e' un guasto.
+        let arresi: Vec<_> = figli
+            .iter()
+            .filter(|p| p.arreso_da_s.is_some())
+            .map(|p| json!({ "name": p.name, "giu_da_s": p.arreso_da_s, "rese": p.rese }))
+            .collect();
+        let guasto = !arresi.is_empty();
+        Ok(json!({
+            "children": figli,
+            "arresi": arresi,
+            "attenzione": if guasto {
+                "un processo e' giu' dopo essersi arreso: non e' quiete, e' un guasto"
+            } else { "" },
+        }))
     }
 }
 

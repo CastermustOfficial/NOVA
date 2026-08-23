@@ -203,6 +203,12 @@ pub struct ChildStatus {
     pub program: String,
     #[serde(default)]
     pub args: Vec<String>,
+    /// Quante volte il supervisor si e' arreso e ha atteso la quarantena.
+    #[serde(default)]
+    pub rese: u32,
+    /// Da quanti secondi e' giu' dopo una resa. None = non e' in resa.
+    #[serde(default)]
+    pub arreso_da_s: Option<u64>,
 }
 
 #[cfg(test)]
