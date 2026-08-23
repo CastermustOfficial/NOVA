@@ -207,7 +207,18 @@ $binari = @('novad.exe', 'nova-shell.exe', 'nova.exe')
 function Core-Presente { foreach ($b in $binari) { if (-not (Test-Path (Join-Path $BinDir $b))) { return $false } }; return $true }
 
 function Scarica-Core {
-    $rel = Invoke-RestMethod "https://api.github.com/repos/$Repo/releases/latest" -Headers @{ 'User-Agent' = 'nova-installer' }
+    # ATTENZIONE: «/releases/latest» ESCLUDE le prerelease. Finche' NOVA e' in
+    # alpha ogni release e' una prerelease, quindi quell'endpoint da' sempre
+    # vuoto e l'installer «non trova niente» pur essendo tutto pubblicato.
+    # Si guarda l'elenco completo e si prende la piu' recente non bozza.
+    $H = @{ 'User-Agent' = 'nova-installer' }
+    $rel = $null
+    try { $rel = Invoke-RestMethod "https://api.github.com/repos/$Repo/releases/latest" -Headers $H } catch { }
+    if (-not $rel -or -not $rel.tag_name) {
+        $tutte = Invoke-RestMethod "https://api.github.com/repos/$Repo/releases?per_page=10" -Headers $H
+        $rel = $tutte | Where-Object { -not $_.draft } | Select-Object -First 1
+    }
+    if (-not $rel) { throw "nessuna release pubblicata" }
     $asset = $rel.assets | Where-Object { $_.name -eq 'nova-core-windows-x64.zip' } | Select-Object -First 1
     if (-not $asset) { throw "la release $($rel.tag_name) non contiene i binari per Windows" }
     $zip = Join-Path $env:TEMP $asset.name
