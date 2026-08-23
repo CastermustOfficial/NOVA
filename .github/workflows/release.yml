@@ -1,0 +1,71 @@
+# Compila il core Rust e allega i binari alla release.
+#
+# E' il pezzo che rende possibile l'installer a due clic: senza questo,
+# chi installa NOVA dovrebbe procurarsi Rust e i Build Tools di Visual
+# Studio e aspettare una compilazione. Con questo, scarica tre .exe.
+#
+# Si attiva creando un tag:  git tag v0.1.0 && git push origin v0.1.0
+
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:        # per provarlo a mano senza creare un tag
+
+permissions:
+  contents: write           # serve per creare la release e allegare i file
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache delle dipendenze
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+
+      - name: Test
+        working-directory: core
+        run: cargo test --release
+
+      - name: Compila
+        working-directory: core
+        run: cargo build --release
+
+      - name: Raccogli i binari
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          # nova-shell e' l'interfaccia (orb), novad il demone, nova la CLI
+          foreach ($n in 'novad.exe','nova-shell.exe','nova.exe') {
+            $p = "core/target/release/$n"
+            if (Test-Path $p) { Copy-Item $p dist/ } else { throw "manca $n" }
+          }
+          # Gli hash servono a chi vuole verificare cosa sta installando:
+          # e' il vantaggio dell'open source, tanto vale usarlo.
+          Get-FileHash dist/*.exe -Algorithm SHA256 |
+            ForEach-Object { "{0}  {1}" -f $_.Hash.ToLower(), (Split-Path $_.Path -Leaf) } |
+            Set-Content dist/SHA256SUMS.txt -Encoding ascii
+          Compress-Archive -Path dist/* -DestinationPath nova-core-windows-x64.zip -Force
+
+      - name: Allega alla release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            nova-core-windows-x64.zip
+            dist/SHA256SUMS.txt
+          generate_release_notes: true
+
+      - name: Conserva i binari anche senza tag
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-core-windows-x64
+          path: dist/

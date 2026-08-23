@@ -1,32 +1,105 @@
-# NOVA - assistente digitale locale per Windows
+# NOVA
 
-NOVA fa girare un modello GGUF **in locale** (llama.cpp, avviato e gestito
-dall'app stessa: LM Studio non serve) e gli da' **mani vere** sul PC:
-filesystem, applicazioni, finestre, PowerShell e web.
+**Un esperto seduto accanto a te, dentro il tuo PC.**
 
-**Nessuna visione.** NOVA non guarda lo schermo: agisce tramite API di
-sistema e comandi, che e' piu' veloce, deterministico e non consuma contesto
-in immagini.
+NOVA non e' una chat che da' consigli: apre programmi, compila moduli, scrive
+file, esegue comandi. E lo fa **senza rubarti il posto** — lavora in una
+finestra sua, agendo sull'albero di accessibilita' invece che su mouse e
+tastiera, cosi' puoi continuare a lavorare mentre lei fa il suo pezzo.
 
-## Avvio rapido
+[![ci](https://github.com/CastermustOfficial/NOVA/actions/workflows/ci.yml/badge.svg)](https://github.com/CastermustOfficial/NOVA/actions/workflows/ci.yml)
+[![licenza: MIT](https://img.shields.io/badge/licenza-MIT-blue.svg)](LICENSE)
+
+> **Stato: alpha.** Funziona sulla macchina di chi la sviluppa. Se la provi,
+> aspettati spigoli — e aprine una issue, che e' il modo piu' utile di aiutare.
+
+## Cosa sa fare
+
+- **Agisce sul sistema**: file, applicazioni, finestre, PowerShell, web.
+- **Non ti interrompe**: usa l'accessibilita', non input sintetici. Puo'
+  operare su una finestra in secondo piano mentre tu scrivi in un'altra.
+- **Ti ascolta**: chiamala per nome e parla; capisce da sola quando la
+  conversazione e' finita.
+- **Ricorda**: una memoria a grafo di cio' che impara sul tuo PC e sul tuo
+  lavoro. Resta sul tuo disco.
+- **Custodisce le credenziali**: archivio cifrato con DPAPI, cosi' puo'
+  compilare un accesso senza che la password passi mai dal modello.
+- **Vede lo stato reale** dell'hardware: ti dice se la RAM va piu' piano di
+  quanto potrebbe, invece di farti indovinare.
+
+## Installazione
+
+Serve **Python 3.10+**. Non serve ne' Rust ne' Visual Studio: il core arriva
+gia' compilato.
 
 ```powershell
-cd C:\Users\giova\NOVA
-.\install.ps1                     # dipendenze + configurazione + avvio automatico
-.\install.ps1 -WithCudaRuntime    # come sopra, scaricando anche llama.cpp CUDA
-.\get_cuda_runtime.ps1            # solo il runtime CUDA
-
-python -m nova                    # interfaccia grafica
-python -m nova --cli              # modalita' testuale
-python -m nova --ask "elenca i file sul desktop"
-python -m nova --list-tools       # tutti i tool e il loro livello di rischio
-python -m nova --reconfigure      # ririleva modello e runtime
+git clone https://github.com/CastermustOfficial/NOVA.git
+cd NOVA
+.\install.ps1
 ```
+
+| Opzione | Cosa fa |
+|---|---|
+| `.\install.ps1` | installa tutto e configura l'avvio automatico |
+| `.\install.ps1 -ConCuda` | scarica anche llama.cpp CUDA, per il modello locale |
+| `.\install.ps1 -DaSorgente` | compila il core invece di scaricarlo (serve Rust + MSVC) |
+| `.\install.ps1 -SenzaAvvioAuto` | non parte all'accensione |
+| `.\install.ps1 -Disinstalla` | toglie avvio automatico e collegamento |
+
+Poi avvia NOVA dal collegamento sul Desktop: comparira' un orb in un angolo
+dello schermo. Cliccalo per scrivere, oppure chiamala per nome.
+
+## Il cervello: tre strade
+
+NOVA non e' legata a un modello. Scegli tu chi ragiona:
+
+| Strada | Per chi | Nota |
+|---|---|---|
+| **Chiave API** | qualita' massima, si paga a consumo | **consigliata** |
+| **Modello locale** | gratuito, offline, privato | serve una GPU decente |
+| **CLI di un abbonamento** | utenti avanzati | vedi l'avvertenza sotto |
+
+> **Avvertenza sugli abbonamenti.** Usare la CLI di un abbonamento consumer
+> come motore di un'applicazione terza e' fuori dai termini di servizio della
+> maggior parte dei fornitori, e il rischio ricade sul tuo account. NOVA
+> supporta questa strada perche' e' comoda, ma non e' quella predefinita e non
+> te la consiglia.
+
+Il catalogo dei modelli locali sta in [`models.json`](models.json): e' un
+dato, non codice, cosi' aggiornare la classifica non richiede una release.
+
+## Permessi
+
+NOVA parte con **«conferma sempre»**: chiede il permesso prima di ogni azione
+che tocca il sistema, e la richiesta dice *cosa* sta per fare, non un generico
+«consentire operazione?». Puoi allentare il vincolo quando ti fidi — e'
+una manopola tua, non una decisione sua.
+
+Quello che resta sul tuo disco e non esce mai: memoria, credenziali,
+configurazione. Vivono in `%APPDATA%\NOVA`.
+
+## Documentazione
+
+- [Documento di architettura](docs/architettura.md) — le decisioni prese e il
+  perche', comprese quelle scartate.
+- [Come contribuire](CONTRIBUTING.md)
+
+## Per chi sviluppa
+
+```powershell
+.\build.ps1              # compila il core Rust (release)
+.\build.ps1 -Test        # esegue i test Rust
+python -m pytest -q       # esegue i test Python
+```
+
+Il resto di questo documento e' la documentazione tecnica di dettaglio.
+
+---
 
 ## Architettura
 
 ```
-run_nova.pyw          avvio silenzioso (usato dall'autostart)
+bin/nova-shell.exe    l'orb e le finestre (avviato all'accensione)
 install.ps1           installazione, runtime CUDA, avvio automatico, collegamento
 nova/
   main.py             entrypoint, GUI o CLI

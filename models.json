@@ -1,0 +1,55 @@
+{
+  "$schema": "https://nova.invalid/schemas/models-1.json",
+  "_nota": [
+    "Il catalogo dei modelli locali. NON e' codice: e' un dato.",
+    "«Il migliore in commercio» cambia ogni mese; se stesse nel codice, ogni",
+    "modello nuovo sarebbe una release. Qui basta aggiornare questo file.",
+    "",
+    "vram_gb e ram_gb sono i minimi realistici per far girare la",
+    "quantizzazione indicata, non i minimi teorici. qualita e' una stima",
+    "onesta e comparativa, non una promessa: serve a scegliere, non a vendere."
+  ],
+  "revisione": "2026-08-23",
+  "modelli": [
+    {
+      "id": "qwen3-8b-q4km",
+      "nome": "Qwen3 8B",
+      "quantizzazione": "Q4_K_M",
+      "vram_gb": 6,
+      "ram_gb": 16,
+      "dimensione_gb": 5.0,
+      "qualita": "buona",
+      "consigliato": true,
+      "note": "Il compromesso migliore su una GPU di fascia media. Regge gli strumenti e l'italiano.",
+      "fonte": "https://huggingface.co/Qwen/Qwen3-8B-GGUF"
+    },
+    {
+      "id": "qwen3-4b-q4km",
+      "nome": "Qwen3 4B",
+      "quantizzazione": "Q4_K_M",
+      "vram_gb": 3,
+      "ram_gb": 8,
+      "dimensione_gb": 2.6,
+      "qualita": "discreta",
+      "consigliato": false,
+      "note": "Per macchine modeste. Sbaglia piu' spesso le chiamate agli strumenti.",
+      "fonte": "https://huggingface.co/Qwen/Qwen3-4B-GGUF"
+    },
+    {
+      "id": "qwen3-30b-a3b-q4km",
+      "nome": "Qwen3 30B A3B",
+      "quantizzazione": "Q4_K_M",
+      "vram_gb": 20,
+      "ram_gb": 32,
+      "dimensione_gb": 18.0,
+      "qualita": "ottima",
+      "consigliato": false,
+      "note": "Mixture-of-experts: attiva 3B per volta, quindi va veloce se ci sta in VRAM.",
+      "fonte": "https://huggingface.co/Qwen/Qwen3-30B-A3B-GGUF"
+    }
+  ],
+  "onesta": {
+    "titolo": "Cosa aspettarsi da un modello locale",
+    "testo": "Un modello che gira sul tuo PC e' piu' lento e meno capace dei modelli a pagamento, soprattutto sui compiti lunghi e sulle catene di strumenti. In cambio e' gratuito, funziona senza rete e non manda niente fuori dalla tua macchina. NOVA lo usa volentieri come orchestratore e chiama un modello piu' capace solo quando serve."
+  }
+}
