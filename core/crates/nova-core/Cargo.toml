@@ -8,9 +8,20 @@ description = "Il motore di NOVA: bus di eventi, registro di capacita', supervis
 [dependencies]
 nova-proto = { path = "../nova-proto" }
 nova-platform = { path = "../nova-platform" }
+nova-voce = { path = "../nova-voce" }
 tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
 tracing.workspace = true
+
+# DPAPI per l'archivio delle credenziali, e il generatore di numeri casuali
+# del sistema. Solo su Windows: altrove l'archivio andra' scritto sopra il
+# portachiavi locale, e per ora lo dice invece di far finta.
+[target.'cfg(windows)'.dependencies.windows]
+version = "0.62"
+features = [
+    "Win32_Foundation",
+    "Win32_Security_Cryptography",
+]

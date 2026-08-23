@@ -16,6 +16,7 @@ use windows::Win32::Foundation::{HWND, LPARAM, MAX_PATH, RECT};
 use windows::Win32::System::Com::{
     CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED,
 };
+use windows::Win32::System::Variant::VARIANT;
 use windows::Win32::System::Threading::{
     OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_FORMAT, PROCESS_QUERY_LIMITED_INFORMATION,
 };
@@ -24,7 +25,7 @@ use windows::Win32::UI::Accessibility::{
     IUIAutomationLegacyIAccessiblePattern, IUIAutomationSelectionItemPattern,
     IUIAutomationTogglePattern, IUIAutomationValuePattern, TreeScope_Children,
     UIA_InvokePatternId, UIA_LegacyIAccessiblePatternId, UIA_SelectionItemPatternId,
-    UIA_TogglePatternId, UIA_ValuePatternId,
+    TreeScope_Subtree, UIA_ControlTypePropertyId, UIA_TogglePatternId, UIA_ValuePatternId,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsWindowVisible,
@@ -35,6 +36,14 @@ use crate::{ElementRef, UiNode, UiQuery, UiTree, WindowInfo, WindowSel};
 /// Quanti figli guardare per nodo: alcune liste ne hanno decine di migliaia e
 /// un albero che non finisce mai non serve a nessuno.
 const MAX_FIGLI: usize = 200;
+
+/// Quanti elementi guardare al massimo durante una ricerca.
+///
+/// `FindAll` su una pagina come Gmail restituisce decine di migliaia di nodi;
+/// leggere il nome di ognuno e' una chiamata che attraversa i processi. Il
+/// tetto e' la differenza fra una ricerca che risponde e una che sembra
+/// appesa. Quando lo si tocca, si dice.
+const MAX_ESAMINATI: i32 = 6000;
 
 /// Oltre questo, si smette di aspettare.
 ///
@@ -219,15 +228,7 @@ unsafe fn servi(automation: &IUIAutomation, rx: std::sync::mpsc::Receiver<Cmd>) 
             Cmd::Find(sel, query, limit, tx) => {
                 let esito = (|| -> Result<Vec<UiNode>> {
                     let el = elemento_finestra(automation, &sel)?;
-                    // profondita' generosa: la ricerca serve proprio quando non
-                    // si sa dove sta la cosa
-                    let albero = costruisci_albero(automation, &el, Vec::new(), 12);
-                    let mut fuori: Vec<UiNode> = crate::appiattisci(&albero)
-                        .into_iter()
-                        .filter(|n| query.matches(n))
-                        .collect();
-                    fuori.truncate(limit.max(1));
-                    Ok(fuori)
+                    cerca(automation, &el, &query, limit)
                 })();
                 let _ = tx.send(esito.map_err(|e| e.to_string()));
             }
@@ -345,6 +346,109 @@ unsafe fn elemento_finestra(
     automation
         .ElementFromHandle(hwnd)
         .map_err(|e| anyhow!("la finestra non espone un albero di accessibilita': {e}"))
+}
+
+/// Cerca dentro tutta la finestra, chiedendolo a UI Automation.
+///
+/// La versione di prima costruiva l'albero fino a una profondita' fissa e poi
+/// filtrava. Su una pagina semplice bastava; su Gmail no — il nodo `document`
+/// sta all'undicesimo livello e i pulsanti veri stanno molto piu' sotto, quindi
+/// la ricerca trovava solo la cornice del browser e restituiva «niente» a una
+/// domanda a cui la risposta c'era. Alzare il limite non era la soluzione: con
+/// duecento figli per nodo, ogni livello in piu' moltiplica il lavoro, e ogni
+/// figlio e' una chiamata che attraversa i processi.
+///
+/// `FindAll(TreeScope_Subtree)` sposta la camminata **dentro** il motore di
+/// UI Automation: una chiamata sola, nessun limite di profondita', e il
+/// filtro grosso (il ruolo) lo applica lui.
+///
+/// Resta da ricostruire il `path`, che e' il modo in cui NOVA indirizza un
+/// elemento fra una chiamata e l'altra: `FindAll` restituisce elementi, non
+/// indirizzi. Si risale ai genitori contando la posizione fra i fratelli — ma
+/// solo per i pochi elementi che passano il filtro, non per tutti.
+unsafe fn cerca(
+    automation: &IUIAutomation,
+    radice: &IUIAutomationElement,
+    query: &UiQuery,
+    limit: usize,
+) -> Result<Vec<UiNode>> {
+    // Il ruolo, se c'e', lo filtra il motore: e' cio' che evita di leggere il
+    // nome di diecimila elementi per trovarne tre.
+    let condizione = match codice_ruolo(&query.role) {
+        Some(codice) => {
+            let v: VARIANT = codice.into();
+            automation.CreatePropertyCondition(UIA_ControlTypePropertyId, &v)?
+        }
+        None => automation.CreateTrueCondition()?,
+    };
+
+    let trovati = radice
+        .FindAll(TreeScope_Subtree, &condizione)
+        .map_err(|e| anyhow!("ricerca fallita: {e}"))?;
+    let quanti = trovati.Length().unwrap_or(0);
+
+    let mut fuori = Vec::new();
+    let mut guardati = 0i32;
+    for i in 0..quanti.min(MAX_ESAMINATI) {
+        guardati += 1;
+        let Ok(el) = trovati.GetElement(i) else { continue };
+        // Il nodo si costruisce senza percorso: calcolarlo per tutti sarebbe
+        // il costo che stiamo evitando.
+        let mut n = nodo(&el, Vec::new());
+        if !query.matches(&n) {
+            continue;
+        }
+        n.path = percorso_di(automation, radice, &el);
+        fuori.push(n);
+        if fuori.len() >= limit.max(1) {
+            break;
+        }
+    }
+    tracing::debug!(quanti, guardati, trovati = fuori.len(), "ricerca");
+    Ok(fuori)
+}
+
+/// Da elemento a percorso di indici, risalendo i genitori.
+///
+/// Vuoto se la risalita non arriva alla radice: meglio un percorso assente,
+/// che chi legge vede, di uno inventato che porta altrove.
+unsafe fn percorso_di(
+    automation: &IUIAutomation,
+    radice: &IUIAutomationElement,
+    el: &IUIAutomationElement,
+) -> Vec<u32> {
+    let Ok(walker) = automation.ControlViewWalker() else {
+        return Vec::new();
+    };
+    let mut indici: Vec<u32> = Vec::new();
+    let mut corrente = el.clone();
+    for _ in 0..64 {
+        if automation
+            .CompareElements(&corrente, radice)
+            .map(|b| b.as_bool())
+            .unwrap_or(false)
+        {
+            indici.reverse();
+            return indici;
+        }
+        let Ok(padre) = walker.GetParentElement(&corrente) else {
+            return Vec::new();
+        };
+        let fratelli = figli(automation, &padre);
+        let Some(posto) = fratelli.iter().position(|f| {
+            automation
+                .CompareElements(f, &corrente)
+                .map(|b| b.as_bool())
+                .unwrap_or(false)
+        }) else {
+            // Oltre MAX_FIGLI il fratello esiste ma non l'abbiamo contato:
+            // dirlo con un percorso vuoto e' piu' onesto che indovinare.
+            return Vec::new();
+        };
+        indici.push(posto as u32);
+        corrente = padre;
+    }
+    Vec::new()
 }
 
 unsafe fn figli(
@@ -546,6 +650,16 @@ fn ruolo(control_type: i32) -> String {
         _ => "unknown",
     }
     .to_string()
+}
+
+/// Da nome di ruolo a identificatore UIA. Serve a far filtrare il motore
+/// invece di leggere il nome di ogni nodo per poi scartarlo.
+fn codice_ruolo(nome: &str) -> Option<i32> {
+    if nome.trim().is_empty() {
+        return None;
+    }
+    let n = nome.trim().to_lowercase();
+    (50000..=50040).find(|c| ruolo(*c) == n)
 }
 
 /// Cosa *probabilmente* si puo' fare, dedotto dal ruolo.

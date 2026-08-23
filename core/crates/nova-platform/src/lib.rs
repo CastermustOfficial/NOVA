@@ -17,6 +17,11 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
+// Governare la scena — spostare, mandare dietro, sapere che schermi ci sono —
+// non e' leggere l'albero: sta in un modulo suo, e non passa da COM.
+pub mod finestre;
+pub use finestre::{schermi, schermo_di, schermo_di_lavoro, sposta, Posa, Schermo};
+
 #[cfg(windows)]
 mod windows_uia;
 

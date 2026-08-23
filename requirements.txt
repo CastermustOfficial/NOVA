@@ -10,6 +10,10 @@ send2trash>=1.8
 pycaw>=20240210
 comtypes>=1.2
 
-# --- fase 2: voce (installare quando servira') ---
+# --- voce ---
+# Registrazione e riproduzione. Il resto (ascolto e sintesi) passa da
+# ElevenLabs via HTTP, quindi non serve nessun modello in locale.
+sounddevice>=0.4
+# Solo se si vuole trascrivere senza far uscire l'audio dal PC:
+# stt_engine: "faster-whisper" nella configurazione.
 # faster-whisper>=1.0
-# sounddevice>=0.4

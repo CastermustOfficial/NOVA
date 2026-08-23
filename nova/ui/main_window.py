@@ -4,6 +4,7 @@ from __future__ import annotations
 import html
 import json
 import threading
+import time
 import traceback
 from datetime import datetime
 
@@ -158,6 +159,9 @@ class MainWindow(QMainWindow):
     sig_ask = pyqtSignal(str, dict, str, int)
     sig_server_log = pyqtSignal(str)
     sig_learned = pyqtSignal(list)
+    sig_memoria_errore = pyqtSignal(str)
+    sig_permesso = pyqtSignal(dict)
+    sig_permesso_scaduto = pyqtSignal(str)
     sig_brain = pyqtSignal(str)
     sig_delega = pyqtSignal(str, str, float)
 
@@ -195,7 +199,8 @@ class MainWindow(QMainWindow):
         from ..kb_setup import collega_memoria
         collega_memoria(self.agent, self.vault, cfg,
                         on_learn=lambda nodi: self.sig_learned.emit(
-                            [n.title for n in nodi]))
+                            [n.title for n in nodi]),
+                        on_errore=self.sig_memoria_errore.emit)
 
         self._build_ui()
         self._connect_signals()
@@ -301,6 +306,10 @@ class MainWindow(QMainWindow):
         self.sig_ask.connect(self._show_approval)
         self.sig_server_log.connect(self._log_server)
         self.sig_learned.connect(self._log_learned)
+        self.sig_memoria_errore.connect(self._log_memoria_errore)
+        self.sig_permesso.connect(self._mostra_permesso)
+        self.sig_permesso_scaduto.connect(self._chiudi_permesso)
+        self._avvia_sportello_permessi()
         self.sig_brain.connect(self._on_brain_state)
         self.sig_delega.connect(self._log_delega)
 
@@ -472,6 +481,16 @@ class MainWindow(QMainWindow):
         if speso:
             self.lbl_status.setText(f"Speso in deleghe: {speso:.3f} $")
 
+    def _log_memoria_errore(self, messaggio: str) -> None:
+        """Se l'apprendimento inciampa, si deve vedere: prima finiva nel vuoto."""
+        stamp = datetime.now().strftime("%H:%M:%S")
+        self.actions.append(
+            f'<div style="margin-top:8px;"><span style="color:#6e7681;">{stamp}</span> '
+            f'<span style="color:#a371f7;font-weight:700;">memoria</span> '
+            f'<span style="color:#f85149;">{html.escape(str(messaggio))}</span></div>')
+        self.actions.verticalScrollBar().setValue(
+            self.actions.verticalScrollBar().maximum())
+
     def _log_learned(self, titoli: list) -> None:
         if not titoli:
             return
@@ -509,6 +528,129 @@ class MainWindow(QMainWindow):
         self.cfg.safety.autonomy = key
         self.cfg.save()
         self._append_system(f"Livello di autonomia: {AUTONOMY_LABELS[key]}.")
+
+    # -- permessi del cervello agentico --------------------------------
+    def _avvia_sportello_permessi(self) -> None:
+        """Sorveglia le richieste di permesso che arrivano da Claude Code.
+
+        Claude agisce dentro il proprio processo: le sue conferme non passano
+        da `_ask_approval_blocking`. Arrivano al demone, e da li' qui. Senza
+        questo giro, NOVA scriveva «confermi?» a una finestra senza bottoni.
+        """
+        self._permessi_visti: set[str] = set()
+        self._permessi_aperti: dict[str, QDialog] = {}
+        self._permessi_attivo = True
+        threading.Thread(target=self._sportello_permessi, daemon=True).start()
+
+    def _sportello_permessi(self) -> None:
+        from ..core_client import CoreClient
+        cliente = None
+        while getattr(self, "_permessi_attivo", False):
+            try:
+                if cliente is None:
+                    cliente = CoreClient(timeout=10.0).connect()
+                attese = cliente.call("approvazione.attese")
+                vive = {r.get("id") for r in (attese.get("richieste") or [])}
+                for richiesta in attese.get("richieste") or []:
+                    if richiesta.get("id") in self._permessi_visti:
+                        continue
+                    self._permessi_visti.add(richiesta["id"])
+                    if str(richiesta.get("origine") or "utente") != "utente":
+                        continue      # e' una prova: non riguarda te
+                    self.sig_permesso.emit(richiesta)
+                # Una richiesta puo' morire mentre il dialogo e' ancora aperto:
+                # chi l'aveva fatta e' andato in timeout, o ha risposto qualcun
+                # altro. Lasciare la finestra li' significa farti decidere su
+                # una domanda che nessuno ascolta piu'.
+                for identificativo in list(self._permessi_aperti):
+                    if identificativo not in vive:
+                        self.sig_permesso_scaduto.emit(identificativo)
+            except Exception:
+                # demone spento o riavviato: si riprova al giro dopo invece di
+                # spegnere la sorveglianza per sempre
+                try:
+                    if cliente is not None:
+                        cliente.close()
+                except Exception:
+                    pass
+                cliente = None
+            time.sleep(0.6)
+
+    def _mostra_permesso(self, richiesta: dict) -> None:
+        rischio = {"safe": Risk.SAFE, "moderate": Risk.MODERATE,
+                   "dangerous": Risk.DANGEROUS}.get(
+                       str(richiesta.get("rischio") or "moderate"), Risk.MODERATE)
+        identificativo = str(richiesta.get("id") or "")
+        self._show_and_focus()
+        dlg = ApprovalDialog(self, str(richiesta.get("strumento") or "azione"),
+                             str(richiesta.get("dettaglio") or ""), {}, rischio)
+        self._permessi_aperti[identificativo] = dlg
+        try:
+            esito = dlg.exec()
+        finally:
+            self._permessi_aperti.pop(identificativo, None)
+        if getattr(dlg, "scaduta", False):
+            # chiusa da noi, non da te: non hai deciso niente
+            return
+        self.rispondi_permesso(identificativo, esito == QDialog.DialogCode.Accepted)
+
+    def _chiudi_permesso(self, identificativo: str) -> None:
+        dlg = self._permessi_aperti.pop(identificativo, None)
+        if dlg is None:
+            return
+        dlg.scaduta = True
+        dlg.reject()
+        stamp = datetime.now().strftime("%H:%M:%S")
+        self.actions.append(
+            f'<div style="margin-top:8px;"><span style="color:#6e7681;">{stamp}</span> '
+            f'<span style="color:#d29922;font-weight:700;">permesso</span> '
+            f'<span style="color:#8b949e;">richiesta scaduta, chiusa da sola</span></div>')
+
+    def rispondi_permesso(self, identificativo: str, consenti: bool,
+                          motivo: str = "") -> bool:
+        """Concede o nega. La chiama il dialogo, e la chiamera' la voce."""
+        if not identificativo:
+            return False
+        from ..core_client import CoreClient
+        try:
+            cliente = CoreClient(timeout=10.0).connect()
+            try:
+                esito = cliente.call("approvazione.rispondi", {
+                    "id": identificativo, "consenti": bool(consenti),
+                    "motivo": motivo})
+            finally:
+                cliente.close()
+        except Exception as e:
+            self._log_memoria_errore(f"non sono riuscito a rispondere: {e}")
+            return False
+        # Si scrive nel registro solo cio' che e' successo davvero: se la
+        # richiesta non c'era piu', non hai negato niente.
+        if not esito.get("ok"):
+            self._log_permesso_ignorato(identificativo)
+            return False
+        self._log_permesso(identificativo, consenti)
+        return True
+
+    def _log_permesso_ignorato(self, identificativo: str) -> None:
+        """La risposta e' arrivata tardi: nessuno la stava piu' aspettando."""
+        stamp = datetime.now().strftime("%H:%M:%S")
+        self.actions.append(
+            f'<div style="margin-top:8px;"><span style="color:#6e7681;">{stamp}</span> '
+            f'<span style="color:#d29922;font-weight:700;">permesso</span> '
+            f'<span style="color:#8b949e;">richiesta gia\' chiusa, risposta ignorata</span></div>')
+        self.actions.verticalScrollBar().setValue(
+            self.actions.verticalScrollBar().maximum())
+
+    def _log_permesso(self, identificativo: str, consentito: bool) -> None:
+        stamp = datetime.now().strftime("%H:%M:%S")
+        parola = "consentito" if consentito else "negato"
+        colore = "#3fb950" if consentito else "#f85149"
+        self.actions.append(
+            f'<div style="margin-top:8px;"><span style="color:#6e7681;">{stamp}</span> '
+            f'<span style="color:#d29922;font-weight:700;">permesso</span> '
+            f'<span style="color:{colore};">{parola}</span></div>')
+        self.actions.verticalScrollBar().setValue(
+            self.actions.verticalScrollBar().maximum())
 
     # -- approvazione (chiamata dal thread agente) ---------------------
     def _ask_approval_blocking(self, name: str, args: dict, desc: str, risk: Risk) -> bool:

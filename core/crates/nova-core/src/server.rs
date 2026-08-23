@@ -62,14 +62,26 @@ impl Server {
         let params = req.params.clone().unwrap_or(json!({}));
 
         let esito: Result<Value, (i32, String)> = match req.method.as_str() {
-            "initialize" => Ok(json!({
-                "protocolVersion": nova_proto::PROTOCOL_VERSION,
-                "serverInfo": {
-                    "name": nova_proto::SERVER_NAME,
-                    "version": env!("CARGO_PKG_VERSION"),
-                },
-                "capabilities": { "tools": {}, "events": {} },
-            })),
+            // La versione del protocollo *MCP* non e' la versione del
+            // protocollo di NOVA, e confonderle costa caro: un client MCP che
+            // si sente rispondere «1.0» — che come versione MCP non esiste —
+            // molla il collegamento senza dire niente, e il modello si ritrova
+            // senza nessuno degli strumenti del demone. Qui si risponde a un
+            // client MCP: si echeggia la versione che ha chiesto, se la
+            // conosciamo, altrimenti la nostra.
+            "initialize" => {
+                const CONOSCIUTE: &[&str] = &["2024-11-05", "2025-03-26", "2025-06-18"];
+                let chiesta = params.get("protocolVersion").and_then(|v| v.as_str()).unwrap_or("");
+                let versione = if CONOSCIUTE.contains(&chiesta) { chiesta } else { "2025-06-18" };
+                Ok(json!({
+                    "protocolVersion": versione,
+                    "serverInfo": {
+                        "name": nova_proto::SERVER_NAME,
+                        "version": env!("CARGO_PKG_VERSION"),
+                    },
+                    "capabilities": { "tools": {}, "events": {} },
+                }))
+            }
 
             "ping" => Ok(json!({ "pong": nova_proto::now_ms() })),
 

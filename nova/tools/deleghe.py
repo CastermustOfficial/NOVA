@@ -60,7 +60,10 @@ def _router():
     "Usalo quando il compito supera le tue possibilita': codice complesso, "
     "ragionamenti lunghi, analisi difficili, decisioni che pesano. "
     "Non e' una resa: tu resti al comando e usi il risultato come qualunque "
-    "altro. Chiama prima 'modelli' se non sai quali gradini esistono.",
+    "altro. Chiama prima 'modelli' se non sai quali gradini esistono. "
+    "Alcune categorie (review su piu' file, rischio perdita dati, "
+    "architettura) salgono da sole a un gradino minimo: se scegli piu' basso "
+    "viene alzato, e te lo trovi scritto nella risposta.",
     {
         "a": {"type": "string",
               "description": "Gradino a cui delegare: standard, difficile, alternativo"},
@@ -85,12 +88,18 @@ def delega(a: str, compito: str, motivo: str = "", contesto: str = "",
     contesto = _allega(contesto, file)
     try:
         traccia = r.delega(a=a.strip(), compito=compito, motivo=motivo,
-                           da="orchestratore", contesto=contesto)
+                           da="orchestratore", contesto=contesto,
+                           allegati=len(file or []))
     except (ValueError, PermissionError) as e:
         raise ToolError(str(e))
+    effettivo = traccia.a or a
     if traccia.esito.startswith("ERRORE"):
-        raise ToolError(f"«{a}» non ha potuto rispondere: {traccia.esito[7:]}")
-    intestazione = f"[risposta da «{a}»"
+        raise ToolError(f"«{effettivo}» non ha potuto rispondere: {traccia.esito[7:]}")
+    # non «a»: il router puo' aver alzato il gradino, e dirlo storto qui
+    # significa mostrare all'utente un modello che non ha risposto
+    intestazione = f"[risposta da «{effettivo}»"
+    if effettivo != a:
+        intestazione += f" (salito da «{a}»)"
     if traccia.costo_usd:
         intestazione += f", {traccia.costo_usd:.4f} $"
     if traccia.durata_ms:
@@ -129,12 +138,27 @@ def secondo_parere(domanda: str, primo: str = "standard", secondo: str = "altern
                    file=None) -> str:
     r = _router()
     contesto = _allega("", file)
-    pezzi = []
+    # La regola di salita si risolve qui, una volta: applicata dentro le due
+    # deleghe farebbe collassare entrambi i gradini sullo stesso modello, e
+    # questo tool esiste apposta per confrontarne due.
+    minimo, _perche = r.gradino_minimo(domanda, len(file or []))
+    scelti = []
     for gradino in (primo, secondo):
+        if (minimo and r.indice(minimo) > r.indice(gradino)
+                and r.utilizzabile(minimo)):
+            scelti.append(minimo)
+        else:
+            scelti.append(gradino)
+    if scelti[0] == scelti[1]:
+        scelti[1] = secondo          # due teste restano due
+    pezzi = []
+    for richiesto, gradino in zip((primo, secondo), scelti):
+        titolo = gradino if gradino == richiesto else f"{gradino} (salito da {richiesto})"
         try:
             t = r.delega(a=gradino, compito=domanda, motivo="secondo parere",
-                         da="orchestratore", contesto=contesto)
-            pezzi.append(f"### {gradino}\n{t.esito}")
+                         da="orchestratore", contesto=contesto,
+                         salta_regola=True)
+            pezzi.append(f"### {titolo}\n{t.esito}")
         except (ValueError, PermissionError) as e:
-            pezzi.append(f"### {gradino}\n(non disponibile: {e})")
+            pezzi.append(f"### {titolo}\n(non disponibile: {e})")
     return "\n\n".join(pezzi)

@@ -36,6 +36,13 @@ pub trait Capability: Send + Sync {
     async fn call(&self, args: Value, ctx: &Ctx) -> Result<Value>;
 }
 
+/// Quante capacita' sono registrate in questo processo.
+static QUANTE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+pub fn quante_capacita() -> usize {
+    QUANTE.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 #[derive(Default)]
 pub struct Registry {
     caps: BTreeMap<String, Arc<dyn Capability>>,
@@ -48,10 +55,23 @@ impl Registry {
 
     pub fn add(&mut self, cap: Arc<dyn Capability>) {
         self.caps.insert(cap.info().name, cap);
+        // Il conto va tenuto anche fuori: chi risponde a «daemon.status» non
+        // ha in mano il registro, e finora dichiarava zero capacita' avendone
+        // trentuno. Un numero sbagliato in uno stato e' peggio di un numero
+        // assente: si crede e si va a cercare il guasto altrove.
+        QUANTE.store(self.caps.len(), std::sync::atomic::Ordering::Relaxed);
     }
 
     pub fn get(&self, name: &str) -> Option<Arc<dyn Capability>> {
-        self.caps.get(name).cloned()
+        if let Some(c) = self.caps.get(name) {
+            return Some(c.clone());
+        }
+        // Chi arriva da MCP chiede «ui_windows», perche' e' cosi' che gli e'
+        // stato presentato: vedi `nome_mcp`.
+        self.caps
+            .iter()
+            .find(|(n, _)| nome_mcp(n) == name)
+            .map(|(_, c)| c.clone())
     }
 
     pub fn list(&self) -> Vec<CapabilityInfo> {
@@ -72,7 +92,7 @@ impl Registry {
             .into_iter()
             .map(|c| {
                 serde_json::json!({
-                    "name": c.name,
+                    "name": nome_mcp(&c.name),
                     "description": format!("[{}] {}", c.risk.as_str(), c.description),
                     "inputSchema": c.schema,
                 })
@@ -81,17 +101,45 @@ impl Registry {
     }
 }
 
+/// Il nome di una capacita' come lo puo' vedere un modello.
+///
+/// Dentro NOVA le capacita' si chiamano `ui.windows`, `voce.parla`: il punto
+/// separa l'area dall'azione e si legge bene. Fuori pero' quel nome viene
+/// impacchettato in `mcp__nova-core__ui.windows`, e i nomi dei tool che
+/// arrivano al modello possono contenere solo lettere, cifre, `_` e `-`. Un
+/// punto li' dentro rende il tool non dichiarabile, e il risultato non e' un
+/// errore: e' che il tool non esiste. NOVA rispondeva «non ho accesso alle
+/// tue finestre» avendo in casa lo strumento per elencarle.
+pub fn nome_mcp(nome: &str) -> String {
+    nome.replace('.', "_")
+}
+
 // -- aiutanti per scrivere capacita' senza cerimonie ---------------------
+
+/// Un parametro testuale, accettando anche numeri e booleani.
+///
+/// Non e' permissivita': e' che `as_str()` da solo su `4471` restituisce None,
+/// e chi chiama lo interpreta come «non me l'hanno passato». Un PIN salvato
+/// come stringa vuota senza che nessuno protesti e' il modo peggiore di
+/// perdere un dato — nessun errore, nessun segno, e te ne accorgi il giorno in
+/// cui ti serve.
+fn come_testo(v: &Value) -> Option<String> {
+    match v {
+        Value::String(s) => Some(s.clone()),
+        Value::Number(n) => Some(n.to_string()),
+        Value::Bool(b) => Some(b.to_string()),
+        _ => None,
+    }
+}
 
 pub fn arg_str(args: &Value, chiave: &str) -> Result<String> {
     args.get(chiave)
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
+        .and_then(come_testo)
         .ok_or_else(|| anyhow::anyhow!("parametro «{chiave}» mancante o non testuale"))
 }
 
 pub fn arg_str_opt(args: &Value, chiave: &str) -> Option<String> {
-    args.get(chiave).and_then(|v| v.as_str()).map(|s| s.to_string())
+    args.get(chiave).and_then(come_testo)
 }
 
 pub fn arg_bool(args: &Value, chiave: &str, default: bool) -> bool {

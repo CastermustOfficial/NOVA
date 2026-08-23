@@ -30,52 +30,96 @@ def run_gui(cfg: Config) -> int:
     return app.exec()
 
 
-def run_cli(cfg: Config, once: str | None = None, no_server: bool = False) -> int:
-    """Modalita' testuale: utile per test e diagnostica."""
+POSTILLA_VOCE = """
+
+<voce>
+Questa domanda arriva dal microfono e la tua risposta verra' letta ad alta voce.
+Rispondi come si parla: frasi brevi, niente elenchi puntati, niente markdown,
+niente blocchi di codice se non sono davvero il contenuto della risposta. Se
+servirebbe una risposta lunga, di' a voce il nocciolo.
+
+Ogni risposta a voce finisce SEMPRE, come ultima cosa e da sola su una riga, con
+uno di questi tre marcatori. Non e' opzionale: e' parte del formato.
+- [NOVA:APERTO]  la conversazione continua, resti in ascolto;
+- [NOVA:PAUSA]   l'utente vuole sospendere e riprendere piu' tardi;
+- [NOVA:FINE]    l'utente sta chiudendo, in qualunque modo lo dica.
+
+Non e' una lista di parole da riconoscere: giudica l'intenzione dell'ultima
+frase e scegli tu. Nel dubbio fra continuare e chiudere, un commiato (ciao,
+a dopo, grazie e basta, va bene cosi') e' [NOVA:FINE]. Il marcatore va per
+ultimo, da solo, e non si commenta mai.
+</voce>"""
+
+
+def run_cli(cfg: Config, once: str | None = None, no_server: bool = False,
+            dalla_voce: bool = False) -> int:
+    """Modalita' testuale: utile per test e diagnostica.
+
+    Regola su cosa va dove: su **stdout** solo la risposta, su **stderr**
+    tutto il resto — avanzamento, tool, deleghe, memoria. Serve a chi ci
+    parla da fuori: il guscio grafico legge stdout e lo mette in una bolla,
+    e finche' i log erano mescolati alla risposta l'utente si vedeva
+    «[nova] KB: 55 nodi...» dentro il messaggio di NOVA.
+    """
+    import sys as _sys
+
+    # Su Windows lo stdout rediretto prende la codifica locale (cp1252), e gli
+    # accenti italiani arrivano a chi legge come byte non validi: «non è
+    # malware» diventa «non � malware». Chi ci parla da fuori vuole UTF-8.
+    for flusso in (_sys.stdout, _sys.stderr):
+        try:
+            flusso.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+    def log(*pezzi):
+        print(*pezzi, file=_sys.stderr, flush=True)
     from .agent import Agent, AgentCallbacks
     from .runtime import LlamaServer
 
     server = LlamaServer(cfg, on_log=lambda m: None)
     if not no_server:
-        print("[nova] avvio del modello...", flush=True)
+        log("[nova] avvio del modello...")
         server.start(wait=True)
-        print(f"[nova] pronto su {cfg.base_url} "
-              f"[{server.accelerator}, ngl={server.gpu_layers}]", flush=True)
+        log(f"[nova] pronto su {cfg.base_url} "
+            f"[{server.accelerator}, ngl={server.gpu_layers}]")
 
     auto_yes = cfg.safety.autonomy == "autonomous"
 
     def ask(name, args, desc, risk):
         if auto_yes:
             return True
-        print(f"\n[conferma richiesta] {desc}")
+        log(f"\n[conferma richiesta] {desc}")
         return input("Consentire? [s/N] ").strip().lower() in ("s", "si", "y", "yes")
 
     from .kb_setup import collega_memoria, esegui_seed_se_serve, prepara_kb
-    vault, kb_engine = prepara_kb(cfg, log=lambda m: print("[nova]", m, flush=True))
-    esegui_seed_se_serve(cfg, vault, kb_engine, log=lambda m: print("[kb]", m, flush=True))
+    vault, kb_engine = prepara_kb(cfg, log=lambda m: log("[nova]", m))
+    esegui_seed_se_serve(cfg, vault, kb_engine, log=lambda m: log("[kb]", m))
 
     agent = Agent(cfg, kb_engine=kb_engine, vault=vault, callbacks=AgentCallbacks(
         on_status=lambda s: None,
-        on_assistant=lambda t: print(f"\nNOVA: {t}", flush=True),
-        on_tool_start=lambda n, a, d: print(f"\n  -> {d}", flush=True),
-        on_tool_result=lambda n, r, ok: print(
-            f"  <- {'OK' if ok else 'ERR'}: {r[:400]}", flush=True),
+        # In --ask la risposta e' *tutto* stdout: chi legge da fuori non deve
+        # dover togliere un prefisso per avere il testo.
+        on_assistant=lambda t: print(t if once else f"\nNOVA: {t}", flush=True),
+        on_tool_start=lambda n, a, d: log(f"  -> {d}"),
+        on_tool_result=lambda n, r, ok: log(
+            f"  <- {'OK' if ok else 'ERR'}: {r[:400]}"),
         ask_approval=ask,
-        on_delega=lambda a, motivo, costo: print(
-            f"\n  ~> delega a «{a}»: {motivo}"
-            + (f"  ({costo:.4f} $)" if costo else ""), flush=True),
+        on_delega=lambda a, motivo, costo: log(
+            f"  ~> delega a «{a}»: {motivo}"
+            + (f"  ({costo:.4f} $)" if costo else "")),
     ))
     memoria = collega_memoria(agent, vault, cfg,
-                    on_learn=lambda nodi: print(
-                        "\n[kb] imparato: " + ", ".join(n.title for n in nodi), flush=True))
+                    on_learn=lambda nodi: log(
+                        "[kb] imparato: " + ", ".join(n.title for n in nodi)))
     agent.detect_model()
-    print(f"[nova] modello: {agent.model_name}", flush=True)
+    log(f"[nova] modello: {agent.model_name}")
 
     try:
         if once:
-            agent.send(once)
+            agent.send(once, postilla=POSTILLA_VOCE if dalla_voce else "")
             if memoria is not None:
-                print("[kb] attendo la scrittura in memoria...", flush=True)
+                log("[kb] attendo la scrittura in memoria...")
                 memoria.attendi(180)
             return 0
         while True:
@@ -98,6 +142,9 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="nova", description="Assistente digitale locale")
     ap.add_argument("--cli", action="store_true", help="modalita' testuale invece della GUI")
     ap.add_argument("--ask", metavar="TESTO", help="esegue una singola richiesta e termina")
+    ap.add_argument("--voce", action="store_true",
+                    help="la domanda arriva dal microfono: risposta parlata e "
+                         "marcatori di chiusura")
     ap.add_argument("--reconfigure", action="store_true", help="ririleva modello e runtime")
     ap.add_argument("--no-server", action="store_true",
                     help="non avviare llama-server (usa un server gia' attivo)")
@@ -191,7 +238,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cli or args.ask:
         return run_cli(cfg, once=args.ask,
-                       no_server=args.no_server or cfg.brains.active != "locale")
+                       no_server=args.no_server or cfg.brains.active != "locale",
+                       dalla_voce=args.voce)
     return run_gui(cfg)
 
 

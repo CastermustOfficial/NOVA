@@ -89,19 +89,33 @@ class AgentCallbacks:
 class Agent:
     def __init__(self, cfg: Config, callbacks: AgentCallbacks | None = None,
                  kb_engine=None, memory=None, vault=None, brain=None, router=None):
+        self.strumenti_del_turno: set[str] = set()
+        # La catena delle ripetizioni vale dentro un turno: una domanda nuova
+        # ricomincia da capo.
+        self._ultima_impronta = ""
+        self._quante_ripetute = 0
         self.cfg = cfg
         self.cb = callbacks or AgentCallbacks()
         self.safety = SafetyContext(cfg)
         self.kb = kb_engine
         self.vault = vault
         self.memory = memory
+        self._ultima_impronta = ""
+        self._quante_ripetute = 0
         self.messages: list[dict] = []
         self.cancel_event = threading.Event()
         self._mem_idx: int | None = None
         self._system_base = ""
         self.brain = brain or crea_brain(cfg.brains.active, cfg, vault)
         self.router = router or self._crea_router()
-        self.reset()
+        # Costruire un agente non e' iniziare una conversazione nuova.
+        #
+        # La distinzione sembra sottile e invece e' tutto: il guscio grafico
+        # avvia un processo per messaggio, quindi «costruzione» capita a ogni
+        # frase. Azzerare qui il filo del discorso significava che NOVA
+        # rispondeva «non ho contesto su cosa intendi» a una domanda che
+        # seguiva la sua stessa risposta di trenta secondi prima.
+        self.reset(nuova_conversazione=False)
 
     def _crea_router(self):
         """Il router che sa quali modelli esistono e quanto si e' speso."""
@@ -150,11 +164,18 @@ class Agent:
             home=str(Path.home()),
         )
 
-    def reset(self) -> None:
+    def reset(self, nuova_conversazione: bool = True) -> None:
+        """Ripulisce la trascrizione in memoria.
+
+        Con `nuova_conversazione` taglia anche il filo che il cervello tiene
+        per conto suo — la sessione di Claude Code, che sopravvive al
+        processo. Senza, si prepara soltanto questa istanza.
+        """
         self._system_base = self.system_prompt()
         self.messages = [{"role": "system", "content": self._system_base}]
         self._mem_idx = None
-        self.brain.reset()
+        if nuova_conversazione:
+            self.brain.reset()
 
     def trim_history(self, max_messages: int = 60) -> None:
         if len(self.messages) <= max_messages:
@@ -174,25 +195,41 @@ class Agent:
         except Exception:
             return ""
 
-    def _aggiorna_memoria_nel_prompt(self, user_text: str) -> None:
+    def _blocco_memoria(self, user_text: str) -> str:
+        """Cio' che la memoria ha trovato, da mettere in CODA alla domanda.
+
+        Prima finiva nel messaggio di sistema, riscritto a ogni turno. Due
+        difetti in uno.
+
+        Funzionale: i cervelli agentici il prompt di sistema lo ricevono solo
+        all'apertura della sessione, quindi dal secondo turno in poi il
+        contesto veniva calcolato e buttato. NOVA faceva la ricerca sul grafo
+        e non la leggeva.
+
+        E di costo: il messaggio di sistema e' la prima regione di token su
+        cui un fornitore tiene la cache. Cambiarlo a ogni turno — e cambiava,
+        perche' il contesto dipende dalla domanda — invalida tutto il
+        prefisso: ogni turno rielaborava l'intera conversazione da capo. In
+        coda invece si aggiunge e basta, e il prefisso resta valido.
+        """
         contesto = self._contesto_kb(user_text)
         if getattr(self.brain, "agentico", False):
-            # i cervelli agentici ricevono il contesto nel proprio system prompt
+            # Il cervello agentico se lo attacca da solo alla domanda: lui la
+            # conversazione la tiene per conto suo, e noi gli passiamo un
+            # messaggio per volta.
             self.brain.kb_context = contesto
-            return
+            return ""
         if not contesto:
-            return
-        blocco = (
-            "Quello che gia' sai, dalla tua memoria a grafo. Usalo se pertinente; "
-            "non ripeterlo all'utente come se fosse una novita'. Se scopri che "
-            "qualcosa qui e' superato, correggilo con kb_note o kb_forget.\n\n"
+            return ""
+        return (
+            "\n\n<memoria>\n"
+            "Quello che gia' sai, dalla tua memoria a grafo. Guardalo prima di "
+            "misurare o cercare, e non ripeterlo all'utente come se fosse una "
+            "novita'. Se scopri che qualcosa qui e' superato, correggilo con "
+            "kb_note o kb_forget.\n\n"
             + contesto
+            + "\n</memoria>"
         )
-        # Il template di chat di Qwen3.5 accetta un solo messaggio di sistema,
-        # e solo in testa: la memoria si fonde li' dentro.
-        base = self._system_base or self.system_prompt()
-        self._system_base = base
-        self.messages[0] = {"role": "system", "content": base + "\n\n" + blocco}
 
     # -- fallback per modelli che scrivono i tool call nel testo ------
     @staticmethod
@@ -216,10 +253,27 @@ class Agent:
         return calls
 
     # -- ciclo principale ---------------------------------------------
-    def send(self, user_text: str) -> str:
+    def send(self, user_text: str, postilla: str = "") -> str:
+        """Un turno di conversazione.
+
+        La `postilla` e' un'istruzione attaccata al messaggio per il cervello
+        e basta: non entra nella ricerca in memoria e non viene imparata. Serve
+        alla voce, che a ogni turno deve ricordare al cervello di rispondere
+        come si parla — e che non puo' metterlo nel prompt di sistema, visto
+        che quello si passa solo quando la sessione si apre.
+        """
         self.cancel_event.clear()
-        self._aggiorna_memoria_nel_prompt(user_text)
-        self.messages.append({"role": "user", "content": user_text})
+        memoria = self._blocco_memoria(user_text)
+        # L'ordine conta: prima cio' che hai chiesto, poi cio' che NOVA sa, poi
+        # come deve rispondere. L'istruzione resta l'ultima cosa letta.
+        self.messages.append({"role": "user", "content": user_text + memoria + postilla})
+        # Quali strumenti ha usato *questo* turno: serve a decidere se cio' che
+        # e' passato di qui puo' finire in memoria.
+        self.strumenti_del_turno: set[str] = set()
+        # La catena delle ripetizioni vale dentro un turno: una domanda nuova
+        # ricomincia da capo.
+        self._ultima_impronta = ""
+        self._quante_ripetute = 0
         self.trim_history()
         agentico = getattr(self.brain, "agentico", False)
         tools = [] if agentico else openai_schema()
@@ -307,6 +361,7 @@ class Agent:
         if not isinstance(args, dict):
             args = {}
 
+        getattr(self, "strumenti_del_turno", set()).add(name)
         spec = REGISTRY.get(name)
         if spec is None:
             self._append_tool_result(
@@ -325,7 +380,8 @@ class Agent:
                 self._append_tool_result(
                     call, name,
                     "AZIONE RIFIUTATA dall'utente. Non ripeterla: chiedi come procedere "
-                    "oppure proponi un'alternativa.")
+                    "oppure proponi un'alternativa."
+                    + self._promemoria_ripetizione(name, args))
                 return True  # non e' un fallimento del modello: e' una tua scelta
 
         self.cb.on_status(f"Eseguo {name}...")
@@ -336,6 +392,10 @@ class Agent:
         self.cb.on_tool_result(name, result, ok)
         if elapsed > 0.5:
             result += f"\n[durata: {elapsed:.1f}s]"
+        # In coda al risultato, non al posto suo: e' un'osservazione, non un
+        # esito. Anche una chiamata negata conta — un modello che martella una
+        # cosa vietata e' esattamente il ciclo da interrompere.
+        result += self._promemoria_ripetizione(name, args)
         self._append_tool_result(call, name, result)
         if name == "delega" and ok and self.router is not None:
             ultima = self.router.storico[-1] if self.router.storico else None
@@ -381,7 +441,7 @@ class Agent:
             return partenza
         motivo = (f"{len(errori)} tentativi falliti di fila" if errori
                   else "troppe chiamate senza arrivare a una risposta")
-        self.cb.on_status(f"Passo la palla a «{destinazione}»...")
+        self.cb.on_status(f"Passo la palla a «{destinazione}»...")   # puo' salire ancora
         contesto = ("Un assistente meno capace ci ha provato senza riuscirci.\n"
                     + ("Ecco cosa e' andato storto:\n- " + "\n- ".join(errori[-3:])
                        if errori else
@@ -396,9 +456,13 @@ class Agent:
                 "content": f"[nota di sistema] Non sono riuscito a salire di gradino: {e}",
             })
             return partenza
-        self.cb.on_delega(destinazione, motivo, traccia.costo_usd)
+        # Il router puo' aver alzato il gradino per categoria: da qui in poi
+        # conta chi ha risposto davvero, o la salita successiva ripartirebbe
+        # da un gradino piu' basso e ridelegherebbe allo stesso modello.
+        effettivo = traccia.a or destinazione
+        self.cb.on_delega(effettivo, motivo, traccia.costo_usd)
         self.cb.on_tool_result("delega automatica",
-                               f"{destinazione}: {traccia.esito[:300]}",
+                               f"{effettivo}: {traccia.esito[:300]}",
                                not traccia.esito.startswith("ERRORE"))
         # Un messaggio 'tool' senza il 'tool_calls' corrispondente e' una
         # trascrizione invalida: le API OpenAI-compatibili la rifiutano. Si
@@ -413,7 +477,7 @@ class Agent:
                 "function": {
                     "name": "delega",
                     "arguments": json.dumps(
-                        {"a": destinazione, "compito": richiesta, "motivo": motivo},
+                        {"a": effettivo, "compito": richiesta, "motivo": motivo},
                         ensure_ascii=False),
                 },
             }],
@@ -421,15 +485,116 @@ class Agent:
         self.messages.append({
             "role": "tool", "tool_call_id": identificativo, "name": "delega",
             "content": (f"[escalation automatica dopo {motivo}]\n"
-                        f"Risposta di «{destinazione}»:\n{traccia.esito}\n\n"
+                        f"Risposta di «{effettivo}»:\n{traccia.esito}\n\n"
                         "Usa questa risposta per completare il compito. Se contiene "
                         "istruzioni da eseguire, eseguile tu."),
         })
-        return destinazione
+        return effettivo
+
+    # -- il ciclo che non gira a vuoto ---------------------------------
+    #
+    # L'escalation guarda i *fallimenti*: sbatti contro un muro N volte e si
+    # sale di gradino. Ma un modello puo' girare a vuoto benissimo anche
+    # riuscendo — la stessa `list_directory` sulla stessa cartella, otto
+    # volte, ognuna con esito OK. Li' non c'e' niente da far salire: c'e' da
+    # far notare.
+    #
+    # Quindi un promemoria, non un divieto: la decisione — riprovare
+    # diversamente, cercare altrove, o concludere — resta al modello. Una
+    # ripetizione legittima non viene bloccata da niente.
+    SOGLIE_RIPETIZIONE = (3, 5, 8)
+    # I tool di servizio non azzerano la catena: se contassero, basterebbe un
+    # `get_datetime` in mezzo per ripulire un ciclo e renderlo invisibile.
+    RIPETIZIONE_TRASPARENTI = frozenset({"get_datetime", "kb_stats", "modelli"})
+
+    @staticmethod
+    def _impronta_chiamata(name: str, args: dict) -> str:
+        """Nome piu' argomenti in forma canonica.
+
+        Le chiavi si ordinano: due oggetti che differiscono solo nell'ordine
+        delle proprieta' sono la stessa chiamata, e chi ripete non lo fa in
+        modo ordinato.
+        """
+        try:
+            corpo = json.dumps(args, sort_keys=True, ensure_ascii=False, default=str)
+        except Exception:
+            corpo = repr(args)
+        return f"{name}\u0000{corpo}"
+
+    def _promemoria_ripetizione(self, name: str, args: dict) -> str:
+        """Se questa chiamata e' identica alle precedenti, cosa dirgli."""
+        if name in self.RIPETIZIONE_TRASPARENTI:
+            return ""
+        impronta = self._impronta_chiamata(name, args)
+        if impronta == self._ultima_impronta:
+            self._quante_ripetute += 1
+        else:
+            self._ultima_impronta = impronta
+            self._quante_ripetute = 1
+        n = self._quante_ripetute
+        if n not in self.SOGLIE_RIPETIZIONE:
+            return ""
+        if n == self.SOGLIE_RIPETIZIONE[0]:
+            return (f"\n\n[nota di sistema] Hai chiamato {n} volte di fila la stessa "
+                    f"cosa con gli stessi argomenti. Rileggi il risultato che hai "
+                    f"gia': se non ti sta dando quello che cerchi, cambia strada o "
+                    f"concludi con quello che sai.")
+        breve = json.dumps(args, ensure_ascii=False, default=str)[:300]
+        return (f"\n\n[nota di sistema] «{name}» con gli stessi argomenti per la "
+                f"{n}ª volta di fila ({breve}). Continuare a ripeterla non cambiera' "
+                f"il risultato. Rileggi cosa ti ha gia' risposto, poi prova un "
+                f"approccio diverso oppure rispondi all'utente con quello che hai.")
+
+    # Quanto di un risultato entra nel discorso, e dove finisce il resto.
+    #
+    # Prima si tagliava a 24000 caratteri e si scriveva «[risultato troncato]»:
+    # il resto spariva, e il modello non sapeva *cosa* aveva perso — solo che
+    # mancava qualcosa. Adesso il testo intero va su file e al suo posto
+    # restano testa, coda e il percorso per andarselo a leggere. La differenza
+    # non e' lo spazio risparmiato: e' che una perdita silenziosa diventa un
+    # rinvio.
+    #
+    # I tool che leggono sono esclusi: un `read_file` che finisce su file e
+    # dice «rileggilo con read_file» e' un cerchio.
+    LIMITE_RISULTATO = 24000
+    NON_SI_VERSANO = frozenset({"read_file", "kb_search", "kb_neighbors"})
+
+    def _versa(self, name: str, call_id: str, testo: str) -> str:
+        """Salva il testo intero, ritorna anteprima piu' dove trovarlo.
+
+        Il costo in caratteri dell'avviso e' riservato *fuori* dal budget:
+        cosi' la sostituzione non puo' risultare piu' lunga di cio' che
+        sostituisce, che sarebbe il modo piu' sciocco di fallire.
+        """
+        radice = Path(__file__).resolve().parent.parent / "runtime" / "versati"
+        try:
+            radice.mkdir(parents=True, exist_ok=True)
+            sicuro = re.sub(r"[^A-Za-z0-9_.-]", "_", f"{name}-{call_id}")[:60]
+            percorso = radice / f"{datetime.now():%Y%m%d-%H%M%S}-{sicuro}.txt"
+            percorso.write_text(testo, encoding="utf-8", errors="replace")
+        except Exception as e:
+            # Se il file non si scrive si torna al taglio, ma dichiarato:
+            # meglio una perdita detta di una promessa non mantenuta.
+            return (testo[: self.LIMITE_RISULTATO]
+                    + f"\n... [risultato troncato: non sono riuscito a salvarlo ({e})]")
+
+        def avviso_per(omessi: int) -> str:
+            return (f"\n\n[Omessi {omessi} caratteri nel mezzo. Il risultato completo "
+                    f"e' in {percorso}. Leggilo con read_file, che accetta un "
+                    f"intervallo di righe, oppure cercaci dentro con search_in_files.]\n\n")
+
+        spazio = self.LIMITE_RISULTATO - len(avviso_per(len(testo)))
+        if spazio <= 200:
+            return avviso_per(len(testo)).strip()
+        testa = spazio * 2 // 3
+        coda = spazio - testa
+        return testo[:testa] + avviso_per(len(testo) - testa - coda) + testo[-coda:]
 
     def _append_tool_result(self, call: dict, name: str, result: str) -> None:
-        if len(result) > 24000:
-            result = result[:24000] + "\n... [risultato troncato]"
+        if len(result) > self.LIMITE_RISULTATO:
+            result = (result[: self.LIMITE_RISULTATO] + "\n... [risultato troncato]"
+                      if name in self.NON_SI_VERSANO
+                      else self._versa(name, str(call.get("id") or name), result))
         self.messages.append({
             "role": "tool",
             "tool_call_id": call.get("id") or name,
@@ -437,12 +602,21 @@ class Agent:
             "content": result,
         })
 
+    # Strumenti che mostrano *cosa c'e' aperto adesso*, non *com'e' fatto il
+    # PC. Leggerli serve ad agire; ricordarli scriverebbe nel vault i titoli
+    # delle tue schede e dei tuoi documenti, in chiaro e per sempre.
+    GUARDANO_LO_SCHERMO = frozenset({
+        "ui.windows", "ui.tree", "ui.find", "finestre", "albero_finestra",
+        "screenshot",
+    })
+
     def _impara(self, domanda: str, risposta: str) -> None:
         """Apprendimento automatico: gira in background, non blocca la risposta."""
         if not self.memory:
             return
+        riservato = bool(self.strumenti_del_turno & self.GUARDANO_LO_SCHERMO)
         try:
-            self.memory.osserva_async(domanda, risposta)
+            self.memory.osserva_async(domanda, risposta, riservato=riservato)
         except Exception:
             pass
 

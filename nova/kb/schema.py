@@ -111,12 +111,21 @@ class Node:
 
 # ---------------------------------------------------------------- helpers
 def _dump(v: Any) -> str:
+    """Serializza un valore su una riga sola.
+
+    Il parser del frontmatter e' «una chiave per riga»: un a capo dentro un
+    valore produceva una riga senza «:» che veniva scartata in silenzio, e
+    parte del contenuto spariva alla prima riscrittura del file.
+    """
     if isinstance(v, list):
-        return "[" + ", ".join(str(x).replace(",", " ") for x in v) + "]"
+        return "[" + ", ".join(_una_riga(x).replace(",", " ") for x in v) + "]"
     if isinstance(v, bool):
         return "true" if v else "false"
-    s = str(v)
-    return s
+    return _una_riga(v)
+
+
+def _una_riga(v: Any) -> str:
+    return re.sub(r"\s+", " ", str(v)).strip()
 
 
 def _as_list(v: Any) -> list[str]:

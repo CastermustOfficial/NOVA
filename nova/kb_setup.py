@@ -56,8 +56,28 @@ def esegui_seed_se_serve(cfg: Config, vault, engine,
     return True
 
 
+def _registra_su_file(vault, messaggio: str) -> None:
+    """Ultima spiaggia: sotto pythonw, print() non scrive da nessuna parte.
+
+    NOVA parte all'accensione come «pythonw run_nova.pyw», e li' sys.stdout e'
+    None: un print sugli errori di memoria e' indistinguibile da un
+    «except: pass». Il file nel vault invece resta.
+    """
+    from datetime import datetime
+    try:
+        percorso = vault.root / ".nova" / "memoria.log"
+        percorso.parent.mkdir(parents=True, exist_ok=True)
+        if percorso.exists() and percorso.stat().st_size > 512 * 1024:
+            percorso.replace(percorso.with_suffix(".1.log"))
+        with open(percorso, "a", encoding="utf-8") as f:
+            f.write(f"{datetime.now().isoformat(timespec='seconds')} {messaggio}\n")
+    except OSError:
+        pass
+
+
 def collega_memoria(agent, vault, cfg: Config,
-                    on_learn: Callable[[list], None] | None = None):
+                    on_learn: Callable[[list], None] | None = None,
+                    on_errore: Callable[[str], None] | None = None):
     """Attacca l'apprendimento automatico all'agente. Ritorna il MemoryWriter."""
     if vault is None or not cfg.kb.auto_learn:
         return None
@@ -73,6 +93,19 @@ def collega_memoria(agent, vault, cfg: Config,
         abilitato=True,
         min_caratteri=cfg.kb.learn_min_chars,
         on_learn=on_learn or (lambda nodi: None),
+        on_errore=_canale_errori(vault, on_errore),
     )
     agent.memory = memoria
     return memoria
+
+
+def _canale_errori(vault, on_errore):
+    """Sempre il file; in piu' il canale dell'interfaccia, se c'e'."""
+    def canale(messaggio: str) -> None:
+        _registra_su_file(vault, messaggio)
+        if on_errore is not None:
+            try:
+                on_errore(messaggio)
+            except Exception:
+                pass
+    return canale

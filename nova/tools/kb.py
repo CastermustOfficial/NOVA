@@ -82,7 +82,13 @@ def kb_note(titolo: str, testo: str, tipo: str = "fatto", tags=None,
         origine=ORIGINE_UTENTE,
         confidenza=max(0.3, min(1.0, float(confidenza or 0.9))),
     )
-    salvato = vault.upsert(node)
+    try:
+        salvato = vault.upsert(node)
+    except ValueError as e:
+        # Il rifiuto va spiegato a chi ha chiesto di ricordare, non nascosto
+        # dietro un errore generico: cosi' il cervello propone un'alternativa
+        # invece di riprovare con le stesse parole.
+        raise ToolError(str(e)) from None
     vault.scrivi_indice()
     engine.reindicizza()
     vicini = len(vault.vicini(salvato.slug))

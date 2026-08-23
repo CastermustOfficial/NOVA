@@ -36,6 +36,30 @@ Regole:
   spiegare come si farebbe.
 - Prima di modificare o cancellare, verifica lo stato reale (list/read/info).
 - Un tool alla volta se il risultato del primo influenza il secondo.
+- Non interrompere chi sta lavorando. Le applicazioni si guidano con l'albero
+  di accessibilita' — `ui.find` per trovare l'elemento, `ui.click` per premerlo,
+  `ui.set_text` per scriverci dentro: agiscono sul controllo senza fuoco, senza
+  mouse e senza tastiera, quindi funzionano anche su una finestra dietro le
+  altre. `type_text` e `press_keys` sono l'ultima spiaggia: vanno dove sta il
+  fuoco, e se l'utente sta scrivendo gli finiscono in mezzo al lavoro.
+- Lavora in una finestra tua. Se ti serve un browser, aprine una nuova finestra
+  (`--new-window`) invece di usare le schede dell'utente, e mettila da parte con
+  `ui.sposta` (`sys.schermi` dice dove): sul secondo schermo se c'e', altrimenti
+  dietro. Le sue schede sono sue.
+- Dopo ogni azione che cambia pagina o apre un pannello, usa `ui.attendi`
+  invece di riprovare a vuoto: una pagina non e' pronta quando esiste la
+  finestra, ma quando esiste l'elemento che ti serve.
+- Un'azione non e' compiuta perche' hai premuto un pulsante: e' compiuta quando
+  l'hai riletta da un'altra parte. Prima di dire «fatto», verifica — e se non
+  ci sei riuscito, dillo invece di dichiarare un successo. Verificare sul
+  modulo che hai appena compilato non conta: conta la conseguenza (il messaggio
+  in posta inviata, il file sul disco, la riga nel registro).
+- Uno strumento esterno che non risponde non e' un vicolo cieco. Se un
+  connettore cade o non e' autorizzato, non fermarti a chiedere: quasi tutto
+  quello che fa un servizio si fa anche dal suo sito, e il browser e' tuo — hai
+  gia' la sessione dell'utente aperta. Posta, calendario, documenti, acquisti:
+  apri una tua finestra e fallo di la'. Dillo in una riga e vai avanti, invece
+  di restituire un errore a chi ti aveva chiesto un risultato.
 - Usa percorsi assoluti di Windows.
 - Se un tool fallisce, leggi l'errore e correggi la strategia; non ripetere
   identico due volte.
@@ -197,13 +221,42 @@ class UIConfig:
 @dataclass
 class VoiceConfig:
     enabled: bool = False
-    stt_engine: str = "faster-whisper"   # faster-whisper | vosk | none
-    stt_model: str = "small"
+    # ascolto: elevenlabs (Scribe) | faster-whisper (in locale) | none
+    stt_engine: str = "elevenlabs"
+    stt_model: str = "small"             # solo per faster-whisper
+    stt_model_cloud: str = "scribe_v1"
     language: str = "it"
+    # Quale microfono, per pezzo di nome. Vuoto = quello predefinito di
+    # sistema — che spesso non e' quello giusto: su questa macchina il
+    # predefinito era un dispositivo virtuale, e un secondo endpoint delle
+    # stesse cuffie consegnava zero mentre l'utente parlava.
+    microfono: str = ""
     wake_word: str = "nova"
     push_to_talk: str = "ctrl+alt+n"
-    tts_engine: str = "sapi"             # sapi | piper | none
-    tts_voice: str = ""
+    # voce: locale (Kokoro, nel demone) | elevenlabs | sapi | none
+    tts_engine: str = "locale"
+    # La voce di Kokoro: italiana, nativa, senza tetto di caratteri.
+    tts_voce_locale: str = "im_nicola"
+    # Il microfono resta aperto e si sveglia sentendo `wake_word`. Costa
+    # qualche punto di CPU sempre: si accende di proposito, non di default.
+    wake_enabled: bool = False
+    # Dopo quanti secondi di silenzio il motore vocale lascia la memoria.
+    # Tenerlo caldo costa ~600 MB e fa partire la voce all'istante; scaricarlo
+    # restituisce la memoria e rimette 850 ms sulla prima frase successiva.
+    # 0 = non scaricare mai (predefinito: la reattivita' vale la memoria).
+    scarica_voce_dopo_s: int = 0
+    tts_voice: str = ""                  # nome della voce di sistema
+    tts_rate: int = 0
+    tts_voice_id: str = "XrExE9yKIg1WjnnlVkGX"   # Matilda
+    tts_model_cloud: str = "eleven_flash_v2_5"
+    # Il piano gratuito da' 10.000 caratteri di sintesi al mese: le risposte
+    # lunghe vanno alla voce di sistema, che e' gratis e illimitata, e una
+    # riserva resta da parte per non restare muti a meta' giornata.
+    max_caratteri_cloud: int = 300
+    riserva_caratteri: int = 500
+    # La chiave sta qui, cioe' in %APPDATA%\NOVA\config.json, fuori dal
+    # repository. ELEVENLABS_API_KEY nell'ambiente ha comunque la precedenza.
+    api_key: str = ""
 
 
 @dataclass
@@ -216,6 +269,8 @@ class Config:
     kb: KBConfig = field(default_factory=KBConfig)
     brains: BrainsConfig = field(default_factory=BrainsConfig)
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
+    # non si serializza: dice se il file su disco e' stato ignorato e perche'
+    errore_caricamento: str = ""
 
     # ------------------------------------------------------------------
     @property
@@ -225,20 +280,35 @@ class Config:
     def save(self, path: Path | None = None) -> Path:
         path = path or CONFIG_PATH
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(asdict(self), indent=2, ensure_ascii=False), encoding="utf-8")
+        dati = asdict(self)
+        dati.pop("errore_caricamento", None)
+        # newline esplicito e nessun BOM: il file lo rileggono anche altri
+        path.write_text(json.dumps(dati, indent=2, ensure_ascii=False) + "\n",
+                        encoding="utf-8", newline="\n")
         return path
 
     @classmethod
     def load(cls, path: Path | None = None) -> "Config":
         path = path or CONFIG_PATH
         cfg = cls()
-        if path.exists():
-            try:
-                raw: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
-            except Exception:
-                return cfg
-            cfg = _merge(cfg, raw)
-        return cfg
+        if not path.exists():
+            return cfg
+        try:
+            # utf-8-sig, non utf-8: il Blocco note e PowerShell scrivono un BOM
+            # in testa, e con «utf-8» json.loads muore sul primo carattere.
+            raw: dict[str, Any] = json.loads(path.read_text(encoding="utf-8-sig"))
+        except Exception as e:
+            # Tornare ai default in silenzio significa perdere *tutta* la
+            # configurazione — cervello attivo, gradini, autonomia, vault —
+            # per un file salvato con la codifica sbagliata, e non dirlo a
+            # nessuno. Si riparte dai default per non impedire l'avvio, ma
+            # l'errore resta scritto e l'interfaccia lo mostra.
+            cfg.errore_caricamento = f"{path}: {type(e).__name__}: {e}"
+            return cfg
+        if not isinstance(raw, dict):
+            cfg.errore_caricamento = f"{path}: il contenuto non e' un oggetto JSON"
+            return cfg
+        return _merge(cfg, raw)
 
 
 def _merge(cfg: Config, raw: dict[str, Any]) -> Config:
@@ -249,8 +319,16 @@ def _merge(cfg: Config, raw: dict[str, Any]) -> Config:
     }
     for name, obj in sections.items():
         for k, v in (raw.get(name) or {}).items():
-            if hasattr(obj, k):
-                setattr(obj, k, v)
+            if not hasattr(obj, k):
+                continue
+            predefinito = getattr(obj, k)
+            if isinstance(predefinito, dict) and isinstance(v, dict):
+                # Il salvato vince su quello che dichiara, ma le chiavi che
+                # non conosce (perche' aggiunte dopo) restano quelle di
+                # fabbrica: altrimenti ogni config vecchia perde le novita'.
+                # Solo al primo livello: dentro «tiers» comanda l'utente.
+                v = {**predefinito, **v}
+            setattr(obj, k, v)
     if raw.get("system_prompt"):
         cfg.system_prompt = raw["system_prompt"]
     return cfg

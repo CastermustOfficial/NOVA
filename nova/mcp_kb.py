@@ -107,7 +107,54 @@ STRUMENTI = [
             "required": ["titolo", "testo"],
         },
     },
+    {
+        "name": "chiedi_permesso",
+        "description": (
+            "Chiede all'utente il permesso di eseguire un'azione e ne aspetta la "
+            "risposta. Lo chiama Claude Code da solo quando incontra un'azione "
+            "che richiede conferma: non va invocato a mano."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "tool_name": {"type": "string"},
+                "input": {"type": "object"},
+                "tool_use_id": {"type": "string"},
+            },
+            "required": ["tool_name", "input"],
+        },
+    },
 ]
+
+# Azioni che, se vanno male, non si tornano indietro. Servono a scrivere una
+# domanda onesta: «cancella» e «leggi un file» non meritano lo stesso tono.
+_PAROLE_PESANTI = ("rm ", "rmdir", "del ", "remove-item", "format", "taskkill",
+                   "shutdown", "reg delete", "drop ", "mkfs", "diskpart")
+
+
+def _rischio(strumento: str, argomenti: dict) -> str:
+    testo = " ".join(str(v) for v in (argomenti or {}).values()).lower()
+    if any(x in testo for x in _PAROLE_PESANTI):
+        return "dangerous"
+    if strumento in ("Read", "Glob", "Grep", "WebFetch", "WebSearch", "NotebookRead"):
+        return "safe"
+    if strumento in ("Bash", "Write", "Edit", "MultiEdit", "NotebookEdit"):
+        return "moderate"
+    return "moderate"
+
+
+def _in_chiaro(strumento: str, argomenti: dict) -> str:
+    """La domanda che vedra' l'utente. Deve dire cosa succede, non come."""
+    a = argomenti or {}
+    if strumento == "Bash":
+        comando = str(a.get("command") or "").strip()
+        descrizione = str(a.get("description") or "").strip()
+        return f"{descrizione}\n{comando}".strip() if descrizione else comando
+    for chiave in ("file_path", "path", "notebook_path", "url", "pattern"):
+        if a.get(chiave):
+            return f"{strumento}: {a[chiave]}"
+    testo = json.dumps(a, ensure_ascii=False)
+    return f"{strumento}: {testo[:400]}"
 
 
 class ServerKB:
@@ -126,6 +173,55 @@ class ServerKB:
             self._router = Router(Config.load(), self.vault)
         return self._router
 
+    # -- permessi ------------------------------------------------------
+    def chiedi_permesso(self, tool_name: str, input: dict | None = None,
+                        tool_use_id: str = "") -> str:
+        """Il ponte fra Claude e chi deve dire di si'.
+
+        Claude Code agisce nel proprio processo: senza questo, le sue richieste
+        di conferma restavano frasi in una finestra che non aveva un bottone
+        per rispondere. Qui la domanda passa dal demone, che e' l'unica cosa
+        che l'interfaccia, la voce e questo processo vedono tutti e tre.
+
+        Il formato della risposta lo decide Claude Code, non noi: un oggetto
+        con «behavior» allow o deny.
+        """
+        argomenti = input or {}
+        risposta_negata = lambda motivo: json.dumps(
+            {"behavior": "deny", "message": motivo}, ensure_ascii=False)
+        try:
+            from .core_client import CoreClient
+            cliente = CoreClient(timeout=900.0).connect()
+        except Exception as e:
+            # Nessun demone: nessuno puo' autorizzare. Negare e' l'unica
+            # risposta onesta — «consenti» qui vorrebbe dire aggirare in
+            # silenzio il livello di autonomia scelto dall'utente.
+            return risposta_negata(
+                f"NOVA non riesce a chiedere conferma (demone non raggiungibile: {e})")
+        try:
+            esito = cliente.call("approvazione.chiedi", {
+                "strumento": tool_name,
+                "dettaglio": _in_chiaro(tool_name, argomenti),
+                "rischio": _rischio(tool_name, argomenti),
+                "timeout_s": 600,
+            })
+        except Exception as e:
+            return risposta_negata(f"NOVA non ha potuto chiedere conferma: {e}")
+        finally:
+            try:
+                cliente.close()
+            except Exception:
+                pass
+        if esito.get("esito") == "consentito":
+            return json.dumps({"behavior": "allow", "updatedInput": argomenti},
+                              ensure_ascii=False)
+        motivo = esito.get("motivo") or ""
+        if esito.get("esito") == "scaduto":
+            return risposta_negata(
+                "l'utente non ha risposto: considera l'azione non autorizzata e "
+                "spiega cosa avresti fatto invece di riprovare")
+        return risposta_negata(motivo or "l'utente ha negato il permesso")
+
     # -- deleghe -------------------------------------------------------
     def delega(self, a: str, compito: str, motivo: str = "", contesto: str = "",
                file=None) -> str:
@@ -140,12 +236,16 @@ class ServerKB:
         contesto = _allega(contesto, file)
         try:
             t = r.delega(a=a, compito=compito, motivo=motivo,
-                         da=chiamante or "claude", contesto=contesto)
+                         da=chiamante or "claude", contesto=contesto,
+                         allegati=len(file or []))
         except (ValueError, PermissionError) as e:
             return f"ERRORE: {e}"
         if t.esito.startswith("ERRORE"):
             return t.esito
-        testa = f"[risposta da «{a}»"
+        effettivo = t.a or a
+        testa = f"[risposta da «{effettivo}»"
+        if effettivo != a:
+            testa += f" (salito da «{a}»)"
         if t.costo_usd:
             testa += f", {t.costo_usd:.4f} $ equivalenti"
         if t.durata_ms:
@@ -217,6 +317,7 @@ class ServerKB:
                 "kb_note": self.kb_note,
                 "delega": self.delega,
                 "modelli": self.modelli,
+                "chiedi_permesso": self.chiedi_permesso,
             }.get(nome)
             if funzione is None:
                 return _errore(rid, -32601, f"strumento sconosciuto: {nome}")

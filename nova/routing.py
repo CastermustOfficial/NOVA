@@ -17,6 +17,7 @@ gradino zero e resta tale.
 """
 from __future__ import annotations
 
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -81,8 +82,23 @@ class Router:
         return self.tiers().get(nome)
 
     def scala(self) -> list[str]:
-        """I gradini in ordine di potenza, come li ha scritti l'utente."""
-        return list((self.cfg.brains.routing.get("tiers") or {}).keys())
+        """I gradini in ordine di potenza.
+
+        L'ordine e' scritto a parte, in «scala», e non si deduce dall'ordine
+        delle chiavi di «tiers». Sembra una ripetizione e invece e' la
+        differenza fra un'escalation che funziona e una che non parte mai:
+        basta che un qualunque programma riscriva il file ordinando le chiavi
+        — e ne esistono, il pannello lo faceva — perche' «standard» finisca
+        dopo «difficile» e non ci sia piu' niente sopra a cui salire. Un
+        ordine che conta non puo' dipendere da come e' fatto un dizionario.
+
+        I gradini non elencati non spariscono: si accodano, cosi' uno aggiunto
+        a mano resta l'ultimo invece di sparire.
+        """
+        r = self.cfg.brains.routing or {}
+        tiers = list((r.get("tiers") or {}).keys())
+        dichiarata = [n for n in (r.get("scala") or []) if n in tiers]
+        return dichiarata + [n for n in tiers if n not in dichiarata]
 
     def successivo(self, nome: str) -> str | None:
         scala = self.scala()
@@ -91,6 +107,94 @@ class Router:
         except ValueError:
             return None
         return scala[i + 1] if i + 1 < len(scala) else None
+
+    def indice(self, nome: str) -> int:
+        """Posizione di un gradino nella scala. -1 se non esiste."""
+        try:
+            return self.scala().index(nome)
+        except ValueError:
+            return -1
+
+    # -- gradino minimo per categoria ----------------------------------
+    def categorie(self) -> dict:
+        return self.cfg.brains.routing.get("categorie_che_salgono") or {}
+
+    @staticmethod
+    def _parola_presente(parola: str, testo: str) -> bool:
+        """Confini di parola, con «*» per dire «e i suoi derivati».
+
+        Senza questo «cancella» matchava «cancellerebbe» e «bug» matchava
+        «debug»: bastava un commento per mandare tutto sul gradino alto.
+        """
+        parola = parola.strip().lower()
+        if not parola:
+            return False
+        if parola.endswith("*"):
+            return re.search(r"\b" + re.escape(parola[:-1]), testo) is not None
+        return re.search(r"\b" + re.escape(parola) + r"\b", testo) is not None
+
+    def gradino_minimo(self, compito: str, allegati: int = 0,
+                       contesto: str = "") -> tuple[str | None, str]:
+        """Certi compiti salgono per regola, non per auto-valutazione.
+
+        Un modello che non conosce il codice non puo' sapere quanto e'
+        profondo il fondo: si giudica capace, risponde, e quello che non ha
+        visto non lo segnala nessuno. Per le categorie in cui l'errore non
+        si vede — review multi-file, perdita di dati, architettura — il
+        gradino minimo lo decide la configurazione, non chi riceve il
+        compito. L'auto-valutazione puo' ancora alzare, mai abbassare.
+        """
+        r = self.cfg.brains.routing
+        if not r.get("escalation_automatica", True):
+            return None, ""      # chi ha spento le salite automatiche le ha spente
+        # Solo il compito: «contesto» e' quasi sempre il sorgente dei file
+        # allegati, e far scattare una categoria su una parola che sta dentro
+        # un commento del codice manderebbe su tutto.
+        testo = str(compito).lower()
+        scala = self.scala()
+        migliore, motivo, posizione = None, "", -1
+        for nome, spec in self.categorie().items():
+            if not isinstance(spec, dict) or not spec.get("attiva", True):
+                continue
+            gradino = spec.get("gradino_minimo") or ""
+            if gradino not in scala:
+                continue
+            parole = [str(x).lower() for x in (spec.get("parole") or [])]
+            try:
+                min_file = int(spec.get("min_file") or 0)
+            except (TypeError, ValueError):
+                continue        # config scritta male: si ignora, non si esplode
+            if not parole and min_file <= 0:
+                continue        # categoria che scatterebbe sempre: mal scritta
+            if allegati < min_file:
+                continue
+            if parole and not any(self._parola_presente(x, testo) for x in parole):
+                continue
+            i = scala.index(gradino)
+            if i > posizione:
+                migliore, posizione = gradino, i
+                motivo = spec.get("descrizione") or nome
+        return migliore, motivo
+
+    def utilizzabile(self, nome: str) -> bool:
+        """Vale la pena provarci? Controllo leggero, senza costruire cervelli."""
+        t = self.tier(nome)
+        if t is None:
+            return False
+        if self.cfg.brains.routing.get("solo_locale") and not t.locale:
+            return False
+        if self.pausa_residua(nome):
+            return False
+        # se il tetto lo rifiuterebbe comunque, salire vuol dire solo perdere
+        # il ripiego: meglio restare dov'e' il compito
+        r = self.cfg.brains.routing
+        tetto = float(r.get("tetto_usd_sessione") or 0)
+        if tetto and self.a_consumo(t):
+            stima = float(r.get("costo_stimato_delega") or 0.10)
+            with self._lock:
+                if self.speso_usd + self._prenotato + stima > tetto:
+                    return False
+        return True
 
     # -- costruzione ---------------------------------------------------
     def costruisci(self, nome_tier: str, kb_context: str = ""):
@@ -179,12 +283,28 @@ class Router:
     # -- delega --------------------------------------------------------
     def delega(self, a: str, compito: str, motivo: str = "",
                da: str = "?", kb_context: str = "",
-               contesto: str = "") -> Delega:
+               contesto: str = "", allegati: int = 0,
+               salta_regola: bool = False) -> Delega:
         """Affida un sotto-compito a un gradino e restituisce il risultato.
 
         Non e' un passaggio di consegne: chi delega resta al comando e riceve
         indietro la risposta da usare come qualunque altro risultato.
         """
+        # Sui ripieghi la regola non si riapplica: rialzare al gradino che ha
+        # appena rifiutato rimanda la palla a chi l'ha respinta, e il locale —
+        # che deve restare l'ultima spiaggia — non viene mai raggiunto.
+        minimo, categoria = (None, "") if salta_regola else \
+            self.gradino_minimo(compito, allegati)
+        # se il minimo e' chi sta gia' chiedendo, salire sarebbe un ciclo
+        if minimo and minimo != da and self.indice(minimo) > self.indice(a):
+            if self.utilizzabile(minimo):
+                self.log(f"«{categoria}»: sale da «{a}» a «{minimo}» per regola")
+                motivo = (f"{motivo} (gradino minimo «{minimo}»: {categoria})").strip()
+                a = minimo
+            else:
+                self.log(f"«{categoria}» vorrebbe «{minimo}», non utilizzabile: "
+                         f"resto su «{a}»")
+
         traccia = Delega(da=da, a=a, motivo=motivo, compito=compito)
         prompt = compito if not contesto else f"{contesto}\n\n---\n\n{compito}"
         self.log(f"delega a «{a}»: {motivo or compito[:60]}")
@@ -215,7 +335,8 @@ class Router:
                     try:
                         ripiego = self.delega(alternativa, compito, motivo=motivo,
                                               da=da, kb_context=kb_context,
-                                              contesto=contesto)
+                                              contesto=contesto, allegati=0,
+                                              salta_regola=True)
                     except Exception as errore_ripiego:
                         self.log(f"«{alternativa}» non utilizzabile: {errore_ripiego}")
                         continue
@@ -230,7 +351,8 @@ class Router:
                 try:
                     ripiego = self.delega(alternativa, compito, motivo=motivo,
                                           da=da, kb_context=kb_context,
-                                          contesto=contesto)
+                                          contesto=contesto, allegati=0,
+                                          salta_regola=True)
                 except Exception:
                     continue
                 if not ripiego.esito.startswith("ERRORE"):
@@ -282,6 +404,12 @@ class Router:
             "tetto_usd": (self.cfg.brains.routing.get("tetto_usd_sessione")
                           if a_consumo else None),
             "deleghe": len(self.storico),
+            # cosa sale da solo, senza passare dal tuo giudizio
+            "salite_automatiche": {
+                nome: spec.get("gradino_minimo", "")
+                for nome, spec in self.categorie().items()
+                if isinstance(spec, dict) and spec.get("attiva", True)
+            },
         }
 
 
@@ -290,6 +418,8 @@ def routing_predefinito() -> dict:
     return {
         "abilitato": True,
         "orchestratore": "locale",
+        # L'ordine di potenza, esplicito: vedi Router.scala().
+        "scala": ["locale", "standard", "difficile", "alternativo"],
         "tiers": {
             "locale": {
                 "brain": "locale",
@@ -323,8 +453,8 @@ def routing_predefinito() -> dict:
         "escalation_automatica": True,
         "fallimenti_prima_di_salire": 2,
         # chiamate di tool senza arrivare a una risposta: sta girando a vuoto
-        "passi_prima_di_salire": 6,
-        "salite_massime": 1,
+        "passi_prima_di_salire": 4,
+        "salite_massime": 2,
         "solo_locale": False,
         # vale solo per i gradini a consumo: con un abbonamento non si applica
         "tetto_usd_sessione": 5.0,
@@ -332,6 +462,40 @@ def routing_predefinito() -> dict:
         "ripiego_su_limite": True,
         # quanto si prenota su una delega prima di sapere quanto costera'
         "costo_stimato_delega": 0.10,
+        # Categorie in cui l'auto-valutazione non basta: chi non conosce il
+        # codice non sa quanto e' profondo il fondo. Qui il gradino minimo lo
+        # decide la configurazione. Chi riceve puo' ancora salire, mai scendere.
+        "categorie_che_salgono": {
+            "review_multifile": {
+                "attiva": True,
+                "gradino_minimo": "difficile",
+                "descrizione": "review di codice su piu' file",
+                "min_file": 2,
+                "parole": ["review", "code review", "rivedi", "revision*",
+                           "audit", "difett*", "bug", "vulnerabilit*",
+                           "analizza il codice", "cosa non va",
+                           "controlla il codice"],
+            },
+            "perdita_dati": {
+                "attiva": True,
+                "gradino_minimo": "difficile",
+                "descrizione": "rischio di perdita o corruzione di dati",
+                "min_file": 0,
+                "parole": ["perdita di dati", "perdere dati", "sovrascriv*",
+                           "corruzione", "corrompe", "race condition",
+                           "concorrenza", "migrazione dei dati",
+                           "cancellazione", "irreversibil*"],
+            },
+            "architettura": {
+                "attiva": True,
+                "gradino_minimo": "difficile",
+                "descrizione": "decisione di architettura",
+                "min_file": 0,
+                "parole": ["architettura", "architettural*", "progetta*",
+                           "come strutturare", "refactor*", "trade-off",
+                           "quale approccio", "design"],
+            },
+        },
     }
 
 

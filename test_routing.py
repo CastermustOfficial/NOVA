@@ -122,6 +122,22 @@ try:
 except PermissionError:
     controlla("due deleghe in volo non sfondano il tetto", True)
 
+# ------------------------------------------------------------------- 6
+print("\n6. la scala non dipende dall'ordine delle chiavi di «tiers»")
+c6 = Config.load()
+tiers = c6.brains.routing["tiers"]
+# come lo riscriveva il pannello: chiavi in ordine alfabetico
+c6.brains.routing["tiers"] = {k: tiers[k] for k in sorted(tiers)}
+r6 = Router(c6, log=lambda m: None)
+controlla("l'ordine di potenza resta quello dichiarato",
+          r6.scala()[:2] == ["locale", "standard"], f"scala: {r6.scala()}")
+controlla("sopra «standard» c'e' ancora qualcosa",
+          r6.successivo("standard") == "difficile", f"-> {r6.successivo('standard')}")
+# un gradino aggiunto a mano e non elencato non deve sparire
+c6.brains.routing["tiers"]["mio"] = {"brain": "locale"}
+controlla("un gradino non elencato si accoda invece di sparire",
+          "mio" in Router(c6, log=lambda m: None).scala())
+
 print("\n" + ("tutti i difetti corretti" if all(c for _, c in esiti)
               else "ATTENZIONE: qualcosa non torna"))
 raise SystemExit(0 if all(c for _, c in esiti) else 1)

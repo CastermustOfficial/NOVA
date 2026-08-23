@@ -19,11 +19,23 @@ from ..config import AUTONOMY_ASK_ALL, AUTONOMY_ASK_RISKY, AUTONOMY_FULL
 from .base import LimiteUso, Risposta
 
 # I tre livelli di autonomia di NOVA, tradotti nel vocabolario di Claude Code.
+#
+# «Conferma sempre» era tradotto in «plan», ed era sbagliato: plan non vuol
+# dire «chiedi prima di agire», vuol dire «non agire, scrivi un piano». In
+# modalita' headless l'unico modo di uscirne (ExitPlanMode) non esiste, quindi
+# NOVA restava in un vicolo cieco: scriveva un piano, diceva «confermi?», e
+# non c'era nessun modo di confermare. Chiedere davvero si fa con
+# «default» piu' uno strumento che porta la domanda sotto gli occhi
+# dell'utente — vedi SPORTELLO_PERMESSI.
 PERMESSI = {
-    AUTONOMY_ASK_ALL: "plan",              # analizza e propone, non tocca nulla
+    AUTONOMY_ASK_ALL: "default",           # chiede per tutto quello che tocca
     AUTONOMY_ASK_RISKY: "acceptEdits",     # modifica file, chiede per il resto
     AUTONOMY_FULL: "bypassPermissions",    # mani libere
 }
+
+# Il tool che Claude chiama quando gli serve un permesso. Sta nel server MCP di
+# NOVA e passa dal demone per arrivare all'interfaccia (o alla voce).
+SPORTELLO_PERMESSI = "mcp__nova__chiedi_permesso"
 
 IDENTITA = """Sei il cervello di NOVA, l'assistente digitale che vive sul PC Windows di {user}.
 Parli italiano, in modo breve e concreto. Agisci con i tuoi strumenti invece di
@@ -39,10 +51,34 @@ NOVA ha una memoria a lungo termine: un vault markdown a grafo in
 (un file .md per nodo, frontmatter + [[wikilink]], compatibile Obsidian).
 
 {mcp_hint}
-Quello che NOVA gia' sa e che riguarda questa richiesta:
+A ogni richiesta ti arriva, in coda al messaggio, cio' che la memoria ha
+trovato di pertinente. Guardalo PRIMA di misurare, cercare o eseguire comandi:
+se la risposta e' li' e non hai motivo di dubitarne, quella e' la risposta. Se
+la trovi superata, correggila con kb_note invece di limitarti a ignorarla.
+"""
+
+# Il contesto di memoria viaggia in CODA alla domanda, non nel prompt di
+# sistema. Due motivi, e nessuno dei due e' estetico.
+#
+# Il primo e' che funzioni: il prompt di sistema si passa solo quando la
+# sessione si apre (`--append-system-prompt`), e da li' in poi ogni turno usa
+# `--resume`. Mettendo il contesto la' dentro, NOVA faceva la ricerca — BM25,
+# denso, RRF, un salto sul grafo — e poi la buttava via a ogni turno tranne il
+# primo. Sei ore di conversazione senza memoria, con la memoria che girava.
+#
+# Il secondo e' il costo: il prompt di sistema e' la prima regione di token su
+# cui un fornitore tiene la cache. Cambiarlo a ogni turno — e cambiava, perche'
+# il contesto dipende dalla domanda — invalida l'intero prefisso e fa
+# rielaborare tutta la conversazione da capo. In coda invece e' crescita
+# append-only: il prefisso resta quello di prima.
+CONTESTO = """
+
+<memoria>
+Quello che gia' sai e che riguarda questa richiesta. Non ripeterlo all'utente
+come se fosse una novita'.
 
 {contesto}
-"""
+</memoria>"""
 
 HINT_MCP = ("Hai i tool MCP `mcp__nova__kb_search` e `mcp__nova__kb_note` per "
             "consultarla e aggiornarla: usali invece di leggere i file a mano.\n"
@@ -71,7 +107,15 @@ class ClaudeCodeBrain:
         self.max_turns = b.claude_max_turns
         self.timeout = b.claude_timeout
         self.extra_args = list(b.claude_extra_args)
-        self.session_id: str = ""
+        # La sessione sopravvive al processo.
+        #
+        # Il guscio grafico avvia un processo per messaggio: senza questo, ogni
+        # frase e' una conversazione nuova e NOVA risponde «non ho contesto su
+        # cosa intendi» a una domanda che segue la sua stessa risposta di
+        # trenta secondi prima. Il filo lo tiene Claude Code con --resume: qui
+        # si conserva solo il capo del filo.
+        self.file_sessione = _percorso_sessione()
+        self.session_id: str = _leggi_sessione(self.file_sessione)
         self.ultimo_costo: float = 0.0
         self.costo_sessione: float = 0.0
         self.kb_context = kb_context
@@ -108,6 +152,7 @@ class ClaudeCodeBrain:
     def reset(self) -> None:
         self.session_id = ""
         self.costo_sessione = 0.0
+        _scrivi_sessione(self.file_sessione, "")
 
     # -- prompt --------------------------------------------------------
     def _system_prompt(self, messaggi: list[dict]) -> str:
@@ -125,7 +170,6 @@ class ClaudeCodeBrain:
             pezzi.append(MEMORIA.format(
                 vault=self.vault_path,
                 mcp_hint=HINT_MCP if self.mcp_config else HINT_FILE,
-                contesto=self.kb_context or "(niente di pertinente in memoria)",
             ))
         return "\n\n".join(pezzi)
 
@@ -152,7 +196,12 @@ class ClaudeCodeBrain:
                      "--allowedTools",
                      "mcp__nova__kb_search,mcp__nova__kb_note,"
                      "mcp__nova__delega,mcp__nova__modelli,"
+                     "mcp__nova__chiedi_permesso,"
                      "mcp__nova-core"]
+            # Con le mani libere non c'e' niente da chiedere; negli altri due
+            # livelli la domanda deve poter arrivare a qualcuno.
+            if self.cfg.safety.autonomy != AUTONOMY_FULL:
+                args += ["--permission-prompt-tool", SPORTELLO_PERMESSI]
         args += self.extra_args
         return args
 
@@ -164,9 +213,15 @@ class ClaudeCodeBrain:
         domanda = self._ultimo_utente(messaggi)
         if not domanda.strip():
             return Risposta(contenuto="")
+        # Vedi CONTESTO: in coda, e a ogni turno — non solo al primo.
+        if self.kb_context.strip():
+            domanda += CONTESTO.format(contesto=self.kb_context.strip())
         dati, durata = self._esegui(self._argomenti(self._system_prompt(messaggi)), domanda)
 
+        precedente = self.session_id
         self.session_id = dati.get("session_id") or self.session_id
+        if self.session_id and self.session_id != precedente:
+            _scrivi_sessione(self.file_sessione, self.session_id)
         costo = float(dati.get("total_cost_usd") or 0.0)
         self.ultimo_costo = costo
         self.costo_sessione += costo
@@ -208,6 +263,17 @@ class ClaudeCodeBrain:
 
     # -- processo ------------------------------------------------------
     def _esegui(self, args: list[str], stdin_testo: str) -> tuple[dict, int]:
+        # Diagnostica: NOVA_DUMP_ARGS=<file> scrive la riga di comando vera.
+        # Ricostruirla a mano non basta — e' il modo in cui si finisce a
+        # dimostrare cio' che si credeva invece di cio' che succede.
+        _dump = os.environ.get("NOVA_DUMP_ARGS")
+        if _dump:
+            try:
+                with open(_dump, "a", encoding="utf-8") as f:
+                    f.write(json.dumps({"args": args, "stdin": stdin_testo[:400]},
+                                       ensure_ascii=False, indent=1) + "\n")
+            except Exception:
+                pass
         env = os.environ.copy()
         env.setdefault("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1")
         inizio = time.time()
@@ -233,6 +299,44 @@ class ClaudeCodeBrain:
                 except json.JSONDecodeError:
                     pass
             raise RuntimeError(f"Risposta di Claude Code non interpretabile: {uscita[:400]}")
+
+
+# quanto tempo una conversazione resta «la stessa» se nessuno parla
+SCADENZA_SESSIONE_S = 6 * 60 * 60
+
+
+def _percorso_sessione() -> Path:
+    base = os.environ.get("APPDATA")
+    cartella = Path(base) / "NOVA" if base else Path.home() / ".config" / "NOVA"
+    return cartella / "sessione.json"
+
+
+def _leggi_sessione(percorso: Path) -> str:
+    """L'ultima sessione, se non e' troppo vecchia.
+
+    La scadenza serve: riprendere stamattina il filo di ieri sera vuol dire
+    trascinarsi dietro un contesto che non c'entra piu' niente, e pagarlo in
+    token a ogni turno.
+    """
+    try:
+        dati = json.loads(percorso.read_text(encoding="utf-8-sig"))
+    except Exception:
+        return ""
+    quando = float(dati.get("quando") or 0)
+    if time.time() - quando > SCADENZA_SESSIONE_S:
+        return ""
+    return str(dati.get("session_id") or "")
+
+
+def _scrivi_sessione(percorso: Path, identificativo: str) -> None:
+    try:
+        percorso.parent.mkdir(parents=True, exist_ok=True)
+        percorso.write_text(
+            json.dumps({"session_id": identificativo, "quando": time.time()},
+                       ensure_ascii=False),
+            encoding="utf-8")
+    except OSError:
+        pass
 
 
 def tipo_accesso() -> tuple[str, str]:

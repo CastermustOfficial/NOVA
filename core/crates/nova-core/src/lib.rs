@@ -12,10 +12,15 @@
 //! seguire l'albero di accessibilita' (UIA / AX / AT-SPI), l'osservazione
 //! (ETW / EndpointSecurity / eBPF) e gli snapshot (VSS / APFS / overlayfs).
 
+pub mod caps_segreti;
+pub mod segreti;
 pub mod bus;
 pub mod capability;
 pub mod caps;
+pub mod caps_approvazione;
 pub mod caps_ui;
+pub mod caps_voce;
+pub mod risveglio;
 pub mod config;
 pub mod policy;
 pub mod server;
@@ -64,12 +69,20 @@ pub fn build(config: Config) -> Result<Arc<Server>> {
     let mut registry = Registry::new();
     caps::register_builtins(&mut registry);
     caps_ui::register(&mut registry);
+    caps_approvazione::register(&mut registry);
+    caps_voce::register(&mut registry);
+    caps_segreti::register(&mut registry);
 
     Ok(Server::new(Arc::new(registry), ctx, config))
 }
 
 /// Avvia i servizi marcati `autostart` nella configurazione.
+///
+/// Qui parte anche il risveglio, se l'utente l'ha chiesto: NOVA deve
+/// rispondere al proprio nome dal momento in cui il PC si accende, senza che
+/// nessuno apra un pannello per dirglielo ogni volta.
 pub async fn avvia_servizi(server: &Arc<Server>) {
+    caps_voce::avvia_se_richiesto(server.ctx.bus.clone());
     for s in &server.config.services {
         if !s.autostart || s.program.is_empty() {
             continue;

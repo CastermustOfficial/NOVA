@@ -60,8 +60,12 @@ def write_clipboard(text: str) -> str:
 
 @tool(
     "type_text",
-    "Digita un testo nella finestra attiva, come se lo scrivesse l'utente. "
-    "Porta prima in primo piano la finestra giusta con focus_window.",
+    "ULTIMA SPIAGGIA. Digita come se premessi tu i tasti, quindi il testo "
+    "finisce in QUALUNQUE finestra abbia il fuoco in quel momento — e "
+    "l'operatore, se stava scrivendo, se lo ritrova in mezzo al suo lavoro. "
+    "Prima prova sempre `ui.find` + `ui.set_text`: quelli scrivono dentro il "
+    "campo giusto senza toccare la tastiera e senza interrompere nessuno. "
+    "Usa questo solo se quel campo non espone «set_value».",
     {
         "text": {"type": "string", "description": "Testo da digitare"},
         "delay_seconds": {"type": "number", "description": "Attesa prima di digitare (default 0.5)"},
@@ -88,7 +92,12 @@ def type_text(text: str, delay_seconds: float = 0.5) -> str:
 
 @tool(
     "press_keys",
-    "Invia una combinazione di tasti alla finestra attiva (es. 'ctrl+s', 'alt+tab', 'enter').",
+    "ULTIMA SPIAGGIA. I tasti vanno alla finestra che ha il fuoco, non a "
+    "quella che intendi tu, e se l'operatore sta lavorando glieli togli di "
+    "mano. Prima prova sempre `ui.find` + `ui.click`: quello preme il pulsante "
+    "parlando all'applicazione, senza fuoco e senza mouse. Usa questo solo per "
+    "scorciatoie che non esistono come comando (es. 'ctrl+s' dove non c'e' una "
+    "voce di menu raggiungibile).",
     {"keys": {"type": "string", "description": "Combinazione, es. ctrl+shift+esc"}},
     Risk.DANGEROUS, category="sistema",
     preview=lambda a: f"Preme i tasti {a.get('keys')}",
