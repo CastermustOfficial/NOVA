@@ -16,3 +16,13 @@ config.local.json
 # build Rust (~1 GB)
 core/target/
 
+
+# materiale di lavoro delle revisioni fra modelli
+revisioni/
+verifica_incrociata.log
+verifica_incrociata.err
+
+# chiavi: non devono mai finire nel repository
+*.key
+.env
+segreti.json
