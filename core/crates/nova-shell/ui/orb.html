@@ -1,0 +1,65 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>NOVA</title>
+<style>
+  /* La finestra e' trasparente: qui non si dipinge niente, c'e' solo l'orb.
+     Nessuno sfondo, nessun bordo — sul desktop deve sembrare una cosa che
+     galleggia, non una finestrella. */
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+  body { -webkit-user-select: none; user-select: none; cursor: grab; }
+  body.trascino { cursor: grabbing; }
+  #orb {
+    width: 100%; height: 100%; display: block;
+    transition: transform .18s cubic-bezier(.22,1.3,.36,1), filter .18s;
+  }
+  body:hover #orb { transform: scale(1.06); }
+  body:active #orb { transform: scale(.97); }
+  /* Un alone appena percepibile: stacca l'orb da uno sfondo chiaro senza
+     disegnargli attorno una scatola. */
+  #orb { filter: drop-shadow(0 6px 18px rgba(0,0,0,.45)); }
+</style>
+<canvas id="orb"></canvas>
+<script type="module">
+import { creaOrb } from './orb.js';
+
+const canvas = document.getElementById('orb');
+const orb = creaOrb(canvas);
+window.orb = orb;
+
+const tauri = window.__TAURI__;
+const finestra = tauri?.window?.getCurrentWindow?.();
+
+/* Trascinare o cliccare: la differenza la fa quanto si e' mosso il mouse.
+   Senza questa soglia, ogni tentativo di spostare l'orb apriva anche la chat. */
+let giu = null;
+document.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  giu = { x: e.screenX, y: e.screenY, t: performance.now() };
+});
+document.addEventListener('mousemove', e => {
+  if (!giu || !finestra) return;
+  const dx = Math.abs(e.screenX - giu.x), dy = Math.abs(e.screenY - giu.y);
+  if (dx + dy > 4) {
+    document.body.classList.add('trascino');
+    giu.mosso = true;
+    finestra.startDragging();
+  }
+});
+document.addEventListener('mouseup', async e => {
+  document.body.classList.remove('trascino');
+  const era = giu; giu = null;
+  if (!era || era.mosso || e.button !== 0) return;
+  try { await tauri.core.invoke('apri_chat'); } catch (err) { console.warn(err); }
+});
+
+/* Il tasto destro non apre un menu del browser: apre il nostro. */
+document.addEventListener('contextmenu', async e => {
+  e.preventDefault();
+  try { await tauri.core.invoke('menu_orb'); } catch (err) { console.warn(err); }
+});
+
+/* Lo stato arriva dal guscio, che lo sente dal demone. */
+tauri?.event?.listen?.('nova://stato', ev => {
+  orb.stato(String(ev.payload?.stato || 'quiete'));
+});
+</script>

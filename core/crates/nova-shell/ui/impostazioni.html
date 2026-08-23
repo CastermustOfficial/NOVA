@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>NOVA — Impostazioni</title>
+<link rel="stylesheet" href="tema.css">
+<style>
+.app{position:relative;z-index:2;height:100vh;display:flex;flex-direction:column;padding:14px 16px 16px;gap:12px}
+.barra{display:flex;align-items:center;gap:16px;padding:12px 18px;background:var(--vetro);
+  border:1px solid var(--linea);border-radius:14px;backdrop-filter:blur(24px) saturate(140%);flex-shrink:0}
+.marchio{display:flex;align-items:center;gap:11px}
+.marchio canvas{width:30px;height:30px;flex-shrink:0}
+.nome{font-weight:700;font-size:16px;letter-spacing:.14em}
+.sotto{font-family:var(--mono);font-size:9.5px;color:var(--fioco);letter-spacing:.18em;margin-top:1px}
+.salvato{margin-left:auto;font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--fioco);
+  opacity:0;transition:opacity .3s}
+.salvato.si{opacity:1;color:var(--ascolto)}
+.corpo{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));
+  gap:12px;align-content:start;padding-bottom:4px}
+.scheda{padding:20px 18px}
+.riga{display:flex;align-items:center;gap:12px;padding:9px 0}
+.riga+.riga{border-top:1px solid var(--linea)}
+.riga .info{flex:1;min-width:0}
+.riga .info b{font-size:13px;font-weight:600;display:block}
+.riga .info span{font-size:11.5px;color:var(--mezzo);display:block;margin-top:2px;line-height:1.45}
+/* — interruttore — */
+.interruttore{position:relative;width:42px;height:24px;border-radius:99px;border:1px solid var(--linea-2);
+  background:rgba(0,0,0,.3);transition:.3s;flex-shrink:0}
+.interruttore::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;
+  background:var(--mezzo);transition:.3s cubic-bezier(.22,1.35,.36,1)}
+.interruttore.si{background:var(--brace-16);border-color:rgba(232,115,74,.45)}
+.interruttore.si::after{left:21px;background:var(--brace);box-shadow:0 0 12px rgba(232,115,74,.45)}
+/* — scelta a segmenti — */
+.segmenti{position:relative;display:grid;padding:4px;border:1px solid var(--linea);
+  border-radius:12px;background:rgba(0,0,0,.25)}
+.cursore{position:absolute;top:4px;left:4px;height:calc(100% - 8px);border-radius:9px;
+  background:var(--vetro-2);border:1px solid var(--linea-2);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 6px 16px -8px rgba(0,0,0,.7);
+  transition:transform .42s cubic-bezier(.22,1.35,.36,1)}
+.segmento{position:relative;z-index:1;padding:9px 6px;border-radius:9px;color:var(--fioco);
+  transition:color .3s;font-size:11.5px;font-weight:500;text-align:center}
+.segmento:hover{color:var(--mezzo)}
+.segmento.attivo{color:var(--inchiostro)}
+.spiega{margin-top:10px;font-size:11.5px;color:var(--mezzo);line-height:1.5;min-height:34px}
+/* — schede cervello — */
+.cervelli{display:flex;flex-direction:column;gap:8px}
+.cervello{position:relative;overflow:hidden;text-align:left;width:100%;padding:12px 13px;border-radius:13px;
+  border:1px solid var(--linea);background:rgba(0,0,0,.18);transition:.22s;display:flex;gap:12px;align-items:flex-start}
+.cervello:hover{border-color:var(--linea-2);transform:translateY(-1px)}
+.cervello.scelto{border-color:rgba(232,115,74,.4);background:var(--brace-08)}
+.pallino{width:15px;height:15px;border-radius:50%;border:1.5px solid var(--linea-2);flex-shrink:0;margin-top:2px;
+  transition:.25s;position:relative}
+.cervello.scelto .pallino{background:var(--brace);border-color:var(--brace)}
+.cervello.scelto .pallino::after{content:'';position:absolute;inset:4px;border-radius:50%;background:#160a06}
+.cv-nome{font-weight:600;font-size:13.5px}
+.cv-desc{font-size:11.5px;color:var(--mezzo);margin-top:3px;line-height:1.45}
+.etichette{display:flex;gap:5px;margin-top:7px;flex-wrap:wrap}
+.etichetta{font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:2.5px 7px;border-radius:6px;
+  border:1px solid var(--linea);color:var(--fioco)}
+.cervello.scelto .etichetta{color:var(--brace);border-color:rgba(232,115,74,.3)}
+/* — stati dell'orb, la legenda — */
+.legenda{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.stato-v{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9.5px;
+  color:var(--fioco);padding:4px 9px;border:1px solid var(--linea);border-radius:8px;cursor:pointer;transition:.2s}
+.stato-v:hover{border-color:var(--linea-2);color:var(--mezzo)}
+.stato-v i{width:7px;height:7px;border-radius:50%;display:block}
+select{width:100%;padding:8px 10px;border-radius:9px;background:rgba(0,0,0,.3);
+  border:1px solid var(--linea);font-size:12.5px;outline:none}
+select:focus{border-color:rgba(232,115,74,.4)}
+.nota{font-size:11px;color:var(--fioco);line-height:1.5;margin-top:10px;padding-left:10px;
+  border-left:2px solid var(--linea)}
+</style>
+</head>
+<body>
+<div class="aloni"><div class="alone a"></div><div class="alone b"></div><div class="alone c"></div></div>
+<div class="grana"></div>
+<div class="app">
+  <header class="barra">
+    <div class="marchio">
+      <canvas id="orbMini"></canvas>
+      <div><div class="nome">NOVA</div><div class="sotto">IMPOSTAZIONI</div></div>
+    </div>
+    <span class="salvato" id="salvato">SALVATO</span>
+    <span id="diagnostica" style="margin-left:14px;font-family:var(--mono);font-size:10px;
+      letter-spacing:.1em;color:var(--pericolo);max-width:52%;overflow:hidden;
+      text-overflow:ellipsis;white-space:nowrap">JS NON PARTITO</span>
+  </header>
+
+  <div class="corpo">
+    <!-- CERVELLO -->
+    <section class="pannello scheda">
+      <div class="titolo-sez"><h3>Cervello</h3><span class="coda" id="codaCervello"></span></div>
+      <div class="cervelli" id="cervelli"></div>
+    </section>
+
+    <!-- AUTONOMIA -->
+    <section class="pannello scheda">
+      <div class="titolo-sez"><h3>Autonomia</h3></div>
+      <div class="segmenti" id="segAutonomia" style="grid-template-columns:repeat(3,1fr)">
+        <div class="cursore" id="cursoreAutonomia" style="width:calc((100% - 8px)/3)"></div>
+        <button class="segmento" data-v="always_ask">Conferma sempre</button>
+        <button class="segmento" data-v="ask_risky">Solo rischiose</button>
+        <button class="segmento" data-v="autonomous">Autonomo</button>
+      </div>
+      <p class="spiega" id="spiegaAutonomia"></p>
+      <p class="nota">Con il cervello Claude la conferma arriva da una finestra a parte:
+        NOVA chiede il permesso passando dal demone, e finche' non rispondi Claude aspetta.</p>
+    </section>
+
+    <!-- MEMORIA -->
+    <section class="pannello scheda">
+      <div class="titolo-sez"><h3>Memoria</h3><span class="coda" id="codaMemoria"></span></div>
+      <div class="riga">
+        <div class="info"><b>Impara da sola</b><span id="infoMemoria">Dopo ogni scambio NOVA estrae i fatti durevoli</span></div>
+        <button class="interruttore" id="swMemoria"></button>
+      </div>
+      <div class="riga">
+        <div class="info"><b>Contesto nel prompt</b><span>Cerca nella memoria prima di rispondere</span></div>
+        <button class="interruttore" id="swContesto"></button>
+      </div>
+      <p class="nota">Quello che NOVA vede sullo schermo non entra mai in memoria:
+        legge i titoli delle finestre per poter agire sui programmi, ma nel vault
+        finisce l'applicazione, non cosa ci avevi aperto dentro.</p>
+    </section>
+
+    <!-- VOCE -->
+    <section class="pannello scheda">
+      <div class="titolo-sez"><h3>Voce</h3><span class="coda" id="codaVoce"></span></div>
+      <div class="riga">
+        <div class="info"><b>Attiva</b><span>Ascolto e sintesi</span></div>
+        <button class="interruttore" id="swVoce"></button>
+      </div>
+      <div class="riga" style="display:block">
+        <div class="info" style="margin-bottom:8px"><b>Motore</b><span id="notaMotore"></span></div>
+        <select id="selMotore">
+          <option value="locale">Locale — Kokoro, nel demone</option>
+          <option value="elevenlabs">ElevenLabs — cloud, 10.000 caratteri al mese</option>
+          <option value="sapi">Voce di sistema — gratis, illimitata, meccanica</option>
+          <option value="none">Nessuna</option>
+        </select>
+      </div>
+      <div class="riga" style="display:block">
+        <div class="info" style="margin-bottom:8px"><b>Microfono</b>
+          <span>Il predefinito di sistema spesso non è quello giusto: provalo.</span></div>
+        <select id="selMicrofono"><option value="">Predefinito di sistema</option></select>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:9px">
+          <button class="bottone secondo" id="btnProvaMic" style="flex-shrink:0">Prova · di' qualcosa</button>
+          <div style="flex:1;height:8px;border-radius:99px;background:rgba(0,0,0,.35);
+                      border:1px solid var(--linea);overflow:hidden">
+            <div id="barraMic" style="height:100%;width:0;border-radius:99px;
+                 background:var(--ascolto);transition:width .2s"></div>
+          </div>
+        </div>
+        <p class="nota" id="esitoMic" style="margin-top:8px">Non ancora provato.</p>
+      </div>
+      <div class="riga" style="display:block" id="rigaVoceLocale">
+        <div class="info" style="margin-bottom:8px"><b>Voce</b><span>Italiana e nativa, senza tetto di caratteri</span></div>
+        <select id="selVoce">
+          <option value="im_nicola">im_nicola — maschile</option>
+          <option value="if_sara">if_sara — femminile</option>
+        </select>
+      </div>
+      <div class="riga" style="display:block">
+        <div class="info" style="margin-bottom:8px"><b>Memoria del motore</b>
+          <span>Tenerlo caldo costa ~600 MB e fa partire la voce all'istante</span></div>
+        <select id="selScarico">
+          <option value="0">Resta caricato (predefinito)</option>
+          <option value="300">Scarica dopo 5 minuti di silenzio</option>
+          <option value="900">Scarica dopo 15 minuti</option>
+          <option value="3600">Scarica dopo un'ora</option>
+        </select>
+      </div>
+      <div class="riga">
+        <div class="info"><b>Parola di risveglio</b>
+          <span>Il microfono resta aperto e si sveglia su «<span id="ecoRisveglio">nova</span>»</span></div>
+        <button class="interruttore" id="swRisveglio"></button>
+      </div>
+    </section>
+
+    <!-- STATO -->
+    <section class="pannello scheda">
+      <div class="titolo-sez"><h3>Stato</h3><span class="coda" id="codaStato">CONTROLLO…</span></div>
+      <div id="fatti"></div>
+      <p class="nota">Questi non sono i valori scritti nel file: sono i fatti,
+        chiesti adesso. Un pannello serve soprattutto quando qualcosa e' rotto.</p>
+    </section>
+
+    <!-- L'ORB -->
+    <section class="pannello scheda">
+      <div class="titolo-sez"><h3>L'orb</h3><span class="coda">SEMPRE IN SCENA</span></div>
+      <p style="font-size:12.5px;color:var(--mezzo);line-height:1.55">
+        L'orb e' l'unica cosa di NOVA sempre visibile, e parla per colore.
+        Passaci sopra per vedere ogni stato.
+      </p>
+      <div class="legenda" id="legenda"></div>
+      <p class="nota">Per questo il resto dell'interfaccia non ha colori forti:
+        se tutto fosse verde, il verde smetterebbe di voler dire «ti sto ascoltando».</p>
+    </section>
+  </div>
+</div>
+
+<script>
+/* Script classico, non modulo: gira PRIMA e cattura anche il fallimento del
+   modulo. Il gestore di errori messo dentro il modulo non poteva vedere
+   l'errore che impediva al modulo stesso di partire — una rete stesa dentro
+   la cosa che deve prendere. */
+window.__scrivi = function(m){
+  try {
+    var t = window.__TAURI__;
+    if(t && t.core && t.core.invoke)
+      t.core.invoke('registra_diagnostica', { finestra: 'impostazioni', messaggio: String(m) });
+  } catch(_e){}
+};
+window.__diag = function(m, rosso){
+  window.__scrivi(m);
+  var d = document.getElementById('diagnostica');
+  if(!d) return;
+  d.textContent = m;
+  d.style.color = rosso === false ? 'var(--fioco)' : 'var(--pericolo)';
+};
+window.addEventListener('error', function(e){
+  var dove = (e.filename || '').split('/').pop();
+  window.__diag('ERRORE: ' + (e.message || e.type) + (dove ? '  [' + dove + ':' + (e.lineno||'?') + ']' : ''));
+}, true);
+window.addEventListener('unhandledrejection', function(e){
+  window.__diag('PROMESSA: ' + ((e.reason && e.reason.message) || e.reason));
+});
+document.addEventListener('DOMContentLoaded', function(){
+  window.__diag('pagina resa; __TAURI__ ' + (window.__TAURI__ ? 'presente' : 'ASSENTE'));
+  setTimeout(function(){
+    var d = document.getElementById('diagnostica');
+    if(d && d.textContent.indexOf('attendo il modulo') === 0)
+      window.__diag('IL MODULO NON È PARTITO (import non risolto?)');
+  }, 1500);
+});
+</script>
+<script type="module">
+import { STATI, creaOrb } from './orb.js';
+const invoke = window.__TAURI__?.core?.invoke;
+const $ = id => document.getElementById(id);
+
+/* Se questa riga non gira, la scritta rossa in alto resta: e' il modo piu'
+   rapido di distinguere «il JavaScript e' morto» da «il click non arriva». */
+const diag = m => { const d = $('diagnostica'); if(d){ d.textContent = m;
+  d.style.color = m.startsWith('ok') ? 'var(--fioco)' : 'var(--pericolo)'; } };
+window.__diag('ok · modulo partito', false);
+diag('ok · js vivo');
+window.addEventListener('error', e => diag('ERRORE: ' + (e.message || e)));
+window.addEventListener('unhandledrejection', e => diag('PROMESSA: ' + (e.reason?.message || e.reason)));
+
+const orb = creaOrb($('orbMini'));
+
+const CERVELLI = {
+  locale:{n:'Modello locale',d:'Il GGUF sul PC. Gratis, privato, orchestra.',t:['PRIVATO','OFFLINE']},
+  claude:{n:'Claude Code',d:'Agentico: agisce con i propri strumenti.',t:['AGENTICO','ABBONAMENTO']},
+  api:{n:'API esterna',d:'Endpoint compatibile OpenAI.',t:['A CONSUMO']},
+};
+const AUTONOMIA = {
+  always_ask:'Ogni azione passa dal tuo benestare, anche quelle innocue. Lento, ma non succede niente che tu non abbia visto.',
+  ask_risky:'Legge e cerca da sola; chiede solo prima di scrivere, cancellare o eseguire. È il compromesso ragionevole.',
+  autonomous:'Nessuna conferma. Veloce, e ogni errore è già successo quando lo leggi.',
+};
+let cfg = {};
+
+function mostraSalvato(){ $('salvato').classList.add('si'); setTimeout(()=>$('salvato').classList.remove('si'), 1400); }
+async function salva(modifica){
+  if(!invoke){ diag("ERRORE: il ponte col guscio non c'è (invoke assente)"); return; }
+  try { cfg = await invoke('config_scrivi', { modifica }); mostraSalvato(); diag('ok · salvato'); }
+  catch(e){ diag('SALVATAGGIO: ' + e); }
+}
+const prendi = (p, d) => p.split('.').reduce((o,k)=> (o||{})[k], cfg) ?? d;
+
+function disegnaCervelli(){
+  const attivo = prendi('brains.active','claude');
+  $('cervelli').innerHTML = Object.entries(CERVELLI).map(([k,b])=>`
+    <button class="cervello ${k===attivo?'scelto':''}" data-k="${k}">
+      <span class="pallino"></span>
+      <span style="flex:1">
+        <span class="cv-nome">${b.n}</span>
+        <span class="cv-desc">${b.d}</span>
+        <span class="etichette">${b.t.map(t=>`<span class="etichetta">${t}</span>`).join('')}</span>
+      </span>
+    </button>`).join('');
+  $('codaCervello').textContent = (CERVELLI[attivo]?.n || attivo).toUpperCase();
+  document.querySelectorAll('.cervello').forEach(c => c.onclick = () => {
+    document.querySelectorAll('.cervello').forEach(x => x.classList.toggle('scelto', x===c));
+    $('codaCervello').textContent = CERVELLI[c.dataset.k].n.toUpperCase();
+    salva({ brains: { active: c.dataset.k } });
+  });
+}
+function disegnaAutonomia(){
+  const v = prendi('safety.autonomy','ask_risky');
+  const ordine = ['always_ask','ask_risky','autonomous'];
+  document.querySelectorAll('#segAutonomia .segmento').forEach(o=>o.classList.toggle('attivo', o.dataset.v===v));
+  $('cursoreAutonomia').style.transform = `translateX(${ordine.indexOf(v)*100}%)`;
+  $('spiegaAutonomia').textContent = AUTONOMIA[v];
+}
+document.querySelectorAll('#segAutonomia .segmento').forEach(o => o.onclick = () => {
+  cfg.safety = { ...(cfg.safety||{}), autonomy: o.dataset.v };
+  disegnaAutonomia();
+  salva({ safety: { autonomy: o.dataset.v } });
+});
+function interruttore(id, percorso, predefinito, alCambio){
+  const el = $(id);
+  const val = prendi(percorso, predefinito);
+  el.classList.toggle('si', !!val);
+  el.onclick = () => {
+    const nuovo = !el.classList.contains('si');
+    el.classList.toggle('si', nuovo);
+    const [sez, chiave] = percorso.split('.');
+    salva({ [sez]: { [chiave]: nuovo } });
+    alCambio?.(nuovo);
+  };
+}
+function disegnaLegenda(){
+  const colore = t => `rgb(${t.map(x=>Math.round(Math.min(1,x*0.72)*255)).join(',')})`;
+  const nomi = { quiete:'A RIPOSO', ascolto:'ASCOLTO', penso:'PENSO', parlo:'PARLO',
+                 agisco:'AGISCO', chiedo:'CHIEDO', spento:'SPENTA' };
+  $('legenda').innerHTML = Object.entries(nomi).map(([k,n])=>
+    `<span class="stato-v" data-s="${k}"><i style="background:${colore(STATI[k].tinta)}"></i>${n}</span>`).join('');
+  document.querySelectorAll('.stato-v').forEach(s=>{
+    s.onmouseenter = () => orb.stato(s.dataset.s);
+    s.onmouseleave = () => orb.stato('quiete');
+  });
+}
+
+(async function avvia(){
+ try {
+  if(!invoke) diag('ERRORE: window.__TAURI__ assente');
+  if(invoke){ try { cfg = await invoke('config_leggi'); diag('ok · configurazione letta'); }
+              catch(e){ diag('LETTURA CONFIG: ' + e); } }
+  disegnaCervelli();
+  disegnaAutonomia();
+  interruttore('swMemoria','kb.auto_learn',true);
+  interruttore('swContesto','kb.inject_context',true);
+  interruttore('swVoce','voice.enabled',false,
+               v => $('codaVoce').textContent = v ? 'ATTIVA' : 'SPENTA');
+  interruttore('swRisveglio','voice.wake_enabled',false);
+  $('ecoRisveglio').textContent = prendi('voice.wake_word','nova');
+
+  const motore = $('selMotore');
+  motore.value = prendi('voice.tts_engine','locale');
+  const notaMotore = () => {
+    const m = { locale:"Gira nel demone: nessun tetto, e l'audio non esce dal PC.",
+                elevenlabs:"Voce migliore, ma il piano gratuito dà 10.000 caratteri al mese.",
+                sapi:"La voce di Windows: sempre disponibile, timbro meccanico.",
+                none:"NOVA non parla." }[motore.value];
+    $('notaMotore').textContent = m || '';
+    $('rigaVoceLocale').style.display = motore.value === 'locale' ? 'block' : 'none';
+  };
+  notaMotore();
+  motore.onchange = () => { notaMotore(); salva({ voice: { tts_engine: motore.value } }); };
+
+  await disegnaMicrofoni();
+
+  const scarico = $('selScarico');
+  scarico.value = String(prendi('voice.scarica_voce_dopo_s', 0));
+  scarico.onchange = () => salva({ voice: { scarica_voce_dopo_s: Number(scarico.value) } });
+
+  const sel = $('selVoce');
+  sel.value = prendi('voice.tts_voce_locale','im_nicola');
+  sel.onchange = () => salva({ voice: { tts_voce_locale: sel.value } });
+
+  $('codaVoce').textContent = prendi('voice.enabled',false) ? 'ATTIVA' : 'SPENTA';
+  $('codaMemoria').textContent = prendi('kb.auto_learn',true) ? 'IMPARA' : 'FERMA';
+  disegnaLegenda();
+  diag('ok · pronto');
+  chiediStato();
+ } catch(e){ diag('AVVIO: ' + (e?.message || e)); }
+})();
+
+/* --- microfoni --- */
+async function chiediAlDemone(capacita, args){
+  return invoke('demone_chiama', { capacita, args: args || {} });
+}
+
+async function disegnaMicrofoni(){
+  const sel = $('selMicrofono');
+  const scelto = prendi('voice.microfono', '');
+  let elenco = [];
+  try {
+    const d = await chiediAlDemone('voce.dispositivi');
+    elenco = d.microfoni || [];
+  } catch(e){
+    $('esitoMic').textContent = 'Il demone non risponde: ' + e;
+  }
+  sel.innerHTML = '<option value="">Predefinito di sistema</option>' +
+    elenco.map(n => `<option value="${n.replace(/"/g,'&quot;')}">${n}</option>`).join('');
+  // Il valore salvato è un pezzo di nome, non il nome intero: si riaggancia
+  // alla voce che lo contiene, altrimenti la tendina sembra vuota.
+  const trovato = elenco.find(n => scelto && n.toLowerCase().includes(scelto.toLowerCase()));
+  sel.value = trovato || '';
+  sel.onchange = () => { salva({ voice: { microfono: sel.value } }); $('esitoMic').textContent = 'Cambiato: provalo.'; };
+}
+
+async function provaMicrofono(){
+  const b = $('btnProvaMic'), barra = $('barraMic'), esito = $('esitoMic');
+  b.disabled = true;
+  const prima = b.textContent;
+  b.textContent = 'In ascolto…';
+  // Nessun cronometro: NOVA aspetta che tu cominci, fino a mezzo minuto.
+  esito.textContent = 'Ti aspetto: parla quando vuoi, dì per esempio «Nova, apri i progetti». Mi fermo da solo quando smetti.';
+  barra.style.width = '0';
+  barra.style.background = 'var(--mezzo)';
+  try {
+    const r = await chiediAlDemone('voce.trascrivi',
+      { attesa: 30, secondi: 12, silenzio: 1.2,
+        microfono: $('selMicrofono').value || undefined });
+    if(r.pronto === false){
+      esito.textContent = r.motivo + ' — la trascrizione non è ancora installata.';
+      return;
+    }
+    if(!r.hai_parlato){
+      barra.style.width = '0';
+      barra.style.background = 'var(--pericolo)';
+      esito.textContent = 'Non ho sentito niente in mezzo minuto. Se hai cuffie da gioco, controlla che il braccetto del microfono sia abbassato: alzarlo lo muta.';
+      return;
+    }
+    // il picco è fra 0 e 1, ma le voci normali stanno in basso: si comprime
+    barra.style.width = Math.min(100, Math.round(Math.sqrt(r.picco || 0) * 160)) + '%';
+    barra.style.background = r.testo ? 'var(--ascolto)' : 'var(--attenzione)';
+    const dettaglio = `picco ${(r.picco||0).toFixed(3)}` +
+      (r.guadagno > 1.5 ? `, alzato ×${Math.round(r.guadagno)}` : '') +
+      ` · ${(r.secondi||0).toFixed(1)}s`;
+    if(r.risvegliata)
+      esito.innerHTML = `<b style="color:var(--ascolto)">Risvegliata.</b> Ho capito: «${r.testo}» — comando: «${r.comando||'(nessuno)'}»<br><span style="color:var(--fioco)">${dettaglio}</span>`;
+    else if(r.testo)
+      esito.innerHTML = `Ho capito: «${r.testo}»<br><span style="color:var(--fioco)">Non comincia con «${r.parola_di_risveglio}», quindi non è una chiamata. ${dettaglio}</span>`;
+    else
+      esito.innerHTML = `Ti ho sentito ma non ho capito parole.<br><span style="color:var(--fioco)">${dettaglio} — prova più vicino al microfono.</span>`;
+  } catch(e){
+    barra.style.width = '0';
+    barra.style.background = 'var(--pericolo)';
+    esito.textContent = String(e);
+  } finally {
+    b.disabled = false;
+    b.textContent = prima;
+  }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const b = document.getElementById('btnProvaMic');
+  if(b) b.onclick = provaMicrofono;
+});
+
+/* --- i fatti --- */
+function pallino(ok){ return `<i style="width:7px;height:7px;border-radius:50%;display:inline-block;
+  margin-right:7px;background:${ok ? 'var(--ascolto)' : 'var(--pericolo)'}"></i>`; }
+
+async function chiediStato(){
+  if(!invoke) return;
+  $('codaStato').textContent = 'CONTROLLO…';
+  let s;
+  try { s = await invoke('stato_sistema'); }
+  catch(e){ $('codaStato').textContent = 'NON LEGGIBILE'; return; }
+
+  const d = s.demone || {}, v = s.voce || {}, m = s.memoria || {};
+  const righe = [];
+  righe.push(['Demone',
+    d.vivo ? `${pallino(true)}acceso — ${d.capacita} capacita', da ${Math.round((d.attivo_da_s||0)/60)} min`
+           : `${pallino(false)}spento — ${d.nota || 'non risponde'}`]);
+  righe.push(['Voce',
+    v.pronta ? `${pallino(true)}tutti i pezzi al loro posto`
+             : `${pallino(false)}mancano: ${(v.mancanti||[]).join(', ')}`]);
+  const nodi = m.nodi_attivi;
+  righe.push(['Memoria', nodi === undefined
+    ? `${pallino(false)}${m.nota || 'non leggibile'}`
+    : `${pallino(true)}${nodi} nodi, ${m.collegamenti} collegamenti` +
+      (m.collegamenti_pendenti ? ` · ${m.collegamenti_pendenti} archi appesi` : '')]);
+  if(m.collisioni && Object.keys(m.collisioni).length)
+    righe.push(['Collisioni', `${pallino(false)}${Object.keys(m.collisioni).join(', ')}`]);
+
+  $('fatti').innerHTML = righe.map(([k,val])=>
+    `<div class="riga"><div class="info"><b>${k}</b><span>${val}</span></div></div>`).join('');
+  $('codaStato').textContent = (d.vivo && v.pronta && nodi !== undefined) ? 'TUTTO A POSTO' : 'DA GUARDARE';
+}
+setInterval(chiediStato, 15000);
+</script>
+</body>
+</html>

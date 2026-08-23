@@ -1,0 +1,72 @@
+/* ============================================================
+   Il tema di NOVA.
+
+   Una regola sola, da cui discende tutto: il colore lo porta
+   l'ORB, non l'interfaccia. L'ORB e' l'unica cosa sempre in
+   scena e parla per colore — verde quando ascolta, blu quando
+   pensa, magenta quando parla. Se anche i bottoni e i bordi
+   fossero verdi, quel verde smetterebbe di dire qualcosa.
+
+   Quindi: cromo neutro, e un accento preso dal rosso caldo che
+   l'ORB ha *a riposo* — il colore di NOVA quando non sta
+   facendo niente, cioe' il suo colore di identita'.
+   ============================================================ */
+:root{
+  --fondo:#0a0908;
+  --inchiostro:#ece9e6; --mezzo:#948d86; --fioco:#5d5852;
+
+  /* l'accento: la brace dell'orb in quiete */
+  --brace:#e8734a; --brace-16:rgba(232,115,74,.16); --brace-08:rgba(232,115,74,.08);
+
+  /* riservati agli stati: non usarli per il cromo */
+  --ascolto:#7df0b2; --pensiero:#7aa2f7; --parola:#e08bd0;
+  --attenzione:#e8b04a; --pericolo:#e8604a;
+
+  --vetro:rgba(255,255,255,.035); --vetro-2:rgba(255,255,255,.065);
+  --linea:rgba(255,255,255,.08); --linea-2:rgba(255,255,255,.15);
+  --r:18px;
+  --testo:'Segoe UI Variable','Segoe UI',system-ui,sans-serif;
+  --mono:'Cascadia Mono','Consolas',ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:var(--fondo);color:var(--inchiostro);font-family:var(--testo);
+  font-size:14.5px;overflow:hidden;color-scheme:dark;-webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--brace-16);color:var(--brace)}
+button{font-family:inherit;color:inherit;background:none;border:none;cursor:pointer}
+textarea,input,select{font-family:inherit;color:inherit}
+.mono{font-family:var(--mono)}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.09);border-radius:8px;border:2px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.16);background-clip:content-box}
+::-webkit-scrollbar-track{background:transparent}
+
+/* --- materia dietro al vetro: braci, non lampade al neon --- */
+.aloni{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.alone{position:absolute;border-radius:50%;filter:blur(120px)}
+.alone.a{width:540px;height:540px;background:#3a1d12;top:-180px;left:-140px;animation:va1 38s ease-in-out infinite alternate}
+.alone.b{width:440px;height:440px;background:#2a1a26;bottom:-160px;right:4%;animation:va2 48s ease-in-out infinite alternate}
+.alone.c{width:300px;height:300px;background:#16242e;top:42%;left:58%;opacity:.55;animation:va3 44s ease-in-out infinite alternate}
+@keyframes va1{to{transform:translate(120px,80px) scale(1.14)}}
+@keyframes va2{to{transform:translate(-90px,-110px) scale(.92)}}
+@keyframes va3{to{transform:translate(-130px,60px) scale(1.18)}}
+.grana{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.045;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+}
+
+.pannello{
+  background:var(--vetro);border:1px solid var(--linea);border-radius:var(--r);
+  backdrop-filter:blur(26px) saturate(140%);-webkit-backdrop-filter:blur(26px) saturate(140%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 30px 70px -40px rgba(0,0,0,.95);
+  display:flex;flex-direction:column;min-height:0;
+}
+.titolo-sez{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.titolo-sez h3{font-size:10.5px;font-weight:600;letter-spacing:.2em;color:var(--mezzo);text-transform:uppercase}
+.titolo-sez .coda{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--fioco)}
+.bottone{padding:8px 18px;border-radius:10px;font-size:12.5px;font-weight:600;transition:.2s}
+.bottone.primo{background:var(--brace);color:#160a06}
+.bottone.primo:hover{box-shadow:0 4px 20px -4px rgba(232,115,74,.45);transform:translateY(-1px)}
+.bottone.secondo{border:1px solid var(--linea-2);color:var(--mezzo)}
+.bottone.secondo:hover{color:var(--inchiostro);border-color:var(--linea-2);background:var(--vetro-2)}

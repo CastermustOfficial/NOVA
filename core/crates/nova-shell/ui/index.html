@@ -1,0 +1,327 @@
+<meta charset="utf-8">
+<title>NOVA</title>
+<link rel="stylesheet" href="tema.css">
+<style>
+/* ============================================================
+   La nuvoletta.
+
+   Non e' una finestra di lavoro: e' quello che l'orb ha da
+   dirti, aperto accanto a lui. Quindi niente barra del titolo,
+   niente cornice di sistema, niente massimizza — un rettangolo
+   arrotondato che galleggia, si trascina dalla testa e si
+   chiude con lo stesso clic che l'ha aperto.
+
+   La finestra e' trasparente: il colore lo mette solo il
+   pannello, cosi' gli angoli sono davvero tondi invece di
+   essere tondi sopra un quadrato nero.
+   ============================================================ */
+html,body{background:transparent;height:100%;overflow:hidden}
+body{font-size:13px}
+
+.nuvola{
+  position:absolute; inset:8px;
+  display:flex; flex-direction:column; min-height:0;
+  background:rgba(18,16,15,.86);
+  border:1px solid var(--linea);
+  border-radius:16px;
+  backdrop-filter:blur(30px) saturate(150%);
+  -webkit-backdrop-filter:blur(30px) saturate(150%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 24px 60px -24px rgba(0,0,0,.9);
+  overflow:hidden;
+}
+
+/* --- la testa: si trascina, e dice in che turno siamo --- */
+.testa{
+  display:flex; align-items:center; gap:9px;
+  padding:9px 9px 9px 11px;
+  border-bottom:1px solid var(--linea);
+  -webkit-user-select:none; user-select:none; cursor:grab;
+  background:linear-gradient(180deg, rgba(255,255,255,.045), transparent);
+}
+.testa:active{cursor:grabbing}
+.testa canvas{width:26px;height:26px;display:block;flex:0 0 auto;pointer-events:none}
+.chi{min-width:0;flex:1;line-height:1.25}
+.chi b{display:block;font-size:12.5px;font-weight:650;letter-spacing:.01em}
+.chi span{display:block;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--mezzo)}
+.gesto{
+  width:26px;height:26px;flex:0 0 auto;border-radius:8px;
+  display:grid;place-items:center;color:var(--fioco);transition:.15s;
+}
+.gesto:hover{background:var(--vetro-2);color:var(--inchiostro)}
+.gesto svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.7;
+           stroke-linecap:round;stroke-linejoin:round}
+
+/* --- il discorso --- */
+.discorso{flex:1;min-height:0;overflow-y:auto;padding:12px 11px;display:flex;
+          flex-direction:column;gap:9px;scroll-behavior:smooth}
+.battuta{display:flex;max-width:100%}
+.battuta.tua{justify-content:flex-end}
+.bolla{
+  max-width:86%; padding:7px 11px; border-radius:14px;
+  font-size:12.5px; line-height:1.5; word-wrap:break-word; overflow-wrap:anywhere;
+}
+.battuta.sua .bolla{background:var(--vetro-2);border:1px solid var(--linea);border-bottom-left-radius:5px}
+.battuta.tua .bolla{background:var(--brace);color:#1a0b05;border-bottom-right-radius:5px;font-weight:500}
+.battuta.guaio .bolla{background:rgba(232,96,74,.12);border:1px solid rgba(232,96,74,.3);color:#f0a698}
+.bolla p{margin:0 0 .45em}
+.bolla p:last-child{margin:0}
+.bolla code{font-family:var(--mono);font-size:11.5px;background:rgba(255,255,255,.08);
+            padding:1px 4px;border-radius:4px}
+.bolla pre{background:rgba(0,0,0,.45);border:1px solid var(--linea);border-radius:8px;
+           padding:8px;overflow-x:auto;margin:.45em 0}
+.bolla pre code{background:none;padding:0}
+.bolla a{color:var(--brace)}
+
+/* il segno che qualcosa sta succedendo, senza scriverlo */
+.puntini{display:flex;gap:4px;padding:9px 12px}
+.puntini i{width:5px;height:5px;border-radius:50%;background:var(--mezzo);
+           animation:respira 1.2s ease-in-out infinite}
+.puntini i:nth-child(2){animation-delay:.15s}
+.puntini i:nth-child(3){animation-delay:.3s}
+@keyframes respira{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+
+.nota{font-size:10.5px;color:var(--fioco);text-align:center;padding:2px 6px;letter-spacing:.02em}
+.vuoto{margin:auto;text-align:center;color:var(--fioco);font-size:12px;line-height:1.7;padding:0 18px}
+.vuoto b{display:block;color:var(--mezzo);font-size:12.5px;margin-bottom:3px}
+
+/* --- il composer --- */
+.penna{padding:9px;border-top:1px solid var(--linea);background:rgba(0,0,0,.2)}
+.riga{
+  display:flex;align-items:flex-end;gap:6px;padding:5px 5px 5px 11px;
+  background:var(--vetro);border:1px solid var(--linea);border-radius:12px;transition:.15s;
+}
+.riga:focus-within{border-color:rgba(232,115,74,.45);background:var(--vetro-2)}
+.riga textarea{
+  flex:1;background:none;border:none;outline:none;resize:none;
+  font-size:12.5px;line-height:1.45;max-height:104px;padding:5px 0;
+}
+.riga textarea::placeholder{color:var(--fioco)}
+.invia{
+  width:28px;height:28px;flex:0 0 auto;border-radius:9px;background:var(--brace);
+  color:#1a0b05;display:grid;place-items:center;transition:.15s;
+}
+.invia:disabled{opacity:.3;cursor:default}
+.invia svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;
+           stroke-linecap:round;stroke-linejoin:round}
+</style>
+
+<div class="nuvola">
+  <div class="testa" id="testa">
+    <canvas id="orbino"></canvas>
+    <div class="chi"><b>NOVA</b><span id="turno">a riposo</span></div>
+    <button class="gesto" id="btnNuova" title="Ricomincia da capo">
+      <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+    </button>
+    <button class="gesto" id="btnImpostazioni" title="Impostazioni">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-3-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H3a2 2 0 1 1 0-4h.2A1.7 1.7 0 0 0 4.4 6l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.6 1z"/></svg>
+    </button>
+    <button class="gesto" id="btnChiudi" title="Chiudi (Esc)">
+      <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+
+  <div class="discorso" id="discorso">
+    <div class="vuoto" id="vuoto">
+      <b>Dimmi pure.</b>
+      Scrivi qui, oppure chiamami dicendo «Nova».
+    </div>
+  </div>
+
+  <div class="penna">
+    <div class="riga">
+      <textarea id="testo" rows="1" placeholder="Scrivi a NOVA…"></textarea>
+      <button class="invia" id="btnInvia" title="Invia (Invio)">
+        <svg viewBox="0 0 24 24"><path d="m5 12 14-7-5 7 5 7z"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* Una rete stesa FUORI dal modulo: se il modulo qui sotto ha un errore di
+   sintassi non esegue nemmeno una riga, e un gestore messo dentro di lui non
+   servirebbe a niente. E' successo davvero — un apostrofo italiano dentro una
+   stringa, e le impostazioni erano diventate del tutto incliccabili. */
+window.addEventListener('error', e => {
+  const m = `${e.message} @ ${e.filename}:${e.lineno}`;
+  try { window.__TAURI__?.core?.invoke('registra_diagnostica', { finestra: 'chat', messaggio: m }); }
+  catch (_) {}
+});
+</script>
+
+<script type="module">
+import { creaOrb } from './orb.js';
+import { rendi, pulisci } from './markdown.js';
+
+const tauri  = window.__TAURI__;
+const invoke = tauri?.core?.invoke;
+const ascolta = tauri?.event?.listen;
+const finestra = tauri?.window?.getCurrentWindow?.();
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c =>
+  ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+
+const orb = creaOrb($('orbino'));
+
+/* Il nome dello stato in un posto solo: l'orb nella testa e la scritta
+   sotto devono dire la stessa cosa, sempre. */
+const TURNO = {
+  quiete:  'a riposo',
+  ascolto: 'ti ascolto',
+  penso:   'ci penso',
+  agisco:  'sto facendo',
+  parlo:   'sto parlando',
+  chiedo:  'aspetto un tuo ok',
+  spento:  'demone spento',
+};
+function turno(nome) {
+  orb.stato(nome === 'spento' ? 'quiete' : nome);
+  $('turno').textContent = TURNO[nome] || TURNO.quiete;
+}
+
+/* --- il discorso ------------------------------------------------------ */
+function fondo() { const d = $('discorso'); d.scrollTop = d.scrollHeight; }
+
+function battuta(da, testo) {
+  $('vuoto')?.remove();
+  const classe = da === 'utente' ? 'tua' : da === 'errore' ? 'sua guaio' : 'sua';
+  const b = document.createElement('div');
+  b.className = 'battuta ' + classe;
+  const bolla = document.createElement('div');
+  bolla.className = 'bolla';
+  // Quello che scrive l'utente non e' markdown: e' testo, e va mostrato
+  // com'e' stato scritto. Quello che scrive NOVA lo e'.
+  if (da === 'utente') bolla.textContent = testo;
+  else bolla.innerHTML = rendi(pulisci(testo));
+  b.appendChild(bolla);
+  $('discorso').appendChild(b);
+  fondo();
+  return b;
+}
+
+function attesa() {
+  $('vuoto')?.remove();
+  const b = document.createElement('div');
+  b.className = 'battuta sua';
+  b.innerHTML = '<div class="bolla" style="padding:0"><div class="puntini"><i></i><i></i><i></i></div></div>';
+  $('discorso').appendChild(b);
+  fondo();
+  return b;
+}
+
+function riempi(shell, testo, guaio) {
+  const bolla = shell.querySelector('.bolla');
+  bolla.style.padding = '';
+  bolla.innerHTML = rendi(pulisci(testo));
+  if (guaio) shell.className = 'battuta sua guaio';
+  fondo();
+}
+
+function nota(testo) {
+  const n = document.createElement('div');
+  n.className = 'nota';
+  n.textContent = testo;
+  $('discorso').appendChild(n);
+  fondo();
+}
+
+/* --- scrivere --------------------------------------------------------- */
+let occupata = false;
+
+async function manda() {
+  const testo = $('testo').value.trim();
+  if (!testo || occupata) return;
+  $('testo').value = '';
+  $('testo').style.height = 'auto';
+  occupata = true;
+  $('btnInvia').disabled = true;
+  battuta('utente', testo);
+  invoke?.('cronologia_aggiungi', { da: 'utente', testo });
+  turno('penso');
+  const shell = attesa();
+  try {
+    const risposta = await invoke('parla', { testo });
+    riempi(shell, risposta, false);
+    invoke?.('cronologia_aggiungi', { da: 'nova', testo: risposta });
+  } catch (e) {
+    riempi(shell, String(e), true);
+  }
+  occupata = false;
+  $('btnInvia').disabled = false;
+  turno('quiete');
+  $('testo').focus();
+}
+
+$('btnInvia').onclick = manda;
+$('testo').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); manda(); }
+});
+$('testo').addEventListener('input', function () {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 104) + 'px';
+});
+
+/* --- i gesti della testa ---------------------------------------------- */
+$('testa').addEventListener('mousedown', e => {
+  if (e.button !== 0 || e.target.closest('.gesto')) return;
+  finestra?.startDragging?.();
+});
+$('btnChiudi').onclick = () => invoke?.('chiudi_chat');
+$('btnImpostazioni').onclick = () => invoke?.('apri_impostazioni');
+$('btnNuova').onclick = async () => {
+  try { await invoke('nuova_conversazione'); } catch (e) { console.warn(e); }
+  $('discorso').innerHTML = '';
+  nota('nuova conversazione — il filo di prima è chiuso');
+};
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') invoke?.('chiudi_chat');
+});
+
+/* --- quello che arriva da fuori --------------------------------------- */
+ascolta?.('nova://stato', ev => turno(String(ev.payload?.stato || 'quiete')));
+
+/* La voce e la tastiera finiscono nello stesso filo: e' una conversazione
+   sola, non due. La bolla di NOVA si apre quando arriva la frase detta e si
+   riempie quando torna la risposta, cosi' i puntini girano per tutto il
+   tempo in cui il cervello ci pensa. */
+let inCorso = null;
+ascolta?.('nova://voce', ev => {
+  const v = ev.payload || {};
+  const testo = String(v.testo || '');
+  if (v.da === 'utente') {
+    battuta('utente', testo);
+    inCorso = attesa();
+    return;
+  }
+  if (inCorso) { riempi(inCorso, testo, v.da === 'errore'); inCorso = null; }
+  else battuta(v.da === 'errore' ? 'errore' : 'nova', testo);
+});
+
+ascolta?.('nova://fase', ev => {
+  const f = String(ev.payload?.fase || '');
+  if (f === 'sveglia')   nota('ti ascolto — il nome non serve più');
+  if (f === 'in_pausa')  nota('in pausa — di’ «Nova» per riprendere');
+  if (f === 'dormiente') nota('conversazione chiusa');
+});
+
+ascolta?.('nova://evento', ev => {
+  const e = ev.payload || {};
+  if (e.topic === 'voce.muto') {
+    nota(e.dati?.muto ? 'il microfono non consegna niente' : 'microfono di nuovo attivo');
+  }
+  if (e.topic === 'voce.ripiego') {
+    nota('voce locale: ' + String(e.dati?.motivo || '').slice(0, 80));
+  }
+});
+
+/* --- all'apertura ----------------------------------------------------- */
+(async function avvia() {
+  turno('quiete');
+  if (!invoke) return;
+  try {
+    const c = await invoke('cronologia_leggi');
+    for (const b of (c?.battute || [])) battuta(b.da, b.testo);
+  } catch (e) { console.warn(e); }
+  $('testo').focus();
+})();
+</script>

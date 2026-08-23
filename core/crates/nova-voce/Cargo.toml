@@ -1,0 +1,31 @@
+[package]
+name = "nova-voce"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Voce di NOVA: fonemi con espeak-ng, sintesi con Kokoro, audio con cpal. Nessun Python, nessun container."
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+libloading = "0.8"
+# ONNX Runtime caricato a runtime dalla DLL nel runtime di NOVA, non collegato
+# staticamente: la libreria precompilata vuole un MSVC piu' nuovo di quello che
+# c'e' su questa macchina, e comunque una DLL accanto a espeak-ng.dll e' piu'
+# coerente — chi non usa la voce non si porta dietro 17 MB di runtime.
+ort = { version = "2.0.0-rc.13", features = ["load-dynamic"], default-features = false }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+# Microfono e altoparlanti con la stessa API su Windows, macOS e Linux
+# (WASAPI, CoreAudio, ALSA): e' il pezzo che tiene in piedi la promessa di
+# funzionare ovunque senza scrivere tre volte lo stesso codice.
+cpal = "0.15"
+# Client HTTP bloccante e piccolo: la sintesi gira gia' in spawn_blocking, e
+# un runtime asincrono in piu' qui non servirebbe a niente. Con rustls, per non
+# dipendere dallo store dei certificati di sistema.
+ureq = { version = "2", features = ["json"] }
+
+[dev-dependencies]
+serde_json.workspace = true
+serde.workspace = true

@@ -1,0 +1,19 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Quello che le finestre di NOVA possono chiedere al guscio. In Tauri 2 non c'e' un permesso implicito: cio' che non e' scritto qui viene negato, e viene negato in silenzio — l'orb non si trascinava per questo.",
+  "windows": ["orb", "chat", "impostazioni"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-set-focus",
+    "core:window:allow-unminimize",
+    "core:window:allow-set-position",
+    "core:window:allow-outer-position",
+    "core:window:allow-close",
+    "core:webview:allow-create-webview-window",
+    "core:event:default"
+  ]
+}
