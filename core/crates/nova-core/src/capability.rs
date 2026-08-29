@@ -34,6 +34,20 @@ pub struct Ctx {
 pub trait Capability: Send + Sync {
     fn info(&self) -> CapabilityInfo;
     async fn call(&self, args: Value, ctx: &Ctx) -> Result<Value>;
+
+    /// Cosa succederebbe, senza farlo davvero.
+    ///
+    /// Chiamando una capacita' con `prova=true` si ottiene questa invece
+    /// dell'azione. `None` significa «non so dirlo»: in quel caso il demone
+    /// **rifiuta** invece di eseguire. E' la regola che rende l'anteprima
+    /// utilizzabile — se «prova» a volte provasse e a volte facesse sul serio,
+    /// nessuno la userebbe piu', e a ragione.
+    ///
+    /// Il valore piu' grande non e' per chi guarda: e' che NOVA puo'
+    /// controllare il proprio piano prima di eseguirlo.
+    async fn anteprima(&self, _args: Value, _ctx: &Ctx) -> Option<Result<Value>> {
+        None
+    }
 }
 
 /// Quante capacita' sono registrate in questo processo.

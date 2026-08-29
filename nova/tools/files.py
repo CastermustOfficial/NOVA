@@ -170,6 +170,34 @@ def create_folder(path: str, ctx=None) -> str:
     return f"Cartella creata: {d}"
 
 
+def _nel_cestino(t: Path) -> bool:
+    """Manda nel Cestino invece di distruggere. True se ci e' riuscito.
+
+    Serve perche' il Cestino e' l'annullamento che Windows regala gia': un file
+    che ci finisce si recupera con due clic, uno cancellato davvero no. Vale la
+    premessa N2 del progetto — prima la reversibilita', poi il permesso.
+    """
+    try:
+        from send2trash import send2trash  # type: ignore
+        send2trash(str(t))
+        return True
+    except Exception:
+        pass
+    try:
+        ps = (
+            "Add-Type -AssemblyName Microsoft.VisualBasic; "
+            + ("[Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory("
+               if t.is_dir() else
+               "[Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(")
+            + f"'{t}','OnlyErrorDialogs','SendToRecycleBin')"
+        )
+        r = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
+                           capture_output=True, text=True, timeout=60)
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
 @tool(
     "move_path",
     "Sposta o rinomina un file o una cartella.",
@@ -191,7 +219,13 @@ def move_path(source: str, destination: str, overwrite: bool = False, ctx=None) 
     if d.exists() and not overwrite:
         raise ToolError(f"{d} esiste gia'; usa overwrite=true per sovrascrivere")
     if d.exists() and overwrite:
-        shutil.rmtree(d) if d.is_dir() else d.unlink()
+        # Chi chiede di spostare non ha chiesto di distruggere cio' che c'era.
+        # La destinazione va nel Cestino: se era la cosa sbagliata si recupera.
+        if not _nel_cestino(d):
+            raise ToolError(
+                f"{d} esiste e non riesco a metterlo nel Cestino: mi fermo invece "
+                f"di cancellarlo per sempre. Spostalo o eliminalo tu, poi riprova."
+            )
     d.parent.mkdir(parents=True, exist_ok=True)
     shutil.move(str(s), str(d))
     return f"Spostato: {s} -> {d}"

@@ -29,6 +29,11 @@
       "licenza": "apache-2.0",
       "contesto_massimo": 262144,
       "consigliata": true,
+      "proiettore": {
+        "file": "mmproj-F16.gguf",
+        "gb": 0.93,
+        "_perche": "Il proiettore visivo. Senza, il modello e' cieco anche se saprebbe vedere, e llama.cpp non lo segnala: si scarica insieme al modello o la vista resta spenta in silenzio."
+      },
       "note": "Il consiglio predefinito. Quantizzazioni «UD» di unsloth: a parita' di dimensione rendono meglio delle quantizzazioni classiche.",
       "varianti": [
         { "file": "Qwen3.8-27B-UD-Q6_K_XL.gguf", "gb": 25.3, "vram_gb": 28, "qualita": "massima",  "nota": "Praticamente indistinguibile dal modello pieno. Serve una GPU da 32 GB." },

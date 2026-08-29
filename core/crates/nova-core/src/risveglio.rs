@@ -121,6 +121,32 @@ pub fn imposta_fase(bus: &Bus, nuova: u8) {
     );
 }
 
+/// «Ferma» e' l'unica frase riconosciuta da un elenco, ed e' una deroga
+/// deliberata al principio del progetto: di norma l'intenzione la giudica il
+/// cervello, perche' un elenco di parole sbaglia sempre.
+///
+/// Qui non si puo'. Se «ferma» passasse dal cervello si accoderebbe esattamente
+/// dietro alla cosa che si vuole fermare: un pulsante di stop che funziona solo
+/// quando non serve. Un comando di arresto deve funzionare soprattutto quando
+/// tutto il resto e' occupato.
+///
+/// L'elenco resta corto e senza ambiguita' di proposito: nessuna di queste
+/// frasi ha un secondo significato plausibile rivolta a un assistente.
+fn e_una_fermata(testo: &str) -> bool {
+    let ripulito: String = testo
+        .to_lowercase()
+        .chars()
+        .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+        .collect();
+    let normale = ripulito.split_whitespace().collect::<Vec<_>>().join(" ");
+    matches!(
+        normale.as_str(),
+        "ferma" | "fermati" | "ferma tutto" | "fermo" | "stop" | "annulla"
+            | "basta" | "lascia stare" | "lascia perdere" | "smetti" | "interrompi"
+    )
+}
+
+
 /// Quanto silenzio chiude una frase.
 ///
 /// Piu' lungo in conversazione: chi parla si ferma a pensare, e tagliargli la
@@ -218,6 +244,20 @@ pub fn avvia(
                     tracing::info!(picco, caratteri = testo.chars().count(),
                                    fase = nome_fase(fase_ora), "parlato");
                     tracing::debug!(testo = %testo, "trascritto");
+
+                    // Prima di ogni altra cosa: e' una richiesta di fermarsi? Va vista qui,
+                    // prima del cervello, perche' chi la dice sta aspettando che qualcosa
+                    // smetta adesso.
+                    if e_una_fermata(&testo) {
+                        let quante = crate::interruzione::ferma(&bus);
+                        tracing::info!(quante, "fermata chiesta a voce");
+                        crate::caps_voce::annuncia(
+                            bus.clone(),
+                            if quante > 0 { "Va bene, mi fermo." } else { "Non stavo facendo niente." },
+                        )
+                        .await;
+                        continue;
+                    }
 
                     match fase_ora {
                         SVEGLIA => {

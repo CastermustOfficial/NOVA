@@ -61,7 +61,8 @@ def screenshot(finestra: str = "", nome: str = "") -> str:
     quale = f"finestra «{finestra}»" if finestra else "schermo intero"
     return (f"Schermata di {quale} salvata in {destinazione} "
             f"({grezzo.size[0]}x{grezzo.size[1]}). "
-            "Se il cervello attivo sa leggere le immagini, aprila da quel percorso.")
+            "Ora APRILA con Read per guardarla: l'immagine non ti arriva da sola, "
+            "e senza averla vista non sai cosa c'e' sullo schermo.")
 
 
 def _regione_finestra(titolo: str) -> dict | None:

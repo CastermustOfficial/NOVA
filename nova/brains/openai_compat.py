@@ -159,6 +159,19 @@ class LocalBrain(OpenAICompatBrain):
         return f"Locale: {nome}"
 
 
+def _e_in_casa(base_url: str) -> bool:
+    """Un server sulla stessa macchina (Ollama, LM Studio, llama.cpp, KoboldCpp).
+
+    Questi non chiedono nessuna chiave, e pretenderne una vorrebbe dire
+    rifiutarsi di parlare con un cervello che e' li', acceso e gratuito. Il
+    controllo guarda solo l'host, che e' l'unica cosa che distingue "in casa"
+    da "su internet" - dove invece la chiave serve davvero.
+    """
+    from urllib.parse import urlparse
+    host = (urlparse(base_url or "").hostname or "").lower()
+    return host in ("localhost", "127.0.0.1", "::1", "0.0.0.0", "host.docker.internal")
+
+
 class ApiBrain(OpenAICompatBrain):
     """Endpoint esterno OpenAI-compatibile (OpenAI, OpenRouter, Groq, ...)."""
 
@@ -173,7 +186,7 @@ class ApiBrain(OpenAICompatBrain):
         self._nome_env = cfg.brains.api_key_env
 
     def disponibile(self) -> tuple[bool, str]:
-        if not self.api_key:
+        if not self.api_key and not _e_in_casa(self.base_url):
             return False, (f"nessuna chiave: imposta brains.api_key in config.json "
                            f"oppure la variabile d'ambiente {self._nome_env}")
         if not self.model:

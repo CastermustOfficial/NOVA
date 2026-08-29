@@ -156,7 +156,60 @@ impl Server {
         })?;
 
         let inizio = std::time::Instant::now();
-        let esito = cap.call(richiesta.args.clone(), &self.ctx).await;
+        // Qui passa OGNI capacita': avvolgere questo punto rende
+        // interrompibili tutte e 41 senza toccarne nemmeno una.
+        // Le capacita' che fermano o interrogano l'interruzione sono
+        // escluse: un «ferma» che si autointerrompe non fermerebbe niente.
+        // «prova=true»: si dice cosa succederebbe e non si fa niente. Se la
+        // capacita' non sa rispondere si rifiuta, non si esegue: un'anteprima
+        // che a volte agisce davvero e' peggio che non averla.
+        let in_prova = richiesta
+            .args
+            .get("prova")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        if in_prova {
+            let mut senza = richiesta.args.clone();
+            if let Some(o) = senza.as_object_mut() {
+                o.remove("prova");
+            }
+            let risposta = match cap.anteprima(senza, &self.ctx).await {
+                Some(r) => r.map(|mut v| {
+                    if let Some(o) = v.as_object_mut() {
+                        o.insert("prova".into(), json!(true));
+                        o.insert("eseguito".into(), json!(false));
+                    }
+                    v
+                }),
+                None => Err(anyhow::anyhow!(
+                    "«{}» non sa dire cosa succederebbe, quindi non la eseguo in prova. \
+                     Cosa fa: {}",
+                    richiesta.name,
+                    cap.info().description
+                )),
+            };
+            return match risposta {
+                Ok(v) if mcp => Ok(json!({
+                    "content": [{ "type": "text", "text": serde_json::to_string_pretty(&v)
+                        .unwrap_or_else(|_| v.to_string()) }]
+                })),
+                Ok(v) => Ok(v),
+                Err(e) if mcp => Ok(json!({
+                    "content": [{ "type": "text", "text": format!("ERRORE: {e}") }],
+                    "isError": true
+                })),
+                Err(e) => Err((codes::INTERNAL_ERROR, e.to_string())),
+            };
+        }
+
+        let esito = if richiesta.name.starts_with("azione.") {
+            cap.call(richiesta.args.clone(), &self.ctx).await
+        } else {
+            crate::interruzione::interrompibile(
+                cap.call(richiesta.args.clone(), &self.ctx),
+            )
+            .await
+        };
         let durata = inizio.elapsed().as_millis() as u64;
 
         self.ctx.bus.emit(

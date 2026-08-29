@@ -18,6 +18,7 @@ use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 mod bus;
 mod cervello;
+mod componenti;
 mod cronologia;
 mod config;
 mod demone;
@@ -308,6 +309,9 @@ fn main() {
             stato_sistema,
             registra_diagnostica,
             demone_chiama,
+            componenti::componenti_elenco,
+            componenti::componenti_scarica,
+            componenti::componenti_ferma,
             nuova_conversazione
         ])
         .setup(|app| {

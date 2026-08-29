@@ -555,6 +555,18 @@ impl Capability for ImportaCap {
         }
     }
 
+    /// L'anteprima di questa e' la sua stessa modalita' prova, che esisteva
+    /// gia' e che e' il motivo per cui l'importazione delle credenziali e'
+    /// andata bene: 20 voci mostrate prima di scrivere un byte, e una password
+    /// che stava finendo come *nome del servizio* vista in tempo.
+    async fn anteprima(&self, args: Value, ctx: &Ctx) -> Option<Result<Value>> {
+        let mut a = args;
+        if let Some(o) = a.as_object_mut() {
+            o.insert("prova".into(), serde_json::json!(true));
+        }
+        Some(self.call(a, ctx).await)
+    }
+
     async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
         let percorso = arg_str(&args, "percorso")?;
         let prova = arg_bool(&args, "prova", true);

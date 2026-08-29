@@ -200,6 +200,21 @@ class LlamaServer:
         ]
         if s.threads:
             args += ["-t", str(s.threads)]
+        # Il proiettore visivo: senza, un modello che saprebbe vedere resta
+        # cieco e llama.cpp non lo dice. Si cerca accanto al modello, che e'
+        # dove lo mettono tutti i repository (mmproj-F16.gguf e simili).
+        try:
+            from pathlib import Path as _P
+            cartella = _P(s.model_path).parent
+            proiettore = next(
+                (f for f in sorted(cartella.glob("*mmproj*.gguf"))
+                 if f.is_file()),
+                None,
+            )
+            if proiettore is not None:
+                args += ["--mmproj", str(proiettore)]
+        except Exception:
+            pass
         args += list(s.extra_args)
         return args
 

@@ -34,7 +34,10 @@ def controlla(nome: str, cond: bool, dettaglio: str = "") -> None:
 
 print("\n1. le forme che sono un segreto per costruzione")
 per_forma = [
-    ("chiave di servizio", "api_key: sk_30a2c8c84a4612a7d6acefb3a32db0008b52"),
+    # Inventata qui: il marcatore deve stare sulla riga della chiave, perche'
+    # e' quella che il controllo sulle fughe legge.
+    ("chiave di servizio",
+     "api_key: sk_30a2c8c84a4612a7d6acefb3a32db0008b52"),  # chiave-finta
     ("token GitHub", "il token e' ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ012345"),
     ("token Slack", "xoxb-1234567890-abcdefghij"),
     ("chiave AWS", "AKIAIOSFODNN7EXAMPLE"),

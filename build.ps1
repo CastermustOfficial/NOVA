@@ -3,12 +3,13 @@
     .\build.ps1              build di release
     .\build.ps1 -Debug       build di sviluppo
     .\build.ps1 -Test        esegue i test
+    .\build.ps1 -Controlla   solo controllo di tipi ed errori, senza produrre binari
 
   Trova da solo la toolchain: rustup nel PATH, oppure quella installata
   nella home. Su Windows serve anche il linker MSVC (Visual Studio Build
   Tools con «Desktop development with C++»).
 #>
-param([switch]$Debug, [switch]$Test)
+param([switch]$Debug, [switch]$Test, [switch]$Controlla)
 $ErrorActionPreference = 'Stop'
 $Core = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'core'
 
@@ -82,8 +83,11 @@ try {
     # Chiamate esplicite invece dello splatting: con @array PowerShell puo'
     # far arrivare a cargo un «-» isolato, e l'errore che ne esce («unexpected
     # argument») non somiglia per niente alla causa.
-    $azione = if ($Test) { 'test' } else { 'build' }
-    Write-Host "[nova] cargo $azione$(if (-not $Debug) { ' --release' })" -ForegroundColor Cyan
+    # `check` fa tutto il lavoro del compilatore tranne scrivere i binari:
+    # per sapere se il codice sta in piedi costa una frazione di un build
+    # di release, e vale la pena poterlo chiedere.
+    $azione = if ($Controlla) { 'check' } elseif ($Test) { 'test' } else { 'build' }
+    Write-Host "[nova] cargo $azione$(if (-not $Debug -and -not $Controlla) { ' --release' })" -ForegroundColor Cyan
     # cargo racconta l'avanzamento su stderr, non solo gli errori. Con
     # ErrorActionPreference a Stop — che e' quello che usa install.ps1 —
     # PowerShell scambia la prima riga di avanzamento per un errore fatale e
@@ -92,7 +96,7 @@ try {
     $primaEAP = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        if ($Debug) { & $cargo $azione } else { & $cargo $azione '--release' }
+        if ($Debug -or $Controlla) { & $cargo $azione } else { & $cargo $azione '--release' }
         $codice = $LASTEXITCODE
     } finally { $ErrorActionPreference = $primaEAP }
     if ($codice -ne 0) { throw "compilazione fallita (codice $codice)" }

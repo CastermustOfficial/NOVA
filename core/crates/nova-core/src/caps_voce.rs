@@ -268,6 +268,66 @@ struct SceltaVoce {
     voce_locale: String,
 }
 
+/// Quale orecchio, e con che ripiego.
+///
+/// Whisper in locale resta il fondo su cui si cade sempre, per la stessa
+/// ragione per cui Kokoro lo e' per la voce: un assistente che diventa sordo
+/// perche' un servizio non risponde e' peggio di uno che sente un po' peggio.
+/// La differenza e' che qui il fondo e' anche la scelta piu' riservata - la
+/// voce non esce dal PC - quindi Scribe si usa solo se qualcuno lo ha chiesto
+/// per nome e ha messo una chiave.
+struct SceltaAscolto {
+    scribe: bool,
+    chiave: String,
+    lingua: String,
+}
+
+fn scelta_ascolto() -> SceltaAscolto {
+    let stringa = |c: &Value, k: &str| -> String {
+        c.get("voice")
+            .and_then(|v| v.get(k))
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .trim()
+            .to_string()
+    };
+    let cfg = configurazione_utente().unwrap_or_else(|| json!({}));
+    let lingua = stringa(&cfg, "language");
+    SceltaAscolto {
+        scribe: stringa(&cfg, "stt_engine") == "elevenlabs",
+        chiave: stringa(&cfg, "api_key"),
+        lingua: if lingua.is_empty() { "it".to_string() } else { lingua },
+    }
+}
+
+/// Da campioni a testo, provando prima quello che l'utente ha scelto.
+///
+/// Torna anche **da dove** e' arrivata la trascrizione: senza, un ripiego
+/// silenzioso e' indistinguibile da un servizio che funziona, e chi paga
+/// ElevenLabs non saprebbe mai che sta usando whisper da tre settimane.
+fn trascrivi_con_ripiego(
+    cartella: &std::path::Path,
+    campioni: &[f32],
+    frequenza: u32,
+    glossario: Vec<String>,
+) -> Result<(String, &'static str)> {
+    let s = scelta_ascolto();
+    if s.scribe && !s.chiave.is_empty() {
+        let scribe = nova_voce::Scribe::nuovo(&s.chiave, &s.lingua);
+        match scribe.trascrivi(campioni, frequenza) {
+            Ok(testo) => return Ok((testo, "elevenlabs")),
+            Err(e) => {
+                tracing::warn!(errore = %e, "Scribe non ce l'ha fatta, ascolto in locale");
+            }
+        }
+    } else if s.scribe {
+        tracing::warn!("Scribe scelto ma manca la chiave: ascolto in locale");
+    }
+    let mut t = Trascrittore::nuovo(cartella, "it")?;
+    t.glossario = glossario;
+    Ok((t.trascrivi(campioni, frequenza)?, "locale"))
+}
+
 fn scelta_voce() -> SceltaVoce {
     let stringa = |c: &Value, k: &str| -> String {
         c.get("voice")
@@ -553,9 +613,11 @@ impl Capability for TrascriviCap {
             if !a.ha_parlato {
                 return Ok((a, String::new()));
             }
-            let mut t = Trascrittore::nuovo(&cartella, "it")?;
-            t.glossario = vec![parola_di_risveglio()];
-            let testo = t.trascrivi(&a.campioni, a.frequenza)?;
+            let (testo, da) = trascrivi_con_ripiego(
+                &cartella, &a.campioni, a.frequenza, vec![parola_di_risveglio()])?;
+            if da == "locale" {
+                tracing::debug!("trascritto in locale");
+            }
             Ok((a, testo))
         })
         .await

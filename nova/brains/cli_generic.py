@@ -25,6 +25,7 @@ import subprocess
 import time
 from pathlib import Path
 
+from ..processi import SENZA_FINESTRA
 from .base import Risposta
 
 
@@ -137,6 +138,7 @@ class CliBrain:
                 input=prompt if su_stdin else None,
                 capture_output=True, text=True, encoding="utf-8", errors="replace",
                 timeout=self.timeout, cwd=self.cwd, shell=False,
+                creationflags=SENZA_FINESTRA,
             )
         except subprocess.TimeoutExpired:
             raise RuntimeError(f"{self.etichetta} non ha risposto entro {self.timeout}s")

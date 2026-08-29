@@ -17,3 +17,10 @@ sounddevice>=0.4
 # Solo se si vuole trascrivere senza far uscire l'audio dal PC:
 # stt_engine: "faster-whisper" nella configurazione.
 # faster-whisper>=1.0
+# Per vedere un artifact reso invece del suo sorgente. Pesa (Chromium),
+# ma senza, QTextBrowser disegnerebbe una pagina moderna sbagliata
+# invece di disegnarla approssimata: l'harness allora mostra il codice.
+PyQt6-WebEngine>=6.6
+# I colori del codice nell'harness. Cinquecento linguaggi invece dei
+# quattro che avremmo scritto a mano - e sbagliato su tutti gli altri.
+Pygments>=2.15

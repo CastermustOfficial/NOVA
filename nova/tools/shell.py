@@ -4,6 +4,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+from ..processi import SENZA_FINESTRA
 from .base import Risk, ToolError, tool
 
 MAX_OUTPUT = 20000
@@ -14,6 +15,7 @@ def _run(args: list[str], cwd: str | None, timeout: int) -> str:
         r = subprocess.run(
             args, capture_output=True, text=True, timeout=timeout,
             cwd=cwd or None, encoding="utf-8", errors="replace",
+            creationflags=SENZA_FINESTRA,
         )
     except subprocess.TimeoutExpired:
         raise ToolError(f"comando interrotto dopo {timeout}s (timeout)")

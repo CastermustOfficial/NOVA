@@ -1,4 +1,4 @@
-$Host.UI.RawUI.WindowTitle = 'NOVA - pubblicazione su GitHub'
+﻿$Host.UI.RawUI.WindowTitle = 'NOVA - pubblicazione su GitHub'
 Set-Location 'C:\Users\giova\NOVA'
 Write-Host ""
 Write-Host "  Pubblicazione di NOVA su GitHub" -ForegroundColor White
@@ -11,7 +11,15 @@ git push -u origin master
 if ($LASTEXITCODE -eq 0) {
     Write-Host ""
     Write-Host "  Ramo pubblicato. Ora il tag (fa partire la CI)..." -ForegroundColor Cyan
-    git push origin v0.0.1
+    # Il tag va creato adesso e deve essere nuovo: ripubblicare uno che
+    # esiste gia' non fa partire niente e sembra riuscito.
+    $tag = 'v0.0.2'
+    if (git tag -l $tag) {
+        Write-Host "  Il tag $tag esiste gia': cambialo prima di ripubblicare." -ForegroundColor Yellow
+    } else {
+        git tag -a $tag -m "NOVA $tag"
+        git push origin $tag
+    }
 }
 Write-Host ""
 if ($LASTEXITCODE -eq 0) {

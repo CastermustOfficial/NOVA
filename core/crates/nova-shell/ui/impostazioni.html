@@ -16,7 +16,13 @@
   opacity:0;transition:opacity .3s}
 .salvato.si{opacity:1;color:var(--ascolto)}
 .corpo{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));
-  gap:12px;align-content:start;padding-bottom:4px}
+  gap:12px;align-content:start;align-items:start;padding-bottom:4px}
+/* Le schede sono alte quanto il loro contenuto. `.pannello` nel tema ha
+   min-height:0 - serve dove sta dentro un riquadro che scorre - ma dentro
+   una griglia quello permette alla casella di essere piu' bassa di cio' che
+   contiene, e il contenuto esce e si sovrappone alla scheda sotto. Non si
+   vedeva finche' nessuna scheda era abbastanza alta. */
+.corpo>.pannello{min-height:auto;align-self:start}
 .scheda{padding:20px 18px}
 .riga{display:flex;align-items:center;gap:12px;padding:9px 0}
 .riga+.riga{border-top:1px solid var(--linea)}
@@ -67,6 +73,20 @@
 select{width:100%;padding:8px 10px;border-radius:9px;background:rgba(0,0,0,.3);
   border:1px solid var(--linea);font-size:12.5px;outline:none}
 select:focus{border-color:rgba(232,115,74,.4)}
+input[type=text],input[type=password]{width:100%;padding:8px 10px;border-radius:9px;
+  background:rgba(0,0,0,.3);border:1px solid var(--linea);font-size:12.5px;outline:none;
+  color:inherit;font-family:var(--mono)}
+input:focus{border-color:rgba(232,115,74,.4)}
+.campo{margin-top:10px}
+.campo>label{display:block;font-size:11px;color:var(--mezzo);margin-bottom:5px}
+.campo .aiuto{font-size:10.5px;color:var(--fioco);margin-top:5px;line-height:1.45}
+.fila{display:flex;gap:8px;align-items:center}
+.fila>input{flex:1}
+.chiave-ok{font-family:var(--mono);font-size:10.5px;color:var(--brace);
+  padding:4px 9px;border:1px solid rgba(232,115,74,.28);border-radius:8px;white-space:nowrap}
+.chiave-no{font-family:var(--mono);font-size:10.5px;color:var(--fioco);
+  padding:4px 9px;border:1px solid var(--linea);border-radius:8px;white-space:nowrap}
+.dett{margin-top:14px;padding-top:14px;border-top:1px solid var(--linea)}
 .nota{font-size:11px;color:var(--fioco);line-height:1.5;margin-top:10px;padding-left:10px;
   border-left:2px solid var(--linea)}
 </style>
@@ -91,9 +111,23 @@ select:focus{border-color:rgba(232,115,74,.4)}
     <section class="pannello scheda">
       <div class="titolo-sez"><h3>Cervello</h3><span class="coda" id="codaCervello"></span></div>
       <div class="cervelli" id="cervelli"></div>
+      <div id="dettaglioCervello"></div>
     </section>
 
-    <!-- AUTONOMIA -->
+    <!-- LINGUA -->
+<section class="pannello scheda">
+<div class="titolo-sez"><h3>Lingua</h3><span class="coda" id="codaLingua"></span></div>
+<div class="riga" style="display:block">
+<div class="info" style="margin-bottom:8px"><b>In che lingua NOVA risponde e scrive i suoi menu</b>
+<span id="notaLingua"></span></div>
+<select id="selLingua"></select>
+</div>
+<p class="nota">Il prompt di sistema resta in italiano: e' il sorgente di NOVA, non
+un testo da leggere, e al modello basta dirgli in che lingua rispondere. I nomi e i
+titoli invece si traducono davvero, perche' li' non c'e' nessun modello in mezzo.</p>
+</section>
+
+<!-- AUTONOMIA -->
     <section class="pannello scheda">
       <div class="titolo-sez"><h3>Autonomia</h3></div>
       <div class="segmenti" id="segAutonomia" style="grid-template-columns:repeat(3,1fr)">
@@ -117,6 +151,10 @@ select:focus{border-color:rgba(232,115,74,.4)}
       <div class="riga">
         <div class="info"><b>Contesto nel prompt</b><span>Cerca nella memoria prima di rispondere</span></div>
         <button class="interruttore" id="swContesto"></button>
+      </div>
+      <div class="riga">
+        <div class="info"><b>Impara le procedure</b><span>Come ha risolto una richiesta, per rifarla senza ricercare</span></div>
+        <button class="interruttore" id="swProcedure"></button>
       </div>
       <p class="nota">Quello che NOVA vede sullo schermo non entra mai in memoria:
         legge i titoli delle finestre per poter agire sui programmi, ma nel vault
@@ -153,6 +191,7 @@ select:focus{border-color:rgba(232,115,74,.4)}
         </div>
         <p class="nota" id="esitoMic" style="margin-top:8px">Non ancora provato.</p>
       </div>
+      <div id="dettaglioVoce"></div>
       <div class="riga" style="display:block" id="rigaVoceLocale">
         <div class="info" style="margin-bottom:8px"><b>Voce</b><span>Italiana e nativa, senza tetto di caratteri</span></div>
         <select id="selVoce">
@@ -177,7 +216,16 @@ select:focus{border-color:rgba(232,115,74,.4)}
       </div>
     </section>
 
-    <!-- STATO -->
+    <!-- COMPONENTI -->
+<section class="pannello scheda">
+<div class="titolo-sez"><h3>Componenti</h3><span class="coda" id="codaComponenti"></span></div>
+<div id="componenti"></div>
+<p class="nota">Quello che manca si scarica da qui. Prima si poteva solo cambiare
+il menu: chi sceglieva la voce locale senza averne i file restava muto, e l'unico
+programma capace di procurarli era l'installer.</p>
+</section>
+
+<!-- STATO -->
     <section class="pannello scheda">
       <div class="titolo-sez"><h3>Stato</h3><span class="coda" id="codaStato">CONTROLLO…</span></div>
       <div id="fatti"></div>
@@ -236,7 +284,9 @@ document.addEventListener('DOMContentLoaded', function(){
 </script>
 <script type="module">
 import { STATI, creaOrb } from './orb.js';
+import { T, OFFERTE, avviaLingua, impostaLingua, traduciDocumento } from './lingue.js';
 const invoke = window.__TAURI__?.core?.invoke;
+const ascolta = window.__TAURI__?.event?.listen;
 const $ = id => document.getElementById(id);
 
 /* Se questa riga non gira, la scritta rossa in alto resta: e' il modo piu'
@@ -247,6 +297,11 @@ window.__diag('ok · modulo partito', false);
 diag('ok · js vivo');
 window.addEventListener('error', e => diag('ERRORE: ' + (e.message || e)));
 window.addEventListener('unhandledrejection', e => diag('PROMESSA: ' + (e.reason?.message || e.reason)));
+
+/* Prima si sa in che lingua si parla, poi si disegna: tradurre dopo aver
+   mostrato vuol dire far vedere il cambio a chi guarda. */
+await avviaLingua(invoke);
+traduciDocumento(document);
 
 const orb = creaOrb($('orbMini'));
 
@@ -270,30 +325,364 @@ async function salva(modifica){
 }
 const prendi = (p, d) => p.split('.').reduce((o,k)=> (o||{})[k], cfg) ?? d;
 
+function cervelliTutti(){
+  /* I tre di casa, piu' ogni CLI descritta in configurazione. Python le
+     accettava gia' come cervello attivo - crea_brain guarda brains.cli prima
+     di tutto il resto - ma il pannello non le nominava, quindi per usare
+     Gemini o Codex bisognava sapere che esistevano e scriverlo a mano nel
+     file. Sapere che una cosa esiste non e' una funzione. */
+  const cli = prendi('brains.cli', {}) || {};
+  const fuori = { ...CERVELLI };
+  for(const [k,v] of Object.entries(cli)){
+    if(!v) continue;   // una voce tolta resta come null: si salta
+    fuori[k] = { n: v.etichetta || k,
+                 d: `Agentica, dalla riga di comando: «${v.binary || k}»`,
+                 t: ['AGENTICO', v.a_consumo ? 'A CONSUMO' : 'ABBONAMENTO'] };
+  }
+  return fuori;
+}
+
 function disegnaCervelli(){
   const attivo = prendi('brains.active','claude');
-  $('cervelli').innerHTML = Object.entries(CERVELLI).map(([k,b])=>`
+  const TUTTI = cervelliTutti();
+  $('cervelli').innerHTML = Object.entries(TUTTI).map(([k,b])=>`
     <button class="cervello ${k===attivo?'scelto':''}" data-k="${k}">
       <span class="pallino"></span>
       <span style="flex:1">
-        <span class="cv-nome">${b.n}</span>
-        <span class="cv-desc">${b.d}</span>
+        <span class="cv-nome">${T(b.n)}</span>
+        <span class="cv-desc">${T(b.d)}</span>
         <span class="etichette">${b.t.map(t=>`<span class="etichetta">${t}</span>`).join('')}</span>
       </span>
     </button>`).join('');
-  $('codaCervello').textContent = (CERVELLI[attivo]?.n || attivo).toUpperCase();
+  $('codaCervello').textContent = T(TUTTI[attivo]?.n || attivo).toUpperCase();
+  disegnaDettaglioCervello();
   document.querySelectorAll('.cervello').forEach(c => c.onclick = () => {
     document.querySelectorAll('.cervello').forEach(x => x.classList.toggle('scelto', x===c));
-    $('codaCervello').textContent = CERVELLI[c.dataset.k].n.toUpperCase();
+    $('codaCervello').textContent = T(TUTTI[c.dataset.k]?.n || c.dataset.k).toUpperCase();
+    cfg.brains = { ...(cfg.brains||{}), active: c.dataset.k };
+    disegnaDettaglioCervello();
     salva({ brains: { active: c.dataset.k } });
   });
 }
+/* ------------------------------------------------------------------ *
+ * Aggiungere, non solo scegliere.
+ *
+ * Il pannello sapeva passare da un cervello all'altro fra quelli gia'
+ * configurati, e chi non ne aveva nessuno restava fuori: sceglieva «API
+ * esterna» e non trovava dove mettere la chiave, sceglieva ElevenLabs e non
+ * trovava dove mettere la sua. Uno switcher fra cose che qualcun altro ha
+ * gia' preparato non e' un pannello di impostazioni.
+ *
+ * Le chiavi non si rimostrano mai. Una volta salvate si vede che ci sono e
+ * come finiscono - «configurata · ...4f2c» - perche' quello basta a
+ * riconoscere quale chiave e', e rimetterla sullo schermo la espone a
+ * chiunque passi di li' senza aggiungere niente.
+ * ------------------------------------------------------------------ */
+
+const FORNITORI = {
+  openai:     {n:'OpenAI',        u:'https://api.openai.com',              e:'OPENAI_API_KEY',
+               m:['gpt-4o','gpt-4o-mini','o3-mini']},
+  openrouter: {n:'OpenRouter',    u:'https://openrouter.ai/api',           e:'OPENROUTER_API_KEY',
+               m:['qwen/qwen-2.5-72b-instruct','deepseek/deepseek-chat','google/gemma-2-27b-it','meta-llama/llama-3.3-70b-instruct']},
+  deepseek:   {n:'DeepSeek',      u:'https://api.deepseek.com',            e:'DEEPSEEK_API_KEY',
+               m:['deepseek-chat','deepseek-reasoner']},
+  groq:       {n:'Groq',          u:'https://api.groq.com/openai',         e:'GROQ_API_KEY',
+               m:['llama-3.3-70b-versatile','qwen-2.5-32b']},
+  mistral:    {n:'Mistral',       u:'https://api.mistral.ai',              e:'MISTRAL_API_KEY',
+               m:['mistral-large-latest','mistral-small-latest']},
+  together:   {n:'Together',      u:'https://api.together.xyz',            e:'TOGETHER_API_KEY',
+               m:['Qwen/Qwen2.5-72B-Instruct-Turbo','google/gemma-2-27b-it']},
+  ollama:     {n:'Ollama (sul tuo PC)',  u:'http://localhost:11434/v1',    e:'',
+               m:['qwen2.5:14b','gemma2:27b','llama3.1:8b']},
+  lmstudio:   {n:'LM Studio (sul tuo PC)', u:'http://localhost:1234/v1',   e:'',
+               m:['(quello caricato in LM Studio)']},
+  altro:      {n:'Altro endpoint compatibile OpenAI', u:'', e:'', m:[]},
+};
+
+function impronta(chiave){
+  const k = (chiave||'').trim();
+  if(!k) return '';
+  return k.length <= 8 ? '·'.repeat(k.length) : '…' + k.slice(-4);
+}
+function segnoChiave(chiave, env){
+  if(chiave) return `<span class="chiave-ok">configurata · ${impronta(chiave)}</span>`;
+  if(env && env.trim()) return `<span class="chiave-no">forse nell'ambiente (${env})</span>`;
+  return `<span class="chiave-no">nessuna</span>`;
+}
+function esc(s){ return String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function fornitoreDa(url){
+  for(const [k,v] of Object.entries(FORNITORI))
+    if(v.u && url && url.startsWith(v.u)) return k;
+  return 'altro';
+}
+
+function disegnaDettaglioCervello(){
+  const dove = $('dettaglioCervello');
+  if(!dove) return;
+  const attivo = prendi('brains.active','locale');
+  const cli = prendi('brains.cli', {}) || {};
+  let quale = attivo;
+  if(attivo === 'api')          dove.innerHTML = formApi();
+  else if(attivo === 'claude')  dove.innerHTML = formClaude();
+  else if(cli[attivo])        { dove.innerHTML = formCli(attivo, cli[attivo]); quale = 'cli'; }
+  else                          dove.innerHTML = formLocale();
+  dove.innerHTML += formAggiungiCli();
+  legaDettaglioCervello(quale, attivo);
+  legaAggiungiCli();
+}
+
+function formApi(){
+  const url = prendi('brains.api_base_url','');
+  const forn = fornitoreDa(url);
+  const chiave = prendi('brains.api_key','');
+  const env = prendi('brains.api_key_env','');
+  const modello = prendi('brains.api_model','');
+  const opzioni = Object.entries(FORNITORI).map(([k,v]) =>
+    `<option value="${k}" ${k===forn?'selected':''}>${esc(v.n)}</option>`).join('');
+  const suggeriti = (FORNITORI[forn]?.m||[]).map(m=>`<option value="${esc(m)}">`).join('');
+  return `<div class="dett">
+    <div class="campo"><label>Fornitore</label>
+      <select id="apiForn">${opzioni}</select></div>
+    <div class="campo"><label>Indirizzo</label>
+      <input type="text" id="apiUrl" value="${esc(url)}" placeholder="https://…"></div>
+    <div class="campo"><label>Modello</label>
+      <input type="text" id="apiModello" list="apiModelli" value="${esc(modello)}"
+             placeholder="il nome esatto che usa il fornitore">
+      <datalist id="apiModelli">${suggeriti}</datalist>
+      <p class="aiuto">Il nome va scritto come lo scrive il fornitore. NOVA non
+        puo' chiederglielo da qui: i loro server rifiutano le richieste che
+        arrivano da una pagina, ed e' giusto cosi'.</p></div>
+    <div class="campo"><label>Chiave</label>
+      <div class="fila">
+        <input type="password" id="apiChiave" placeholder="incolla qui la chiave">
+        <button class="bottone secondo" id="apiSalvaChiave">Salva</button>
+        <button class="bottone secondo" id="apiScordaChiave">Dimentica</button>
+      </div>
+      <div style="margin-top:8px">${segnoChiave(chiave, env)}</div>
+      <p class="aiuto">Finisce in <b>config.json</b>, dentro %APPDATA%\\NOVA, in
+        chiaro: chi puo' leggere quel file puo' leggere la chiave. Se preferisci
+        tenerla fuori, lascia questo campo vuoto e mettila nella variabile
+        d'ambiente qui sotto - l'ambiente ha comunque la precedenza.</p></div>
+    <div class="campo"><label>Variabile d'ambiente</label>
+      <input type="text" id="apiEnv" value="${esc(env)}" placeholder="OPENAI_API_KEY"></div>
+  </div>`;
+}
+
+function formClaude(){
+  return `<div class="dett">
+    <div class="campo"><label>Modello</label>
+      <input type="text" id="clModello" list="clModelli"
+             value="${esc(prendi('brains.claude_model',''))}">
+      <datalist id="clModelli">
+        <option value="claude-opus-5"><option value="claude-sonnet-5">
+        <option value="claude-haiku-5"><option value="sonnet"><option value="opus">
+      </datalist>
+      <p class="aiuto">Per esteso invece che con l'alias: gli alias del CLI
+        restano indietro di una generazione.</p></div>
+    <div class="campo"><label>Modello veloce</label>
+      <input type="text" id="clVeloce" value="${esc(prendi('brains.claude_model_veloce',''))}">
+      <p class="aiuto">Per i lavori piccoli, come estrarre i fatti da ricordare.</p></div>
+    <div class="campo"><label>Eseguibile</label>
+      <input type="text" id="clBinario" value="${esc(prendi('brains.claude_binary',''))}"
+             placeholder="vuoto = lo cerca da solo nel PATH"></div>
+    <div class="campo"><label>Tetto dei turni</label>
+      <input type="text" id="clTurni" value="${esc(prendi('brains.claude_max_turns',48))}">
+      <p class="aiuto">Non e' una misura di sicurezza - a fermare NOVA ci sono
+        l'autonomia e il tasto ferma - e' un freno di spesa.</p></div>
+  </div>`;
+}
+
+function formLocale(){
+  return `<div class="dett">
+    <div class="campo"><label>Modello</label>
+      <input type="text" id="loFile" value="${esc(prendi('model.path','') || prendi('model.file',''))}"
+             placeholder="il .gguf da usare">
+      <p class="aiuto">I modelli si scaricano da <b>Componenti</b>, piu' in basso:
+        li' NOVA sa quali stanno nella tua scheda video. Qui si punta a un file
+        che hai gia'.</p></div>
+  </div>`;
+}
+
+function formCli(nome, spec){
+  const args = Array.isArray(spec.args) ? spec.args.join(' ') : (spec.args||'');
+  return `<div class="dett">
+    <div class="campo"><label>Nome che si legge</label>
+      <input type="text" id="cliEtichetta" value="${esc(spec.etichetta||nome)}"></div>
+    <div class="campo"><label>Comando</label>
+      <input type="text" id="cliBinario" value="${esc(spec.binary||nome)}">
+      <p class="aiuto">Dev'essere nel PATH. Se manca, NOVA lo dice quando provi
+        a usarla, invece di restare zitta.</p></div>
+    <div class="campo"><label>Argomenti</label>
+      <input type="text" id="cliArgs" value="${esc(args)}">
+      <p class="aiuto">Separati da spazi. L'ultimo di solito e' quello che
+        introduce il testo della richiesta (<b>-p</b> per Gemini e Qwen).
+        Se un argomento contiene spazi, scrivili come lista JSON.</p></div>
+    <div class="campo"><label>Modello</label>
+      <input type="text" id="cliModello" value="${esc(spec.model||'')}"
+             placeholder="vuoto = quello predefinito della CLI">
+      <p class="aiuto">Vuoto e' spesso la scelta giusta: il predefinito di una
+        CLI cambia piu' spesso di quanto si aggiorni un file.</p></div>
+    <div class="campo"><label>Tetto di tempo (secondi)</label>
+      <input type="text" id="cliTimeout" value="${esc(spec.timeout||600)}"></div>
+    <div class="campo">
+      <button class="bottone secondo" id="cliRimuovi">Togli «${esc(spec.etichetta||nome)}»</button></div>
+  </div>`;
+}
+
+function formAggiungiCli(){
+  return `<div class="dett">
+    <div class="campo"><label>Aggiungi una CLI agentica</label>
+      <div class="fila">
+        <input type="text" id="nuovaCliNome" placeholder="nome (es. deepseek)">
+        <input type="text" id="nuovaCliCmd" placeholder="comando (es. deepseek)">
+        <button class="bottone secondo" id="nuovaCliAgg">Aggiungi</button>
+      </div>
+      <p class="aiuto">Qualunque CLI che accetti una richiesta come argomento e
+        risponda sullo standard output. NOVA la pilotera' come le altre.</p></div>
+  </div>`;
+}
+
+function legaAggiungiCli(){
+  const b = $('nuovaCliAgg');
+  if(!b) return;
+  b.onclick = async () => {
+    const nome = ($('nuovaCliNome').value||'').trim().toLowerCase()
+                   .replace(/[^a-z0-9_-]/g,'');
+    const cmd  = ($('nuovaCliCmd').value||'').trim();
+    if(!nome || !cmd) return;
+    const voce = { etichetta: nome, binary: cmd, args: ['-p'], model: '',
+                   prompt: 'argomento', timeout: 600, a_consumo: false };
+    cfg.brains = { ...(cfg.brains||{}) };
+    cfg.brains.cli = { ...(cfg.brains.cli||{}), [nome]: voce };
+    await salva({ brains: { cli: { [nome]: voce } } });
+    disegnaCervelli();
+  };
+}
+
+function legaDettaglioCervello(quale, nome){
+  if(quale === 'api'){
+    const f = $('apiForn'), u = $('apiUrl'), m = $('apiModello'), e = $('apiEnv');
+    f.onchange = () => {
+      const v = FORNITORI[f.value];
+      if(v.u) u.value = v.u;
+      if(v.e !== undefined) e.value = v.e;
+      salva({ brains: { api_base_url: u.value, api_key_env: e.value } });
+      disegnaDettaglioCervello();
+    };
+    u.onchange = () => salva({ brains: { api_base_url: u.value.trim() } });
+    m.onchange = () => salva({ brains: { api_model: m.value.trim() } });
+    e.onchange = () => salva({ brains: { api_key_env: e.value.trim() } });
+    $('apiSalvaChiave').onclick = async () => {
+      const k = $('apiChiave').value.trim();
+      if(!k) return;
+      await salva({ brains: { api_key: k } });
+      $('apiChiave').value = '';
+      disegnaDettaglioCervello();
+    };
+    $('apiScordaChiave').onclick = async () => {
+      await salva({ brains: { api_key: '' } });
+      disegnaDettaglioCervello();
+    };
+  } else if(quale === 'cli'){
+    const salvaCli = (campo, valore) =>
+      salva({ brains: { cli: { [nome]: { [campo]: valore } } } });
+    $('cliEtichetta').onchange = e => salvaCli('etichetta', e.target.value.trim());
+    $('cliBinario').onchange   = e => salvaCli('binary', e.target.value.trim());
+    $('cliModello').onchange   = e => salvaCli('model', e.target.value.trim());
+    $('cliTimeout').onchange   = e => {
+      const n = parseInt(e.target.value, 10);
+      if(!isNaN(n) && n > 0) salvaCli('timeout', n);
+    };
+    $('cliArgs').onchange = e => {
+      const v = e.target.value.trim();
+      let lista;
+      try { lista = v.startsWith('[') ? JSON.parse(v) : v.split(/\s+/).filter(Boolean); }
+      catch(err){ lista = v.split(/\s+/).filter(Boolean); }
+      // Gli argomenti sono una lista, e una lista non si fonde: si sostituisce
+      // per intero, se no togliendone uno resterebbe li'.
+      salva({ brains: { cli: { [nome]: { args: lista } } } });
+    };
+    $('cliRimuovi').onclick = async () => {
+      // La configurazione si fonde, non si sostituisce: una chiave non si
+      // puo' cancellare da qui. Si mette a nulla, la pagina la salta e
+      // Python la ignora - e alla prossima lettura sparisce dal file.
+      cfg.brains.cli = { ...(cfg.brains.cli||{}), [nome]: null };
+      await salva({ brains: { active: 'locale', cli: { [nome]: null } } });
+      cfg.brains.active = 'locale';
+      disegnaCervelli();
+    };
+  } else if(quale === 'claude'){
+    $('clModello').onchange = ev => salva({ brains: { claude_model: ev.target.value.trim() } });
+    $('clVeloce').onchange  = ev => salva({ brains: { claude_model_veloce: ev.target.value.trim() } });
+    $('clBinario').onchange = ev => salva({ brains: { claude_binary: ev.target.value.trim() } });
+    $('clTurni').onchange   = ev => {
+      const n = parseInt(ev.target.value, 10);
+      if(!isNaN(n) && n > 0) salva({ brains: { claude_max_turns: n } });
+    };
+  } else {
+    const f = $('loFile');
+    if(f) f.onchange = () => salva({ model: { path: f.value.trim() } });
+  }
+}
+
+/* --- la voce cloud: stessa storia, altra chiave --------------------- */
+function disegnaDettaglioVoce(){
+  const dove = $('dettaglioVoce');
+  if(!dove) return;
+  const motore = prendi('voice.tts_engine','locale');
+  const ascolto = prendi('voice.stt_engine','elevenlabs');
+  if(motore !== 'elevenlabs' && ascolto !== 'elevenlabs'){ dove.innerHTML = ''; return; }
+  const chiave = prendi('voice.api_key','');
+  dove.innerHTML = `<div class="riga" style="display:block"><div class="dett" style="border:0;padding:0;margin:0">
+    <div class="campo"><label>Chiave ElevenLabs</label>
+      <div class="fila">
+        <input type="password" id="elChiave" placeholder="incolla qui la chiave">
+        <button class="bottone secondo" id="elSalva">Salva</button>
+        <button class="bottone secondo" id="elScorda">Dimentica</button>
+      </div>
+      <div style="margin-top:8px">${segnoChiave(chiave, 'ELEVENLABS_API_KEY')}</div>
+      <p class="aiuto">Serve sia per parlare sia per ascoltare, se hai scelto
+        ElevenLabs per uno dei due. Sta in config.json in chiaro;
+        ELEVENLABS_API_KEY nell'ambiente ha la precedenza.</p></div>
+    <div class="campo"><label>Voce</label>
+      <input type="text" id="elVoce" value="${esc(prendi('voice.tts_voice_id',''))}"
+             placeholder="l'identificativo della voce">
+      <p class="aiuto">Si copia dalla libreria voci di ElevenLabs. Il valore
+        predefinito e' Matilda.</p></div>
+    <div class="campo"><label>Modello di sintesi</label>
+      <input type="text" id="elModello" value="${esc(prendi('voice.tts_model_cloud',''))}"></div>
+    <div class="campo">
+      <button class="bottone secondo" id="elProva">Prova · fai dire una frase</button>
+      <p class="aiuto" id="elEsito">La prova passa dal motore vero: se parla, la
+        chiave e la voce vanno bene.</p></div>
+  </div></div>`;
+  $('elSalva').onclick = async () => {
+    const k = $('elChiave').value.trim();
+    if(!k) return;
+    await salva({ voice: { api_key: k } });
+    $('elChiave').value = '';
+    disegnaDettaglioVoce();
+  };
+  $('elScorda').onclick = async () => { await salva({ voice: { api_key: '' } }); disegnaDettaglioVoce(); };
+  $('elVoce').onchange = ev => salva({ voice: { tts_voice_id: ev.target.value.trim() } });
+  $('elModello').onchange = ev => salva({ voice: { tts_model_cloud: ev.target.value.trim() } });
+  $('elProva').onclick = async () => {
+    const esito = $('elEsito');
+    esito.textContent = 'sto provando…';
+    try {
+      await chiediAlDemone('voce.parla', { testo: 'Ci sono. Se mi senti, la chiave funziona.' });
+      esito.textContent = 'ha parlato: la chiave e la voce vanno bene.';
+    } catch(e){ esito.textContent = 'non ha parlato: ' + e; }
+  };
+}
+
 function disegnaAutonomia(){
   const v = prendi('safety.autonomy','ask_risky');
   const ordine = ['always_ask','ask_risky','autonomous'];
   document.querySelectorAll('#segAutonomia .segmento').forEach(o=>o.classList.toggle('attivo', o.dataset.v===v));
   $('cursoreAutonomia').style.transform = `translateX(${ordine.indexOf(v)*100}%)`;
-  $('spiegaAutonomia').textContent = AUTONOMIA[v];
+  $('spiegaAutonomia').textContent = T(AUTONOMIA[v]);
 }
 document.querySelectorAll('#segAutonomia .segmento').forEach(o => o.onclick = () => {
   cfg.safety = { ...(cfg.safety||{}), autonomy: o.dataset.v };
@@ -312,12 +701,120 @@ function interruttore(id, percorso, predefinito, alCambio){
     alCambio?.(nuovo);
   };
 }
+/* --- componenti ---
+   Il pannello sapeva scegliere e non sapeva procurare: si cambiava motore
+   della voce e restava il silenzio, senza che niente lo spiegasse. Cosa serve
+   e da dove si prende lo sa Python (nova/componenti.py), lo stesso posto da
+   cui lo prende l'installer; qui si mostra e si avvia. */
+let inScarico = null;
+
+async function disegnaComponenti(){
+  const cont = $('componenti');
+  if(!invoke){ cont.innerHTML = `<p class="nota">${T('Il ponte col guscio non c\'e\': non posso guardare i componenti.')}</p>`; return; }
+  let elenco = [];
+  try { elenco = await invoke('componenti_elenco'); }
+  catch(e){ cont.innerHTML = `<p class="nota">${T('Non riesco a leggere i componenti: ')}${e}</p>`; return; }
+
+  const mancano = elenco.filter(c => !c.presente).length;
+  $('codaComponenti').textContent = mancano
+    ? `${mancano} ${T('DA SCARICARE')}` : T('AL COMPLETO');
+
+  cont.innerHTML = elenco.map(c => `
+    <div class="riga" data-comp="${c.nome}">
+      <div class="info">
+        <b>${T(c.titolo)}</b>
+        <span>${T(c.serve_a)}.${c.presente ? '' : ' ' + T('Senza:') + ' ' + T(c.senza) + '.'}${c.licenza ? ' <i>' + T(c.licenza) + '</i>' : ''}</span>
+        <span class="avanzamento" style="display:none;color:var(--ascolto)"></span>
+      </div>
+      ${c.presente
+        ? `<span class="etichetta">${T('Presente')}</span>`
+        : `<button class="bottone secondo" data-scarica="${c.nome}">${T('Scarica')} · ${c.mb} MB</button>`}
+    </div>`).join('');
+
+  cont.querySelectorAll('[data-scarica]').forEach(b => b.onclick = () => avviaScarico(b.dataset.scarica, b));
+}
+
+async function avviaScarico(nome, bottone){
+  if(inScarico){ return fermaScarico(); }
+  const riga = $('componenti').querySelector(`[data-comp="${nome}"]`);
+  const avanz = riga?.querySelector('.avanzamento');
+  inScarico = nome;
+  bottone.textContent = T('Ferma');
+  if(avanz){ avanz.style.display = 'block'; avanz.textContent = T('comincio…'); }
+  try { await invoke('componenti_scarica', { nome }); }
+  catch(e){
+    inScarico = null;
+    bottone.textContent = T('Scarica');
+    if(avanz) avanz.textContent = String(e);
+  }
+}
+
+async function fermaScarico(){
+  try { await invoke('componenti_ferma'); } catch(e){ diag('FERMA: ' + e); }
+}
+
+ascolta?.('nova://componenti', ev => {
+  const e = ev.payload || {};
+  const riga = $('componenti')?.querySelector(`[data-comp="${e.componente || inScarico}"]`);
+  const avanz = riga?.querySelector('.avanzamento');
+  const bottone = riga?.querySelector('[data-scarica]');
+  if(!avanz) return;
+
+  if(e.evento === 'avanzamento'){
+    const pezzo = e.di > 1 ? ` (${e.pezzo}/${e.di})` : '';
+    const mb = e.totale ? ` — ${(e.byte/1048576).toFixed(0)}/${(e.totale/1048576).toFixed(0)} MB` : '';
+    avanz.textContent = `${e.percento}%${mb}${pezzo}`;
+    return;
+  }
+  if(e.evento === 'lavoro'){ avanz.textContent = T(e.messaggio || '') + '…'; return; }
+  if(e.evento === 'finito'){
+    inScarico = null;
+    avanz.textContent = T('Fatto.');
+    // Si ridisegna: il pezzo ora c'e', e la riga deve dirlo da sola invece di
+    // restare un bottone che non serve piu' a niente.
+    setTimeout(disegnaComponenti, 700);
+    return;
+  }
+  if(e.evento === 'errore' || e.evento === 'chiuso'){
+    inScarico = null;
+    if(bottone) bottone.textContent = T('Scarica');
+    avanz.textContent = e.messaggio
+      ? T('Non ce l\'ho fatta:') + ' ' + e.messaggio
+      : T('Scaricamento interrotto.');
+    return;
+  }
+});
+
+function disegnaLingua(){
+  const sel = $('selLingua');
+  const attuale = prendi('ui.lingua', 'it');
+  sel.innerHTML = OFFERTE.map(l =>
+    `<option value="${l.codice}"${l.codice === attuale ? ' selected' : ''}>${l.nome}` +
+    `${l.interfaccia ? '' : ' \u2014 ' + T('menu in italiano')}</option>`).join('');
+  const nota = () => {
+    const l = OFFERTE.find(x => x.codice === sel.value);
+    $('codaLingua').textContent = (l?.nome || sel.value).toUpperCase();
+    $('notaLingua').textContent = l && !l.interfaccia
+      ? T('NOVA risponde in questa lingua, ma i nomi e i titoli restano in italiano: manca il dizionario.')
+      : T('NOVA risponde in questa lingua e i menu sono tradotti.');
+  };
+  nota();
+  sel.onchange = async () => {
+    nota();
+    await salva({ ui: { lingua: sel.value } });
+    // Ridisegnare a pezzi lascerebbe meta' finestra nella lingua di prima:
+    // si ricarica, che e' l'unico modo onesto di cambiare tutto insieme.
+    impostaLingua(sel.value);
+    location.reload();
+  };
+}
+
 function disegnaLegenda(){
   const colore = t => `rgb(${t.map(x=>Math.round(Math.min(1,x*0.72)*255)).join(',')})`;
   const nomi = { quiete:'A RIPOSO', ascolto:'ASCOLTO', penso:'PENSO', parlo:'PARLO',
                  agisco:'AGISCO', chiedo:'CHIEDO', spento:'SPENTA' };
   $('legenda').innerHTML = Object.entries(nomi).map(([k,n])=>
-    `<span class="stato-v" data-s="${k}"><i style="background:${colore(STATI[k].tinta)}"></i>${n}</span>`).join('');
+    `<span class="stato-v" data-s="${k}"><i style="background:${colore(STATI[k].tinta)}"></i>${T(n)}</span>`).join('');
   document.querySelectorAll('.stato-v').forEach(s=>{
     s.onmouseenter = () => orb.stato(s.dataset.s);
     s.onmouseleave = () => orb.stato('quiete');
@@ -333,8 +830,9 @@ function disegnaLegenda(){
   disegnaAutonomia();
   interruttore('swMemoria','kb.auto_learn',true);
   interruttore('swContesto','kb.inject_context',true);
+  interruttore('swProcedure','kb.procedure',true);
   interruttore('swVoce','voice.enabled',false,
-               v => $('codaVoce').textContent = v ? 'ATTIVA' : 'SPENTA');
+               v => $('codaVoce').textContent = T(v ? 'ATTIVA' : 'SPENTA'));
   interruttore('swRisveglio','voice.wake_enabled',false);
   $('ecoRisveglio').textContent = prendi('voice.wake_word','nova');
 
@@ -345,11 +843,16 @@ function disegnaLegenda(){
                 elevenlabs:"Voce migliore, ma il piano gratuito dà 10.000 caratteri al mese.",
                 sapi:"La voce di Windows: sempre disponibile, timbro meccanico.",
                 none:"NOVA non parla." }[motore.value];
-    $('notaMotore').textContent = m || '';
+    $('notaMotore').textContent = m ? T(m) : '';
     $('rigaVoceLocale').style.display = motore.value === 'locale' ? 'block' : 'none';
+    disegnaDettaglioVoce();
   };
   notaMotore();
-  motore.onchange = () => { notaMotore(); salva({ voice: { tts_engine: motore.value } }); };
+  motore.onchange = () => {
+    cfg.voice = { ...(cfg.voice||{}), tts_engine: motore.value };
+    notaMotore();
+    salva({ voice: { tts_engine: motore.value } });
+  };
 
   await disegnaMicrofoni();
 
@@ -361,9 +864,11 @@ function disegnaLegenda(){
   sel.value = prendi('voice.tts_voce_locale','im_nicola');
   sel.onchange = () => salva({ voice: { tts_voce_locale: sel.value } });
 
-  $('codaVoce').textContent = prendi('voice.enabled',false) ? 'ATTIVA' : 'SPENTA';
-  $('codaMemoria').textContent = prendi('kb.auto_learn',true) ? 'IMPARA' : 'FERMA';
+  $('codaVoce').textContent = T(prendi('voice.enabled',false) ? 'ATTIVA' : 'SPENTA');
+  $('codaMemoria').textContent = T(prendi('kb.auto_learn',true) ? 'IMPARA' : 'FERMA');
   disegnaLegenda();
+  disegnaLingua();
+  await disegnaComponenti();
   diag('ok · pronto');
   chiediStato();
  } catch(e){ diag('AVVIO: ' + (e?.message || e)); }
@@ -382,15 +887,15 @@ async function disegnaMicrofoni(){
     const d = await chiediAlDemone('voce.dispositivi');
     elenco = d.microfoni || [];
   } catch(e){
-    $('esitoMic').textContent = 'Il demone non risponde: ' + e;
+    $('esitoMic').textContent = T('Il demone non risponde: ') + e;
   }
-  sel.innerHTML = '<option value="">Predefinito di sistema</option>' +
+  sel.innerHTML = `<option value="">${T('Predefinito di sistema')}</option>` +
     elenco.map(n => `<option value="${n.replace(/"/g,'&quot;')}">${n}</option>`).join('');
   // Il valore salvato è un pezzo di nome, non il nome intero: si riaggancia
   // alla voce che lo contiene, altrimenti la tendina sembra vuota.
   const trovato = elenco.find(n => scelto && n.toLowerCase().includes(scelto.toLowerCase()));
   sel.value = trovato || '';
-  sel.onchange = () => { salva({ voice: { microfono: sel.value } }); $('esitoMic').textContent = 'Cambiato: provalo.'; };
+  sel.onchange = () => { salva({ voice: { microfono: sel.value } }); $('esitoMic').textContent = T('Cambiato: provalo.'); };
 }
 
 async function provaMicrofono(){

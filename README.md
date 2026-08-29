@@ -62,15 +62,33 @@ cd NOVA
 Poi avvia NOVA dal collegamento sul Desktop: comparira' un orb in un angolo
 dello schermo. Cliccalo per scrivere, oppure chiamala per nome.
 
-## Il cervello: tre strade
+## Il cervello: chi ragiona
 
-NOVA non e' legata a un modello. Scegli tu chi ragiona:
+NOVA non e' legata a un modello, e non pretende che tu scarichi il suo. Chi ne
+ha gia' uno non ricomincia da capo: l'installer guarda prima cosa c'e' sulla
+macchina, e solo dopo propone di scaricare.
 
 | Strada | Per chi | Nota |
 |---|---|---|
-| **Chiave API** | qualita' massima, si paga a consumo | **consigliata** |
-| **Modello locale** | gratuito, offline, privato | Qwen3.8 27B; l'installer sceglie la quantizzazione che sta nella tua VRAM |
-| **CLI di un abbonamento** | utenti avanzati | vedi l'avvertenza sotto |
+| **Chiave API** | qualita' massima, si paga a consumo | OpenAI, OpenRouter, Groq, qualunque endpoint compatibile |
+| **Un abbonamento che hai gia'** | chi paga Claude, ChatGPT, Gemini o Qwen | l'installer cerca `claude`, `codex`, `gemini`, `qwen` nel PATH; vedi l'avvertenza sotto |
+| **Un modello che hai gia'** | chiunque abbia un `.gguf` da qualche parte | l'installer lo cerca in LM Studio, Jan, GPT4All, koboldcpp, nella cache di HuggingFace, in Download e sul Desktop; oppure indichi il percorso |
+| **Un server gia' acceso** | chi ha Ollama o LM Studio in funzione | rilevato sulle porte 11434, 1234, 8080, 5001; nessuna chiave richiesta |
+| **Scarico io un modello** | chi parte da zero | Qwen3.8 27B, con la quantizzazione che sta nella tua VRAM - ma puoi sceglierne un'altra, e decidere su quale disco finisce |
+
+Nessuna di queste e' obbligatoria all'installazione: si puo' rispondere
+«decido dopo» e cambiare idea dal menu **Cervello**, o da `brains.active` in
+`config.json`. Le CLI riconosciute sono descritte in `nova/routing.py`
+(`cli_predefinite`): aggiungerne una non richiede codice, solo una voce sotto
+`brains.cli`.
+
+Il modello indicato a mano viene controllato davvero: i primi quattro byte di
+un GGUF sono `GGUF`, e uno scaricamento interrotto non li ha. Se accanto al
+file c'e' un proiettore `mmproj`, NOVA lo usa e il modello ci vede; se non
+c'e', l'installer te lo dice invece di lasciartelo scoprire fra un mese.
+
+Cambiare strada dopo non richiede di reinstallare niente: e' il menu
+**Cervello** nell'interfaccia, oppure `brains.active` in `config.json`.
 
 > **Avvertenza sugli abbonamenti.** Usare la CLI di un abbonamento consumer
 > come motore di un'applicazione terza e' fuori dai termini di servizio della

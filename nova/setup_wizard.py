@@ -4,48 +4,27 @@ from __future__ import annotations
 from pathlib import Path
 
 from .config import Config
+from .modelli_trova import trova
 from .runtime import discover_runtimes
-
-MODEL_DIRS = [
-    Path.home() / ".lmstudio" / "models",
-    Path.home() / ".cache" / "lm-studio" / "models",
-    Path.home() / "models",
-]
-
-# preferenze di scelta automatica (parola chiave -> punteggio)
-PREFERRED = [("qwen3.8", 100), ("qwen3", 90), ("qwen", 80), ("glm", 40), ("gemma", 30)]
 
 
 def find_models(extra_dirs: list[Path] | None = None) -> list[Path]:
-    seen: dict[Path, None] = {}
-    for d in [*MODEL_DIRS, *(extra_dirs or [])]:
-        if not d.exists():
-            continue
-        for f in d.rglob("*.gguf"):
-            name = f.name.lower()
-            if "mmproj" in name:
-                continue  # proiettore multimodale, non un modello di testo
-            seen[f] = None
-    return list(seen)
+    """Dove sono i GGUF. L'implementazione sta in `modelli_trova`.
+
+    Qui restava una copia che guardava in tre cartelle sole - le due di LM
+    Studio e `~/models` - e dava per scontato che chi ha un modello lo abbia
+    scaricato con LM Studio. Non e' vero: si scarica da HuggingFace a mano, e
+    il file finisce in Download o sul Desktop.
+    """
+    return [Path(m["percorso"]) for m in trova(extra=list(extra_dirs or []))]
 
 
-def score_model(path: Path) -> tuple[int, int]:
-    name = str(path).lower()
-    score = 0
-    for kw, pts in PREFERRED:
-        if kw in name:
-            score = max(score, pts)
-    try:
-        size = path.stat().st_size
-    except OSError:
-        size = 0
-    return score, size
-
-
-def pick_best_model(candidates: list[Path]) -> Path | None:
-    if not candidates:
-        return None
-    return sorted(candidates, key=score_model, reverse=True)[0]
+def pick_best_model(candidati: list[Path] | None = None) -> Path | None:
+    """Il piu' adatto fra quelli trovati. L'ordine lo decide `modelli_trova`."""
+    if candidati is not None:
+        return candidati[0] if candidati else None
+    trovati = trova()
+    return Path(trovati[0]["percorso"]) if trovati else None
 
 
 def autoconfigure(cfg: Config, force: bool = False) -> list[str]:
@@ -53,7 +32,11 @@ def autoconfigure(cfg: Config, force: bool = False) -> list[str]:
     notes: list[str] = []
 
     if force or not cfg.server.model_path or not Path(cfg.server.model_path).exists():
-        best = pick_best_model(find_models())
+        # Se l'utente ha scelto una cartella sua per i modelli, va guardata
+        # per prima: e' li' che ha detto di volerli.
+        extra = [Path(cfg.server.models_dir)] if cfg.server.models_dir else []
+        trovati = find_models(extra)
+        best = pick_best_model(trovati)
         if best:
             cfg.server.model_path = str(best)
             notes.append(f"Modello rilevato: {best}")

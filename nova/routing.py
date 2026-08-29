@@ -500,14 +500,44 @@ def routing_predefinito() -> dict:
 
 
 def cli_predefinite() -> dict:
-    """CLI agentiche esterne, aggiungibili senza toccare il codice."""
+    """CLI agentiche esterne, aggiungibili senza toccare il codice.
+
+    Claude Code ha un modulo suo perche' ha sessioni, permessi e MCP: non
+    perche' sia il preferito. Chi paga un abbonamento a OpenAI, a Google o a
+    Qwen ha in casa un agente altrettanto valido, e finora NOVA sapeva
+    pilotarlo ma non lo nominava mai - bisognava scrivere questa voce a mano
+    in config.json, cioe' bisognava sapere che esisteva.
+
+    Il modello resta vuoto di proposito: ogni CLI ha il suo predefinito, che
+    cambia piu' spesso di quanto si aggiorni un file di configurazione, e
+    scriverne uno vecchio qui vorrebbe dire imporre a tutti un modello
+    superato. Chi vuole fissarlo aggiunge "model" e i suoi argomenti.
+    """
     return {
+        "codex": {
+            "etichetta": "Codex (OpenAI)",
+            "binary": "codex",
+            "args": ["exec", "--skip-git-repo-check"],
+            "model": "",
+            "prompt": "argomento",
+            "timeout": 900,
+            "a_consumo": False,
+        },
         "gemini": {
             "etichetta": "Gemini",
             "binary": "gemini",
-            "args": ["--model", "{model}", "--approval-mode", "yolo"],
-            "model": "gemini-2.5-pro",
-            "prompt": "stdin",
+            "args": ["--approval-mode", "yolo", "-p"],
+            "model": "",
+            "prompt": "argomento",
+            "timeout": 600,
+            "a_consumo": False,
+        },
+        "qwen": {
+            "etichetta": "Qwen Code",
+            "binary": "qwen",
+            "args": ["-p"],
+            "model": "",
+            "prompt": "argomento",
             "timeout": 600,
             "a_consumo": False,
         },

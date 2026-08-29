@@ -10,6 +10,7 @@
 //! dal PC.
 
 pub mod ascolto;
+pub mod scribe;
 pub mod elevenlabs;
 pub mod audio;
 pub mod espeak;
@@ -30,6 +31,7 @@ pub use kokoro::{Kokoro, FREQUENZA, MAX_FONEMI};
 pub use audio::{ascolta, ascolta_con_attesa, ascolta_da, dispositivi, in_wav, ricampiona,
                 riproduci, Ascolto, MicrofonoMuto};
 pub use ascolto::Trascrittore;
+pub use scribe::Scribe;
 pub use voce::Voce;
 pub use voci::Voci;
 

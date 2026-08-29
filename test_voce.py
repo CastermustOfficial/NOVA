@@ -215,6 +215,13 @@ import re, subprocess, pathlib
 # forme concrete, non la sottostringa «sk_»: quella sta dentro «risk_» e
 # «task_» e farebbe suonare l'allarme a ogni commit
 SEGRETI = re.compile(r"sk_[0-9a-f]{32,}|sk-ant-[A-Za-z0-9_\-]{20,}|xi-api-key\s*[:=]\s*['\"][^'\"]{10,}")
+# Una chiave finta serve: le prove che insegnano a NOVA a nascondere le
+# chiavi devono contenerne una di forma vera, se no non provano niente. Ma
+# senza un modo di dirlo, questo controllo suonava l'allarme su di loro - ed
+# e' rimasto rosso per giorni, cioe' spento. Un rilevatore di fughe che non
+# si puo' contraddire viene ignorato al primo falso allarme, e da quel
+# momento non protegge piu' da niente.
+FINTA = "chiave-finta"
 tracciati = subprocess.run(["git", "ls-files"], capture_output=True, text=True).stdout.split()
 sospetti = []
 for f in tracciati:
@@ -222,10 +229,13 @@ for f in tracciati:
     if q.suffix not in (".py", ".json", ".md", ".ps1", ".cmd", ".txt", ".toml"):
         continue
     try:
-        if SEGRETI.search(q.read_text(encoding="utf-8", errors="ignore")):
-            sospetti.append(f)
+        righe = q.read_text(encoding="utf-8", errors="ignore").splitlines()
     except OSError:
         continue
+    for riga in righe:
+        if SEGRETI.search(riga) and FINTA not in riga:
+            sospetti.append(f)
+            break
 verifica(not sospetti, f"nessuna chiave nei file tracciati da git ({sospetti})")
 
 # -- esito ---------------------------------------------------------------

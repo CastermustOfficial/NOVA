@@ -105,10 +105,22 @@ body{font-size:13px}
            stroke-linecap:round;stroke-linejoin:round}
 </style>
 
+<style>
+  /* Il freno non sta sempre in scena: un bottone «ferma» visibile quando non
+     c'e' niente da fermare e' rumore, e a furia di vederlo spento non lo si
+     nota piu' quando serve davvero. */
+  #btnFerma { display: none; color: #ff6b6b; }
+  #btnFerma svg { fill: currentColor; stroke: none; }
+  body.lavora #btnFerma { display: inline-flex; }
+  body.lavora #btnFerma:hover { color: #ff2d2d; }
+</style>
 <div class="nuvola">
   <div class="testa" id="testa">
     <canvas id="orbino"></canvas>
     <div class="chi"><b>NOVA</b><span id="turno">a riposo</span></div>
+    <button class="gesto ferma" id="btnFerma" title="Ferma quello che sta facendo (Esc)">
+      <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+    </button>
     <button class="gesto" id="btnNuova" title="Ricomincia da capo">
       <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
     </button>
@@ -152,6 +164,7 @@ window.addEventListener('error', e => {
 <script type="module">
 import { creaOrb } from './orb.js';
 import { rendi, pulisci } from './markdown.js';
+import { T, avviaLingua, traduciDocumento } from './lingue.js';
 
 const tauri  = window.__TAURI__;
 const invoke = tauri?.core?.invoke;
@@ -160,6 +173,13 @@ const finestra = tauri?.window?.getCurrentWindow?.();
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c =>
   ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+
+/* La lingua prima di tutto: le etichette gia' scritte nell'HTML vanno
+   tradotte prima che qualcuno le legga. Se il guscio non risponde entro
+   un attimo si resta in italiano e si va avanti: una finestra che non si
+   apre e' peggio di una finestra nella lingua sbagliata. */
+await avviaLingua(invoke);
+traduciDocumento(document);
 
 const orb = creaOrb($('orbino'));
 
@@ -174,9 +194,25 @@ const TURNO = {
   chiedo:  'aspetto un tuo ok',
   spento:  'demone spento',
 };
+/* Sta lavorando = c'e' qualcosa che ha senso fermare. «chiedo» no: li' sta
+   aspettando te, e la risposta e' il bottone di conferma, non il freno. */
+const LAVORA = ['penso', 'agisco', 'parlo'];
 function turno(nome) {
   orb.stato(nome === 'spento' ? 'quiete' : nome);
-  $('turno').textContent = TURNO[nome] || TURNO.quiete;
+  $('turno').textContent = T(TURNO[nome] || TURNO.quiete);
+  document.body.classList.toggle('lavora', LAVORA.includes(nome));
+}
+
+async function ferma() {
+  if (!document.body.classList.contains('lavora')) return;
+  try {
+    await invoke('demone_chiama', { capacita: 'azione.ferma', args: {} });
+  } catch (e) {
+    console.warn('ferma:', e);
+  }
+  /* Non si aspetta l'evento per spegnere il bottone: chi preme vuole vedere
+     subito che e' stato sentito. Se poi arriva uno stato vero, vince quello. */
+  turno('quiete');
 }
 
 /* --- il discorso ------------------------------------------------------ */
@@ -266,15 +302,22 @@ $('testa').addEventListener('mousedown', e => {
   if (e.button !== 0 || e.target.closest('.gesto')) return;
   finestra?.startDragging?.();
 });
+$('btnFerma').onclick = ferma;
 $('btnChiudi').onclick = () => invoke?.('chiudi_chat');
 $('btnImpostazioni').onclick = () => invoke?.('apri_impostazioni');
 $('btnNuova').onclick = async () => {
   try { await invoke('nuova_conversazione'); } catch (e) { console.warn(e); }
   $('discorso').innerHTML = '';
-  nota('nuova conversazione — il filo di prima è chiuso');
+  nota(T('nuova conversazione — il filo di prima è chiuso'));
 };
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') invoke?.('chiudi_chat');
+  if (e.key === 'Escape') {
+    /* Esc contestuale: se c'e' qualcosa in corso lo ferma, altrimenti chiude.
+       Chi vuole fare entrambe le cose preme due volte, ed e' l'ordine giusto:
+       nessuno vuole chiudere la finestra e lasciare NOVA a lavorare. */
+    if (document.body.classList.contains('lavora')) ferma();
+    else invoke?.('chiudi_chat');
+  }
 });
 
 /* --- quello che arriva da fuori --------------------------------------- */
@@ -299,18 +342,18 @@ ascolta?.('nova://voce', ev => {
 
 ascolta?.('nova://fase', ev => {
   const f = String(ev.payload?.fase || '');
-  if (f === 'sveglia')   nota('ti ascolto — il nome non serve più');
-  if (f === 'in_pausa')  nota('in pausa — di’ «Nova» per riprendere');
-  if (f === 'dormiente') nota('conversazione chiusa');
+  if (f === 'sveglia')   nota(T('ti ascolto — il nome non serve più'));
+  if (f === 'in_pausa')  nota(T('in pausa — di’ «Nova» per riprendere'));
+  if (f === 'dormiente') nota(T('conversazione chiusa'));
 });
 
 ascolta?.('nova://evento', ev => {
   const e = ev.payload || {};
   if (e.topic === 'voce.muto') {
-    nota(e.dati?.muto ? 'il microfono non consegna niente' : 'microfono di nuovo attivo');
+    nota(T(e.dati?.muto ? 'il microfono non consegna niente' : 'microfono di nuovo attivo'));
   }
   if (e.topic === 'voce.ripiego') {
-    nota('voce locale: ' + String(e.dati?.motivo || '').slice(0, 80));
+    nota(T('voce locale: ') + String(e.dati?.motivo || '').slice(0, 80));
   }
 });
 

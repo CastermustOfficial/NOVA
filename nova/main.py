@@ -8,7 +8,22 @@ from .config import CONFIG_PATH, Config
 from .setup_wizard import autoconfigure
 
 
+def _traccia_main() -> None:
+    """Una riga quando main() parte. Serve a distinguere due ipotesi diverse:
+    «il cervello non e' questo» e «il cervello e' questo ma non passa di qui»."""
+    try:
+        import datetime, os
+        from pathlib import Path as _P
+        f = _P(__file__).resolve().parent.parent / "avvio.log"
+        with open(f, "a", encoding="utf-8") as fh:
+            fh.write(f"{datetime.datetime.now():%d/%m %H:%M:%S} "
+                     f"pid={os.getpid()} MAIN argv={' '.join(sys.argv[:3])!r}\n")
+    except Exception:
+        pass
+
+
 def _prepare_config(reconfigure: bool = False) -> Config:
+    _traccia_main()
     cfg = Config.load()
     notes = autoconfigure(cfg, force=reconfigure)
     cfg.save()
@@ -117,7 +132,25 @@ def run_cli(cfg: Config, once: str | None = None, no_server: bool = False,
 
     try:
         if once:
-            agent.send(once, postilla=POSTILLA_VOCE if dalla_voce else "")
+            try:
+                agent.send(once, postilla=POSTILLA_VOCE if dalla_voce else "")
+            except KeyboardInterrupt:
+                raise
+            except Exception as e:
+                # In `--ask` lo standard output E' la risposta: un tracciato
+                # Python qui arriva all'utente dentro la bolla della chat,
+                # pieno di percorsi di file e righe di libreria. Un cervello
+                # che si ferma e' una notizia da dare, non un programma che si
+                # sbriciola: si dice cosa e' successo, in italiano, e si esce
+                # da fermi.
+                motivo = str(e).strip() or f"{type(e).__name__} senza spiegazione"
+                print(motivo, flush=True)
+                log(f"[nova] il cervello si e' fermato: {type(e).__name__}: {e}")
+                return 1
+            # Prima la procedura, che e' breve: se il processo muore mentre
+            # la scrive, quella fatica e' persa e la volta dopo NOVA
+            # ricomincia a cercare da zero.
+            agent.attendi_procedura(30)
             if memoria is not None:
                 log("[kb] attendo la scrittura in memoria...")
                 memoria.attendi(180)
@@ -131,7 +164,14 @@ def run_cli(cfg: Config, once: str | None = None, no_server: bool = False,
                 break
             if not text:
                 continue
-            agent.send(text)
+            try:
+                agent.send(text)
+            except KeyboardInterrupt:
+                raise
+            except Exception as e:
+                # Alla tastiera vale lo stesso: un turno andato male non deve
+                # portarsi via la conversazione.
+                print(f"\nNOVA: {str(e).strip() or type(e).__name__}", flush=True)
     finally:
         if not no_server:
             server.stop()
@@ -149,6 +189,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--no-server", action="store_true",
                     help="non avviare llama-server (usa un server gia' attivo)")
     ap.add_argument("--config", action="store_true", help="stampa il percorso di configurazione")
+    ap.add_argument("--harness", action="store_true",
+                    help="apre la finestra dell'harness e la tiene aggiornata")
+    ap.add_argument("--pianificate", action="store_true",
+                    help="esegue le automazioni pianificate che sono dovute")
     ap.add_argument("--list-tools", action="store_true", help="elenca i tool disponibili")
     ap.add_argument("--seed-kb", action="store_true",
                     help="ri-mappa il PC nella knowledge base e termina")
@@ -165,6 +209,22 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.config:
         print(CONFIG_PATH)
+        return 0
+
+    if args.harness:
+        # Prima di tutto il resto: non serve ne' la configurazione ne' un
+        # cervello, questa finestra legge un file e disegna.
+        from .harness_finestra import avvia, segna_viva
+        segna_viva()
+        return avvia()
+
+    if args.pianificate:
+        # Il giro che chiama l'attivita' pianificata del sistema. Non passa da
+        # _prepare_config ne' dal modello: esegue quello che tocca e tace.
+        from .pianificazione import esegui_dovute
+        for x in esegui_dovute():
+            print(f"{x['nome']}: {x['esito']}"
+                  + ("  (cambiato)" if x.get("cambiato") else ""))
         return 0
 
     if args.list_tools:
@@ -201,8 +261,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.brains:
-        from .brains import BRAINS, crea_brain
-        for nome in BRAINS:
+        # elenco_brains, non BRAINS: le CLI configurate sono cervelli a tutti
+        # gli effetti, e finche' questo elenco ne mostrava tre chi ne aveva
+        # una installata non aveva modo di accorgersene.
+        from .brains import crea_brain, elenco_brains
+        for nome in elenco_brains(cfg):
             b = crea_brain(nome, cfg)
             pronto, motivo = b.disponibile()
             attivo = "*" if nome == cfg.brains.active else " "

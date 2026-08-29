@@ -158,11 +158,23 @@ class Agent:
             user = getpass.getuser()
         except Exception:
             user = "utente"
-        return self.cfg.system_prompt.format(
+        from .config import REGOLE_OPERATIVE
+        from .lingue import clausola
+        base = self.cfg.system_prompt.format(
             user=user,
             now=datetime.now().strftime("%A %d/%m/%Y %H:%M"),
             home=str(Path.home()),
         )
+        # Il prompt non si traduce: si dice al modello in che lingua parlare.
+        # Tradurlo vorrebbe dire mantenere N copie di un testo che cambia a
+        # ogni funzione nuova, e vederle divergere.
+        # Le regole operative si aggiungono sempre, anche a un prompt
+        # personalizzato: sono il minimo perche' NOVA sappia cosa puo' fare.
+        # Se il prompt le contiene gia' - perche' e' il predefinito recente -
+        # non si ripetono.
+        if "vicolo cieco" not in base:
+            base += REGOLE_OPERATIVE
+        return base + clausola(getattr(self.cfg.ui, "lingua", "it"))
 
     def reset(self, nuova_conversazione: bool = True) -> None:
         """Ripulisce la trascrizione in memoria.
@@ -264,9 +276,15 @@ class Agent:
         """
         self.cancel_event.clear()
         memoria = self._blocco_memoria(user_text)
+        procedure = self._blocco_procedure(user_text)
+        chi_sei = self._promemoria_identita()
         # L'ordine conta: prima cio' che hai chiesto, poi cio' che NOVA sa, poi
-        # come deve rispondere. L'istruzione resta l'ultima cosa letta.
-        self.messages.append({"role": "user", "content": user_text + memoria + postilla})
+        # cio' che ha gia' fatto, poi come deve rispondere. L'istruzione resta
+        # l'ultima cosa letta.
+        self.messages.append(
+            {"role": "user",
+             "content": user_text + memoria + procedure + chi_sei + postilla})
+        _inizio_turno = time.time()
         # Quali strumenti ha usato *questo* turno: serve a decidere se cio' che
         # e' passato di qui puo' finire in memoria.
         self.strumenti_del_turno: set[str] = set()
@@ -319,6 +337,8 @@ class Agent:
             if not tool_calls:
                 self.cb.on_status("")
                 self._impara(user_text, final_text)
+                self._registra_procedura(user_text, final_text,
+                                         time.time() - _inizio_turno)
                 return final_text
 
             for call in tool_calls:
@@ -601,6 +621,37 @@ class Agent:
             "name": name,
             "content": result,
         })
+        self._consegna_immagini(result)
+
+    def _consegna_immagini(self, risultato: str) -> None:
+        """Se uno strumento ha prodotto un'immagine, la si fa vedere davvero.
+
+        Prima NOVA scattava schermate che non guardava: il file finiva su disco
+        e al modello arrivava solo la frase «salvata in...». I modelli vedono —
+        mancava il tubo, non la vista.
+
+        Si riconosce dal risultato invece di chiederlo a ogni strumento: se il
+        testo nomina un'immagine che esiste su disco, quella si guarda. Cosi'
+        vale anche per gli strumenti che verranno.
+        """
+        if not getattr(self.cfg.brains, "visione", True):
+            return
+        # Claude Code apre i file da solo con Read: allegarli qui vorrebbe dire
+        # mandare due volte la stessa cosa.
+        if self.cfg.brains.active == "claude":
+            return
+        try:
+            from .immagini import messaggio_con_immagini, percorsi_immagine
+            percorsi = percorsi_immagine(risultato)
+            if not percorsi:
+                return
+            msg = messaggio_con_immagini(percorsi)
+            if msg:
+                self.messages.append(msg)
+        except Exception as e:  # una figura non deve far cadere il turno
+            log = getattr(self, "_log", None)
+            if callable(log):
+                log(f"non sono riuscito a mostrare l'immagine: {e}")
 
     # Strumenti che mostrano *cosa c'e' aperto adesso*, non *com'e' fatto il
     # PC. Leggerli serve ad agire; ricordarli scriverebbe nel vault i titoli
@@ -619,6 +670,177 @@ class Agent:
             self.memory.osserva_async(domanda, risposta, riservato=riservato)
         except Exception:
             pass
+
+    # -- procedure ----------------------------------------------------
+    def _promemoria_identita(self) -> str:
+        """Chi e' NOVA, ripetuto a ogni turno ai cervelli agentici.
+
+        Serve solo a loro perche' solo loro ricevono il prompt di sistema una
+        volta sola, all'apertura della sessione: dal secondo turno si usa
+        `--resume`, e quelle istruzioni restano formalmente in testa alla
+        conversazione ma smettono di pesare, mentre pesa tutto quello che e'
+        successo dopo. Gli altri cervelli il prompt se lo rileggono per intero
+        a ogni chiamata e non hanno bisogno di essere richiamati all'ordine.
+
+        Costa un centinaio di token a turno. Vale la spesa: senza, dopo qualche
+        ora di conversazione NOVA comincia a rispondere come il programma che
+        la fa ragionare invece che come se stessa - «autorizza il connettore»,
+        «in questa sessione non ho» - e rifiuta cose che sa benissimo fare. E'
+        successo davvero, e la prova e' che in una sessione nuova, con lo
+        stesso identico prompt, elencava correttamente la strada giusta.
+        """
+        if not getattr(self.brain, "agentico", False):
+            return ""
+        from .config import PROMEMORIA
+        return PROMEMORIA
+
+    def _blocco_procedure(self, user_text: str) -> str:
+        """Come NOVA ha risolto richieste simili, se ne ha risolte.
+
+        Va in coda alla domanda e non nel prompt di sistema, per la stessa
+        ragione del blocco di memoria: il prompt di sistema e' la regione su
+        cui i fornitori tengono la cache, e cambiarlo a ogni turno costa la
+        rielaborazione dell'intera conversazione.
+        """
+        if not getattr(self.cfg.kb, "procedure", True):
+            return ""
+        try:
+            from . import ricette
+            return ricette.blocco(user_text)
+        except Exception:
+            # Un archivio rotto non deve impedire di rispondere.
+            return ""
+
+    @staticmethod
+    def _annota_procedura(motivo: str) -> None:
+        """Perche' una procedura non e' stata scritta, su file.
+
+        Tutto questo apprendimento gira in sottofondo e ingoia le eccezioni,
+        che e' giusto - la risposta e' gia' stata data e non deve rompersi per
+        un di piu'. Ma «ingoia» era diventato «sparisce»: l'archivio restava a
+        zero e non c'era modo di sapere se il filo non era partito, se il
+        modello aveva detto NIENTE, o se qualcosa era esploso. Tre guasti
+        diversi con lo stesso identico sintomo, cioe' N8 al contrario.
+        """
+        try:
+            import os
+            base = os.environ.get("APPDATA")
+            if not base:
+                return
+            p = Path(base) / "NOVA" / "procedure.log"
+            p.parent.mkdir(parents=True, exist_ok=True)
+            with open(p, "a", encoding="utf-8") as f:
+                f.write(f"{datetime.now():%d/%m %H:%M:%S}\t{motivo}\n")
+        except Exception:
+            pass
+
+    def _registra_procedura(self, domanda: str, risposta_data: str,
+                            secondi: float) -> None:
+        """Mette da parte come si e' fatto, in sottofondo.
+
+        Perche' lo si chiede al modello invece di leggere le chiamate agli
+        strumenti: con un cervello agentico - Claude Code - le chiamate non
+        passano di qui. Lui i propri strumenti li usa per conto suo e ci
+        consegna solo la risposta. Osservare il traffico avrebbe funzionato
+        con meta' dei cervelli, e per l'altra meta' non avrebbe imparato mai
+        niente. Chiederglielo funziona sempre, e costa una chiamata al
+        modello veloce.
+        """
+        if not getattr(self.cfg.kb, "procedure", True):
+            return
+        soglia = int(getattr(self.cfg.kb, "procedure_da_secondi", 8))
+        if secondi < soglia:
+            self._annota_procedura(f"saltata: {secondi:.0f}s sotto la soglia di {soglia}")
+            return
+        agentico = getattr(self.brain, "agentico", False)
+        if not agentico and not self.strumenti_del_turno:
+            # Nessuno strumento: era una conversazione, non una procedura.
+            self._annota_procedura("saltata: nessuno strumento usato")
+            return
+        strumenti = sorted(self.strumenti_del_turno)
+
+        def lavora() -> None:
+            try:
+                from . import ricette
+                # `semplice()` e' una chiamata ISOLATA: nessuna sessione,
+                # nessuna memoria del turno appena finito. Chiedergli «cosa
+                # hai fatto?» era chiedere a chi non c'era: rispondeva
+                # NIENTE, ogni volta, e l'archivio restava vuoto senza che
+                # nessun errore lo dicesse. Il materiale glielo si passa.
+                testo = self.brain.semplice(
+                    "Ecco uno scambio appena avvenuto fra un utente e un "
+                    "assistente che ha le mani sul suo PC.\n\n"
+                    f"RICHIESTA: \"{domanda[:300]}\"\n\n"
+                    f"RISPOSTA DATA: \"{(risposta_data or '')[:900]}\"\n\n"
+                    + (f"STRUMENTI USATI: {', '.join(strumenti)}\n\n"
+                       if strumenti else "")
+                    + "Ricostruisci da questo la procedura, perche' la "
+                    "prossima volta si possa rifare senza cercare.\n"
+                    "- prima riga: un titolo di tre o quattro parole;\n"
+                    "- poi al massimo sei righe numerate, concrete: quali "
+                    "strumenti, quali comandi, quali percorsi, in che ordine;\n"
+                    "- NON scrivere i risultati (numeri, nomi, contenuti "
+                    "trovati): quelli cambiano. Solo i passi.\n"
+                    "- ultima riga, che comincia con «ALTRE PAROLE:»: sei o "
+                    "sette modi DIVERSI in cui la stessa cosa si sarebbe "
+                    "potuta chiedere, separati da virgola. Sinonimi veri, "
+                    "anche in inglese e anche gergali - per «controlla la "
+                    "posta»: inbox, email, messaggi, mail, casella, "
+                    "corrispondenza. Servono a ritrovare questa procedura "
+                    "quando la richiesta sara' scritta con altre parole.\n"
+                    "Se dallo scambio non si capisce nessuna procedura ripetibile, "
+                    "rispondi soltanto: NIENTE",
+                    max_tokens=400)
+                testo = (testo or "").strip()
+                if not testo:
+                    self._annota_procedura("il modello non ha risposto niente")
+                    return
+                if testo.upper().startswith("NIENTE"):
+                    self._annota_procedura("il modello dice che non c'e' una procedura")
+                    return
+                righe = [r for r in testo.splitlines() if r.strip()]
+                if len(righe) < 2:
+                    self._annota_procedura(f"risposta troppo corta: {testo[:80]!r}")
+                    return
+                titolo = righe[0].strip(" #*-").strip()[:60]
+                alias: list[str] = []
+                for i, r in enumerate(righe):
+                    if r.strip().upper().startswith("ALTRE PAROLE"):
+                        alias = [x.strip() for x in
+                                 r.split(":", 1)[-1].split(",") if x.strip()]
+                        righe = righe[:i]
+                        break
+                procedura = "\n".join(righe[1:]).strip()
+                if len(procedura) < 20:
+                    self._annota_procedura(f"passi troppo scarni: {procedura[:80]!r}")
+                    return
+                ricette.registra(domanda, titolo, procedura, strumenti, secondi,
+                                 alias=alias)
+                self._annota_procedura(f"archiviata: {titolo}")
+            except Exception as e:
+                # Imparare e' un di piu': se fallisce, la risposta e' gia'
+                # stata data e l'utente non deve accorgersene. Ma noi si': un
+                # guasto invisibile e' un guasto che non si ripara mai.
+                self._annota_procedura(f"guasto: {type(e).__name__}: {e}")
+
+        # Il filo si tiene da parte. In `--ask` il processo muore appena
+        # risposto, e un filo «daemon» muore con lui: la procedura non veniva
+        # scritta MAI, e l'archivio restava a zero mentre NOVA sgobbava. Chi
+        # chiama decide quanto aspettarlo con `attendi_procedura`.
+        self._filo_procedura = threading.Thread(target=lavora, daemon=True,
+                                                name="nova-procedura")
+        self._filo_procedura.start()
+
+    def attendi_procedura(self, secondi: float = 30) -> None:
+        """Da' tempo al filo che sta scrivendo la procedura, se ce n'e' uno.
+
+        Serve solo a chi sta per chiudere il processo. Un tetto c'e' perche'
+        far aspettare l'utente per imparare qualcosa e' il contrario del
+        motivo per cui si impara.
+        """
+        filo = getattr(self, "_filo_procedura", None)
+        if filo is not None and filo.is_alive():
+            filo.join(secondi)
 
     def cancel(self) -> None:
         self.cancel_event.set()

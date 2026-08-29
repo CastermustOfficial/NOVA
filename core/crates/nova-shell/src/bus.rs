@@ -77,7 +77,7 @@ async fn giro(app: &AppHandle, endpoint: &str) -> anyhow::Result<()> {
     let (lettore, mut scrittore) = tokio::io::split(stream);
     let sottoscrizione = json!({
         "jsonrpc": "2.0", "id": 1, "method": "events/subscribe",
-        "params": { "topics": ["stato.*", "approvazione.*", "proc.*", "voce.*", "ui.chat"] }
+        "params": { "topics": ["stato.*", "approvazione.*", "proc.*", "voce.*", "ui.chat", "azione.*", "fs.cambiato"] }
     });
     scrittore.write_all(sottoscrizione.to_string().as_bytes()).await?;
     scrittore.write_all(b"\n").await?;
@@ -138,6 +138,34 @@ async fn giro(app: &AppHandle, endpoint: &str) -> anyhow::Result<()> {
                     );
                 }
             });
+        }
+        // Il demone ha interrotto: tocca al guscio fermare il cervello, che
+        // e' un processo suo. Una sola strada — «azione.ferma» — ferma tutto,
+        // da qualunque parte sia stata premuta: menu, voce o riga di comando.
+        if topic == "azione.interrotta" {
+            if crate::cervello::ferma_cervello() {
+                crate::cronologia::aggiungi("nova", "Va bene, mi fermo.");
+                let _ = app.emit(
+                    "nova://voce",
+                    json!({ "da": "nova", "testo": "Va bene, mi fermo." }),
+                );
+            }
+        }
+        // Qualcosa e' cambiato in una cartella osservata. Se c'era una
+        // reazione, e' qui che NOVA smette di essere solo reattiva: nessuno
+        // le ha chiesto niente adesso, se ne e' accorta da sola.
+        if topic == "fs.cambiato" {
+            let reazione = dati.get("reazione").and_then(|r| r.as_str()).unwrap_or("");
+            let file = dati.get("percorso").and_then(|f| f.as_str()).unwrap_or("");
+            if !reazione.trim().is_empty() {
+                // Il percorso va dato per intero: «spostalo» senza sapere cosa
+                // sia «lo» costringerebbe NOVA a indovinare.
+                crate::voce::manda(format!("{reazione}\n\n(File interessato: {file})"));
+            } else if !file.is_empty() {
+                let avviso = format!("E' cambiato un file che stavo guardando: {file}");
+                crate::cronologia::aggiungi("nova", &avviso);
+                let _ = app.emit("nova://voce", json!({ "da": "nova", "testo": avviso }));
+            }
         }
         if topic == "voce.comando" {
             if let Some(testo) = dati.get("testo").and_then(|t| t.as_str()) {

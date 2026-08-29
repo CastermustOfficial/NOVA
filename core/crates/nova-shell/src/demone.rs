@@ -23,6 +23,8 @@ const CONSENTITE: &[&str] = &[
     "voce.trascrivi",
     "voce.risveglio",
     "voce.fase",
+    "azione.ferma",
+    "azione.stato",
     "approvazione.attese",
     "approvazione.rispondi",
 ];

@@ -6,7 +6,43 @@
 //! processo, scritta su disco. Quando il ciclo dell'agente sara' in Rust
 //! questa funzione parlera' direttamente col demone.
 
+use std::sync::atomic::{AtomicU32, Ordering};
+
 use crate::processo;
+
+/// Il processo del cervello mentre sta pensando. 0 = non sta pensando.
+static PENSANTE: AtomicU32 = AtomicU32::new(0);
+
+/// Ferma il cervello se sta ragionando. Ritorna true se c'era qualcosa da
+/// fermare.
+///
+/// Si usa `taskkill /T` perche' il cervello puo' aver avviato a sua volta
+/// altri processi — la CLI di un modello, per esempio. Ucciderlo da solo
+/// lascerebbe i figli a girare, ed e' esattamente il modo in cui «fermare»
+/// diventa una bugia.
+pub fn ferma_cervello() -> bool {
+    let pid = PENSANTE.swap(0, Ordering::SeqCst);
+    if pid == 0 {
+        return false;
+    }
+    #[cfg(windows)]
+    {
+        let _ = processo::comando("taskkill")
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .output();
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = processo::comando("kill").args(["-TERM", &pid.to_string()]).output();
+    }
+    tracing::info!(pid, "cervello fermato");
+    true
+}
+
+/// Sta pensando adesso?
+pub fn sta_pensando() -> bool {
+    PENSANTE.load(Ordering::SeqCst) != 0
+}
 
 /// Manda una richiesta al cervello di NOVA e aspetta la risposta.
 /// Con `dalla_voce` il cervello riceve anche l'istruzione su come si risponde
@@ -20,7 +56,7 @@ pub async fn chiedi(testo: String, dalla_voce: bool) -> Result<String, String> {
     }
     tokio::task::spawn_blocking(move || {
         let radice = radice_progetto();
-        let uscita = processo::comando(&eseguibile_python())
+        let mut figlio = processo::comando(&eseguibile_python())
             // Senza, su Windows Python scrive con la codifica locale e gli
             // accenti italiani arrivano qui come byte non validi.
             .env("PYTHONIOENCODING", "utf-8")
@@ -30,8 +66,18 @@ pub async fn chiedi(testo: String, dalla_voce: bool) -> Result<String, String> {
             .arg(&domanda)
             .args(if dalla_voce { &["--voce"][..] } else { &[][..] })
             .current_dir(&radice)
-            .output()
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
             .map_err(|e| format!("non riesco ad avviare NOVA: {e}"))?;
+        // Si annota il pid finche' pensa: senza, «ferma» non ha niente da
+        // fermare e il cervello continua a ragionare per conto suo mentre
+        // l'utente crede di averlo interrotto.
+        PENSANTE.store(figlio.id(), Ordering::SeqCst);
+        let uscita = figlio
+            .wait_with_output()
+            .map_err(|e| format!("il cervello si e' interrotto: {e}"))?;
+        PENSANTE.store(0, Ordering::SeqCst);
         let testo_uscita = String::from_utf8_lossy(&uscita.stdout).trim().to_string();
         if testo_uscita.is_empty() {
             let errore = String::from_utf8_lossy(&uscita.stderr);

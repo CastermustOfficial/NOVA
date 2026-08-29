@@ -34,6 +34,14 @@ pub fn register_builtins(reg: &mut Registry) {
     reg.add(Arc::new(ServiceListCap));
     reg.add(Arc::new(ServiceStartCap));
     reg.add(Arc::new(BusPublishCap));
+    reg.add(Arc::new(AzioneFermaCap));
+    reg.add(Arc::new(AzioneStatoCap));
+    reg.add(Arc::new(AnnullaElencoCap));
+    reg.add(Arc::new(AnnullaUltimoCap));
+    reg.add(Arc::new(AnnullaUnoCap));
+    reg.add(Arc::new(OsservaCartellaCap));
+    reg.add(Arc::new(OsservaElencoCap));
+    reg.add(Arc::new(OsservaTogliCap));
 }
 
 fn espandi(p: &str) -> PathBuf {
@@ -205,6 +213,37 @@ impl Capability for FsWriteCap {
         }
     }
 
+    async fn anteprima(&self, args: Value, _ctx: &Ctx) -> Option<Result<Value>> {
+        let path = espandi(&match arg_str(&args, "path") {
+            Ok(p) => p,
+            Err(e) => return Some(Err(e)),
+        });
+        let contenuto = match arg_str(&args, "content") {
+            Ok(c) => c,
+            Err(e) => return Some(Err(e)),
+        };
+        let esisteva = path.exists();
+        let prima = if esisteva {
+            std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0)
+        } else {
+            0
+        };
+        let aggiunge = arg_bool(&args, "append", false);
+        Some(Ok(json!({
+            "farei": if !esisteva { "creerei il file" }
+                     else if aggiunge { "aggiungerei in fondo al file" }
+                     else { "riscriverei il file da capo" },
+            "path": path.to_string_lossy(),
+            "esisteva": esisteva,
+            "byte_prima": prima,
+            "byte_scritti": contenuto.len(),
+            "annullabile": true,
+            "nota": if esisteva && !aggiunge {
+                "il contenuto attuale verrebbe conservato: si torna indietro con annulla.ultimo"
+            } else { "" },
+        })))
+    }
+
     async fn call(&self, args: Value, ctx: &Ctx) -> Result<Value> {
         let path = espandi(&arg_str(&args, "path")?);
         let contenuto = arg_str(&args, "content")?;
@@ -212,6 +251,27 @@ impl Capability for FsWriteCap {
         if let Some(dir) = path.parent() {
             tokio::fs::create_dir_all(dir).await.ok();
         }
+
+        // Prima di toccare il file si mette da parte com'era. E' N2: un'azione
+        // reversibile non ha bisogno di essere temuta. Se conservare non
+        // riesce, si scrive lo stesso ma si annota che quella non si annulla —
+        // meglio una promessa mancata dichiarata che una promessa taciuta.
+        let esisteva = path.exists();
+        let inversa = if esisteva {
+            match crate::giornale::conserva(&path) {
+                Ok(copia) => crate::giornale::Inversa::RipristinaFile {
+                    percorso: path.to_string_lossy().to_string(),
+                    copia,
+                },
+                Err(e) => crate::giornale::Inversa::NonSiPuo {
+                    perche: format!("non sono riuscito a conservare il contenuto precedente: {e}"),
+                },
+            }
+        } else {
+            crate::giornale::Inversa::CancellaFile {
+                percorso: path.to_string_lossy().to_string(),
+            }
+        };
         if arg_bool(&args, "append", false) {
             use tokio::io::AsyncWriteExt;
             let mut f = tokio::fs::OpenOptions::new()
@@ -223,8 +283,20 @@ impl Capability for FsWriteCap {
         } else {
             tokio::fs::write(&path, contenuto.as_bytes()).await?;
         }
+        let annullabile = !matches!(inversa, crate::giornale::Inversa::NonSiPuo { .. });
+        let cosa = if esisteva {
+            format!("riscritto {}", path.to_string_lossy())
+        } else {
+            format!("creato {}", path.to_string_lossy())
+        };
+        let id = crate::giornale::annota("fs.write", &cosa, inversa).ok();
         ctx.bus.emit("fs.written", json!({ "path": path.to_string_lossy() }));
-        Ok(json!({ "path": path.to_string_lossy(), "bytes": contenuto.len() }))
+        Ok(json!({
+            "path": path.to_string_lossy(),
+            "bytes": contenuto.len(),
+            "annullabile": annullabile,
+            "annulla_con": id.map(|i| format!("annulla.uno id={i}")),
+        }))
     }
 }
 
@@ -279,6 +351,29 @@ impl Capability for ShellExecCap {
         }
     }
 
+    /// Un comando non si puo' provare davvero: eseguirlo «per finta» vorrebbe
+    /// dire eseguirlo. Ma dire *cosa* si sta per lanciare e *dove* e' gia'
+    /// meta' del valore, ed e' esattamente il controllo che si vorrebbe fare
+    /// prima di premere invio su una riga scritta da qualcun altro.
+    async fn anteprima(&self, args: Value, _ctx: &Ctx) -> Option<Result<Value>> {
+        let comando = match arg_str(&args, "command") {
+            Ok(c) => c,
+            Err(e) => return Some(Err(e)),
+        };
+        let dove = arg_str_opt(&args, "cwd")
+            .filter(|d| !d.is_empty())
+            .map(|d| espandi(&d).to_string_lossy().to_string())
+            .unwrap_or_else(|| "la cartella corrente del demone".to_string());
+        Some(Ok(json!({
+            "farei_girare": comando,
+            "dove": dove,
+            "shell": if cfg!(windows) { "powershell" } else { "sh" },
+            "annullabile": false,
+            "nota": "un comando non si puo' provare per finta: questa e' la riga esatta \
+                     che verrebbe eseguita, leggila prima di lanciarla davvero",
+        })))
+    }
+
     async fn call(&self, args: Value, ctx: &Ctx) -> Result<Value> {
         let comando = arg_str(&args, "command")?;
         ctx.policy.check_command(&comando)?;
@@ -300,6 +395,15 @@ impl Capability for ShellExecCap {
             }
         }
         cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).stdin(Stdio::null());
+
+        // Senza questo, interrompere il comando libera chi ha chiesto ma
+        // lascia il processo a girare di nascosto: «fermare» diventerebbe
+        // una bugia. Il supervisor lo fa gia' per i suoi figli.
+        //
+        // Limite noto: uccide il figlio diretto, non i suoi discendenti.
+        // Un comando che ne avvia altri lascia nipoti orfani; la cura vera
+        // sono i job object di Windows, ed e' una questione aperta.
+        cmd.kill_on_drop(true);
 
         let esito = tokio::time::timeout(
             std::time::Duration::from_secs(timeout.max(1)),
@@ -561,3 +665,297 @@ impl Capability for BusPublishCap {
 
 #[allow(dead_code)]
 fn _assert_path_usato(_p: &Path) {}
+
+// ---------------------------------------------------------------- azione.*
+
+/// Fermare cio' che NOVA sta facendo.
+///
+/// Sta fra le capacita' native e non fra quelle «di sistema» per un motivo
+/// preciso: deve essere raggiungibile da tutto — un bottone, un comando
+/// vocale, la riga di comando, e il cervello stesso quando si accorge di
+/// essere finito in un vicolo cieco.
+struct AzioneFermaCap;
+
+#[async_trait]
+impl Capability for AzioneFermaCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "azione.ferma".into(),
+            description: "Interrompe cio' che NOVA sta facendo adesso. Ferma \
+                          l'azione in corso, non il programma: subito dopo NOVA \
+                          e' viva e ascolta. Cio' che parte dopo non ne risente."
+                .into(),
+            risk: Risk::Safe,
+            category: "azione".into(),
+            schema: schema(&[]),
+        }
+    }
+
+    async fn call(&self, _args: Value, ctx: &Ctx) -> Result<Value> {
+        let quante = crate::interruzione::ferma(&ctx.bus);
+        Ok(json!({
+            "fermate": quante,
+            "nota": if quante == 0 {
+                "non c'era niente in corso"
+            } else {
+                "interrotto"
+            },
+        }))
+    }
+}
+
+struct AzioneStatoCap;
+
+#[async_trait]
+impl Capability for AzioneStatoCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "azione.stato".into(),
+            description: "Quante azioni interrompibili sono in corso adesso, e \
+                          quante ne sono state interrotte da quando il demone e' acceso."
+                .into(),
+            risk: Risk::Safe,
+            category: "azione".into(),
+            schema: schema(&[]),
+        }
+    }
+
+    async fn call(&self, _args: Value, _ctx: &Ctx) -> Result<Value> {
+        Ok(json!({
+            "in_corso": crate::interruzione::quante_in_corso(),
+            "interrotte": crate::interruzione::quante_interrotte(),
+        }))
+    }
+}
+
+// --------------------------------------------------------------- annulla.*
+
+/// Cosa si puo' ancora disfare.
+struct AnnullaElencoCap;
+
+#[async_trait]
+impl Capability for AnnullaElencoCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "annulla.elenco".into(),
+            description: "Le ultime operazioni annotate, dalla piu' recente, con \
+                          scritto quali si possono disfare e quali no."
+                .into(),
+            risk: Risk::Safe,
+            category: "annulla".into(),
+            schema: schema(&[("quante", "number", "Quante mostrarne (10 di base)", false)]),
+        }
+    }
+
+    async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
+        let quante = arg_u64(&args, "quante", 10) as usize;
+        let voci: Vec<Value> = crate::giornale::elenco(quante)
+            .into_iter()
+            .map(|v| {
+                json!({
+                    "id": v.id,
+                    "capacita": v.capacita,
+                    "cosa": v.cosa,
+                    "annullata": v.annullata,
+                    "si_puo_annullare": v.reversibile() && !v.annullata,
+                    "perche_no": match &v.inversa {
+                        crate::giornale::Inversa::NonSiPuo { perche } => perche.clone(),
+                        _ => String::new(),
+                    },
+                })
+            })
+            .collect();
+        Ok(json!({ "operazioni": voci }))
+    }
+}
+
+/// Disfa l'ultima cosa che si puo' disfare.
+struct AnnullaUltimoCap;
+
+#[async_trait]
+impl Capability for AnnullaUltimoCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "annulla.ultimo".into(),
+            description: "Disfa l'ultima operazione annullabile. E' il gesto piu' \
+                          comune: «no, rimetti com'era»."
+                .into(),
+            risk: Risk::Moderate,
+            category: "annulla".into(),
+            schema: schema(&[]),
+        }
+    }
+
+    async fn anteprima(&self, _args: Value, _ctx: &Ctx) -> Option<Result<Value>> {
+        Some(match crate::giornale::ultima_annullabile() {
+            Some(v) => Ok(json!({
+                "disferei": v.cosa,
+                "id": v.id,
+                "capacita": v.capacita,
+            })),
+            None => Ok(json!({ "disferei": Value::Null, "nota": "non c'e' niente da annullare" })),
+        })
+    }
+
+    async fn call(&self, _args: Value, ctx: &Ctx) -> Result<Value> {
+        let voce = crate::giornale::ultima_annullabile()
+            .ok_or_else(|| anyhow!("non c'e' niente da annullare"))?;
+        let cosa = voce.cosa.clone();
+        let fatto = crate::giornale::annulla(voce.id)?;
+        ctx.bus.emit("annullato", json!({ "id": voce.id, "cosa": cosa }));
+        Ok(json!({ "id": voce.id, "era": cosa, "fatto": fatto }))
+    }
+}
+
+/// Disfa una precisa, scelta dall'elenco.
+struct AnnullaUnoCap;
+
+#[async_trait]
+impl Capability for AnnullaUnoCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "annulla.uno".into(),
+            description: "Disfa l'operazione col numero indicato, presa da \
+                          annulla.elenco. Serve quando si vuole tornare indietro \
+                          su una cosa sola, non sull'ultima."
+                .into(),
+            risk: Risk::Moderate,
+            category: "annulla".into(),
+            schema: schema(&[("id", "number", "Il numero dell'operazione", true)]),
+        }
+    }
+
+    async fn anteprima(&self, args: Value, _ctx: &Ctx) -> Option<Result<Value>> {
+        let id = arg_u64(&args, "id", 0);
+        let voce = crate::giornale::elenco(usize::MAX).into_iter().find(|v| v.id == id);
+        Some(match voce {
+            Some(v) if v.annullata => Ok(json!({
+                "disferei_la_numero": id, "cosa": v.cosa,
+                "nota": "questa era gia' stata annullata",
+            })),
+            Some(v) => Ok(json!({
+                "disferei_la_numero": id, "cosa": v.cosa,
+                "si_puo": v.reversibile(),
+            })),
+            None => Ok(json!({
+                "disferei_la_numero": id,
+                "nota": "nel giornale non c'e' nessuna operazione con questo numero",
+            })),
+        })
+    }
+
+    async fn call(&self, args: Value, ctx: &Ctx) -> Result<Value> {
+        let id = arg_u64(&args, "id", 0);
+        if id == 0 {
+            return Err(anyhow!("serve il numero dell'operazione: lo trovi con annulla.elenco"));
+        }
+        let fatto = crate::giornale::annulla(id)?;
+        ctx.bus.emit("annullato", json!({ "id": id }));
+        Ok(json!({ "id": id, "fatto": fatto }))
+    }
+}
+
+// --------------------------------------------------------------- osserva.*
+
+/// Guardare una cartella e accorgersi quando cambia.
+struct OsservaCartellaCap;
+
+#[async_trait]
+impl Capability for OsservaCartellaCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "osserva.cartella".into(),
+            description: "Tiene d'occhio una cartella e avvisa quando ci arriva o \
+                          cambia un file. Con «reazione» NOVA non si limita ad \
+                          avvisare: fa quello che le dici, da sola. Serve per cose \
+                          come «quando finisce il download, spostalo»."
+                .into(),
+            risk: Risk::Moderate,
+            category: "osserva".into(),
+            schema: schema(&[
+                ("cartella", "string", "Quale cartella guardare", true),
+                ("filtro", "string", "Solo i file cosi', es. *.pdf. Vuoto = tutti", false),
+                ("reazione", "string", "Cosa deve fare NOVA quando succede. Vuoto = solo avvisare", false),
+                ("una_volta", "boolean", "Smette dopo il primo (predefinito: no)", false),
+            ]),
+        }
+    }
+
+    async fn anteprima(&self, args: Value, _ctx: &Ctx) -> Option<Result<Value>> {
+        let cartella = match arg_str(&args, "cartella") { Ok(c) => c, Err(e) => return Some(Err(e)) };
+        let p = espandi(&cartella);
+        Some(Ok(json!({
+            "guarderei": p.to_string_lossy(),
+            "esiste": p.is_dir(),
+            "filtro": arg_str_opt(&args, "filtro").unwrap_or_else(|| "tutti i file".into()),
+            "reazione": arg_str_opt(&args, "reazione").unwrap_or_default(),
+            "nota": "cio' che c'e' gia' non viene segnalato: si parte da adesso",
+        })))
+    }
+
+    async fn call(&self, args: Value, ctx: &Ctx) -> Result<Value> {
+        let cartella = espandi(&arg_str(&args, "cartella")?);
+        let o = crate::osserva::Osservazione {
+            id: 0,
+            cartella: cartella.to_string_lossy().to_string(),
+            filtro: arg_str_opt(&args, "filtro").unwrap_or_default(),
+            reazione: arg_str_opt(&args, "reazione").unwrap_or_default(),
+            una_volta: arg_bool(&args, "una_volta", false),
+        };
+        let reazione = o.reazione.clone();
+        let id = crate::osserva::osserva(ctx.bus.clone(), o)?;
+        Ok(json!({
+            "id": id,
+            "guardo": cartella.to_string_lossy(),
+            "nota": if reazione.is_empty() {
+                "avvisero' e basta"
+            } else {
+                "quando succede agiro' da sola"
+            },
+            "per_smettere": format!("osserva.togli id={id}"),
+        }))
+    }
+}
+
+struct OsservaElencoCap;
+
+#[async_trait]
+impl Capability for OsservaElencoCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "osserva.elenco".into(),
+            description: "Cosa sta tenendo d'occhio NOVA in questo momento.".into(),
+            risk: Risk::Safe,
+            category: "osserva".into(),
+            schema: schema(&[]),
+        }
+    }
+
+    async fn call(&self, _args: Value, _ctx: &Ctx) -> Result<Value> {
+        Ok(json!({ "osservazioni": crate::osserva::elenco() }))
+    }
+}
+
+struct OsservaTogliCap;
+
+#[async_trait]
+impl Capability for OsservaTogliCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "osserva.togli".into(),
+            description: "Smette di tenere d'occhio una cartella.".into(),
+            risk: Risk::Safe,
+            category: "osserva".into(),
+            schema: schema(&[("id", "number", "Quale, da osserva.elenco", true)]),
+        }
+    }
+
+    async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
+        let id = arg_u64(&args, "id", 0);
+        let tolta = crate::osserva::togli(id);
+        if !tolta {
+            return Err(anyhow!("non sto guardando niente con il numero {id}"));
+        }
+        Ok(json!({ "tolta": id }))
+    }
+}

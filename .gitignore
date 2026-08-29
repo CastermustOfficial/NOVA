@@ -26,3 +26,17 @@ verifica_incrociata.err
 *.key
 .env
 segreti.json
+
+# Il core compilato o scaricato dalla release: non e' sorgente.
+bin/
+avvio.log
+azioni.jsonl*
+avvisi.jsonl
+pianificazione.json
+_architettura.pdf
+_vetrina*
+
+# Le copie dei binari che funzionavano, prima di sostituirli. Restano sul
+# disco di chi ricostruisce e non nel repository: sono un paracadute
+# locale, non una versione.
+salvagente/
