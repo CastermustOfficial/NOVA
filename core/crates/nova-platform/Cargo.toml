@@ -29,4 +29,16 @@ features = [
     # una unita' di rete. Una riga sola, ma senza di lei la ricerca
     # «ovunque» dei modelli si impianta sul primo disco di rete montato.
     "Win32_Storage_FileSystem",
+    # DXGI: quanta memoria video c'e' e quanta ne resta, per qualunque
+    # scheda - non solo per quelle NVIDIA, che e' quanto sapeva dire
+    # nvidia-smi.
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
 ]
+
+# Una risposta sola alla domanda «quanta memoria video c'e'»: la usano
+# l'installatore, il demone e il Python, che finora se la rispondevano da soli
+# chiamando ognuno `nvidia-smi`.
+[[bin]]
+name = "nova-schede"
+path = "src/bin/nova-schede.rs"

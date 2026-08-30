@@ -721,6 +721,85 @@ Resta una domanda che non e' tecnica e non decido io: `models.json` dice
 `consigliata: true` su Qwen3.8 27B, e su una scheda da 16 GB quel consiglio
 ora ha contro una tabella.
 
+### La memoria video, e la scheda che prometteva quello che non aveva
+
+CMP-6 era l'unica voce della lista compatibilita' che non aspettava un secondo
+PC, ed era anche la piu' antipatica: la stima della VRAM chiamava
+`nvidia-smi`. E' il programma di NVIDIA. Su una Radeon o su una Arc non
+esiste, il comando fallisce, la stima torna zero, e zero vuol dire «tutto in
+CPU». Chi aveva una scheda AMD non la usava e non gli veniva detto — il
+fallimento silenzioso piu' vecchio rimasto in casa, per giunta dentro il
+modulo che tutto il resto del codice serve a evitare.
+
+DXGI risponde alla stessa domanda per qualunque scheda sappia disegnare su
+Windows, senza avviare un processo: microsecondi invece dei quindici secondi
+di tetto che `nvidia-smi` si portava dietro. Dietro `nova-platform`, come i
+dischi, con la stessa forma: un `mod imp` per Windows e uno che dice
+onestamente che macOS e Linux non ci sono ancora.
+
+**Poi la prova ha trovato una cosa che non cercavo.** L'assertiva era la piu'
+banale che si possa scrivere — «il libero non puo' superare il totale» — ed e'
+diventata rossa:
+
+    AMD Radeon(TM) Graphics: liberi 15643 su 485 totali
+
+Su questa macchina ci sono **due** schede: la GeForce e la Radeon integrata
+del processore. L'integrata ha 485 MiB suoi e dichiara quindici gigabyte
+disponibili, perche' il «budget» di DXGI comprende la memoria di sistema che
+puo' farsi prestare. Il numero e' vero. E' RAM.
+
+Il pericolo non e' teorico: se `scheda_principale` avesse scelto per memoria
+*libera* invece che per memoria *dedicata*, l'integrata avrebbe vinto sempre,
+e NOVA avrebbe caricato dodici gigabyte di modello «sulla GPU» ritrovandoseli
+in RAM. Sarebbe stato il rallentamento da dieci volte con l'aria del successo
+— la stessa cosa che stavamo togliendo, rimessa dentro dalla porta di
+servizio, in nome della compatibilita'. Ora il libero e' tagliato al dedicato,
+e la scelta si fa sulla memoria propria.
+
+**E DXGI e' piu' ottimista di `nvidia-smi`**, che e' la direzione sbagliata in
+cui sbagliare. Misurato qui: 15.341 contro 14.793 MiB, scarto +548. Non
+misurano la stessa cosa — `memory.free` e' quanto e' libero adesso in
+assoluto, il budget e' quanto il sistema e' disposto a darci contando che puo'
+sfrattare chi non sta usando la sua — quindi non devono coincidere, ma lo
+scarto deve stare dentro il margine. Ci sta: 548 contro 900 MiB di riserva
+piu' il 4%. E' la prima volta che quella riserva ha un numero che la
+giustifica invece di essere una cifra prudente scritta a occhio. In pratica la
+stima passa da 53 a 56 layer, e la curva misurata stamattina dice che il
+massimo e' a 60 e il crollo a 64: ci si avvicina all'ottimo restando dalla
+parte giusta.
+
+**Una che non ho chiuso.** Quando la VRAM non si legge affatto,
+`_gpu_layer_ladder` parte da `-ngl 64` alla cieca. C'e' una scala di ripiego
+che scende di sei layer a ogni errore di memoria — ma la memoria condivisa
+**non da' errori**: accetta tutto e va dieci volte piu' piano, quindi la scala
+non scatta mai. E' lo stesso difetto del GGUF a meta' con un altro vestito: un
+meccanismo di sicurezza che si aspetta un'eccezione da qualcosa che non ne
+solleva. Per ora l'ho reso rumoroso — il registro dice cosa e' stato provato e
+avverte che quel numero e' un tiro al buio — ma se debba diventare zero, cioe'
+lento di sicuro invece che finto veloce, non e' una decisione tecnica e non la
+prendo io.
+
+**E due lezioni di consegna, non una.** Il binario nuovo funzionava qui e non
+sarebbe mai arrivato a nessuno: la CI raccoglie tre eseguibili per nome, e il
+quarto non era nell'elenco. Sarebbe stata CMP-6 risolta sulla sola macchina
+dove il problema non c'era — cioe' CMP-14 in miniatura, «da me funziona»
+applicato a una correzione di compatibilita'.
+
+La seconda e' peggiore, e l'ha trovata `git status` non dicendo niente. Nel
+`.gitignore` c'era `bin/` — pensato per la cartella dei binari compilati alla
+radice. Senza la barra davanti, quella riga vale per **qualsiasi** cartella
+che si chiami `bin` a qualunque profondita', e in un progetto Rust `src/bin/`
+e' dove stanno i sorgenti degli eseguibili. Il sorgente di `nova-schede`
+sarebbe rimasto sul mio disco: compilava qui, spariva dal repository, e il
+prossimo che avesse clonato avrebbe trovato un `Cargo.toml` che dichiara un
+binario di cui non c'e' il codice.
+
+Tre volte in una giornata, la stessa forma: un controllo che promette piu' di
+quello che fa (i quattro byte del GGUF), una scala di sicurezza che aspetta
+un'eccezione da chi non ne solleva (la memoria condivisa), una regola che
+copre piu' di quanto intendesse (`bin/`). Nessuna delle tre si annuncia. Sono
+tutte silenzi.
+
 ### Quello che questa giornata ha insegnato
 
 Tre cose si ripetono abbastanza da meritare di essere scritte.

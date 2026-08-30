@@ -139,9 +139,38 @@ uniche che separano l'alpha dalla beta.
 
 ### La scheda video
 
-6. **AMD e Intel.** La stima della VRAM chiama `nvidia-smi`. Vulkan gia'
-   funziona come backend, ma senza stima si finisce nella memoria condivisa —
-   il fallimento silenzioso che tutto il resto del codice cerca di evitare.
+6. ~~**AMD e Intel.**~~ Fatto, ed e' l'unica voce di questa lista che non
+   aveva bisogno di un secondo PC. La stima ora chiede a **DXGI**, che
+   risponde per qualunque scheda sappia disegnare su Windows; `nvidia-smi`
+   resta come ripiego. Costa microsecondi invece di avviare un processo con
+   quindici secondi di tetto, e uno zero adesso arriva sempre col motivo.
+
+   Due cose sono uscite scrivendola, e nessuna era prevista.
+
+   **La trappola dell'integrata.** Su questa macchina ci sono due schede: la
+   GeForce e una Radeon integrata. La Radeon ha 485 MiB suoi e dichiarava
+   **15.643 MiB disponibili** — memoria di sistema che puo' farsi prestare.
+   Sono numeri veri, e sono RAM. Scegliere la scheda per memoria *libera*
+   avrebbe fatto vincere sempre l'integrata, con la RAM di qualcun altro: il
+   rallentamento da dieci volte con l'aria del successo. Ora il libero e'
+   tagliato al dedicato, e si sceglie per memoria propria.
+
+   **DXGI e' piu' ottimista di `nvidia-smi`**, e quella e' la direzione
+   pericolosa. Misurato: 15.341 contro 14.793 MiB, scarto +548. Non misurano
+   la stessa cosa — `memory.free` e' quanto e' libero adesso, il budget di
+   DXGI e' quanto il sistema e' disposto a darci sfrattando chi non usa la
+   sua — e lo scarto sta dentro la riserva (900 MiB piu' il 4%), che quindi
+   smette di essere una cifra scritta a caso. In pratica la stima passa da 53
+   a 56 layer, e il ginocchio misurato su questa scheda e' a 60.
+
+   **Resta un tiro al buio da decidere.** Quando la VRAM non si legge
+   affatto, `_gpu_layer_ladder` parte da `-ngl 64`. La scala di ripiego
+   scende di sei layer a ogni errore di memoria, ma la memoria condivisa non
+   da' errori: accetta tutto e va dieci volte piu' piano. Se il modello e'
+   grosso e la scheda piccola, quello e' il caso in cui NOVA sembra
+   funzionare e non va. Per ora e' scritto nel registro con un avvertimento;
+   se debba diventare zero — lento di sicuro invece che finto veloce — e' una
+   decisione di prodotto, non tecnica.
 7. **Nessuna GPU.** La strada c'e' nel README; provarla davvero e misurarla,
    cosi' si sa cosa promettere.
 

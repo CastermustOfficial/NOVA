@@ -28,7 +28,11 @@ verifica_incrociata.err
 segreti.json
 
 # Il core compilato o scaricato dalla release: non e' sorgente.
-bin/
+# La barra davanti e' obbligatoria: senza, «bin/» vale per QUALSIASI cartella
+# che si chiami cosi', a qualunque profondita' - e in un progetto Rust
+# «src/bin/» e' dove stanno i sorgenti degli eseguibili. Ne e' sparito uno per
+# davvero: compilava qui e non sarebbe mai arrivato nel repository.
+/bin/
 avvio.log
 azioni.jsonl*
 avvisi.jsonl

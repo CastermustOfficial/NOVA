@@ -23,6 +23,11 @@ use serde::{Deserialize, Serialize};
 // Chi cerca i modelli sul disco chiede qui, e poi non parla piu' col sistema.
 pub mod dischi;
 
+// Quanta memoria video c'e' davvero: la domanda da cui dipende quanti
+// strati del modello vanno sulla scheda, e finora l'unica a cui
+// rispondeva un programma di NVIDIA.
+pub mod gpu;
+
 pub mod finestre;
 pub use finestre::{schermi, schermo_di, schermo_di_lavoro, sposta, Posa, Schermo};
 

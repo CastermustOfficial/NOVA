@@ -19,6 +19,8 @@ from typing import Callable, Iterable
 import requests
 
 from .config import Config, LOG_DIR
+# Un guasto si dice in italiano: il nome della classe non e' un messaggio.
+from .guasti import spiega
 from .gguf import model_shape
 
 HERE = Path(__file__).resolve().parent
@@ -84,8 +86,52 @@ def discover_runtimes(extra_dirs: Iterable[Path] = ()) -> list[RuntimeCandidate]
     return out
 
 
-def free_vram_mb() -> int:
-    """MiB di VRAM realmente liberi sulla GPU principale (0 se non rilevabile)."""
+def _schede_binario() -> Path | None:
+    """Il lettore DXGI, se e' stato costruito."""
+    nome = "nova-schede.exe" if os.name == "nt" else "nova-schede"
+    for p in (PROJECT_ROOT / "bin" / nome,
+              PROJECT_ROOT / "core" / "target" / "release" / nome):
+        if p.is_file():
+            return p
+    return None
+
+
+def free_vram_mb(perche: list[str] | None = None) -> int:
+    """MiB di VRAM davvero utilizzabili sulla scheda principale.
+
+    Zero vuol dire «non lo so», e chi calcola gli strati lo tratta come «tutto
+    in CPU»: lenta di sicuro invece che finta veloce.
+
+    **Si chiede prima a DXGI**, che risponde per qualunque scheda sappia
+    disegnare su Windows. `nvidia-smi` resta come ripiego, ma non puo' essere
+    il primo: e' il programma di NVIDIA, e su una Radeon o su una Arc non
+    esiste. Il comando falliva, la stima tornava zero, e chi aveva una scheda
+    AMD si ritrovava il modello in CPU senza che nessuno glielo dicesse - il
+    fallimento silenzioso che tutto il resto di questo file esiste per
+    evitare.
+
+    `perche` raccoglie cosa e' stato provato: senza, uno zero e' muto, e
+    l'utente non ha modo di sapere se non ha una GPU o se non gliel'abbiamo
+    trovata.
+    """
+    note = perche if perche is not None else []
+
+    binario = _schede_binario()
+    if binario is None:
+        note.append("il lettore DXGI non e' costruito")
+    else:
+        try:
+            r = subprocess.run([str(binario), "--libera"], capture_output=True,
+                               text=True, timeout=10)
+            testo = (r.stdout or "").strip()
+            if testo.isdigit() and int(testo) > 0:
+                return int(testo)
+            note.append("DXGI non riporta memoria utilizzabile")
+        except Exception as e:                                  # noqa: BLE001
+            # Il nome della classe non e' un messaggio (D28): `spiega` lo
+            # traduce, e il dettaglio tecnico va nel file dei guasti.
+            note.append(f"DXGI non risponde ({spiega(e)})")
+
     try:
         r = subprocess.run(
             ["nvidia-smi", "--query-gpu=memory.free", "--format=csv,noheader,nounits"],
@@ -94,8 +140,11 @@ def free_vram_mb() -> int:
         vals = [int(x.strip()) for x in (r.stdout or "").splitlines() if x.strip().isdigit()]
         if vals:
             return max(vals)
-    except Exception:
-        pass
+        note.append("nvidia-smi non riporta memoria libera")
+    except FileNotFoundError:
+        note.append("nvidia-smi non c'e' (normale se la scheda non e' NVIDIA)")
+    except Exception as e:                                      # noqa: BLE001
+        note.append(f"nvidia-smi non risponde ({spiega(e)})")
     return 0
 
 
@@ -371,14 +420,28 @@ class LlamaServer:
         if base < 99:
             start = base
         else:
+            perche: list[str] = []
+            libera = free_vram_mb(perche)
             start = estimate_gpu_layers(
                 self.cfg.server.model_path, self.cfg.server.ctx_size,
                 kv_tipo=getattr(self.cfg.server, "kv_cache_type", "f16") or "f16")
             if start:
-                self._log(f"Stima: {start} layer entrano in VRAM ({free_vram_mb()} MiB liberi).")
+                self._log(f"Stima: {start} layer entrano in VRAM ({libera} MiB liberi).")
             else:
                 start = 64
-                self._log("VRAM non rilevabile: parto da -ngl 64.")
+                # Uno zero muto non si puo' correggere: chi legge il registro
+                # deve sapere se non ha una GPU o se non gliel'abbiamo trovata.
+                motivo = "; ".join(perche) or "nessuna scheda trovata"
+                self._log(f"VRAM non rilevabile ({motivo}): parto da -ngl 64.")
+                # E va detto che questo numero e' un tiro al buio, perche' la
+                # scala di ripiego qui sotto non lo puo' correggere: si scende
+                # di sei layer a ogni errore di memoria, ma la memoria
+                # condivisa non da' errori - accetta tutto e va dieci volte
+                # piu' piano. Se il modello e' grosso e la scheda piccola,
+                # questo e' il caso in cui NOVA sembra funzionare e non va.
+                self._log("Attenzione: -ngl 64 alla cieca. Se le risposte "
+                          "arrivano lentissime, in config.json metti "
+                          "server.n_gpu_layers a un numero piu' basso.")
         ladder, cur = [start], start
         while cur > 0:
             cur -= 6

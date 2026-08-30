@@ -42,8 +42,12 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          # nova-shell e' l'interfaccia (orb), novad il demone, nova la CLI
-          foreach ($n in 'novad.exe','nova-shell.exe','nova.exe') {
+          # nova-shell e' l'interfaccia (orb), novad il demone, nova la CLI,
+          # nova-schede il lettore della memoria video. Quest'ultimo sembra
+          # accessorio e non lo e': senza, la stima dei layer ripiega su
+          # `nvidia-smi`, che su una scheda AMD o Intel non esiste - e il
+          # modello finisce in CPU senza che nessuno lo dica.
+          foreach ($n in 'novad.exe','nova-shell.exe','nova.exe','nova-schede.exe') {
             $p = "core/target/release/$n"
             if (Test-Path $p) { Copy-Item $p dist/ } else { throw "manca $n" }
           }
