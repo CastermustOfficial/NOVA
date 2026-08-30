@@ -72,6 +72,16 @@ STRATI_EXTRA = {f"kv8-{n}": n for n in (56, 58, 60, 62, 63, 64, 65)}
 for _nome, _n in STRATI_EXTRA.items():
     CONFIGURAZIONI[_nome] = ["-fa", "on", "-ctk", "q8_0", "-ctv", "q8_0"]
 
+# Zero layer sulla GPU: il modello gira tutto sul processore.
+#
+# Non e' una curiosita'. Da quando il calcolo degli strati e' dovuto sempre,
+# questa e' la strada su cui finisce **chiunque abbia una scheda che NOVA non
+# sa leggere** - e il README promette che «funziona, piu' lento». Una promessa
+# che nessuno ha mai cronometrato e' un'opinione: se qui vengono fuori mezzo
+# token al secondo, quella frase e' una bugia gentile e va riscritta.
+CONFIGURAZIONI["solo-cpu"] = ["-fa", "on", "-ctk", "q8_0", "-ctv", "q8_0"]
+STRATI_EXTRA["solo-cpu"] = 0
+
 
 def prompt_vero() -> tuple[str, list]:
     """Il prompt di sistema e gli schemi che NOVA manda davvero."""

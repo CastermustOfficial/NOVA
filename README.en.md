@@ -977,11 +977,29 @@ ten times slower, without saying a word.
 
 ### If you don't have a graphics card
 
-NOVA runs anyway, and it runs slowly: you go from tens of tokens a second to a
-few. Better said up front than discovered later. In that case there are two
-sensible roads, and neither is a fallback: **a subscription you already have**
-(Claude Code, Codex, Gemini, Qwen — NOVA drives them as brains) or an **API
-key**. The local model is a choice about privacy and cost, not the only way.
+This too was written and never measured, and measuring it showed that the
+answer depends almost entirely on **which** model, not on how fast the
+processor is. Same machine, same prompt, zero layers on the GPU:
+
+| on CPU alone | warm prompt | generation |
+|---|---|---|
+| Gemma 4 26B-A4B (MoE, 3.8B active) | 1.3 s | **7.6 tok/s** |
+| Qwen3.8 27B (dense) | 5.7 s | **1.8 tok/s** |
+
+**Four and a half times between two models of the same size**, because on the
+processor you pay for the parameters that switch on, not for the ones that
+exist. And the number that surprises most is another one: the MoE **on CPU**
+(7.6 tok/s) beats the dense model **on the GPU** (6.0 tok/s) of this machine.
+
+So, said honestly: 7.6 tokens a second is faster than a person reads, and NOVA
+without a graphics card **is usable**. At 1.8 an eighty-token answer takes
+forty-five seconds, and it isn't. If you have no GPU, the choice that matters
+isn't local versus not: it's **pick a MoE**.
+
+Two roads remain, and neither is a fallback: **a subscription you already
+have** (Claude Code, Codex, Gemini, Qwen — NOVA drives them as brains) or an
+**API key**. The local model is a choice about privacy and cost, not the only
+way.
 
 ---
 

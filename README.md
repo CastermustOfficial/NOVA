@@ -965,12 +965,31 @@ funziona lo stesso — dieci volte piu' piano, senza dire niente.
 
 ### Se non hai una scheda video
 
-NOVA gira lo stesso, e va piano: si passa da decine di token al secondo a
-pochi. Va detto prima, non scoperto dopo. In quel caso le strade sensate sono
-due, e nessuna delle due e' un ripiego: **un abbonamento che hai gia'**
-(Claude Code, Codex, Gemini, Qwen — NOVA li pilota come cervelli) oppure una
-**chiave API**. Il modello locale e' una scelta di riservatezza e di costo,
-non l'unica via.
+Anche questo era scritto e non misurato, e misurandolo e' venuto fuori che la
+risposta dipende quasi tutta da **quale** modello, non da quanto e' potente il
+processore. Stessa macchina, stesso prompt, zero layer sulla GPU:
+
+| in CPU pura | prompt a caldo | generazione |
+|---|---|---|
+| Gemma 4 26B-A4B (MoE, 3,8B attivi) | 1,3 s | **7,6 tok/s** |
+| Qwen3.8 27B (denso) | 5,7 s | **1,8 tok/s** |
+
+**Quattro volte e mezzo di differenza fra due modelli della stessa taglia**,
+perche' sul processore si paga per i parametri che si accendono, non per
+quelli che ci sono. E il numero che sorprende di piu' e' un altro: il MoE **in
+CPU** (7,6 tok/s) va piu' veloce del denso **sulla GPU** (6,0 tok/s) di questa
+macchina.
+
+Quindi, detto onestamente: 7,6 token al secondo sono piu' veloci di quanto
+legga una persona, e NOVA senza scheda video **si usa**. A 1,8 una risposta di
+ottanta token arriva in quarantacinque secondi, e non si usa. Se non hai una
+GPU la scelta che conta non e' fra locale e non locale: e' **prendere un
+MoE**.
+
+Restano due strade, e nessuna delle due e' un ripiego: **un abbonamento che
+hai gia'** (Claude Code, Codex, Gemini, Qwen — NOVA li pilota come cervelli)
+oppure una **chiave API**. Il modello locale e' una scelta di riservatezza e
+di costo, non l'unica via.
 
 ---
 

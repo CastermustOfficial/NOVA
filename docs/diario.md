@@ -835,6 +835,42 @@ un'eccezione da chi non ne solleva (la memoria condivisa), una regola che
 copre piu' di quanto intendesse (`bin/`). Nessuna delle tre si annuncia. Sono
 tutte silenzi.
 
+### Senza scheda video, e la promessa che era vera per meta'
+
+Togliere il tiro al buio ha avuto una conseguenza che andava guardata in
+faccia: da adesso, chiunque abbia una scheda che NOVA non sa leggere finisce
+sul processore. Il README prometteva che li' «funziona, piu' lento», e quella
+frase non l'aveva mai cronometrata nessuno. Una funzione documentata non e'
+una funzione provata — sta scritto qualche paragrafo piu' su, a proposito del
+ripiego sulla quota che non era mai partito — e una **promessa** documentata
+lo e' ancora meno.
+
+Stessa macchina, stesso prompt, zero layer sulla GPU:
+
+| in CPU pura | prompt a caldo | generazione |
+|---|---|---|
+| Gemma 4 26B-A4B (MoE, 3,8B attivi) | 1,3 s | 7,6 tok/s |
+| Qwen3.8 27B (denso) | 5,7 s | 1,8 tok/s |
+
+La promessa e' vera per meta', ed e' la meta' che nel README non era scritta.
+Sul processore si paga per i parametri che si **accendono**, non per quelli
+che esistono: fra due modelli della stessa taglia ci sono quattro volte e
+mezzo. Settevirgolasei token al secondo sono piu' veloci di quanto legga una
+persona, e NOVA senza scheda video si usa davvero; a uno virgola otto una
+risposta di ottanta token arriva in quarantacinque secondi, e non si usa.
+
+Il numero che mi ha sorpreso di piu' e' un altro: **il MoE in CPU (7,6) va
+piu' veloce del denso sulla GPU (6,0)** di questa macchina. Un processore
+senza scheda video batte una GeForce da 16 GB, se il modello e' quello
+giusto. Detto cosi' sembra un paradosso, e non lo e': la GeForce stava
+girando con dodici strati in RAM, quindi non era una gara fra GPU e CPU — era
+una gara fra un modello che ci sta e uno che non ci sta, di nuovo.
+
+Cambia cosa si promette. Non «un modello qualsiasi, piu' lento», ma **un MoE,
+e funziona**. E cambia anche il senso della domanda aperta di stamattina su
+`models.json`: il consiglio predefinito non riguarda solo chi ha una 4060 Ti,
+riguarda soprattutto chi non ha niente.
+
 ### Quello che questa giornata ha insegnato
 
 Tre cose si ripetono abbastanza da meritare di essere scritte.

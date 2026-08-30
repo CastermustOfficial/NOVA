@@ -191,8 +191,26 @@ uniche che separano l'alpha dalla beta.
    Il pezzo Linux e' provato con un albero di cartelle finto, non con una
    Radeon: non serve avere la scheda per provare la lettura, serve avere i
    file. Resta scoperto macOS, che vorra' Metal.
-7. **Nessuna GPU.** La strada c'e' nel README; provarla davvero e misurarla,
-   cosi' si sa cosa promettere.
+7. ~~**Nessuna GPU.**~~ Misurata, ed era il seguito dovuto del punto 6: da
+   quando il calcolo degli strati e' dovuto sempre, questa e' la strada su
+   cui finisce chiunque abbia una scheda che NOVA non sa leggere. Il README
+   prometteva «funziona, piu' lento» senza che nessuno l'avesse
+   cronometrato.
+
+   | in CPU pura | prompt a caldo | generazione |
+   |---|---|---|
+   | Gemma 4 26B-A4B (MoE, 3,8B attivi) | 1,3 s | **7,6 tok/s** |
+   | Qwen3.8 27B (denso) | 5,7 s | **1,8 tok/s** |
+
+   La promessa e' vera per meta'. Sul processore si paga per i parametri che
+   si **accendono**, non per quelli che ci sono: 7,6 token al secondo sono
+   piu' veloci di quanto legga una persona e NOVA si usa; a 1,8 una risposta
+   di ottanta token arriva in quarantacinque secondi e non si usa. E il MoE
+   in CPU batte il denso sulla GPU di questa macchina (6,0).
+
+   Quindi cio' che si promette a chi non ha una scheda video non e' «un
+   modello qualsiasi, piu' lento»: e' **un MoE, e funziona**. Riscritto nel
+   README con i numeri.
 
 ### Il cervello
 
