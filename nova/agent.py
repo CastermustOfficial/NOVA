@@ -1,4 +1,4 @@
-"""Il cervello di NOVA: dialogo con il modello e ciclo di esecuzione dei tool.
+﻿"""Il cervello di NOVA: dialogo con il modello e ciclo di esecuzione dei tool.
 
 Il modello vero e proprio sta dietro l'astrazione `brains`: puo' essere il
 GGUF locale, Claude Code CLI o un'API esterna, e si cambia a caldo senza
@@ -158,7 +158,7 @@ class Agent:
             user = getpass.getuser()
         except Exception:
             user = "utente"
-        from .config import REGOLE_OPERATIVE
+        from .config import INIZIO_REGOLE, REGOLE_OPERATIVE
         from .lingue import clausola
         base = self.cfg.system_prompt.format(
             user=user,
@@ -170,9 +170,14 @@ class Agent:
         # ogni funzione nuova, e vederle divergere.
         # Le regole operative si aggiungono sempre, anche a un prompt
         # personalizzato: sono il minimo perche' NOVA sappia cosa puo' fare.
-        # Se il prompt le contiene gia' - perche' e' il predefinito recente -
-        # non si ripetono.
-        if "vicolo cieco" not in base:
+        # Non si ripetono solo se il prompt le contiene davvero, e per saperlo
+        # si cerca una marca che vive dentro le regole stesse. Prima si
+        # cercava una frase del prompt predefinito, che nel frattempo si e'
+        # separata dalle regole: chi installava NOVA da zero si ritrovava
+        # senza quattordicimila caratteri di istruzioni, e non lo diceva
+        # nessuno. Qui funzionava per il motivo sbagliato - la configurazione
+        # su questa macchina era vecchia e quella frase non ce l'aveva.
+        if INIZIO_REGOLE not in base:
             base += REGOLE_OPERATIVE
         return base + clausola(getattr(self.cfg.ui, "lingua", "it"))
 

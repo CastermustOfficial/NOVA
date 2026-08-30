@@ -33,10 +33,36 @@ def controlla(nome, condizione, dettaglio=""):
     print(f"  [{'ok ' if condizione else 'NO '}] {nome}" + (f"  {dettaglio}" if dettaglio else ""))
 
 
-cfg = Config.load()
-agente = Agent.__new__(Agent)
-agente.cfg = cfg
-prompt = agente.system_prompt()
+def prompt_con(cfg):
+    a = Agent.__new__(Agent)
+    a.cfg = cfg
+    return a.system_prompt()
+
+
+# Il prompt di chi installa NOVA adesso, non quello di chi ce l'ha da mesi.
+# Config.load() legge la configurazione di questa macchina, e per un pezzo
+# queste prove sono passate solo per quello: qui la configurazione era
+# vecchia in un modo che, per caso, faceva aggiungere le regole. Su
+# un'installazione pulita non si aggiungevano, e nessuno lo vedeva perche'
+# nessuno provava da pulito.
+prompt = prompt_con(Config())
+
+print("\n0. le regole arrivano anche a chi installa oggi")
+pulito = prompt_con(Config())
+controlla("il prompt di un'installazione nuova contiene le regole",
+          len(pulito) > 15000, f"{len(pulito)} caratteri")
+from nova.config import INIZIO_REGOLE                          # noqa: E402
+controlla("e le contiene per davvero", INIZIO_REGOLE in pulito)
+# Le regole crescono a ogni funzione nuova: se un giorno tornassero a non
+# arrivare, si perderebbe tutto quello che NOVA sa fare, in silenzio.
+for pezzo in ["harness_proponi", "harness_cerca_progetto", "fascicolo"]:
+    controlla(f"e nomina «{pezzo}»", pezzo in pulito)
+# E chi ha un prompt suo non deve ricevere le regole due volte.
+sua = Config()
+sua.system_prompt = "Sei NOVA." + REGOLE_OPERATIVE
+controlla("chi le ha gia' non se le ritrova doppie",
+          prompt_con(sua).count(INIZIO_REGOLE) == 1,
+          str(prompt_con(sua).count(INIZIO_REGOLE)))
 
 print("\n1. il prompt non insegna nomi col punto")
 # L'unica citazione ammessa e' quella che dice esplicitamente che col punto

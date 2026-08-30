@@ -41,6 +41,14 @@ LOG_DIR = APP_DIR / "logs"
 #
 # Queste righe quindi non stanno li'. Vengono aggiunte dal codice a ogni
 # avvio, dopo il prompt - qualunque prompt sia.
+# La prima riga delle regole, usata per sapere se un prompt le contiene gia'.
+# Prima si guardava una frase qualunque del prompt predefinito - «vicolo
+# cieco» - e ha funzionato finche' le due cose sono rimaste insieme. Poi le
+# regole sono cresciute per conto loro e quella frase e' rimasta dov'era:
+# risultato, a un'installazione pulita le regole non si aggiungevano mai. La
+# marca ora sta DENTRO le regole, quindi non puo' piu' separarsene.
+INIZIO_REGOLE = "Come si lavora su questo PC:"
+
 REGOLE_OPERATIVE = """
 
 Come si lavora su questo PC:
