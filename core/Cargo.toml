@@ -5,6 +5,7 @@ members = [
     "crates/nova-ricette",
     "crates/nova-memoria",
     "crates/nova-registro",
+    "crates/nova-modelli",
     "crates/nova-core",
     "crates/nova-platform",
     "crates/nova-voce",

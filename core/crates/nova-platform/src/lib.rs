@@ -19,6 +19,10 @@ use serde::{Deserialize, Serialize};
 
 // Governare la scena — spostare, mandare dietro, sapere che schermi ci sono —
 // non e' leggere l'albero: sta in un modulo suo, e non passa da COM.
+// Che dischi ci sono: stessa famiglia di domanda, stessa forma di risposta.
+// Chi cerca i modelli sul disco chiede qui, e poi non parla piu' col sistema.
+pub mod dischi;
+
 pub mod finestre;
 pub use finestre::{schermi, schermo_di, schermo_di_lavoro, sposta, Posa, Schermo};
 

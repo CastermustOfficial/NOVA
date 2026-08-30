@@ -282,6 +282,18 @@ in Rust e meta' no, l'utente installa comunque Python e ci sono due
 implementazioni della stessa cosa da tenere allineate. Il guadagno arriva
 tutto insieme, alla fine.
 
+**C'e' un ordine, e non e' quello delle liste.** Portando i primi quattro
+pezzi e' venuto fuori un criterio che nessuna delle tre liste conteneva:
+**quando** una cosa deve funzionare. `modelli_trova.py` porta scritto in testa
+che e' di sola libreria standard «perche' viene eseguito dall'installatore
+prima che le dipendenze del progetto siano garantite» — cioe' il primo passo
+dell'installazione dipende da qualcosa che l'installazione non ha ancora
+fatto. Quel modulo va portato per primo non perche' sia lento o incompatibile,
+ma perche' e' il solo che deve girare su una macchina dove NOVA non c'e'
+ancora. Chi viene dopo, con lo stesso criterio: il rilevamento della GPU, il
+recupero del runtime, la scelta della quantizzazione. Tutto cio' che parla
+all'utente **prima** del primo avvio.
+
 **Meno si dipende da Windows, meglio e'.** Questo cambia cosa si scrive nel
 cantiere: non «Rust su Windows» ma il disegno che `nova-platform` ha gia' -
 un trait, tre backend. Ogni pezzo che si porta va scritto contro il trait,

@@ -538,6 +538,78 @@ confronto: se il finto non si comporta come il vero, si confrontano due cose
 che non sono quelle.
 
 
+### Quarto colpo: i modelli, e la circolarita' ammessa in un commento
+
+Il quarto pezzo portato e' `nova-modelli`: trovare i GGUF sul disco, leggerne
+la forma, calcolare quanti strati stanno in VRAM. E' quello con la ragione
+piu' forte per stare in Rust, e la ragione non e' la velocita' — sta scritta
+in testa al modulo Python, da mesi, senza che nessuno l'avesse letta come un
+problema:
+
+> Modulo di sola libreria standard, di proposito: viene eseguito
+> dall'installatore prima che le dipendenze del progetto siano garantite.
+
+E' una circolarita' ammessa in una riga di commento. Per decidere quale
+modello serve a questa macchina bisogna gia' avere Python installato — cioe'
+il primo passo dell'installazione dipende da qualcosa che l'installazione non
+ha ancora fatto. Il commento la rende accettabile chiamandola disciplina
+(«solo libreria standard»); e' una toppa ben messa su un buco che resta. Un
+binario che cerca, legge e calcola su una macchina appena accesa la scioglie e
+basta.
+
+Vale la pena notare che nessuna delle tre liste conteneva questa voce. Non e'
+ottimizzazione, non e' compatibilita' in senso stretto, non e' attrito
+cognitivo: e' un vincolo di ordine che si vede solo guardando **quando** una
+cosa deve funzionare, non cosa fa.
+
+**Le radici si passano da fuori.** La versione Python sa cos'e' un disco
+fisso: chiama `GetDriveTypeW` dentro il modulo della ricerca. Quella Rust no —
+riceve un elenco di cartelle e percorre quelle. La riga che parla a Windows e'
+finita in `nova-platform`, accanto a «quali schermi ci sono», che e' una
+domanda della stessa famiglia. Non e' pignoleria di architettura: e' cio' che
+ha permesso di provare la ricerca su una cartella finta, costruita apposta con
+i casi che contano — il file rinominato, lo scaricamento a meta', il
+proiettore accanto al modello, la stessa copia in due posti — invece di
+provarla sui sei modelli veri che ci sono su questo PC, che dimostrerebbero
+solo che i due codici sono d'accordo *qui*.
+
+**Il vocabolario si conta e non si tiene.** In un GGUF moderno
+`tokenizer.ggml.tokens` e' un vettore da centocinquantamila stringhe, e serve
+a nessuno dei due lettori: si legge la lunghezza e si salta. Il lettore Python
+lo materializzava e poi lo sostituiva con la scritta `<array len=N>` — allocava
+decine di megabyte per buttarli. In Rust si scavalca con una `seek`. E' l'unico
+punto del porting dove la velocita' e' un argomento vero, ed e' un dettaglio.
+
+**E non si crede all'intestazione sui numeri.** Un file troncato a meta'
+scaricamento dichiara volentieri quattro miliardi di chiavi. Se ci si crede,
+si prova a fare spazio per quattro miliardi di voci e il processo muore per
+esaurimento di memoria invece di dire «questo file e' incompleto». Ci sono tre
+tetti — chiavi, stringhe, vettori — e sono li' per quello. La cartella degli
+scaricamenti di chi sta installando NOVA e' esattamente il posto dove i file a
+meta' si trovano.
+
+### Le tre prove che sono fallite, e perche' era colpa della prova
+
+Il banco e' partito con tre righe rosse su trentadue, e nessuna delle tre era
+un difetto del codice.
+
+La prima: `trova(extra=[...])` in Python **aggiunge** le cartelle indicate a
+quelle note, e non esiste un modo di dire «guarda solo qui». Il lato Python
+percorreva anche i sei modelli veri di LM Studio mentre il lato Rust vedeva
+solo la cartella finta — due elenchi che non potevano coincidere. In Rust le
+radici sono un dato che si passa; in Python sono cablate dentro la funzione.
+La prova le zittisce, ma l'asimmetria resta da sanare, ed e' la stessa
+riflessione di D36 vista da dietro.
+
+Le altre due erano aritmetica mia: la soglia era sotto il file che doveva
+scartare, e il conteggio atteso era quello di prima di averla alzata. La
+lezione e' la stessa dell'errore col filtro delle date del terzo colpo, e a
+questo punto si e' ripetuta abbastanza da essere una regola: **quando il banco
+dice che il Rust sbaglia, il primo sospettato e' il banco.** Su quattro pezzi
+portati, tutte le divergenze trovate finora sono state mie, nessuna del
+codice — il che dice qualcosa di buono sul metodo (i due lati vengono davvero
+confrontati cifra per cifra) e qualcosa di scomodo su chi scrive le prove.
+
 ### Quello che questa giornata ha insegnato
 
 Tre cose si ripetono abbastanza da meritare di essere scritte.

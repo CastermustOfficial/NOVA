@@ -25,4 +25,8 @@ features = [
     "Win32_UI_Accessibility",
     "Win32_UI_WindowsAndMessaging",
     "Win32_Graphics_Gdi",
+    # GetDriveTypeW: distinguere un disco fisso da una chiavetta o da
+    # una unita' di rete. Una riga sola, ma senza di lei la ricerca
+    # «ovunque» dei modelli si impianta sul primo disco di rete montato.
+    "Win32_Storage_FileSystem",
 ]

@@ -416,6 +416,7 @@ scrivere una riga di codice UEFI.
 | D33 | Di interfacce ce n'e' una sola: l'orb | due interfacce non sono una scelta in piu' per l'utente, sono due posti dove le cose si scollano - e alla domanda «cosa vede uno appena installato» danno due risposte, cioe' nessuna |
 | D34 | Il porting in Rust e' un progetto di distribuzione e robustezza, non di prestazioni; e si scrive contro il trait di `nova-platform` anche dove l'unico backend e' Windows | il Python costa ventotto millisecondi per turno: come progetto di velocita' non sta in piedi. Meta' della lista compatibilita' pero' sparisce se sul PC dell'utente non c'e' piu' Python. E scrivere contro il trait e' la differenza fra avere macOS e Linux a una implementazione di distanza e doverli rifare da capo |
 | D35 | Il disinstallatore riconosce le proprie cose dall'inizio del nome, e non tocca il fascicolo | «contiene NOVA» cancellerebbe l'attivita' pianificata di qualcun altro chiamata «Innovation backup»; e cancellare il CV di qualcuno perche' ha disinstallato un programma sarebbe imperdonabile |
+| D36 | Chi cerca sul disco non sa cosa sia un disco: le radici da percorrere si passano da fuori | e' la riga che rende il codice provabile su qualsiasi sistema con una cartella finta invece che solo sulla macchina di chi l'ha scritto. La domanda «quali dischi sono fissi» e' di piattaforma e sta in `nova-platform`, accanto a «quali schermi ci sono» |
 
 ## 8. Roadmap
 

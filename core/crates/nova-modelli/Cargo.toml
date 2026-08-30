@@ -1,0 +1,22 @@
+[package]
+name = "nova-modelli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Trovare i modelli GGUF sul disco, leggerne la forma, e calcolare quanti strati stanno in VRAM."
+
+# Di proposito senza dipendenze obbligatorie: questo e' il pezzo che deve
+# girare PRIMA che qualsiasi cosa sia installata. Serde entra solo per il
+# banco di confronto, che non finisce nel binario dell'installatore.
+[dependencies]
+serde = { workspace = true, features = ["derive"], optional = true }
+serde_json = { workspace = true, optional = true }
+
+[features]
+banco = ["dep:serde", "dep:serde_json"]
+
+[[bin]]
+name = "banco-modelli"
+path = "src/banco.rs"
+required-features = ["banco"]
