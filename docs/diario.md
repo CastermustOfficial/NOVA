@@ -502,6 +502,42 @@ niente**, perche' il collo di bottiglia e' un altro e resta lo stesso qualunque
 cosa si cambi.
 
 
+### Terzo colpo: il registro
+
+`core/crates/nova-registro`: cercare, riassumere e raccontare le azioni che
+non si annullano. I primi due pezzi erano aritmetica; questo e' il primo che
+tocca la promessa su cui NOVA sta in piedi. Se le ricette divergono si sbaglia
+un ordinamento; se diverge questo, una candidatura non si ritrova piu' — e una
+responsabilita' che non si puo' esercitare non e' una responsabilita'.
+
+Ventisette confronti: parole senza accenti e senza maiuscole, piu' parole in
+qualunque ordine, filtri per tipo, per esito e per data, il taglio a N, il
+racconto raggruppato per giorno, il riassunto.
+
+Due cose che il porting ha costretto a decidere, e che in Python erano
+implicite:
+
+**«Ieri» e' aritmetica civile, non una libreria.** In Python `timedelta` lo
+regala; in Rust senza dipendenze bisogna scriverlo, e scrivendolo si e'
+dovuto decidere cosa succede il primo del mese, il primo dell'anno e il 29
+febbraio. Le prove ci sono, compreso il 1900 — che non era bisestile, perche'
+la regola gregoriana non e' «divisibile per quattro».
+
+**A pari merito serve un secondo criterio.** Il riassunto ordina i tipi dal
+piu' frequente, e con due tipi a pari merito una tabella hash li tira fuori
+in ordine diverso a ogni esecuzione. In Python non si era mai visto perche'
+i dizionari mantengono l'ordine di inserimento; in Rust si vede subito. Ora
+a parita' si ordina per nome, in tutte e due le versioni.
+
+**E il banco ha trovato un errore mio, non del codice.** Il confronto sul
+filtro per data falliva: il Python «trovava» righe di tre settimane prima. La
+`leggi` finta che gli avevo messo davanti ignorava la finestra temporale e
+faceva passare tutto — quindi la prova non provava quel filtro, e la
+differenza sembrava un difetto del Rust. E' il rischio di ogni banco di
+confronto: se il finto non si comporta come il vero, si confrontano due cose
+che non sono quelle.
+
+
 ### Quello che questa giornata ha insegnato
 
 Tre cose si ripetono abbastanza da meritare di essere scritte.

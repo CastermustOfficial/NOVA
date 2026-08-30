@@ -19,6 +19,13 @@ uguali, non sta funzionando, e nessun altro flag conta quanto quello.
 
     python banco_modello.py                 # tutte le configurazioni
     python banco_modello.py base fa         # solo alcune
+    python banco_modello.py --modello D:/m/gemma.gguf   # un altro modello
+
+Con `--modello` si confronta un modello diverso da quello configurato, con la
+stessa configurazione e lo stesso prompt. E' l'unico modo onesto di scegliere
+fra due modelli: le classifiche pubbliche misurano la qualita' delle risposte
+su domande che non sono le tue, e non dicono niente su quanti layer stanno in
+questa scheda.
 
 Usa una porta sua (8499): non tocca il modello che NOVA sta usando.
 """
@@ -80,6 +87,9 @@ def prompt_vero() -> tuple[str, list]:
     return Finto(Config.load()).system_prompt(), openai_schema()
 
 
+MODELLO: str = ""          # vuoto = quello in configurazione
+
+
 def avvia(extra: list[str], strati: int) -> subprocess.Popen:
     """Come lo avvia NOVA, non come lo avvierebbe uno che non sa la storia.
 
@@ -93,7 +103,7 @@ def avvia(extra: list[str], strati: int) -> subprocess.Popen:
     from nova.config import Config
     from nova.processi import SENZA_FINESTRA
     s = Config.load().server
-    args = [s.binary, "-m", s.model_path, "--host", "127.0.0.1",
+    args = [s.binary, "-m", MODELLO or s.model_path, "--host", "127.0.0.1",
             "--port", str(PORTA), "-ngl", str(strati), "-c", str(s.ctx_size),
             "-np", "1", *list(s.extra_args), *extra]
     return subprocess.Popen(args, stdout=subprocess.DEVNULL,
@@ -175,12 +185,25 @@ def prova(nome: str, extra: list[str], sistema: str, strumenti: list,
 
 
 def main() -> int:
-    quali = [a for a in sys.argv[1:] if not a.startswith("-")] or list(CONFIGURAZIONI)
+    global MODELLO
+    voci = sys.argv[1:]
+    if "--modello" in voci:
+        i = voci.index("--modello")
+        MODELLO = voci[i + 1] if i + 1 < len(voci) else ""
+        del voci[i:i + 2]
+        if not Path(MODELLO).is_file():
+            print(f"non trovo il modello: {MODELLO}")
+            return 1
+    quali = [a for a in voci if not a.startswith("-")] or list(CONFIGURAZIONI)
     sistema, strumenti = prompt_vero()
     from nova.config import Config
     from nova.runtime import estimate_gpu_layers
     cfg = Config.load()
-    strati = estimate_gpu_layers(cfg.server.model_path, cfg.server.ctx_size)
+    modello = MODELLO or cfg.server.model_path
+    strati = estimate_gpu_layers(modello, cfg.server.ctx_size,
+                                 kv_tipo=getattr(cfg.server, "kv_cache_type", "f16"))
+    peso = Path(modello).stat().st_size / (1024 ** 3)
+    print(f"modello: {Path(modello).name}  ({peso:.1f} GB)", flush=True)
     print(f"prompt di sistema: {len(sistema)} caratteri, "
           f"{len(json.dumps(strumenti))} di schemi", flush=True)
     print(f"layer sulla GPU: {strati} (la stima di NOVA, non «tutti»)", flush=True)

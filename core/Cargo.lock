@@ -2305,6 +2305,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "nova-registro"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "nova-ricette"
 version = "0.1.0"
 dependencies = [
