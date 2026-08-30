@@ -24,6 +24,44 @@ mouse and keyboard, so you can keep working while it does its part.
 > told which language to speak. This document is the English translation of
 > [`README.md`](README.md).
 
+## The first five minutes
+
+This document is long. If you came here to work out whether NOVA is for you,
+this is the short part.
+
+**You install it** (Windows, Python 3.10+, three minutes):
+
+```powershell
+git clone https://github.com/CastermustOfficial/NOVA.git
+cd NOVA
+.\install.ps1
+```
+
+**An orb appears** in a corner of the screen. Click it, or call it by name.
+The first time, it offers three things to try — these. None of them touches
+a file of yours: the first two only read, the third writes itself a note in
+memory, which is the point, and it goes away if you tell it to forget.
+
+| Ask it | And you see that |
+|---|---|
+| «Why is the PC slow?» | it reads memory, processes and disks for real, instead of guessing |
+| «What's in the Downloads folder?» | it looks at a folder of yours and tells you about it |
+| «Remember that I work better early in the morning» | it writes it into memory, and next time you switch on it still knows |
+
+The third is the one worth waiting for: close everything, open it tomorrow,
+and ask it when you work best.
+
+**Two commands that answer without starting anything**, useful before you
+trust it and useful if one day NOVA won't start:
+
+```powershell
+python -m nova --dati        # where it keeps your things, how big they are, what happens if you delete them
+python -m nova --registro    # what it did that can't be undone
+```
+
+If something doesn't work, the rest of the document explains why.
+
+
 ## What it can do
 
 A list of adjectives says nothing. These are the numbers, counted from the

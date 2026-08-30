@@ -15,6 +15,44 @@ tastiera, cosi' puoi continuare a lavorare mentre lei fa il suo pezzo.
 > **Stato: alpha.** Funziona sulla macchina di chi la sviluppa. Se la provi,
 > aspettati spigoli — e aprine una issue, che e' il modo piu' utile di aiutare.
 
+## I primi cinque minuti
+
+Questo documento e' lungo. Se sei arrivato qui per capire se NOVA ti serve,
+questa e' la parte corta.
+
+**Installi** (Windows, Python 3.10+, tre minuti):
+
+```powershell
+git clone https://github.com/CastermustOfficial/NOVA.git
+cd NOVA
+.\install.ps1
+```
+
+**Compare un orb** in un angolo dello schermo. Cliccalo, oppure chiamala per
+nome. La prima volta ti propone tre cose da provare — sono queste. Nessuna
+tocca un tuo file: le prime due leggono e basta, la terza si scrive un
+appunto in memoria, che e' il punto, e si cancella dicendole di dimenticarlo.
+
+| Chiedile | E vedi che |
+|---|---|
+| «Perche' il PC va piano?» | legge memoria, processi e dischi davvero, invece di indovinare |
+| «Cosa c'e' nella cartella Download?» | guarda una cartella tua e te la racconta |
+| «Ricordati che lavoro meglio la mattina presto» | se lo scrive in memoria, e alla prossima accensione lo sa ancora |
+
+La terza e' quella che vale la pena aspettare: chiudi tutto, riapri domani, e
+chiedile quando lavori meglio.
+
+**Due comandi che rispondono senza far partire niente**, utili prima di
+fidarsi e utili se un giorno NOVA non parte:
+
+```powershell
+python -m nova --dati        # dove tiene le tue cose, quanto pesano, cosa succede se le cancelli
+python -m nova --registro    # cosa ha fatto e non si puo' annullare
+```
+
+Se qualcosa non funziona, il resto del documento spiega perche'.
+
+
 ## Cosa sa fare
 
 Un elenco di aggettivi non dice niente. Questi sono i numeri, contati dal

@@ -172,16 +172,23 @@ if guscio is None:
     print("  (nessun guscio costruito: salto)")
 else:
     quando_exe = guscio.stat().st_mtime
-    quando_pag = PAGINA.stat().st_mtime
-    aggiornato = quando_exe >= quando_pag
-    if not aggiornato:
+    # Tutta l'interfaccia, non solo questa pagina. Il guscio se le porta
+    # dentro tutte al momento della compilazione, quindi «impostazioni.html
+    # e' vecchia» e «index.html e' vecchia» sono lo stesso guasto - e finche'
+    # si guardava una pagina sola, l'altra poteva restare indietro senza che
+    # nessuno lo dicesse. E' successo.
+    UI = RADICE / "core" / "crates" / "nova-shell" / "ui"
+    indietro = [f.name for f in sorted(UI.iterdir())
+                if f.is_file() and f.stat().st_mtime > quando_exe]
+    if indietro:
         print(f"  [!] il guscio e' del "
-              f"{datetime.fromtimestamp(quando_exe):%d/%m %H:%M}, la pagina del "
-              f"{datetime.fromtimestamp(quando_pag):%d/%m %H:%M}: "
+              f"{datetime.fromtimestamp(quando_exe):%d/%m %H:%M}, e "
+              f"{', '.join(indietro)} " + ("e' piu' recente" if len(indietro) == 1
+                                           else "sono piu' recenti") + ": "
               f"le modifiche non si vedono finche' non si ricostruisce "
-              f"(cargo build --release -p nova-shell)")
-    controlla("il guscio non e' piu' vecchio della pagina", aggiornato,
-              "va ricostruito")
+              f"(.\\build.ps1, con NOVA chiusa)")
+    controlla("il guscio non e' piu' vecchio di nessuna pagina",
+              not indietro, str(indietro))
 
 print("\n9. si sa cosa esce dal PC nel momento in cui si sceglie")
 # Il momento in cui uno decide se un cervello va bene e' questo, non la

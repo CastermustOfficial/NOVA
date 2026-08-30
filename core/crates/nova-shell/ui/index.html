@@ -83,6 +83,15 @@ body{font-size:13px}
 .nota{font-size:10.5px;color:var(--fioco);text-align:center;padding:2px 6px;letter-spacing:.02em}
 .vuoto{margin:auto;text-align:center;color:var(--fioco);font-size:12px;line-height:1.7;padding:0 18px}
 .vuoto b{display:block;color:var(--mezzo);font-size:12.5px;margin-bottom:3px}
+.prove{display:flex;flex-direction:column;gap:6px;margin:14px auto 0;max-width:330px}
+.prova{text-align:left;background:var(--vetro);border:1px solid var(--linea);
+  border-radius:10px;padding:8px 11px;color:var(--inchiostro);font-size:12px;
+  font-family:inherit;cursor:pointer;transition:.15s;line-height:1.4}
+.prova:hover{background:var(--vetro-2);border-color:rgba(232,115,74,.45)}
+.prova small{display:block;color:var(--fioco);font-size:10.5px;margin-top:2px}
+.manca{border-color:rgba(232,176,74,.30);background:rgba(232,176,74,.07);
+  border-radius:10px;padding:9px 12px;margin:12px auto 0;max-width:330px;
+  color:var(--inchiostro);font-size:11.5px;line-height:1.5;text-align:left}
 
 /* --- il composer --- */
 .penna{padding:9px;border-top:1px solid var(--linea);background:rgba(0,0,0,.2)}
@@ -376,14 +385,94 @@ ascolta?.('nova://evento', ev => {
   }
 });
 
+/* --- i primi cinque minuti -------------------------------------------- *
+ * Finita l'installazione uno vede un orb in un angolo dello schermo, e
+ * basta. Sa che NOVA «puo' fare cose sul PC», che e' un modo di non dire
+ * niente: la prima domanda che si fa non e' «come funziona» ma «cosa le
+ * chiedo». Se a quella non rispondiamo noi, la risposta se la da' lui -
+ * di solito «boh» - e l'orb resta li' spento.
+ *
+ * Le tre prove sono scelte per essere vere: nessuna cambia niente sul PC,
+ * tutte finiscono in fretta, e ognuna mostra una cosa che una chat non
+ * sa fare - leggere lo stato vero della macchina, guardare una cartella,
+ * ricordarsi qualcosa alla prossima accensione.
+ * ---------------------------------------------------------------------- */
+const PROVE = [
+  ['Perché il PC va piano?',
+   'legge memoria, processi e dischi davvero, invece di indovinare'],
+  ['Cosa c’è nella cartella Download?',
+   'guarda una cartella tua e te la racconta'],
+  ['Ricordati che lavoro meglio la mattina presto',
+   'se lo scrive in memoria, e alla prossima accensione lo sa ancora'],
+];
+
+function benvenuto(senzaCervello) {
+  const v = $('vuoto');
+  if (!v) return;
+  v.innerHTML = '';
+  const titolo = document.createElement('b');
+  titolo.textContent = T('Dimmi pure.');
+  v.appendChild(titolo);
+  const sotto = document.createElement('div');
+  sotto.textContent = T('Scrivi qui, oppure chiamami dicendo «Nova».');
+  v.appendChild(sotto);
+
+  /* Senza un cervello configurato le prove non funzionerebbero, e proporle
+     sarebbe il modo peggiore di cominciare: si chiede la prima cosa, non
+     succede niente, e si chiude. Meglio dirlo e porgere la strada. */
+  if (senzaCervello) {
+    const m = document.createElement('div');
+    m.className = 'manca';
+    m.textContent = T('Non hai ancora scelto chi ragiona. Finché non lo fai '
+      + 'so aprire e guardare, ma non capire quello che mi chiedi.');
+    const b = document.createElement('button');
+    b.className = 'prova';
+    b.style.marginTop = '8px';
+    b.textContent = T('Scegli un cervello →');
+    b.onclick = () => invoke?.('apri_impostazioni');
+    m.appendChild(b);
+    v.appendChild(m);
+    return;
+  }
+
+  const prove = document.createElement('div');
+  prove.className = 'prove';
+  for (const [domanda, perche] of PROVE) {
+    const b = document.createElement('button');
+    b.className = 'prova';
+    b.textContent = T(domanda);
+    const s = document.createElement('small');
+    s.textContent = T(perche);
+    b.appendChild(s);
+    b.onclick = () => { $('testo').value = domanda; manda(); };
+    prove.appendChild(b);
+  }
+  v.appendChild(prove);
+}
+
 /* --- all'apertura ----------------------------------------------------- */
 (async function avvia() {
   turno('quiete');
   if (!invoke) return;
+  let vuota = true;
   try {
     const c = await invoke('cronologia_leggi');
-    for (const b of (c?.battute || [])) battuta(b.da, b.testo);
+    const battute = c?.battute || [];
+    vuota = battute.length === 0;
+    for (const b of battute) battuta(b.da, b.testo);
   } catch (e) { console.warn(e); }
+  if (vuota) {
+    let senzaCervello = false;
+    try {
+      const cfg = await invoke('config_leggi');
+      const b = cfg?.brains || {};
+      // «Locale» senza un modello sul disco non e' un cervello: e' la
+      // configurazione di partenza che nessuno ha ancora toccato.
+      senzaCervello = (!b.active || b.active === 'locale')
+        && !(cfg?.server?.model_path || '').trim();
+    } catch (e) { console.warn(e); }
+    benvenuto(senzaCervello);
+  }
   $('testo').focus();
 })();
 </script>
