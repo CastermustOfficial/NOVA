@@ -464,6 +464,17 @@ STRUMENTI = [
         },
     },
     {
+        "name": "dati_dove",
+        "description": (
+            "Dove NOVA tiene le cose dell'utente - credenziali, fascicolo, "
+            "memoria, registro, configurazione - quanto pesano e cosa succede "
+            "se le cancella. Rispondi con questo a «dove sono i miei dati?», "
+            "«cosa sai di me?», «come faccio a cancellare tutto?»: sono "
+            "domande di fiducia, e una risposta vaga vale come un no."
+        ),
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
         "name": "azioni_recenti",
         "description": (
             "Rilegge il registro delle azioni irreversibili. Serve a rispondere "
@@ -957,6 +968,10 @@ class ServerKB:
         annota(azione, dove=dove, dettagli=dettagli, tipo="dichiarata")
         return f"annotata nel registro: {azione}"
 
+    def dati_dove(self) -> str:
+        from .dati import racconta
+        return racconta()
+
     def azioni_recenti(self, quante: int = 30, ore: float = 0,
                        cerca: str = "", tipo: str = "") -> str:
         from .registro import cerca as trova, racconta
@@ -1161,6 +1176,7 @@ class ServerKB:
             "avvisi_recenti": self.avvisi_recenti,
             "azione_registra": self.azione_registra,
             "azioni_recenti": self.azioni_recenti,
+            "dati_dove": self.dati_dove,
             "web_cerca": self.web_cerca,
             "web_prendi": self.web_prendi,
             "web_tabella": self.web_tabella,

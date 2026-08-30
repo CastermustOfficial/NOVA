@@ -248,10 +248,21 @@ def main(argv: list[str] | None = None) -> int:
                          "parole, cerca fra le azioni")
     ap.add_argument("--giorni", type=float, default=0,
                     help="con --registro: solo gli ultimi N giorni")
+    ap.add_argument("--dati", action="store_true",
+                    help="dove NOVA tiene le tue cose, quanto pesano e cosa "
+                         "succede se le cancelli")
     args = ap.parse_args(argv)
 
     if args.config:
         print(CONFIG_PATH)
+        return 0
+
+    if args.dati:
+        # Come il registro: legge il disco e basta. Chi vuole sapere dove
+        # stanno i suoi dati spesso lo vuole sapere *prima* di fidarsi
+        # abbastanza da far partire il resto.
+        from .dati import racconta
+        print(racconta())
         return 0
 
     if args.registro is not None:

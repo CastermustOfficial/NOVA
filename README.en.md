@@ -579,7 +579,18 @@ generic «allow operation?». You can loosen the constraint when you trust it �
 it's your dial, not its decision.
 
 What stays on your disk and never leaves: memory, credentials, configuration.
-They live in `%APPDATA%\NOVA`.
+They live in `%APPDATA%\NOVA` — but «they live in a folder» is not an answer,
+so there is a command that gives the whole of it:
+
+```powershell
+python -m nova --dati        # what's there, where, how big, and what happens if you delete it
+python -m nova --registro    # what NOVA did that can't be undone
+```
+
+Both just read the disk: no configuration, no brain running. The moment you
+need to know is often the one **before** you trust it enough to start the
+rest — or the one where NOVA won't start any more. And no credential's value
+appears in either: its name does, and the fact that the store exists.
 
 ## Documentation
 

@@ -566,7 +566,19 @@ che tocca il sistema, e la richiesta dice *cosa* sta per fare, non un generico
 una manopola tua, non una decisione sua.
 
 Quello che resta sul tuo disco e non esce mai: memoria, credenziali,
-configurazione. Vivono in `%APPDATA%\NOVA`.
+configurazione. Vivono in `%APPDATA%\NOVA` — ma «vivono in una cartella» non
+e' una risposta, quindi c'e' un comando che la da' per intero:
+
+```powershell
+python -m nova --dati        # cosa c'e', dove, quanto pesa, e cosa succede se lo cancelli
+python -m nova --registro    # cosa NOVA ha fatto e non si puo' annullare
+```
+
+Tutti e due leggono il disco e basta: niente configurazione, niente cervello
+acceso. Il momento in cui serve saperlo e' spesso quello **prima** di
+fidarsi abbastanza da far partire il resto — o quello in cui NOVA non parte
+piu'. E il valore di una credenziale non compare in nessuno dei due: ne
+compare il nome, e il fatto che l'archivio esiste.
 
 ## Documentazione
 
