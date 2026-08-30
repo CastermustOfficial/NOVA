@@ -1485,8 +1485,18 @@ def costruisci(app=None):
 
 
 def avvia() -> int:
-    from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtWidgets import QApplication, QMessageBox
     app = QApplication.instance() or QApplication(sys.argv)
+
+    # Questa e' l'unica finestra Python che resta accesa a lungo, quindi e'
+    # qui che un guasto si puo' *dire* invece che solo scrivere. Qt chiama
+    # sys.excepthook anche per le eccezioni che escono da uno slot: basta
+    # ristendere la rete dandole una finestra. (Prima stava nella vecchia
+    # finestra di chat, che non c'e' piu'.)
+    from .guasti import installa
+    installa(lambda titolo, testo: QMessageBox.critical(None, titolo, testo),
+             riscrivi=True)
+
     f = costruisci(app)
     f.show()
     return app.exec()

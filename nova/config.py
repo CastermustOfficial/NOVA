@@ -580,9 +580,10 @@ class UIConfig:
     # codice sorgente, non un testo per l'utente, e al modello basta dirgli
     # in che lingua rispondere (nova/lingue.py).
     lingua: str = "it"
-    start_minimized: bool = False
-    show_reasoning: bool = False
-    font_size: int = 13
+    # start_minimized, show_reasoning e font_size erano della finestra PyQt,
+    # che non c'e' piu'. Restano fuori: una chiave di configurazione che non
+    # governa niente e' una promessa che non si mantiene, e chi la trova nel
+    # file prova a cambiarla.
 
 
 @dataclass

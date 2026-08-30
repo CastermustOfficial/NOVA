@@ -684,7 +684,6 @@ nova/
     automazioni.py    tools NOVA writes itself
     procedure.py      how it solved a request, so it can do it again
     riparazione.py    the bench: it repairs itself without breaking itself
-  ui/main_window.py   chat window + action log + tray + hotkey
   voice/              listening and voice: Kokoro, whisper.cpp, ElevenLabs, SAPI
 core/crates/
   nova-core/          the daemon: bus, capabilities, long processes, RPC

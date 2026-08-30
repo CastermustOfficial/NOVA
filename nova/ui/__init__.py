@@ -1,1 +1,0 @@
-# interfaccia grafica di NOVA

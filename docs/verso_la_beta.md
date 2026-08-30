@@ -196,6 +196,14 @@ installato dopo il primo giorno.
    passano e' il pezzo che manca — ed e' quello che rende l'harness un posto
    dove si programma, non solo dove si legge.
 
+13. **L'orb si apre due volte.** Non c'e' una guardia di istanza singola:
+    due doppi clic sul collegamento danno due orb, che si contendono lo
+    stesso demone e la stessa configurazione. Si vede subito e sembra un
+    guasto. In Tauri si risolve con la guardia di istanza singola, che alla
+    seconda apertura mostra la finestra che c'e' gia' invece di crearne
+    un'altra.
+
+
 ### Fiducia
 
 10. **«Dove sono i miei dati?»** Un comando solo che risponde: memoria,

@@ -672,7 +672,6 @@ nova/
     automazioni.py    strumenti che NOVA scrive da se'
     procedure.py      come ha risolto una richiesta, per rifarla
     riparazione.py    il banco: si ripara da sola senza rompersi
-  ui/main_window.py   finestra chat + registro azioni + tray + hotkey
   voice/              ascolto e voce: Kokoro, whisper.cpp, ElevenLabs, SAPI
 core/crates/
   nova-core/          il demone: bus, capacita', processi lunghi, RPC

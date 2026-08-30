@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import argparse
 import os
+import subprocess
 import sys
+from pathlib import Path
 
 from .config import CONFIG_PATH, Config
 from .setup_wizard import autoconfigure
@@ -33,24 +35,48 @@ def _prepare_config(reconfigure: bool = False) -> Config:
     return cfg
 
 
-def run_gui(cfg: Config) -> int:
-    from PyQt6.QtWidgets import QApplication, QMessageBox
-    app = QApplication(sys.argv)
-    app.setApplicationName("NOVA")
-    app.setQuitOnLastWindowClosed(False)
+def guscio() -> Path | None:
+    """Dove sta l'orb. In `bin/` per chi installa, in `core/target/` per chi compila."""
+    radice = Path(__file__).resolve().parent.parent
+    nome = "nova-shell.exe" if os.name == "nt" else "nova-shell"
+    for posto in (radice / "bin" / nome,
+                  radice / "core" / "target" / "release" / nome):
+        if posto.is_file():
+            return posto
+    return None
 
-    # Da qui in poi un guasto si puo' dire, non solo scrivere. PyQt chiama
-    # sys.excepthook anche per le eccezioni che escono da uno slot, quindi
-    # basta rinstallare la rete dandole una finestra.
-    from .guasti import installa
-    installa(lambda titolo, testo: QMessageBox.critical(None, titolo, testo),
-             riscrivi=True)
 
-    from .ui.main_window import MainWindow
-    win = MainWindow(cfg)
-    if not cfg.ui.start_minimized:
-        win.show()
-    return app.exec()
+def avvia_orb() -> int:
+    """L'interfaccia di NOVA e' l'orb, e ce n'e' una sola.
+
+    Fino a poco fa ce n'erano due: l'orb, e una finestra PyQt che era la
+    prima interfaccia di NOVA e che nessuno aveva mai spento. Due interfacce
+    non sono una scelta in piu' per l'utente, sono due posti dove le cose si
+    scollano: i menu del cervello erano solo in una, la fascia che dice cosa
+    esce dal PC pure, e alla domanda «cosa vede uno appena installato» le
+    risposte erano due. La seconda e' stata tolta.
+
+    Qui non si aspetta: l'orb e' un processo che vive per conto suo, e questo
+    comando ha finito quando lo ha acceso.
+    """
+    exe = guscio()
+    if exe is None:
+        print("Non trovo l'orb (nova-shell). Se hai installato NOVA con "
+              "install.ps1 dovrebbe stare in bin\\; se la stai compilando, "
+              "fallo con .\\build.ps1.\n"
+              "Nel frattempo la puoi usare da qui: python -m nova --cli",
+              flush=True)
+        return 1
+    from .processi import SENZA_FINESTRA
+    try:
+        subprocess.Popen([str(exe)], cwd=str(exe.parent.parent),
+                         creationflags=SENZA_FINESTRA)
+    except Exception as e:                                  # noqa: BLE001
+        from .guasti import registra, spiega
+        registra(e, dove="avvio orb")
+        print(spiega(e, "Non sono riuscita ad avviare l'orb"), flush=True)
+        return 1
+    return 0
 
 
 POSTILLA_VOCE = """
@@ -373,7 +399,7 @@ def main(argv: list[str] | None = None) -> int:
         return run_cli(cfg, once=args.ask,
                        no_server=args.no_server or cfg.brains.active != "locale",
                        dalla_voce=args.voce)
-    return run_gui(cfg)
+    return avvia_orb()
 
 
 if __name__ == "__main__":
