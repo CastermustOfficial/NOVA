@@ -204,6 +204,39 @@ for est in [".pdf", ".docx", ".html", ".md"]:
 controlla("non si promette piu' una «fase 2» per la voce",
           "Fase 2 - comandi vocali" not in README)
 
+print("\n6. la traduzione inglese non si scolla dall'originale")
+# Due README si scollano in fretta: si aggiunge una sezione a uno e l'altro
+# resta indietro senza che nessuno se ne accorga. Qui si controlla solo cio'
+# che si puo' controllare da solo - lo scheletro, i numeri, i rimandi.
+EN = (RADICE / "README.en.md").read_text(encoding="utf-8-sig")
+
+
+def scheletro(testo: str) -> list[str]:
+    return re.findall(r"^(#{1,3}) ", testo, re.M)
+
+
+controlla("l'inglese esiste e non e' un abbozzo", len(EN.splitlines()) > 800,
+          f"{len(EN.splitlines())} righe")
+controlla("ha lo stesso scheletro di titoli dell'italiano",
+          scheletro(EN) == scheletro(README),
+          f"en {len(scheletro(EN))} vs it {len(scheletro(README))}")
+controlla("l'italiano rimanda all'inglese", "README.en.md" in README)
+controlla("e l'inglese rimanda all'italiano", "(README.md)" in EN)
+# I conteggi sono la parte che invecchia per prima, e vale per tutti e due.
+for quanti, cosa in [(len(REGISTRY), "strumenti locali"),
+                     (len(STRUMENTI), "strumenti MCP"),
+                     (len(LEGGIBILI), "formati")]:
+    controlla(f"anche l'inglese dice {quanti} per «{cosa}»", str(quanti) in EN,
+              "il numero non compare nella traduzione")
+controlla("nomina lo stesso modello del catalogo", radice_nome in EN)
+controlla("e non ne nomina un'altra versione",
+          not (set(re.findall(r"Qwen3\.\d+", EN)) - {radice_nome}))
+# Anche la traduzione e' pubblica.
+sporchi = [x for x in ["Giovanni", "giova", "@gmail"] if x in EN]
+controlla("e nessun dato personale e' finito nella traduzione",
+          not sporchi, str(sporchi))
+
+
 print(f"\n{passati}/{passati + len(falliti)} passati")
 for x in falliti:
     print("  FALLITO:", x)

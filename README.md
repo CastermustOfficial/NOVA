@@ -1,5 +1,7 @@
 ﻿# NOVA
 
+***Italiano** · [English](README.en.md)*
+
 **Un esperto seduto accanto a te, dentro il tuo PC.**
 
 NOVA non e' una chat che da' consigli: apre programmi, compila moduli, scrive
