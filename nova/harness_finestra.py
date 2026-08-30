@@ -183,6 +183,27 @@ def costruisci(app=None):
             except Exception:
                 pass
 
+    class Verifica(QThread):
+        """I test del progetto, fuori dal filo dell'interfaccia.
+
+        Una suite dura decine di secondi: farla girare qui dentro
+        bloccherebbe la finestra, ed e' esattamente il momento in cui
+        l'utente vuole vedere che sta succedendo qualcosa.
+        """
+        finito = pyqtSignal(dict)
+
+        def __init__(self, verifica: bool = True) -> None:
+            super().__init__()
+            self.verifica = verifica
+
+        def run(self) -> None:
+            try:
+                from .harness_modifica import applica
+                self.finito.emit(applica(verifica=self.verifica))
+            except Exception as e:                              # noqa: BLE001
+                self.finito.emit({"ok": False, "motivo": spiega(e)})
+
+
     class Finestra(QMainWindow):
         def __init__(self) -> None:
             super().__init__()
@@ -471,6 +492,16 @@ def costruisci(app=None):
                 f"padding:5px 14px; color:{BRACE};}}")
             self.bottoneApplica.clicked.connect(self.applicaProposta)
             riga.addWidget(self.bottoneApplica)
+            # Compare solo dove ha senso: su un documento non c'e' niente da
+            # provare, e un bottone che non fa niente e' peggio che assente.
+            self.bottoneProva = QPushButton("Applica e prova")
+            self.bottoneProva.setStyleSheet(
+                f"QPushButton{{background:rgba(232,115,74,.10);"
+                f"border:1px solid rgba(232,115,74,.28); border-radius:8px;"
+                f"padding:5px 12px; color:{BRACE};}}")
+            self.bottoneProva.clicked.connect(self.applicaEProva)
+            self.bottoneProva.hide()
+            riga.addWidget(self.bottoneProva)
             self.bottoneScarta = QPushButton("Scarta")
             self.bottoneScarta.setStyleSheet(
                 f"QPushButton{{background:{VETRO}; border:1px solid {LINEA};"
@@ -1267,6 +1298,7 @@ def costruisci(app=None):
                     f"non salvato nel foglio, quindi non la metto dentro al "
                     f"testo: salva (Ctrl+S) e la vedi al suo posto.</p>"))
             self.diffProposta.setHtml("".join(pezzi))
+            self.bottoneProva.setVisible(self._puo_provare())
             self.riquadroProposta.setVisible(True)
 
         def applicaProposta(self) -> None:
@@ -1294,6 +1326,49 @@ def costruisci(app=None):
             if not esito.get("ok"):
                 self.titoloProposta.setText(
                     f"non applicata: {esito.get('motivo', '')}"[:160])
+                return
+            self.guarda()
+
+        def _puo_provare(self) -> bool:
+            """C'e' un banco per questo file in questo progetto?"""
+            if not self._file_modificabile:
+                return False
+            try:
+                from .harness_prova import scegli
+                radice = self._radice or str(Path(self._file_modificabile).parent)
+                return scegli(radice, self._file_modificabile) is not None
+            except Exception:                                   # noqa: BLE001
+                return False
+
+        def applicaEProva(self) -> None:
+            """Applica, ma solo se i test non peggiorano.
+
+            Con l'anteprima aperta il foglio contiene gia' il risultato
+            ritoccato a mano, e la proposta non e' piu' quella: in quel caso
+            si salva e si prova, ma il ritorno indietro non c'e', perche'
+            quello che si e' scritto lo ha scritto l'utente.
+            """
+            if self._anteprima_viva:
+                self.applicaProposta()
+                return
+            if self._sporco:
+                self.salva()
+            self.bottoneApplica.setEnabled(False)
+            self.bottoneProva.setEnabled(False)
+            self.bottoneScarta.setEnabled(False)
+            self.titoloProposta.setText("provo il progetto...")
+            self._verifica = Verifica(verifica=True)
+            self._verifica.finito.connect(self._verificaFinita)
+            self._verifica.start()
+
+        def _verificaFinita(self, esito: dict) -> None:
+            for b in (self.bottoneApplica, self.bottoneProva, self.bottoneScarta):
+                b.setEnabled(True)
+            self._firma = None
+            if not esito.get("ok"):
+                # La proposta resta: un test rosso e' una cosa da correggere,
+                # non un motivo per far ricominciare da capo.
+                self.titoloProposta.setText(esito.get("motivo", "")[:200])
                 return
             self.guarda()
 

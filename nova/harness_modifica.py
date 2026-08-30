@@ -46,6 +46,12 @@ AZIONI_PDF = {"evidenzia", "nota"}
 # Togliere e evidenziare sono gesti, non testi: chiederglielo sarebbe una
 # domanda senza risposta possibile.
 SENZA_TESTO = {"elimina", "evidenzia"}
+# Quello che si riscrive per intero, riga per riga, senza conversioni in
+# mezzo. Il codice sta qui perche' e' testo a righe come l'HTML: fin qui
+# l'harness sapeva *proporre* una modifica a un .py e non sapeva applicarla,
+# e lo diceva solo al momento del bottone - trentadue estensioni che si
+# leggevano, si commentavano e non si toccavano.
+SCRIVIBILI = {".md", ".markdown", ".txt"} | harness.A_RIGHE
 ESTRATTO = 220
 
 
@@ -160,8 +166,15 @@ def scarta(sessione: str = "") -> dict:
 
 # ---------------------------------------------------------- l'applicazione
 
-def applica(sessione: str = "") -> dict:
-    """Scrive davvero. Prima mette da parte una copia intatta."""
+def applica(sessione: str = "", verifica: bool = False,
+            radice: str = "", attesa_s: int = 300) -> dict:
+    """Scrive davvero. Prima mette da parte una copia intatta.
+
+    Con `verifica`, prima di scrivere prova il progetto, poi lo riprova, e
+    se cade qualcosa che prima passava rimette il file com'era. Il confronto
+    e' fra prima e dopo, non contro il verde assoluto: su un progetto vero
+    qualche prova rossa c'e' quasi sempre, e non e' colpa di questa modifica.
+    """
     p = proposta(sessione)
     if not p:
         return {"ok": False, "motivo": "non c'e' nessuna proposta da applicare"}
@@ -179,9 +192,23 @@ def applica(sessione: str = "") -> dict:
                 "motivo": f"non riesco a mettere da parte una copia "
                           "(" + spiega(e) + "), quindi non tocco niente"}
 
+    prova_prima = None
+    banco = None
+    base = radice or _radice_di(p, f)
+    if verifica:
+        from . import harness_prova
+        banco = harness_prova.scegli(base, f)
+        if banco is None:
+            copia.unlink(missing_ok=True)
+            return {"ok": False, "verificato": False,
+                    "motivo": f"non so come si provano le modifiche a "
+                              f"{f.name} in questo progetto: applica senza "
+                              f"verifica, oppure dimmi tu come si prova"}
+        prova_prima = harness_prova.esegui(base, banco, attesa_s=attesa_s)
+
     est = f.suffix.lower()
     try:
-        if est in (".md", ".txt", ".html", ".htm"):
+        if est in SCRIVIBILI:
             fatte = _applica_testo(f, p["modifiche"])
         elif est == ".docx":
             fatte = _applica_docx(f, p["modifiche"])
@@ -198,6 +225,30 @@ def applica(sessione: str = "") -> dict:
                 "motivo": spiega(e) + " — il documento e' stato "
                                             "rimesso com'era"}
 
+    if verifica:
+        from . import harness_prova
+        prova_dopo = harness_prova.esegui(base, banco, attesa_s=attesa_s)
+        giudizio = harness_prova.confronta(prova_prima, prova_dopo)
+        if giudizio["verdetto"] == "peggio":
+            # Il file torna com'era. La proposta *resta*: e' ancora
+            # un'ipotesi valida, magari da correggere - buttarla vorrebbe
+            # dire far ricominciare da capo per un test rosso.
+            try:
+                shutil.copy2(copia, f)
+            except Exception:                                  # noqa: BLE001
+                pass
+            harness._annota(p["sessione"], "rifiutata dai test", file=str(f))
+            registro.annota("modifica rifiutata dai test", dove=str(f),
+                            dettagli=giudizio["racconto"],
+                            tipo="documento", esito="annullato")
+            return {"ok": False, "verificato": True, "applicate": 0,
+                    "motivo": "non l'ho applicata: " + giudizio["racconto"]
+                              + ". Il file e' rimasto com'era, e la proposta "
+                                "e' ancora li'",
+                    "prima": harness_prova.racconta(prova_prima),
+                    "dopo": harness_prova.racconta(prova_dopo),
+                    "uscita": prova_dopo.get("uscita", "")}
+
     file_proposta(p["file"]).unlink(missing_ok=True)
     _rileggi(p["sessione"], f)
     harness._annota(p["sessione"], "applicata", quante=fatte, file=str(f))
@@ -205,8 +256,19 @@ def applica(sessione: str = "") -> dict:
                     dettagli=f"{fatte} modifiche; copia intatta in "
                              f"{copia.name}",
                     tipo="documento", esito="ok")
-    return {"ok": True, "applicate": fatte, "file": str(f),
-            "copia_di_prima": str(copia)}
+    esito = {"ok": True, "applicate": fatte, "file": str(f),
+             "copia_di_prima": str(copia)}
+    if verifica:
+        esito["verificato"] = True
+        esito["prova"] = harness_prova.racconta(prova_dopo)
+        esito["verdetto"] = giudizio["verdetto"] + ": " + giudizio["racconto"]
+    return esito
+
+
+def _radice_di(p: dict, f: Path) -> str:
+    """Il progetto aperto, se c'e'; altrimenti la cartella del file."""
+    stato = harness._stato(p.get("sessione", "")) or {}
+    return stato.get("radice") or str(f.parent)
 
 
 def _rileggi(sessione: str, f: Path) -> None:

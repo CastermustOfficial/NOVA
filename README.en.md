@@ -1,4 +1,4 @@
-# NOVA
+﻿# NOVA
 
 *[Italiano](README.md) · **English***
 
@@ -27,7 +27,7 @@ mouse and keyboard, so you can keep working while it does its part.
 ## What it can do
 
 A list of adjectives says nothing. These are the numbers, counted from the
-code: **60 tools** for the model running on your PC, **31** for an agentic
+code: **60 tools** for the model running on your PC, **32** for an agentic
 brain working on its own, **38 file formats** it can open and show.
 
 ### It acts on the system, and doesn't take your seat
@@ -478,10 +478,25 @@ On formats it promises nothing it can't keep:
   and annotates for real — annotations that stay in the file and open in any
   reader.
 
-What it does **not** do yet: it doesn't run the project's tests and doesn't
-apply a change «only if they pass». The verifier is the missing piece, and it
-is what would turn the harness from a good place to read into a good place to
-program.
+### And on code, it tests before it applies
+
+The verifier is the part that turns the harness from a good place to read into
+a place where you program. `harness_prova` works out on its own how a project
+is tested — `cargo`, `npm`, `go`, pytest, or the `test_*.py` scripts — and
+picks the right suite for the file being touched: running the whole Rust suite
+because one line of Python changed is wasted time.
+
+With «Apply and test» the change is written only if the tests don't get worse.
+And the comparison is with **before**, not with absolute green: on a real
+project some test is nearly always red, and a verifier that demands green
+never switches on. What counts is whether something that used to pass now
+fails — in that case the file goes back to what it was, the proposal **stays**
+(a red test is something to fix, not a reason to start over) and the tests'
+output goes back to NOVA, which then knows what to correct.
+
+An exit code of `2` means «this can't be tested here» — it needs the daemon,
+it needs a browser — and doesn't count as a failure: counting it would block
+every change.
 
 ## Installation
 
@@ -642,10 +657,11 @@ nova/
   fascicolo.py        the true facts about the user: CV, experience, own texts
   harness.py          documents and projects: open, search, point at
   harness_modifica.py propose changes, and apply them only on request
+  harness_prova.py    the project's tests: apply only if it doesn't worsen
   harness_finestra.py the window: document, tree, chat
   evidenzia.py        code colours (Pygments) and line numbers
   markdown_qt.py      faithful Markdown, there and back
-  mcp_kb.py           the 31 tools exposed to an agentic brain
+  mcp_kb.py           the 32 tools exposed to an agentic brain
   tools/
     base.py           registry, OpenAI schemas, risk levels
     files.py          read, write, search, move, open

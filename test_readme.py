@@ -94,8 +94,11 @@ for titolo, cosa in [("## Perche' Rust", "perche' Rust e un demone"),
     controlla(f"c'e' la sezione su {cosa}", titolo in README)
 controlla("l'harness spiega sia i documenti sia il codice",
           "### Documenti" in README and "### Codice" in README)
-controlla("e dice cosa NON fa ancora",
-          "Cosa **non** fa ancora" in README)
+# Un README che elenca solo cio' che funziona e' pubblicita'. I casi d'uso
+# portano il marcatore «manca» accanto a quello che NOVA non sa fare, ed e'
+# la parte che fa piu' fatica a sopravvivere a una riscrittura.
+controlla("e dice apertamente cosa NON sa fare",
+          README.count("**manca**") >= 5, str(README.count("**manca**")))
 controlla("il consiglio sui modelli nomina i MoE",
           "MoE" in README and "Attivi per token" in README)
 

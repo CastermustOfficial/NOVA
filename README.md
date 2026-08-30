@@ -18,7 +18,7 @@ tastiera, cosi' puoi continuare a lavorare mentre lei fa il suo pezzo.
 ## Cosa sa fare
 
 Un elenco di aggettivi non dice niente. Questi sono i numeri, contati dal
-codice: **60 strumenti** per il modello che gira sul tuo PC, **31** per un
+codice: **60 strumenti** per il modello che gira sul tuo PC, **32** per un
 cervello agentico che lavora per conto suo, **38 formati** di file che sa
 aprire e mostrare.
 
@@ -466,10 +466,25 @@ Sui formati non si promette quello che non si sa mantenere:
   si annota per davvero — annotazioni che restano nel file e si aprono in
   qualunque lettore.
 
-Cosa **non** fa ancora: non esegue i test del progetto e non applica una
-modifica «solo se passano». Il verificatore e' il pezzo che manca, ed e'
-quello che trasformerebbe l'harness da un buon posto per leggere a un buon
-posto per programmare.
+### E sul codice, prova prima di applicare
+
+Il verificatore e' la parte che trasforma l'harness da un buon posto per
+leggere a un posto dove si programma. `harness_prova` riconosce da solo come
+si prova un progetto — `cargo`, `npm`, `go`, pytest, oppure gli script
+`test_*.py` — e sceglie la suite giusta per il file che si sta toccando:
+provare tutto il Rust perche' e' cambiata una riga di Python e' tempo
+buttato.
+
+Con «Applica e prova» la modifica si scrive solo se i test non peggiorano. E
+il confronto e' con **prima**, non con il verde assoluto: su un progetto vero
+qualche prova rossa c'e' quasi sempre, e un verificatore che pretende il verde
+non si accende mai. Quello che conta e' se cade qualcosa che prima passava —
+in quel caso il file torna com'era, la proposta **resta** (un test rosso e'
+una cosa da correggere, non un motivo per ricominciare da capo) e l'uscita dei
+test torna a NOVA, che sa cosa aggiustare.
+
+Un'uscita `2` vuol dire «qui non si puo' provare» — serve il demone, serve un
+browser — e non conta come fallimento: contarla bloccherebbe ogni modifica.
 
 ## Installazione
 
@@ -629,10 +644,11 @@ nova/
   fascicolo.py        i fatti veri sull'utente: CV, esperienze, testi suoi
   harness.py          documenti e progetti: aprire, cercare, indicare
   harness_modifica.py proporre modifiche, e applicarle solo su richiesta
+  harness_prova.py    i test del progetto: si applica se non peggiora
   harness_finestra.py la finestra: documento, albero, chat
   evidenzia.py        i colori del codice (Pygments) e i numeri di riga
   markdown_qt.py      Markdown fedele in andata e ritorno
-  mcp_kb.py           i 31 strumenti esposti a un cervello agentico
+  mcp_kb.py           i 32 strumenti esposti a un cervello agentico
   tools/
     base.py           registry, schemi OpenAI, livelli di rischio
     files.py          leggere, scrivere, cercare, spostare, aprire

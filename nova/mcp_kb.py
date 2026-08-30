@@ -322,9 +322,41 @@ STRUMENTI = [
         "name": "harness_applica",
         "description": (
             "Applica la proposta in attesa. Usalo SOLO se l'utente lo ha "
-            "chiesto dopo averla vista: di norma il bottone lo preme lui."
+            "chiesto dopo averla vista: di norma il bottone lo preme lui. "
+            "Su codice passa verifica=true: prova il progetto prima e dopo, "
+            "e se cade qualcosa che prima passava rimette il file com'era."
         ),
-        "inputSchema": {"type": "object", "properties": {}},
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "verifica": {
+                    "type": "boolean",
+                    "description": "Prova i test del progetto e applica solo "
+                                   "se non peggiora niente. Su codice, si'.",
+                },
+            },
+        },
+    },
+    {
+        "name": "harness_prova",
+        "description": (
+            "Esegue i test del progetto aperto e dice cosa passa e cosa cade. "
+            "Serve per sapere da che punto si parte prima di toccare il "
+            "codice, e per raccontare all'utente come sta il progetto. "
+            "Riconosce da solo come si prova: cargo, npm, go, pytest, oppure "
+            "gli script test_*.py."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file": {
+                    "type": "string",
+                    "description": "Il file su cui stai lavorando: serve a "
+                                   "scegliere quale suite provare invece di "
+                                   "provarle tutte.",
+                },
+            },
+        },
     },
     {
         "name": "harness_scarta",
@@ -812,13 +844,39 @@ class ServerKB:
                 f"({d['quante']}):\n" + "\n".join(righe)
                 + "\n\nDillo all'utente e aspetta: il bottone Applica e' suo.")
 
-    def harness_applica(self) -> str:
+    def harness_applica(self, verifica: bool = False) -> str:
         from .harness_modifica import applica
-        d = applica()
+        d = applica(verifica=bool(verifica))
         if not d.get("ok"):
-            return f"ERRORE: {d.get('motivo')}"
-        return (f"applicate {d['applicate']} modifiche a {d['file']}. "
-                f"La copia di prima e' in {d['copia_di_prima']}")
+            coda = ""
+            if d.get("uscita"):
+                coda = ("\n[uscita dei test, per te: serve a capire cosa "
+                        "correggere]\n" + d["uscita"][:2000])
+            return f"ERRORE: {d.get('motivo')}{coda}"
+        parti = [f"applicate {d['applicate']} modifiche a {d['file']}",
+                 f"la copia di prima e' in {d['copia_di_prima']}"]
+        if d.get("verificato"):
+            parti.append(f"test: {d['prova']} — {d['verdetto']}")
+        return ". ".join(parti)
+
+    def harness_prova(self, file: str = "") -> str:
+        from . import harness_prova as banco
+        from .harness import stato
+        s = stato()
+        radice = (s.get("radice") if s.get("ok") else "") or file or "."
+        scelto = banco.scegli(radice, file)
+        if scelto is None:
+            return ("Non ho riconosciuto come si provano i test qui. Se il "
+                    "progetto si prova in un modo suo, dimmelo e lo eseguo "
+                    "con run_powershell.")
+        esito = banco.esegui(radice, scelto)
+        righe = [banco.racconta(esito)]
+        if esito["cadute"]:
+            righe.append("cadute: " + ", ".join(esito["cadute"][:10]))
+            righe.append(esito["uscita"][:2000])
+        if esito["saltate"]:
+            righe.append("non provabili qui: " + ", ".join(esito["saltate"][:10]))
+        return "\n".join(righe)
 
     def harness_scarta(self) -> str:
         from .harness_modifica import scarta
@@ -1077,6 +1135,7 @@ class ServerKB:
             "harness_cerca_progetto": self.harness_cerca_progetto,
             "harness_proponi": self.harness_proponi,
             "harness_applica": self.harness_applica,
+            "harness_prova": self.harness_prova,
             "harness_scarta": self.harness_scarta,
             "fascicolo": self.fascicolo,
             "fascicolo_leggi": self.fascicolo_leggi,

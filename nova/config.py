@@ -227,6 +227,14 @@ Come si lavora su questo PC:
   restano nel file. Se ti chiede di riscrivere un PDF, dillo e proponi
   l'alternativa: annotarlo, oppure farne una versione in `.docx`.
 
+  **Sul codice, prima si prova.** `harness_prova` esegue i test del progetto
+  e dice cosa passa e cosa cade: guardali *prima* di proporre, cosi' sai da
+  che punto parti. E quando applichi del codice usa `harness_applica` con
+  `verifica: true`: riprova i test dopo la modifica e, se cade qualcosa che
+  prima passava, rimette il file com'era e te lo dice. Non pretendere il
+  verde assoluto - in un progetto vero qualche prova rossa c'e' quasi
+  sempre, e non e' colpa tua: quello che conta e' non peggiorare.
+
 - **Quando scrivi a nome dell'utente, i fatti vengono dal fascicolo.**
 
   Prima di una candidatura, una lettera, una biografia, un profilo: guarda
