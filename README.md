@@ -1,4 +1,4 @@
-# NOVA
+﻿# NOVA
 
 **Un esperto seduto accanto a te, dentro il tuo PC.**
 
@@ -15,17 +15,137 @@ tastiera, cosi' puoi continuare a lavorare mentre lei fa il suo pezzo.
 
 ## Cosa sa fare
 
-- **Agisce sul sistema**: file, applicazioni, finestre, PowerShell, web.
-- **Non ti interrompe**: usa l'accessibilita', non input sintetici. Puo'
-  operare su una finestra in secondo piano mentre tu scrivi in un'altra.
-- **Ti ascolta**: chiamala per nome e parla; capisce da sola quando la
-  conversazione e' finita.
-- **Ricorda**: una memoria a grafo di cio' che impara sul tuo PC e sul tuo
-  lavoro. Resta sul tuo disco.
-- **Custodisce le credenziali**: archivio cifrato con DPAPI, cosi' puo'
-  compilare un accesso senza che la password passi mai dal modello.
-- **Vede lo stato reale** dell'hardware: ti dice se la RAM va piu' piano di
-  quanto potrebbe, invece di farti indovinare.
+Un elenco di aggettivi non dice niente. Questi sono i numeri, contati dal
+codice: **60 strumenti** per il modello che gira sul tuo PC, **31** per un
+cervello agentico che lavora per conto suo, **38 formati** di file che sa
+aprire e mostrare.
+
+### Agisce sul sistema, e non ti ruba il posto
+
+File, applicazioni, finestre, PowerShell, appunti, volume, notifiche. La
+differenza che conta non e' cosa tocca ma **come**: NOVA agisce sull'albero di
+accessibilita', non su mouse e tastiera. Puo' compilare un modulo in una
+finestra in secondo piano mentre tu scrivi in un'altra, e nessuna finestra
+salta in primo piano a rubarti il fuoco.
+
+E' una regola scritta nel suo prompt, non un effetto collaterale: *lavora
+dietro, non davanti*.
+
+### Usa il browser come lo useresti tu, ma a blocchi
+
+NOVA pilota Chrome parlando con lui in CDP. Non simula le battute sui tasti:
+incolla. Riempire cinque campi di un foglio di calcolo online costa **una**
+chiamata invece di cinque, e leggere una tabella intera ne costa una sola.
+
+| Operazione | Misurato |
+|---|---|
+| `web_incolla` — cinque valori in tre campi | 35 ms |
+| `web_tabella` — una tabella 5x4 letta tutta | 33 ms |
+| `web_cerca` — cercare senza aprire il browser | ~0,9 s |
+
+L'ultima riga e' quella che cambia il carattere dell'assistente: **prima di
+aprire una pagina, NOVA cerca**. Un browser che si apre e' una finestra che
+compare sul tuo schermo; una ricerca che passa da un browser senza volto non
+lo e'.
+
+### Ricorda, e quello che impara resta tuo
+
+Una memoria a grafo su file `.md` — apribile in Obsidian, versionabile in git,
+leggibile senza NOVA. Impara i fatti durevoli dopo ogni scambio, e **le
+procedure**: come ha risolto una richiesta, per non doverla ricercare la volta
+dopo. Le procedure si ritrovano anche quando la richiesta e' scritta in modo
+diverso o con un refuso, perche' il confronto passa da tri-grammi di caratteri
+e non da un'uguaglianza di stringhe.
+
+Sul disco di chi scrive queste righe, adesso: 138 note e 28 procedure imparate.
+
+### Custodisce le credenziali senza farle vedere al modello
+
+Archivio cifrato con DPAPI. NOVA puo' compilare un accesso senza che la
+password passi mai dal modello: nel prompt entra un riferimento, nel campo
+entra il valore. E' l'unico modo per cui «l'assistente conosce le mie
+password» possa essere una frase accettabile.
+
+### Fa da sola quello che deve ripetere
+
+Automazioni scritte da lei, procedure imparate, attivita' pianificate
+(«ogni giorno alle 8»), sentinelle che avvisano solo quando un valore cambia.
+E un **registro delle azioni irreversibili**: cio' che non si annulla, si
+annota. Il registro non scrive mai il valore di una credenziale.
+
+### Vede
+
+Legge lo schermo quando serve — ma prima prova a leggere il sistema. Uno
+screenshot e' un accessorio, non il modo normale di sapere cosa c'e' su una
+finestra: l'albero di accessibilita' e' piu' preciso, piu' veloce e non
+dipende da cosa e' visibile.
+
+---
+
+## L'harness: dove si studia e dove si scrive
+
+E' la parte piu' recente e la meno ovvia. Un documento o un progetto non sono
+un messaggio in chat: durano piu' di un turno, e vanno guardati mentre se ne
+parla. L'harness e' una finestra con il documento a sinistra, l'albero dei
+file quando c'e' un progetto, e la conversazione a destra — **la stessa
+conversazione** del resto di NOVA, non una seconda.
+
+### Documenti
+
+| Formato | Come si apre |
+|---|---|
+| `.pdf` | le **pagine vere**, disegnate come immagini, non il testo estratto |
+| `.docx` | in lettura, con la struttura |
+| `.md` `.txt` | su un foglio bianco che si scrive, con i ferri del mestiere |
+| `.html` | **reso**, con Chromium: e' un artifact, si guarda per quello che fa |
+
+Chiedere «dove si parla di entropia» non torna una frase: torna una
+**posizione** — file e pagina — e il documento ci scende sopra e la evidenzia.
+Con una cartella aperta come progetto la ricerca vale su tutta la pila, che e'
+la domanda vera quando i documenti sono sei PDF di un esame: non «dove sta in
+questo file» ma «in quale file sta».
+
+### Codice
+
+Trentadue estensioni, dal Python al Rust al Vue. Il codice si apre su fondo
+scuro, con i colori di Pygments — cinquecento linguaggi, non i quattro che
+avremmo scritto a mano — e i numeri di riga, perche' un errore si dice cosi':
+file e riga. Un `.html` mostra il risultato, e il sorgente e' a un click:
+si cambia, si salva, e la pagina si ridisegna.
+
+### E NOVA scrive dentro, ma non di nascosto
+
+Questa e' la parte che vale la pena spiegare bene, perche' e' una scelta e non
+una limitazione.
+
+**Non esiste una funzione che modifichi un documento.** Esiste una proposta.
+Compare **dentro il testo**, al posto suo, con addosso il colore: quello che
+arriva su fondo brace, quello che se ne va in grigio sbarrato. La si puo'
+correggere dove la si legge — e quello che si applica e' quello che si e'
+visto, anche se nel frattempo lo si e' cambiato. Il bottone lo premi tu, e
+prima di sovrascrivere resta una copia intatta accanto.
+
+Piu' il modello e' debole, piu' questo ciclo vale: un modello forte che scrive
+diretto e' accettabile, un modello debole che scrive diretto e' ingestibile,
+un modello debole che **propone** e' utilizzabile.
+
+Sui formati non si promette quello che non si sa mantenere:
+
+- **`.md`, `.txt`, codice**: si riscrivono per intero, nessuna conversione in
+  mezzo. Gli asterischi di un commento Python non diventano corsivo.
+- **`.docx`**: si modifica **un paragrafo alla volta**, e grassetti, corpo,
+  stile e impaginazione restano quelli di chi lo ha scritto. Rifare il file
+  dal testo estratto sarebbe stato molto piu' facile, e avrebbe buttato via il
+  lavoro dell'utente.
+- **`.pdf`**: il testo **non si riscrive**, e NOVA lo dice. Un PDF non
+  contiene paragrafi ma lettere messe in un punto della pagina. Si evidenzia e
+  si annota per davvero — annotazioni che restano nel file e si aprono in
+  qualunque lettore.
+
+Cosa **non** fa ancora: non esegue i test del progetto e non applica una
+modifica «solo se passano». Il verificatore e' il pezzo che manca, ed e'
+quello che trasformerebbe l'harness da un buon posto per leggere a un buon
+posto per programmare.
 
 ## Installazione
 
@@ -127,6 +247,44 @@ Il resto di questo documento e' la documentazione tecnica di dettaglio.
 
 ---
 
+## Perche' Rust, e perche' un demone
+
+La domanda giusta non e' «perche' Rust» ma **perche' un processo che vive nel
+sistema invece di un'applicazione che apri**. NOVA deve poter parlare mentre
+non e' aperta, sorvegliare llama-server, tenere il registro delle capacita' e
+sopravvivere alla chiusura di qualunque finestra. Le interfacce — l'orb,
+l'harness, la CLI, la voce, un cervello agentico — sono client sottili:
+possono morire e ripartire senza fermare NOVA.
+
+Rust viene dopo, ed e' scelto per tre cose concrete:
+
+**Perche' il demone non puo' cadere.** E' l'unico processo che deve stare in
+piedi sempre. Un errore di memoria in un servizio che possiede i processi
+lunghi non e' un messaggio d'errore, e' un assistente che si spegne mentre
+lavori.
+
+**Perche' le capacita' che servono sono la stessa cosa con tre nomi.** Il
+demone e' costruito come *un trait, tre backend*:
+
+| Serve per | Windows | macOS | Linux |
+|---|---|---|---|
+| Controllare qualsiasi app | UI Automation | Accessibility API | AT-SPI2 |
+| Osservare tutto il sistema | ETW | EndpointSecurity | eBPF |
+| Annullare cio' che si e' fatto | VSS | snapshot APFS | overlayfs / btrfs |
+| Canale locale | named pipe | socket unix | socket unix |
+
+Il vincolo vero e' la portabilita', non il ring 0: queste capacita' esistono
+gia' in userspace su ogni sistema. Non serve un sistema operativo, serve un
+processo scritto attorno a quella forma.
+
+**Perche' un binario e' un binario.** Il demone si scarica compilato: chi
+installa NOVA non ha bisogno ne' di Rust ne' di Visual Studio.
+
+Quello che resta in Python e' il ciclo dell'agente, gli strumenti e la
+memoria — dove le idee cambiano ogni settimana e la velocita' di modifica vale
+piu' della velocita' di esecuzione. Il confine fra i due e' voluto e sta
+scritto in [`core/README.md`](core/README.md).
+
 ## Architettura
 
 ```
@@ -138,6 +296,19 @@ nova/
   setup_wizard.py     rilevamento automatico di modello GGUF e runtime
   runtime.py          avvia/sorveglia/spegne llama-server.exe (+ auto-tuning GPU)
   agent.py            ciclo agente: modello <-> tool, sicurezza, approvazioni
+  processi.py         nessun processo di NOVA apre una finestra nera
+  browser.py          pilota Chrome in CDP: incolla, tabelle, caricamenti
+  cerca.py            ricerca web senza aprire un browser sullo schermo
+  ricette.py          le procedure imparate, ritrovate anche con un refuso
+  registro.py         cio' che non si annulla, si annota
+  pianificazione.py   attivita' ricorrenti e sentinelle
+  fascicolo.py        i fatti veri sull'utente: CV, esperienze, testi suoi
+  harness.py          documenti e progetti: aprire, cercare, indicare
+  harness_modifica.py proporre modifiche, e applicarle solo su richiesta
+  harness_finestra.py la finestra: documento, albero, chat
+  evidenzia.py        i colori del codice (Pygments) e i numeri di riga
+  markdown_qt.py      Markdown fedele in andata e ritorno
+  mcp_kb.py           i 31 strumenti esposti a un cervello agentico
   tools/
     base.py           registry, schemi OpenAI, livelli di rischio
     files.py          leggere, scrivere, cercare, spostare, aprire
@@ -145,8 +316,16 @@ nova/
     shell.py          PowerShell, CMD, Python
     web.py            ricerca web, lettura pagine, apertura nel browser
     system.py         appunti, tasti, volume, notifiche, promemoria, info PC
+    schermo.py        schermate, quando leggere il sistema non basta
+    automazioni.py    strumenti che NOVA scrive da se'
+    procedure.py      come ha risolto una richiesta, per rifarla
+    riparazione.py    il banco: si ripara da sola senza rompersi
   ui/main_window.py   finestra chat + registro azioni + tray + hotkey
-  voice/              fase 2: STT (faster-whisper) e TTS (SAPI)
+  voice/              ascolto e voce: Kokoro, whisper.cpp, ElevenLabs, SAPI
+core/crates/
+  nova-core/          il demone: bus, capacita', processi lunghi, RPC
+  nova-voce/          audio, Kokoro, whisper, Scribe: niente Python
+  nova-shell/         l'orb e le finestre (Tauri)
 ```
 
 ## Livelli di autonomia
@@ -199,7 +378,7 @@ def invia_email(to: str, subject: str, body: str) -> str:
 
 Importa il modulo in `nova/tools/__init__.py` e il modello lo vede subito.
 
-## Fase 2 - comandi vocali
+## Voce
 
 `nova/voice/` e' gia' predisposto: `stt.py` (faster-whisper, push-to-talk o
 wake word) e `tts.py` (SAPI di Windows, zero dipendenze). Per attivarli:
@@ -237,6 +416,59 @@ strade, entrambe a un cambio di riga in `config.json`:
 
 Per forzare un valore a mano: `server.n_gpu_layers` in `config.json`
 (qualsiasi valore < 99 disattiva la stima automatica).
+
+### Quale modello mettere: la scelta che conta piu' di tutte
+
+Il catalogo (`models.json`) propone **Qwen3.8 27B**, ed e' una scelta
+prudente: denso, forte, e su una 16 GB **non ci sta**. I numeri qui sopra
+sono quelli di un modello con dodici layer sulla CPU.
+
+C'e' una strada che quei numeri li ribalta, e vale la pena spiegarla perche'
+non e' ovvia: i modelli **MoE**. In un modello denso da 27B ogni token fa
+lavorare tutti i 27 miliardi di parametri. In un mixture-of-experts, per ogni
+token se ne accende una frazione — il resto sta in memoria e tace.
+
+| Modello | Totale | Attivi per token | Contesto | Note |
+|---|---|---|---|---|
+| Qwen3.8 27B (nel catalogo) | 27B | 27B — denso | 256K | il piu' forte, il piu' lento |
+| [Gemma 4 26B-A4B](https://huggingface.co/google/gemma-4-26B-A4B) | 25,2B | **3,8B** | 256K | Apache 2.0, **multimodale**, chiamata di funzione nativa |
+| [Nemotron 3 Nano 30B-A3B](https://unsloth.ai/docs/models/nemotron-3) | ~30B | **3B** | 1M | ibrido MoE, pensato per lavori agentici |
+
+**Il compromesso, detto senza girarci intorno:** su un ragionamento difficile
+un denso da 27B resta avanti. Ma un MoE con quattro miliardi di parametri
+attivi *entra tutto in VRAM* su una scheda da 16 GB, e li' non si guadagna una
+frazione — si cambia categoria. Un assistente che risponde in due secondi e
+sbaglia una volta su venti e' piu' utile di uno che risponde in trenta e
+sbaglia una volta su venticinque, perche' il secondo non lo apri.
+
+Per NOVA in particolare, due dettagli di Gemma 4 pesano piu' dei benchmark:
+e' **multimodale** — quindi le schermate funzionano anche con il cervello di
+casa, non solo con quello in rete — e ha la **chiamata di funzione nativa**,
+che e' esattamente il modo in cui NOVA parla ai suoi sessanta strumenti.
+
+**Come sceglierne uno diverso.** `models.json` non e' codice, e' un dato: il
+migliore cambia ogni mese, e se stesse nel codice ogni modello nuovo sarebbe
+una release. Si aggiunge una famiglia al file, oppure si punta direttamente a
+un `.gguf` che hai gia':
+
+```jsonc
+// config.json
+"server": { "model_path": "D:/modelli/gemma-4-26B-A4B-Q4_K_M.gguf" }
+```
+
+E la regola per la quantizzazione e' una sola, la stessa che usa LM Studio:
+**si sceglie la piu' grande che ENTRA, non la piu' grande che si riesce a
+caricare.** Se non ci sta tutta, llama.cpp mette una parte dei layer in RAM e
+funziona lo stesso — dieci volte piu' piano, senza dire niente.
+
+### Se non hai una scheda video
+
+NOVA gira lo stesso, e va piano: si passa da decine di token al secondo a
+pochi. Va detto prima, non scoperto dopo. In quel caso le strade sensate sono
+due, e nessuna delle due e' un ripiego: **un abbonamento che hai gia'**
+(Claude Code, Codex, Gemini, Qwen — NOVA li pilota come cervelli) oppure una
+**chiave API**. Il modello locale e' una scelta di riservatezza e di costo,
+non l'unica via.
 
 ---
 
@@ -344,7 +576,7 @@ per colpa di un server spento.
 
 ## Nota sul ragionamento
 
-Qwen3.5 e' un modello *thinking*: lasciato libero produce 1000+ token di
+Qwen3.8 e' un modello *thinking*: lasciato libero produce 1000+ token di
 ragionamento per turno, che a 7 t/s significa due minuti di attesa. Per questo
 il server parte con `--reasoning-budget 512`. Alzalo in
 `server.extra_args` se preferisci risposte piu' ragionate e piu' lente,
