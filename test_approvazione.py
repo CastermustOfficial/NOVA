@@ -16,11 +16,14 @@ def verifica(c, d): esiti.append((bool(c), d))
 def cliente(timeout: float = 120.0) -> CoreClient:
     return CoreClient(timeout=timeout).connect()
 
-c = cliente()
+# Anche connect() puo' fallire, e su una macchina senza demone e' proprio
+# quello che fa: stava fuori dal try, quindi moriva con una traccia e usciva
+# con 1 - «rotto» invece di «non eseguibile qui».
 try:
+    c = cliente()
     c.call("daemon.status")
 except Exception as e:
-    print(f"demone non raggiungibile: {e}")
+    print(f"demone non raggiungibile ({type(e).__name__}: {e}): salto")
     sys.exit(2)
 
 # Tutte le richieste di questo file sono marcate «prova»: l'interfaccia le

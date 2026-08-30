@@ -62,9 +62,18 @@ jobs:
           $falliti = @()
           $saltate = @()
           Get-ChildItem test_*.py | Sort-Object Name | ForEach-Object {
-            python $_.Name
+            $uscita = & python $_.Name 2>&1
+            $uscita | Write-Host
             if ($LASTEXITCODE -eq 2) { $saltate += $_.Name }
-            elseif ($LASTEXITCODE -ne 0) { $falliti += $_.Name }
+            elseif ($LASTEXITCODE -ne 0) {
+              $falliti += $_.Name
+              # Le ultime righe finiscono nell'annotazione: il log completo
+              # richiede di essere autenticati, l'annotazione no, e sapere
+              # *cosa* e' fallito senza doverlo scaricare cambia la velocita'
+              # con cui lo si aggiusta.
+              $coda = ($uscita | Select-Object -Last 12) -join ' / '
+              Write-Host "::error::$($_.Name): $coda"
+            }
           }
           if ($saltate) { Write-Host "::notice::saltate (serve una macchina vera): $($saltate -join ', ')" }
           if ($falliti) {
