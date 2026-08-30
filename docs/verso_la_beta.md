@@ -149,6 +149,14 @@ uniche che separano l'alpha dalla beta.
     decisione da prendere non e' tecnica: o e' una promessa con una data, o si
     dice che NOVA e' un programma Windows.
 
+14. **La macchina che sviluppa NOVA non fa partire quello che fa partire
+    l'installer.** Su questo PC l'avvio automatico punta a
+    `core\target\release\nova-shell.exe` - il prodotto della compilazione -
+    mentre `install.ps1` lo punta a `bin\nova-shell.exe`. Sono due binari
+    diversi che si possono disallineare in silenzio, e il secondo e' l'unico
+    che un utente vedra' mai. E' la forma piu' pura di «da me funziona»:
+    l'unica macchina su cui NOVA e' provata sta provando qualcos'altro.
+
 ---
 
 ## Lista 3 — Attrito cognitivo
