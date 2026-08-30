@@ -451,6 +451,14 @@ class ServerConfig:
     port: int = 8420
     n_gpu_layers: int = 999       # 999 = tutto su GPU, auto-tuning al fallimento
     ctx_size: int = 16384
+    # Il tipo della KV cache. A 8 bit occupa meta' della memoria, e su una
+    # scheda dove il modello non ci sta tutto quella meta' diventa layer che
+    # tornano sulla GPU. Misurato su RTX 4060 Ti con Qwen3.8-27B Q4_K_M:
+    # generazione da 6,0 a 6,5 token/s a parita' di layer, e il prompt a
+    # caldo da 1504 a 1281 ms. Con i layer che la memoria liberata permette
+    # si arriva a 9,0 token/s e 691 ms - vedi «Prestazioni e tuning» nel
+    # README. Si rimette a "f16" se una scheda dovesse fare i capricci.
+    kv_cache_type: str = "q8_0"
     n_parallel: int = 1
     threads: int = 0              # 0 = default llama.cpp
     extra_args: list[str] = field(default_factory=lambda: [

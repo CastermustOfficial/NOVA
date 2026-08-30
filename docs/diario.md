@@ -436,6 +436,72 @@ sull'attrito cognitivo e portato due pezzi in Rust, cioe' quando sembrava
 tutto a posto. Bastava eseguire la stessa suite altrove.
 
 
+### Il modello acceso, e i primi numeri veri della giornata
+
+Fin qui tutte le misure erano sui pezzi che girano *senza* il modello, e
+dicevano millisecondi. Acceso llama-server e mandato il prompt che NOVA manda
+davvero — 12.492 token — sono venuti fuori i numeri che contano.
+
+**Il primo non e' una velocita', e' un divario.**
+
+| | prompt |
+|---|---|
+| primo messaggio di una conversazione | **25,8 s** |
+| tutti quelli dopo | **1,5 s** |
+
+Diciassette volte. E' la cache del prefisso che lavora, e adesso c'e' un
+numero sotto la frase «quella scelta vale piu' di qualunque riscrittura»
+scritta stamattina. Chi spostasse memoria e ricette nel messaggio di sistema
+pagherebbe venticinque secondi a messaggio, in silenzio.
+
+Spiega anche una cosa che avevo attribuito altrove: i «trenta secondi che
+sembrano rotti» di ATT-4 sono **questo**. Non e' il modello lento, e' il primo
+prompt di una conversazione. Il battito che ho costruito stamattina serve
+esattamente li'.
+
+**I flag, misurati uno alla volta.**
+
+| configurazione | layer | prompt a caldo | generazione |
+|---|---|---|---|
+| come prima | 53 | 1504 ms | 6,0 t/s |
+| `-fa on` | 53 | 1541 ms | 6,1 t/s |
+| KV a 8 bit | 53 | 1281 ms | 6,5 t/s |
+| KV a 8 bit, 60 layer | 60 | **691 ms** | **9,0 t/s** |
+| KV a 8 bit, 62 layer | 62 | 600 ms | 7,7 t/s |
+| KV a 8 bit, 64 layer | 64 | — | satura, crolla |
+
+**Flash attention era gia' acceso.** Il valore di fabbrica in questa build e'
+`auto`, e auto vuol dire on: metterlo a mano sarebbe stata una riga di
+changelog per un guadagno che non esiste. Era il punto 2 della lista, e la
+lista lo dava per acquisito.
+
+**E la KV a 8 bit non serve a calcolare piu' in fretta.** A parita' di layer
+vale un otto per cento. Serve a occupare meta' memoria, e quella meta'
+diventa layer che tornano sulla GPU: da 53 a 60 sono **piu' cinquanta per
+cento di generazione e meno cinquantaquattro di prompt**. Il guadagno non e'
+nel flag, e' in cosa il flag permette.
+
+A 62 layer la generazione **peggiora** pur avendo il prompt piu' veloce, e a
+64 la VRAM satura e crolla. E' la curva che il README descriveva a parole
+(«il driver ripiega in silenzio sulla memoria condivisa») vista per la prima
+volta con dei numeri sopra.
+
+**Cosa si e' cambiato, e cosa no.** NOVA usa la KV a 8 bit di suo, e la stima
+dei layer sa che la cache e' piu' piccola: 53 diventano 55. Non 60. Sbagliare
+per eccesso non da' un errore — da' un modello che parte e va dieci volte piu'
+piano senza dirlo — e una stima che indovina sulla macchina di chi la scrive
+e sbaglia altrove e' esattamente il difetto che questa lista vuole togliere. I
+60 stanno nel README, misurati, per chi li vuole a mano.
+
+**Un errore per strada, che vale la pena scrivere.** Il primo banco lanciava
+llama-server con `-ngl 999`, cioe' «tutto sulla GPU». E' il caso patologico
+che NOVA evita apposta: la VRAM satura, il driver ripiega sulla RAM condivisa
+e tutto rallenta di dieci volte. Ci sono voluti cinque minuti a 99% di GPU per
+capire che stavo misurando un regime in cui **nessun confronto fra flag dice
+niente**, perche' il collo di bottiglia e' un altro e resta lo stesso qualunque
+cosa si cambi.
+
+
 ### Quello che questa giornata ha insegnato
 
 Tre cose si ripetono abbastanza da meritare di essere scritte.

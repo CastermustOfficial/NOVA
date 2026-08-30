@@ -827,17 +827,63 @@ Serve perche' su Windows, quando la VRAM finisce, il driver NVIDIA ripiega in
 silenzio sulla memoria condivisa: il modello parte lo stesso ma va ~10x piu'
 lento.
 
-Misure su RTX 4060 Ti 16 GB con Qwen3.8-27B Q4_K_M (15,7 GB):
+Misure su RTX 4060 Ti 16 GB con Qwen3.8-27B Q4_K_M (15,7 GB), con il prompt
+vero di NOVA — 12.492 token fra regole e schemi dei sessanta strumenti. Il
+banco e' `banco_modello.py`, e le misura da solo.
 
-| Configurazione | Layer su GPU | Generazione |
+**Il primo numero da guardare non e' la velocita', e' il divario fra freddo e
+caldo:**
+
+| | prompt a freddo | prompt a caldo |
 |---|---|---|
-| CUDA, `-ngl 99` (VRAM saturata) | 65 | ~2 t/s, prompt 40 t/s |
-| Vulkan, auto | 56 | ~8 t/s |
-| CUDA, auto (stima VRAM) | 53 | ~7-9 t/s |
+| primo messaggio di una conversazione | **25,8 s** | — |
+| tutti quelli dopo | — | **1,5 s** |
 
-Un 27B a Q4 su 16 GB non ci sta interamente: circa 12 layer restano sulla CPU
-ed e' quello il collo di bottiglia. Per andare molto piu' veloci ci sono due
-strade, entrambe a un cambio di riga in `config.json`:
+Diciassette volte meno, ed e' la cache del prefisso che lavora: regole e
+schemi non cambiano fra un turno e l'altro, quindi si rielaborano una volta
+sola. E' il motivo per cui il contesto della memoria e le ricette stanno **in
+coda alla domanda** e non nel messaggio di sistema; spostarli «al posto
+giusto» costerebbe venticinque secondi a messaggio, in silenzio.
+
+**Poi i flag.** Misurati, non dedotti:
+
+| Configurazione | Layer su GPU | Prompt a caldo | Generazione |
+|---|---|---|---|
+| come prima | 53 | 1504 ms | 6,0 t/s |
+| `-fa on` | 53 | 1541 ms | 6,1 t/s |
+| KV a 8 bit | 53 | 1281 ms | 6,5 t/s |
+| KV a 8 bit, 60 layer | 60 | **691 ms** | **9,0 t/s** |
+| KV a 8 bit, 62 layer | 62 | 600 ms | 7,7 t/s |
+| KV a 8 bit, 64 layer | 64 | — | la VRAM satura, crolla |
+
+Due cose che non si potevano sapere leggendo. **Flash attention era gia'
+acceso**: in questa build il valore di fabbrica e' `auto`, e auto vuol dire
+on — metterlo a mano non cambia niente. E **la KV cache a 8 bit non serve a
+calcolare piu' in fretta**: serve a occupare meta' memoria, e su una scheda
+dove il modello non ci sta tutto quella meta' diventa layer che tornano sulla
+GPU. Il guadagno vero e' li', non nel calcolo.
+
+NOVA adesso usa la KV a 8 bit di suo (`server.kv_cache_type`), e la stima dei
+layer sa che la cache e' piu' piccola. La stima resta pero' prudente — 55
+layer invece dei 60 che si sono misurati — perche' sbagliare per eccesso non
+da' un errore: da' un modello che parte e va dieci volte piu' piano senza
+dirlo. Chi vuole i 60 li mette a mano:
+
+```jsonc
+// config.json
+"server": { "n_gpu_layers": 60, "kv_cache_type": "q8_0" }
+```
+
+E si rimisura, perche' la VRAM libera dipende da cos'altro c'e' acceso:
+
+```powershell
+python banco_modello.py            # tutte le configurazioni
+python banco_modello.py kv8-60     # una sola
+```
+
+Un 27B a Q4 su 16 GB non ci sta interamente, e cinque layer sulla CPU restano
+il collo di bottiglia. Per andare molto piu' veloci ci sono due strade,
+entrambe a un cambio di riga in `config.json`:
 
 - un quant piu' piccolo dello stesso modello (Q3_K_M ~12,5 GB entra tutto in
   VRAM: 3-4x piu' veloce, qualita' leggermente inferiore);

@@ -55,12 +55,13 @@ In ordine di guadagno atteso, non di difficolta'.
 
 ### Il modello (dove sta il tempo)
 
-1. **Misurare il modello acceso.** Prompt eval e generazione com'e' oggi, con
+1. ~~**Misurare il modello acceso.**~~ Fatto: `banco_modello.py`. 25,8 s a freddo, 1,5 s a caldo, 6,0 t/s. Prompt eval e generazione com'e' oggi, con
    il prompt vero da 11.900 token, non con una frase di prova. Senza questa
    riga tutte le altre sono opinioni.
-2. **`-fa` (flash attention).** Oggi llama-server parte senza. Piu' veloce e
-   occupa meno KV.
-3. **KV cache a `q8_0`** (`--cache-type-k`, `--cache-type-v`). Dimezza la
+2. ~~**`-fa` (flash attention).**~~ Non serve: in questa build il valore di
+   fabbrica e' `auto`, che vuol dire on. Misurato, nessuna differenza.
+3. ~~**KV cache a `q8_0`.**~~ Fatto, ed era il punto giusto: +50% di
+   generazione grazie ai layer che la memoria liberata permette. Vecchio testo: (`--cache-type-k`, `--cache-type-v`). Dimezza la
    cache: su una 16 GB con dodici layer sulla CPU, quei layer si ricomprano.
    E' il singolo intervento con il rapporto guadagno/rischio migliore.
 4. **`--cache-reuse`.** Serve perche' `trim_history` taglia **in mezzo** alla

@@ -99,7 +99,13 @@ def free_vram_mb() -> int:
     return 0
 
 
-def estimate_gpu_layers(model_path: str, ctx_size: int, reserve_mb: int = 900) -> int:
+# Quanto occupa la KV cache rispetto a f16, per tipo. Serve alla stima: una
+# cache dimezzata sono megabyte che diventano layer.
+PESO_KV = {"f16": 1.0, "bf16": 1.0, "q8_0": 0.5, "q5_1": 0.36, "q4_0": 0.28}
+
+
+def estimate_gpu_layers(model_path: str, ctx_size: int, reserve_mb: int = 900,
+                        kv_tipo: str = "f16") -> int:
     """Quanti layer stanno davvero in VRAM.
 
     Su Windows il driver NVIDIA, quando la VRAM finisce, ripiega in silenzio
@@ -118,7 +124,7 @@ def estimate_gpu_layers(model_path: str, ctx_size: int, reserve_mb: int = 900) -
     if not free:
         return 0
     # KV cache + buffer di calcolo, stima prudente
-    kv_mb = max(256, ctx_size * 0.05)
+    kv_mb = max(256, ctx_size * 0.05) * PESO_KV.get(kv_tipo, 1.0)
     budget = free * 0.96 - reserve_mb - kv_mb
     per_layer = size_mb / (n_layers + 1)
     if budget <= per_layer:
@@ -200,6 +206,14 @@ class LlamaServer:
         ]
         if s.threads:
             args += ["-t", str(s.threads)]
+        # La KV cache a 8 bit: meta' della memoria, e su una scheda dove il
+        # modello non ci sta tutto quella meta' diventa layer sulla GPU. Non
+        # si passa quando e' f16, che e' gia' il valore di fabbrica: un flag
+        # in meno e' una cosa in meno che puo' non piacere a un binario
+        # vecchio.
+        tipo_kv = (getattr(s, "kv_cache_type", "") or "f16").strip()
+        if tipo_kv and tipo_kv != "f16":
+            args += ["-ctk", tipo_kv, "-ctv", tipo_kv]
         # Il proiettore visivo: senza, un modello che saprebbe vedere resta
         # cieco e llama.cpp non lo dice. Si cerca accanto al modello, che e'
         # dove lo mettono tutti i repository (mmproj-F16.gguf e simili).
@@ -357,7 +371,9 @@ class LlamaServer:
         if base < 99:
             start = base
         else:
-            start = estimate_gpu_layers(self.cfg.server.model_path, self.cfg.server.ctx_size)
+            start = estimate_gpu_layers(
+                self.cfg.server.model_path, self.cfg.server.ctx_size,
+                kv_tipo=getattr(self.cfg.server, "kv_cache_type", "f16") or "f16")
             if start:
                 self._log(f"Stima: {start} layer entrano in VRAM ({free_vram_mb()} MiB liberi).")
             else:

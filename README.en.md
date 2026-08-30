@@ -839,17 +839,63 @@ the model's metadata, `estimate_gpu_layers` compares them with free VRAM).
 This matters because on Windows, when VRAM runs out, the NVIDIA driver quietly
 falls back to shared memory: the model still starts but runs ~10x slower.
 
-Measurements on an RTX 4060 Ti 16 GB with Qwen3.8-27B Q4_K_M (15.7 GB):
+Measurements on an RTX 4060 Ti 16 GB with Qwen3.8-27B Q4_K_M (15.7 GB), using
+NOVA's real prompt — 12,492 tokens of rules and sixty tool schemas. The bench
+is `banco_modello.py`, and it measures them itself.
 
-| Configuration | Layers on GPU | Generation |
+**The first number to look at isn't the speed, it's the gap between cold and
+warm:**
+
+| | cold prompt | warm prompt |
 |---|---|---|
-| CUDA, `-ngl 99` (VRAM saturated) | 65 | ~2 t/s, prompt 40 t/s |
-| Vulkan, auto | 56 | ~8 t/s |
-| CUDA, auto (VRAM estimate) | 53 | ~7-9 t/s |
+| first message of a conversation | **25.8 s** | — |
+| every one after it | — | **1.5 s** |
 
-A 27B at Q4 doesn't fit entirely in 16 GB: about 12 layers stay on the CPU and
-that is the bottleneck. To go much faster there are two roads, both one line
-away in `config.json`:
+Seventeen times less, and it's the prefix cache doing its job: rules and
+schemas don't change between turns, so they're processed once. That is why
+the memory context and the recipes sit **at the tail of the question** and not
+in the system message; moving them «where they belong» would cost
+twenty-five seconds per message, silently.
+
+**Then the flags.** Measured, not deduced:
+
+| Configuration | Layers on GPU | Warm prompt | Generation |
+|---|---|---|---|
+| as before | 53 | 1504 ms | 6.0 t/s |
+| `-fa on` | 53 | 1541 ms | 6.1 t/s |
+| 8-bit KV | 53 | 1281 ms | 6.5 t/s |
+| 8-bit KV, 60 layers | 60 | **691 ms** | **9.0 t/s** |
+| 8-bit KV, 62 layers | 62 | 600 ms | 7.7 t/s |
+| 8-bit KV, 64 layers | 64 | — | VRAM saturates, collapses |
+
+Two things you couldn't have known by reading. **Flash attention was already
+on**: in this build the default is `auto`, and auto means on — setting it by
+hand changes nothing. And **the 8-bit KV cache isn't about computing faster**:
+it's about taking half the memory, and on a card where the model doesn't fit
+entirely, that half becomes layers moving back onto the GPU. That's where the
+real gain is, not in the arithmetic.
+
+NOVA now uses the 8-bit KV by default (`server.kv_cache_type`), and the layer
+estimate knows the cache is smaller. The estimate stays cautious though — 55
+layers instead of the 60 measured — because erring on the high side doesn't
+give you an error: it gives you a model that starts and runs ten times slower
+without saying so. If you want the 60, set them by hand:
+
+```jsonc
+// config.json
+"server": { "n_gpu_layers": 60, "kv_cache_type": "q8_0" }
+```
+
+And measure again, because free VRAM depends on what else is running:
+
+```powershell
+python banco_modello.py            # every configuration
+python banco_modello.py kv8-60     # just one
+```
+
+A 27B at Q4 doesn't fit entirely in 16 GB, and five layers on the CPU stay the
+bottleneck. To go much faster there are two roads, both one line away in
+`config.json`:
 
 - a smaller quant of the same model (Q3_K_M ~12.5 GB fits entirely in VRAM:
   3-4x faster, slightly lower quality);
