@@ -25,6 +25,7 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
+from .guasti import spiega
 
 # Quello che si sa leggere. Il resto si elenca lo stesso - sapere che un file
 # c'e' vale anche quando non lo si sa aprire - ma dicendolo.
@@ -151,7 +152,7 @@ def leggi(nome: str, caratteri: int = 8000) -> dict:
                     "motivo": f"non so leggere un {est or 'file senza estensione'}. "
                               "Si legge .txt .md .pdf .docx .xlsx .csv .json"}
     except Exception as e:
-        return {"ok": False, "motivo": f"{type(e).__name__}: {e}"}
+        return {"ok": False, "motivo": spiega(e)}
     if not (testo or "").strip():
         return {"ok": False,
                 "motivo": "il file non contiene testo estraibile "

@@ -31,6 +31,7 @@ import unicodedata
 import uuid
 from datetime import datetime
 from pathlib import Path
+from .guasti import spiega
 
 # I profili: quali strumenti e quanta istruzione servono per un mestiere.
 # Non e' eleganza architetturale, e' la ragione per cui un modello piccolo
@@ -251,7 +252,7 @@ def apri(percorso: str, profilo: str = "studio", radice: str = "",
     try:
         blocchi = _leggi_documento(f)
     except Exception as e:
-        return {"ok": False, "motivo": f"{type(e).__name__}: {e}"}
+        return {"ok": False, "motivo": spiega(e)}
     if not blocchi:
         return {"ok": False,
                 "motivo": "il documento non contiene testo estraibile "
@@ -299,7 +300,7 @@ def apri(percorso: str, profilo: str = "studio", radice: str = "",
         finestra = apri_se_serve()
     except Exception as e:
         finestra = {"viva": False, "accesa_adesso": False,
-                    "motivo": f"{type(e).__name__}: {e}"}
+                    "motivo": spiega(e)}
     pagine = {b["pagina"] for b in blocchi if b["pagina"]}
     return {"ok": True, "sessione": sessione, "nome": f.name,
             "blocchi": len(blocchi), "pagine": len(pagine) or None,

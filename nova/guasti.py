@@ -1,0 +1,197 @@
+# -*- coding: utf-8 -*-
+"""Un guasto detto in italiano, non in Python.
+
+Due cose diverse, e questo modulo fa tutte e due.
+
+**Tradurre.** «PermissionError: [Errno 13]» non e' un messaggio, e' il nome
+di una classe. Chi lo legge non impara niente e pensa che il programma sia
+rotto. Qui ogni guasto che capita davvero diventa una frase che dice cos'e'
+successo e, quando si sa, cosa si puo' fare.
+
+**Non sparire.** NOVA gira sotto `pythonw`: non ha una console, quindi un
+errore non gestito non finisce da nessuna parte. Il programma si chiude e
+basta. Per l'utente e' la cosa peggiore che possa capitare, perche' non c'e'
+niente da raccontare a nessuno. `installa()` mette una rete sotto tutto:
+il guasto si scrive su file, e se c'e' una finestra si dice.
+
+Il traceback non sparisce, cambia posto: va nel file, dove serve a chi
+ripara. Sullo schermo va la frase.
+"""
+from __future__ import annotations
+
+import json
+import os
+import sys
+import threading
+import traceback
+from datetime import datetime
+from pathlib import Path
+
+# WinError che capitano davvero, con il loro nome in italiano.
+_WINERROR = {
+    5: "Windows non me lo lascia fare (accesso negato).",
+    32: "Il file e' aperto in un altro programma.",
+    112: "Non c'e' piu' spazio sul disco.",
+    1225: "Il computer dall'altra parte ha rifiutato la connessione.",
+}
+
+
+# Quello che si importa non e' quello che si installa.
+_PACCHETTO = {
+    "fitz": "PyMuPDF",
+    "docx": "python-docx",
+    "PIL": "pillow",
+    "websocket": "websocket-client",
+    "yaml": "PyYAML",
+    "cv2": "opencv-python",
+    "sounddevice": "sounddevice",
+    "faster_whisper": "faster-whisper",
+    "pygments": "Pygments",
+}
+
+
+def percorso_guasti() -> Path:
+    base = os.environ.get("APPDATA")
+    cartella = (Path(base) / "NOVA") if base else (Path.home() / ".nova")
+    try:
+        cartella.mkdir(parents=True, exist_ok=True)
+    except Exception:                                   # noqa: BLE001
+        # Se non si puo' creare la cartella si dice comunque dove sarebbe
+        # andato: chi legge il messaggio deve poter cercare li'.
+        pass
+    return cartella / "guasti.jsonl"
+
+
+def _dove(e: BaseException) -> str:
+    """L'ultimo posto nel codice di NOVA, non l'ultimo in assoluto.
+
+    La riga piu' profonda di solito e' dentro una libreria e non dice
+    niente a nessuno. Quella che serve e' l'ultima di NOVA.
+    """
+    nostre = [q for q in traceback.extract_tb(e.__traceback__)
+              if f"{os.sep}nova{os.sep}" in q.filename]
+    q = (nostre or traceback.extract_tb(e.__traceback__) or [None])[-1]
+    return f"{Path(q.filename).name}:{q.lineno}" if q else ""
+
+
+def spiega(e: BaseException, cosa: str = "") -> str:
+    """Il guasto in una frase. `cosa` e' quello che si stava facendo."""
+    premessa = f"{cosa}: " if cosa else ""
+    nome = getattr(e, "filename", None) or getattr(e, "filename2", None)
+    nome = Path(nome).name if nome else ""
+
+    if isinstance(e, FileNotFoundError):
+        # Il caso piu' frequente non e' un file: e' un programma che
+        # l'installer dava per presente.
+        return premessa + (f"non trovo «{nome}»." if nome
+                           else f"non trovo quello che cercavo ({e}).")
+    if isinstance(e, IsADirectoryError):
+        return premessa + f"«{nome}» e' una cartella, non un file."
+    if isinstance(e, PermissionError):
+        return premessa + (
+            f"non posso toccare «{nome}»: " if nome else "permesso negato: ")\
+            + "di solito e' aperto in un altro programma, oppure sta in una " \
+              "cartella che Windows protegge."
+    if isinstance(e, (ConnectionRefusedError, ConnectionResetError,
+                      ConnectionAbortedError)):
+        return premessa + ("non risponde nessuno dall'altra parte. Se e' il "
+                           "modello, probabilmente e' spento.")
+    if isinstance(e, TimeoutError):
+        return premessa + "ci ha messo troppo e ho smesso di aspettare."
+    if isinstance(e, UnicodeDecodeError):
+        return premessa + (f"«{nome}» non e' testo, o e' scritto in una "
+                           "codifica che non riconosco.")
+    if isinstance(e, json.JSONDecodeError):
+        return premessa + (f"il file non e' JSON valido (riga {e.lineno}, "
+                           f"colonna {e.colno}).")
+    if isinstance(e, ModuleNotFoundError):
+        manca = getattr(e, "name", "") or ""
+        if not manca:
+            return premessa + "manca una libreria, e non so dire quale."
+        # Il nome che si importa e quello che si installa spesso non
+        # coincidono, e mandare l'utente a installare «fitz» lo manda a
+        # installare un pacchetto sbagliato che esiste davvero.
+        return premessa + (f"manca «{manca}». Si installa con "
+                           f"«pip install {_PACCHETTO.get(manca, manca)}».")
+    if isinstance(e, MemoryError):
+        return premessa + "e' finita la memoria."
+    if isinstance(e, RecursionError):
+        return premessa + "mi sono avvitato su me stesso e mi sono fermato."
+    if isinstance(e, OSError):
+        winerror = getattr(e, "winerror", None)
+        if winerror in _WINERROR:
+            return premessa + _WINERROR[winerror]
+        if getattr(e, "errno", None) == 28:
+            return premessa + "non c'e' piu' spazio sul disco."
+        return premessa + f"il sistema ha detto di no ({e.strerror or e})."
+    # Quello che resta: si dice il messaggio, non il nome della classe. Il
+    # nome della classe non ha mai aiutato nessuno che non stia riparando.
+    messaggio = str(e).strip()
+    return premessa + (messaggio if messaggio
+                       else "qualcosa e' andato storto e non so dire cosa.")
+
+
+def registra(e: BaseException, dove: str = "") -> Path:
+    """Il traceback va nel file. E' li' che serve, non sullo schermo."""
+    try:
+        f = percorso_guasti()
+    except Exception:                                   # noqa: BLE001
+        return Path("guasti.jsonl")
+    riga = {
+        "quando": datetime.now().isoformat(timespec="seconds"),
+        "dove": dove or _dove(e),
+        "tipo": type(e).__name__,
+        "detto": spiega(e),
+        "traccia": "".join(traceback.format_exception(
+            type(e), e, e.__traceback__))[-4000:],
+    }
+    try:
+        # Un file che cresce all'infinito e' un file che nessuno apre.
+        if f.exists() and f.stat().st_size > 512_000:
+            coda = f.read_text(encoding="utf-8", errors="replace").splitlines()[-200:]
+            f.write_text("\n".join(coda) + "\n", encoding="utf-8")
+        with f.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(riga, ensure_ascii=False) + "\n")
+    except Exception:                                   # noqa: BLE001
+        pass                    # se non si riesce a scrivere il guasto,
+    return f                    # non si fa un guasto per il guasto
+
+
+_installato = False
+
+
+def installa(mostra=None, riscrivi: bool = False) -> bool:
+    """La rete sotto tutto: niente sparisce in silenzio.
+
+    `mostra(titolo, testo)` e' come si avvisa l'utente quando c'e' una
+    finestra. Senza, il guasto finisce comunque nel file. Si stende due
+    volte: una all'avvio, quando una finestra non c'e' ancora, e una quando
+    la finestra c'e' — quella seconda volta con `riscrivi`.
+
+    Copre anche i thread: NOVA ne usa parecchi (memoria, procedure,
+    sorveglianza), e un thread che muore zitto e' peggio di uno che urla.
+    """
+    global _installato
+    if _installato and not riscrivi:
+        return False
+
+    def racconta(tipo, valore, traccia) -> None:
+        if issubclass(tipo, (KeyboardInterrupt, SystemExit)):
+            sys.__excepthook__(tipo, valore, traccia)
+            return
+        f = registra(valore)
+        if mostra is not None:
+            try:
+                mostra("NOVA si e' fermata",
+                       spiega(valore) + f"\n\nScritto in {f}")
+            except Exception:                           # noqa: BLE001
+                pass
+
+    sys.excepthook = racconta
+    if hasattr(threading, "excepthook"):
+        def nel_thread(arg) -> None:
+            if arg.exc_value is not None:
+                registra(arg.exc_value, dove=f"thread {arg.thread and arg.thread.name}")
+        threading.excepthook = nel_thread
+    _installato = True
+    return True

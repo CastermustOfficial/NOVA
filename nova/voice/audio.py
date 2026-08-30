@@ -22,7 +22,7 @@ def disponibile_ingresso() -> tuple[bool, str]:
     try:
         import sounddevice as sd  # type: ignore
     except Exception as e:
-        return False, f"manca sounddevice ({type(e).__name__}): pip install sounddevice"
+        return False, "manca sounddevice: si installa con «pip install sounddevice»"
     try:
         if not [d for d in sd.query_devices() if d["max_input_channels"] > 0]:
             return False, "nessun microfono"

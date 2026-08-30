@@ -15,6 +15,7 @@ from typing import Callable
 
 from .schema import ORIGINE_AUTO, Node, slugify
 from .store import Vault
+from ..guasti import spiega
 
 PROMPT_ESTRAZIONE = """Sei il modulo di memoria di NOVA. Leggi lo scambio qui sotto ed estrai
 SOLO i fatti durevoli su {user} o sul suo ambiente di lavoro: preferenze, abitudini,
@@ -141,7 +142,7 @@ class MemoryWriter:
                     # un errore su uno scambio non deve fermare la coda, ma
                     # nemmeno sparire: prima un «except: pass» inghiottiva
                     # JSON malformato, errori del modello e tutto il resto
-                    self._segnala(f"{type(e).__name__}: {e}")
+                    self._segnala(spiega(e))
         finally:
             # Azzerare _in_corso sul ramo di uscita *e* qui lasciava scoperte
             # due operazioni sul lock: un produttore che entrava in quella

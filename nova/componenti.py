@@ -37,6 +37,7 @@ import tempfile
 import zipfile
 from pathlib import Path
 from typing import Iterator
+from .guasti import spiega
 
 RADICE = Path(__file__).resolve().parent.parent
 RUNTIME = RADICE / "runtime"
@@ -337,7 +338,7 @@ def scarica(nome: str) -> Iterator[dict]:
                    "di": len(mancanti)}
         except Exception as e:  # noqa: BLE001 - va riferito, non ingoiato
             yield {"evento": "errore", "componente": nome, "pezzo": i,
-                   "messaggio": f"{type(e).__name__}: {e}"}
+                   "messaggio": spiega(e)}
             return
 
     yield {"evento": "finito", "componente": nome}

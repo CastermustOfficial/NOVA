@@ -109,7 +109,16 @@ def run_tool(name: str, args: dict, ctx: Any = None) -> str:
     except TypeError as e:
         return f"ERRORE argomenti per '{name}': {e}"
     except Exception as e:  # rete di sicurezza
-        return f"ERRORE imprevisto in '{name}': {e}\n{traceback.format_exc(limit=3)}"
+        # Due destinatari nello stesso messaggio, e vanno tenuti distinti.
+        # La prima riga e' la frase che il modello puo' ripetere all'utente
+        # cosi' com'e'; il traceback che segue serve al modello per capire se
+        # puo' riprovare in un altro modo, e non va riferito a nessuno. Il
+        # traceback per intero e' comunque nel file dei guasti.
+        from ..guasti import registra, spiega
+        registra(e, dove=f"tool {name}")
+        return (f"ERRORE in '{name}': {spiega(e)}\n"
+                f"[dettaglio tecnico, per te e non da riferire all'utente]\n"
+                f"{traceback.format_exc(limit=3)}")
 
     if isinstance(result, str):
         return result

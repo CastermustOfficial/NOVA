@@ -39,6 +39,7 @@ from pathlib import Path
 
 from . import harness
 from . import registro
+from .guasti import spiega
 
 AZIONI_TESTO = {"sostituisci", "prima", "dopo", "elimina"}
 AZIONI_PDF = {"evidenzia", "nota"}
@@ -176,7 +177,7 @@ def applica(sessione: str = "") -> dict:
     except Exception as e:                                     # noqa: BLE001
         return {"ok": False,
                 "motivo": f"non riesco a mettere da parte una copia "
-                          f"({type(e).__name__}: {e}), quindi non tocco niente"}
+                          "(" + spiega(e) + "), quindi non tocco niente"}
 
     est = f.suffix.lower()
     try:
@@ -194,8 +195,8 @@ def applica(sessione: str = "") -> dict:
         except Exception:                                      # noqa: BLE001
             pass
         return {"ok": False,
-                "motivo": f"{type(e).__name__}: {e} — il documento e' "
-                          f"stato rimesso com'era"}
+                "motivo": spiega(e) + " — il documento e' stato "
+                                            "rimesso com'era"}
 
     file_proposta(p["file"]).unlink(missing_ok=True)
     _rileggi(p["sessione"], f)

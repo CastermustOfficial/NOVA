@@ -37,6 +37,7 @@ import sys
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
+from .guasti import spiega
 
 NOME_ATTIVITA = "NOVA - pianificazione"
 OGNI_MINUTI = 5
@@ -253,7 +254,7 @@ def esegui_dovute(adesso: float | None = None) -> list[dict]:
         try:
             esito = automazioni.esegui(v["automazione"], v.get("dati") or {})
         except Exception as e:
-            esito = {"ok": False, "errore": f"{type(e).__name__}: {e}"}
+            esito = {"ok": False, "errore": spiega(e)}
 
         v["ultimo"] = adesso
         v["ultimo_esito"] = "ok" if esito.get("ok") else str(
@@ -318,7 +319,7 @@ def installa_attivita(minuti: int = OGNI_MINUTI) -> dict:
              "/st", datetime.now().strftime("%H:%M")],
             capture_output=True, text=True, timeout=30, cwd=str(radice))
     except Exception as e:
-        return {"ok": False, "motivo": f"{type(e).__name__}: {e}"}
+        return {"ok": False, "motivo": spiega(e)}
     if r.returncode != 0:
         return {"ok": False,
                 "motivo": (r.stderr or r.stdout or "schtasks ha rifiutato").strip()[:300]}

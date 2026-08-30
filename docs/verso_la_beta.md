@@ -201,6 +201,37 @@ installato dopo il primo giorno.
 
 ---
 
+---
+
+## Da fare, ma dopo
+
+Cose decise e messe da parte apposta, per non confonderle con le tre liste
+qui sopra: quelle portano alla beta, queste vengono dopo.
+
+### Il trascrittore
+
+Registrare una chiamata — una call di lavoro, una riunione — e restituire non
+la trascrizione ma **cio' che serve dopo la chiamata**:
+
+- il trascritto con **chi ha detto cosa** (diarizzazione, non un muro di
+  testo);
+- il riassunto, e separati i **punti decisi** da quelli rimasti aperti;
+- **le cose da fare**: chi, cosa, entro quando — pronte per finire nelle
+  attivita' pianificate di NOVA;
+- **le bozze di risposta** gia' scritte: la mail di riepilogo, la risposta a
+  chi ha chiesto una cosa, il documento promesso.
+
+I pezzi ci sono quasi tutti. `nova-voce` gia' trascrive (whisper.cpp e
+ElevenLabs Scribe); l'harness gia' e' il posto dove un testo lungo si guarda
+mentre se ne parla; le proposte gia' sanno nascere dentro un documento. Quello
+che manca e' la cattura dell'audio di sistema (non solo del microfono: in una
+call meta' delle voci arrivano dall'altoparlante), la diarizzazione, e il
+formato del risultato.
+
+Vale la pena notare perche' e' un caso buono per NOVA e non per una chat: la
+registrazione **non deve uscire dal PC**. E' esattamente il tipo di materiale
+per cui il modello locale non e' un ripiego.
+
 ## Il cancello della beta
 
 Non e' una data, sono cinque frasi che devono essere vere insieme:

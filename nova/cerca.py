@@ -40,6 +40,7 @@ import time
 from pathlib import Path
 
 from . import browser
+from .guasti import spiega
 
 # Porta e profilo separati da quelli del browser di lavoro: cosi' una ricerca
 # non fa mai comparire niente, e non incrocia le schede aperte.
@@ -179,7 +180,7 @@ def prendi(url: str, caratteri: int = 6000, timeout: float = 20) -> dict:
     try:
         r = requests.get(url, headers={"User-Agent": UA}, timeout=timeout)
     except Exception as e:
-        return {"ok": False, "motivo": f"{type(e).__name__}: {e}"}
+        return {"ok": False, "motivo": spiega(e)}
     if not r.ok:
         return {"ok": False, "motivo": f"il sito ha risposto {r.status_code}"}
     tipo = (r.headers.get("Content-Type") or "").lower()

@@ -25,6 +25,7 @@ import requests
 
 from .schema import Node, slugify
 from .store import Vault
+from ..guasti import spiega
 
 PAROLA = re.compile(r"[a-zA-Zàèéìòóùç0-9_]+", re.IGNORECASE)
 
@@ -323,7 +324,7 @@ class KBEngine:
             except Exception as e:
                 self._vettori.pop(n.slug, None)
                 self._falliti[n.slug] = (firma, adesso)
-                self.ultimo_errore_embedding = f"{type(e).__name__}: {e}"
+                self.ultimo_errore_embedding = spiega(e)
                 consecutivi += 1
                 if consecutivi >= MAX_FALLIMENTI_CONSECUTIVI:
                     self._pausa_embedding = adesso + ATTESA_DOPO_ERRORE_S
@@ -377,7 +378,7 @@ class KBEngine:
             # Campo separato da quello dell'indicizzazione: una query che
             # riesce non deve cancellare il fallimento su un nodo lungo, che
             # e' proprio il caso interessante.
-            self.errore_embedding_query = f"{type(e).__name__}: {e}"
+            self.errore_embedding_query = spiega(e)
 
         # 3. fusione
         fusi = rrf([sparse, dense])

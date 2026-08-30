@@ -33,10 +33,17 @@ def _prepare_config(reconfigure: bool = False) -> Config:
 
 
 def run_gui(cfg: Config) -> int:
-    from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtWidgets import QApplication, QMessageBox
     app = QApplication(sys.argv)
     app.setApplicationName("NOVA")
     app.setQuitOnLastWindowClosed(False)
+
+    # Da qui in poi un guasto si puo' dire, non solo scrivere. PyQt chiama
+    # sys.excepthook anche per le eccezioni che escono da uno slot, quindi
+    # basta rinstallare la rete dandole una finestra.
+    from .guasti import installa
+    installa(lambda titolo, testo: QMessageBox.critical(None, titolo, testo),
+             riscrivi=True)
 
     from .ui.main_window import MainWindow
     win = MainWindow(cfg)
@@ -179,6 +186,11 @@ def run_cli(cfg: Config, once: str | None = None, no_server: bool = False,
 
 
 def main(argv: list[str] | None = None) -> int:
+    # La rete si stende per prima. Sotto pythonw non c'e' una console: un
+    # errore non gestito qui dentro chiuderebbe NOVA senza lasciare niente,
+    # ne' sullo schermo ne' su disco.
+    from .guasti import installa
+    installa()
     ap = argparse.ArgumentParser(prog="nova", description="Assistente digitale locale")
     ap.add_argument("--cli", action="store_true", help="modalita' testuale invece della GUI")
     ap.add_argument("--ask", metavar="TESTO", help="esegue una singola richiesta e termina")

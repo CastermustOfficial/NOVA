@@ -27,6 +27,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from .guasti import spiega
 
 AGGIORNA_MS = 700
 
@@ -173,7 +174,7 @@ def costruisci(app=None):
                 else:
                     self.finito.emit(testo, "")
             except Exception as e:                              # noqa: BLE001
-                self.finito.emit("", f"{type(e).__name__}: {e}")
+                self.finito.emit("", spiega(e))
 
         def ferma(self) -> None:
             try:
@@ -762,7 +763,7 @@ def costruisci(app=None):
                         and f.suffix.lower() in RESE):
                     self.pagina.setUrl(QUrl.fromLocalFile(str(f.resolve())))
             except Exception as e:                              # noqa: BLE001
-                self.salvato.setText(f"non salvato: {type(e).__name__}")
+                self.salvato.setText(f"non salvato: {spiega(e)}")
 
         def _destra(self) -> QWidget:
             c = QWidget()
@@ -1451,7 +1452,7 @@ def apri_se_serve(attendi: float = 12.0) -> dict:
             creationflags=0x08000000 if os.name == "nt" else 0)
     except Exception as e:                                      # noqa: BLE001
         return {"viva": False, "accesa_adesso": False,
-                "motivo": f"{type(e).__name__}: {e}"}
+                "motivo": spiega(e)}
 
     scadenza = time.time() + attendi
     while time.time() < scadenza:
