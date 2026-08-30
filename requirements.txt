@@ -10,10 +10,37 @@ send2trash>=1.8
 pycaw>=20240210
 comtypes>=1.2
 
+# --- il browser ---
+# NOVA pilota Chrome parlando con lui in CDP, che viaggia su websocket: senza
+# questo, web_click e tutto il resto non partono nemmeno. Era la dipendenza
+# piu' vistosamente assente, e la piu' invisibile - il codice la importa
+# dentro una funzione, e su questa macchina c'era.
+websocket-client>=1.7
+
+# --- schermo e immagini ---
+mss>=9.0
+pillow>=10.0
+
+# --- documenti ---
+# Non erano qui, e sulla macchina di chi sviluppa c'erano da mesi: l'harness
+# apriva PDF e Word solo perche' qualcuno li aveva installati a mano una volta.
+# Su un'installazione pulita un PDF non si apriva affatto - e nessuno se ne
+# accorgeva, perche' le prove giravano solo dove i pacchetti c'erano gia'.
+# Disegnare le pagine di un PDF, che e' meta' dell'harness.
+PyMuPDF>=1.24
+# Leggere e modificare i .docx senza spogliarli, e leggere il CV nel fascicolo.
+python-docx>=1.1
+# I fogli di calcolo del fascicolo.
+openpyxl>=3.1
+# Leggere i PDF come testo, dove non serve disegnarli.
+pypdf>=4.0
+
 # --- voce ---
 # Registrazione e riproduzione. Il resto (ascolto e sintesi) passa da
 # ElevenLabs via HTTP, quindi non serve nessun modello in locale.
 sounddevice>=0.4
+# I campioni audio sono vettori: senza, la registrazione non si tocca.
+numpy>=1.24
 # Solo se si vuole trascrivere senza far uscire l'audio dal PC:
 # stt_engine: "faster-whisper" nella configurazione.
 # faster-whisper>=1.0
