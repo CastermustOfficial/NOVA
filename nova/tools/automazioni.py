@@ -96,6 +96,7 @@ def automazione_crea(nome: str, titolo: str, quando_usarla: str, corpo: str,
     "Le automazioni che NOVA si e' costruita: cosa fanno, quante volte sono "
     "servite, quanto ci mettono e quante volte hanno fallito.",
     {}, Risk.SAFE, category="sistema",
+    preview=lambda a: "Guardo le automazioni che mi sono costruita",
 )
 def automazioni_elenco() -> str:
     elenco = _auto().elenco()
@@ -119,6 +120,7 @@ def automazioni_elenco() -> str:
     "quando ha smesso di funzionare.",
     {"nome": {"type": "string", "description": "Il nome, senza il prefisso auto_"}},
     Risk.SAFE, required=["nome"], category="sistema",
+    preview=lambda a: f"Leggo il codice dell'automazione «{a.get('nome', '')}»",
 )
 def automazione_codice(nome: str) -> str:
     testo = _auto().codice((nome or "").replace("auto_", "").strip())

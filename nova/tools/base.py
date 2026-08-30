@@ -51,8 +51,14 @@ class Tool:
                 return self.preview(args)
             except Exception:
                 pass
-        shown = json.dumps(args, ensure_ascii=False)
-        return f"{self.name}({shown[:300]})"
+        # Questo ripiego finisce sotto gli occhi dell'utente: e' lo stato
+        # che si legge mentre NOVA lavora e la riga della richiesta di
+        # conferma. «files_search({"query": "x"})» e' una chiamata di
+        # funzione, e chi la legge capisce solo che sta guardando dentro un
+        # programma. Meglio una riga sgraziata ma in italiano.
+        pezzi = [f"{k}: {v}" for k, v in (args or {}).items() if v not in ("", None)]
+        coda = " — " + ", ".join(pezzi)[:160] if pezzi else ""
+        return f"Uso «{self.name.replace('_', ' ')}»{coda}"
 
 
 REGISTRY: dict[str, Tool] = {}

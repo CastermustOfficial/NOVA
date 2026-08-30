@@ -137,6 +137,7 @@ def ripara_butta(banco: str) -> str:
     "Cosa NOVA ha cambiato di se stessa, dalla piu' recente, e cosa e' gia' "
     "stato annullato.",
     {}, Risk.SAFE, category="sistema",
+    preview=lambda a: "Guardo cosa ho gia' cambiato di me stessa",
 )
 def riparazioni_elenco() -> str:
     import datetime

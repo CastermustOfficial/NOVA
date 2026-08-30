@@ -120,6 +120,7 @@ def pianifica(istruzione: str, quando: str, ripeti: str = "", nome: str = "") ->
     "pianifica_elenco",
     "Elenca le cose che NOVA si e' data da fare piu' tardi.",
     {}, Risk.SAFE, category="sistema",
+    preview=lambda a: "Guardo cosa ho in programma",
 )
 def pianifica_elenco() -> str:
     res = subprocess.run(["schtasks", "/Query", "/FO", "LIST", "/V"],

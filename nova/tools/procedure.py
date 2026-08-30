@@ -19,6 +19,9 @@ from .base import Risk, ToolError, tool
     {"cerca": {"type": "string",
                "description": "Vuoto per tutte, oppure una parola per filtrare"}},
     Risk.SAFE, category="memoria",
+    preview=lambda a: ("Cerco fra le procedure imparate: "
+                       f"«{a['cerca']}»" if a.get("cerca")
+                       else "Guardo le procedure che ho imparato"),
 )
 def procedure_elenco(cerca: str = "") -> str:
     from .. import ricette
