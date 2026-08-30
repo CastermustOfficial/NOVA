@@ -59,7 +59,23 @@ document.addEventListener('contextmenu', async e => {
 });
 
 /* Lo stato arriva dal guscio, che lo sente dal demone. */
+/* Un colore che nessuno sa decodificare non e' uno stato: verde, blu e
+   magenta li ha scelti chi ha scritto il codice, non chi guarda l'orb.
+   Fermandoci sopra col mouse si legge cosa sta facendo, a parole. */
+const DETTO = { quiete: 'a riposo', ascolto: 'ti ascolto', penso: 'ci penso',
+  agisco: 'sto facendo', parlo: 'sto parlando', chiedo: 'aspetto un tuo ok',
+  allarme: 'qualcosa non va', spento: 'demone spento' };
+let ultimoStato = 'quiete';
+let ultimoPasso = '';
+const spiega = () => {
+  const el = document.getElementById('orb') || document.body;
+  el.title = ultimoPasso || DETTO[ultimoStato] || ultimoStato;
+};
+tauri?.event?.listen?.('nova://passo', ev => {
+  ultimoPasso = String(ev.payload?.testo || ''); spiega();
+});
 tauri?.event?.listen?.('nova://stato', ev => {
+  ultimoStato = String(ev.payload?.stato || 'quiete'); spiega();
   orb.stato(String(ev.payload?.stato || 'quiete'));
 });
 </script>

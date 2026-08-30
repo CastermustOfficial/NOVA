@@ -79,6 +79,11 @@ def avvia_orb() -> int:
     return 0
 
 
+# Un carattere che nessuno scrive per sbaglio: e' il separatore di unita'
+# dell'ASCII, e serve a distinguere «questo e' lo stato» da una riga di log
+# qualunque senza inventarsi un formato.
+MARCA_STATO = "\x1fNOVA-STATO\x1f"
+
 POSTILLA_VOCE = """
 
 <voce>
@@ -123,6 +128,18 @@ def run_cli(cfg: Config, once: str | None = None, no_server: bool = False,
 
     def log(*pezzi):
         print(*pezzi, file=_sys.stderr, flush=True)
+
+    # Lo stato di NOVA mentre lavora esce da qui, marcato, su stderr - stdout
+    # e' la risposta e non si tocca. Chi ci sta attorno (il guscio) legge le
+    # righe marcate mentre arrivano e le mette accanto all'orb; chi non le
+    # riconosce le vede come una riga di diagnostica qualunque.
+    #
+    # Serve perche' fin qui questo stato veniva calcolato e buttato: NOVA
+    # sapeva dire «Apro il portale delle offerte, 12s» e lo diceva a
+    # `lambda s: None`. Chi guardava l'orb vedeva solo un colore.
+    def passo(testo: str) -> None:
+        if testo:
+            print(f"{MARCA_STATO}{testo}", file=_sys.stderr, flush=True)
     from .agent import Agent, AgentCallbacks
     from .runtime import LlamaServer
 
@@ -146,7 +163,7 @@ def run_cli(cfg: Config, once: str | None = None, no_server: bool = False,
     esegui_seed_se_serve(cfg, vault, kb_engine, log=lambda m: log("[kb]", m))
 
     agent = Agent(cfg, kb_engine=kb_engine, vault=vault, callbacks=AgentCallbacks(
-        on_status=lambda s: None,
+        on_status=passo,
         # In --ask la risposta e' *tutto* stdout: chi legge da fuori non deve
         # dover togliere un prefisso per avere il testo.
         on_assistant=lambda t: print(t if once else f"\nNOVA: {t}", flush=True),

@@ -197,10 +197,27 @@ const TURNO = {
 /* Sta lavorando = c'e' qualcosa che ha senso fermare. «chiedo» no: li' sta
    aspettando te, e la risposta e' il bottone di conferma, non il freno. */
 const LAVORA = ['penso', 'agisco', 'parlo'];
+/* Il passo e' quello che NOVA sta facendo *adesso*, con i secondi che
+   passano: «Apro il portale delle offerte · 12s». Lo stato grossolano
+   («ci penso») resta sotto e torna appena il passo finisce - due righe
+   diverse nello stesso posto sarebbero una che copre l'altra. */
+let passoCorrente = '';
+let turnoCorrente = 'quiete';
+
+function scriviTurno() {
+  $('turno').textContent = passoCorrente || T(TURNO[turnoCorrente] || TURNO.quiete);
+}
+
 function turno(nome) {
+  turnoCorrente = nome;
   orb.stato(nome === 'spento' ? 'quiete' : nome);
-  $('turno').textContent = T(TURNO[nome] || TURNO.quiete);
+  scriviTurno();
   document.body.classList.toggle('lavora', LAVORA.includes(nome));
+}
+
+function passo(testo) {
+  passoCorrente = String(testo || '');
+  scriviTurno();
 }
 
 async function ferma() {
@@ -339,6 +356,8 @@ ascolta?.('nova://voce', ev => {
   if (inCorso) { riempi(inCorso, testo, v.da === 'errore'); inCorso = null; }
   else battuta(v.da === 'errore' ? 'errore' : 'nova', testo);
 });
+
+ascolta?.('nova://passo', ev => passo(ev.payload?.testo));
 
 ascolta?.('nova://fase', ev => {
   const f = String(ev.payload?.fase || '');

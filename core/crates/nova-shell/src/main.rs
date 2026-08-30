@@ -231,8 +231,8 @@ fn config_scrivi(modifica: serde_json::Value) -> Result<serde_json::Value, Strin
 /// La chiama la chat quando si scrive. Il giro vocale non passa di qui: ha
 /// bisogno di altro attorno (i marcatori, la fase, la voce) e sta in `voce`.
 #[tauri::command]
-async fn parla(testo: String) -> Result<String, String> {
-    cervello::chiedi(testo, false).await
+async fn parla(app: tauri::AppHandle, testo: String) -> Result<String, String> {
+    cervello::chiedi(app, testo, false).await
 }
 
 fn mostra_o_crea(

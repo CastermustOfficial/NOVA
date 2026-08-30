@@ -6,9 +6,20 @@
 //! processo, scritta su disco. Quando il ciclo dell'agente sara' in Rust
 //! questa funzione parlera' direttamente col demone.
 
+use std::collections::VecDeque;
+use std::io::{BufRead, BufReader, Read};
 use std::sync::atomic::{AtomicU32, Ordering};
 
+use serde_json::json;
+use tauri::{AppHandle, Emitter};
+
 use crate::processo;
+
+/// Come la parte Python marca le righe di stato su stderr. Il separatore di
+/// unita' dell'ASCII: un carattere che nessuno scrive per sbaglio, quindi
+/// non serve inventarsi un formato per distinguere «questo e' lo stato» da
+/// una riga di diagnostica qualunque.
+const MARCA_STATO: &str = "\u{1f}NOVA-STATO\u{1f}";
 
 /// Il processo del cervello mentre sta pensando. 0 = non sta pensando.
 static PENSANTE: AtomicU32 = AtomicU32::new(0);
@@ -49,7 +60,7 @@ pub fn sta_pensando() -> bool {
 /// a voce e sui marcatori di chiusura. Quel testo vive dalla parte Python, con
 /// il resto del prompt, e non entra ne' nella ricerca in memoria ne' in cio'
 /// che NOVA impara: qui passa solo la bandierina.
-pub async fn chiedi(testo: String, dalla_voce: bool) -> Result<String, String> {
+pub async fn chiedi(app: AppHandle, testo: String, dalla_voce: bool) -> Result<String, String> {
     let domanda = testo.trim().to_string();
     if domanda.is_empty() {
         return Ok(String::new());
@@ -74,13 +85,52 @@ pub async fn chiedi(testo: String, dalla_voce: bool) -> Result<String, String> {
         // fermare e il cervello continua a ragionare per conto suo mentre
         // l'utente crede di averlo interrotto.
         PENSANTE.store(figlio.id(), Ordering::SeqCst);
-        let uscita = figlio
-            .wait_with_output()
-            .map_err(|e| format!("il cervello si e' interrotto: {e}"))?;
+
+        // Stdout su un filo suo. Prima si leggeva tutto alla fine con
+        // `wait_with_output`, e andava bene finche' stderr non serviva a
+        // niente. Adesso stderr si legge mentre scorre, e leggere un tubo
+        // per volta significa riempire l'altro e restare li': una risposta
+        // lunga bloccherebbe il cervello a meta' frase.
+        let uscita = figlio.stdout.take();
+        let filo_uscita = std::thread::spawn(move || {
+            let mut testo = String::new();
+            if let Some(u) = uscita {
+                let _ = BufReader::new(u).read_to_string(&mut testo);
+            }
+            testo
+        });
+
+        // Stderr riga per riga, mentre arriva: le righe marcate sono lo
+        // stato di NOVA e vanno all'orb subito - e' tutto il punto, un
+        // «Apro il portale delle offerte, 12s» che arriva alla fine non e'
+        // uno stato, e' un ricordo. Le altre sono diagnostica, e servono
+        // solo se la risposta non arriva: si tiene la coda, che e' dove
+        // sta scritto cosa e' andato storto.
+        let mut coda: VecDeque<String> = VecDeque::new();
+        if let Some(errori) = figlio.stderr.take() {
+            for riga in BufReader::new(errori).lines() {
+                let Ok(riga) = riga else { break };
+                if let Some(stato) = riga.strip_prefix(MARCA_STATO) {
+                    let _ = app.emit("nova://passo", json!({ "testo": stato }));
+                } else if !riga.trim().is_empty() {
+                    coda.push_back(riga);
+                    if coda.len() > 60 {
+                        coda.pop_front();
+                    }
+                }
+            }
+        }
+
+        let _ = figlio.wait();
         PENSANTE.store(0, Ordering::SeqCst);
-        let testo_uscita = String::from_utf8_lossy(&uscita.stdout).trim().to_string();
+        // Lo stato si spegne comunque vada: lasciarlo acceso sull'ultimo
+        // passo vorrebbe dire dire che NOVA sta ancora facendo una cosa che
+        // ha finito.
+        let _ = app.emit("nova://passo", json!({ "testo": "" }));
+
+        let testo_uscita = filo_uscita.join().unwrap_or_default().trim().to_string();
         if testo_uscita.is_empty() {
-            let errore = String::from_utf8_lossy(&uscita.stderr);
+            let errore = coda.into_iter().collect::<Vec<_>>().join("\n");
             let errore = errore.trim();
             return Err(if errore.is_empty() {
                 "NOVA non ha risposto".to_string()

@@ -123,6 +123,48 @@ controlla("e lo fa passare da un segnale, non dal thread",
 controlla("e lo spegne quando la risposta arriva",
           "battito.fermati()" in finestra)
 
+print("\n6. e lo stato arriva davvero fuori dal processo")
+# Fin qui NOVA sapeva dire «Apro il portale delle offerte, 12s» e lo diceva
+# a `lambda s: None`: in --ask, che e' come il guscio la interroga, lo stato
+# veniva calcolato a ogni passo e buttato. Chi guardava l'orb vedeva un
+# colore e basta.
+principale = (RADICE / "nova" / "main.py").read_text(encoding="utf-8")
+controlla("in --ask lo stato non finisce piu' nel nulla",
+          "on_status=lambda s: None" not in principale
+          and "on_status=passo" in principale)
+controlla("esce marcato, cosi' non si confonde con la diagnostica",
+          "MARCA_STATO" in principale)
+# Stdout e' la risposta: infilarci lo stato vorrebbe dire che chi legge da
+# fuori deve togliere delle righe per avere il testo.
+righe = [r for r in principale.splitlines() if "MARCA_STATO}" in r]
+controlla("e va su stderr, non su stdout",
+          righe and all("stderr" in r for r in righe), str(righe))
+
+cervello = (RADICE / "core" / "crates" / "nova-shell" / "src" / "cervello.rs")
+rust = cervello.read_text(encoding="utf-8")
+controlla("il guscio conosce la stessa marca", "NOVA-STATO" in rust)
+# Uno stato che arriva alla fine non e' uno stato, e' un ricordo.
+# Il commento spiega perche' non si usa piu': si guarda il codice, non la
+# prosa che lo racconta.
+codice = "\n".join(r for r in rust.splitlines() if not r.strip().startswith("//"))
+controlla("e legge stderr mentre scorre, non alla fine",
+          "wait_with_output" not in codice and ".lines()" in codice)
+# Leggere un tubo per volta significa riempire l'altro e restare li'.
+controlla("mentre stdout se lo legge un filo suo",
+          "thread::spawn" in rust and "read_to_string" in rust)
+controlla("lo stato si spegne comunque vada",
+          'json!({ "testo": "" })' in rust)
+
+nuvoletta = (RADICE / "core" / "crates" / "nova-shell" / "ui" / "index.html").read_text(encoding="utf-8")
+controlla("la nuvoletta mostra il passo", "nova://passo" in nuvoletta)
+controlla("e quando finisce torna allo stato di prima",
+          "passoCorrente ||" in nuvoletta)
+orb = (RADICE / "core" / "crates" / "nova-shell" / "ui" / "orb.html").read_text(encoding="utf-8")
+# Verde, blu e magenta li ha scelti chi ha scritto il codice, non chi
+# guarda l'orb: un colore che nessuno sa decodificare non e' uno stato.
+controlla("e l'orb dice a parole cosa sta facendo", "el.title" in orb)
+
+
 print(f"\n{passati}/{passati + len(falliti)} passati")
 for x in falliti:
     print("  FALLITO:", x)

@@ -199,7 +199,7 @@ async fn un_giro(app: &AppHandle, testo: String) -> Chiusura {
     let _ = app.emit("nova://voce", json!({ "da": "utente", "testo": testo }));
     let _ = app.emit("nova://stato", json!({ "stato": "penso" }));
 
-    let risposta = match crate::cervello::chiedi(testo, true).await {
+    let risposta = match crate::cervello::chiedi(app.clone(), testo, true).await {
         Ok(r) if !r.trim().is_empty() => r,
         Ok(_) => return Chiusura::Nessuna,
         Err(e) => {
