@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 
 from .config import CONFIG_PATH, Config
@@ -185,7 +186,32 @@ def run_cli(cfg: Config, once: str | None = None, no_server: bool = False,
     return 0
 
 
+def _console_in_italiano() -> None:
+    """La console di Windows non parla UTF-8 finche' non glielo si dice.
+
+    Il valore predefinito qui e' la tabella codici 850, che non ha il trattino
+    lungo ne' varie altre cose che NOVA scrive in italiano: l'utente vede dei
+    punti interrogativi e pensa a un guasto, quando invece e' solo il terminale
+    che non sa disegnare quel carattere. Due mosse: si dice a Windows che
+    l'uscita e' UTF-8, e si dice a Python di scriverla cosi' - con
+    errors="replace", perche' un accento che non si stampa non deve fermare un
+    comando.
+    """
+    if os.name == "nt":
+        try:
+            import ctypes
+            ctypes.windll.kernel32.SetConsoleOutputCP(65001)
+        except Exception:                                   # noqa: BLE001
+            pass
+    for flusso in (sys.stdout, sys.stderr):
+        try:
+            flusso.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:                                   # noqa: BLE001
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    _console_in_italiano()
     # La rete si stende per prima. Sotto pythonw non c'e' una console: un
     # errore non gestito qui dentro chiuderebbe NOVA senza lasciare niente,
     # ne' sullo schermo ne' su disco.

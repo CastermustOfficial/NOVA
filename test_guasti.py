@@ -133,9 +133,15 @@ avvio = (RADICE / "run_nova.pyw").read_text(encoding="utf-8")
 controlla("run_nova.pyw stende la rete prima di importare nova.main",
           avvio.index("installa()") < avvio.index("from nova.main import main"))
 principale = (RADICE / "nova" / "main.py").read_text(encoding="utf-8")
-controlla("main() la stende come prima cosa",
-          re.search(r"def main\([^)]*\)[^:]*:\s*\n(\s*#[^\n]*\n)*\s*from \.guasti import installa",
-                    principale) is not None)
+# Prima della rete c'e' solo la console in UTF-8, che e' interamente
+# dentro dei try: e va li' perche' se la rete deve dire qualcosa, deve
+# poterlo dire in italiano.
+corpo_main = principale[principale.index("def main("):]
+prima_della_rete = corpo_main[:corpo_main.index("from .guasti import installa")]
+righe_prima = [r.strip() for r in prima_della_rete.splitlines()[1:]
+               if r.strip() and not r.strip().startswith("#")]
+controlla("main() stende la rete quasi per prima",
+          righe_prima in ([], ["_console_in_italiano()"]), str(righe_prima))
 controlla("e la GUI la ristende con una finestra",
           "riscrivi=True" in principale and "QMessageBox" in principale)
 

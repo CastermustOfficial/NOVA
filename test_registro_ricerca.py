@@ -126,7 +126,18 @@ posto = principale.index('if args.registro is not None:')
 controlla("e non serve ne' configurazione ne' cervello",
           posto < principale.index("_prepare_config(args.reconfigure)"))
 
-print("\n6. e il modello lo sa cercare")
+print("\n6. e sulla console di Windows si legge davvero")
+# La tabella codici predefinita e' la 850, che il trattino lungo non ce l'ha:
+# senza questo, «— oggi —» arriva all'utente come «? oggi ?» e sembra un
+# guasto, quando e' solo il terminale che non sa disegnare quel carattere.
+controlla("la console viene messa in UTF-8", "SetConsoleOutputCP(65001)" in principale)
+controlla("e anche l'uscita di Python",
+          'reconfigure(encoding="utf-8", errors="replace")' in principale)
+controlla("prima di qualunque cosa che stampi",
+          principale.index("_console_in_italiano()\n    # La rete")
+          < principale.index("if args.registro is not None:"))
+
+print("\n7. e il modello lo sa cercare")
 from nova.mcp_kb import STRUMENTI                                # noqa: E402
 schema = next(s for s in STRUMENTI if s["name"] == "azioni_recenti")
 controlla("azioni_recenti ha «cerca»", "cerca" in schema["inputSchema"]["properties"])
