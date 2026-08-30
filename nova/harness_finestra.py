@@ -205,6 +205,11 @@ def costruisci(app=None):
 
 
     class Finestra(QMainWindow):
+        # Il battito batte fuori dal filo dell'interfaccia: toccare una
+        # QLabel da un altro thread e' il modo classico di far cadere Qt in
+        # un punto che non c'entra niente. Un segnale invece e' sicuro.
+        sig_stato = pyqtSignal(str)
+
         def __init__(self) -> None:
             super().__init__()
             self.setWindowTitle("Nova Harness")
@@ -214,6 +219,8 @@ def costruisci(app=None):
             self._ancore_pagina: dict[str, int | None] = {}
             self._scambi: list[tuple[str, str]] = []
             self._file_modificabile = ""
+            self._battito = None
+            self.sig_stato.connect(self._mostraStato)
             self._sporco = False
             self._sto_caricando = False
             self._anteprima_viva = False
@@ -1438,12 +1445,26 @@ def costruisci(app=None):
             self.stato.setStyleSheet(
                 f"padding:0 22px 6px; color:{PENSIERO}; font-size:11.5px;")
             self.bottone.setText("Ferma")
+            # Qui NOVA gira in un processo a parte, quindi lo stato vero non
+            # arriva: quello che si puo' dire onestamente e' da quanto sta
+            # andando. Fermo, «sta pensando» dopo mezzo minuto sembra un
+            # programma bloccato.
+            from .attesa import Battito
+            self._battito = Battito(self.sig_stato.emit)
+            self._battito.dice("sta pensando…")
             self._pensiero = Pensiero(domanda)
             self._pensiero.finito.connect(self.risposta)
             self._pensiero.start()
 
+        def _mostraStato(self, testo: str) -> None:
+            self.stato.setText(testo)
+
         def risposta(self, testo: str, errore: str) -> None:
             self._pensiero = None
+            battito = getattr(self, "_battito", None)
+            if battito is not None:
+                battito.fermati()
+                self._battito = None
             self.stato.setText("")
             self.bottone.setText("Invia")
             self._scambi.append(("nova", testo) if testo

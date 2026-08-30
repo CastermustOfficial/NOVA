@@ -203,10 +203,14 @@ controlla("il corpo grezzo non finisce piu' nel messaggio",
           "r.text[:600]}" not in sorgente)
 
 from nova.agent import Agent                                      # noqa: E402
-sorgente_send = inspect.getsource(Agent.send)
+# Il turno e' spezzato in due (send prepara, _giro gira): si guarda tutta
+# la classe, cosi' spostare il codice fra i due non fa passare il test per
+# il motivo sbagliato.
+sorgente_turno = inspect.getsource(Agent)
 controlla("anche l'orchestratore a quota mette in pausa il gradino",
-          "metti_in_pausa" in sorgente_send)
-controlla("e dice fra quanto riprova", "minuti" in sorgente_send)
+          "metti_in_pausa" in sorgente_turno)
+controlla("e dice fra quanto riprova",
+          "Riprovo fra circa" in sorgente_turno)
 
 
 print(f"\n{passati}/{passati + len(falliti)} passati")

@@ -126,7 +126,9 @@ class Agent:
             return None
         from .routing import Router
         from .tools import deleghe
-        r = Router(self.cfg, self.vault, log=lambda m: self.cb.on_status(m))
+        # Anche le righe del router passano dal battito: sono cose che
+        # succedono durante l'attesa, e devono restare vive come le altre.
+        r = Router(self.cfg, self.vault, log=lambda m: self._stato(m))
         deleghe.collega(r)
         return r
 
@@ -303,20 +305,41 @@ class Agent:
         self.trim_history()
         agentico = getattr(self.brain, "agentico", False)
         tools = [] if agentico else openai_schema()
-        final_text = ""
-        fallimenti = 0
-        salite = 0
-        errori_recenti: list[str] = []
         # da dove si sale: cambia a ogni escalation, altrimenti la seconda
         # ridelegherebbe allo stesso gradino della prima
         gradino = (self.cfg.brains.routing or {}).get("orchestratore", "locale")
 
+        from .attesa import Battito
+        self._battito = Battito(self.cb.on_status)
+        try:
+            return self._giro(user_text, tools, agentico, gradino, _inizio_turno)
+        finally:
+            self._battito.fermati()
+            self._battito = None
+
+    def _giro(self, user_text: str, tools: list, agentico: bool,
+              gradino: str, _inizio_turno: float) -> str:
+        """Il turno vero, con il battito gia' acceso attorno."""
+        final_text = ""
+        fallimenti = 0
+        salite = 0
+        errori_recenti: list[str] = []
+
         for step in range(self.cfg.model.max_tool_iterations):
             if self.cancel_event.is_set():
                 raise Cancelled()
-            self.cb.on_status(
-                f"{self.brain.etichetta} sta lavorando..." if agentico
-                else ("Sto pensando..." if step == 0 else f"Elaboro (passo {step + 1})..."))
+            # Non «passo 4», che e' un numero e non dice niente, ma cosa sta
+            # succedendo adesso: al primo giro sta pensando, dopo sta
+            # rileggendo quello che gli hanno risposto gli strumenti.
+            if agentico:
+                self._stato(f"{self.brain.etichetta} sta lavorando...")
+            elif step == 0:
+                self._stato("Sto pensando...")
+            else:
+                quanti = len(self.strumenti_del_turno)
+                self._stato("Rileggo e vado avanti" + (
+                    f" ({quanti} strument{'o' if quanti == 1 else 'i'} finora)"
+                    if quanti else "") + "...")
 
             try:
                 risposta = self.brain.chat(self.messages, tools, self.cfg)
@@ -361,7 +384,7 @@ class Agent:
                 final_text = content
 
             if not tool_calls:
-                self.cb.on_status("")
+                self._stato("")
                 self._impara(user_text, final_text)
                 self._registra_procedura(user_text, final_text,
                                          time.time() - _inizio_turno)
@@ -384,12 +407,22 @@ class Agent:
                 gradino = self._sali_di_gradino(user_text, errori_recenti, gradino)
                 errori_recenti.clear()
 
-        self.cb.on_status("")
+        self._stato("")
         limit_msg = ("Ho raggiunto il numero massimo di passaggi consentiti. "
                      "Dimmi come vuoi che proceda.")
         self.messages.append({"role": "assistant", "content": limit_msg})
         self.cb.on_assistant(limit_msg)
         return limit_msg
+
+    def _stato(self, testo: str) -> None:
+        """Lo stato passa di qui, cosi' il battito lo sa e lo tiene vivo."""
+        battito = getattr(self, "_battito", None)
+        if battito is None:
+            self.cb.on_status(testo)
+        elif testo:
+            battito.dice(testo)
+        else:
+            battito.zitto()
 
     def _execute_call(self, call: dict) -> bool:
         fn = call.get("function") or {}
@@ -419,7 +452,7 @@ class Agent:
         self.cb.on_tool_start(name, args, desc)
 
         if self.safety.needs_approval(spec.risk):
-            self.cb.on_status("In attesa della tua conferma...")
+            self._stato("In attesa della tua conferma...")
             approved = self.cb.ask_approval(name, args, desc, spec.risk)
             if not approved:
                 self.cb.on_tool_result(name, "Azione rifiutata dall'utente.", False)
@@ -430,7 +463,10 @@ class Agent:
                     + self._promemoria_ripetizione(name, args))
                 return True  # non e' un fallimento del modello: e' una tua scelta
 
-        self.cb.on_status(f"Eseguo {name}...")
+        # `desc` e' la stessa frase che si legge nella richiesta di conferma
+        # — «Apro il portale delle offerte», non «Eseguo web_apri». Veniva
+        # gia' calcolata una riga sopra e buttata via.
+        self._stato(desc or f"Eseguo {name}...")
         started = time.time()
         result = run_tool(name, args, ctx=self.safety)
         ok = not result.startswith("ERRORE")
@@ -477,7 +513,7 @@ class Agent:
         """
         destinazione = self.router.successivo(partenza)
         if destinazione is None:
-            self.cb.on_status("")
+            self._stato("")
             self.messages.append({
                 "role": "user",
                 "content": ("[nota di sistema] Non c'e' un gradino piu' alto di "
@@ -487,7 +523,7 @@ class Agent:
             return partenza
         motivo = (f"{len(errori)} tentativi falliti di fila" if errori
                   else "troppe chiamate senza arrivare a una risposta")
-        self.cb.on_status(f"Passo la palla a «{destinazione}»...")   # puo' salire ancora
+        self._stato(f"Passo la palla a «{destinazione}»...")   # puo' salire ancora
         contesto = ("Un assistente meno capace ci ha provato senza riuscirci.\n"
                     + ("Ecco cosa e' andato storto:\n- " + "\n- ".join(errori[-3:])
                        if errori else
