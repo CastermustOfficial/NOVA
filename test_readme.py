@@ -99,6 +99,51 @@ controlla("e dice cosa NON fa ancora",
 controlla("il consiglio sui modelli nomina i MoE",
           "MoE" in README and "Attivi per token" in README)
 
+print("\n5. le ricette sono spiegate come sono fatte")
+# Il pezzo che il README non nominava affatto: come NOVA ritrova una strada
+# gia' fatta. Le costanti citate devono essere quelle vere, se no si spiega
+# un meccanismo che non esiste.
+from nova import ricette                                       # noqa: E402
+controlla("c'e' la sezione sulle ricette", "## Le ricette" in README)
+controlla("dice la soglia vera",
+          str(ricette.SOGLIA) in README.replace(",", "."),
+          f"nel codice e' {ricette.SOGLIA}")
+controlla("e quante se ne tengono",
+          str(ricette.MASSIME) in README or "sessanta" in README.lower(),
+          f"nel codice sono {ricette.MASSIME}")
+controlla("nomina i tri-grammi", "tri-grammi" in README or "trigrammi" in README)
+controlla("e la rarita' come e' scritta nel codice",
+          "1 + N/(1+n)" in README)
+controlla("dice da dove viene l'idea", "engram" in README.lower())
+# Non deve promettere memoria neurale: e' uno strato lessicale.
+controlla("e non la spaccia per memoria neurale",
+          "Non e' memoria neurale" in README)
+
+print("\n6. gli esempi di cosa chiederle sono veri")
+controlla("c'e' la sezione su cosa chiederle", "## Cosa puoi chiederle" in README)
+# Ogni famiglia di esempi deve corrispondere a strumenti che esistono.
+from nova.mcp_kb import STRUMENTI as _S                        # noqa: E402
+nomi = {s["name"] for s in _S}
+for cosa, strumento in [("candidarsi in un modulo web", "web_scrivi"),
+                        ("incollare molti dati", "web_incolla"),
+                        ("cercare senza aprire il browser", "web_cerca"),
+                        ("leggere il fascicolo", "fascicolo_leggi"),
+                        ("cercare in una pila di documenti", "harness_cerca_progetto"),
+                        ("proporre una correzione", "harness_proponi"),
+                        ("pianificare un'attivita'", "pianifica_crea")]:
+    controlla(f"«{cosa}» ha lo strumento che serve ({strumento})",
+              strumento in nomi)
+controlla("si dice che il fascicolo non si inventa",
+          "non si deduce" in README)
+controlla("e che un invio finisce nel registro",
+          "registro" in README.lower())
+
+# Il README e' pubblico: gli esempi non devono portarsi dietro dati veri.
+personali = [x for x in ["Giovanni", "giova", "@gmail", "CastermustOfficial/NOVA/blob"]
+             if x in README and x != "CastermustOfficial/NOVA/blob"]
+controlla("e nessun dato personale e' finito negli esempi",
+          not personali, str(personali))
+
 print("\n5. niente promesse che il codice non mantiene")
 from nova.harness import LEGGIBILI as L                        # noqa: E402
 for est in [".pdf", ".docx", ".html", ".md"]:

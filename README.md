@@ -82,6 +82,125 @@ dipende da cosa e' visibile.
 
 ---
 
+## Cosa puoi chiederle
+
+Gli esempi qui sotto non sono immaginati: sono le famiglie di richieste che
+NOVA ha gia' risolto, riprese dal suo archivio delle procedure. Ventotto voci,
+e la meta' e' una sola cosa fatta dall'inizio alla fine.
+
+### Cercare lavoro, e candidarsi
+
+E' il caso che ha spinto piu' funzioni di ogni altro, perche' e' lungo e noioso
+esattamente dove un assistente serve:
+
+> «Cerca offerte per AI engineer, guarda quali hanno senso per me, e candidati.»
+
+NOVA cerca sui portali, apre gli annunci, legge il tuo **fascicolo** — CV,
+esperienze, testi che hai scritto tu — e da li' prende i fatti. Compila il
+modulo, comprese le tendine e i campi React che non si lasciano riempire da
+soli, manda, e poi controlla nella posta che la conferma sia arrivata.
+
+Due cose vanno dette, e sono nel prompt di NOVA non nella buona volonta':
+**quello che non c'e' nel fascicolo si chiede, non si deduce** — un'esperienza
+inventata non e' un errore, e' una dichiarazione falsa con sopra la tua firma
+— e ogni invio e' un'azione che non si annulla, quindi finisce nel registro.
+
+### Riempire fogli e moduli con molti dati
+
+> «Preparami un foglio Google con questi quarantatre giocatori, divisi per
+> ruolo.»
+
+Fatto per davvero. La differenza fra NOVA e una macro e' che non batte i tasti:
+apre il foglio, cerca i ruoli dove stanno scritti, e **incolla a blocchi** —
+cinque valori in tre campi in 35 millisecondi. Molti dati non si mettono uno
+per volta.
+
+### Studiare una pila di documenti
+
+> «In quale di questi sei PDF si parla di entropia, e a che pagina?»
+
+L'harness apre la cartella, cerca in tutti i file insieme e risponde con file
+e pagina, poi ci scende sopra e la evidenzia. Serve una citazione che si possa
+controllare, non un riassunto di cui fidarsi.
+
+### Scrivere e correggere un documento
+
+> «Rileggi questa relazione e proponi le correzioni.»
+
+Le proposte compaiono **dentro il testo**, colorate. Le correggi dove le leggi
+e le applichi quando vuoi tu. Su un `.docx` cambia il paragrafo e lascia
+intatta l'impaginazione.
+
+### La posta, e le cose di tutti i giorni
+
+Controllare la posta, salvare un contatto, preparare una bozza e mandarla dopo
+conferma, aprire un documento condiviso, verificare che un sito sia online.
+Sono le richieste che si ripetono, ed e' li' che l'archivio delle procedure
+paga: la seconda volta non si ricomincia da capo.
+
+### Cose che si ripetono da sole
+
+- **Attivita' pianificate**: «ogni giorno alle 8, guarda se ci sono offerte
+  nuove».
+- **Sentinelle**: avvisano solo quando un valore **cambia**, non a ogni giro.
+  Un promemoria che parla tutti i giorni si spegne dopo una settimana.
+- **Automazioni scritte da lei**: quando una procedura si ripete abbastanza,
+  NOVA la trasforma in uno strumento e smette di rifarla a mano.
+
+### E anche il suo stesso codice
+
+Nell'archivio c'e' «git tag e push». NOVA lavora sul progetto che la contiene:
+apre i propri sorgenti nell'harness, li legge con i colori, propone modifiche
+e le applica quando glielo dici. Il **banco** (`nova/banco.py`) le permette di
+provare una riparazione su una copia prima di toccare l'originale.
+
+---
+
+## Le ricette: come fa a non rifare due volte la stessa fatica
+
+Quando NOVA risolve qualcosa di non banale, non tiene solo il risultato: tiene
+**la strada**. Titolo, passi, e le parole con cui gliel'avevi chiesta. La
+volta dopo, prima di ricominciare, guarda se una di quelle strade somiglia
+alla richiesta nuova.
+
+Il problema vero e' «somiglia». Un confronto fra stringhe non serve a niente:
+nessuno chiede due volte la stessa cosa con le stesse parole, e chi scrive di
+fretta scrive *inobx*. La soluzione presa in prestito dai lavori sugli
+**engram** — la memoria a n-grammi di DeepSeek e di Qwen — e' che il recupero
+deve essere **economico**, e la scelta finale la fa il modello:
+
+- **Le parole rare pesano di piu'.** Una parola che sta in ogni procedura non
+  distingue niente; il peso e' `1 + N/(1+n)`, cioe' una rarita' senza
+  logaritmo. «Posta» vale poco se hai dieci procedure sulla posta; «fantacalcio»
+  vale molto.
+- **Si misura quanto della domanda e' coperto**, non quanto le due frasi si
+  somigliano. Una procedura ricca di dettagli non deve perdere contro una
+  povera solo perche' ha piu' parole: e' un **contenimento asimmetrico**, non
+  un coseno.
+- **Le parole si confrontano a tri-grammi.** «inobx» e «inbox» condividono
+  quasi tutti i pezzi da tre lettere, quindi valgono l'una per l'altra. Con
+  due guardie, imparate sbagliando: stessa lettera iniziale, e lunghezze che
+  non differiscono di piu' di uno — senza, «ricetta» somigliava a «letta».
+- **Si pesca largo.** La soglia e' 0,30 e non 0,42, perche' una candidata di
+  troppo costa qualche centinaio di token, una mancata costa i dieci turni che
+  ci vogliono a rifare la strada da capo. Il blocco delle ricette entra nel
+  prompt come **appunto, non come ordine**: il modello e' autorizzato a
+  scartarlo.
+- **Ci sono anche gli alias**: gli altri modi di chiedere la stessa cosa, che
+  il modello elenca quando la procedura nasce. Contano quasi quanto le parole
+  vere — quasi, perche' sono l'ipotesi di qualcun altro su come parlerai.
+
+Non e' memoria neurale e non pretende di esserlo: e' uno strato di recupero
+lessicale che costa microsecondi. L'idea presa dagli engram non e'
+l'architettura, e' la divisione dei compiti — **cercare deve costare poco,
+decidere tocca a chi ha il contesto.**
+
+L'archivio si tiene pulito da solo: massimo sessanta voci, i doppioni si
+fondono, le meno usate cadono. Un archivio che cresce all'infinito diventa
+rumore, e il rumore fa proporre la strada sbagliata.
+
+---
+
 ## L'harness: dove si studia e dove si scrive
 
 E' la parte piu' recente e la meno ovvia. Un documento o un progetto non sono
