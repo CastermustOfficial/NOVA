@@ -15,6 +15,7 @@ param(
     [switch]$DaSorgente,
     [switch]$SenzaAvvioAuto,
     [switch]$Disinstalla,
+    [switch]$ConIDati,
     [switch]$Prova
 )
 
@@ -134,14 +135,93 @@ function Scarica($url, $destinazione, $etichetta) {
 }
 
 # --------------------------------------------------------------- disinstalla
+#
+# Un disinstallatore e' l'ultima cosa che un utente ricorda di un programma, e
+# quello che si ricorda e' se ha lasciato in giro roba. Qui si dice riga per
+# riga cosa e' stato tolto e cosa no: «rimosso» in generale non si puo'
+# controllare, «avvio automatico: rimosso» si'.
+#
+# La cosa che pesava di piu' non era nell'elenco di prima: le attivita'
+# pianificate. Sono l'unica cosa che *continua a girare* dopo che NOVA e'
+# stata disinstallata - ogni cinque minuti Windows prova ad avviare un
+# programma che non c'e' piu'. Un file dimenticato e' disordine; un'attivita'
+# dimenticata e' un guasto che si presenta da solo.
 if ($Disinstalla) {
-    if ($Prova) { Info "[prova] toglierei avvio automatico e collegamento"; exit 0 }
-    Get-Process novad, nova-shell -ErrorAction SilentlyContinue | Stop-Process -Force
-    Remove-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name $RunName -ErrorAction SilentlyContinue
-    Remove-Item (Join-Path ([Environment]::GetFolderPath('Desktop')) 'NOVA.lnk') -Force -ErrorAction SilentlyContinue
-    Ok "Avvio automatico e collegamento rimossi."
-    Warn "I tuoi dati restano in $env:APPDATA\NOVA (memoria, credenziali, configurazione)."
-    Warn "Se vuoi cancellare anche quelli, elimina quella cartella a mano: non lo faccio io."
+    $azioni = @()
+    function Fatto($cosa, $esito) { $script:azioni += ,@($cosa, $esito) }
+
+    if ($Prova) {
+        Info "[prova] toglierei: processi accesi, attivita' pianificate,"
+        Info "[prova] avvio automatico, collegamento sul Desktop"
+        if ($ConIDati) { Info "[prova] e anche i dati in $env:APPDATA\NOVA" }
+        exit 0
+    }
+
+    # I processi. Anche la finestra dell'harness, che gira come pythonw e
+    # prima restava aperta a lavoro finito.
+    $vivi = @(Get-Process novad, nova-shell -ErrorAction SilentlyContinue)
+    $vivi += @(Get-CimInstance Win32_Process -Filter "Name='pythonw.exe' OR Name='python.exe'" `
+               -ErrorAction SilentlyContinue |
+               Where-Object { $_.CommandLine -match 'nova' } |
+               ForEach-Object { Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue })
+    if ($vivi) {
+        $vivi | Stop-Process -Force -ErrorAction SilentlyContinue
+        Fatto "processi di NOVA" "fermati ($($vivi.Count))"
+    } else {
+        Fatto "processi di NOVA" "non ne girava nessuno"
+    }
+
+    # Le attivita' pianificate. Il filtro guarda l'inizio del nome, non
+    # «contiene NOVA»: con «contiene» un disinstallatore cancellerebbe
+    # l'attivita' di qualcun altro che si chiama «Innovation backup», ed e'
+    # un danno che non si scopre finche' non serviva.
+    $tolte = @()
+    foreach ($tn in (& schtasks /query /fo csv /nh 2>$null |
+                     ForEach-Object { ($_ -split '","')[0].Trim('"') } |
+                     Where-Object { $_ -match '^\\?NOVA($| |-)' } |
+                     Sort-Object -Unique)) {
+        & schtasks /delete /tn $tn /f *> $null
+        if ($LASTEXITCODE -eq 0) { $tolte += $tn }
+    }
+    Fatto "attivita' pianificate" $(if ($tolte) { "rimosse ($($tolte.Count))" } else { "non ce n'erano" })
+    foreach ($tn in $tolte) { Info "    $tn" }
+
+    $chiave = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+    $c_era = $null -ne (Get-ItemProperty $chiave -Name $RunName -ErrorAction SilentlyContinue)
+    Remove-ItemProperty $chiave -Name $RunName -ErrorAction SilentlyContinue
+    Fatto "avvio automatico" $(if ($c_era) { "rimosso" } else { "non c'era" })
+
+    $lnk = Join-Path ([Environment]::GetFolderPath('Desktop')) 'NOVA.lnk'
+    $c_era = Test-Path $lnk
+    Remove-Item $lnk -Force -ErrorAction SilentlyContinue
+    Fatto "collegamento sul Desktop" $(if ($c_era) { "rimosso" } else { "non c'era" })
+
+    if ($ConIDati) {
+        # Si cancella solo cio' che e' di NOVA. Il fascicolo no: sono file
+        # dell'utente, scritti da lui, in Documenti - e cancellare il CV di
+        # qualcuno perche' ha disinstallato un programma sarebbe imperdonabile.
+        $dati = Join-Path $env:APPDATA 'NOVA'
+        if (Test-Path $dati) {
+            Remove-Item $dati -Recurse -Force -ErrorAction SilentlyContinue
+            Fatto "memoria, credenziali, configurazione" $(if (Test-Path $dati) { "NON rimossi" } else { "rimossi" })
+        } else {
+            Fatto "memoria, credenziali, configurazione" "non c'erano"
+        }
+    }
+
+    Write-Host ""
+    foreach ($a in $azioni) { Ok ("{0,-38} {1}" -f $a[0], $a[1]) }
+    Write-Host ""
+
+    if ($ConIDati) {
+        Warn "Il fascicolo NON e' stato toccato: sono file tuoi, scritti da te."
+        Warn "Sta in Documenti\NOVA\fascicolo, e lo cancelli tu se vuoi."
+    } else {
+        Warn "I tuoi dati restano dove sono. Per vedere cosa c'e', quanto pesa"
+        Warn "e cosa succede a cancellarlo:    python -m nova --dati"
+        Warn "Per togliere anche quelli:       .\install.ps1 -Disinstalla -ConIDati"
+    }
+    Ok "La cartella del progetto resta: quella la cancelli tu."
     exit 0
 }
 

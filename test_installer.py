@@ -142,6 +142,53 @@ controlla("e i motori di voce sono gli stessi",
           all(f'value="{m}"' in pagina for m in tts if m != 'none'),
           str(sorted(tts)))
 
+print("\n8. disinstallare toglie tutto, e dice cosa")
+# Un disinstallatore e' l'ultima cosa che un utente ricorda di un programma,
+# e quello che si ricorda e' se ha lasciato in giro roba.
+controlla("ferma i processi accesi", "Stop-Process -Force" in INST)
+# Erano l'unica cosa che continuava a *girare* dopo la disinstallazione:
+# ogni cinque minuti Windows provava ad avviare un programma che non c'era
+# piu'. Un file dimenticato e' disordine; un'attivita' dimenticata e' un
+# guasto che si presenta da solo.
+controlla("toglie le attivita' pianificate", "schtasks /delete" in INST)
+# «Contiene NOVA» cancellerebbe l'attivita' di qualcun altro che si chiama
+# «Innovation backup», e il danno non si scopre finche' non serviva.
+controlla("e le riconosce dall'inizio del nome, non da «contiene»",
+          "'^\\\\?NOVA($| |-)'" in INST, "filtro troppo largo")
+controlla("toglie l'avvio automatico", "Remove-ItemProperty $chiave" in INST)
+controlla("e il collegamento", "Remove-Item $lnk" in INST)
+
+# «Rimosso» in generale non si puo' controllare; «avvio automatico: rimosso»
+# si'. E distinguere «rimosso» da «non c'era» e' quello che dice a chi legge
+# se il disinstallatore ha capito cosa aveva davanti.
+controlla("dice riga per riga com'e' andata", 'function Fatto(' in INST)
+controlla("e distingue «rimosso» da «non c'era»", '"non c\'era"' in INST)
+
+print("\n9. ma non cancella quello che non e' suo")
+controlla("i dati si tolgono solo se lo chiedi", "$ConIDati" in INST)
+# Cancellare il CV di qualcuno perche' ha disinstallato un programma
+# sarebbe imperdonabile: il fascicolo sta in Documenti ed e' roba sua.
+# La cancellazione tocca solo %APPDATA%\NOVA, che e' roba di NOVA. Il
+# fascicolo sta in Documenti, e va detto a chi legge - non basta non
+# cancellarlo, bisogna che sappia che e' ancora li'.
+# Il ramo vero, non quello di -Prova.
+posto = INST.index("$dati = Join-Path $env:APPDATA 'NOVA'")
+ramo = INST[posto:posto + 380]
+controlla("si cancella solo la cartella di NOVA",
+          "Remove-Item $dati -Recurse" in ramo and "fascicolo" not in ramo.lower())
+controlla("e a chi cancella si dice che il fascicolo e' rimasto",
+          "Il fascicolo NON e' stato toccato" in INST
+          and "Documenti\\NOVA\\fascicolo" in INST)
+controlla("e nemmeno la cartella del progetto",
+          "La cartella del progetto resta" in INST)
+controlla("chi non chiede i dati sa dove sono e come si guardano",
+          "--dati" in INST)
+controlla("e come si tolgono, se cambia idea",
+          "-Disinstalla -ConIDati" in INST)
+controlla("con -Prova non si tocca niente",
+          "[prova] toglierei" in INST)
+
+
 print(f"\n{passati}/{passati + len(falliti)} passati")
 for x in falliti:
     print("  FALLITO:", x)
