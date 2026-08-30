@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import threading
 import traceback
@@ -195,3 +196,76 @@ def installa(mostra=None, riscrivi: bool = False) -> bool:
         threading.excepthook = nel_thread
     _installato = True
     return True
+
+
+# -- quando a dire di no e' un server ---------------------------------
+
+# Una chiave puo' tornare indietro dentro il messaggio d'errore del
+# fornitore, e da li' finirebbe sullo schermo, nel registro e nel file dei
+# guasti. Si toglie prima di guardare cosa c'e' scritto.
+_CHIAVE = re.compile(
+    r"\b(sk-[A-Za-z0-9_\-]{8,}|gsk_[A-Za-z0-9_\-]{8,}|"
+    r"xai-[A-Za-z0-9_\-]{8,}|AIza[A-Za-z0-9_\-]{8,}|"
+    r"[A-Za-z0-9_\-]{0,8}(?:key|token|secret)[\"'\s:=]{1,4}[A-Za-z0-9_\-]{16,})")
+
+
+def senza_chiavi(testo: str) -> str:
+    """Quello che assomiglia a una chiave non esce di qui."""
+    return _CHIAVE.sub("[chiave]", testo or "")
+
+
+def _motivo_del_fornitore(corpo: str) -> str:
+    """Il fornitore spesso *ha* detto qualcosa di utile, sepolto nel JSON."""
+    try:
+        dati = json.loads(corpo)
+    except Exception:                                   # noqa: BLE001
+        return ""
+    for _ in range(4):
+        if isinstance(dati, dict):
+            for chiave in ("message", "error", "detail", "detail_message"):
+                if chiave in dati:
+                    dati = dati[chiave]
+                    break
+            else:
+                return ""
+        else:
+            break
+    return senza_chiavi(str(dati)).strip()[:200] if isinstance(dati, str) else ""
+
+
+def spiega_http(codice: int, corpo: str = "", dove: str = "Il fornitore") -> str:
+    """Un codice HTTP in una frase, e cosa si puo' fare.
+
+    Il corpo della risposta non si incolla mai cosi' com'e': puo' contenere
+    la chiave rimandata indietro, e comunque e' JSON, che non e' una lingua.
+    """
+    dettaglio = _motivo_del_fornitore(corpo)
+    coda = f" {dove} dice: «{dettaglio}»" if dettaglio else ""
+    if codice in (401, 403):
+        return ("la chiave non e' stata accettata. Controllala nelle "
+                "impostazioni, alla voce Cervello." + coda)
+    if codice == 402:
+        return ("il credito e' finito su questo fornitore. Serve ricaricare, "
+                "oppure cambiare gradino." + coda)
+    if codice == 404:
+        return ("questo modello non esiste su questo fornitore, o l'indirizzo "
+                "e' sbagliato." + coda)
+    if codice == 413:
+        return ("la richiesta e' troppo lunga per questo modello: serve una "
+                "conversazione piu' corta o un contesto piu' grande." + coda)
+    if codice == 429:
+        return "la quota e' finita per adesso." + coda
+    if 500 <= codice < 600:
+        return ("il problema e' dall'altra parte, non tua. Di solito passa "
+                "da solo." + coda)
+    return f"la richiesta e' stata rifiutata (codice {codice})." + coda
+
+
+def spiega_irraggiungibile(url: str, in_casa: bool) -> str:
+    """Nessuno risponde all'altro capo. Le cure sono due, molto diverse."""
+    if in_casa:
+        return (f"il modello locale non risponde su {url}. Di solito vuol dire "
+                "che non e' acceso: si riaccende dalle impostazioni, alla voce "
+                "Cervello, oppure si passa a un altro cervello.")
+    return (f"non riesco a raggiungere {url}. O e' giu' il fornitore, o questo "
+            "PC in questo momento non e' in rete.")

@@ -119,7 +119,16 @@ class OpenAICompatBrain:
         msg = (dati.get("choices") or [{}])[0].get("message") or {}
         return _separa_ragionamento(msg)[0]
 
+    def _quanto_aspettare(self, r) -> int:
+        """Il fornitore di solito lo dice, in `Retry-After`. Se non lo dice
+        si aspetta un quarto d'ora, che e' la scelta prudente."""
+        try:
+            return max(30, min(3600, int(float(r.headers.get("Retry-After", "")))))
+        except (TypeError, ValueError):
+            return 900
+
     def _post(self, payload: dict) -> dict:
+        from ..guasti import spiega_http, spiega_irraggiungibile
         ultimo = None
         for tentativo in range(3):
             try:
@@ -132,11 +141,22 @@ class OpenAICompatBrain:
                 ultimo = e
                 time.sleep(2 + 3 * tentativo)
                 continue
+            if r.status_code in (429, 402):
+                # Quota finita non e' un errore del compito: e' «riprova piu'
+                # tardi». Detto cosi', il router mette in pausa questo gradino
+                # e ripiega su un altro fornitore. Prima arrivava come un
+                # RuntimeError qualunque, quindi il ripiego non partiva mai e
+                # l'utente vedeva il JSON del fornitore.
+                from .base import LimiteUso
+                raise LimiteUso(spiega_http(r.status_code, r.text[:600],
+                                            self.etichetta),
+                                riprova_fra_s=self._quanto_aspettare(r))
             if r.status_code >= 400:
-                raise RuntimeError(f"Errore dal modello ({r.status_code}): {r.text[:600]}")
+                raise RuntimeError(spiega_http(r.status_code, r.text[:600],
+                                               self.etichetta))
             return r.json()
-        raise RuntimeError(
-            f"Il modello non risponde su {self.base_url} ({ultimo}).")
+        raise RuntimeError(spiega_irraggiungibile(self.base_url,
+                                                  _e_in_casa(self.base_url)))
 
 
 class LocalBrain(OpenAICompatBrain):

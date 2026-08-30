@@ -21,6 +21,9 @@ from .config import AUTONOMY_ASK_ALL, AUTONOMY_FULL, Config
 from .tools import REGISTRY, Risk, ToolError, openai_schema, run_tool
 
 
+from .brains.base import LimiteUso
+
+
 class Denied(Exception):
     """L'utente ha rifiutato l'azione."""
 
@@ -315,7 +318,25 @@ class Agent:
                 f"{self.brain.etichetta} sta lavorando..." if agentico
                 else ("Sto pensando..." if step == 0 else f"Elaboro (passo {step + 1})..."))
 
-            risposta = self.brain.chat(self.messages, tools, self.cfg)
+            try:
+                risposta = self.brain.chat(self.messages, tools, self.cfg)
+            except LimiteUso as e:
+                # Quota finita non e' «non ci riesco», e' «riprova piu'
+                # tardi»: sono due notizie diverse e l'utente deve poterle
+                # distinguere. Il gradino va in pausa anche quando a finire
+                # la quota e' l'orchestratore, non solo una delega — prima
+                # succedeva solo per le deleghe, e chi restava a secco
+                # sull'orchestratore ci ribatteva contro a ogni messaggio.
+                minuti = max(1, round(e.riprova_fra_s / 60))
+                if self.router is not None:
+                    try:
+                        self.router.metti_in_pausa(gradino, e.riprova_fra_s)
+                    except Exception:                       # noqa: BLE001
+                        pass
+                raise RuntimeError(
+                    f"{e} Riprovo fra circa {minuti} minuti. Nel frattempo "
+                    "puoi cambiare cervello dalle impostazioni, alla voce "
+                    "Cervello.") from e
 
             content = risposta.contenuto
             tool_calls = list(risposta.tool_calls)

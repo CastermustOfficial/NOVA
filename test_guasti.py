@@ -159,6 +159,56 @@ for f in sorted((RADICE / "nova").rglob("*.py")):
 controlla("nessun modulo nuovo mostra il nome della classe",
           not colpevoli, str(colpevoli))
 
+print("\n7. quando a dire di no e' un server")
+from nova.guasti import senza_chiavi, spiega_http, spiega_irraggiungibile  # noqa: E402
+
+CORPO_401 = '{"error":{"message":"Incorrect API key provided: sk-proj-ABCDEFGH12345678"}}'
+detto = spiega_http(401, CORPO_401, "OpenRouter")
+controlla("401 dice che la chiave non e' accettata", "chiave" in detto)
+controlla("e dice dove si cambia", "impostazioni" in detto.lower())
+# Il fornitore rimanda indietro la chiave dentro il messaggio d'errore, e da
+# li' finirebbe sullo schermo, nel registro e nel file dei guasti.
+controlla("e la chiave non esce di li'", "sk-proj-ABCDEFGH12345678" not in detto, detto)
+controlla("ma il motivo del fornitore si legge", "Incorrect API key" in detto)
+controlla("402 parla di credito", "credito" in spiega_http(402))
+controlla("404 parla di modello o indirizzo",
+          "modello" in spiega_http(404) and "indirizzo" in spiega_http(404))
+controlla("429 parla di quota", "quota" in spiega_http(429))
+controlla("503 dice che non e' colpa tua", "non tua" in spiega_http(503))
+for codice in (401, 402, 404, 413, 429, 500, 503, 418):
+    frase = spiega_http(codice, "")
+    controlla(f"{codice}: la frase non e' vuota ne' sgrammaticata",
+              len(frase) > 20 and " di il " not in frase and " e' dalla parte di il" not in frase,
+              frase)
+
+controlla("il modello locale spento si riconosce",
+          "acceso" in spiega_irraggiungibile("http://127.0.0.1:8080", True))
+controlla("e un fornitore irraggiungibile e' un'altra cosa",
+          "rete" in spiega_irraggiungibile("https://api.esempio.com", False))
+
+for finta in ["sk-abcdefgh12345678", "gsk_ABCDEFGH12345678",
+              "AIzaSyABCDEFGH1234567890", 'api_key="ABCDEFGHIJKLMNOPQRST"']:
+    controlla(f"«{finta[:12]}...» viene coperta", finta not in senza_chiavi(f"detto: {finta} fine"))
+
+print("\n8. la quota finita arriva al router, non all'utente")
+import inspect                                                    # noqa: E402
+from nova.brains import openai_compat                             # noqa: E402
+sorgente = inspect.getsource(openai_compat.OpenAICompatBrain._post)
+# Prima il 429 arrivava come un RuntimeError qualunque: il router non lo
+# riconosceva, la pausa non scattava e il ripiego non partiva mai.
+controlla("429 e 402 diventano LimiteUso", "LimiteUso" in sorgente)
+controlla("e si aspetta quanto dice il fornitore", "Retry-After" in
+          inspect.getsource(openai_compat.OpenAICompatBrain._quanto_aspettare))
+controlla("il corpo grezzo non finisce piu' nel messaggio",
+          "r.text[:600]}" not in sorgente)
+
+from nova.agent import Agent                                      # noqa: E402
+sorgente_send = inspect.getsource(Agent.send)
+controlla("anche l'orchestratore a quota mette in pausa il gradino",
+          "metti_in_pausa" in sorgente_send)
+controlla("e dice fra quanto riprova", "minuti" in sorgente_send)
+
+
 print(f"\n{passati}/{passati + len(falliti)} passati")
 for x in falliti:
     print("  FALLITO:", x)
