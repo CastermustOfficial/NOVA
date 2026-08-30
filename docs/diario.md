@@ -316,6 +316,56 @@ il tipo di riga che in Python non si nota e in Rust va decisa, ed e' li' che
 il conto «due righe per una» viene fuori.
 
 
+### Secondo colpo: il BM25, e la scoperta che era il pezzo sbagliato
+
+`core/crates/nova-memoria`: BM25, tokenizzazione, fusione RRF e coseno. Stesso
+metodo, stesso banco — trentacinque confronti, tutti d'accordo al primo colpo,
+compresi i casi che mordono: accenti, domanda vuota, sole parole ferme, un
+documento lunghissimo (dove conta la normalizzazione sulla lunghezza) e due
+ranking a pari merito.
+
+Manca l'embedder locale, e non per dimenticanza: assegna i secchielli con
+MD5, e riprodurre gli **stessi** secchielli vorrebbe dire portarsi dietro
+un'implementazione di MD5. La meta' sparsa e' quella che pesa di piu' —
+l'embedder predefinito e' a hash e non sa che «guarda se ho posta» e
+«controlla le mail» sono la stessa cosa.
+
+**Poi si e' misurato, ed e' venuto fuori l'errore.**
+
+| pezzo | costo |
+|---|---|
+| `bm25.cerca` | **0,004 ms** |
+| `embedder.embed` (la domanda) | 0,024 ms |
+| `reindicizza` | 0,35 ms |
+| `cerca` per intero | **26,5 ms** |
+
+Il BM25 costa quattro **microsecondi**. Ne avevo portato in Rust un pezzo che
+non era mai stato lento, sulla base della stessa parola — «memoria a grafo,
+25 ms» — che avevo misurato al mattino senza andare piu' a fondo.
+
+I ventidue millisecondi mancanti stanno in `Vault.refresh_if_changed()`, che
+`cerca` chiama per prima cosa: fa lo `stat` di tutti e centotrentasei i file
+del vault, **a ogni messaggio**. Non e' calcolo, e' disco — e in Rust sarebbe
+stato piu' veloce, ma sarebbe rimasto sbagliato.
+
+La cura e' una riga di attesa: al massimo una rilettura ogni due secondi, con
+un `forza` per chi ha appena scritto e vuole rileggere. **Da 25,7 ms a 3,2
+ms**, e una nota corretta in Obsidian si vede lo stesso — «subito» ed «entro
+due secondi» sono la stessa cosa per una persona, mentre rileggere a ogni
+frase e rileggere ogni due secondi non lo sono affatto.
+
+Il costo Python per turno misurato stamattina era ventotto millisecondi. Ne
+restano **sei**, e non per il Rust: per una riga di Python.
+
+### Una cosa che il porting ha fatto vedere
+
+Nell'elenco delle parole ferme della memoria c'e' `e'` con l'apostrofo, e non
+c'e' `è`. Sono due stringhe diverse, quindi chi scrive con l'accento si porta
+in memoria un termine che non distingue niente. Non e' un errore di
+traduzione — il Python fa lo stesso, e il banco infatti concorda — ma e' il
+genere di cosa che si vede solo riscrivendo una riga che si e' sempre letta.
+
+
 ### Quello che questa giornata ha insegnato
 
 Tre cose si ripetono abbastanza da meritare di essere scritte.
@@ -333,6 +383,11 @@ invisibili a una suite verde.
 
 **Una funzione documentata non e' una funzione provata.** Il ripiego sulla
 quota stava nel README con tanto di esempio di output. Non era mai partito.
+
+**E misurare una volta non basta: bisogna misurare il pezzo giusto.** «La
+memoria costa 25 ms» era vero e inutile. Sotto c'era un BM25 da quattro
+microsecondi e una scansione di cartella da ventidue millisecondi, e la
+differenza fra le due decide se la cura e' un porting o una riga.
 
 **E per il disegno, guardare non si sostituisce.** Il pannello e' stato reso
 in Chromium a ogni passaggio: buchi nella griglia, schede sbilanciate e una

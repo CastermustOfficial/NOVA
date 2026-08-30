@@ -765,6 +765,7 @@ nova/
 core/crates/
   nova-core/          the daemon: bus, capabilities, long processes, RPC
   nova-ricette/       the recipes in Rust, and the bench that compares them with Python
+  nova-memoria/       BM25, fusion and cosine in Rust, with their own bench
   nova-voce/          audio, Kokoro, whisper, Scribe: no Python
   nova-shell/         the orb and the windows (Tauri)
 ```

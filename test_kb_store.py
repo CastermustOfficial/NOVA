@@ -177,6 +177,53 @@ v.upsert(nodo("tick", "Tick", "bbb"))
 verifica("Aggiunta a mano." in n1.path.read_text(encoding="utf-8"),
          "mtime identico ma dimensione diversa: la modifica sopravvive")
 
+
+# -- il disco non si rilegge a ogni frase -----------------------------
+# Questo controllo sta sul percorso critico di ogni messaggio: `cerca` lo
+# chiama per prima cosa, e su un vault da 136 note vuol dire fare lo stat di
+# 136 file - ventidue millisecondi su ventisei, cioe' quasi tutto il costo
+# della memoria per turno. Trovato misurando, non leggendo.
+v = nuovo_vault()
+v.upsert(nodo("uno", "Uno", "primo"))
+v.refresh_if_changed(forza=True)
+
+letture = {"quante": 0}
+_vero_file_md = v._file_md
+def _contando():
+    letture["quante"] += 1
+    return _vero_file_md()
+v._file_md = _contando
+
+for _ in range(20):
+    v.refresh_if_changed()
+verifica(letture["quante"] <= 1,
+         f"venti ricerche di fila guardano il disco una volta sola "
+         f"({letture['quante']} letture)")
+
+letture["quante"] = 0
+v.refresh_if_changed(forza=True)
+verifica(letture["quante"] == 1, "ma chi ha appena scritto puo' forzare")
+
+# Il compromesso e' dichiarato: chi corregge una nota in Obsidian vuole che
+# NOVA se ne accorga. «Subito» ed «entro due secondi» sono la stessa cosa per
+# una persona; rileggere a ogni frase e rileggere ogni due secondi no.
+verifica(0 < Vault.ATTESA_RILETTURA_S <= 5,
+         f"l'attesa e' dichiarata e corta ({Vault.ATTESA_RILETTURA_S}s)")
+
+letture["quante"] = 0
+v._ultima_lettura -= Vault.ATTESA_RILETTURA_S + 0.1
+v.refresh_if_changed()
+verifica(letture["quante"] == 1, "e passata l'attesa si riguarda da solo")
+v._file_md = _vero_file_md
+
+f_uno = next(Path(v.root).rglob("uno.md"))
+f_uno.write_text(f_uno.read_text(encoding="utf-8") + "\n\nzucchinabaobab\n",
+                 encoding="utf-8")
+v._ultima_lettura = 0.0
+v.refresh_if_changed()
+verifica("zucchinabaobab" in (v.get("uno").body if v.get("uno") else ""),
+         "una nota cambiata fuori da NOVA viene comunque riletta")
+
 # -- esito ------------------------------------------------------------
 falliti = [d for ok, d in esiti if not ok]
 for ok, d in esiti:

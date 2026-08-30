@@ -753,6 +753,7 @@ nova/
 core/crates/
   nova-core/          il demone: bus, capacita', processi lunghi, RPC
   nova-ricette/       le ricette in Rust, e il banco che le confronta col Python
+  nova-memoria/       BM25, fusione e coseno in Rust, con il loro banco
   nova-voce/          audio, Kokoro, whisper, Scribe: niente Python
   nova-shell/         l'orb e le finestre (Tauri)
 ```

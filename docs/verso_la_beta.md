@@ -88,8 +88,11 @@ In ordine di guadagno atteso, non di difficolta'.
 
 ### Il codice (dove sta poco, ma si puo' prendere)
 
-10. **`contesto_per` a 25 ms** e' il pezzo Python piu' caro. L'indice si
-    ricostruisce a ogni avvio: renderlo persistente sul disco.
+10. ~~**`contesto_per` a 25 ms.**~~ Fatto, e non come previsto: i
+    ventidue millisecondi non erano l'indice, erano `refresh_if_changed()`
+    che faceva lo `stat` di tutti i file del vault a ogni messaggio. Una riga
+    di attesa, e sono 3,2 ms. Resta l'indice persistente fra un avvio e
+    l'altro, che adesso pero' vale 0,35 ms.
 11. **Avvio a freddo: 206 ms di import dei tool.** Import pigro per categoria —
     i sessanta strumenti non servono tutti al primo messaggio.
 12. **Primo porting in Rust: ricette + BM25.** Sono algoritmi puri, senza GUI e

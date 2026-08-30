@@ -56,6 +56,10 @@ class Vault:
         self.audit_path = self.root / ".nova" / "audit.jsonl"
         self.audit_path.parent.mkdir(parents=True, exist_ok=True)
         self._nodes: dict[str, Node] = {}
+        # Quando si e' guardato il disco l'ultima volta. Vedi
+        # ATTESA_RILETTURA_S: senza, `cerca` rileggeva la cartella intera a
+        # ogni messaggio.
+        self._ultima_lettura = 0.0
         # Indicizzati per percorso, non per slug: due file con lo stesso nome
         # base in cartelle diverse hanno mtime diversi, e una chiave sola per
         # entrambi li faceva ricaricare (e ri-embeddare) a ogni ricerca.
@@ -110,8 +114,30 @@ class Vault:
                 self._carica_file(f)
             return len(self._nodes)
 
-    def refresh_if_changed(self) -> None:
-        """Ricarica solo i file toccati fuori da NOVA (es. modificati in Obsidian)."""
+    # Quanto si aspetta prima di riguardare il disco. Serve perche' questo
+    # controllo sta sul percorso critico di ogni messaggio: `cerca` lo chiama
+    # per prima cosa, e su un vault da 136 note vuol dire fare lo stat di 136
+    # file - **ventidue millisecondi su ventisei**, cioe' quasi tutto il costo
+    # della memoria per turno.
+    #
+    # Il valore e' un compromesso dichiarato. Chi corregge una nota in
+    # Obsidian vuole che NOVA se ne accorga; ma "subito" e "entro due secondi"
+    # sono la stessa cosa per una persona, e la differenza fra rileggere la
+    # cartella una volta e rileggerla a ogni frase e' tutta.
+    ATTESA_RILETTURA_S = 2.0
+
+    def refresh_if_changed(self, forza: bool = False) -> None:
+        """Ricarica solo i file toccati fuori da NOVA (es. modificati in Obsidian).
+
+        Con `forza` si guarda comunque: lo usa chi ha appena scritto e vuole
+        rileggere quello che ha scritto, dove aspettare due secondi sarebbe
+        un difetto e non un'ottimizzazione.
+        """
+        import time as _t
+        adesso = _t.monotonic()
+        if not forza and (adesso - self._ultima_lettura) < self.ATTESA_RILETTURA_S:
+            return
+        self._ultima_lettura = adesso
         with self._lock:
             visti: set[str] = set()
             for f in self._file_md():
