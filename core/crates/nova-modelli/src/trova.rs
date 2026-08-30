@@ -91,7 +91,9 @@ pub struct Come {
     pub profondita: usize,
     pub secondi: f64,
     pub minimo: u64,
-    /// Aprire ogni candidato e controllarne i primi quattro byte.
+    /// Aprire ogni candidato e controllare che sia un GGUF **e che sia
+    /// intero**. I primi quattro byte da soli non bastano: uno scaricamento
+    /// interrotto ce li ha tutti.
     pub verifica: bool,
 }
 
@@ -246,7 +248,7 @@ pub fn trova(come: &Come) -> (Vec<Trovato>, Resoconto) {
             if !chiavi.insert(chiave.clone()) {
                 continue;
             }
-            if come.verifica && !gguf::e_gguf(&f) {
+            if come.verifica && !gguf::utilizzabile(&f) {
                 continue;
             }
             let byte = match fs::metadata(&f) {
@@ -339,8 +341,23 @@ pub fn verifica_file(indicato: &str) -> Verifica {
     if !gguf::e_gguf(&p) {
         return vuota(
             "non e' un file GGUF: i primi byte non tornano \
-             (succede con scaricamenti interrotti o file rinominati)",
+             (succede con le pagine di errore salvate col nome giusto \
+             o con i file rinominati)",
         );
+    }
+    // Un file a meta' ha l'intestazione giusta e i tensori no. Va detto qui,
+    // adesso, e non fra un minuto sotto forma di llama.cpp che muore.
+    match gguf::misura(&p) {
+        Ok(m) if !m.completo() => {
+            let mancano = m.byte_minimi.saturating_sub(m.byte) / (1024 * 1024);
+            return vuota(&format!(
+                "e' un GGUF ma non e' finito di scaricare: \
+                 mancano almeno {mancano} MB dei suoi {} tensori",
+                m.tensori
+            ));
+        }
+        Err(e) => return vuota(&format!("e' un GGUF ma non si legge: {e}")),
+        _ => {}
     }
     let byte = meta.len();
     Verifica {

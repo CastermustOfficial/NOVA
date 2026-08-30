@@ -29,6 +29,10 @@ const MAX_CHIAVI: u64 = 1 << 20;
 const MAX_STRINGA: u64 = 1 << 24;
 /// Un vettore piu' lungo di questo non lo si percorre nemmeno per contarlo.
 const MAX_ARRAY: u64 = 1 << 28;
+/// Un modello vero ha migliaia di tensori, non miliardi.
+const MAX_TENSORI: u64 = 1 << 22;
+/// L'allineamento della sezione dati, se il file non ne dichiara un altro.
+const ALLINEAMENTO: u64 = 32;
 
 /// Un valore di metadati, ridotto a cio' che ci serve davvero.
 #[derive(Debug, Clone, PartialEq)]
@@ -221,6 +225,103 @@ pub fn metadati(percorso: &Path) -> Result<BTreeMap<String, Valore>, String> {
         kv.insert(chiave, v);
     }
     Ok(kv)
+}
+
+/// Quanto dovrebbe essere grande il file, e quanto e'.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Misura {
+    /// I byte che il file ha davvero.
+    pub byte: u64,
+    /// I byte che deve avere almeno per contenere tutti i suoi tensori.
+    pub byte_minimi: u64,
+    pub tensori: u64,
+}
+
+impl Misura {
+    pub fn completo(&self) -> bool {
+        self.byte >= self.byte_minimi
+    }
+}
+
+/// Se il file contiene davvero tutto quello che dichiara di contenere.
+///
+/// Serve perche' i primi quattro byte **non bastano**, e per mesi si e'
+/// scritto il contrario in tre posti diversi: «uno scaricamento interrotto
+/// non supera il controllo». E' falso. L'intestazione GGUF sta all'inizio del
+/// file, quindi uno scaricamento interrotto al sessanta per cento ce l'ha
+/// tutta ed e' indistinguibile da un modello sano - finche' llama.cpp non
+/// prova a caricarlo e muore su qualcosa di illeggibile. Trovato su un file
+/// vero, mentre scaricava.
+///
+/// Il controllo e' questo: la tabella dei tensori dice dove comincia
+/// l'ultimo, e il file deve arrivarci. Non si calcola quanto pesa ogni
+/// tensore - vorrebbe dire tenere aggiornata la tabella dei tipi di ggml, che
+/// cambia fra una versione e l'altra di llama.cpp, e sbagliarla vorrebbe dire
+/// dichiarare rotto un modello sano. Cosi' non ci sono falsi allarmi: si
+/// perde solo il caso del file tagliato dentro l'ultimo tensore.
+pub fn misura(percorso: &Path) -> Result<Misura, String> {
+    let f = File::open(percorso).map_err(|e| format!("non si apre: {e}"))?;
+    let byte = f.metadata().map(|m| m.len()).unwrap_or(0);
+    let mut r = BufReader::new(f);
+    let mut magia = [0u8; 4];
+    leggi_esatto(&mut r, &mut magia)?;
+    if &magia != b"GGUF" {
+        return Err("non e' un file GGUF".into());
+    }
+    let _versione = u32le(&mut r)?;
+    let tensori = u64le(&mut r)?;
+    if tensori > MAX_TENSORI {
+        return Err(format!("{tensori} tensori dichiarati: il file non e' quello che dice"));
+    }
+    let n = u64le(&mut r)?;
+    if n > MAX_CHIAVI {
+        return Err(format!("{n} chiavi dichiarate: il file non e' quello che dice"));
+    }
+    let mut allineamento = ALLINEAMENTO;
+    for _ in 0..n {
+        let chiave = stringa(&mut r)?;
+        let tipo = u32le(&mut r)?;
+        let v = valore(&mut r, tipo)?;
+        if chiave == "general.alignment" {
+            if let Some(a) = v.intero() {
+                if a > 0 {
+                    allineamento = a as u64;
+                }
+            }
+        }
+    }
+    // La tabella dei tensori: nome, dimensioni, tipo, scostamento.
+    let mut massimo = 0u64;
+    for _ in 0..tensori {
+        let _nome = stringa(&mut r)?;
+        let n_dim = u32le(&mut r)?;
+        if n_dim > 8 {
+            return Err(format!("{n_dim} dimensioni: il file non e' quello che dice"));
+        }
+        for _ in 0..n_dim {
+            u64le(&mut r)?;
+        }
+        let _tipo = u32le(&mut r)?;
+        let scostamento = u64le(&mut r)?;
+        massimo = massimo.max(scostamento);
+    }
+    let qui = r
+        .stream_position()
+        .map_err(|e| format!("non si legge la posizione: {e}"))?;
+    // I dati cominciano al primo multiplo dell'allineamento dopo la tabella.
+    let inizio_dati = qui.div_ceil(allineamento) * allineamento;
+    Ok(Misura {
+        byte,
+        // «+1»: dell'ultimo tensore si sa dove comincia, non quanto e' lungo.
+        // Almeno il suo primo byte dev'esserci.
+        byte_minimi: inizio_dati + massimo + 1,
+        tensori,
+    })
+}
+
+/// GGUF sano e completo: e' questo che vuol dire «questo file si puo' usare».
+pub fn utilizzabile(percorso: &Path) -> bool {
+    misura(percorso).map(|m| m.completo()).unwrap_or(false)
 }
 
 /// La forma del modello. Un file illeggibile da' una forma vuota, non un

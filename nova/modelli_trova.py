@@ -106,14 +106,35 @@ def _e_gguf(percorso: Path) -> bool:
     """I primi quattro byte di un GGUF sono G G U F.
 
     L'estensione la mette chi rinomina; questi byte li mette chi ha scritto il
-    file. Uno scaricamento interrotto o una pagina di errore salvata col nome
-    giusto superano il primo controllo e non il secondo.
+    file. Una pagina di errore salvata col nome giusto supera il primo
+    controllo e non il secondo.
+
+    Quello che **non** cattura e' lo scaricamento interrotto - per mesi qui
+    c'era scritto il contrario. L'intestazione sta all'inizio del file, quindi
+    un modello fermo al sessanta per cento ce l'ha tutta. Per quello serve
+    `gguf.utilizzabile`, che guarda se il file arriva fin dove dice.
     """
     try:
         with open(percorso, "rb") as f:
             return f.read(4) == b"GGUF"
     except OSError:
         return False
+
+
+def _utilizzabile(percorso: Path) -> bool:
+    """GGUF sano **e** intero.
+
+    L'import sta qui dentro e non in cima perche' questo modulo viene
+    eseguito anche da solo, dall'installatore, e un import in cima lo
+    legherebbe al resto del pacchetto. Se per qualsiasi ragione non si arriva
+    a `nova.gguf`, si ripiega sul controllo dei quattro byte: meglio un
+    elenco un po' generoso di un installatore che non trova niente.
+    """
+    try:
+        from .gguf import utilizzabile
+    except Exception:
+        return _e_gguf(percorso)
+    return utilizzabile(percorso)
 
 
 def _punteggio(percorso: Path, byte: int) -> tuple[int, int]:
@@ -199,7 +220,7 @@ def trova(extra: list[Path] | None = None, secondi: float = 20.0,
             chiave = str(f).lower()
             if chiave in visti:
                 continue
-            if verifica and not _e_gguf(f):
+            if verifica and not _utilizzabile(f):
                 continue
             try:
                 byte = f.stat().st_size
@@ -233,7 +254,22 @@ def verifica_file(percorso: str) -> dict:
     if not _e_gguf(p):
         return {"ok": False, "percorso": str(p),
                 "motivo": "non e' un file GGUF: i primi byte non tornano "
-                          "(succede con scaricamenti interrotti o file rinominati)"}
+                          "(succede con le pagine di errore salvate col nome "
+                          "giusto o con i file rinominati)"}
+    # Un file a meta' ha l'intestazione giusta e i tensori no. Va detto qui,
+    # adesso, e non fra un minuto sotto forma di llama.cpp che muore.
+    try:
+        from .gguf import misura
+        m = misura(p)
+    except Exception as e:
+        return {"ok": False, "percorso": str(p),
+                "motivo": f"e' un GGUF ma non si legge: {e}"}
+    if not m["completo"]:
+        mancano = (m["byte_minimi"] - m["byte"]) // (1024 * 1024)
+        return {"ok": False, "percorso": str(p),
+                "motivo": "e' un GGUF ma non e' finito di scaricare: "
+                          f"mancano almeno {mancano} MB dei suoi "
+                          f"{m['tensori']} tensori"}
     byte = p.stat().st_size
     return {
         "ok": True, "percorso": str(p), "nome": p.name, "cartella": str(p.parent),

@@ -48,6 +48,9 @@ struct Dentro {
     /// File di cui leggere la forma.
     #[serde(default)]
     forme: Vec<String>,
+    /// File di cui misurare la completezza.
+    #[serde(default)]
+    misure: Vec<String>,
     /// Casi di calcolo degli strati.
     #[serde(default)]
     strati: Vec<CasoStrati>,
@@ -102,6 +105,15 @@ struct FormaFuori {
 }
 
 #[derive(Serialize)]
+struct MisuraFuori {
+    ok: bool,
+    byte: u64,
+    byte_minimi: u64,
+    tensori: u64,
+    completo: bool,
+}
+
+#[derive(Serialize)]
 struct Fuori {
     modelli: Vec<ModelloFuori>,
     /// Se il tetto di tempo e' scaduto. Il numero di secondi non si confronta:
@@ -110,6 +122,7 @@ struct Fuori {
     indicati: Vec<VerificaFuori>,
     forme: Vec<FormaFuori>,
     strati: Vec<u32>,
+    misure: Vec<MisuraFuori>,
     note: Vec<String>,
 }
 
@@ -210,6 +223,26 @@ fn main() {
                     c.riserva_mb,
                     &c.kv_tipo,
                 )
+            })
+            .collect(),
+        misure: dentro
+            .misure
+            .iter()
+            .map(|s| match gguf::misura(&PathBuf::from(s)) {
+                Ok(m) => MisuraFuori {
+                    ok: true,
+                    byte: m.byte,
+                    byte_minimi: m.byte_minimi,
+                    tensori: m.tensori,
+                    completo: m.completo(),
+                },
+                Err(_) => MisuraFuori {
+                    ok: false,
+                    byte: 0,
+                    byte_minimi: 0,
+                    tensori: 0,
+                    completo: false,
+                },
             })
             .collect(),
         note: Vec::new(),

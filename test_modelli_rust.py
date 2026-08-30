@@ -46,7 +46,7 @@ if not BINARIO.is_file():
     sys.exit(2)
 
 from nova import modelli_trova as py            # noqa: E402
-from nova.gguf import model_shape               # noqa: E402
+from nova.gguf import misura, model_shape       # noqa: E402
 from nova.runtime import PESO_KV                # noqa: E402
 
 # Un'asimmetria che il porting ha fatto uscire allo scoperto, e che vale la
@@ -84,7 +84,13 @@ def _str(s: bytes) -> bytes:
 
 def gguf_finto(percorso: Path, arch: str, strati: int, ctx: int, embd: int,
                nome: str = "prova", byte_totali: int = 0,
-               con_vocabolario: bool = True) -> None:
+               con_vocabolario: bool = True, tensori: int = 3,
+               taglia_a: float = 1.0) -> None:
+    """Un GGUF finto con la tabella dei tensori vera.
+
+    `taglia_a` sotto 1 lo tronca: e' lo scaricamento a meta', che ha
+    l'intestazione giusta e i dati no.
+    """
     kv = [
         (b"general.architecture", 8, _str(arch.encode())),
         (b"general.name", 8, _str(nome.encode())),
@@ -98,12 +104,21 @@ def gguf_finto(percorso: Path, arch: str, strati: int, ctx: int, embd: int,
         voci = b"".join(_str(f"tok{i}".encode()) for i in range(500))
         kv.append((b"tokenizer.ggml.tokens", 9,
                    struct.pack("<I", 8) + struct.pack("<Q", 500) + voci))
-    corpo = b"GGUF" + struct.pack("<I", 3) + struct.pack("<Q", 0)
+    corpo = b"GGUF" + struct.pack("<I", 3) + struct.pack("<Q", tensori)
     corpo += struct.pack("<Q", len(kv))
     for chiave, tipo, val in kv:
         corpo += _str(chiave) + struct.pack("<I", tipo) + val
-    if byte_totali > len(corpo):
-        corpo += b"\0" * (byte_totali - len(corpo))
+    # La tabella dei tensori: nome, dimensioni, tipo, scostamento. E' su
+    # questa che si capisce se il file arriva fin dove dice di arrivare.
+    intero = max(byte_totali, len(corpo) + 4096)
+    passo = (intero - len(corpo)) // (tensori + 1)
+    for i in range(tensori):
+        corpo += _str(f"blk.{i}.weight".encode())
+        corpo += struct.pack("<I", 2) + struct.pack("<Q", 64) + struct.pack("<Q", 64)
+        corpo += struct.pack("<I", 0)                 # F32
+        corpo += struct.pack("<Q", i * passo)         # scostamento
+    dati = max(0, intero - len(corpo))
+    corpo += b"\0" * int(dati * taglia_a)
     percorso.write_bytes(corpo)
 
 
@@ -250,6 +265,55 @@ with tempfile.TemporaryDirectory(prefix="nova-modelli-") as tmp:
 
     controlla("le virgolette non cambiano la risposta",
               v_rs[0]["percorso"] == v_rs[1]["percorso"] == v_rs[2]["percorso"])
+
+# =======================================================================
+print("\n=== Lo scaricamento a meta' ===")
+
+# Il difetto trovato su un file vero: l'intestazione GGUF sta all'inizio, e
+# uno scaricamento interrotto ce l'ha tutta. Per mesi in tre punti c'era
+# scritto che i quattro byte bastavano a riconoscerlo. Non bastano.
+with tempfile.TemporaryDirectory(prefix="nova-meta-") as tmp:
+    base = Path(tmp)
+    sano = base / "sano.gguf"
+    meta = base / "a-meta.gguf"
+    gguf_finto(sano, "qwen3", 64, 8192, 512, byte_totali=200_000)
+    gguf_finto(meta, "qwen3", 64, 8192, 512, byte_totali=200_000, taglia_a=0.4)
+
+    controlla("i quattro byte dicono si' a entrambi",
+              py._e_gguf(sano) and py._e_gguf(meta))
+
+    for f, atteso in ((sano, True), (meta, False)):
+        m_py = misura(f)
+        m_rs = rust({"radici": [], "misure": [str(f)]})["misure"][0]
+        controlla(f"misura di {f.name}: py e rs d'accordo",
+                  m_py["byte"] == m_rs["byte"]
+                  and m_py["byte_minimi"] == m_rs["byte_minimi"]
+                  and m_py["tensori"] == m_rs["tensori"]
+                  and m_py["completo"] == m_rs["completo"],
+                  f"\n    py={m_py}\n    rs={m_rs}")
+        controlla(f"{f.name} completo={atteso}", m_py["completo"] is atteso)
+
+    # E la ricerca non lo deve offrire.
+    comune2 = {"radici": [str(base)], "profondita": 4, "secondi": 30.0,
+               "minimo": 1000}
+    rs_el = rust({**comune2, "verifica": True})["modelli"]
+    py_el = py.trova(extra=[base], secondi=30.0, minimo=1000, verifica=True)
+    controlla("la ricerca non offre il file a meta'",
+              [x["nome"] for x in rs_el] == ["sano.gguf"],
+              str([x["nome"] for x in rs_el]))
+    controlla("e Python fa lo stesso",
+              [x["nome"] for x in py_el] == [x["nome"] for x in rs_el],
+              f"py={[x['nome'] for x in py_el]}")
+
+    # E chi lo indica a mano deve sentirsi dire perche'.
+    v_py = py.verifica_file(str(meta))
+    v_rs = rust({"radici": [], "indicati": [str(meta)]})["indicati"][0]
+    controlla("il motivo e' lo stesso, parola per parola",
+              v_py["motivo"] == v_rs["motivo"] and not v_py["ok"] and not v_rs["ok"],
+              f"\n    py={v_py.get('motivo')!r}\n    rs={v_rs['motivo']!r}")
+    controlla("e dice quanto manca, non solo che manca",
+              "MB" in v_rs["motivo"] and "tensori" in v_rs["motivo"], v_rs["motivo"])
+
 
 # =======================================================================
 print("\n=== Gli strati su GPU ===")

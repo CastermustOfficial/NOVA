@@ -610,6 +610,70 @@ portati, tutte le divergenze trovate finora sono state mie, nessuna del
 codice — il che dice qualcosa di buono sul metodo (i due lati vengono davvero
 confrontati cifra per cifra) e qualcosa di scomodo su chi scrive le prove.
 
+### E poi il difetto vero, trovato guardando due file che scaricavano
+
+Il pezzo era finito, provato e depositato. Poi, per curiosita', si e' chiesto
+al binario appena costruito cosa pensasse dei due Gemma in corso di
+scaricamento sul disco. Ha risposto **«va bene»** su entrambi.
+
+Non e' un difetto del porting: e' un difetto di NOVA, vecchio quanto il
+modulo, copiato fedelmente in Rust perche' il metodo dice di copiare fedelmente.
+In tre punti - il commento di `_e_gguf`, il messaggio di `verifica_file` e la
+documentazione - c'era scritto che i primi quattro byte riconoscono «uno
+scaricamento interrotto». E' falso, e per capirlo bastava guardare dove sta
+l'intestazione: **all'inizio del file**. Un modello fermo al sessanta per
+cento ce l'ha tutta, ed e' indistinguibile da uno sano fino al momento in cui
+llama.cpp prova a caricarlo e muore su qualcosa che non si legge. E' di nuovo
+la forma di D28 vista da lontano: il guasto non e' che manca il controllo, e'
+che il controllo c'era, aveva un nome che prometteva piu' di quello che
+faceva, e nessuno l'aveva messo alla prova su un file a meta'.
+
+La cartella degli scaricamenti di chi installa NOVA e' esattamente il posto
+dove i file a meta' si trovano.
+
+**Il controllo vero.** La tabella dei tensori dice dove comincia l'ultimo, e
+il file deve arrivarci. Non si calcola quanto pesa ogni tensore: vorrebbe dire
+tenere aggiornata la tabella dei tipi di ggml, che cambia fra una versione e
+l'altra di llama.cpp, e sbagliarla vorrebbe dire dichiarare rotto un modello
+sano. Meglio un controllo che non prende il file tagliato dentro l'ultimo
+tensore che uno che ogni tanto accusa un modello innocente: qui i falsi
+allarmi sono il danno peggiore.
+
+Sui quattro file veri di questa macchina:
+
+| file | ha | gli servono | verdetto |
+|---|---|---|---|
+| `gemma-4-26B-A4B-it-UD-Q3_K_XL` | 12,02 GB | 12,02 GB | intero |
+| `Qwen3.8-27B-Q4_K_M` | 15,66 GB | 15,66 GB | intero |
+| `gemma-4-26B-A4B-it-UD-IQ3_XXS` (in corso) | 7,17 GB | 10,63 GB | mancano 3.545 MB |
+| `gemma-4-26B-A4B-it-UD-IQ4_NL` (in corso) | 9,57 GB | 12,68 GB | mancano 3.189 MB |
+
+Nessun falso allarme sui due sani, e sui due a meta' un messaggio che dice
+**quanto** manca invece di limitarsi a dire di no. La correzione e' andata in
+tutti e due i lati - Rust e Python - perche' il Python e' quello che gira
+oggi, e un difetto conosciuto lasciato in piedi «tanto poi lo togliamo» e' un
+difetto in produzione.
+
+E c'e' un piccolo regalo in coda: per contare i tensori bisogna attraversare i
+metadati, e il lettore Python li attraversava **materializzando** il
+vocabolario - centocinquantamila stringhe allocate e subito buttate, per ogni
+file candidato. Ora salta, come fa il Rust. Non era il motivo per cui si
+guardava li'.
+
+### Il metodo, alla quarta ripetizione
+
+Vale la pena fermarsi su una cosa. Il difetto non e' uscito da una lista, da
+una prova, o dal porting in se'. E' uscito perche' avendo in mano uno
+strumento nuovo lo si e' puntato su dei dati veri che si avevano sottomano —
+due file che stavano scaricando. Tre righe di comando, nessuna aspettativa
+particolare.
+
+E' la stessa forma delle altre volte: la chiave nel messaggio d'errore,
+l'orb che non riceveva lo stato, il ripiego mai partito. **I difetti peggiori
+si trovano guardando qualcosa di vero mentre si stava facendo altro.** La
+differenza, stavolta, e' che lo strumento con cui guardare l'avevamo appena
+finito di costruire.
+
 ### Quello che questa giornata ha insegnato
 
 Tre cose si ripetono abbastanza da meritare di essere scritte.
