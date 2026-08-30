@@ -87,6 +87,11 @@ input:focus{border-color:rgba(232,115,74,.4)}
 .chiave-no{font-family:var(--mono);font-size:10.5px;color:var(--fioco);
   padding:4px 9px;border:1px solid var(--linea);border-radius:8px;white-space:nowrap}
 .dett{margin-top:14px;padding-top:14px;border-top:1px solid var(--linea)}
+.riservatezza{font-size:11px;line-height:1.5;margin:0 0 14px;padding:9px 12px;
+  border-radius:10px;border:1px solid var(--linea);background:var(--vetro)}
+.riservatezza b{font-weight:600}
+.riservatezza.in-casa{border-color:rgba(125,240,178,.28);background:rgba(125,240,178,.07);color:var(--inchiostro)}
+.riservatezza.esce{border-color:rgba(232,176,74,.30);background:rgba(232,176,74,.07);color:var(--inchiostro)}
 .nota{font-size:11px;color:var(--fioco);line-height:1.5;margin-top:10px;padding-left:10px;
   border-left:2px solid var(--linea)}
 </style>
@@ -417,6 +422,50 @@ function fornitoreDa(url){
   return 'altro';
 }
 
+/* Il momento in cui uno decide se un cervello va bene e' questo, non la
+ * lettura del README: si sceglie «API esterna» e da quell'istante la
+ * conversazione esce dal PC. Dirlo qui costa tre righe; non dirlo vuol dire
+ * che la scelta si fa senza sapere cosa comporta.
+ *
+ * «In casa» si decide dall'host, non dal nome del fornitore: Ollama e LM
+ * Studio parlano lo stesso dialetto delle API remote ma girano qui, e
+ * trattarli come se uscissero sarebbe un allarme falso - e gli allarmi
+ * falsi insegnano a non leggere gli allarmi. */
+function inCasa(url){
+  try{
+    const h = new URL(url).hostname.toLowerCase();
+    return ['localhost','127.0.0.1','::1','0.0.0.0','host.docker.internal'].includes(h);
+  }catch(e){ return false; }
+}
+
+function fornitoreNome(url){
+  const k = fornitoreDa(url);
+  // «A Altro endpoint compatibile OpenAI arrivano...» e' una frase che non
+  // si puo' leggere: se non si sa chi e', si dice «il fornitore».
+  return (!k || k === 'altro') ? '' : (FORNITORI[k]?.n || '');
+}
+
+function fasciaRiservatezza(attivo, cli){
+  const url = prendi('brains.api_base_url','');
+  const casa = attivo === 'locale' || (attivo === 'api' && inCasa(url));
+  if(casa){
+    return `<p class="riservatezza in-casa"><b>Non esce niente dal PC.</b>
+      Domanda, conversazione e memoria restano qui. E' la scelta da tenere per
+      il lavoro delicato.</p>`;
+  }
+  const chi = attivo === 'claude' ? 'Claude'
+            : attivo === 'api'    ? (fornitoreNome(url) || 'il fornitore')
+            : (cli && cli.etichetta) || attivo;
+  const mani = (attivo === 'claude' || cli)
+    ? ' Questo cervello ha <b>mani proprie</b>: agisce sul PC con i suoi strumenti, e NOVA gli fa da tramite.'
+    : '';
+  return `<p class="riservatezza esce"><b>Da qui esce roba dal PC.</b>
+    A ${esc(chi)} arrivano la domanda, il contesto della conversazione e i nodi
+    di memoria pertinenti al messaggio.${mani}
+    <b>Mai le credenziali</b>: quelle il modello non le vede in nessun caso.
+    Per il lavoro delicato torna su «Modello locale».</p>`;
+}
+
 function disegnaDettaglioCervello(){
   const dove = $('dettaglioCervello');
   if(!dove) return;
@@ -427,6 +476,7 @@ function disegnaDettaglioCervello(){
   else if(attivo === 'claude')  dove.innerHTML = formClaude();
   else if(cli[attivo])        { dove.innerHTML = formCli(attivo, cli[attivo]); quale = 'cli'; }
   else                          dove.innerHTML = formLocale();
+  dove.innerHTML = fasciaRiservatezza(attivo, cli[attivo]) + dove.innerHTML;
   dove.innerHTML += formAggiungiCli();
   legaDettaglioCervello(quale, attivo);
   legaAggiungiCli();

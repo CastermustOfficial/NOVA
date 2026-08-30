@@ -183,6 +183,33 @@ else:
     controlla("il guscio non e' piu' vecchio della pagina", aggiornato,
               "va ricostruito")
 
+print("\n9. si sa cosa esce dal PC nel momento in cui si sceglie")
+# Il momento in cui uno decide se un cervello va bene e' questo, non la
+# lettura del README: si sceglie «API esterna» e da quell'istante la
+# conversazione esce dal PC.
+controlla("c'e' una fascia sulla riservatezza", "fasciaRiservatezza(" in html)
+controlla("che viene disegnata insieme al dettaglio del cervello",
+          "dove.innerHTML = fasciaRiservatezza(" in html)
+controlla("dice quando non esce niente", "Non esce niente dal PC" in html)
+controlla("e quando invece esce", "esce roba dal PC" in html)
+# La riga che conta davvero: la promessa sulle credenziali va ripetuta
+# proprio qui, dove si sta scegliendo di far uscire qualcosa.
+controlla("e ripete che le credenziali non escono mai",
+          "Mai le credenziali" in html)
+controlla("e dice dove tornare per il lavoro delicato",
+          "lavoro delicato" in html)
+
+# «In casa» si decide dall'host, non dal nome del fornitore: Ollama e LM
+# Studio parlano lo stesso dialetto delle API remote ma girano qui, e
+# trattarli come se uscissero sarebbe un allarme falso - e gli allarmi falsi
+# insegnano a non leggere gli allarmi.
+controlla("«in casa» si decide dall'indirizzo", "function inCasa(" in html)
+for host in ["localhost", "127.0.0.1", "::1", "0.0.0.0"]:
+    controlla(f"  e {host} conta come in casa", f"'{host}'" in html)
+controlla("un fornitore che non si riconosce non diventa una frase storta",
+          "k === 'altro'" in html)
+
+
 print(f"\n{passati}/{passati + len(falliti)} passati")
 for x in falliti:
     print("  FALLITO:", x)
