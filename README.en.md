@@ -634,6 +634,11 @@ appears in either: its name does, and the fact that the store exists.
 
 - [Architecture document](docs/architettura.md) — the decisions taken and why,
   including the ones that were discarded.
+- [Work diary](docs/diario.md) — what was found **while** doing it. The
+  changelog is `git log`; this keeps the things a commit message doesn't say,
+  and that can't be reconstructed six months later.
+- [Towards beta](docs/verso_la_beta.md) — what's missing, in three lists, and
+  the five sentences that must be true before the word «alpha» comes off.
 - [How to contribute](CONTRIBUTING.md)
 
 ## For developers
@@ -692,16 +697,33 @@ down in [`core/README.md`](core/README.md).
 bin/nova-shell.exe    the orb and the windows (started at boot)
 install.ps1           installation, CUDA runtime, autostart, shortcut
 nova/
-  main.py             entrypoint, GUI or CLI
+  main.py             entrypoint: starts the orb, or the CLI
   config.py           persistent configuration (%APPDATA%\NOVA\config.json)
   setup_wizard.py     automatic detection of GGUF model and runtime
+  modelli_trova.py    where to look for a .gguf the user already has
+  componenti.py       what each feature needs, and how to get it
   runtime.py          starts/supervises/stops llama-server.exe (+ GPU auto-tuning)
+  daemon.py           starts nova-core when it isn't running
+  core_client.py      the channel to the daemon: capabilities, processes, events
   agent.py            agent loop: model <-> tools, safety, approvals
-  processi.py         no NOVA process ever opens a black window
+  routing.py          who answers what: tiers, delegation, quota fallback
+  brains/
+    base.py           what a brain must be able to do, and `LimiteUso`
+    openai_compat.py  the local model and external APIs: same dialect
+    claude_cli.py     Claude Code headless, with the memory as an MCP server
+    cli_generic.py    the other agentic CLIs, declared without writing code
+  guasti.py           a fault said in plain words; the traceback goes to the file
+  attesa.py           the wait you can see passing, without faking a percentage
+  dati.py             where NOVA keeps your things, and what happens if you delete them
+  processi.py         no NOVA process opens a black window
+  lingue.py           which language it answers in, and the interface's names
   browser.py          drives Chrome over CDP: paste, tables, uploads
   cerca.py            web search without opening a browser on screen
+  immagini.py         the screenshots the model can look at
   ricette.py          the learned procedures, found again even with a typo
-  registro.py         what can't be undone gets written down
+  automazioni.py      the shell around the tools NOVA writes itself
+  banco.py            the copy a repair is tried on
+  registro.py         what can't be undone gets written down - and searched
   pianificazione.py   recurring tasks and sentinels
   fascicolo.py        the true facts about the user: CV, experience, own texts
   harness.py          documents and projects: open, search, point at
@@ -711,18 +733,35 @@ nova/
   evidenzia.py        code colours (Pygments) and line numbers
   markdown_qt.py      faithful Markdown, there and back
   mcp_kb.py           the 32 tools exposed to an agentic brain
+  kb_setup.py         wiring the memory: vault, engine, learning
   tools/
     base.py           registry, OpenAI schemas, risk levels
     files.py          read, write, search, move, open
     apps.py           launch apps, list/focus/close windows
     shell.py          PowerShell, CMD, Python
     web.py            web search, page reading, opening in the browser
+    documenti.py      reading inside pdf, docx, spreadsheets
     system.py         clipboard, keys, volume, notifications, reminders, PC info
+    tempo.py          reminders and things in the diary
     schermo.py        screenshots, when reading the system isn't enough
+    deleghe.py        passing the ball to a higher tier
+    kb.py             the six tools the model uses the memory with
     automazioni.py    tools NOVA writes itself
     procedure.py      how it solved a request, so it can do it again
     riparazione.py    the bench: it repairs itself without breaking itself
-  voice/              listening and voice: Kokoro, whisper.cpp, ElevenLabs, SAPI
+  kb/
+    schema.py         node + frontmatter
+    store.py          the vault on disk, index, relations, audit
+    retrieval.py      BM25 + embedder + RRF + graph expansion
+    memory.py         what to learn from an exchange, and what not to
+    riservatezza.py   what never enters memory even if it passes through
+    seed.py           the first mapping of the PC
+  voice/
+    stt.py            listening: whisper, push-to-talk or wake word
+    tts.py            voice: Windows SAPI, zero dependencies
+    audio.py          microphone and speakers
+    elevenlabs.py     voice and transcription via ElevenLabs
+    openai_audio.py   voice and transcription via compatible APIs
 core/crates/
   nova-core/          the daemon: bus, capabilities, long processes, RPC
   nova-voce/          audio, Kokoro, whisper, Scribe: no Python

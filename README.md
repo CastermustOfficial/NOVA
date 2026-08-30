@@ -622,6 +622,11 @@ compare il nome, e il fatto che l'archivio esiste.
 
 - [Documento di architettura](docs/architettura.md) — le decisioni prese e il
   perche', comprese quelle scartate.
+- [Diario di lavoro](docs/diario.md) — cosa si e' scoperto **mentre** si
+  faceva. Il registro delle modifiche e' `git log`; questo tiene le cose che
+  un messaggio di commit non dice, e che dopo sei mesi non si ricostruiscono.
+- [Verso la beta](docs/verso_la_beta.md) — cosa manca, in tre liste, e le
+  cinque frasi che devono essere vere per togliere la parola «alpha».
 - [Come contribuire](CONTRIBUTING.md)
 
 ## Per chi sviluppa
@@ -680,16 +685,33 @@ scritto in [`core/README.md`](core/README.md).
 bin/nova-shell.exe    l'orb e le finestre (avviato all'accensione)
 install.ps1           installazione, runtime CUDA, avvio automatico, collegamento
 nova/
-  main.py             entrypoint, GUI o CLI
+  main.py             entrypoint: accende l'orb, oppure la CLI
   config.py           configurazione persistente (%APPDATA%\NOVA\config.json)
   setup_wizard.py     rilevamento automatico di modello GGUF e runtime
+  modelli_trova.py    dove cercare un .gguf che l'utente ha gia'
+  componenti.py       cosa serve a ogni funzione, e come procurarlo
   runtime.py          avvia/sorveglia/spegne llama-server.exe (+ auto-tuning GPU)
+  daemon.py           accende nova-core quando non gira
+  core_client.py      il canale verso il demone: capacita', processi, eventi
   agent.py            ciclo agente: modello <-> tool, sicurezza, approvazioni
+  routing.py          chi risponde a cosa: gradini, delega, ripiego sulla quota
+  brains/
+    base.py           cosa deve saper fare un cervello, e `LimiteUso`
+    openai_compat.py  il modello locale e le API esterne: stesso dialetto
+    claude_cli.py     Claude Code in headless, con la memoria come server MCP
+    cli_generic.py    le altre CLI agentiche, dichiarate senza scrivere codice
+  guasti.py           un guasto detto in italiano; il traceback va nel file
+  attesa.py           l'attesa che si vede passare, senza fingere una percentuale
+  dati.py             dove NOVA tiene le tue cose, e cosa succede se le cancelli
   processi.py         nessun processo di NOVA apre una finestra nera
+  lingue.py           in che lingua risponde, e i nomi dell'interfaccia
   browser.py          pilota Chrome in CDP: incolla, tabelle, caricamenti
   cerca.py            ricerca web senza aprire un browser sullo schermo
+  immagini.py         le schermate che il modello puo' guardare
   ricette.py          le procedure imparate, ritrovate anche con un refuso
-  registro.py         cio' che non si annulla, si annota
+  automazioni.py      il guscio degli strumenti che NOVA scrive da se'
+  banco.py            la copia su cui si prova una riparazione
+  registro.py         cio' che non si annulla, si annota - e si ricerca
   pianificazione.py   attivita' ricorrenti e sentinelle
   fascicolo.py        i fatti veri sull'utente: CV, esperienze, testi suoi
   harness.py          documenti e progetti: aprire, cercare, indicare
@@ -699,18 +721,35 @@ nova/
   evidenzia.py        i colori del codice (Pygments) e i numeri di riga
   markdown_qt.py      Markdown fedele in andata e ritorno
   mcp_kb.py           i 32 strumenti esposti a un cervello agentico
+  kb_setup.py         regia della memoria: vault, motore, apprendimento
   tools/
     base.py           registry, schemi OpenAI, livelli di rischio
     files.py          leggere, scrivere, cercare, spostare, aprire
     apps.py           avviare app, elencare/focalizzare/chiudere finestre
     shell.py          PowerShell, CMD, Python
     web.py            ricerca web, lettura pagine, apertura nel browser
+    documenti.py      leggere dentro pdf, docx, fogli
     system.py         appunti, tasti, volume, notifiche, promemoria, info PC
+    tempo.py          promemoria e cose in programma
     schermo.py        schermate, quando leggere il sistema non basta
+    deleghe.py        passare la palla a un gradino piu' alto
+    kb.py             i sei strumenti con cui il modello usa la memoria
     automazioni.py    strumenti che NOVA scrive da se'
     procedure.py      come ha risolto una richiesta, per rifarla
     riparazione.py    il banco: si ripara da sola senza rompersi
-  voice/              ascolto e voce: Kokoro, whisper.cpp, ElevenLabs, SAPI
+  kb/
+    schema.py         nodo + frontmatter
+    store.py          il vault su disco, indice, relazioni, audit
+    retrieval.py      BM25 + embedder + RRF + espansione grafo
+    memory.py         cosa imparare da uno scambio, e cosa no
+    riservatezza.py   cosa non entra in memoria nemmeno se passa di li'
+    seed.py           la prima mappatura del PC
+  voice/
+    stt.py            ascolto: whisper, push-to-talk o parola di richiamo
+    tts.py            voce: SAPI di Windows, zero dipendenze
+    audio.py          microfono e altoparlanti
+    elevenlabs.py     voce e trascrizione via ElevenLabs
+    openai_audio.py   voce e trascrizione via API compatibili
 core/crates/
   nova-core/          il demone: bus, capacita', processi lunghi, RPC
   nova-voce/          audio, Kokoro, whisper, Scribe: niente Python
