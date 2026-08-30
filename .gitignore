@@ -40,3 +40,5 @@ _vetrina*
 # disco di chi ricostruisce e non nel repository: sono un paracadute
 # locale, non una versione.
 salvagente/
+
+banco_prestazioni.json
