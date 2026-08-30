@@ -57,7 +57,16 @@ TESTI = [
 ]
 
 # --- un .docx vero ----------------------------------------------------
-import docx  # noqa: E402
+# Senza le librerie dei documenti non c'e' niente da provare: «non provabile
+# qui», non un fallimento. Sono in requirements.txt, quindi su una macchina
+# installata ci sono; qui si copre il caso di chi legge il repo e basta.
+try:
+    import docx  # noqa: E402
+    import fitz  # noqa: E402
+except ModuleNotFoundError as _manca:
+    print(f"manca {_manca.name}: senza non si possono costruire i documenti "
+          "di prova (pip install -r requirements.txt)")
+    sys.exit(2)
 d = docx.Document()
 for stile, t in TESTI:
     d.add_paragraph(t, style="Title" if stile == "Titolo" else None)
@@ -68,7 +77,6 @@ doc_word = finto / "ricerca.docx"
 d.save(str(doc_word))
 
 # --- un .pdf vero -----------------------------------------------------
-import fitz  # noqa: E402
 p = fitz.open()
 pagina = p.new_page()
 y = 72

@@ -14,6 +14,7 @@ piccola. Se un giorno serve allargarla, vuol dire che qualcosa e' cambiato.
 Esce 2 - «qui non si puo' provare» - se il binario non e' costruito.
 """
 import json
+import os
 import math
 import subprocess
 import sys
@@ -23,14 +24,16 @@ RADICE = Path(__file__).resolve().parent
 sys.path.insert(0, str(RADICE))
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-BINARIO = None
-for c in [RADICE / "core" / "target" / "release" / "banco-memoria.exe",
-          RADICE / "core" / "target" / "release" / "banco-memoria"]:
-    if c.is_file():
-        BINARIO = c
-        break
-if BINARIO is None:
-    print("Il banco Rust non e' costruito. Per averlo:")
+# Il nome del binario dipende dal sistema, e non basta guardare se il file
+# c'e': su una macchina Linux che monta la cartella di Windows il «.exe» si
+# vede benissimo e non si esegue. Prima questa prova falliva li' con «Exec
+# format error» invece di dichiararsi non eseguibile, ed e' la differenza
+# fra una suite rossa per un motivo vero e una rossa per un motivo che non
+# riguarda nessuno.
+NOME = "banco-memoria.exe" if os.name == "nt" else "banco-memoria"
+BINARIO = RADICE / "core" / "target" / "release" / NOME
+if not BINARIO.is_file():
+    print("Il banco Rust non e' costruito per questo sistema. Per averlo:")
     print("  cd core && .\\x.cmd build --release -p nova-memoria "
           "--features banco --bin banco-memoria")
     sys.exit(2)
@@ -105,8 +108,12 @@ VETTORI = [
 
 dentro = json.dumps({"nodi": NODI, "domande": DOMANDE,
                      "fusioni": FUSIONI, "vettori": VETTORI}, ensure_ascii=False)
-esito = subprocess.run([str(BINARIO)], input=dentro, capture_output=True,
-                       text=True, encoding="utf-8", errors="replace", timeout=60)
+try:
+    esito = subprocess.run([str(BINARIO)], input=dentro, capture_output=True,
+                           text=True, encoding="utf-8", errors="replace", timeout=60)
+except OSError as e:
+    print(f"il banco Rust c'e' ma non si esegue qui: {e}")
+    sys.exit(2)
 if esito.returncode != 0:
     print(f"  il banco Rust si e' fermato: {esito.stderr.strip()[:300]}")
     sys.exit(1)

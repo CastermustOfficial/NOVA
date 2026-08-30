@@ -61,6 +61,18 @@ else:
     controlla("senza tag HTML nel testo", "<" not in (r.get("testo") or ""))
 
     print("\n4. cercare, senza che compaia niente sullo schermo")
+    # Senza Edge ne' Chrome questa parte non si puo' provare: e' «non
+    # provabile qui», non un fallimento. Prima moriva con un traceback, che
+    # e' il modo di dire «questa suite gira su una macchina sola».
+    from nova import browser as _b
+    try:
+        _b._eseguibile()
+    except Exception as e:                                     # noqa: BLE001
+        print(f"      niente browser ({e}): salto la ricerca vera")
+        print(f"\n{passati}/{passati + len(falliti)} passati")
+        for f in falliti:
+            print("  FALLITO:", f)
+        sys.exit(1 if falliti else 2)
     t0 = time.time()
     d = cerca.cerca("listone fantacalcio ruoli", quanti=6)
     ms = (time.time() - t0) * 1000

@@ -411,6 +411,31 @@ Quando non trova niente dice cosa ha provato e come e' andata, invece di
 inventarsi una diagnosi.
 
 
+### La suite provata dove non c'e' niente
+
+Otto file di prova nuovi in una giornata, tutti scritti e verificati sulla
+macchina di sviluppo. Provati **in un ambiente nudo** — Linux, senza Chrome,
+senza le librerie dei documenti, senza i binari Rust — sei fallivano.
+
+Quattro erano miei, e tutti dello stesso tipo: **fallire invece di
+dichiararsi non provabili**. La convenzione di NOVA e' che l'uscita 2
+significhi «qui non si puo' provare», e la CI la tratta come «saltata»
+invece che come rossa. Le due prove dei banchi Rust cercavano il binario
+guardando se il file c'e': su un Linux che monta la cartella di Windows il
+`.exe` si vede benissimo e non si esegue, quindi morivano con «Exec format
+error». Le altre due morivano su un `import` mancante.
+
+E' la stessa forma della lista compatibilita', vista da dentro: **una prova
+che gira su una macchina sola non e' una prova, e' un promemoria.** Adesso
+in un ambiente nudo la suite fa 34 verdi e 6 saltate, e le due che restano
+rosse lo sono perche' quella VM non puo' cancellare un file — cosa che sulla
+macchina vera e sulla CI non succede.
+
+Vale la pena notare quando e' successo: dopo aver chiuso l'intera lista
+sull'attrito cognitivo e portato due pezzi in Rust, cioe' quando sembrava
+tutto a posto. Bastava eseguire la stessa suite altrove.
+
+
 ### Quello che questa giornata ha insegnato
 
 Tre cose si ripetono abbastanza da meritare di essere scritte.
