@@ -73,9 +73,19 @@ In ordine di guadagno atteso, non di difficolta'.
 6. **Speculative decoding** con un draft piccolo (`--model-draft`). Sul codice
    e sull'output strutturato — che e' quasi tutto quello che NOVA genera — vale
    spesso 1,5-2x.
-7. **Provare un MoE davvero**, non solo consigliarlo nel README: Gemma 4
-   26B-A4B o Nemotron 3 Nano 30B-A3B, e mettere i numeri misurati accanto a
-   quelli del denso.
+7. ~~**Provare un MoE davvero**, non solo consigliarlo nel README.~~ Fatto,
+   e il README aveva ragione: Gemma 4 26B-A4B Q3_K_XL fa **42,4 tok/s** e
+   145 ms di prompt a caldo, contro 6,0 tok/s e 1.363 ms di Qwen3.8 27B
+   Q4_K_M — stessa macchina, stessa configurazione, stessa sessione. Sette
+   volte. La ragione non e' il MoE in se': e' **30 strati su 30** contro 53
+   su 65. Uno ci sta e l'altro no. I numeri sono nel README, con le due
+   avvertenze che meritano (quantizzazioni non pari — di proposito, perche' la
+   regola e' «la piu' grande che entra» — e si misura la velocita', non la
+   qualita' delle risposte).
+
+   **Ne resta una decisione aperta, e non e' tecnica:** `models.json` dice
+   `consigliata: true` su Qwen3.8 27B. Su una scheda da 16 GB quel consiglio
+   ora ha contro una tabella.
 
 ### Il prompt (dove stanno i token)
 

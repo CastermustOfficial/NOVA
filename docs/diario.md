@@ -674,6 +674,53 @@ si trovano guardando qualcosa di vero mentre si stava facendo altro.** La
 differenza, stavolta, e' che lo strumento con cui guardare l'avevamo appena
 finito di costruire.
 
+### I due modelli, uno dopo l'altro, e una previsione che si e' avverata
+
+Con la GPU libera e il banco in mano, la misura che mancava: gli stessi
+dodicimila token di prompt, la stessa configurazione, i due modelli uno dopo
+l'altro nella stessa sessione — non due giornate diverse, che sarebbero due
+misure diverse.
+
+| | strati in GPU | freddo | caldo | generazione |
+|---|---|---|---|---|
+| Qwen3.8 27B Q4_K_M (15,7 GB) | 53 su 65 | 26,5 s | 1.363 ms | 6,0 tok/s |
+| Gemma 4 26B-A4B Q3_K_XL (12,0 GB) | 30 su 30 | 6,1 s | 145 ms | 42,4 tok/s |
+
+Sette volte in generazione, nove sul prompt a caldo. Il README lo aveva
+previsto in prosa mesi fa — «non si guadagna una frazione, si cambia
+categoria» — e adesso al posto della frase c'e' una tabella.
+
+**Ma la lettura giusta non e' «i MoE sono veloci».** La colonna che spiega
+tutte le altre e' la prima: 30 su 30 contro 53 su 65. E' la stessa curva che
+il banco aveva gia' trovato girando intorno al limite della scheda — da 53 a
+60 strati la generazione cresce del cinquanta per cento, a 64 crolla. Qui
+non si sta girando intorno al ginocchio: uno dei due modelli sta tutto dentro
+e l'altro no, e i dodici strati che Qwen lascia in RAM costano piu' di tutto
+il resto messo insieme. Il MoE non fa la magia: rende possibile il «ci sta».
+Tremilaottocento milioni di parametri attivi invece di ventisette miliardi
+sono cio' che permette a un modello da 26B di stare in dodici gigabyte senza
+diventare inservibile.
+
+E' anche la difesa di `estimate_gpu_layers`, l'aritmetica portata in Rust
+poche ore prima. Il primo banco della giornata era partito con `-ngl 999`,
+cioe' «mettine quanti ne entrano, che ci pensa il driver»: e' il regime in cui
+nessun confronto significa niente, perche' il driver ripiega in silenzio sulla
+memoria condivisa e ogni configurazione misura la stessa lentezza. Qui i 53 e
+i 30 non sono scelte del driver: sono conti fatti prima, ed e' per questo che
+la tabella si puo' leggere.
+
+**Due cose che questa misura non dice.** Le quantizzazioni non sono pari —
+Q3_K_XL contro Q4_K_M — e non e' una svista: la regola del catalogo e'
+scegliere la piu' grande che *entra*, quindi la disparita' e' esattamente la
+scelta che si stava misurando. E si e' misurata la velocita', non la qualita'
+delle risposte, che con un cronometro non si misura. Il compromesso che il
+README dichiara resta in piedi: su un ragionamento difficile il denso e'
+ancora avanti.
+
+Resta una domanda che non e' tecnica e non decido io: `models.json` dice
+`consigliata: true` su Qwen3.8 27B, e su una scheda da 16 GB quel consiglio
+ora ha contro una tabella.
+
 ### Quello che questa giornata ha insegnato
 
 Tre cose si ripetono abbastanza da meritare di essere scritte.

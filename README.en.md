@@ -931,6 +931,30 @@ assistant that answers in two seconds and is wrong once in twenty is more
 useful than one that answers in thirty and is wrong once in twenty-five,
 because you never open the second one.
 
+**And now it is no longer a prediction: it is a measurement.** Same machine
+(RTX 4060 Ti, 16 GB), same configuration, same real 12,000-token prompt, the
+two models back to back in the same session:
+
+| | layers on GPU | cold prompt | warm prompt | generation |
+|---|---|---|---|---|
+| Qwen3.8 27B Q4_K_M (15.7 GB) | 53 of 65 | 26.5 s | 1,363 ms | **6.0 tok/s** |
+| Gemma 4 26B-A4B Q3_K_XL (12.0 GB) | **30 of 30** | 6.1 s | **145 ms** | **42.4 tok/s** |
+
+**Seven times** on generation, nine on the warm prompt. The column that
+explains all the others is the first one: 30 of 30 against 53 of 65. It isn't
+the MoE doing the magic — it's that one of them fits and the other doesn't,
+and the twelve layers Qwen leaves in RAM cost more than everything else put
+together. What the MoE buys is that "fits": 3.8 billion active parameters
+instead of 27 are what let a 26B model live in twelve gigabytes without
+becoming useless.
+
+Two honest warnings about that table. The quantisations are not matched
+(Q3_K_XL against Q4_K_M): that is deliberate, because the rule is to pick
+**the largest one that fits**, and that is precisely the choice being
+measured. And what is being measured is **speed**, not answer quality: that
+one doesn't yield to a stopwatch, and on hard reasoning the dense model stays
+ahead.
+
 For NOVA in particular, two details of Gemma 4 weigh more than the benchmarks:
 it is **multimodal** — so screenshots work with the brain at home too, not
 only with the one on the network — and it has **native function calling**,

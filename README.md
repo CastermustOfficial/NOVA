@@ -919,6 +919,30 @@ frazione — si cambia categoria. Un assistente che risponde in due secondi e
 sbaglia una volta su venti e' piu' utile di uno che risponde in trenta e
 sbaglia una volta su venticinque, perche' il secondo non lo apri.
 
+**E adesso non e' piu' una previsione: e' una misura.** Stessa macchina
+(RTX 4060 Ti, 16 GB), stessa configurazione, stesso prompt vero da dodicimila
+token, i due modelli uno dopo l'altro nella stessa sessione:
+
+| | strati in GPU | prompt a freddo | prompt a caldo | generazione |
+|---|---|---|---|---|
+| Qwen3.8 27B Q4_K_M (15,7 GB) | 53 su 65 | 26,5 s | 1.363 ms | **6,0 tok/s** |
+| Gemma 4 26B-A4B Q3_K_XL (12,0 GB) | **30 su 30** | 6,1 s | **145 ms** | **42,4 tok/s** |
+
+**Sette volte** in generazione, nove sul prompt a caldo. La colonna che
+spiega tutte le altre e' la prima: 30 su 30 contro 53 su 65. Non e' il MoE a
+fare la magia — e' che uno dei due ci sta e l'altro no, e i dodici strati che
+Qwen lascia in RAM costano piu' di tutto il resto messo insieme. Il MoE serve
+a rendere possibile quel «ci sta»: 3,8 miliardi di parametri attivi invece di
+27 sono cio' che permette a un modello da 26B di stare in dodici gigabyte
+senza diventare inservibile.
+
+Due avvertenze oneste su questa tabella. Le quantizzazioni non sono pari
+(Q3_K_XL contro Q4_K_M): e' voluto, perche' la regola e' scegliere **la piu'
+grande che entra**, ed e' proprio quella la scelta che si sta misurando. E si
+sta misurando la **velocita'**, non la qualita' delle risposte: quella non si
+misura con un cronometro, e su un ragionamento difficile il denso resta
+avanti.
+
 Per NOVA in particolare, due dettagli di Gemma 4 pesano piu' dei benchmark:
 e' **multimodale** — quindi le schermate funzionano anche con il cervello di
 casa, non solo con quello in rete — e ha la **chiamata di funzione nativa**,
