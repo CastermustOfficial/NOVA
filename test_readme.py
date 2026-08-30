@@ -64,8 +64,8 @@ for quanti, cosa in [(len(REGISTRY), "strumenti locali"),
 
 print("\n2. il modello nominato e' quello del catalogo")
 cat = json.loads((RADICE / "models.json").read_text(encoding="utf-8-sig"))
-nomi = {f["nome"] for f in cat["famiglie"]}
-famiglia = sorted(nomi)[0]
+famiglie = {f["nome"] for f in cat["famiglie"]}
+famiglia = sorted(famiglie)[0]
 radice_nome = famiglia.split()[0]          # «Qwen3.8»
 controlla(f"il README nomina «{radice_nome}»", radice_nome in README)
 # La versione sbagliata e' l'errore che c'era: si controlla che non torni.
@@ -120,7 +120,23 @@ controlla("e non la spaccia per memoria neurale",
           "Non e' memoria neurale" in README)
 
 print("\n6. gli esempi di cosa chiederle sono veri")
-controlla("c'e' la sezione su cosa chiederle", "## Cosa puoi chiederle" in README)
+controlla("c'e' la sezione dei casi d'uso", "## Casi d'uso" in README)
+from nova.mcp_kb import STRUMENTI as _S                        # noqa: E402
+nomi = {s["name"] for s in _S}
+
+# Ogni caso mostra la catena di strumenti che lo rende vero: e' la
+# differenza fra «NOVA sa fare X» e «ecco come». Ogni nome citato in una
+# catena deve esistere davvero, se no si descrive una macchina che non c'e'.
+import re as _re
+catene = _re.findall(r"\*\*La catena:\*\*(.+?)(?:\n\n|\n###)", README, _re.S)
+controlla("i casi mostrano la catena degli strumenti", len(catene) >= 5,
+          f"{len(catene)} catene")
+citati = set()
+for c in catene:
+    citati |= set(_re.findall(r"`(\w+)`", c))
+tutti = nomi | set(REGISTRY)
+fantasmi = sorted(citati - tutti)
+controlla("e ogni strumento citato esiste", not fantasmi, str(fantasmi))
 # Ogni famiglia di esempi deve corrispondere a strumenti che esistono.
 from nova.mcp_kb import STRUMENTI as _S                        # noqa: E402
 nomi = {s["name"] for s in _S}
@@ -137,6 +153,12 @@ controlla("si dice che il fascicolo non si inventa",
           "non si deduce" in README)
 controlla("e che un invio finisce nel registro",
           "registro" in README.lower())
+# I tre principi che tengono insieme i casi: se mancassero, i casi
+# sarebbero un elenco di trucchi invece di un modo di lavorare.
+for principio, cosa in [("Se una strada non cede", "cambiare strada"),
+                        ("Lavora dietro, non davanti", "non rubare il posto"),
+                        ("Cio' che non si annulla, si annota", "il registro")]:
+    controlla(f"il README dice il principio: {cosa}", principio in README)
 
 # Il README e' pubblico: gli esempi non devono portarsi dietro dati veri.
 personali = [x for x in ["Giovanni", "giova", "@gmail", "CastermustOfficial/NOVA/blob"]

@@ -82,11 +82,15 @@ dipende da cosa e' visibile.
 
 ---
 
-## Cosa puoi chiederle
+## Casi d'uso
 
-Gli esempi qui sotto non sono immaginati: sono le famiglie di richieste che
-NOVA ha gia' risolto, riprese dal suo archivio delle procedure. Ventotto voci,
-e la meta' e' una sola cosa fatta dall'inizio alla fine.
+Un elenco di strumenti non dice cosa succede quando si mettono in fila. Questo
+si': ogni caso qui sotto e' una richiesta sola che diventa una catena, e sotto
+ognuno c'e' scritta la catena vera, con i nomi degli strumenti che la fanno.
+
+Gli esempi non sono immaginati: le famiglie vengono dall'archivio delle
+procedure di una macchina in uso. Ventotto voci, e la meta' e' una sola cosa
+fatta dall'inizio alla fine.
 
 ### Cercare lavoro, e candidarsi
 
@@ -147,12 +151,113 @@ paga: la seconda volta non si ricomincia da capo.
 - **Automazioni scritte da lei**: quando una procedura si ripete abbastanza,
   NOVA la trasforma in uno strumento e smette di rifarla a mano.
 
+### Spostare dati fra due sistemi che non si parlano
+
+> «Prendi la tabella da questo gestionale e mettila nel foglio dell'altro.»
+
+E' il lavoro che esiste perche' *non c'e' un'API*, e che di solito si fa a
+mano per un'ora. `web_tabella` legge una tabella intera in una chiamata sola,
+gia' come TSV; `web_incolla` la rimette dall'altra parte a blocchi;
+`web_carica` consegna un file a un campo di caricamento senza aprire nessuna
+finestra di dialogo. Nessun tasto premuto, nessuna finestra che salta davanti.
+
+**La catena:** `web_apri` -> `web_tabella` -> `web_incolla` / `web_carica`
+
+### Una ricerca con fonti che si possono controllare
+
+> «Fammi il punto sullo stato dell'arte dei modelli aperti, con le fonti.»
+
+`web_cerca` trova senza aprire il browser, `web_prendi` scarica una pagina
+come testo in mezzo secondo invece di sei, e i documenti che hai gia' sul
+disco entrano nell'harness. La differenza rispetto a farsi riassumere le cose
+da una chat e' che la risposta dice **dove**: file e pagina, non «mi risulta
+che».
+
+**La catena:** `web_cerca` -> `web_prendi` -> `harness_apri` ->
+`harness_cerca_progetto` -> `harness_proponi` (il testo nasce nel documento)
+
+### Sorvegliare qualcosa e parlare solo se cambia
+
+> «Guarda ogni mattina se escono offerte nuove e dimmelo solo se ce ne sono.»
+
+Una sentinella non e' un promemoria: confronta il valore di oggi con quello di
+ieri e tace se e' uguale. Un avviso che arriva tutti i giorni si spegne dopo
+una settimana; uno che arriva quando qualcosa e' cambiato si legge.
+
+**La catena:** `pianifica_crea` (sentinella) -> ... -> `avvisi_recenti`
+quando torni
+
+### Accedere a un servizio senza che la password passi dal modello
+
+> «Entra nel portale e scarica le fatture del mese.»
+
+Le credenziali stanno in un archivio cifrato con DPAPI. Nel prompt entra un
+riferimento, nel campo entra il valore: il modello non vede mai la password,
+e nemmeno il registro delle azioni la scrive. E' l'unico modo per cui
+«l'assistente conosce le mie password» possa essere una frase accettabile.
+
+**La catena:** archivio credenziali -> `web_scrivi` -> `azione_registra`
+
+### Chiedere un secondo parere a un modello piu' capace
+
+> «Questa cosa e' delicata: falla guardare a qualcuno piu' bravo.»
+
+NOVA non e' un modello solo. Quello di casa orchestra - e' veloce e non costa
+niente - e quando il compito lo merita **delega**: un ragionamento difficile,
+del codice delicato, una decisione che pesa. Chi riceve il compito non vede la
+conversazione, quindi NOVA glielo riscrive per intero.
+
+**La catena:** `modelli` (chi c'e') -> `delega` -> la risposta torna dentro
+la stessa conversazione
+
+### Capire perche' il PC va piano
+
+> «Perche' e' lento?»
+
+Legge lo stato vero invece di indovinare: memoria, processi, dischi, quanti
+layer del modello stanno davvero in VRAM. Su Windows, quando la VRAM finisce,
+il driver ripiega in silenzio sulla RAM condivisa e il modello va dieci volte
+piu' piano senza dire niente - NOVA lo vede e lo dice.
+
+**La catena:** `system_info` -> `list_processes` -> `run_powershell`
+
+### Smettere di rifare a mano una cosa gia' fatta tre volte
+
+> «Questa e' la terza volta: fattela da sola.»
+
+Quando una procedura si ripete abbastanza, NOVA la trasforma in uno strumento
+suo e da quel momento non la ricostruisce piu' un passo per volta. Il
+guadagno non e' teorico: una richiesta risolta da un'automazione costa due
+giri di modello invece di dieci.
+
+**La catena:** ricette (la strada imparata) -> `automazione_crea` ->
+`automazioni_elenco`
+
 ### E anche il suo stesso codice
 
 Nell'archivio c'e' «git tag e push». NOVA lavora sul progetto che la contiene:
 apre i propri sorgenti nell'harness, li legge con i colori, propone modifiche
 e le applica quando glielo dici. Il **banco** (`nova/banco.py`) le permette di
 provare una riparazione su una copia prima di toccare l'originale.
+
+---
+
+### Quello che tutti questi casi hanno in comune
+
+Tre cose, e sono le stesse tre ovunque:
+
+**Se una strada non cede, ne prova un'altra.** E se la strada giusta non
+esiste, se la costruisce - un'automazione, uno script, un giro diverso. E'
+scritto nel prompt come principio, non come suggerimento.
+
+**Lavora dietro, non davanti.** Nessuna finestra che salta in primo piano,
+nessun tasto premuto al posto tuo, nessuna console nera che compare. Puoi
+continuare a lavorare mentre lo fa.
+
+**Cio' che non si annulla, si annota.** Una candidatura mandata, una mail
+partita, un file cancellato: NOVA non chiede il permesso ogni volta - lo
+chiede secondo il livello di autonomia che hai scelto - ma quello che ha fatto
+e non si puo' disfare resta scritto, e lo puoi rileggere.
 
 ---
 
