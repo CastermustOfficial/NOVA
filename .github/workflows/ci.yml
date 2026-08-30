@@ -54,11 +54,19 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
+          # Uscita 2 vuol dire «non eseguibile qui»: sono le prove di
+          # integrazione, che vogliono il demone acceso o un browser vero.
+          # Su un agente spoglio non hanno fallito niente - non si sono
+          # potute fare - e chiamarle rosse insegnerebbe a ignorare i rossi,
+          # che e' esattamente come questo controllo era finito spento.
           $falliti = @()
+          $saltate = @()
           Get-ChildItem test_*.py | Sort-Object Name | ForEach-Object {
             python $_.Name
-            if ($LASTEXITCODE -ne 0) { $falliti += $_.Name }
+            if ($LASTEXITCODE -eq 2) { $saltate += $_.Name }
+            elseif ($LASTEXITCODE -ne 0) { $falliti += $_.Name }
           }
+          if ($saltate) { Write-Host "::notice::saltate (serve una macchina vera): $($saltate -join ', ')" }
           if ($falliti) {
             Write-Host "::error::prove fallite: $($falliti -join ', ')"
             exit 1

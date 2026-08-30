@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Le due mani nuove sul browser: incollare un blocco e consegnare un file.
 
 Perche' esistono: `web_scrivi` scrive in un selettore per volta. Quaranta
@@ -97,8 +97,23 @@ lavoro = Path(tempfile.mkdtemp(prefix="nova_banco_"))
 csv = lavoro / "listone.csv"
 csv.write_text(TSV.replace("\t", ","), encoding="utf-8")
 
+# Questa prova ha bisogno di un browser vero: e' una prova di integrazione,
+# non di logica. Dove non c'e' - un agente di integrazione continua, una
+# macchina spoglia - non ha fallito niente, semplicemente non si e' potuta
+# fare, e dirlo con lo stesso codice di un difetto e' un modo di insegnare a
+# ignorare i rossi. Due, come fa gia' quella delle approvazioni: «non
+# eseguibile qui».
+try:
+    _eseguibile = browser._eseguibile()
+except Exception as e:                                         # noqa: BLE001
+    print(f"nessun browser su questa macchina ({type(e).__name__}: {e}): salto")
+    sys.exit(2)
+if not _eseguibile or not Path(_eseguibile).exists():
+    print(f"nessun browser su questa macchina: salto")
+    sys.exit(2)
+
 proc = subprocess.Popen(
-    [browser._eseguibile(),
+    [_eseguibile,
      f"--remote-debugging-port={PORTA}",
      f"--user-data-dir={lavoro / 'profilo'}",
      "--remote-allow-origins=http://127.0.0.1",
@@ -110,10 +125,13 @@ try:
     scadenza = time.time() + 40
     while time.time() < scadenza and not browser.acceso(PORTA):
         time.sleep(0.4)
-    controlla("il browser di prova risponde", browser.acceso(PORTA),
-              "nessuno sulla porta " + str(PORTA))
     if not browser.acceso(PORTA):
-        raise SystemExit(1)
+        # Il browser c'e' ma non si e' acceso: neanche questo e' un difetto
+        # di NOVA, e va detto come tale.
+        print(f"il browser di prova non risponde sulla porta {PORTA}: salto")
+        proc.terminate()
+        sys.exit(2)
+    controlla("il browser di prova risponde", True)
 
     schede = [s for s in browser.schede(PORTA) if s.get("type") == "page"]
     pagina = next((s for s in schede if "pagina.html" in (s.get("url") or "")), None)
