@@ -120,7 +120,37 @@ controlla("e non la spaccia per memoria neurale",
           "Non e' memoria neurale" in README)
 
 print("\n6. gli esempi di cosa chiederle sono veri")
-controlla("c'e' la sezione dei casi d'uso", "## Casi d'uso" in README)
+controlla("c'e' l'elenco dei casi d'uso",
+          "## Cosa sa fare NOVA? Alcuni casi d'uso" in README)
+controlla("e la sezione che li apre da dentro",
+          "## Gli stessi casi, visti da dentro" in README)
+
+# Il marcatore e' una promessa in miniatura: se non c'e' la legenda, «c'e'»
+# e «si scrive» diventano la stessa parola.
+for marca in ["**c'e'**", "**si scrive**", "**manca**"]:
+    controlla(f"la legenda spiega {marca}", marca in README)
+
+# I «manca» sono la parte che nessuno scriverebbe volentieri, ed e' la
+# ragione per cui il resto si legge come vero. Se sparissero, sparirebbe la
+# ragione.
+import re as _re
+elenco = README[README.index("## Cosa sa fare NOVA?"):
+                README.index("## Gli stessi casi")]
+quanti_manca = elenco.count("**manca**")
+controlla("l'elenco dice anche cosa NON sa fare", quanti_manca >= 4,
+          f"{quanti_manca} voci «manca»")
+for cosa in ["SPID", "firma digitale", "pptx", "antivirus", "scansionato"]:
+    controlla(f"e nomina il limite su «{cosa}»", cosa in elenco)
+controlla("l'antivirus e' escluso, non promesso a meta'",
+          "non e' un antivirus" in elenco)
+controlla("e si dice perche' SPID non si aggira",
+          "la deve fare la persona" in elenco)
+
+# Il caso che vale piu' di tutti e non e' un risparmio di tempo.
+controlla("c'e' il caso di chi il PC fa fatica a usarlo",
+          "Chi il PC fa fatica a usarlo" in elenco)
+controlla("e dice la differenza col controllo remoto",
+          "non prende il mouse" in elenco)
 from nova.mcp_kb import STRUMENTI as _S                        # noqa: E402
 nomi = {s["name"] for s in _S}
 

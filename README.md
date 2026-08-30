@@ -82,7 +82,105 @@ dipende da cosa e' visibile.
 
 ---
 
-## Casi d'uso
+## Cosa sa fare NOVA? Alcuni casi d'uso
+
+Ogni voce ha un marcatore, perche' «sa fare» e' una parola che si allunga
+troppo facilmente:
+
+- **c'e'** — funziona con gli strumenti che ci sono adesso;
+- **si scrive** — NOVA se lo costruisce al momento, con uno script o
+  un'automazione che poi resta;
+- **manca** — non c'e', e qui sotto c'e' scritto cosa manca. Un elenco che
+  nomina solo cio' che funziona e' un elenco di cui non ci si fida la seconda
+  volta.
+
+### Burocrazia e scadenze
+
+- **c'e'** — Compilare un modulo online lungo prendendo i dati dal fascicolo:
+  rimborsi, iscrizioni, moduli della scuola, garanzie, disdette.
+- **c'e'** — Tenere d'occhio una scadenza e avvisare *prima*: bollo,
+  assicurazione, revisione, passaporto, rinnovo di un dominio.
+- **si scrive** — Raccogliere i documenti sparsi per una pratica in una
+  cartella sola, rinominati in modo coerente.
+- **manca** — Tutto cio' che passa da SPID o CIE. Non e' un limite tecnico da
+  aggirare: l'autenticazione forte la deve fare la persona, ed e' giusto cosi'.
+
+### Soldi di casa
+
+- **si scrive** — Estratti conto in PDF che diventano un foglio di calcolo:
+  «dove sono andati i soldi questo mese».
+- **c'e'** — Sorvegliare un prezzo e avvisare **solo quando scende**.
+- **si scrive** — Fatture e scontrini: raccolti, rinominati per data e
+  fornitore, sommati.
+- **c'e'** — Confrontare due offerte - luce, gas, telefono - leggendo le
+  pagine e mettendole in tabella.
+
+### Documenti e lettere
+
+- **c'e'** — Scrivere una lettera formale con i dati veri: disdetta, reclamo,
+  richiesta di rimborso, ricorso a una multa.
+- **c'e'** — Rileggere e correggere un documento con le proposte dentro il
+  testo. Su un `.docx` senza perdere l'impaginazione.
+- **si scrive** — Unire piu' PDF, estrarne pagine, convertirli.
+- **manca** — La firma digitale dentro l'harness.
+- **manca** — Le presentazioni: nessuno strumento produce `.pptx`.
+
+### Fogli e dati
+
+- **si scrive** — Ripulire un foglio disordinato: doppioni, colonne fuori
+  posto, date scritte in tre modi diversi.
+- **si scrive** — Da PDF a tabella, per listini ed estratti.
+- **manca** — Da PDF **scansionato** a tabella: senza riconoscimento ottico
+  quel PDF resta un'immagine, e NOVA lo dice invece di inventarsi i numeri.
+- **c'e'** — Portare una tabella da un gestionale a un altro che non ha API.
+
+### Il PC
+
+- **c'e'** — «Perche' e' lento?», guardando lo stato vero.
+- **si scrive** — Fare spazio: i file enormi, e i duplicati veri - stesso
+  contenuto, non stesso nome.
+- **c'e'** — Backup di una cartella su un disco esterno, ripetuto ogni
+  settimana.
+- **si scrive** — Mettere in ordine foto e scaricati: per data, per tipo, per
+  evento.
+- **manca** — «Credo di avere un virus». NOVA puo' guardare processi, avvii
+  automatici e connessioni, e dire cosa vede; **non e' un antivirus** e non
+  deve comportarsi come se lo fosse.
+
+### Posta e persone
+
+- **c'e'** — Triage della posta: cosa chiede una risposta, cosa puo' aspettare.
+- **c'e'** — Preparare la risposta e mandarla **solo dopo conferma**.
+- **si scrive** — Il richiamo: «se fra cinque giorni non rispondono,
+  ricordamelo».
+
+### Studio
+
+- **c'e'** — Studiare su una pila di PDF con citazioni che si possono
+  controllare: file e pagina.
+- **c'e'** — Riassumere un documento lungo mostrando da dove viene ogni pezzo.
+- **si scrive** — Preparare domande di ripasso dal materiale.
+
+### Chi il PC fa fatica a usarlo
+
+Questo non fa risparmiare mezz'ora: cambia chi puo' usare un computer.
+
+- **c'e'** — Usarlo **a voce**, chiamandola per nome. «Nova, scrivi a mio
+  figlio.» «Nova, cerca la ricetta del pane.»
+- **c'e'** — Aiutare un genitore a distanza. La differenza con un programma di
+  controllo remoto e' che NOVA **non prende il mouse**: agisce sull'albero di
+  accessibilita', quindi chi sta davanti a quel computer continua a usarlo
+  mentre lei fa la sua parte.
+
+### Vendere e comprare
+
+- **c'e'** — Scrivere l'annuncio e caricare le foto.
+- **c'e'** — Cercare un usato su piu' portali e mettere i risultati in una
+  tabella.
+
+---
+
+## Gli stessi casi, visti da dentro
 
 Un elenco di strumenti non dice cosa succede quando si mettono in fila. Questo
 si': ogni caso qui sotto e' una richiesta sola che diventa una catena, e sotto
