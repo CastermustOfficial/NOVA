@@ -764,6 +764,7 @@ nova/
     openai_audio.py   voice and transcription via compatible APIs
 core/crates/
   nova-core/          the daemon: bus, capabilities, long processes, RPC
+  nova-ricette/       the recipes in Rust, and the bench that compares them with Python
   nova-voce/          audio, Kokoro, whisper, Scribe: no Python
   nova-shell/         the orb and the windows (Tauri)
 ```

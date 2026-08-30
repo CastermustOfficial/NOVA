@@ -752,6 +752,7 @@ nova/
     openai_audio.py   voce e trascrizione via API compatibili
 core/crates/
   nova-core/          il demone: bus, capacita', processi lunghi, RPC
+  nova-ricette/       le ricette in Rust, e il banco che le confronta col Python
   nova-voce/          audio, Kokoro, whisper, Scribe: niente Python
   nova-shell/         l'orb e le finestre (Tauri)
 ```

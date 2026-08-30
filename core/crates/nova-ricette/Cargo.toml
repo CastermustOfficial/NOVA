@@ -1,0 +1,21 @@
+[package]
+name = "nova-ricette"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+# Nessuna dipendenza per il nucleo: e' aritmetica su stringhe, e un pezzo
+# senza dipendenze e' un pezzo che compila ovunque e non invecchia. serde
+# serve solo al banco di confronto, che e' un binario a parte.
+[dependencies]
+serde = { workspace = true, features = ["derive"], optional = true }
+serde_json = { workspace = true, optional = true }
+
+[features]
+banco = ["dep:serde", "dep:serde_json"]
+
+[[bin]]
+name = "banco-ricette"
+path = "src/banco.rs"
+required-features = ["banco"]

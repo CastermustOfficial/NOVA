@@ -260,6 +260,62 @@ ricostruendo il corpo dai pezzi interi. Le tre volte il difetto era evidente
 in un'occhiata e invisibile a qualunque prova testuale.
 
 
+---
+
+## 30 agosto 2026, sera — il cantiere Rust, primo colpo
+
+`core/crates/nova-ricette`: il riconoscimento delle procedure, portato dal
+Python al Rust. Scelto per quello che **non** ha — nessuna finestra, nessuna
+chiamata a Windows, nessuna rete, nessuna dipendenza — e perche' una prova
+c'era gia'. Serve a rispondere con un numero invece che con una stima alla
+domanda «quanto costa portare il resto».
+
+### Il porting non e' un'occasione per migliorare
+
+Soglie, pesi e guardie sono quelli del Python fino all'ultima cifra, comprese
+le stranezze che sembrano sbagliate e non lo sono: la rarita' senza
+logaritmo, il contenimento asimmetrico, i bordi `«»` sui trigrammi, la
+guardia sulla lettera iniziale. Cambiare qualcosa mentre si traduce vorrebbe
+dire non sapere piu' se una differenza fra le due versioni e' un errore di
+traduzione o un miglioramento voluto — ed e' il modo in cui un porting
+diventa una riscrittura che nessuno sa piu' confrontare.
+
+### Il banco di confronto
+
+Un porting che «sembra giusto» non e' un porting. Il Python scrive archivio e
+domande su stdin, il binario Rust risponde con i propri punteggi su stdout, e
+si confronta cifra per cifra. Sedici domande scelte per toccare i casi che
+hanno insegnato le guardie: refusi (`inobx`), sinonimi (`email`/`mail`),
+parole che non c'entrano, domanda vuota, sole parole vuote, accenti e
+punteggiatura, e le due trappole storiche — `ricetta`/`letta` e
+`stazione`/`situazione`.
+
+**Sedici su sedici d'accordo, al primo colpo utile.** L'unico scostamento
+trovato e' stato nel banco stesso, non nelle due implementazioni.
+
+### I numeri, che erano il punto
+
+| | |
+|---|---|
+| Python: nucleo del riconoscimento | 143 righe |
+| Rust: la stessa cosa, piu' i commenti | 285 righe |
+| Banco di confronto | 92 righe |
+| Prove Rust proprie | 4 |
+| Velocita' su 28 procedure vere | 1,92 ms → sotto 0,5 ms a domanda |
+
+**Circa due righe di Rust per riga di Python**, commenti compresi — e i
+commenti qui sono meta' del file, perche' spiegano perche' una soglia e'
+quella. Il risparmio di tempo, un millisezzo e mezzo per turno, conferma
+quello che il banco diceva gia': **non e' un progetto di velocita'.**
+
+Una cosa che si e' vista solo scrivendo: `unicodedata.normalize("NFKD", ...)`
+in Python e' una riga, in Rust vorrebbe dire portarsi dietro le tabelle
+Unicode. Qui non serve — subito dopo si tiene solo `[a-z0-9]` e il resto cade
+comunque — quindi bastano le lettere accentate che compaiono davvero. Ma e'
+il tipo di riga che in Python non si nota e in Rust va decisa, ed e' li' che
+il conto «due righe per una» viene fuori.
+
+
 ### Quello che questa giornata ha insegnato
 
 Tre cose si ripetono abbastanza da meritare di essere scritte.
