@@ -232,6 +232,43 @@ Vale la pena notare perche' e' un caso buono per NOVA e non per una chat: la
 registrazione **non deve uscire dal PC**. E' esattamente il tipo di materiale
 per cui il modello locale non e' un ripiego.
 
+### Il cantiere Rust, e perche' non e' un progetto di velocita'
+
+Deciso: prima si finisce l'attrito cognitivo, poi si apre il cantiere.
+
+E vale la pena scrivere l'errore di inquadratura, perche' e' facile
+rifarlo. Il banco dice che il Python costa ventotto millisecondi per turno,
+e da li' la conclusione «riscriverlo non serve» sembra ovvia. E' giusta
+sulla velocita' e sbagliata sull'obiettivo: guardando la lista
+compatibilita', meta' delle voci **spariscono** se sul PC dell'utente non
+c'e' piu' Python.
+
+- CMP-5 (3.10 / 3.11 / 3.12 / 3.13) non esiste piu'.
+- CMP-2 (utente senza diritti) diventa banale: un `.exe` non installa niente.
+- CMP-4 (SmartScreen) si firma una volta, non ventisette pacchetti pip.
+- OTT-10 (206 ms di import) sparisce.
+- ATT-1 (nessun traceback) non si puo' nemmeno produrre.
+
+Il porting e' un progetto di **distribuzione e di robustezza**, non di
+prestazioni. Detto cosi', vale i mesi che costa; detto come «per andare piu'
+veloce», no.
+
+Due conseguenze pratiche.
+
+**Portare a pezzi non paga finche' resta un solo file Python.** Se meta' sta
+in Rust e meta' no, l'utente installa comunque Python e ci sono due
+implementazioni della stessa cosa da tenere allineate. Il guadagno arriva
+tutto insieme, alla fine.
+
+**Meno si dipende da Windows, meglio e'.** Questo cambia cosa si scrive nel
+cantiere: non «Rust su Windows» ma il disegno che `nova-platform` ha gia' -
+un trait, tre backend. Ogni pezzo che si porta va scritto contro il trait,
+anche quando l'unico backend implementato e' quello Windows: e' la
+differenza fra avere macOS e Linux a una implementazione di distanza e
+doverli riscrivere da capo. Il punto 13 della lista compatibilita' smette di
+essere una decisione da prendere e diventa un ordine di lavoro.
+
+
 ## Il cancello della beta
 
 Non e' una data, sono cinque frasi che devono essere vere insieme:

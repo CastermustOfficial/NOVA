@@ -217,10 +217,31 @@ def main(argv: list[str] | None = None) -> int:
                     help="elenca i cervelli e il loro stato")
     ap.add_argument("--modelli", action="store_true",
                     help="mostra i gradini del router e quanto si e' speso")
+    ap.add_argument("--registro", nargs="?", const="", metavar="PAROLE",
+                    help="cosa NOVA ha fatto e non si annulla; con delle "
+                         "parole, cerca fra le azioni")
+    ap.add_argument("--giorni", type=float, default=0,
+                    help="con --registro: solo gli ultimi N giorni")
     args = ap.parse_args(argv)
 
     if args.config:
         print(CONFIG_PATH)
+        return 0
+
+    if args.registro is not None:
+        # Non passa dalla configurazione ne' dal cervello: legge un file e lo
+        # racconta. Deve funzionare anche quando NOVA non parte piu' - anzi,
+        # soprattutto allora, perche' e' il momento in cui serve sapere cosa
+        # aveva fatto.
+        from .registro import cerca, racconta, riassunto
+        if not args.registro and not args.giorni:
+            print(riassunto())
+            print()
+        righe = cerca(testo=args.registro, giorni=args.giorni, quante=40)
+        if args.registro and not righe:
+            print(f"Niente che contenga «{args.registro}».")
+            return 0
+        print(racconta(righe=righe))
         return 0
 
     if args.harness:

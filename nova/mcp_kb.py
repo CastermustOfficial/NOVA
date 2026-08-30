@@ -468,13 +468,20 @@ STRUMENTI = [
         "description": (
             "Rilegge il registro delle azioni irreversibili. Serve a rispondere "
             "a «cosa hai fatto?» senza ricostruirlo a memoria - la memoria di "
-            "una sessione chiusa non c'e' piu', il registro si'."
+            "una sessione chiusa non c'e' piu', il registro si'. Con «cerca» "
+            "risponde anche a «cosa avevo mandato a quella societa'?» settimane "
+            "dopo: le parole si trovano in qualunque campo, senza accenti e "
+            "senza maiuscole."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
+                "cerca": {"type": "string",
+                          "description": "Parole da cercare fra le azioni. Vuoto = le ultime."},
                 "quante": {"type": "integer", "description": "Quante righe (default 30)"},
                 "ore": {"type": "number", "description": "Solo le ultime N ore (0 = tutte)"},
+                "tipo": {"type": "string",
+                         "description": "browser | documento | ... per restringere"},
             },
         },
     },
@@ -950,8 +957,17 @@ class ServerKB:
         annota(azione, dove=dove, dettagli=dettagli, tipo="dichiarata")
         return f"annotata nel registro: {azione}"
 
-    def azioni_recenti(self, quante: int = 30, ore: float = 0) -> str:
-        from .registro import racconta
+    def azioni_recenti(self, quante: int = 30, ore: float = 0,
+                       cerca: str = "", tipo: str = "") -> str:
+        from .registro import cerca as trova, racconta
+        if cerca or tipo:
+            righe = trova(testo=cerca, tipo=tipo, giorni=ore / 24 if ore else 0,
+                          quante=quante)
+            if not righe:
+                return (f"Niente nel registro per «{cerca or tipo}». "
+                        "Non vuol dire che non e' successo: vuol dire che non "
+                        "e' stato annotato.")
+            return racconta(righe=righe)
         return racconta(quante=quante, ore=ore)
 
     def _dove_sono(self, scheda: str) -> str:

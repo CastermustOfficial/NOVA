@@ -115,15 +115,106 @@ def leggi(quante: int = 30, ore: float = 0) -> list[dict]:
     return righe[-quante:][::-1]
 
 
-def racconta(quante: int = 30, ore: float = 0) -> str:
-    """Le stesse righe, in una forma che si legge senza decodificare JSON."""
-    righe = leggi(quante, ore)
+def _senza_accenti(s: str) -> str:
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFD", s or "")
+                   if unicodedata.category(c) != "Mn").casefold()
+
+
+def cerca(testo: str = "", tipo: str = "", esito: str = "",
+          giorni: float = 0, quante: int = 50) -> list[dict]:
+    """«Cosa ho mandato a quella societa'?», tre settimane dopo.
+
+    Un registro che si puo' solo scorrere dalla fine e' un registro che si
+    legge il primo giorno. La domanda vera arriva dopo, ed e' sempre della
+    stessa forma: una parola che ci si ricorda, e un periodo vago.
+
+    Le parole si cercano tutte, in qualunque campo e in qualunque ordine, e
+    senza accenti: chi cerca «societa» deve trovare «societa'», e chi scrive
+    di fretta non mette le maiuscole.
+    """
+    righe = leggi(quante=10_000, ore=giorni * 24 if giorni else 0)
+    parole = [_senza_accenti(x) for x in (testo or "").split() if x]
+    fuori = []
+    for r in righe:
+        if tipo and r.get("tipo") != tipo:
+            continue
+        if esito and esito not in (r.get("esito") or ""):
+            continue
+        if parole:
+            dentro = _senza_accenti(" ".join(
+                str(r.get(k, "")) for k in ("azione", "dove", "dettagli", "esito", "tipo")))
+            if not all(w in dentro for w in parole):
+                continue
+        fuori.append(r)
+    return fuori[:quante]
+
+
+def riassunto() -> str:
+    """Quanto c'e' dentro, di che tipo, da quando, e dove sta il file.
+
+    E' la risposta a «che cos'e' questo registro»: senza, l'unica strada per
+    saperlo e' aprire un .jsonl, e a quel punto non lo apre nessuno.
+    """
+    righe = leggi(quante=100_000)
+    f = percorso()
+    if not righe:
+        return f"Il registro e' vuoto.\nSta in {f}"
+    tipi: dict[str, int] = {}
+    for r in righe:
+        tipi[r.get("tipo") or "?"] = tipi.get(r.get("tipo") or "?", 0) + 1
+    ordinati = sorted(tipi.items(), key=lambda x: -x[1])
+    prima = (righe[-1].get("quando") or "")[:10]
+    ultima = (righe[0].get("quando") or "")[:10]
+    quando = f"dal {_data_italiana(prima)}" if prima == ultima else \
+        f"dal {_data_italiana(prima)} al {_data_italiana(ultima)}"
+    return (f"{len(righe)} azioni registrate, {quando}.\n"
+            + "  " + ", ".join(f"{n} {k}" for k, n in ordinati)
+            + f"\nSta in {f}")
+
+
+def _data_italiana(iso: str) -> str:
+    try:
+        a, m, g = iso.split("-")
+        return f"{g}/{m}/{a}"
+    except Exception:                                       # noqa: BLE001
+        return iso
+
+
+def _giorno(iso: str) -> str:
+    """«oggi», «ieri», oppure la data. Un timestamp ISO non e' un giorno."""
+    from datetime import date, timedelta
+    try:
+        q = date.fromisoformat(iso[:10])
+    except Exception:                                       # noqa: BLE001
+        return iso[:10]
+    oggi = date.today()
+    if q == oggi:
+        return "oggi"
+    if q == oggi - timedelta(days=1):
+        return "ieri"
+    return _data_italiana(iso[:10])
+
+
+def racconta(quante: int = 30, ore: float = 0, righe: list[dict] | None = None) -> str:
+    """Le stesse righe, in una forma che si legge senza decodificare JSON.
+
+    Raggruppate per giorno, perche' la domanda a cui questo risponde e'
+    «cosa hai fatto ieri» e non «cosa hai fatto alla riga 47».
+    """
+    righe = leggi(quante, ore) if righe is None else righe
     if not righe:
         return "Nessuna azione registrata."
     fuori = [f"{len(righe)} azioni, dalla piu' recente:"]
+    giorno_scritto = ""
     for x in righe:
-        quando = (x.get("quando") or "")[5:16].replace("T", " ")
-        pezzi = [f"{quando}  [{x.get('tipo')}]  {x.get('azione')}"]
+        quando = x.get("quando") or ""
+        giorno = _giorno(quando)
+        if giorno != giorno_scritto:
+            fuori.append(f"\n— {giorno} —")
+            giorno_scritto = giorno
+        ora = quando[11:16]
+        pezzi = [f"{ora}  [{x.get('tipo')}]  {x.get('azione')}"]
         if x.get("dove"):
             pezzi.append(f"          su: {x['dove']}")
         if x.get("dettagli"):
