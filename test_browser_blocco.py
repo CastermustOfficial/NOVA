@@ -140,6 +140,29 @@ try:
         raise SystemExit(1)
     sid = pagina["id"]
 
+    # Che la scheda esista non vuol dire che la pagina sia finita di
+    # caricarsi: CDP risponde appena c'e' un bersaglio, e il documento arriva
+    # dopo. Su una macchina veloce la differenza non si vede mai, su un
+    # agente di integrazione continua si vede sempre - e si vedeva come
+    # «Cannot read properties of null», che sembra un difetto di NOVA e non
+    # lo era.
+    scadenza = time.time() + 20
+    pronta = False
+    while time.time() < scadenza:
+        try:
+            if browser.valuta(
+                    "document.readyState === 'complete' && "
+                    "!!document.getElementById('campo')", sid, PORTA):
+                pronta = True
+                break
+        except Exception:                                      # noqa: BLE001
+            pass
+        time.sleep(0.2)
+    controlla("la pagina ha finito di caricarsi", pronta,
+              "il campo non e' comparso entro venti secondi")
+    if not pronta:
+        raise SystemExit(1)
+
     print("\n1. incollare in un campo di testo (ripiego: insertText)")
     browser.valuta("document.getElementById('campo').focus(); 1", sid, PORTA)
     t0 = time.time()
