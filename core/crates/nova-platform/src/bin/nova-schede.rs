@@ -10,9 +10,12 @@
 use nova_platform::gpu;
 
 fn main() {
-    let solo_libera = std::env::args().any(|a| a == "--libera");
-    if solo_libera {
-        println!("{}", gpu::vram_libera_mb());
+    // `--libera` stampa due cose: i MiB e quanto crederci. Il secondo non e'
+    // un ornamento - chi calcola gli strati tiene un margine diverso a
+    // seconda che il numero sia misurato o dedotto.
+    if std::env::args().any(|a| a == "--libera") {
+        let (mb, certezza) = gpu::vram_utilizzabile();
+        println!("{mb} {certezza:?}");
         return;
     }
     let schede = gpu::schede().unwrap_or_default();

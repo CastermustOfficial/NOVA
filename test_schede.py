@@ -43,7 +43,8 @@ if BINARIO is None:
     print("  cd core && .\\x.cmd build --release -p nova-platform --bin nova-schede")
     sys.exit(2)
 
-from nova.runtime import free_vram_mb, estimate_gpu_layers   # noqa: E402
+from nova.runtime import (estimate_gpu_layers, vram_utilizzabile,   # noqa: E402
+                          MISURATA, DEDOTTA, IGNOTA, MARGINE_DEDOTTA_MB)
 
 passati = 0
 falliti: list[str] = []
@@ -90,13 +91,17 @@ if schede:
 
 print("\n=== La bocca aperta ===")
 perche: list[str] = []
-libera = free_vram_mb(perche)
-controlla("free_vram_mb risponde un numero", isinstance(libera, int), repr(libera))
+libera, certezza = vram_utilizzabile(perche)
+controlla("risponde un numero", isinstance(libera, int), repr(libera))
+controlla("e dice quanto crederci", certezza in (MISURATA, DEDOTTA, IGNOTA),
+          repr(certezza))
 controlla("uno zero non e' mai muto", libera > 0 or perche,
           "zero senza spiegazione: chi legge non sa se non ha una GPU "
           "o se non gliel'abbiamo trovata")
+controlla("zero e ignota vanno insieme", bool(libera) == (certezza != IGNOTA),
+          f"{libera} MiB dichiarati {certezza}")
 if libera:
-    controlla("e concorda col lettore DXGI",
+    controlla("e concorda col lettore delle schede",
               abs(libera - dati["vram_libera_mb"]) <= 1024,
               f"python={libera} rust={dati['vram_libera_mb']}")
 
@@ -146,6 +151,40 @@ if cfg_modello and Path(cfg_modello).is_file():
     n = estimate_gpu_layers(cfg_modello, 8192, kv_tipo="q8_0")
     print(f"  col modello configurato: {n} strati")
     controlla("la stima resta un numero, non «tutti»", 0 <= n < 200, str(n))
+
+    print("\n=== Il calcolo e' dovuto, sempre ===")
+    # NOVA deve girare su qualunque PC. Prima, quando la VRAM non si leggeva,
+    # si partiva da `-ngl 64` alla cieca — e non si poteva correggere, perche'
+    # la scala di ripiego scende a ogni errore di memoria e la memoria
+    # condivisa non ne solleva: accetta tutto e va dieci volte piu' piano.
+    # Un meccanismo di sicurezza che aspetta un'eccezione da chi non ne
+    # solleva non e' un meccanismo di sicurezza.
+    controlla("senza memoria video il calcolo da' zero, non un numero a caso",
+              estimate_gpu_layers(cfg_modello, 8192, vram_mb=0,
+                                  certezza=IGNOTA) == 0)
+
+    # E su una memoria dedotta si tiene un margine doppio: non sappiamo cosa
+    # la scheda stia gia' usando, e l'errore in eccesso e' quello che non si
+    # vede.
+    mis = estimate_gpu_layers(cfg_modello, 8192, kv_tipo="q8_0",
+                              vram_mb=12000, certezza=MISURATA)
+    ded = estimate_gpu_layers(cfg_modello, 8192, kv_tipo="q8_0",
+                              vram_mb=12000, certezza=DEDOTTA)
+    print(f"  a parita' di MiB: misurata {mis} strati, dedotta {ded}")
+    controlla("una memoria dedotta e' piu' prudente di una misurata",
+              ded <= mis, f"dedotta {ded} > misurata {mis}")
+    controlla("ma non e' una rinuncia: qualche strato lo mette lo stesso",
+              ded > 0 or mis == 0, f"dedotta {ded}, misurata {mis}")
+    controlla("il margine in piu' e' quello dichiarato",
+              MARGINE_DEDOTTA_MB > 0)
+
+    # E non si supera mai il numero di strati che il modello ha davvero.
+    enorme = estimate_gpu_layers(cfg_modello, 8192, kv_tipo="q8_0",
+                                 vram_mb=400_000, certezza=MISURATA)
+    from nova.gguf import model_shape
+    veri = int(model_shape(cfg_modello).get("n_layers") or 0)
+    controlla("una scheda enorme non fa comparire strati inesistenti",
+              enorme == veri, f"{enorme} contro {veri} reali")
 else:
     print("  nessun modello configurato sul disco: salto.")
 

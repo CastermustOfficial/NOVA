@@ -768,16 +768,51 @@ stima passa da 53 a 56 layer, e la curva misurata stamattina dice che il
 massimo e' a 60 e il crollo a 64: ci si avvicina all'ottimo restando dalla
 parte giusta.
 
-**Una che non ho chiuso.** Quando la VRAM non si legge affatto,
-`_gpu_layer_ladder` parte da `-ngl 64` alla cieca. C'e' una scala di ripiego
-che scende di sei layer a ogni errore di memoria — ma la memoria condivisa
-**non da' errori**: accetta tutto e va dieci volte piu' piano, quindi la scala
-non scatta mai. E' lo stesso difetto del GGUF a meta' con un altro vestito: un
-meccanismo di sicurezza che si aspetta un'eccezione da qualcosa che non ne
-solleva. Per ora l'ho reso rumoroso — il registro dice cosa e' stato provato e
-avverte che quel numero e' un tiro al buio — ma se debba diventare zero, cioe'
-lento di sicuro invece che finto veloce, non e' una decisione tecnica e non la
-prendo io.
+**E il tiro al buio, che era rimasto aperto e adesso non c'e' piu'.** Quando
+la VRAM non si leggeva, `_gpu_layer_ladder` partiva da `-ngl 64`. C'era una
+scala di ripiego che scende di sei layer a ogni errore di memoria — ma la
+memoria condivisa **non da' errori**: accetta tutto e va dieci volte piu'
+piano, quindi la scala non scattava mai. Lo stesso difetto del GGUF a meta'
+con un altro vestito: un meccanismo di sicurezza che aspetta un'eccezione da
+qualcosa che non ne solleva, cioe' nessun meccanismo di sicurezza.
+
+L'avevo lasciato aperto perche' mi sembrava una decisione di prodotto. La
+risposta e' stata una riga: *«e' chiaro che debba stare su tutti i PC, quindi
+il calcolo e' doveroso»* — ed e' piu' netta di come l'avevo posta io. Non e'
+«zero o sessantaquattro»: e' che **un numero mancante non e' un'informazione
+neutra**. Tre funzioni piu' in la' diventa un `-ngl` tirato a caso, e un
+programma che deve girare su qualunque macchina non puo' permettersi un
+parametro deciso dal caso proprio sulla macchina che non conosce.
+
+Quindi il calcolo si fa sempre, e senza memoria video la risposta e' zero
+strati — sul processore, lento di sicuro invece che finto veloce, e detto, con
+il motivo e con come rimediare a mano.
+
+**Ma «si va in CPU» non deve diventare la normale**, o si e' scambiato un
+difetto silenzioso con un difetto rumoroso e basta. Perche' resti un caso
+raro servono piu' fonti, e adesso ce ne sono quattro in scala:
+
+1. il budget di DXGI, dove risponde;
+2. la sola memoria dedicata quando il budget non risponde, meno quello che il
+   desktop tiene occupato di solito;
+3. `/sys/class/drm/card*/device/mem_info_vram_*` su Linux, che e' amdgpu;
+4. `nvidia-smi` come ultimo ripiego, dove esiste.
+
+E qui e' entrata una distinzione che prima non c'era: **misurata** contro
+**dedotta**. Viaggia insieme al numero e cambia il margine — su una deduzione
+se ne tengono novecento MiB in piu', perche' non sappiamo cosa la scheda stia
+gia' usando e l'errore in eccesso e' quello che non si vede. Su questa
+macchina, a parita' di dodici gigabyte dichiarati: 42 strati se misurata, 39
+se dedotta. Non e' prudenza generica: e' che una stima dichiarata per quello
+che e' vale piu' di una misura mancante, purche' si sappia che e' una stima.
+
+Il pezzo Linux e' provato con un albero di cartelle finto — `card0`,
+`vendor`, `mem_info_vram_total` — e la prova che ci tengo di piu' e' quella
+che scarta `card0-DP-1`: in `/sys/class/drm` ci sono anche i connettori, e
+contarli vorrebbe dire elencare tre volte la stessa scheda e poi sceglierne
+una a caso. Non serve avere una Radeon per provare a leggerla: servono i
+file. E' la stessa idea per cui la ricerca dei modelli non sa cosa sia un
+disco, applicata alla scheda video.
 
 **E due lezioni di consegna, non una.** Il binario nuovo funzionava qui e non
 sarebbe mai arrivato a nessuno: la CI raccoglie tre eseguibili per nome, e il

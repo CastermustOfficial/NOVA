@@ -163,14 +163,34 @@ uniche che separano l'alpha dalla beta.
    smette di essere una cifra scritta a caso. In pratica la stima passa da 53
    a 56 layer, e il ginocchio misurato su questa scheda e' a 60.
 
-   **Resta un tiro al buio da decidere.** Quando la VRAM non si legge
-   affatto, `_gpu_layer_ladder` parte da `-ngl 64`. La scala di ripiego
-   scende di sei layer a ogni errore di memoria, ma la memoria condivisa non
-   da' errori: accetta tutto e va dieci volte piu' piano. Se il modello e'
-   grosso e la scheda piccola, quello e' il caso in cui NOVA sembra
-   funzionare e non va. Per ora e' scritto nel registro con un avvertimento;
-   se debba diventare zero — lento di sicuro invece che finto veloce — e' una
-   decisione di prodotto, non tecnica.
+   **E il tiro al buio non c'e' piu'.** Quando la VRAM non si leggeva,
+   `_gpu_layer_ladder` partiva da `-ngl 64`, e non si poteva correggere: la
+   scala di ripiego scende di sei layer a ogni errore di memoria, ma la
+   memoria condivisa **non da' errori** — accetta tutto e va dieci volte piu'
+   piano. Era un meccanismo di sicurezza che aspettava un'eccezione da
+   qualcosa che non ne solleva, cioe' nessun meccanismo di sicurezza.
+
+   Deciso: NOVA deve stare su tutti i PC, quindi **il calcolo e' dovuto
+   sempre**. Senza un numero si va sul processore — lento di sicuro invece
+   che finto veloce — e lo si dice, con il motivo e con come rimediare a
+   mano. Perche' «sul processore» resti un caso raro e non la normale,
+   servono piu' fonti, ed e' quello che si e' fatto:
+
+   - il budget di DXGI dove c'e' (**misurata**);
+   - la sola memoria dedicata dove il budget non risponde, meno quello che il
+     desktop tiene occupato di solito (**dedotta**, con margine doppio);
+   - `/sys/class/drm/card*/device/mem_info_vram_*` su Linux, che e' amdgpu;
+   - `nvidia-smi` come ultimo ripiego, dove esiste.
+
+   La differenza fra **misurata** e **dedotta** viaggia insieme al numero e
+   cambia il margine: su una deduzione se ne tiene novecento MiB in piu',
+   perche' non sappiamo cosa la scheda stia gia' usando e l'errore in eccesso
+   e' quello che non si vede. Su questa macchina, a parita' di dodici
+   gigabyte dichiarati: 42 strati se misurata, 39 se dedotta.
+
+   Il pezzo Linux e' provato con un albero di cartelle finto, non con una
+   Radeon: non serve avere la scheda per provare la lettura, serve avere i
+   file. Resta scoperto macOS, che vorra' Metal.
 7. **Nessuna GPU.** La strada c'e' nel README; provarla davvero e misurarla,
    cosi' si sa cosa promettere.
 

@@ -11,19 +11,59 @@
 //! viene detto. Era il piu' vecchio dei fallimenti silenziosi rimasti in
 //! casa, in un modulo che tutto il resto del codice serve a evitare.
 //!
-//! DXGI risponde alla stessa domanda per qualunque scheda che sappia disegnare
-//! su Windows - NVIDIA, AMD, Intel, e la scheda integrata del portatile - e
-//! risponde senza avviare un processo: la stima costa microsecondi invece dei
-//! quindici secondi di tetto che `nvidia-smi` si portava dietro.
-//!
-//! Il numero che DXGI chiama «budget» e' migliore di quello che chiedevamo
-//! prima. `memory.free` dice quanti byte sono liberi adesso; il budget dice
-//! quanti byte il sistema e' disposto a lasciarci usare, tenuto conto di
-//! tutto quello che gia' gira. E' la stessa domanda che ci facevamo a mano
-//! togliendo un margine per il desktop, ma con la risposta di chi la memoria
-//! la assegna davvero.
+//! **E perche' non basta rispondere «non lo so».** NOVA deve girare su
+//! qualunque PC, quindi il calcolo degli strati e' dovuto sempre: un numero
+//! mancante non e' un'informazione neutra, e' un `-ngl` tirato a caso tre
+//! funzioni piu' in la'. Per questo qui non si risponde solo «quanto e'
+//! libero» ma anche **quanto ci si puo' credere** - e chi calcola tiene un
+//! margine diverso a seconda della risposta. Una stima prudente dichiarata
+//! per quello che e' vale piu' di una misura mancante.
 
 use serde::{Deserialize, Serialize};
+
+/// Quanto ci si puo' credere al numero che segue.
+///
+/// Non e' una sfumatura da manuale: e' la differenza fra togliere 900 MiB di
+/// margine e toglierne il doppio. Una misura si prende quasi per intera, una
+/// deduzione va trattata con sospetto, e «ignota» e' l'unico caso in cui la
+/// risposta onesta e' zero strati.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Certezza {
+    /// Il sistema ha detto quanto e' libero adesso.
+    Misurata,
+    /// Il sistema ha detto solo quanta memoria c'e' in tutto: il libero e'
+    /// dedotto togliendo quello che il desktop tiene di solito.
+    Dedotta,
+    /// Non si sa niente. Non e' un numero basso: e' l'assenza di un numero.
+    Ignota,
+}
+
+impl Default for Certezza {
+    fn default() -> Self {
+        Certezza::Ignota
+    }
+}
+
+impl Certezza {
+    /// Quanti MiB lasciare da parte, oltre a quelli che chiede chi calcola.
+    ///
+    /// Su una deduzione si raddoppia: non sappiamo cosa stia gia' usando la
+    /// scheda, e l'errore in eccesso e' quello che non si vede.
+    pub fn margine_extra_mb(&self) -> u64 {
+        match self {
+            Certezza::Misurata => 0,
+            Certezza::Dedotta => 900,
+            Certezza::Ignota => 0,
+        }
+    }
+}
+
+/// Quanta memoria il desktop, il browser e il compositore tengono occupata su
+/// una macchina normale. Si toglie quando si conosce solo il totale.
+///
+/// E' una frazione e non un numero fisso perche' scala con la scheda: su una
+/// da 4 GB seicento megabyte sono un sesto, su una da 24 sono niente.
+pub const QUOTA_GIA_USATA: f64 = 0.15;
 
 /// Una scheda video, come la vede il sistema.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -36,6 +76,8 @@ pub struct Scheda {
     pub vram_libera_mb: u64,
     /// Il produttore, se riconosciuto: `nvidia`, `amd`, `intel`, `altro`.
     pub marca: String,
+    /// Quanto ci si puo' credere a `vram_libera_mb`.
+    pub certezza: Certezza,
 }
 
 /// Il produttore, dal numero che il PCI-SIG gli ha assegnato. Sono quattro
@@ -50,12 +92,20 @@ pub fn marca_da_venditore(id: u32) -> &'static str {
     }
 }
 
+/// Il libero dedotto dal solo totale.
+///
+/// Sta fuori dai backend perche' la deduzione e' la stessa ovunque, e perche'
+/// cosi' si puo' provare senza una scheda video.
+pub fn libera_dedotta(totale_mb: u64) -> u64 {
+    (totale_mb as f64 * (1.0 - QUOTA_GIA_USATA)) as u64
+}
+
 #[cfg(windows)]
 mod imp {
-    use super::{marca_da_venditore, Scheda};
+    use super::{marca_da_venditore, libera_dedotta, Certezza, Scheda};
     use anyhow::{anyhow, Result};
-    // `cast`, che chiede a un oggetto COM se sa fare anche l'altro
-    // mestiere, vive nel trait: senza importarlo il metodo non esiste.
+    // `cast`, che chiede a un oggetto COM se sa fare anche l'altro mestiere,
+    // vive nel trait: senza importarlo il metodo non esiste.
     use windows::core::Interface;
     use windows::Win32::Graphics::Dxgi::{
         CreateDXGIFactory1, IDXGIAdapter3, IDXGIFactory1, DXGI_ADAPTER_FLAG,
@@ -95,17 +145,17 @@ mod imp {
                 let totale = desc.DedicatedVideoMemory as u64 / MB;
 
                 // IDXGIAdapter3 e' il volto che sa rispondere sulla memoria.
-                // Esiste da Windows 10: se manca, la scheda c'e' lo stesso e
-                // si dice quanto ha, non quanto ne resta.
-                let libera = match adattatore.cast::<IDXGIAdapter3>() {
+                // Esiste da Windows 10: dove manca, la scheda c'e' lo stesso e
+                // si deduce dal totale invece di rinunciare.
+                let (libera, certezza) = match adattatore.cast::<IDXGIAdapter3>() {
                     Ok(a3) => {
                         let mut info = DXGI_QUERY_VIDEO_MEMORY_INFO::default();
                         match a3.QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &mut info)
                         {
                             Ok(()) => {
                                 let libero = info.Budget.saturating_sub(info.CurrentUsage) / MB;
-                                // **Il tetto e' la memoria dedicata**, e non e'
-                                // pignoleria. Il budget di DXGI comprende
+                                // **Il tetto e' la memoria dedicata**, e non
+                                // e' pignoleria. Il budget di DXGI comprende
                                 // anche la memoria di sistema che la scheda
                                 // puo' farsi prestare: su questa macchina la
                                 // Radeon integrata dichiara 15.643 MiB
@@ -115,25 +165,26 @@ mod imp {
                                 // GPU» e ritrovarseli in RAM - esattamente il
                                 // rallentamento silenzioso da dieci volte che
                                 // tutto questo modulo esiste per evitare.
-                                if totale > 0 {
-                                    libero.min(totale)
-                                } else {
-                                    // Senza memoria dedicata e' un'integrata:
-                                    // non c'e' un tetto da mettere, e non c'e'
-                                    // niente da promettere.
-                                    0
-                                }
+                                (libero.min(totale), Certezza::Misurata)
                             }
-                            Err(_) => 0,
+                            Err(_) => (libera_dedotta(totale), Certezza::Dedotta),
                         }
                     }
-                    Err(_) => 0,
+                    Err(_) => (libera_dedotta(totale), Certezza::Dedotta),
+                };
+                // Senza memoria dedicata e' un'integrata: non c'e' niente da
+                // promettere, e non c'e' nemmeno un totale da cui dedurre.
+                let (libera, certezza) = if totale == 0 {
+                    (0, Certezza::Ignota)
+                } else {
+                    (libera, certezza)
                 };
                 fuori.push(Scheda {
                     nome,
                     vram_totale_mb: totale,
                     vram_libera_mb: libera,
                     marca: marca_da_venditore(desc.VendorId).to_string(),
+                    certezza,
                 });
             }
         }
@@ -143,17 +194,96 @@ mod imp {
 
 #[cfg(not(windows))]
 mod imp {
+    use super::linux;
     use super::Scheda;
-    use anyhow::{bail, Result};
+    use anyhow::Result;
 
-    /// Su macOS c'e' Metal e su Linux c'e' Vulkan, e rispondono entrambi alla
-    /// stessa domanda. Qui non c'e' ancora nessuno dei due: si dice, e chi
-    /// chiama ripiega sulla CPU sapendo perche', invece di credere a uno zero.
+    /// Su Linux la risposta sta nel filesystem. Su macOS servira' Metal, e
+    /// finche' non c'e' si torna un elenco vuoto - che chi calcola legge
+    /// come «ignota», cioe' zero strati, invece di un numero inventato.
     pub fn schede() -> Result<Vec<Scheda>> {
-        bail!(
-            "lettura della memoria video non ancora implementata per {}",
-            std::env::consts::OS
-        )
+        if cfg!(target_os = "linux") {
+            return Ok(linux::schede_da(std::path::Path::new("/sys/class/drm")));
+        }
+        Ok(Vec::new())
+    }
+}
+
+/// La lettura Linux, che e' un mucchio di file di testo.
+///
+/// Sta in un modulo suo e prende la radice come argomento perche' cosi' si
+/// puo' provare con un albero finto su qualunque sistema, senza avere quella
+/// scheda - la stessa ragione per cui la ricerca dei modelli non sa cosa sia
+/// un disco.
+pub mod linux {
+    use super::{libera_dedotta, marca_da_venditore, Certezza, Scheda};
+    use std::fs;
+    use std::path::Path;
+
+    fn numero(p: &Path) -> Option<u64> {
+        let t = fs::read_to_string(p).ok()?;
+        let t = t.trim();
+        // Il venditore sta scritto in esadecimale con lo 0x davanti; le
+        // memorie in decimale. Si accettano entrambe le forme.
+        if let Some(esa) = t.strip_prefix("0x") {
+            return u64::from_str_radix(esa, 16).ok();
+        }
+        t.parse().ok()
+    }
+
+    /// Le schede lette da un albero in stile `/sys/class/drm`.
+    pub fn schede_da(radice: &Path) -> Vec<Scheda> {
+        let voci = match fs::read_dir(radice) {
+            Ok(v) => v,
+            Err(_) => return Vec::new(),
+        };
+        let mut carte: Vec<_> = voci
+            .flatten()
+            .map(|v| v.path())
+            .filter(|p| {
+                p.file_name()
+                    .map(|n| {
+                        let n = n.to_string_lossy();
+                        // `card0` si', `card0-DP-1` no: quello e' un'uscita
+                        // video, non una scheda, e contarla vorrebbe dire
+                        // elencare tre volte la stessa GPU.
+                        n.starts_with("card") && n[4..].chars().all(|c| c.is_ascii_digit())
+                    })
+                    .unwrap_or(false)
+            })
+            .collect();
+        carte.sort();
+
+        let mut fuori = Vec::new();
+        for carta in carte {
+            let dev = carta.join("device");
+            let venditore = numero(&dev.join("vendor")).unwrap_or(0) as u32;
+            // `mem_info_vram_total` lo espone amdgpu; i driver NVIDIA non lo
+            // fanno, e li' resta `nvidia-smi` come ripiego di chi chiama.
+            let totale = match numero(&dev.join("mem_info_vram_total")) {
+                Some(b) if b > 0 => b / (1024 * 1024),
+                _ => continue,
+            };
+            let (libera, certezza) = match numero(&dev.join("mem_info_vram_used")) {
+                Some(usati) => (totale.saturating_sub(usati / (1024 * 1024)), Certezza::Misurata),
+                None => (libera_dedotta(totale), Certezza::Dedotta),
+            };
+            fuori.push(Scheda {
+                nome: fs::read_to_string(dev.join("product_name"))
+                    .map(|s| s.trim().to_string())
+                    .unwrap_or_else(|_| {
+                        format!(
+                            "scheda {}",
+                            carta.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()
+                        )
+                    }),
+                vram_totale_mb: totale,
+                vram_libera_mb: libera,
+                marca: marca_da_venditore(venditore).to_string(),
+                certezza,
+            });
+        }
+        fuori
     }
 }
 
@@ -167,25 +297,37 @@ pub fn schede() -> anyhow::Result<Vec<Scheda>> {
 ///
 /// Non «la prima»: su un portatile con grafica ibrida la prima e' spesso
 /// l'integrata, che condivide la RAM di sistema e su cui un modello da dodici
-/// gigabyte non ha senso.
+/// gigabyte non ha senso. E nemmeno «quella con piu' memoria libera», che
+/// sarebbe peggio: l'integrata vince sempre, con la RAM di qualcun altro.
 pub fn scheda_principale() -> Option<Scheda> {
     schede()
         .ok()?
         .into_iter()
+        .filter(|s| s.vram_totale_mb > 0)
         .max_by_key(|s| (s.vram_totale_mb, s.vram_libera_mb))
 }
 
-/// I MiB di memoria video davvero utilizzabili sulla scheda principale.
+/// I MiB utilizzabili sulla scheda principale, e quanto ci si puo' credere.
 ///
-/// Zero vuol dire «non lo so», e chi calcola gli strati lo tratta come «tutto
-/// in CPU». E' la risposta prudente: lenta di sicuro invece che finta veloce.
+/// Zero con [`Certezza::Ignota`] vuol dire «non lo so», e chi calcola gli
+/// strati lo tratta come «tutto in CPU». E' la risposta prudente: lenta di
+/// sicuro invece che finta veloce.
+pub fn vram_utilizzabile() -> (u64, Certezza) {
+    match scheda_principale() {
+        Some(s) => (s.vram_libera_mb, s.certezza),
+        None => (0, Certezza::Ignota),
+    }
+}
+
+/// I soli MiB, per chi non ha bisogno di sapere quanto crederci.
 pub fn vram_libera_mb() -> u64 {
-    scheda_principale().map(|s| s.vram_libera_mb).unwrap_or(0)
+    vram_utilizzabile().0
 }
 
 #[cfg(test)]
 mod prove {
     use super::*;
+    use std::fs;
 
     #[test]
     fn le_marche_si_riconoscono_dal_numero() {
@@ -193,6 +335,21 @@ mod prove {
         assert_eq!(marca_da_venditore(0x1002), "amd");
         assert_eq!(marca_da_venditore(0x8086), "intel");
         assert_eq!(marca_da_venditore(0x1234), "altro");
+    }
+
+    #[test]
+    fn la_deduzione_e_prudente_ma_non_inutile() {
+        // Deve togliere qualcosa, e non deve togliere tutto: un numero
+        // dedotto che risultasse zero sarebbe una rinuncia travestita da
+        // calcolo.
+        let d = libera_dedotta(16000);
+        assert!(d < 16000, "non ha tolto niente: {d}");
+        assert!(d > 16000 / 2, "ha tolto troppo: {d}");
+    }
+
+    #[test]
+    fn una_deduzione_costa_piu_margine_di_una_misura() {
+        assert!(Certezza::Dedotta.margine_extra_mb() > Certezza::Misurata.margine_extra_mb());
     }
 
     #[test]
@@ -254,12 +411,93 @@ mod prove {
         }
     }
 
+    // --- La lettura Linux, provata con un albero finto -----------------
+    // Non serve una Radeon per provarla: serve una cartella. E' la stessa
+    // ragione per cui la ricerca dei modelli prende le radici da fuori.
+
+    fn finto(radice: &std::path::Path, carta: &str, coppie: &[(&str, &str)]) {
+        let dev = radice.join(carta).join("device");
+        fs::create_dir_all(&dev).unwrap();
+        for (nome, valore) in coppie {
+            fs::write(dev.join(nome), valore).unwrap();
+        }
+    }
+
     #[test]
-    fn senza_schede_si_torna_zero_non_si_indovina() {
-        // Il contratto che conta per chi calcola gli strati: mai un numero
-        // inventato. Su un sistema senza DXGI `schede()` fallisce e questa
-        // torna zero, che vuol dire «tutto in CPU».
-        let v = vram_libera_mb();
-        assert!(v < 1_000_000, "un numero cosi' grande non e' una misura: {v}");
+    fn su_linux_si_legge_dal_filesystem() {
+        let tmp = std::env::temp_dir().join(format!("nova-drm-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&tmp);
+        finto(
+            &tmp,
+            "card0",
+            &[
+                ("vendor", "0x1002"),
+                ("mem_info_vram_total", &(16u64 * 1024 * 1024 * 1024).to_string()),
+                ("mem_info_vram_used", &(2u64 * 1024 * 1024 * 1024).to_string()),
+                ("product_name", "Radeon RX 7800 XT\n"),
+            ],
+        );
+        let s = linux::schede_da(&tmp);
+        assert_eq!(s.len(), 1, "{s:?}");
+        assert_eq!(s[0].marca, "amd");
+        assert_eq!(s[0].vram_totale_mb, 16384);
+        assert_eq!(s[0].vram_libera_mb, 16384 - 2048);
+        assert_eq!(s[0].certezza, Certezza::Misurata);
+        assert_eq!(s[0].nome, "Radeon RX 7800 XT");
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn senza_lusati_si_deduce_e_lo_si_dichiara() {
+        let tmp = std::env::temp_dir().join(format!("nova-drm2-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&tmp);
+        finto(
+            &tmp,
+            "card0",
+            &[
+                ("vendor", "0x1002"),
+                ("mem_info_vram_total", &(8u64 * 1024 * 1024 * 1024).to_string()),
+            ],
+        );
+        let s = linux::schede_da(&tmp);
+        assert_eq!(s.len(), 1);
+        assert_eq!(s[0].certezza, Certezza::Dedotta);
+        assert_eq!(s[0].vram_libera_mb, libera_dedotta(8192));
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn le_uscite_video_non_sono_schede() {
+        // `/sys/class/drm` contiene anche card0-DP-1, card0-HDMI-A-1 e simili:
+        // sono i connettori. Contarli vorrebbe dire elencare tre volte la
+        // stessa scheda, e sceglierne una a caso.
+        let tmp = std::env::temp_dir().join(format!("nova-drm3-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&tmp);
+        finto(
+            &tmp,
+            "card0",
+            &[
+                ("vendor", "0x1002"),
+                ("mem_info_vram_total", &(8u64 * 1024 * 1024 * 1024).to_string()),
+            ],
+        );
+        finto(
+            &tmp,
+            "card0-DP-1",
+            &[
+                ("vendor", "0x1002"),
+                ("mem_info_vram_total", &(8u64 * 1024 * 1024 * 1024).to_string()),
+            ],
+        );
+        assert_eq!(linux::schede_da(&tmp).len(), 1);
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn una_cartella_che_non_esiste_non_e_un_guasto() {
+        // Su una macchina senza `/sys/class/drm` - macOS, o Windows - la
+        // risposta e' «nessuna scheda», non un errore che risale fino
+        // all'utente.
+        assert!(linux::schede_da(std::path::Path::new("/questa/non/esiste")).is_empty());
     }
 }

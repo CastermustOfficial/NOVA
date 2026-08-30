@@ -96,7 +96,19 @@ def _schede_binario() -> Path | None:
     return None
 
 
-def free_vram_mb(perche: list[str] | None = None) -> int:
+# Quanto ci si puo' credere al numero della VRAM. Sono le stesse tre parole
+# che usa `nova-schede`: una misura si prende quasi per intera, una deduzione
+# va trattata con sospetto, e «ignota» e' l'unico caso in cui la risposta
+# onesta e' zero strati.
+MISURATA, DEDOTTA, IGNOTA = "Misurata", "Dedotta", "Ignota"
+
+# Il margine in piu' da lasciare quando il numero e' dedotto invece che
+# misurato: non sappiamo cosa stia gia' usando la scheda, e l'errore in
+# eccesso e' quello che non si vede.
+MARGINE_DEDOTTA_MB = 900
+
+
+def vram_utilizzabile(perche: list[str] | None = None) -> tuple[int, str]:
     """MiB di VRAM davvero utilizzabili sulla scheda principale.
 
     Zero vuol dire «non lo so», e chi calcola gli strati lo tratta come «tutto
@@ -118,19 +130,19 @@ def free_vram_mb(perche: list[str] | None = None) -> int:
 
     binario = _schede_binario()
     if binario is None:
-        note.append("il lettore DXGI non e' costruito")
+        note.append("il lettore delle schede non e' costruito")
     else:
         try:
             r = subprocess.run([str(binario), "--libera"], capture_output=True,
                                text=True, timeout=10)
-            testo = (r.stdout or "").strip()
-            if testo.isdigit() and int(testo) > 0:
-                return int(testo)
-            note.append("DXGI non riporta memoria utilizzabile")
+            pezzi = (r.stdout or "").split()
+            if len(pezzi) >= 2 and pezzi[0].isdigit() and int(pezzi[0]) > 0:
+                return int(pezzi[0]), pezzi[1]
+            note.append("la scheda non riporta memoria utilizzabile")
         except Exception as e:                                  # noqa: BLE001
             # Il nome della classe non e' un messaggio (D28): `spiega` lo
             # traduce, e il dettaglio tecnico va nel file dei guasti.
-            note.append(f"DXGI non risponde ({spiega(e)})")
+            note.append(f"il lettore delle schede non risponde ({spiega(e)})")
 
     try:
         r = subprocess.run(
@@ -139,13 +151,18 @@ def free_vram_mb(perche: list[str] | None = None) -> int:
         )
         vals = [int(x.strip()) for x in (r.stdout or "").splitlines() if x.strip().isdigit()]
         if vals:
-            return max(vals)
+            return max(vals), MISURATA
         note.append("nvidia-smi non riporta memoria libera")
     except FileNotFoundError:
         note.append("nvidia-smi non c'e' (normale se la scheda non e' NVIDIA)")
     except Exception as e:                                      # noqa: BLE001
         note.append(f"nvidia-smi non risponde ({spiega(e)})")
-    return 0
+    return 0, IGNOTA
+
+
+def free_vram_mb(perche: list[str] | None = None) -> int:
+    """I soli MiB, per chi non ha bisogno di sapere quanto crederci."""
+    return vram_utilizzabile(perche)[0]
 
 
 # Quanto occupa la KV cache rispetto a f16, per tipo. Serve alla stima: una
@@ -154,12 +171,24 @@ PESO_KV = {"f16": 1.0, "bf16": 1.0, "q8_0": 0.5, "q5_1": 0.36, "q4_0": 0.28}
 
 
 def estimate_gpu_layers(model_path: str, ctx_size: int, reserve_mb: int = 900,
-                        kv_tipo: str = "f16") -> int:
+                        kv_tipo: str = "f16", vram_mb: int | None = None,
+                        certezza: str = "") -> int:
     """Quanti layer stanno davvero in VRAM.
 
     Su Windows il driver NVIDIA, quando la VRAM finisce, ripiega in silenzio
     sulla memoria condivisa: il modello parte lo stesso ma va 10 volte piu'
     lento. Meglio calcolare prima quanto ci sta e lasciare il resto alla CPU.
+
+    NOVA deve girare su qualunque PC, quindi **questo calcolo e' dovuto
+    sempre**: se non si sa quanta memoria c'e', la risposta e' zero - tutto in
+    CPU, lento di sicuro - e non un numero tirato a caso, che e' lento lo
+    stesso ma senza dirlo.
+
+    `vram_mb` e `certezza` si passano da fuori quando sono gia' stati letti,
+    cosi' non si interroga la scheda due volte per la stessa decisione. Su una
+    memoria **dedotta** invece che misurata si tiene un margine doppio: non
+    sappiamo cosa la scheda stia gia' usando, e l'errore in eccesso e' quello
+    che non si vede.
     """
     try:
         size_mb = Path(model_path).stat().st_size / (1024 * 1024)
@@ -169,9 +198,14 @@ def estimate_gpu_layers(model_path: str, ctx_size: int, reserve_mb: int = 900,
     n_layers = int(shape.get("n_layers") or 0)
     if not n_layers:
         return 0
-    free = free_vram_mb()
+    if vram_mb is None:
+        free, certezza = vram_utilizzabile()
+    else:
+        free = vram_mb
     if not free:
         return 0
+    if certezza == DEDOTTA:
+        reserve_mb += MARGINE_DEDOTTA_MB
     # KV cache + buffer di calcolo, stima prudente
     kv_mb = max(256, ctx_size * 0.05) * PESO_KV.get(kv_tipo, 1.0)
     budget = free * 0.96 - reserve_mb - kv_mb
@@ -421,27 +455,35 @@ class LlamaServer:
             start = base
         else:
             perche: list[str] = []
-            libera = free_vram_mb(perche)
+            libera, certezza = vram_utilizzabile(perche)
             start = estimate_gpu_layers(
                 self.cfg.server.model_path, self.cfg.server.ctx_size,
-                kv_tipo=getattr(self.cfg.server, "kv_cache_type", "f16") or "f16")
+                kv_tipo=getattr(self.cfg.server, "kv_cache_type", "f16") or "f16",
+                vram_mb=libera, certezza=certezza)
             if start:
-                self._log(f"Stima: {start} layer entrano in VRAM ({libera} MiB liberi).")
+                come = "misurati" if certezza == MISURATA else "stimati"
+                self._log(f"Stima: {start} layer entrano in VRAM "
+                          f"({libera} MiB {come}).")
             else:
-                start = 64
-                # Uno zero muto non si puo' correggere: chi legge il registro
-                # deve sapere se non ha una GPU o se non gliel'abbiamo trovata.
-                motivo = "; ".join(perche) or "nessuna scheda trovata"
-                self._log(f"VRAM non rilevabile ({motivo}): parto da -ngl 64.")
-                # E va detto che questo numero e' un tiro al buio, perche' la
-                # scala di ripiego qui sotto non lo puo' correggere: si scende
-                # di sei layer a ogni errore di memoria, ma la memoria
-                # condivisa non da' errori - accetta tutto e va dieci volte
-                # piu' piano. Se il modello e' grosso e la scheda piccola,
-                # questo e' il caso in cui NOVA sembra funzionare e non va.
-                self._log("Attenzione: -ngl 64 alla cieca. Se le risposte "
-                          "arrivano lentissime, in config.json metti "
-                          "server.n_gpu_layers a un numero piu' basso.")
+                # Qui prima si partiva da `-ngl 64` alla cieca, e non si
+                # poteva correggere: la scala di ripiego qui sotto scende di
+                # sei layer a ogni errore di memoria, ma la memoria condivisa
+                # **non da' errori** - accetta tutto e va dieci volte piu'
+                # piano. Era un meccanismo di sicurezza che aspettava
+                # un'eccezione da qualcosa che non ne solleva, cioe' nessun
+                # meccanismo di sicurezza.
+                #
+                # NOVA deve girare su qualunque PC, quindi il calcolo e'
+                # dovuto: senza un numero si va in CPU, che e' lenta di sicuro
+                # invece che finta veloce, e lo si dice.
+                start = 0
+                motivo = "; ".join(perche) or "nessuna scheda video trovata"
+                self._log(f"Nessuna memoria video utilizzabile ({motivo}): "
+                          "il modello gira sul processore. Sara' lento, ma "
+                          "funziona.")
+                self._log("Se hai una scheda video che NOVA non ha visto, "
+                          "in config.json metti server.n_gpu_layers al numero "
+                          "di layer che vuoi metterle addosso.")
         ladder, cur = [start], start
         while cur > 0:
             cur -= 6
