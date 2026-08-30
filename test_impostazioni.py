@@ -152,7 +152,7 @@ print("\n7. le schede non si sovrappongono")
 # vedeva finche' nessuna scheda era abbastanza alta; le impostazioni nuove lo
 # hanno reso visibile.
 controlla("le schede sono alte quanto il loro contenuto",
-          ".corpo>.pannello{min-height:auto" in html)
+          ".fascia>.pannello{min-height:auto" in html)
 controlla("e non vengono stirate a forza",
           "align-items:start" in html)
 
@@ -215,6 +215,55 @@ for host in ["localhost", "127.0.0.1", "::1", "0.0.0.0"]:
     controlla(f"  e {host} conta come in casa", f"'{host}'" in html)
 controlla("un fornitore che non si riconosce non diventa una frase storta",
           "k === 'altro'" in html)
+
+
+print("\n10. il pannello e' in tre fasce, non in una zuppa di otto schede")
+import re                                                     # noqa: E402
+# Otto schede tutte uguali in una griglia sola: per trovarne una bisognava
+# leggere tutti e otto i titoli, e con «auto-fit» l'ordine cambiava con la
+# larghezza della finestra - quindi non si imparava mai dove sta una cosa.
+fasce = re.findall(r'<h2 class="titolo-fascia">([^\n<]+)', html)
+controlla("le fasce sono tre", len(fasce) == 3, str(fasce))
+controlla("e dicono a cosa servono, non solo come si chiamano",
+          html.count('<small>') >= 3)
+regola = html[html.index(".fascia{"):html.index("}", html.index(".fascia{"))]
+controlla("le colonne sono un numero fisso, non «quante ce ne stanno»",
+          "repeat(2,minmax(0,1fr))" in regola and "auto-fit" not in regola,
+          regola)
+controlla("e sotto i 760 diventa una colonna sola",
+          "max-width:760px" in html)
+
+# Ogni scheda sta in una fascia e in una sola: una fuori resterebbe orfana
+# in fondo alla pagina senza che nessuno se ne accorga.
+corpo = html[html.index('<div class="corpo">'):html.index('</body>')]
+schede = re.findall(r'<h3>([^<]+)</h3>', corpo)
+controlla("tutte e otto le schede sono dentro una fascia", len(schede) == 8,
+          str(schede))
+DENTRO = {
+    "Chi ragiona": ["Cervello", "Autonomia"],
+    "Come ti parla": ["Lingua", "L'orb", "Voce"],
+    "Com'e' messa": ["Componenti", "Stato", "Memoria"],
+}
+pezzi = re.split(r'<h2 class="titolo-fascia">([^\n<]+)', corpo)
+visto = {pezzi[i].strip(): re.findall(r'<h3>([^<]+)</h3>', pezzi[i + 1])
+         for i in range(1, len(pezzi), 2)}
+controlla("e ognuna sta dove ci si aspetta", visto == DENTRO, str(visto))
+
+# Le schede che sono una sezione (un modulo intero, sei campi, tre
+# interruttori) accanto a una da tre righe fanno una fascia sbilenca, ed e'
+# esattamente cosa vuol dire «disordinato». Vanno a riga intera, e per
+# ultime: le corte appaiate sopra, senza buchi.
+larghe = re.findall(r'<section class="pannello scheda larga">\s*<div class="titolo-sez"><h3>([^<]+)', corpo)
+controlla("le schede grosse prendono la riga intera",
+          set(larghe) == {"Cervello", "Autonomia", "Voce", "Memoria"}, str(larghe))
+for fascia, dentro in DENTRO.items():
+    corte = [s for s in dentro if s not in larghe]
+    lunghe = [s for s in dentro if s in larghe]
+    # In una fascia con una scheda corta sola la regola non si applica: li'
+    # comanda l'importanza, e infatti anche quella e' a riga intera.
+    if len(corte) >= 2 and lunghe:
+        controlla(f"«{fascia}»: le corte prima delle larghe",
+                  dentro.index(corte[-1]) < dentro.index(lunghe[0]), str(dentro))
 
 
 print(f"\n{passati}/{passati + len(falliti)} passati")

@@ -231,6 +231,35 @@ lezione, che vale oltre l'episodio: **il test si scrive prima**. Fosse
 esistito, il caso «provalo senza farlo davvero» ci sarebbe gia' stato, e non
 sarebbe servito provarlo a mano.
 
+### Il pannello in tre fasce
+
+Otto schede tutte uguali in una griglia sola: per trovarne una bisognava
+leggere tutti e otto i titoli. E con `auto-fit` l'ordine cambiava con la
+larghezza della finestra — quindi non si imparava mai dove sta una cosa, e
+sapere a memoria dove stanno i comandi e' meta' del motivo per cui un
+pannello sembra ordinato.
+
+Tre fasce con un titolo e una riga di spiegazione: **chi ragiona** (cambia
+cosa NOVA sa fare), **come ti parla** (come si presenta), **com'e' messa**
+(non si tocca quasi mai, si guarda quando qualcosa non va). Tre domande
+invece di otto voci.
+
+L'altra meta' del disordine erano le altezze. Quattro schede sono sezioni e
+non caselle — il cervello porta dentro un modulo intero, la voce ha sei campi
+e due prove, la memoria tre interruttori, l'autonomia un selettore a tre —
+e in colonna accanto a una scheda da tre righe lasciavano un buco alto mezzo
+schermo. Vanno a riga intera, dopo le corte.
+
+**Guardarlo e' servito piu' che pensarlo.** Ogni passaggio e' stato reso in
+Chromium e guardato: il primo assetto lasciava Autonomia sola in una colonna
+con un buco accanto, il secondo metteva Voce fra due schede corte con un
+vuoto di ottocento pixel, e un terzo tentativo ha **rotto l'HTML** — la
+scheda Memoria e' finita disegnata dentro quella Stato, perche' tagliare un
+file per indice di stringa non rispetta i confini dei tag. Rifatto
+ricostruendo il corpo dai pezzi interi. Le tre volte il difetto era evidente
+in un'occhiata e invisibile a qualunque prova testuale.
+
+
 ### Quello che questa giornata ha insegnato
 
 Tre cose si ripetono abbastanza da meritare di essere scritte.
@@ -248,3 +277,8 @@ invisibili a una suite verde.
 
 **Una funzione documentata non e' una funzione provata.** Il ripiego sulla
 quota stava nel README con tanto di esempio di output. Non era mai partito.
+
+**E per il disegno, guardare non si sostituisce.** Il pannello e' stato reso
+in Chromium a ogni passaggio: buchi nella griglia, schede sbilanciate e una
+volta l'HTML rotto, tutti evidenti in un'occhiata e invisibili a una prova
+che legge il testo del file.

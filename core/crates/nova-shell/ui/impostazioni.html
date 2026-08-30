@@ -15,14 +15,40 @@
 .salvato{margin-left:auto;font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--fioco);
   opacity:0;transition:opacity .3s}
 .salvato.si{opacity:1;color:var(--ascolto)}
-.corpo{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));
-  gap:12px;align-content:start;align-items:start;padding-bottom:4px}
+/* Otto schede tutte uguali in una griglia sola erano una zuppa: per trovarne
+   una bisognava leggere tutti e otto i titoli. E con «auto-fit» l'ordine
+   cambiava con la larghezza della finestra, quindi non si imparava mai dove
+   sta una cosa - e sapere a memoria dove stanno i comandi e' meta' del
+   motivo per cui un pannello sembra ordinato.
+
+   Adesso il corpo e' una colonna di fasce, e la griglia sta dentro ognuna:
+   tre domande invece di otto voci. «Chi ragiona» cambia cosa NOVA sa fare;
+   «come ti parla», come si presenta; «com'e' messa» non si tocca quasi mai e
+   si guarda quando qualcosa non va. */
+.corpo{flex:1;overflow-y:auto;display:flex;flex-direction:column;padding-bottom:4px}
+/* Due colonne fisse invece di «quante ce ne stanno»: con auto-fit se ne
+   aprivano tre a 1180px e due a 900, e una scheda a riga intera lasciava un
+   buco nella riga sopra. Due sono prevedibili, e sotto i 760 diventano una. */
+.fascia{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;align-content:start;align-items:start}
+@media (max-width:760px){ .fascia{grid-template-columns:1fr} }
+.fascia+.fascia{margin-top:20px}
+.titolo-fascia{font-size:10.5px;letter-spacing:1.6px;text-transform:uppercase;
+  color:var(--mezzo);margin:0 0 4px 3px;font-weight:600;grid-column:1/-1}
+.titolo-fascia small{display:block;text-transform:none;letter-spacing:0;
+  font-size:11.5px;font-weight:400;color:var(--fioco);margin-top:4px}
+/* `larga` e' per le schede che sono una sezione e non una casella: il
+   cervello, che porta dentro un modulo intero; la voce, che ha sei campi e
+   due prove; la memoria, con tre interruttori. Messe in colonna accanto a
+   una scheda da tre righe fanno una fascia sbilenca, ed e' esattamente cosa
+   vuol dire «disordinato». Le corte vanno prima, appaiate. */
+.fascia>.larga{grid-column:1/-1}
 /* Le schede sono alte quanto il loro contenuto. `.pannello` nel tema ha
    min-height:0 - serve dove sta dentro un riquadro che scorre - ma dentro
    una griglia quello permette alla casella di essere piu' bassa di cio' che
    contiene, e il contenuto esce e si sovrappone alla scheda sotto. Non si
    vedeva finche' nessuna scheda era abbastanza alta. */
-.corpo>.pannello{min-height:auto;align-self:start}
+.fascia>.pannello{min-height:auto;align-self:start}
 .scheda{padding:20px 18px}
 .riga{display:flex;align-items:center;gap:12px;padding:9px 0}
 .riga+.riga{border-top:1px solid var(--linea)}
@@ -112,12 +138,37 @@ input:focus{border-color:rgba(232,115,74,.4)}
   </header>
 
   <div class="corpo">
+
+    <div class="fascia">
+    <h2 class="titolo-fascia">Chi ragiona
+      <small>Le due scelte che cambiano cosa NOVA sa fare, e quanto le lasci fare da sola.</small></h2>
+
     <!-- CERVELLO -->
-    <section class="pannello scheda">
+    <section class="pannello scheda larga">
       <div class="titolo-sez"><h3>Cervello</h3><span class="coda" id="codaCervello"></span></div>
       <div class="cervelli" id="cervelli"></div>
       <div id="dettaglioCervello"></div>
     </section>
+
+    <!-- AUTONOMIA -->
+    <section class="pannello scheda larga">
+      <div class="titolo-sez"><h3>Autonomia</h3></div>
+      <div class="segmenti" id="segAutonomia" style="grid-template-columns:repeat(3,1fr)">
+        <div class="cursore" id="cursoreAutonomia" style="width:calc((100% - 8px)/3)"></div>
+        <button class="segmento" data-v="always_ask">Conferma sempre</button>
+        <button class="segmento" data-v="ask_risky">Solo rischiose</button>
+        <button class="segmento" data-v="autonomous">Autonomo</button>
+      </div>
+      <p class="spiega" id="spiegaAutonomia"></p>
+      <p class="nota">Con il cervello Claude la conferma arriva da una finestra a parte:
+        NOVA chiede il permesso passando dal demone, e finche' non rispondi Claude aspetta.</p>
+    </section>
+
+    </div>
+
+    <div class="fascia">
+    <h2 class="titolo-fascia">Come ti parla
+      <small>In che lingua risponde, con che voce, e l'orb che sta sempre in scena.</small></h2>
 
     <!-- LINGUA -->
 <section class="pannello scheda">
@@ -132,42 +183,20 @@ un testo da leggere, e al modello basta dirgli in che lingua rispondere. I nomi 
 titoli invece si traducono davvero, perche' li' non c'e' nessun modello in mezzo.</p>
 </section>
 
-<!-- AUTONOMIA -->
+    <!-- L'ORB -->
     <section class="pannello scheda">
-      <div class="titolo-sez"><h3>Autonomia</h3></div>
-      <div class="segmenti" id="segAutonomia" style="grid-template-columns:repeat(3,1fr)">
-        <div class="cursore" id="cursoreAutonomia" style="width:calc((100% - 8px)/3)"></div>
-        <button class="segmento" data-v="always_ask">Conferma sempre</button>
-        <button class="segmento" data-v="ask_risky">Solo rischiose</button>
-        <button class="segmento" data-v="autonomous">Autonomo</button>
-      </div>
-      <p class="spiega" id="spiegaAutonomia"></p>
-      <p class="nota">Con il cervello Claude la conferma arriva da una finestra a parte:
-        NOVA chiede il permesso passando dal demone, e finche' non rispondi Claude aspetta.</p>
-    </section>
-
-    <!-- MEMORIA -->
-    <section class="pannello scheda">
-      <div class="titolo-sez"><h3>Memoria</h3><span class="coda" id="codaMemoria"></span></div>
-      <div class="riga">
-        <div class="info"><b>Impara da sola</b><span id="infoMemoria">Dopo ogni scambio NOVA estrae i fatti durevoli</span></div>
-        <button class="interruttore" id="swMemoria"></button>
-      </div>
-      <div class="riga">
-        <div class="info"><b>Contesto nel prompt</b><span>Cerca nella memoria prima di rispondere</span></div>
-        <button class="interruttore" id="swContesto"></button>
-      </div>
-      <div class="riga">
-        <div class="info"><b>Impara le procedure</b><span>Come ha risolto una richiesta, per rifarla senza ricercare</span></div>
-        <button class="interruttore" id="swProcedure"></button>
-      </div>
-      <p class="nota">Quello che NOVA vede sullo schermo non entra mai in memoria:
-        legge i titoli delle finestre per poter agire sui programmi, ma nel vault
-        finisce l'applicazione, non cosa ci avevi aperto dentro.</p>
+      <div class="titolo-sez"><h3>L'orb</h3><span class="coda">SEMPRE IN SCENA</span></div>
+      <p style="font-size:12.5px;color:var(--mezzo);line-height:1.55">
+        L'orb e' l'unica cosa di NOVA sempre visibile, e parla per colore.
+        Passaci sopra per vedere ogni stato.
+      </p>
+      <div class="legenda" id="legenda"></div>
+      <p class="nota">Per questo il resto dell'interfaccia non ha colori forti:
+        se tutto fosse verde, il verde smetterebbe di voler dire «ti sto ascoltando».</p>
     </section>
 
     <!-- VOCE -->
-    <section class="pannello scheda">
+    <section class="pannello scheda larga">
       <div class="titolo-sez"><h3>Voce</h3><span class="coda" id="codaVoce"></span></div>
       <div class="riga">
         <div class="info"><b>Attiva</b><span>Ascolto e sintesi</span></div>
@@ -221,6 +250,12 @@ titoli invece si traducono davvero, perche' li' non c'e' nessun modello in mezzo
       </div>
     </section>
 
+    </div>
+
+    <div class="fascia">
+    <h2 class="titolo-fascia">Com'e' messa
+      <small>Non si toccano quasi mai: si guardano quando qualcosa non va.</small></h2>
+
     <!-- COMPONENTI -->
 <section class="pannello scheda">
 <div class="titolo-sez"><h3>Componenti</h3><span class="coda" id="codaComponenti"></span></div>
@@ -230,7 +265,7 @@ il menu: chi sceglieva la voce locale senza averne i file restava muto, e l'unic
 programma capace di procurarli era l'installer.</p>
 </section>
 
-<!-- STATO -->
+    <!-- STATO -->
     <section class="pannello scheda">
       <div class="titolo-sez"><h3>Stato</h3><span class="coda" id="codaStato">CONTROLLO…</span></div>
       <div id="fatti"></div>
@@ -238,17 +273,28 @@ programma capace di procurarli era l'installer.</p>
         chiesti adesso. Un pannello serve soprattutto quando qualcosa e' rotto.</p>
     </section>
 
-    <!-- L'ORB -->
-    <section class="pannello scheda">
-      <div class="titolo-sez"><h3>L'orb</h3><span class="coda">SEMPRE IN SCENA</span></div>
-      <p style="font-size:12.5px;color:var(--mezzo);line-height:1.55">
-        L'orb e' l'unica cosa di NOVA sempre visibile, e parla per colore.
-        Passaci sopra per vedere ogni stato.
-      </p>
-      <div class="legenda" id="legenda"></div>
-      <p class="nota">Per questo il resto dell'interfaccia non ha colori forti:
-        se tutto fosse verde, il verde smetterebbe di voler dire «ti sto ascoltando».</p>
+    <!-- MEMORIA -->
+    <section class="pannello scheda larga">
+      <div class="titolo-sez"><h3>Memoria</h3><span class="coda" id="codaMemoria"></span></div>
+      <div class="riga">
+        <div class="info"><b>Impara da sola</b><span id="infoMemoria">Dopo ogni scambio NOVA estrae i fatti durevoli</span></div>
+        <button class="interruttore" id="swMemoria"></button>
+      </div>
+      <div class="riga">
+        <div class="info"><b>Contesto nel prompt</b><span>Cerca nella memoria prima di rispondere</span></div>
+        <button class="interruttore" id="swContesto"></button>
+      </div>
+      <div class="riga">
+        <div class="info"><b>Impara le procedure</b><span>Come ha risolto una richiesta, per rifarla senza ricercare</span></div>
+        <button class="interruttore" id="swProcedure"></button>
+      </div>
+      <p class="nota">Quello che NOVA vede sullo schermo non entra mai in memoria:
+        legge i titoli delle finestre per poter agire sui programmi, ma nel vault
+        finisce l'applicazione, non cosa ci avevi aperto dentro.</p>
     </section>
+
+    </div>
+
   </div>
 </div>
 
