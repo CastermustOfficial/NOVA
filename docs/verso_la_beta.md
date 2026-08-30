@@ -82,9 +82,9 @@ In ordine di guadagno atteso, non di difficolta'.
    Accorciare le descrizioni si puo' fare subito. Mandare solo i tool
    pertinenti invece no, non a cuor leggero: cambia il prefisso e butta la
    cache. Da misurare prima di decidere.
-9. **Verificare che il prefisso sia davvero stabile** fra un turno e l'altro:
-   una data, un'ora, un contatore dentro il prompt di sistema costano l'intera
-   rielaborazione e non si vedono.
+9. ~~**Verificare che il prefisso sia davvero stabile.**~~ Fatto:
+   `test_prefisso.py` confronta due prompt a ora ferma e pretende che siano
+   identici, e controlla che memoria e ricette restino in coda alla domanda.
 
 ### Il codice (dove sta poco, ma si puo' prendere)
 
@@ -93,8 +93,10 @@ In ordine di guadagno atteso, non di difficolta'.
     che faceva lo `stat` di tutti i file del vault a ogni messaggio. Una riga
     di attesa, e sono 3,2 ms. Resta l'indice persistente fra un avvio e
     l'altro, che adesso pero' vale 0,35 ms.
-11. **Avvio a freddo: 206 ms di import dei tool.** Import pigro per categoria —
-    i sessanta strumenti non servono tutti al primo messaggio.
+11. ~~**Avvio a freddo: 206 ms di import dei tool.**~~ Fatto, e non con
+    l'import pigro per categoria: 115 dei 163 ms erano `requests`, tirato
+    dentro da un solo modulo. Spostato dentro la funzione, sono 94 ms. Se
+    servisse di piu', il passo successivo e' quello previsto.
 12. **Primo porting in Rust: ricette + BM25.** Sono algoritmi puri, senza GUI e
     senza Windows: si portano in `nova-core` con un test che confronta i
     risultati delle due versioni riga per riga. Non e' il guadagno, e' il

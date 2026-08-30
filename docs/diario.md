@@ -366,6 +366,51 @@ traduzione — il Python fa lo stesso, e il banco infatti concorda — ma e' il
 genere di cosa che si vede solo riscrivendo una riga che si e' sempre letta.
 
 
+### Il prefisso, l'avvio, e una ricerca web che mentiva
+
+**Il prefisso.** La cosa che vale di piu' in tutto il costo di un turno e non
+si vede: diecimilatrecento token di regole e schemi che llama.cpp non
+rielabora, perche' non cambiano. E' gia' scritto giusto — contesto e ricette
+stanno in coda alla domanda — ma e' esattamente il genere di cosa che
+qualcuno rimette «nel posto giusto» fra sei mesi. Non si romperebbe niente:
+si diventerebbe dieci volte piu' lenti in silenzio. Adesso c'e' una prova,
+che confronta due prompt costruiti a ora ferma e pretende che siano identici
+carattere per carattere.
+
+Scrivendola e' venuta fuori una prova instabile scritta da me: il primo
+tentativo confrontava due prompt a un secondo di distanza, e l'ora dentro il
+prompt e' al minuto — sarebbe passata cinquantaquattro volte su
+cinquantacinque. Una prova che fallisce ogni tanto non e' una prova, e' una
+che si impara a ignorare.
+
+**L'avvio.** `import nova.tools` costava 163 ms, e 115 erano `requests`:
+due terzi del tempo di accensione per una libreria che serve solo a chi cerca
+sul web. Importata dentro la funzione invece che in cima al modulo, sono 94
+ms. Non e' una cifra enorme, ma le importazioni pesanti si accumulano una
+alla volta senza che nessuno decida mai di rallentare l'avvio, e ora c'e' una
+prova che le tiene fuori.
+
+**E poi la cosa vera.** Provando che la rete funzionasse ancora dopo il
+cambio: `web_search` tornava «nessun risultato o motore di ricerca non
+raggiungibile». Non l'avevo rotto io — i due raschiatori leggono l'HTML di
+DuckDuckGo con delle espressioni regolari, e quell'HTML e' cambiato.
+
+Il difetto pero' non e' che siano scaduti: e' che **non sollevavano niente**.
+Trovavano zero risultati, e da zero risultati NOVA concludeva «non
+raggiungibile» — che era falso. Il motore rispondeva benissimo, era il
+lettore a non capirlo piu'. Un tool che mente sul motivo del proprio
+fallimento manda chi lo usa a cercare il guasto dalla parte sbagliata: si
+controlla la rete, il proxy, il firewall, e il guasto e' in una riga di
+espressione regolare.
+
+E c'erano **due ricerche web**, come c'erano due chat: `nova/cerca.py`, che
+guida un Chrome vero in una porta e un profilo suoi e funziona benissimo, e
+questa, che era morta. Ora `web_search` prova prima con il browser — che non
+si rompe quando cambia una classe CSS — e tiene i raschiatori come ripiego.
+Quando non trova niente dice cosa ha provato e come e' andata, invece di
+inventarsi una diagnosi.
+
+
 ### Quello che questa giornata ha insegnato
 
 Tre cose si ripetono abbastanza da meritare di essere scritte.
@@ -383,6 +428,11 @@ invisibili a una suite verde.
 
 **Una funzione documentata non e' una funzione provata.** Il ripiego sulla
 quota stava nel README con tanto di esempio di output. Non era mai partito.
+
+**Un guasto che non solleva e' peggio di uno che solleva.** Il ripiego sulla
+quota non partiva, i raschiatori tornavano vuoti, l'orb non riceveva mai lo
+stato: tre cose diverse con la stessa forma — niente si rompe, quindi niente
+lo dice, e la funzione risulta presente per anni senza esserci.
 
 **E misurare una volta non basta: bisogna misurare il pezzo giusto.** «La
 memoria costa 25 ms» era vero e inutile. Sotto c'era un BM25 da quattro

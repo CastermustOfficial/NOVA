@@ -7,7 +7,21 @@ import re
 import urllib.parse
 import webbrowser
 
-import requests
+
+def _rete():
+    """`requests` si importa quando serve, non all'avvio.
+
+    Da solo pesa centoquindici millisecondi su centosessantatre' di tutto
+    `nova.tools`: due terzi del tempo di accensione di NOVA per una libreria
+    che serve solo se qualcuno cerca sul web. Chi apre l'orb, chiede «dove
+    sono i miei dati» o rilegge il registro non la usa mai.
+
+    Il costo si paga alla prima ricerca, dove mezzo decimo di secondo sparisce
+    dentro l'attesa della rete.
+    """
+    import requests
+    return requests
+
 
 from .base import Risk, ToolError, tool
 
@@ -28,7 +42,7 @@ def _clean(text: str) -> str:
 
 
 def _ddg_html(query: str, max_results: int) -> list[dict]:
-    r = requests.post(
+    r = _rete().post(
         "https://html.duckduckgo.com/html/",
         data={"q": query}, headers={"User-Agent": UA}, timeout=TIMEOUT,
     )
@@ -56,7 +70,7 @@ def _ddg_html(query: str, max_results: int) -> list[dict]:
 
 
 def _ddg_lite(query: str, max_results: int) -> list[dict]:
-    r = requests.get(
+    r = _rete().get(
         "https://lite.duckduckgo.com/lite/",
         params={"q": query}, headers={"User-Agent": UA}, timeout=TIMEOUT,
     )
@@ -79,25 +93,63 @@ def _ddg_lite(query: str, max_results: int) -> list[dict]:
     preview=lambda a: f"Cerca sul web: {a.get('query')}",
 )
 def web_search(query: str, max_results: int = 6) -> str:
+    """Cerca sul web. Prima con il browser, poi raschiando l'HTML.
+
+    L'ordine e' questo perche' i due modi non sono equivalenti, ed e' una
+    lezione pagata: i raschiatori leggevano l'HTML di DuckDuckGo con delle
+    espressioni regolari, e quell'HTML e' cambiato. Non sollevavano niente -
+    trovavano zero risultati e basta - quindi NOVA rispondeva «motore di
+    ricerca non raggiungibile», che era **falso**: il motore rispondeva
+    benissimo, era il lettore a non capirlo piu'. Un tool che mente sul
+    motivo del proprio fallimento manda chi lo usa a cercare il guasto dalla
+    parte sbagliata.
+
+    `nova.cerca` invece guida un Chrome vero, in una porta e un profilo suoi:
+    non appare sullo schermo, non ruba il fuoco, e legge la pagina come la
+    leggerebbe una persona - quindi non si rompe quando cambia una classe CSS.
+    I raschiatori restano come ripiego per chi non ha Chrome: costano poco e
+    un giorno potrebbero tornare a funzionare.
+    """
     if not query.strip():
         raise ToolError("query vuota")
     n = max(1, min(int(max_results or 6), 15))
+
+    dal_browser = None
+    try:
+        from .. import cerca as ricerca
+        d = ricerca.cerca(query, quanti=n)
+        if d.get("ok") and d.get("risultati"):
+            return "\n".join(
+                _riga(i, r.get("titolo", ""), r.get("url", ""), r.get("testo", ""))
+                for i, r in enumerate(d["risultati"][:n], 1))
+        dal_browser = d.get("motivo") or "nessun risultato"
+    except Exception as e:                                     # noqa: BLE001
+        from ..guasti import spiega
+        dal_browser = spiega(e)
+
     results: list[dict] = []
     for fn in (_ddg_html, _ddg_lite):
         try:
             results = fn(query, n)
             if results:
                 break
-        except requests.RequestException:
+        except Exception:                                      # noqa: BLE001
             continue
-    if not results:
-        raise ToolError("nessun risultato o motore di ricerca non raggiungibile")
-    lines = []
-    for i, r in enumerate(results, 1):
-        lines.append(f"{i}. {r['title']}\n   {r['url']}")
-        if r["snippet"]:
-            lines.append(f"   {r['snippet']}")
-    return "\n".join(lines)
+    if results:
+        return "\n".join(_riga(i, r["title"], r["url"], r["snippet"])
+                         for i, r in enumerate(results, 1))
+    # Si dice cosa e' successo davvero, non «non raggiungibile».
+    raise ToolError(
+        f"non ho trovato niente per «{query}». Col browser: {dal_browser}. "
+        "Senza browser i lettori di pagina non hanno riconosciuto i "
+        "risultati: prova ad aprire la ricerca con web_apri.")
+
+
+def _riga(i: int, titolo: str, url: str, testo: str) -> str:
+    pezzi = [f"{i}. {titolo}\n   {url}"]
+    if testo:
+        pezzi.append(f"   {testo}")
+    return "\n".join(pezzi)
 
 
 @tool(
@@ -114,9 +166,9 @@ def fetch_url(url: str, max_chars: int = 12000) -> str:
     if not url.lower().startswith(("http://", "https://")):
         url = "https://" + url
     try:
-        r = requests.get(url, headers={"User-Agent": UA}, timeout=TIMEOUT, allow_redirects=True)
+        r = _rete().get(url, headers={"User-Agent": UA}, timeout=TIMEOUT, allow_redirects=True)
         r.raise_for_status()
-    except requests.RequestException as e:
+    except _rete().RequestException as e:
         raise ToolError(f"impossibile scaricare {url}: {e}")
     ctype = r.headers.get("content-type", "")
     if "json" in ctype:
