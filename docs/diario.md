@@ -1020,3 +1020,79 @@ differenza fra le due decide se la cura e' un porting o una riga.
 in Chromium a ogni passaggio: buchi nella griglia, schede sbilanciate e una
 volta l'HTML rotto, tutti evidenti in un'occhiata e invisibili a una prova
 che legge il testo del file.
+
+
+## 31 agosto 2026 — quinto colpo: il motore
+
+Il criterio di ieri sera diceva quale pezzo viene dopo: **cosa deve
+funzionare prima del primo avvio**. Fatti i dischi, i modelli e le schede
+video, mancava l'altra meta' — un modello non basta, ci vuole il motore che
+lo fa girare, e fra un llama-server compilato con CUDA e uno per la CPU ci
+sono i dieci volte di ieri.
+
+`nova-modelli::motore` fa tre cose: trova gli eseguibili, capisce con che
+cosa sono stati costruiti, e li mette in ordine. Duecento righe. E come le
+altre volte, la parte interessante non e' il codice: e' quello che il codice
+vecchio nascondeva.
+
+### Tre difetti, un errore solo
+
+Il modulo Python ne aveva tre, e a guardarli in fila sono lo stesso:
+**una stringa usata al posto di una struttura**.
+
+**«Dentro» chiesto a un prefisso.** I binari dentro `runtime/` del progetto
+hanno la precedenza assoluta — sono gli unici di cui si conosce la
+provenienza — e la prova era `str(exe).startswith(str(radice / "runtime"))`.
+Un prefisso non e' un percorso: `runtime-vecchio`, `runtime_backup` e
+`runtime2` passavano tutti. Chi tiene una copia del motore che funzionava
+prima di aggiornarlo — e il `.gitignore` di questo progetto dice esplicitamente
+che qualcuno lo fa — si sarebbe ritrovato la copia vecchia promossa sopra
+tutto il resto, in silenzio. E' il `bin/` del `.gitignore` di ieri, in un
+altro file, ventiquattro ore dopo.
+
+**Un nome cercato come sottostringa.** L'acceleratore si indovinava con
+`"cuda" in str(percorso).lower()`. Chi si chiama Cudale e tiene i motori in
+casa sua si vedeva classificare come CUDA anche quello per la CPU — e la
+classificazione decide l'ordine, quindi NOVA avrebbe scelto per prima la cosa
+piu' lenta credendola la piu' veloce. Ora si guardano i componenti del
+percorso, spezzati anche sui trattini.
+
+**Una versione cercata dappertutto.** `re.findall` sul percorso intero
+raccoglieva anche i numeri delle cartelle piu' in alto: chi tiene i motori
+sotto `C:\v1.2.3\` li avrebbe ordinati per il nome del nonno. La versione sta
+dove i nomi la mettono davvero, in coda alla cartella del binario.
+
+E una quarta, che non e' un difetto ma un confine: si cercava
+`llama-server.exe`, con l'estensione scritta a mano. Su Linux e su macOS quel
+file non esiste, quindi non si trovava niente e NOVA concludeva che non ci
+fosse un motore. Insieme all'estensione delle librerie (`.dll`, `.so`,
+`.dylib`) sono due righe che tolgono un pezzo di Windows.
+
+Tutto corretto **da tutte e due le parti**, come per il GGUF a meta': il
+Python e' quello che gira oggi, e un difetto conosciuto lasciato in piedi
+«tanto poi lo togliamo» e' un difetto in produzione.
+
+### E una che ho scritto io mentre le correggevo
+
+Scrivendo la regola nuova per i nomi ho messo `w.starts_with(radice)`, e la
+mia stessa prova l'ha bocciata in trenta secondi: `cudale` comincia per
+`cuda`. Avevo riscritto il difetto che ero venuto a togliere, nella funzione
+che lo toglieva.
+
+La regola giusta ha una piega che non avevo visto: **non basta nemmeno il
+confronto esatto**, perche' `cuda12` e' CUDA — le versioni si attaccano al
+nome. Quindi «la parola intera, oppure la parola seguita da sole cifre». E'
+il tipo di dettaglio che non si trova pensando: si trova scrivendo prima la
+prova con i due casi che devono dare risposte opposte.
+
+### I nomi veri, che erano gia' li'
+
+Le prove non usano nomi inventati: usano quelli che stanno su questa
+macchina, letti prima di scrivere il codice.
+`llama.cpp-win-x86_64-vulkan-avx2-2.31.2`, `-2.28.2`, `-2.8.0`. Quel `2.8.0`
+e' il caso che serviva: per una stringa viene **dopo** `2.31.2`, per dei
+numeri prima. Se avessi inventato tre versioni da zero, con ogni probabilita'
+avrei scritto 1.0, 2.0, 3.0 e non avrei provato niente.
+
+Cinquantaquattro controlli nel banco, tutti verdi, e le quarantasei prove
+della suite pure.

@@ -14,7 +14,8 @@
 //!
 //! - [`trova`] - quali file GGUF ci sono su questo disco, e quale conviene;
 //! - [`gguf`] - com'e' fatto il modello dentro (quanti strati, che contesto);
-//! - [`strati`] - quanti di quegli strati stanno davvero in VRAM.
+//! - [`strati`] - quanti di quegli strati stanno davvero in VRAM;
+//! - [`motore`] - quale llama-server c'e' su questo disco, e se usa la scheda.
 //!
 //! Niente dipendenze obbligatorie, e nemmeno una chiamata al sistema
 //! operativo: le radici da percorrere si passano da fuori, e chi sa cosa sia
@@ -23,10 +24,12 @@
 //! sulla macchina di chi l'ha scritto.
 
 pub mod gguf;
+pub mod motore;
 pub mod strati;
 pub mod trova;
 
 pub use gguf::{e_gguf, forma, metadati, Forma, Valore};
+pub use motore::{acceleratore_di, motori, Acceleratore, Motore};
 pub use strati::{peso_kv, strati_su_gpu, PESO_KV, RISERVA_MB};
 pub use trova::{
     cartelle_note, trova, verifica_file, Come, Resoconto, Trovato, Verifica, MINIMO_BYTE,

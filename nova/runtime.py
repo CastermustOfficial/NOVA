@@ -42,21 +42,90 @@ class RuntimeCandidate:
     priority: int
 
 
+# Come si chiamano l'eseguibile e le librerie su questo sistema. Prima erano
+# scritti a mano con l'estensione di Windows: su Linux e su macOS il file si
+# chiama senza `.exe`, quindi non si trovava mai niente e NOVA concludeva che
+# non ci fosse un motore. Un'altra promessa che si rompeva altrove.
+NOME_SERVER = "llama-server.exe" if os.name == "nt" else "llama-server"
+if sys.platform == "darwin":
+    ESTENSIONE_LIBRERIA = ".dylib"
+elif os.name == "nt":
+    ESTENSIONE_LIBRERIA = ".dll"
+else:
+    ESTENSIONE_LIBRERIA = ".so"
+
+
+def _parole(path: Path) -> set[str]:
+    """I componenti del percorso, minuscoli, spezzati anche sui trattini."""
+    fuori: set[str] = set()
+    for pezzo in path.parts:
+        for parola in re.split(r"[^a-z0-9]+", pezzo.lower()):
+            if parola:
+                fuori.add(parola)
+    return fuori
+
+
+def _ha_parola(parole: set[str], radice: str) -> bool:
+    """La parola intera, oppure la parola seguita da sole cifre.
+
+    Prima qui c'era `"cuda" in str(percorso).lower()`, cioe' tre lettere
+    cercate dentro tutta la stringa: chi si chiama Cudale e tiene i motori in
+    casa sua si vedeva classificare come CUDA anche quello per la CPU. Ma
+    `cuda12` **e'** CUDA, perche' la versione si attacca al nome - quindi non
+    basta nemmeno il confronto esatto.
+    """
+    for p in parole:
+        if p == radice:
+            return True
+        if p.startswith(radice) and p[len(radice):].isdigit():
+            return True
+    return False
+
+
 def _classify(path: Path) -> tuple[str, int]:
-    name = str(path).lower()
-    files = {f.name.lower() for f in path.parent.glob("*.dll")}
-    if "ggml-cuda.dll" in files or "cuda" in name:
+    try:
+        files = {f.name.lower() for f in path.parent.glob("*" + ESTENSIONE_LIBRERIA)}
+    except OSError:
+        files = set()
+    parole = _parole(path)
+    # Le librerie vengono prima perche' sono la prova: il nome e' quello che
+    # qualcuno ha scritto, `ggml-cuda` e' quello che c'e' davvero.
+    def ha(gambo: str) -> bool:
+        return any(gambo in f for f in files)
+    if ha("ggml-cuda") or _ha_parola(parole, "cuda"):
         return "cuda", 0
-    if "ggml-vulkan.dll" in files or "vulkan" in name:
+    if ha("ggml-vulkan") or _ha_parola(parole, "vulkan"):
         return "vulkan", 1
-    if "ggml-hip.dll" in files or "rocm" in name:
+    if ha("ggml-hip") or _ha_parola(parole, "rocm") or _ha_parola(parole, "hip"):
         return "rocm", 2
     return "cpu", 3
 
 
 def _version_key(path: Path) -> tuple:
-    m = re.findall(r"(\d+)\.(\d+)\.(\d+)", str(path))
+    """La versione dal nome della **cartella del binario**, non dal percorso.
+
+    `re.findall` su tutto il percorso raccoglieva anche il numero di una
+    cartella qualunque piu' in alto: chi tiene i motori sotto `C:\v1.2.3\`
+    si vedeva ordinare i suoi llama.cpp per il nome del nonno. La versione
+    sta dove i nomi la mettono davvero, in coda alla cartella:
+    `llama.cpp-win-x86_64-vulkan-avx2-2.31.2`.
+    """
+    m = re.findall(r"(\d+)\.(\d+)\.(\d+)", path.parent.name)
     return tuple(int(x) for x in m[-1]) if m else (0, 0, 0)
+
+
+def _dentro(figlio: Path, padre: Path) -> bool:
+    """Se `figlio` sta davvero dentro `padre`.
+
+    Non `str.startswith`: «runtime-vecchio» comincia per «runtime» e non ci
+    sta dentro. E' lo stesso errore del `bin/` nel `.gitignore`, che valeva
+    per qualunque cartella chiamata cosi'.
+    """
+    try:
+        figlio.relative_to(padre)
+        return True
+    except ValueError:
+        return False
 
 
 def discover_runtimes(extra_dirs: Iterable[Path] = ()) -> list[RuntimeCandidate]:
@@ -73,10 +142,11 @@ def discover_runtimes(extra_dirs: Iterable[Path] = ()) -> list[RuntimeCandidate]
     for root in roots:
         if not root.exists():
             continue
-        for exe in root.rglob("llama-server.exe"):
+        for exe in root.rglob(NOME_SERVER):
             acc, prio = _classify(exe)
-            # i binari dentro runtime/ del progetto hanno precedenza assoluta
-            if str(exe).startswith(str(PROJECT_ROOT / "runtime")):
+            # i binari dentro runtime/ del progetto hanno precedenza assoluta:
+            # sono gli unici di cui conosciamo la provenienza
+            if _dentro(exe, PROJECT_ROOT / "runtime"):
                 prio -= 10
             found[exe] = RuntimeCandidate(
                 path=exe, label=exe.parent.name, accelerator=acc, priority=prio

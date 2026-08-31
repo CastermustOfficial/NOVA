@@ -14,6 +14,7 @@ use std::io::Read;
 use std::path::PathBuf;
 
 use nova_modelli::gguf;
+use nova_modelli::motore::{motori, Motore};
 use nova_modelli::strati::strati_su_gpu;
 use nova_modelli::trova::{cartelle_note, trova, verifica_file, Come};
 use serde::{Deserialize, Serialize};
@@ -54,6 +55,12 @@ struct Dentro {
     /// Casi di calcolo degli strati.
     #[serde(default)]
     strati: Vec<CasoStrati>,
+    /// Le radici in cui cercare llama-server.
+    #[serde(default)]
+    motori: Vec<String>,
+    /// La cartella del progetto: quello che sta li' vince su tutto.
+    #[serde(default)]
+    in_casa: String,
     /// Per provare `cartelle_note` senza dipendere da com'e' fatta questa casa.
     #[serde(default)]
     casa: String,
@@ -114,6 +121,15 @@ struct MisuraFuori {
 }
 
 #[derive(Serialize)]
+struct MotoreFuori {
+    percorso: String,
+    etichetta: String,
+    acceleratore: String,
+    priorita: i32,
+    versione: [u32; 3],
+}
+
+#[derive(Serialize)]
 struct Fuori {
     modelli: Vec<ModelloFuori>,
     /// Se il tetto di tempo e' scaduto. Il numero di secondi non si confronta:
@@ -122,6 +138,7 @@ struct Fuori {
     indicati: Vec<VerificaFuori>,
     forme: Vec<FormaFuori>,
     strati: Vec<u32>,
+    motori: Vec<MotoreFuori>,
     misure: Vec<MisuraFuori>,
     note: Vec<String>,
 }
@@ -225,6 +242,24 @@ fn main() {
                 )
             })
             .collect(),
+        motori: {
+            let radici: Vec<PathBuf> = dentro.motori.iter().map(PathBuf::from).collect();
+            let casa = if dentro.in_casa.is_empty() {
+                None
+            } else {
+                Some(PathBuf::from(&dentro.in_casa))
+            };
+            motori(&radici, casa.as_deref())
+                .into_iter()
+                .map(|m: Motore| MotoreFuori {
+                    percorso: m.percorso.to_string_lossy().into_owned(),
+                    etichetta: m.etichetta,
+                    acceleratore: m.acceleratore.nome().to_string(),
+                    priorita: m.priorita,
+                    versione: [m.versione.0, m.versione.1, m.versione.2],
+                })
+                .collect()
+        },
         misure: dentro
             .misure
             .iter()

@@ -453,6 +453,14 @@ in Rust e meta' no, l'utente installa comunque Python e ci sono due
 implementazioni della stessa cosa da tenere allineate. Il guadagno arriva
 tutto insieme, alla fine.
 
+**Il quinto pezzo, e il conto di quel che resta.** Portati: ricette, memoria,
+registro, modelli, motore. I primi tre erano logica pura; gli ultimi due sono
+il gruppo che risponde alla domanda «cosa c'e' su questo PC» — dischi, GGUF,
+schede video, llama-server — cioe' tutto quello che va saputo **prima** del
+primo avvio. Quel gruppo adesso e' finito, e sta insieme: le radici da
+percorrere si passano sempre da fuori, e chi parla al sistema operativo sta
+sempre in `nova-platform`.
+
 **C'e' un ordine, e non e' quello delle liste.** Portando i primi quattro
 pezzi e' venuto fuori un criterio che nessuna delle tre liste conteneva:
 **quando** una cosa deve funzionare. `modelli_trova.py` porta scritto in testa

@@ -46,6 +46,7 @@ if not BINARIO.is_file():
     sys.exit(2)
 
 from nova import modelli_trova as py            # noqa: E402
+from nova import runtime as pyrt                # noqa: E402
 from nova.gguf import misura, model_shape       # noqa: E402
 from nova.runtime import PESO_KV                # noqa: E402
 
@@ -368,6 +369,110 @@ a, b = strati_py(mio), strati_py(mio_q8)
 controlla("la cache a q8_0 regala strati su questa macchina", b > a, f"f16={a} q8={b}")
 controlla("Rust dice lo stesso",
           rust({"radici": [], "strati": [mio, mio_q8]})["strati"] == [a, b])
+
+# =======================================================================
+print("\n=== Il motore: quale llama-server, e con cosa e' costruito ===")
+
+# L'altra meta' di «cosa serve prima del primo avvio»: un modello non basta,
+# ci vuole il motore. Il porto ha fatto uscire tre trappole, tutte della
+# stessa famiglia — **una stringa usata al posto di una struttura** — e sono
+# corrette da tutte e due le parti, perche' il Python e' quello che gira oggi.
+
+with tempfile.TemporaryDirectory(prefix="nova-motori-") as tmp:
+    base = Path(tmp)
+    ESE = pyrt.NOME_SERVER
+    LIB = pyrt.ESTENSIONE_LIBRERIA
+
+    def motore_finto(cartella: str, librerie=()):
+        d = base / cartella
+        d.mkdir(parents=True, exist_ok=True)
+        (d / ESE).write_bytes(b"MZ")           # basta che esista
+        for l in librerie:
+            (d / (l + LIB)).write_bytes(b"")
+        return d / ESE
+
+    # I nomi veri di LM Studio, presi da questa macchina.
+    motore_finto("llama.cpp-win-x86_64-vulkan-avx2-2.31.2", ["ggml-vulkan"])
+    motore_finto("llama.cpp-win-x86_64-vulkan-avx2-2.28.2", ["ggml-vulkan"])
+    motore_finto("llama.cpp-win-x86_64-vulkan-avx2-2.8.0", ["ggml-vulkan"])
+    motore_finto("llama.cpp-win-x86_64-nvidia-cuda12-avx2-1.65.0", ["ggml-cuda"])
+    motore_finto("llama.cpp-win-x86_64-avx2-1.65.0")            # nessuna libreria: CPU
+    # Il nome dice CPU ma accanto c'e' la libreria CUDA: vince la libreria,
+    # perche' il nome e' quello che qualcuno ha scritto e la libreria c'e'.
+    motore_finto("motore-generico-3.0.0", ["ggml-cuda"])
+
+    rs = rust({"radici": [], "motori": [str(base)]})["motori"]
+    py_m = pyrt.discover_runtimes(extra_dirs=[base])
+    # Il Python aggiunge sempre le cartelle note (runtime del progetto, LM
+    # Studio): si confrontano solo quelli dentro l'albero finto, come per i
+    # modelli.
+    py_dentro = [c for c in py_m if str(base) in str(c.path)]
+
+    def snello_rs(m):
+        return (m["percorso"].lower(), m["acceleratore"], m["priorita"], tuple(m["versione"]))
+
+    def snello_py(c):
+        return (str(c.path).lower(), c.accelerator, c.priority, pyrt._version_key(c.path))
+
+    a = [snello_py(c) for c in py_dentro]
+    b = [snello_rs(m) for m in rs]
+    controlla("stessi motori, stesso ordine", a == b, f"\n    py={a}\n    rs={b}")
+
+    per_nome = {Path(x[0]).parent.name: x for x in b}
+    controlla("la libreria batte il nome",
+              per_nome["motore-generico-3.0.0"][1] == "cuda",
+              str(per_nome.get("motore-generico-3.0.0")))
+    controlla("senza librerie e senza nome e' CPU",
+              per_nome["llama.cpp-win-x86_64-avx2-1.65.0"][1] == "cpu")
+    controlla("cuda viene prima di vulkan",
+              [x[1] for x in b].index("cuda") < [x[1] for x in b].index("vulkan"))
+
+    # 2.8.0 non deve battere 2.31.2: per una stringa lo farebbe.
+    vulkan = [x for x in b if x[1] == "vulkan"]
+    controlla("le versioni si ordinano da numeri, non da lettere",
+              [x[3] for x in vulkan] == [(2, 31, 2), (2, 28, 2), (2, 8, 0)],
+              str([x[3] for x in vulkan]))
+
+    # --- «dentro» non e' «comincia per» -------------------------------
+    print("\n=== runtime-vecchio non e' dentro runtime ===")
+    casa = base / "runtime"
+    motore_finto("runtime", ["ggml-cuda"])
+    trappola = motore_finto("runtime-vecchio", ["ggml-cuda"])
+
+    rs2 = rust({"radici": [], "motori": [str(base)], "in_casa": str(casa)})["motori"]
+    py2 = [c for c in pyrt.discover_runtimes(extra_dirs=[base]) if str(base) in str(c.path)]
+    # Il Python sconta rispetto alla cartella del progetto, non a questa
+    # finta: qui si prova direttamente la funzione che decide.
+    controlla("Python: runtime/ ci sta dentro", pyrt._dentro(casa / ESE, casa))
+    controlla("Python: runtime-vecchio no", not pyrt._dentro(trappola, casa))
+    controlla("Python: runtime_backup no",
+              not pyrt._dentro(base / "runtime_backup" / ESE, casa))
+
+    scontati = [m for m in rs2 if m["priorita"] < 0]
+    controlla("Rust: sconta solo quello davvero dentro",
+              len(scontati) == 1
+              and Path(scontati[0]["percorso"]).parent.name == "runtime",
+              str([Path(m["percorso"]).parent.name for m in scontati]))
+    controlla("e quindi il vero motore di casa viene primo",
+              Path(rs2[0]["percorso"]).parent.name == "runtime",
+              Path(rs2[0]["percorso"]).parent.name)
+
+    # --- «cuda» dentro il nome di una persona -------------------------
+    print("\n=== cuda e' una parola, non tre lettere ===")
+    casa_cudale = base / "cudale" / "motori"
+    d = casa_cudale / "solo-cpu-1.0.0"
+    d.mkdir(parents=True)
+    (d / ESE).write_bytes(b"MZ")
+    rs3 = rust({"radici": [], "motori": [str(casa_cudale)]})["motori"]
+    controlla("Rust: chi si chiama Cudale non ha una NVIDIA",
+              rs3 and rs3[0]["acceleratore"] == "cpu",
+              str(rs3))
+    controlla("Python: idem", pyrt._classify(d / ESE)[0] == "cpu",
+              str(pyrt._classify(d / ESE)))
+    # Ma cuda12 e' CUDA.
+    controlla("e cuda12 invece si'",
+              pyrt._ha_parola(pyrt._parole(Path("/x/nvidia-cuda12-avx2/x")), "cuda"))
+
 
 # =======================================================================
 print("\n=== I posti dove si guarda ===")
