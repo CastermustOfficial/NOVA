@@ -203,10 +203,23 @@ def installa(mostra=None, riscrivi: bool = False) -> bool:
 # Una chiave puo' tornare indietro dentro il messaggio d'errore del
 # fornitore, e da li' finirebbe sullo schermo, nel registro e nel file dei
 # guasti. Si toglie prima di guardare cosa c'e' scritto.
+# Le parole che, seguite da un separatore e da un valore lungo e compatto,
+# dicono che quel valore e' un segreto anche se non ha un prefisso noto.
+#
+# «bearer» e «authorization» sono arrivate tardi, e la storia merita una riga:
+# `Authorization: Bearer <token>` e' il modo piu' comune in cui una chiave
+# finisce dentro un messaggio d'errore o una richiesta registrata - e non era
+# coperto **ne' qui ne' nella versione Rust**. Le due implementazioni erano
+# d'accordo, quindi un confronto fra loro non poteva accorgersene: l'ha
+# trovato una prova che invece di chiedere «dicono la stessa cosa?» chiede
+# «e' rimasto qualcosa di segreto?».
+_SPIE = "key|token|secret|bearer|authorization|password|passwd"
+
 _CHIAVE = re.compile(
     r"\b(sk-[A-Za-z0-9_\-]{8,}|gsk_[A-Za-z0-9_\-]{8,}|"
     r"xai-[A-Za-z0-9_\-]{8,}|AIza[A-Za-z0-9_\-]{8,}|"
-    r"[A-Za-z0-9_\-]{0,8}(?:key|token|secret)[\"'\s:=]{1,4}[A-Za-z0-9_\-]{16,})")
+    r"[A-Za-z0-9_\-]{0,8}(?:" + _SPIE + r")[\"'\s:=]{1,4}[A-Za-z0-9_\-]{16,})",
+    re.IGNORECASE)
 
 
 def senza_chiavi(testo: str) -> str:

@@ -1,0 +1,19 @@
+[package]
+name = "nova-guasti"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Un guasto detto in italiano, e le chiavi che non escono dai messaggi d'errore."
+
+[dependencies]
+serde = { workspace = true, features = ["derive"], optional = true }
+serde_json = { workspace = true, optional = true }
+
+[features]
+banco = ["dep:serde", "dep:serde_json"]
+
+[[bin]]
+name = "banco-guasti"
+path = "src/banco.rs"
+required-features = ["banco"]

@@ -1431,3 +1431,65 @@ una cosa e' fatta si disallinea sempre, e la si scopre dal lato sbagliato.
 
 Alla fine, sul modello vero: dove prima c'era `HTTPError 400`, adesso ci sono
 due messaggi, 1.580 token e una risposta in un secondo.
+
+### Settimo colpo: i guasti, e un buco che avevano tutti e due
+
+`nova-guasti` e' il pezzo che serve a tutti gli altri: quando il Python sara'
+andato via, qualunque parte di NOVA che debba dire «non ci sono riuscito»
+dovra' poterlo dire come lo dice NOVA, non come lo dice il sistema operativo.
+Le frasi, la tabella degli errori di Windows, i nomi dei pacchetti da
+installare — e `senza_chiavi`, che non e' cortesia ma sicurezza.
+
+Il confronto e' andato liscio sulle frasi: dodici guasti per due, con e senza
+premessa, gli errori di Windows numero per numero, i nomi dei pacchetti.
+Tutto identico al primo colpo.
+
+Poi c'e' stata la parte che conta.
+
+### La prova che non chiede l'accordo ma il risultato
+
+Sul mascheramento delle chiavi non ho scritto la prova solita — «le due parti
+dicono la stessa cosa» — e per una ragione che si e' rivelata giusta per il
+motivo sbagliato. L'avevo scritta cosi' perche' **coprire di piu' e' un
+fastidio e coprire di meno e' una chiave che esce**: sono due errori
+asimmetrici, quindi pretendere l'uguaglianza sarebbe stato pretendere la cosa
+sbagliata. La prova chiede due cose diverse: che il Rust non copra **meno** del
+Python, e che di ogni segreto messo dentro **non resti niente da nessuna delle
+due parti**.
+
+E' la seconda a essere diventata rossa, su tutte e due.
+
+    Authorization: Bearer abcdefghijklmnop1234567890
+
+Non lo copriva nessuno. «Authorization» non finisce per key, token o secret;
+«Bearer» nemmeno; e il valore non ha un prefisso noto. Ed e' il modo **piu'
+comune** in cui una chiave finisce dentro un messaggio d'errore o una
+richiesta registrata: e' l'intestazione HTTP che la trasporta.
+
+La cosa da tenere non e' il buco, e' come si e' visto. Le due implementazioni
+erano **d'accordo**, quindi qualunque confronto fra loro sarebbe passato: sei
+pezzi di cantiere fatti bene, un metodo che ha trovato una decina di difetti,
+e su questo sarebbe stato cieco per costruzione. Un confronto trova le
+**differenze**; per trovare gli errori condivisi bisogna chiedere qualcosa al
+risultato, non all'accordo.
+
+E' anche il motivo per cui `test_binari.py` di stamattina confronta l'elenco
+col workspace e non con una seconda copia dell'elenco, e per cui la prova del
+GGUF a meta' guarda se il file arriva dove dice invece di guardare se i due
+lettori concordano. Le avevo scritte cosi' d'istinto; adesso so perche'.
+
+Corretto da tutte e due le parti: `bearer`, `authorization`, `password`,
+`passwd` fra le parole spia, e il confronto ora insensibile alle maiuscole,
+perche' quell'intestazione si scrive in tre modi diversi a seconda di chi la
+manda.
+
+### Una divergenza tenuta apposta
+
+Le due parti non mascherano allo stesso modo, e va detto. Il Python sostituisce
+tutta la corrispondenza, quindi `api_key: sk-...` diventa `[chiave]`; il Rust
+tiene la parola e il separatore e copre solo il valore, quindi diventa
+`api_key: [chiave]`. La seconda si legge e la prima no — chi guarda un
+registro vuole sapere **quale** segreto e' stato coperto, non solo che ce n'era
+uno. Non l'ho uniformata perche' e' un miglioramento, e la prova non la
+segnala perche' non pretende l'uguaglianza: pretende che il Rust non copra
+meno, e coprire meglio lo stesso valore non e' coprire meno.

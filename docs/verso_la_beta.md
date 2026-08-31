@@ -551,8 +551,8 @@ in Rust e meta' no, l'utente installa comunque Python e ci sono due
 implementazioni della stessa cosa da tenere allineate. Il guadagno arriva
 tutto insieme, alla fine.
 
-**Il sesto pezzo, e il conto di quel che resta.** Portati: ricette, memoria,
-registro, modelli, motore, scala. I primi tre erano logica pura; gli ultimi due sono
+**Il settimo pezzo, e il conto di quel che resta.** Portati: ricette,
+memoria, registro, modelli, motore, scala, guasti. I primi tre erano logica pura; gli ultimi due sono
 il gruppo che risponde alla domanda «cosa c'e' su questo PC» — dischi, GGUF,
 schede video, llama-server — cioe' tutto quello che va saputo **prima** del
 primo avvio. Quel gruppo adesso e' finito, e sta insieme: le radici da
@@ -565,6 +565,11 @@ conseguenze piu' pesanti del cantiere, perche' e' quello che tiene o rompe la
 frase su cui NOVA sta in piedi - niente esce dal PC finche' qualcuno non
 delega davvero. Nello stesso gruppo restano da portare l'auto-valutazione e
 `pianificazione.py`.
+
+Il settimo, `nova-guasti`, non appartiene a nessuno dei due gruppi: e' quello
+che serve a tutti. Quando il Python andra' via, ogni pezzo in Rust che debba
+dire «non ci sono riuscito» dovra' dirlo in italiano e senza far uscire una
+chiave, e quel codice deve esistere prima.
 
 **C'e' un ordine, e non e' quello delle liste.** Portando i primi quattro
 pezzi e' venuto fuori un criterio che nessuna delle tre liste conteneva:
