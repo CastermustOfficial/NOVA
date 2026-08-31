@@ -199,11 +199,59 @@ class Agent:
         if nuova_conversazione:
             self.brain.reset()
 
-    def trim_history(self, max_messages: int = 60) -> None:
-        if len(self.messages) <= max_messages:
+    #: Sopra questo numero di messaggi si taglia.
+    TETTO_MESSAGGI = 60
+    #: E si scende fino a questo. La distanza fra i due e' il punto: senza,
+    #: si taglia a ogni turno.
+    FONDO_MESSAGGI = 40
+
+    def trim_history(self, max_messages: int | None = None,
+                     fondo: int | None = None) -> None:
+        """Accorcia la conversazione, ma di rado.
+
+        Il taglio butta cio' che sta **subito dopo il messaggio di sistema**,
+        e quello e' il posto peggiore: la cache del prefisso di llama.cpp vale
+        finche' i token in testa sono gli stessi, quindi spostare la seconda
+        riga invalida tutto il resto e si rielabora l'intera conversazione.
+
+        Prima si tagliava fino a `tetto - 1`, cioe' si tornava esattamente sul
+        filo. Il turno dopo aggiungeva due messaggi, si superava di nuovo, e si
+        tagliava di nuovo: **dal trentesimo turno in poi si tagliava a ogni
+        turno**, quindi la cache non si riformava mai piu' e ogni risposta
+        pagava il prompt da capo. Non si rompeva niente, non lo diceva
+        nessuno: la conversazione diventava lenta e restava lenta.
+
+        Misurato con `banco_taglio.py` su Gemma 4 26B-A4B, conversazione da
+        ottantuno messaggi, 15.379 token di prefisso:
+
+            a caldo, prefisso intatto           175 ms
+            dopo il taglio di prima           1.771 ms
+            e il turno seguente               1.731 ms   <- non guarisce
+            col fondo, dopo il taglio         1.217 ms
+            e il turno seguente                 226 ms   <- guarito
+
+        Scendere fino a un fondo non cambia **cosa** si butta: cambia quanto
+        spesso. Si taglia una volta ogni dieci turni invece che a ogni turno, e
+        nei nove in mezzo il prefisso resta valido. Il prezzo e' che quando si
+        taglia si butta di piu' in un colpo solo, ed e' un prezzo che si paga
+        volentieri: la memoria vera di NOVA non e' questa finestra, e' il
+        vault.
+        """
+        tetto = self.TETTO_MESSAGGI if max_messages is None else max_messages
+        giu = self.FONDO_MESSAGGI if fondo is None else fondo
+        # Un fondo troppo vicino al tetto riporta al difetto di prima senza
+        # dirlo, e «un turno di distanza» non basta: con `tetto - 2` si
+        # taglierebbe a turni alterni invece che a ogni turno, che e' meta'
+        # del difetto e non la sua assenza. La distanza minima e' un quarto
+        # del tetto, cioe' una decina di turni di respiro.
+        giu = max(2, min(giu, tetto * 3 // 4))
+        if len(self.messages) <= tetto:
             return
         head = self.messages[:1]
-        tail = self.messages[-(max_messages - 1):]
+        tail = self.messages[-(giu - 1):]
+        # Una risposta di tool senza la chiamata che l'ha prodotta non e'
+        # leggibile da nessun modello: si scarta finche' la coda non comincia
+        # da qualcosa di sensato.
         while tail and tail[0].get("role") == "tool":
             tail.pop(0)
         self.messages = head + tail

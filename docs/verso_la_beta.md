@@ -64,12 +64,37 @@ In ordine di guadagno atteso, non di difficolta'.
    generazione grazie ai layer che la memoria liberata permette. Vecchio testo: (`--cache-type-k`, `--cache-type-v`). Dimezza la
    cache: su una 16 GB con dodici layer sulla CPU, quei layer si ricomprano.
    E' il singolo intervento con il rapporto guadagno/rischio migliore.
-4. **`--cache-reuse`.** Serve perche' `trim_history` taglia **in mezzo** alla
-   conversazione: il prefisso non combacia piu' e si rielabora tutto. Misurare
-   quanto costa un taglio, poi decidere.
-5. **Ripensare `trim_history`.** Tagliare la coda non rompe niente, tagliare il
-   centro si'. O si riassume il centro in un messaggio solo, o si taglia solo
-   dal fondo.
+4. ~~**`--cache-reuse`.**~~ Misurato, e **non serve**: 1.745 ms contro 1.771,
+   dentro il rumore. La ragione e' istruttiva — quel flag riusa i pezzi di
+   cache **prima** del punto in cui il prefisso diverge, e qui la divergenza
+   e' subito dopo il messaggio di sistema. Non c'e' niente prima da riusare.
+   La cura non era il flag, era il taglio: vedi il punto 5.
+5. ~~**Ripensare `trim_history`.**~~ Fatto, e il difetto non era **dove** si
+   tagliava ma **quanto spesso**. Si tagliava fino a `tetto - 1`, cioe' si
+   tornava esattamente sul filo; il turno dopo aggiungeva due messaggi, si
+   superava di nuovo, si tagliava di nuovo. **Dal trentesimo turno in poi si
+   tagliava a ogni turno** — trentuno tagli su sessanta turni — quindi la
+   cache del prefisso non si riformava mai piu' e ogni risposta pagava il
+   prompt da capo, per il resto della conversazione. Niente si rompeva e
+   nessuno lo diceva.
+
+   Misurato con `banco_taglio.py` (Gemma 4 26B-A4B, 81 messaggi, 15.379
+   token di prefisso):
+
+   | | token rielaborati | prompt |
+   |---|---|---|
+   | a caldo, prefisso intatto | 10 | 130 ms |
+   | dopo il taglio di prima | 2.854 | 1.786 ms |
+   | e il turno seguente | 2.738 | **1.748 ms** — non guariva |
+   | col fondo, dopo il taglio | 1.898 | 1.240 ms |
+   | e il turno seguente | 38 | **231 ms** — guarito |
+
+   La cura e' un fondo: superato il tetto si scende a quaranta invece di
+   fermarsi a cinquantanove. Non cambia **cosa** si butta, cambia quanto
+   spesso: tre tagli su sessanta turni invece di trentuno, e nei turni in
+   mezzo il prefisso resta valido. Il prezzo e' che quando si taglia si butta
+   di piu' in un colpo, e si paga volentieri — la memoria vera di NOVA non e'
+   questa finestra, e' il vault.
 6. **Speculative decoding** con un draft piccolo (`--model-draft`). Sul codice
    e sull'output strutturato — che e' quasi tutto quello che NOVA genera — vale
    spesso 1,5-2x.

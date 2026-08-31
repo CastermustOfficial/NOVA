@@ -1271,3 +1271,82 @@ puo' cadere in mezzo a una lettera accentata e far esplodere la ricerca. Ci
 sono due prove apposta, e una passa una stringa di sole `à`.
 
 Trenta controlli nel banco, quarantanove file di prova, tutti verdi.
+
+### Il taglio che si rifaceva a ogni turno
+
+OTT-4 e OTT-5 erano scritte come due voci: «`--cache-reuse` serve perche'
+`trim_history` taglia in mezzo» e «ripensare `trim_history`». Sono la stessa
+cosa vista da due lati, e misurandole e' venuto fuori che la prima era la cura
+sbagliata per un difetto piu' grosso di quello che credevo.
+
+`trim_history` tiene il messaggio di sistema e gli ultimi cinquantanove, e
+butta cio' che sta in mezzo. Che sia il posto peggiore lo sapevamo: la cache
+del prefisso vale finche' i token in testa sono gli stessi, e spostare la
+seconda riga invalida tutto il resto. Quello che non avevo visto e' **la
+frequenza**. Si tagliava fino a `tetto - 1`, cioe' si tornava esattamente sul
+filo; il turno dopo aggiunge due messaggi, si supera di nuovo, si taglia di
+nuovo. Contati: dal trentesimo turno in poi si taglia **a ogni turno** —
+trentuno tagli su sessanta.
+
+Il che vuol dire che oltre la mezz'ora di conversazione NOVA perdeva la cache
+e non la riprendeva **piu'**, pagando il prompt da capo a ogni risposta per
+il resto della sessione. Non si rompeva niente. Non lo diceva nessuno.
+Diventava lenta e restava lenta, e chi la usava avrebbe pensato «si e'
+appesantita», che e' il modo in cui si accetta un difetto invece di
+segnalarlo.
+
+`banco_taglio.py` lo misura invece di dedurlo — Gemma 4 26B-A4B, ottantuno
+messaggi, 15.379 token di prefisso:
+
+| | token rielaborati | prompt |
+|---|---|---|
+| a caldo, prefisso intatto | 10 | 130 ms |
+| dopo il taglio di prima | 2.854 | 1.786 ms |
+| e il turno seguente | 2.738 | **1.748 ms** |
+| col fondo, dopo il taglio | 1.898 | 1.240 ms |
+| e il turno seguente | 38 | **231 ms** |
+
+Le righe che contano sono la terza e la sesta. Col taglio di prima il turno
+dopo costa quanto quello del taglio: non guarisce. Col fondo, il turno dopo
+torna a duecento millisecondi: guarito. Sette volte e mezzo, su un modello
+veloce — su Qwen, che elabora il prompt quattro volte piu' piano, sarebbero
+sette secondi a turno.
+
+**E `--cache-reuse` non serve**: 1.745 contro 1.771 millisecondi, dentro il
+rumore. La ragione e' istruttiva e vale piu' del numero. Quel flag riusa i
+pezzi di cache che stanno **prima** del punto in cui il prefisso diverge; qui
+la divergenza e' subito dopo il messaggio di sistema, quindi prima non c'e'
+niente da riusare. La voce OTT-4 era scritta come «serve perche' tagliamo in
+mezzo» — ed era vero il perche' e sbagliata la conclusione. Non si compensa
+con un flag un taglio fatto nel posto sbagliato: si sposta il taglio.
+
+La cura e' un fondo. Superato il tetto si scende a quaranta invece di fermarsi
+a cinquantanove: tre tagli su sessanta turni invece di trentuno, e nei turni
+in mezzo il prefisso resta valido. Non cambia cosa si butta, cambia quanto
+spesso — e il prezzo, buttare di piu' in un colpo solo, si paga volentieri,
+perche' la memoria vera di NOVA non e' quella finestra, e' il vault.
+
+### E la prova che misurava un'imitazione
+
+Scrivendo `test_taglio.py` ho voluto confrontare «prima» e «ora», e per avere
+il «prima» ho passato alla funzione nuova un fondo pari al tetto, pensando che
+si comportasse come la vecchia. Non si comporta: la funzione nuova riporta il
+fondo dentro i limiti apposta, quindi misuravo qualcosa di gia' mezzo
+corretto. Il confronto diceva sedici tagli invece di trentuno — meta' del
+difetto, che sembra un numero plausibile e per questo non salta all'occhio.
+
+Ho copiato il codice vecchio dentro la prova, testualmente. **Il paragone col
+passato si fa col passato, non con una sua imitazione.**
+
+La stessa cosa valeva per il banco: calcolava il taglio nuovo con una copia
+della logica invece di chiamare `Agent.trim_history`. Una prova che misura una
+parafrasi misura la parafrasi — e se domani la funzione vera cambia, il banco
+continuerebbe a dire che va tutto bene.
+
+E c'e' una terza correzione, piu' piccola, arrivata dallo stesso giro. La
+prima difesa che avevo messo contro un fondo scritto male era `tetto - 2`:
+sembra prudente e non lo e'. Con quella distanza si taglia a turni alterni
+invece che a ogni turno, cioe' **meta' del difetto invece della sua assenza**.
+Adesso il fondo non puo' superare i tre quarti del tetto, che sono una decina
+di turni di respiro. Una difesa che lascia passare la meta' del problema e'
+una difesa che si e' scritta per sentirsi a posto.

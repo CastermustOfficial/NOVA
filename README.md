@@ -883,7 +883,15 @@ E si rimisura, perche' la VRAM libera dipende da cos'altro c'e' acceso:
 ```powershell
 python banco_modello.py            # tutte le configurazioni
 python banco_modello.py kv8-60     # una sola
+python banco_taglio.py             # quanto costa accorciare la conversazione
 ```
+
+Quell'ultimo misura una cosa che non si vede: quando la conversazione si
+allunga NOVA la accorcia, e accorciarla butta via la cache del prompt. Se lo
+si fa a ogni turno — ed e' quello che succedeva — da un certo punto in poi
+ogni risposta rielabora tutto da capo e non si torna piu' indietro. Ora si
+taglia di rado: tre volte in sessanta turni invece di trentuno, e il turno
+dopo un taglio torna a costare 231 ms invece di 1.748.
 
 Un 27B a Q4 su 16 GB non ci sta interamente, e cinque layer sulla CPU restano
 il collo di bottiglia. Per andare molto piu' veloci ci sono due strade,
