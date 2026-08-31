@@ -108,7 +108,9 @@ In ordine di guadagno atteso, non di difficolta'.
     l'import pigro per categoria: 115 dei 163 ms erano `requests`, tirato
     dentro da un solo modulo. Spostato dentro la funzione, sono 94 ms. Se
     servisse di piu', il passo successivo e' quello previsto.
-12. **Primo porting in Rust: ricette + BM25.** Sono algoritmi puri, senza GUI e
+12. ~~**Primo porting in Rust: ricette + BM25.**~~ Fatto, e andato ben oltre:
+    sei pezzi portati (ricette, memoria, registro, modelli, motore, scala).
+    Vecchio testo:** Sono algoritmi puri, senza GUI e
     senza Windows: si portano in `nova-core` con un test che confronta i
     risultati delle due versioni riga per riga. Non e' il guadagno, e' il
     banco di prova per capire quanto costa davvero portare il resto.
@@ -389,36 +391,43 @@ installato dopo il primo giorno.
 
 ### I primi cinque minuti
 
-1. **Cosa vede uno appena finita l'installazione?** Oggi: un orb. Serve una
-   cosa da provare subito, che funzioni di sicuro e che faccia capire cosa e'.
-2. **Il README e' lungo.** Serve un percorso «primi cinque minuti» in testa,
-   per chi non lo leggera' mai tutto.
-3. **L'orb dice se e' acceso?** Se sta ascoltando? Se sta pensando? Uno stato
-   che non si vede e' uno stato che non c'e'.
+1. ~~**Cosa vede uno appena finita l'installazione?**~~ Fatto: l'orb accoglie
+   con tre prove da fare subito (`PROVE` in `index.html`), e ne cambia il testo
+   se il cervello non c'e' ancora. `test_primi_minuti.py` pretende che ci
+   siano e che siano cose che funzionano di sicuro.
+2. ~~**Il README e' lungo.**~~ Fatto: «I primi cinque minuti» e' la prima
+   sezione, prima di qualunque spiegazione.
+3. ~~**L'orb dice se e' acceso?**~~ Fatto, ed era rotto in silenzio: il
+   battito di stato esisteva in Python e non arrivava mai all'interfaccia.
+   Ora passa da `nova://passo`.
 
 ### Quando lavora
 
-4. **Trenta secondi di attesa senza niente sembrano rotti.** Lo stato deve
-   dire a che passo e' e cosa sta facendo, non «Sto pensando...».
-5. **La conferma deve dire *cosa* fa.** C'e' il campo `preview` sui tool: va
-   verificato che sia scritto e sensato per tutti e sessanta, non per i primi
-   dieci.
-6. **Il registro azioni si legge?** Si cerca dentro? Se e' un file che nessuno
-   apre, la promessa «cio' che non si annulla si annota» e' mezza mantenuta.
+4. ~~**Trenta secondi di attesa senza niente sembrano rotti.**~~ Fatto:
+   `nova/attesa.py`. Dice a che passo e', e da quanto sta andando — ma non si
+   inventa quanto manca (D32).
+5. ~~**La conferma deve dire *cosa* fa.**~~ Fatto: `test_anteprime.py`, 125
+   controlli su tutti i tool, non sui primi dieci.
+6. ~~**Il registro azioni si legge?**~~ Fatto: `registro.cerca` con filtri per
+   testo, tipo, esito e giorni, piu' il racconto in italiano. Poi portato in
+   Rust (`nova-registro`).
 
 ### Quando non ce la fa
 
-7. **Nessun traceback deve arrivare all'utente.** E' il confine piu' netto fra
-   alpha e beta: un errore Python sullo schermo dice «questo programma non e'
-   finito».
-8. **«Non ci riesco» deve dire perche' e cosa fare.** Modello spento, quota
-   finita, permesso negato, file bloccato: sono quattro messaggi diversi.
-9. **Il verificatore dell'harness.** Oggi NOVA propone una modifica al codice e
-   l'utente deve fidarsi. Eseguire i test del progetto e applicare solo se
-   passano e' il pezzo che manca — ed e' quello che rende l'harness un posto
-   dove si programma, non solo dove si legge.
+7. ~~**Nessun traceback deve arrivare all'utente.**~~ Fatto in casa:
+   `nova/guasti.py` traduce, il traceback va nel file (D28), e
+   `test_guasti.py` fa la guardia perche' non rientri — ha gia' bocciato me
+   due volte. Resta da provare **sulle strade di qualcun altro**, ed e' per
+   questo che il cancello della beta ce l'ha ancora aperto.
+8. ~~**«Non ci riesco» deve dire perche' e cosa fare.**~~ Fatto: sono quattro
+   messaggi diversi, e la quota e' `LimiteUso` invece di un errore generico
+   (D30) — prima il ripiego non partiva mai.
+9. ~~**Il verificatore dell'harness.**~~ Fatto: `nova/harness_prova.py`
+   trova ed esegue i test del progetto, e `applica(verifica=True)` scrive solo
+   se il verdetto non peggiora — confronto con **prima**, non col verde
+   assoluto (D31).
 
-13. **L'orb si apre due volte.** Non c'e' una guardia di istanza singola:
+14. **L'orb si apre due volte.** Non c'e' una guardia di istanza singola:
     due doppi clic sul collegamento danno due orb, che si contendono lo
     stesso demone e la stessa configurazione. Si vede subito e sembra un
     guasto. In Tauri si risolve con la guardia di istanza singola, che alla
@@ -428,14 +437,16 @@ installato dopo il primo giorno.
 
 ### Fiducia
 
-10. **«Dove sono i miei dati?»** Un comando solo che risponde: memoria,
-    credenziali, registro, configurazione, e quanto pesano.
-11. **«Cosa esce dal mio PC?»** Il README lo dice; deve dirlo anche
-    l'interfaccia, nel momento in cui si cambia cervello.
+10. ~~**«Dove sono i miei dati?»**~~ Fatto: `nova/dati.py` e `--dati`.
+    Risponde cosa c'e', dove sta, quanto pesa, e cosa succede se lo cancelli.
+11. ~~**«Cosa esce dal mio PC?»**~~ Fatto: la fascia della riservatezza nel
+    pannello lo dice mentre si sceglie il cervello, distinguendo cosa resta in
+    casa da cosa va a un fornitore e a quale.
 12. **Disinstallare deve togliere tutto**, dire cosa ha tolto e cosa ha
     lasciato apposta. Un disinstallatore che lascia in giro roba e' l'ultima
     cosa che un utente ricorda.
-13. **Il menu delle impostazioni e' disordinato.** Segnalato, ancora vero.
+13. ~~**Il menu delle impostazioni e' disordinato.**~~ Fatto: tre fasce —
+    chi ragiona, come ti parla, com'e' messa.
 
 ---
 
