@@ -114,10 +114,27 @@ In ordine di guadagno atteso, non di difficolta'.
 
 ### Il prompt (dove stanno i token)
 
-8. **Gli schemi dei tool sono 6.635 token, il blocco piu' grosso di tutti.**
-   Accorciare le descrizioni si puo' fare subito. Mandare solo i tool
-   pertinenti invece no, non a cuor leggero: cambia il prefisso e butta la
-   cache. Da misurare prima di decidere.
+8. **Gli schemi dei tool sono ~6.900 token, il blocco piu' grosso di tutti** —
+   e la voce era scritta guardando la moneta sbagliata. Diceva «stanno nella
+   cache del prefisso, quindi il guadagno e' basso»: vero per la **velocita'**,
+   falso per la **capienza**. Misurato:
+
+   | | token | quota del contesto |
+   |---|---|---|
+   | messaggio di sistema | ~5.200 | 32% |
+   | schemi dei sessanta tool | ~6.900 | **42%** |
+   | riserva per la risposta | 1.024 | 6% |
+   | resta alla conversazione | ~3.300 | **20%** |
+
+   Il prefisso fisso si mangia i tre quarti del contesto. Accorciare le
+   descrizioni non fa guadagnare millisecondi — quelli sono gia' in cache —
+   fa guadagnare **conversazione**, che e' un'altra valuta e quella che
+   finisce prima.
+
+   E la seconda meta' della voce adesso si puo' chiudere con una prova invece
+   che con un timore: mandare solo i tool pertinenti cambierebbe il prefisso a
+   ogni turno, ed e' esattamente la malattia curata al punto 5 — 1.748 ms a
+   turno contro 231. **Non si fa.**
 9. ~~**Verificare che il prefisso sia davvero stabile.**~~ Fatto:
    `test_prefisso.py` confronta due prompt a ora ferma e pretende che siano
    identici, e controlla che memoria e ricette restino in coda alla domanda.

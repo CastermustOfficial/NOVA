@@ -233,6 +233,35 @@ def _motivo_del_fornitore(corpo: str) -> str:
     return senza_chiavi(str(dati)).strip()[:200] if isinstance(dati, str) else ""
 
 
+def _contesto_sfondato(corpo: str) -> bool:
+    """Il corpo dice che il contesto non basta, in una delle sue lingue."""
+    t = (corpo or "").lower()
+    return ("exceed_context_size" in t
+            or "exceeds the available context" in t
+            or "context length exceeded" in t
+            or "maximum context length" in t)
+
+
+def _misure_del_contesto(corpo: str) -> tuple[int, int]:
+    """Quanti token servivano e quanti ce ne stanno, se il corpo lo dice.
+
+    Sono due numeri che aiutano davvero - «e' troppo lungo» non dice quanto -
+    e sono gli unici due che si possono prendere da quel JSON senza rischiare
+    di ricopiare qualcosa che non deve uscire.
+    """
+    try:
+        d = json.loads(corpo)
+    except Exception:                                       # noqa: BLE001
+        return 0, 0
+    e = d.get("error") if isinstance(d, dict) else None
+    if not isinstance(e, dict):
+        e = d if isinstance(d, dict) else {}
+    try:
+        return int(e.get("n_prompt_tokens") or 0), int(e.get("n_ctx") or 0)
+    except (TypeError, ValueError):
+        return 0, 0
+
+
 def spiega_http(codice: int, corpo: str = "", dove: str = "Il fornitore") -> str:
     """Un codice HTTP in una frase, e cosa si puo' fare.
 
@@ -253,6 +282,21 @@ def spiega_http(codice: int, corpo: str = "", dove: str = "Il fornitore") -> str
     if codice == 413:
         return ("la richiesta e' troppo lunga per questo modello: serve una "
                 "conversazione piu' corta o un contesto piu' grande." + coda)
+    # llama.cpp usa 400 per il contesto sfondato, non 413, e nel corpo
+    # scrive «exceeds the available context size». Senza questo ramo arrivava
+    # all'utente il JSON in inglese - un caso misurato, non immaginato: dodici
+    # scambi con dentro il contenuto di un file fanno 102.953 token contro i
+    # 16.384 del contesto.
+    if codice == 400 and _contesto_sfondato(corpo):
+        quanti, quanto = _misure_del_contesto(corpo)
+        quanto_dice = ""
+        if quanti and quanto:
+            quanto_dice = (f" Servivano {quanti:,} token e ce ne stanno "
+                           f"{quanto:,}.").replace(",", ".")
+        return ("la conversazione e' diventata piu' lunga di quanto il "
+                "modello riesca a tenere a mente." + quanto_dice +
+                " Comincia una conversazione nuova, oppure alza "
+                "«contesto» nelle impostazioni del cervello locale.")
     if codice == 429:
         return "la quota e' finita per adesso." + coda
     if 500 <= codice < 600:

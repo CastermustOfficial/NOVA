@@ -199,14 +199,79 @@ class Agent:
         if nuova_conversazione:
             self.brain.reset()
 
+    #: Quanti caratteri vale un token, per stimare senza tokenizzatore.
+    #:
+    #: Misurato due volte su questa macchina, con prompt veri: 3,88 su una
+    #: conversazione in italiano e 4,37 su del testo ripetitivo letto da un
+    #: file. Si tiene il numero **piu' basso** dei due, anzi un filo sotto:
+    #: sbagliare per eccesso di token vuol dire tagliare un po' presto, che si
+    #: nota appena; sbagliare per difetto vuol dire sfondare il contesto, e
+    #: quello e' un errore in faccia all'utente.
+    CARATTERI_PER_TOKEN = 3.5
+
+    #: Quanto lasciare libero per la risposta. Il contesto non serve solo a
+    #: leggere: il modello ci scrive dentro.
+    RISERVA_RISPOSTA_TOKEN = 1024
+
     #: Sopra questo numero di messaggi si taglia.
     TETTO_MESSAGGI = 60
     #: E si scende fino a questo. La distanza fra i due e' il punto: senza,
     #: si taglia a ogni turno.
     FONDO_MESSAGGI = 40
 
+    def _spazio_per_la_conversazione(self, tools: list) -> int:
+        """Quanti token restano alla conversazione, tolto tutto il resto.
+
+        Il conto non e' un dettaglio contabile, e' la scoperta che ha fatto
+        nascere questa funzione. Su questa macchina, con il contesto a 16.384:
+
+            messaggio di sistema     ~5.200 token
+            schemi dei sessanta tool ~6.900 token   (il 42% del contesto)
+            riserva per la risposta   1.024 token
+            ------------------------------------
+            resta alla conversazione ~3.300 token   (il 20%)
+
+        Il prefisso fisso si mangia i tre quarti del contesto, e quello che
+        avanza e' molto meno di quanto sessanta messaggi possano pesare. Da
+        qui il taglio a token.
+
+        Se il cervello non e' quello locale il contesto non lo decide questa
+        configurazione: si torna zero, cioe' «non lo so», e vale solo il
+        taglio a messaggi.
+        """
+        if getattr(self.brain, "agentico", False):
+            return 0
+        try:
+            ctx = int(getattr(self.cfg.server, "ctx_size", 0) or 0)
+        except Exception:                                   # noqa: BLE001
+            return 0
+        if ctx <= 0:
+            return 0
+        sistema = str(self.messages[0].get("content") or "") if self.messages else ""
+        fissi = self.stima_token(sistema) + self.RISERVA_RISPOSTA_TOKEN
+        if tools:
+            try:
+                fissi += self.stima_token(json.dumps(tools, ensure_ascii=False))
+            except Exception:                               # noqa: BLE001
+                pass
+        return max(0, ctx - fissi)
+
+    @classmethod
+    def stima_token(cls, testo: str) -> int:
+        """Quanti token vale un testo, senza tokenizzatore.
+
+        Serve una stima e non una misura: il tokenizzatore vero sta nel
+        modello, cambia con il modello, e chiederglielo costerebbe un giro di
+        rete per ogni messaggio a ogni turno solo per decidere se tagliare.
+        """
+        return int(len(testo or "") / cls.CARATTERI_PER_TOKEN) + 1
+
+    def _token_dei(self, messaggi: list[dict]) -> int:
+        return sum(self.stima_token(str(m.get("content") or "")) for m in messaggi)
+
     def trim_history(self, max_messages: int | None = None,
-                     fondo: int | None = None) -> None:
+                     fondo: int | None = None,
+                     token_disponibili: int = 0) -> None:
         """Accorcia la conversazione, ma di rado.
 
         Il taglio butta cio' che sta **subito dopo il messaggio di sistema**,
@@ -246,6 +311,14 @@ class Agent:
         # del tetto, cioe' una decina di turni di respiro.
         giu = max(2, min(giu, tetto * 3 // 4))
         if len(self.messages) <= tetto:
+            # Sotto la soglia dei messaggi non si taglia per numero - ma il
+            # taglio a token va fatto lo stesso, ed e' proprio questo il caso
+            # che conta: dodici scambi con dentro il contenuto di un file sono
+            # venticinque messaggi, quindi passano di qui, e sono centomila
+            # token. La prima versione di questa funzione metteva il taglio a
+            # token dopo questo `return`, cioe' non lo eseguiva mai nel solo
+            # caso per cui era stato scritto.
+            self._taglia_a_token(token_disponibili)
             return
         head = self.messages[:1]
         tail = self.messages[-(giu - 1):]
@@ -255,6 +328,104 @@ class Agent:
         while tail and tail[0].get("role") == "tool":
             tail.pop(0)
         self.messages = head + tail
+        self._taglia_a_token(token_disponibili)
+
+    def _taglia_a_token(self, disponibili: int) -> None:
+        """E poi il taglio che conta davvero: quello sui token.
+
+        La finestra si contava **in messaggi** e il limite del modello e' **in
+        token**: due unita' diverse che non si parlavano. Sessanta messaggi
+        possono essere trecento token o centomila, e bastano dodici scambi con
+        dentro il contenuto di un file per arrivare a 102.953 token contro i
+        16.384 del contesto - misurato, non immaginato. Il taglio a messaggi
+        non scattava nemmeno: erano ventiquattro messaggi.
+
+        Quello che arrivava all'utente era un JSON in inglese con dentro
+        «exceeds the available context size».
+
+        `disponibili` e' quanto resta al netto del prefisso fisso - il
+        messaggio di sistema e gli schemi dei tool, che su questa macchina
+        sono gia' i tre quarti del contesto - e della riserva per la risposta.
+        Zero vuol dire «non lo so», e allora non si tocca niente: meglio il
+        taglio a messaggi da solo che uno inventato.
+        """
+        # `< 2` e non `<= 2`: con esattamente due messaggi - sistema piu' una
+        # risposta enorme - non c'e' niente da **togliere**, ma c'e' ancora da
+        # **accorciare**, ed e' il caso che ha fatto scrivere l'accorciamento.
+        # La prima versione usciva qui e lo lasciava passare intero.
+        if disponibili <= 0 or len(self.messages) < 2:
+            return
+        head, coda = self.messages[:1], self.messages[1:]
+        if self._token_dei(coda) <= disponibili:
+            return
+        # Stessa idea del fondo: si scende sotto la soglia, non ci si ferma
+        # sopra, o si ritaglia a ogni turno e la cache non si riforma mai.
+        obiettivo = int(disponibili * 0.75)
+        while coda and self._token_dei(coda) > obiettivo:
+            coda.pop(0)
+        while coda and coda[0].get("role") == "tool":
+            coda.pop(0)
+        # Non si resta mai senza l'ultimo scambio: una conversazione vuota non
+        # e' una conversazione accorciata, e' una amnesia.
+        if not coda:
+            coda = list(self.messages[-1:])
+        # E se cio' che resta non ci sta **comunque**, vuol dire che un solo
+        # messaggio e' piu' grande di tutto lo spazio: il contenuto di un file
+        # letto, una pagina web intera. Buttarlo vorrebbe dire perdere proprio
+        # la cosa di cui l'utente ha chiesto conto; tenerlo intero vuol dire
+        # sfondare il contesto. Si accorcia, e lo si dice nel testo - un
+        # taglio dichiarato il modello lo capisce, uno silenzioso gli fa
+        # credere che il file finisca li'.
+        if coda and self._token_dei(coda) > disponibili:
+            coda = self._accorcia_il_piu_grosso(coda, obiettivo)
+        self.messages = head + coda
+
+    #: Sotto questa lunghezza un messaggio non si accorcia piu': quel che
+    #: resta e' gia' solo l'inizio e la fine, e continuare vorrebbe dire
+    #: toglierne il senso invece che il peso.
+    MINIMO_ACCORCIABILE = 400
+
+    def _accorcia_il_piu_grosso(self, coda: list[dict], obiettivo: int) -> list[dict]:
+        """Accorcia i messaggi piu' grossi finche' la coda non ci sta.
+
+        Si tiene l'inizio e la fine: l'inizio dice cos'era, la fine spesso
+        porta la conclusione, ed e' il mezzo che si puo' perdere.
+
+        **La lunghezza da togliere si calcola, non si indovina.** La prima
+        versione tagliava a una misura fissa - millecinquecento caratteri in
+        testa e altrettanti in coda - e non terminava: la scritta che dichiara
+        il taglio e' lunga quanto i caratteri che alla seconda passata
+        restavano da togliere, quindi il testo si accorciava di ottanta
+        caratteri e ricresceva di ottanta, per sempre. Un ciclo che
+        «ovviamente» finisce e non finisce. Adesso a ogni passata si punta
+        alla lunghezza che serve, e si esce se non si e' guadagnato niente:
+        due condizioni invece di una, perche' una si e' gia' vista sbagliare.
+        """
+        fuori = [dict(m) for m in coda]
+        for _ in range(len(fuori) + 8):        # tetto: mai un ciclo aperto
+            eccesso = self._token_dei(fuori) - obiettivo
+            if eccesso <= 0:
+                return fuori
+            i = max(range(len(fuori)),
+                    key=lambda k: len(str(fuori[k].get("content") or "")))
+            testo = str(fuori[i].get("content") or "")
+            if len(testo) <= self.MINIMO_ACCORCIABILE:
+                break        # non c'e' piu' niente di grosso da accorciare
+            # Quanto deve diventare lungo, piu' un margine per la scritta.
+            da_togliere = int(eccesso * self.CARATTERI_PER_TOKEN) + 200
+            voluta = max(self.MINIMO_ACCORCIABILE, len(testo) - da_togliere)
+            meta = max(60, voluta // 2)
+            tolti = len(testo) - meta * 2
+            nuovo = (
+                testo[:meta]
+                + f"\n\n[...tagliati {tolti} caratteri perche' non ci stavano"
+                  " nella memoria del modello...]\n\n"
+                + testo[-meta:]
+            )
+            if len(nuovo) >= len(testo):
+                break        # non si guadagna niente: si smette
+            fuori[i]["content"] = nuovo
+        return fuori
 
     # -- memoria nel prompt --------------------------------------------
     def _contesto_kb(self, user_text: str) -> str:
@@ -350,9 +521,9 @@ class Agent:
         # ricomincia da capo.
         self._ultima_impronta = ""
         self._quante_ripetute = 0
-        self.trim_history()
         agentico = getattr(self.brain, "agentico", False)
         tools = [] if agentico else openai_schema()
+        self.trim_history(token_disponibili=self._spazio_per_la_conversazione(tools))
         # da dove si sale: cambia a ogni escalation, altrimenti la seconda
         # ridelegherebbe allo stesso gradino della prima
         gradino = (self.cfg.brains.routing or {}).get("orchestratore", "locale")

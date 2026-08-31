@@ -47,13 +47,24 @@ def controlla(nome, condizione, dettaglio=""):
         print(f"  [NO ] {nome}  {dettaglio}")
 
 
-class FintoAgent:
-    """Solo la finestra: costruire un Agent vero vorrebbe dire un cervello."""
-    TETTO_MESSAGGI = Agent.TETTO_MESSAGGI
-    FONDO_MESSAGGI = Agent.FONDO_MESSAGGI
-    trim_history = Agent.trim_history
+class FintoAgent(Agent):
+    """Un Agent vero, ma senza cervello.
 
-    def __init__(self, messaggi):
+    Si **eredita** invece di prendere i metodi uno per uno. La prima versione
+    li copiava a mano (`trim_history = Agent.trim_history`, e cosi' via) e ha
+    smesso di funzionare due volte in mezz'ora: ogni metodo nuovo andava
+    aggiunto anche qui, e finche' non lo si aggiungeva la prova falliva con un
+    `AttributeError` che non c'entrava niente con quello che stava provando.
+
+    E' la stessa lezione dell'elenco dei binari di stamattina: una copia
+    scritta a mano di cio' di cui una cosa e' fatta si disallinea sempre.
+    Ereditando, la finestra provata e' per costruzione quella vera.
+
+    `__init__` si sostituisce perche' quello di `Agent` costruisce un cervello,
+    e per contare i token di una lista di messaggi non serve.
+    """
+
+    def __init__(self, messaggi):                            # noqa: D107
         self.messages = list(messaggi)
 
 
@@ -176,6 +187,111 @@ a = FintoAgent(conversazione(40))
 a.trim_history(60, 0)
 controlla("resta comunque qualcosa da leggere", len(a.messages) >= 2,
           str(len(a.messages)))
+
+print("\n=== E il taglio che conta davvero: i token ===")
+# La finestra si contava in MESSAGGI e il limite del modello e' in TOKEN.
+# Sessanta messaggi possono essere trecento token o centomila: bastano dodici
+# scambi con dentro il contenuto di un file per arrivare a 102.953 token
+# contro i 16.384 del contesto. Misurato con banco_taglio.py, non immaginato.
+# E il taglio a messaggi non scattava nemmeno: erano ventiquattro messaggi.
+
+GROSSO = "riga di un file letto da NOVA. " * 400          # ~12.000 caratteri
+
+
+def con_file(scambi: int) -> list[dict]:
+    m = [{"role": "system", "content": "sistema"}]
+    for i in range(scambi):
+        m.append({"role": "user", "content": f"leggi il file {i}"})
+        m.append({"role": "assistant", "content": GROSSO})
+    return m
+
+
+a = FintoAgent(con_file(12))
+controlla("dodici scambi non fanno scattare il taglio a messaggi",
+          len(a.messages) <= Agent.TETTO_MESSAGGI, f"{len(a.messages)} messaggi")
+prima_token = sum(Agent.stima_token(m["content"]) for m in a.messages)
+a.trim_history(token_disponibili=0)
+controlla("e senza sapere lo spazio non si tocca niente",
+          len(a.messages) == 25, f"{len(a.messages)} messaggi")
+
+a = FintoAgent(con_file(12))
+a.trim_history(token_disponibili=3300)
+dopo_token = sum(Agent.stima_token(m["content"]) for m in a.messages[1:])
+print(f"  prima ~{prima_token} token, dopo ~{dopo_token} (spazio: 3300)")
+controlla("col taglio a token la conversazione rientra", dopo_token <= 3300,
+          f"{dopo_token} token")
+controlla("e scende sotto, non si ferma sul filo", dopo_token <= 3300 * 0.8,
+          f"{dopo_token} contro un obiettivo di {int(3300*0.75)}")
+controlla("il sistema resta comunque il primo",
+          a.messages[0]["content"] == "sistema")
+controlla("e resta almeno uno scambio", len(a.messages) >= 2,
+          f"{len(a.messages)} messaggi")
+
+# Il caso limite, ed e' quello che ha fatto scrivere l'accorciamento: un solo
+# messaggio piu' grande di tutto lo spazio - il contenuto di un file letto.
+# Buttarlo perderebbe proprio la cosa di cui l'utente ha chiesto conto;
+# tenerlo intero sfonda il contesto. Si accorcia.
+a = FintoAgent([{"role": "system", "content": "sistema"},
+                {"role": "user", "content": GROSSO}])
+a.trim_history(token_disponibili=1000)
+controlla("un messaggio piu' grande dello spazio non svuota tutto",
+          len(a.messages) >= 2, f"{len(a.messages)} messaggi")
+resto = a.messages[-1]["content"]
+controlla("viene accorciato, non buttato", len(resto) < len(GROSSO),
+          f"{len(resto)} contro {len(GROSSO)} caratteri")
+controlla("e il taglio e' dichiarato, non silenzioso",
+          "tagliati" in resto and "caratteri" in resto, resto[:80])
+controlla("resta l'inizio, che dice cos'era", resto.startswith(GROSSO[:50]))
+# E deve **finire**: la prima versione dell'accorciamento entrava in un ciclo
+# che non terminava, perche' la scritta del taglio ricresceva quanto i
+# caratteri tolti. La prova si e' appesa, ed e' cosi' che l'ho scoperto.
+controlla("l'accorciamento termina anche su un testo gia' corto",
+          FintoAgent([{"role": "system", "content": "s"},
+                      {"role": "user", "content": "x" * 500}]
+                     ).trim_history(token_disponibili=10) is None)
+controlla("e resta la fine, che spesso porta la conclusione",
+          resto.endswith(GROSSO[-50:]))
+controlla("e adesso ci sta", Agent.stima_token(resto) <= 1000,
+          f"{Agent.stima_token(resto)} token")
+
+# E non deve ritagliare a ogni turno, come il fratello a messaggi.
+a = FintoAgent(con_file(12))
+a.trim_history(token_disponibili=3300)
+# La testa e' **tutto** quello che resta dopo il taglio, non i primi tre: qui
+# ne restano due, e confrontare `[:3]` prima e dopo aver aggiunto messaggi
+# confronta una lista di due con una di tre. La prima versione di questa
+# assertiva falliva per quello, e diceva «la testa si e' mossa» quando non si
+# era mossa affatto.
+testa = [m["content"] for m in a.messages]
+ritagli = 0
+for t in range(6):
+    a.messages.append({"role": "user", "content": f"d{t}"})
+    a.messages.append({"role": "assistant", "content": f"r{t}"})
+    prima = len(a.messages)
+    a.trim_history(token_disponibili=3300)
+    if len(a.messages) != prima:
+        ritagli += 1
+controlla("sei turni brevi dopo il taglio non ritagliano", ritagli == 0,
+          f"{ritagli} ritagli")
+# La proprieta' che conta per la cache: quello che c'era resta in testa, nello
+# stesso ordine. E' cio' che rende il prefisso ancora un prefisso.
+controlla("e il prefisso e' rimasto un prefisso",
+          [m["content"] for m in a.messages[:len(testa)]] == testa,
+          f"{len(testa)} messaggi in testa")
+
+print("\n=== La stima dei token ===")
+# Due misure vere su questa macchina: 3,88 caratteri per token su una
+# conversazione italiana, 4,37 su testo ripetitivo. Si tiene il piu' basso,
+# perche' sbagliare per eccesso taglia un po' presto e sbagliare per difetto
+# sfonda il contesto.
+controlla("si sbaglia per eccesso, non per difetto",
+          Agent.CARATTERI_PER_TOKEN <= 3.88,
+          f"{Agent.CARATTERI_PER_TOKEN} caratteri per token")
+controlla("la stima e' vicina alle misure vere",
+          15379 <= Agent.stima_token("x" * 59706) <= 15379 * 1.2,
+          f"{Agent.stima_token('x' * 59706)} contro 15379 misurati")
+controlla("il vuoto non e' negativo", Agent.stima_token("") >= 0)
+controlla("e None non fa esplodere", Agent.stima_token(None) >= 0)
 
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:

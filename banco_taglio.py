@@ -81,15 +81,32 @@ def taglia_come_oggi(msgs: list[dict], tetto: int = TETTO) -> list[dict]:
     return head + tail
 
 
+def taglia_come_nova_con_token(msgs: list[dict], sistema: str,
+                               strumenti: list) -> list[dict]:
+    """Il taglio vero, con lo spazio calcolato come lo calcola NOVA."""
+    from nova.agent import Agent
+    from nova.config import Config
+
+    class Finto(Agent):
+        def __init__(self, m, cfg):
+            self.messages = list(m)
+            self.cfg = cfg
+            self.brain = type("B", (), {"agentico": False})()
+
+    a = Finto(msgs, Config.load())
+    a.trim_history(token_disponibili=a._spazio_per_la_conversazione(strumenti))
+    return a.messages
+
+
 def taglia_come_nova(msgs: list[dict]) -> list[dict]:
-    """Il taglio vero di `Agent.trim_history`, non una sua imitazione."""
+    """Il taglio vero di `Agent.trim_history`, non una sua imitazione.
+
+    Si eredita invece di prendere i metodi uno per uno: la prima versione li
+    copiava a mano ed e' smessa di funzionare al primo metodo nuovo.
+    """
     from nova.agent import Agent
 
-    class Finto:
-        TETTO_MESSAGGI = Agent.TETTO_MESSAGGI
-        FONDO_MESSAGGI = Agent.FONDO_MESSAGGI
-        trim_history = Agent.trim_history
-
+    class Finto(Agent):
         def __init__(self, m):
             self.messages = list(m)
 
@@ -172,6 +189,53 @@ def prova(nome: str, extra: list[str], sistema: str, strumenti: list,
             {"role": "user", "content": "Grazie."},
             {"role": "assistant", "content": "Di niente."},
         ], strumenti, "In una riga: e di notte?")
+
+        # 7. E cosa succede se si sfonda il contesto.
+        #
+        # La finestra si conta in MESSAGGI (sessanta) e il limite del modello
+        # e' in TOKEN (16.384): le due cose non si parlano. Un paio di
+        # risultati di tool grossi - il contenuto di un file, una pagina web -
+        # sfondano il contesto molto prima dei sessanta messaggi. Che cosa
+        # arriva all'utente quando succede? Nessuno l'ha mai guardato.
+        sfondo = None
+        try:
+            gonfia = [{"role": "system", "content": sistema}]
+            # Un finto risultato di tool bello grosso, come il contenuto di un
+            # file letto: e' il caso normale, non quello patologico.
+            pezzo = ("riga di un file letto da NOVA con dentro del testo "
+                     "qualunque, ripetuta molte volte. ") * 400
+            for i in range(12):
+                gonfia.append({"role": "user", "content": f"leggi il file {i}"})
+                gonfia.append({"role": "assistant", "content": pezzo})
+            sfondo = chiedi(gonfia, strumenti, "In una riga: cosa hai letto?")
+            esito = f"ha risposto, {sfondo['prompt_token']} token di prompt"
+        except Exception as e:                                # noqa: BLE001
+            corpo = ""
+            leggi = getattr(e, "read", None)
+            if leggi:
+                try:
+                    corpo = leggi().decode("utf-8", "replace")[:300]
+                except Exception:                             # noqa: BLE001
+                    corpo = ""
+            esito = f"{type(e).__name__}: {corpo or e}"
+        print(f"    7. senza il taglio a token: {esito}", flush=True)
+
+        # 8. E adesso con il taglio vero di NOVA davanti.
+        try:
+            protetta = taglia_come_nova_con_token(gonfia, sistema, strumenti)
+            ok = chiedi(protetta, strumenti, "In una riga: cosa hai letto?")
+            esito = (f"{len(protetta)} messaggi, {ok['prompt_token']} token, "
+                     f"{ok['prompt_ms']:.0f} ms")
+        except Exception as e:                                # noqa: BLE001
+            corpo = ""
+            leggi = getattr(e, "read", None)
+            if leggi:
+                try:
+                    corpo = leggi().decode("utf-8", "replace")[:300]
+                except Exception:                             # noqa: BLE001
+                    corpo = ""
+            esito = f"{type(e).__name__}: {corpo or e}"
+        print(f"    8. col taglio a token: {esito}", flush=True)
 
         righe = [
             ("1. a freddo", freddo),

@@ -1350,3 +1350,84 @@ invece che a ogni turno, cioe' **meta' del difetto invece della sua assenza**.
 Adesso il fondo non puo' superare i tre quarti del tetto, che sono una decina
 di turni di respiro. Una difesa che lascia passare la meta' del problema e'
 una difesa che si e' scritta per sentirsi a posto.
+
+### La finestra si contava in messaggi e il limite era in token
+
+Il taglio a messaggi era corretto e non bastava, e me ne sono accorto per
+caso: la conversazione finta del banco pesava 15.379 token e il contesto ne
+tiene 16.384. Il 94%. Con quaranta scambi di due righe. E allora la domanda
+ovvia: che succede a sfondarlo?
+
+Nessuno l'aveva mai guardato. L'ho messo nel banco:
+
+    request (102953 tokens) exceeds the available context size (16384 tokens)
+
+**Dodici scambi**, non sessanta, ognuno con dentro il contenuto di un file
+letto — cioe' il caso normale, non quello patologico. Centomila token contro
+sedicimila. E `trim_history` non scattava nemmeno, perche' erano venticinque
+messaggi su un tetto di sessanta.
+
+La finestra si contava in **messaggi** e il limite del modello e' in **token**:
+due unita' diverse che non si parlavano. Sessanta messaggi possono essere
+trecento token o centomila. All'utente arrivava un JSON in inglese.
+
+Adesso ci sono tre cose che prima non c'erano: una stima dei token (calibrata
+su due misure vere, 3,88 e 4,37 caratteri per token — si tiene la piu' bassa,
+perche' sbagliare per eccesso taglia un po' presto e sbagliare per difetto
+sfonda), un taglio che rispetta lo spazio davvero disponibile, e un messaggio
+in italiano per quando succede lo stesso.
+
+**E il conto dello spazio disponibile e' la scoperta dentro la scoperta.**
+
+| | token | quota del contesto |
+|---|---|---|
+| messaggio di sistema | ~5.200 | 32% |
+| schemi dei sessanta tool | ~6.900 | 42% |
+| riserva per la risposta | 1.024 | 6% |
+| resta alla conversazione | ~3.300 | **20%** |
+
+Il prefisso fisso si mangia i tre quarti del contesto. Questo ribalta OTT-8,
+che diceva «gli schemi dei tool stanno nella cache, quindi accorciarli vale
+poco». E' vero per la **velocita'** e falso per la **capienza**: quei token
+sono gia' pagati in tempo e non lo sono in spazio. Sono due valute diverse, e
+avevo guardato solo quella che si misura col cronometro.
+
+### Quattro errori miei in un'ora, e sono tutti lo stesso
+
+Questa correzione mi ha fatto sbagliare quattro volte, e le scrivo perche' a
+guardarle in fila hanno una faccia sola: **avevo verificato la forma e non il
+percorso**.
+
+**Il taglio a token stava dopo un `return`.** L'avevo messo in fondo a
+`trim_history`, dopo il controllo `if len(messaggi) <= tetto: return`. Cioe'
+non veniva mai eseguito **nel solo caso per cui l'avevo scritto**: dodici
+scambi sono venticinque messaggi, passano di li', e uscivano dalla porta prima
+di arrivare al pezzo nuovo. Il codice era giusto, il posto no.
+
+**Il guardiano `<= 2` saltava il caso limite.** «Con due messaggi non c'e'
+niente da fare» — falso: non c'e' niente da *togliere*, ma c'e' ancora da
+*accorciare*, ed e' proprio il caso del file enorme.
+
+**Un ciclo che ovviamente finisce e non finiva.** Accorciando tenevo
+millecinquecento caratteri in testa e in coda e ci scrivevo in mezzo quanti ne
+avevo tolti. Alla seconda passata restavano da togliere ottanta caratteri e la
+scritta ne aggiungeva ottanta: il testo si accorciava e ricresceva, per
+sempre. La prova si e' appesa, ed e' cosi' che l'ho scoperto — non
+leggendolo. Adesso la lunghezza si **calcola** invece di essere fissa, e c'e'
+una seconda condizione d'uscita («se non ho guadagnato niente, smetto»), che
+e' quello che si mette quando una condizione sola si e' gia' vista sbagliare.
+
+**E una prova che diceva il falso.** Confrontavo i primi tre messaggi prima e
+dopo, ma dopo il taglio ne restavano due: confrontavo una lista di due con una
+di tre e leggevo «la testa si e' mossa» mentre non si era mossa affatto.
+
+C'e' anche una quinta cosa, che non e' un errore ma un modo di sbagliare che
+si e' ripetuto tre volte in mezz'ora. Le classi finte delle prove prendevano i
+metodi di `Agent` uno per uno (`trim_history = Agent.trim_history`), e ogni
+metodo nuovo le rompeva con un `AttributeError` che non c'entrava niente con
+cio' che stavano provando. Adesso **ereditano**. E' la stessa lezione
+dell'elenco dei binari di stamattina: una copia scritta a mano di cio' di cui
+una cosa e' fatta si disallinea sempre, e la si scopre dal lato sbagliato.
+
+Alla fine, sul modello vero: dove prima c'era `HTTPError 400`, adesso ci sono
+due messaggi, 1.580 token e una risposta in un secondo.
