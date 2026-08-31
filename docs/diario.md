@@ -1096,3 +1096,50 @@ avrei scritto 1.0, 2.0, 3.0 e non avrei provato niente.
 
 Cinquantaquattro controlli nel banco, tutti verdi, e le quarantasei prove
 della suite pure.
+
+### Il catalogo, e il vincolo che avevo dimenticato
+
+Con il gruppo «cosa c'e' su questo PC» finito, restava da scrivere la
+decisione di ieri sera: senza scheda video l'installatore non offre il
+modello locale. Il conto sta in `nova/catalogo.py`, e l'installatore lo
+interroga come gia' fa per la ricerca dei GGUF — due copie della stessa
+regola sono due regole destinate a divergere, e qui divergere vorrebbe dire
+far scaricare a qualcuno tredici gigabyte che non gli servono.
+
+La soglia e il campo nuovo (`frazione_letta`) stanno in `models.json` e non
+nel codice, per la stessa ragione per cui ci stanno i modelli: quando
+arriveranno misure da altre macchine si cambia il file, non si fa una
+release.
+
+**Ma i vincoli erano due, e ne avevo visto uno.** Se n'e' accorta una prova
+che sbagliava per il motivo giusto. Avevo scritto che con un MoE finto a due
+varianti — 15 GB e 12 GB — si sarebbe dovuta offrire quella da 12; il codice
+offriva quella da 15, ed **era il codice ad avere ragione sulla velocita'**:
+15 × 0,31 fa 4,65 GB per token, sotto la soglia. La mia aspettativa era
+sbagliata.
+
+Inseguendo il perche' l'avessi scritta cosi', pero', e' venuto fuori che
+avevo in testa una cosa vera che non avevo messo nel codice: **sulla GPU il
+file sta in VRAM, sul processore sta in RAM**. Tutto. E accanto ci devono
+stare Windows, il browser e NOVA stessa. Quindici gigabyte di modello su una
+macchina da sedici entrano sulla carta e in pratica la mandano a paginare su
+disco: un altro modo di essere lentissimi, stavolta con la ventola accesa.
+
+Adesso i vincoli sono due — la velocita' e lo spazio — e i rifiuti sono due
+frasi diverse, perche' chi ha poca RAM puo' comprarne e chi ha un modello
+troppo denso no.
+
+E' la seconda volta in due giorni che una prova rossa non indica un difetto
+del codice ma un buco nella mia idea di cosa stessi provando. La prima volta
+(il filtro delle date del registro) la prova era sbagliata e basta; questa
+era sbagliata **e** aveva ragione. Vale la pena distinguerle: quando
+un'aspettativa e' sbagliata conviene chiedersi da dove veniva, prima di
+correggerla e passare oltre.
+
+**Una nota su come l'ho provato.** `install.ps1` non si esegue mai — quello
+script agisce sul sistema, e una volta l'ho imparato nel modo peggiore
+disinstallando NOVA da questa macchina. La prova esercita la funzione che
+decide e poi **legge** l'installatore per controllare che la usi davvero, con
+un controllo che fallirebbe se qualcuno rimettesse la vecchia riga «scarico
+la variante piu' leggera». La sintassi di PowerShell si verifica con il
+parser, che legge e non esegue.

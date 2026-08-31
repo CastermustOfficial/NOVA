@@ -14,6 +14,21 @@
   ],
   "revisione": "2026-08-23",
   "regole_di_adattamento": {
+    "soglia_gb_per_token": 5.0,
+    "_perche_soglia": [
+      "Il numero che decide se un modello si puo' usare SENZA scheda video.",
+      "Generare un token, a una richiesta per volta, non e' calcolo: e' leggere",
+      "i pesi dalla memoria. La velocita' e' banda / byte letti per token, e i",
+      "byte letti sono i parametri che si ACCENDONO per i bit che ciascuno",
+      "occupa - quindi la quantizzazione conta quanto l'architettura.",
+      "Misurato su questa macchina, zero layer su GPU:",
+      "  Qwen3.8 27B Q4_K_M (denso)   15,7 GB/token -> 1,8 tok/s",
+      "  Gemma 4 26B-A4B Q3 (MoE)      ~3,7 GB/token -> 7,6 tok/s",
+      "La stessa banda implicita (~28 GB/s) spiega tutte e due le righe.",
+      "Sotto i 5 GB per token si sta sopra i sette token al secondo, che e'",
+      "piu' veloce di quanto legga una persona. E' una stima onesta su una",
+      "DDR4 a due canali, non una legge: con altre misure si cambia qui."
+    ],
     "margine_vram_gb": 1.5,
     "vram_per_8k_contesto_gb": 0.5,
     "contesto_predefinito": 8192,
@@ -29,6 +44,8 @@
       "licenza": "apache-2.0",
       "contesto_massimo": 262144,
       "consigliata": true,
+      "frazione_letta": 1.0,
+      "_perche_frazione": "E' un modello denso: a ogni token si rileggono tutti i pesi, quindi si legge tutto il file. Un MoE mette qui la frazione che si accende davvero - che NON e' la proporzione dei parametri attivi, perche' attenzione e strati condivisi si rileggono comunque: misurata su Gemma 4 26B-A4B fa circa 0.31 contro lo 0.15 dei soli parametri.",
       "proiettore": {
         "file": "mmproj-F16.gguf",
         "gb": 0.93,

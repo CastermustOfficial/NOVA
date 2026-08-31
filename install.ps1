@@ -493,6 +493,36 @@ $suggerita = if ($famiglia) { Scegli-Variante $famiglia $vram } else { $null }
 # tenerle allineate a mano: si aggiunge una cartella a una e non all'altra, e
 # nessuno se ne accorge finche' qualcuno non si lamenta che il suo modello non
 # viene visto. Qui restano solo due involucri.
+# Se offrire lo scaricamento, quale variante e cosa dire. Il conto sta in
+# nova/catalogo.py: qui c'e' solo l'involucro, per la stessa ragione per cui
+# la ricerca dei GGUF non e' riscritta in PowerShell - due copie della stessa
+# regola sono due regole destinate a divergere.
+#
+# Senza Python non si puo' chiedere: in quel caso si risponde «non so», che
+# per prudenza vuol dire non scaricare. Meglio un installatore che manda
+# l'utente a configurarlo dopo di uno che gli fa scaricare tredici gigabyte
+# al buio.
+function Verdetto-Modello($famiglia, $vramGb) {
+    $muto = [pscustomobject]@{
+        si_scarica  = $false
+        file        = $null
+        motivo      = "Non so dire se questo modello girerebbe su questa macchina."
+        suggerimento = "Configura il cervello dopo l'installazione, dalle impostazioni di NOVA."
+    }
+    if (-not $py) { return $muto }
+    Push-Location $Root
+    try {
+        # La RAM entra nel conto quanto la VRAM: sul processore il modello
+        # non sta in VRAM, sta in RAM - tutto - e accanto ci devono stare il
+        # sistema e il browser.
+        $ingresso = @{ famiglia = $famiglia; vram_gb = $vramGb; ram_gb = $ram; catalogo = $catalogo } |
+            ConvertTo-Json -Depth 12 -Compress
+        $grezzo = $ingresso | & $py -m nova.catalogo 2>$null | Out-String
+    } catch { return $muto } finally { Pop-Location }
+    if (-not $grezzo.Trim()) { return $muto }
+    try { return ($grezzo | ConvertFrom-Json) } catch { return $muto }
+}
+
 function Trova-Gguf {
     if (-not $py) { return @() }
     Push-Location $Root
@@ -730,9 +760,27 @@ switch ($scelta) {
           Warn "Senza catalogo non so quale modello proporti: configuralo dopo, o usa l'opzione 3."
           break
       }
+      # Qui prima si scaricava comunque la variante piu' leggera, con accanto
+      # «su questa macchina andra' piano». Misurato: per un denso da 27B non
+      # e' piu' piano, sono tredici gigabyte per un programma che si apre una
+      # volta e mai piu'. Un avvertimento piu' grosso non ripara niente - chi
+      # installa clicca avanti, e ha ragione, perche' gli abbiamo appena detto
+      # che si puo' fare. La forma giusta di dire «non farlo» e' non offrirlo.
+      #
+      # Ma «senza GPU mai» sarebbe sbagliato quanto il contrario: un modello
+      # che di parametri ne accende pochi funziona benissimo sul processore.
+      # Decide il numero - i byte letti per token - non la presenza della
+      # scheda. Il conto sta in nova/catalogo.py, in un posto solo.
       if (-not $suggerita) {
-          $suggerita = $famiglia.varianti | Sort-Object { $_.gb } | Select-Object -First 1
-          Warn "Scarico la variante piu' leggera, ma su questa macchina andra' piano."
+          $ver = Verdetto-Modello $famiglia $vram
+          if (-not $ver.si_scarica) {
+              Warn $ver.motivo
+              Info $ver.suggerimento
+              break
+          }
+          $suggerita = $famiglia.varianti | Where-Object { $_.file -eq $ver.file } | Select-Object -First 1
+          if (-not $suggerita) { Warn "Il catalogo non torna: salto lo scaricamento."; break }
+          Warn $ver.motivo
       }
       # Il consiglio non e' un obbligo: chi vuole spingere o alleggerire deve
       # poterlo fare qui, non scoprendo dopo che l'installer ha deciso da solo.

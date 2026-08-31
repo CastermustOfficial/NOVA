@@ -212,7 +212,28 @@ uniche che separano l'alpha dalla beta.
    modello qualsiasi, piu' lento»: e' **un MoE, e funziona**. Riscritto nel
    README con i numeri.
 
-   **Da fare (deciso, non ancora scritto): senza GPU non si scarica.**
+   **Fatto: senza GPU non si scarica** (`nova/catalogo.py`). Il conto sta in
+   un posto solo e l'installatore lo interroga come gia' fa per la ricerca
+   dei GGUF — due copie della stessa regola sono due regole destinate a
+   divergere. Il campo nuovo in `models.json` e' `frazione_letta`, e la
+   soglia (`soglia_gb_per_token: 5.0`) sta anch'essa nel catalogo, perche'
+   quando arriveranno misure da altre macchine si cambi il file e non il
+   codice.
+
+   Scrivendolo sono usciti **due** vincoli invece di uno, e il secondo l'ha
+   trovato una prova che sbagliava per il motivo giusto: oltre alla velocita'
+   c'e' lo **spazio**. Sulla GPU il file sta in VRAM; sul processore sta in
+   RAM, tutto, e accanto ci devono stare il sistema, il browser e NOVA. Un
+   modello abbastanza veloce ma troppo grande entra sulla carta e in pratica
+   manda la macchina a paginare su disco — un altro modo di essere
+   lentissimi, stavolta con la ventola accesa. Ora i rifiuti sono due frasi
+   diverse, perche' chi ha poca RAM puo' comprarne e chi ha un modello troppo
+   denso no.
+
+   Il testo qui sotto resta come traccia di com'era la decisione quando l'ho
+   ricevuta.
+
+   *Com'era: senza GPU non si scarica.*
    L'installatore oggi propone comunque il modello consigliato e si limita a
    scrivere «servono N GB di VRAM: andra' piano». Con i numeri in mano quella
    riga e' troppo gentile: per un denso da 27B non e' «piu' piano», e' un

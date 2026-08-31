@@ -701,6 +701,7 @@ nova/
   config.py           persistent configuration (%APPDATA%\NOVA\config.json)
   setup_wizard.py     automatic detection of GGUF model and runtime
   modelli_trova.py    where to look for a .gguf the user already has
+  catalogo.py         which model makes sense here, and which isn't offered
   componenti.py       what each feature needs, and how to get it
   runtime.py          starts/supervises/stops llama-server.exe (+ GPU auto-tuning)
   daemon.py           starts nova-core when it isn't running
