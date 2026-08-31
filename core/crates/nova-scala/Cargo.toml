@@ -1,0 +1,19 @@
+[package]
+name = "nova-scala"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Chi risponde a cosa: la scala dei gradini, le salite obbligate, i ripieghi."
+
+[dependencies]
+serde = { workspace = true, features = ["derive"], optional = true }
+serde_json = { workspace = true, optional = true }
+
+[features]
+banco = ["dep:serde", "dep:serde_json"]
+
+[[bin]]
+name = "banco-scala"
+path = "src/banco.rs"
+required-features = ["banco"]

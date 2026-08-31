@@ -1204,3 +1204,70 @@ cio' che serve a chi vuole sapere se il codice sta in piedi senza chiudere
 l'assistente che sta usando. Fermarlo avrebbe tolto l'unica cosa che si
 poteva ancora fare. Provata con NOVA aperta: `-Controlla` passa in diciotto
 secondi, il build si ferma subito.
+
+### Sesto colpo: la scala, cioe' cosa esce dal PC
+
+`nova-scala` porta in Rust la parte di `routing.py` che **decide**: l'ordine
+dei gradini, le salite obbligate per categoria, i ripieghi a quota esaurita,
+il tetto di spesa, i confini di parola.
+
+Vale la pena dire perche' questo pezzo e' diverso dagli altri cinque. Le
+ricette, se sbagliano, sbagliano un suggerimento; il BM25 sbaglia un
+ordinamento; il registro sbaglia una candidatura che non si ritrova — grave, e
+lo scrissi. Questo sbaglia **la porta di casa**. La frase su cui NOVA sta in
+piedi e' «niente esce dal PC finche' qualcuno non delega davvero», e qui c'e'
+il codice che la mantiene o la rompe.
+
+Fuori sono rimaste due cose di proposito, perche' non sono decisioni: chiedere
+a un cervello vero se e' a consumo (si costruisce, non si decide) e la delega
+in se'. Dentro c'e' solo la matematica.
+
+### La stella che apriva la porta a tutti
+
+Il banco e' partito con due righe rosse. Una era mia, e la dico subito perche'
+e' il solito: avevo scritto un'assertiva che pretendeva troppo, e il modo
+giusto di provare «la categoria scritta male non scatta» era un compito che
+non incontra nessuna parola, non una condizione con tre or.
+
+L'altra era un difetto vero, e nel Python.
+
+`_parola_presente` accetta una stella in coda per dire «e i suoi derivati»:
+`cancell*` prende «cancellerebbe». L'implementazione toglie la stella e cerca
+`\b` + il gambo. Con **`*` da solo** il gambo e' vuoto, quindi il pattern
+diventa `\b` e basta — e `\b` trova un confine in qualunque testo non vuoto.
+Una categoria configurata con `parole: ["*"]` scattava percio' su **ogni**
+compito, mandandolo sul gradino che quella categoria impone. Fuori dal PC.
+
+La cosa che la rende brutta e' che il codice **gia' si difende** da questa
+trappola, due funzioni piu' sotto: una categoria senza parole e senza soglia
+viene scartata proprio perche' scatterebbe sempre, e c'e' il commento che lo
+spiega. Solo che chi scrive `parole: ["*"]` pensando «tutte le parole» supera
+quel controllo — la categoria le parole ce l'ha — e finisce nello stesso posto
+per un'altra strada. La difesa c'era e guardava dalla parte sbagliata.
+
+E' anche una lezione su chi paga l'errore. Non e' l'utente che ha scritto male
+la configurazione a subirne le conseguenze in modo visibile: la sua NOVA
+funziona, anzi risponde meglio, perche' usa sempre il modello piu' forte. Il
+prezzo e' che i suoi dati escono di casa e la bolletta cresce, e nessuna delle
+due cose si annuncia. **Un difetto che migliora l'apparenza e' il piu' difficile
+da trovare guardando.**
+
+Corretto da tutte e due le parti, con la prova che passa la configurazione
+trappola a tutti e dodici i compiti di prova e pretende che nessuno salga.
+
+### Un dettaglio che non e' un dettaglio: i confini di parola in italiano
+
+Portare `\b` senza portarsi dietro una libreria di espressioni regolari vuol
+dire decidere a mano cosa e' una lettera. In Python `\b` su una stringa usa i
+caratteri di parola **Unicode**, quindi `à`, `è`, `é` sono lettere. Se in Rust
+avessi usato `is_ascii_alphanumeric` — che e' la scelta che viene per prima —
+«perché» si sarebbe spezzato in «perch» + «é», e i confini sarebbero caduti in
+mezzo alle parole. Su un testo italiano, cioe' la lingua in cui la gente
+scrive i compiti a NOVA, avrebbe sbagliato di continuo.
+
+C'e' anche un piccolo pozzo piu' in basso: cercando la prossima occorrenza
+bisogna avanzare di **un carattere**, non di un byte. Con `da + 1` un taglio
+puo' cadere in mezzo a una lettera accentata e far esplodere la ricerca. Ci
+sono due prove apposta, e una passa una stringa di sole `à`.
+
+Trenta controlli nel banco, quarantanove file di prova, tutti verdi.

@@ -6,6 +6,7 @@ members = [
     "crates/nova-memoria",
     "crates/nova-registro",
     "crates/nova-modelli",
+    "crates/nova-scala",
     "crates/nova-core",
     "crates/nova-platform",
     "crates/nova-voce",

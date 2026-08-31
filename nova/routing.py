@@ -130,7 +130,17 @@ class Router:
         if not parola:
             return False
         if parola.endswith("*"):
-            return re.search(r"\b" + re.escape(parola[:-1]), testo) is not None
+            gambo = parola[:-1]
+            # Una stella da sola non e' una parola: il pattern diventerebbe
+            # «\b» e basta, che trova un confine in qualunque testo. Una
+            # categoria con «parole: ["*"]» scattava quindi su OGNI compito,
+            # cioe' mandava tutto sul gradino alto - fuori dal PC. E' la
+            # stessa trappola della categoria senza parole e senza soglia,
+            # che qui sotto viene gia' scartata: solo scritta in un modo che
+            # sembrava innocuo.
+            if not gambo:
+                return False
+            return re.search(r"\b" + re.escape(gambo), testo) is not None
         return re.search(r"\b" + re.escape(parola) + r"\b", testo) is not None
 
     def gradino_minimo(self, compito: str, allegati: int = 0,
