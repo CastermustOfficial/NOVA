@@ -871,6 +871,40 @@ e funziona**. E cambia anche il senso della domanda aperta di stamattina su
 `models.json`: il consiglio predefinito non riguarda solo chi ha una 4060 Ti,
 riguarda soprattutto chi non ha niente.
 
+### L'ultima decisione della giornata
+
+A fine giornata la domanda su `models.json` ha avuto una risposta piu' larga
+di quella che avevo posto: non «quale modello consigliare», ma **chi puo'
+scaricarlo**. Senza scheda video l'installatore non deve nemmeno offrire il
+passo; al suo posto un suggerimento di riprovare piu' avanti, dalla
+configurazione, con un modello a pochi parametri attivi.
+
+Vale la pena scrivere perche' e' piu' forte di un avvertimento. Oggi
+l'installatore la scelta la offre lo stesso e scrive accanto «servono N GB di
+VRAM: andra' piano». Con i numeri di stasera quella riga e' una bugia
+gentile: per un denso da 27B non e' «piu' piano», sono tredici gigabyte
+scaricati per ottenere un programma che non si apre piu'. Un avvertimento piu'
+grosso non ripara niente — chi installa clicca avanti, e ha ragione a farlo,
+perche' gli abbiamo appena detto che la cosa e' possibile. **La forma giusta
+di dire «non farlo» e' non offrirlo.**
+
+Ed e' anche l'unico punto della giornata in cui la responsabilita' dell'utente
+non c'entra. NOVA e' fatta perche' chi la usa possa chiederle qualsiasi cosa e
+risponderne: il principio e' che piu' lo strumento e' potente, piu' chi lo
+impugna e' responsabile. Ma questo non e' un utente che sceglie un rischio —
+e' un utente che non ha modo di sapere che sta scegliendo. Non gli si sta
+togliendo una liberta': gli si sta togliendo una trappola, e la strada resta
+aperta dalla configurazione per chi sa cosa sta facendo.
+
+Restano due cose da definire, e sono la ragione per cui non l'ho scritto
+stasera. La soglia va detta in **parametri attivi**, non in gigabyte — il MoE
+da 26B usabile in CPU ne pesa dodici, e un denso da 7B che ne pesa quattro
+andrebbe piu' piano di lui — e quel campo in `models.json` oggi non c'e'. E
+l'esempio proposto va misurato prima di finire in un messaggio: su questo
+disco di Bonsai 27B c'e' solo il proiettore visivo, non il modello. Oggi si e'
+visto due volte cosa succede alle promesse non cronometrate; sarebbe buffo
+chiuderla scrivendone una nuova.
+
 ### Quello che questa giornata ha insegnato
 
 Tre cose si ripetono abbastanza da meritare di essere scritte.

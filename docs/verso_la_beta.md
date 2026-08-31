@@ -212,6 +212,35 @@ uniche che separano l'alpha dalla beta.
    modello qualsiasi, piu' lento»: e' **un MoE, e funziona**. Riscritto nel
    README con i numeri.
 
+   **Da fare (deciso, non ancora scritto): senza GPU non si scarica.**
+   L'installatore oggi propone comunque il modello consigliato e si limita a
+   scrivere «servono N GB di VRAM: andra' piano». Con i numeri in mano quella
+   riga e' troppo gentile: per un denso da 27B non e' «piu' piano», e' un
+   programma che si installa dopo tredici gigabyte di scaricamento e non si
+   apre piu'. Il modo di dirlo non e' un avvertimento piu' grosso — e' **non
+   offrire la scelta**: senza scheda video leggibile si salta il passo, e al
+   suo posto c'e' un suggerimento del tipo «puoi provare piu' avanti, dalla
+   configurazione, con un modello estremamente leggero».
+
+   Due cose da definire prima di scriverlo, ed e' la ragione per cui non e'
+   gia' fatto.
+
+   *La soglia va detta in numeri, non in aggettivi.* «Estremamente leggero»
+   non e' una regola che il codice possa applicare, e nemmeno «piccolo»: il
+   Gemma da 26B usabile in CPU pesa dodici gigabyte, e un denso da 7B che ne
+   pesa quattro andrebbe piu' piano di lui. Cio' che decide e' quanti
+   parametri si **accendono** per token, che e' un dato del modello e non
+   della sua taglia. `models.json` oggi non lo porta: e' il campo che manca,
+   e il criterio diventa qualcosa come «parametri attivi sotto i quattro
+   miliardi», misurato una volta e scritto nel catalogo accanto a `vram_gb`.
+
+   *L'esempio va verificato.* «Bonsai 27B» e' il candidato indicato, ma su
+   questa macchina c'e' solo il suo proiettore visivo, non il modello: prima
+   di metterlo nel catalogo e nel messaggio va scaricato e passato al banco
+   con `--modello`, come si e' fatto per gli altri due. Un consiglio nel
+   README e' una promessa, e oggi si e' visto due volte cosa succede alle
+   promesse non cronometrate.
+
 ### Il cervello
 
 8. **Modelli che non sono Qwen.** Template di chat diverso, function calling
