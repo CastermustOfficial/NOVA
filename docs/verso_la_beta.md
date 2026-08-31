@@ -225,21 +225,61 @@ uniche che separano l'alpha dalla beta.
    Due cose da definire prima di scriverlo, ed e' la ragione per cui non e'
    gia' fatto.
 
-   *La soglia va detta in numeri, non in aggettivi.* «Estremamente leggero»
-   non e' una regola che il codice possa applicare, e nemmeno «piccolo»: il
-   Gemma da 26B usabile in CPU pesa dodici gigabyte, e un denso da 7B che ne
-   pesa quattro andrebbe piu' piano di lui. Cio' che decide e' quanti
-   parametri si **accendono** per token, che e' un dato del modello e non
-   della sua taglia. `models.json` oggi non lo porta: e' il campo che manca,
-   e il criterio diventa qualcosa come «parametri attivi sotto i quattro
-   miliardi», misurato una volta e scritto nel catalogo accanto a `vram_gb`.
+   *La soglia va detta in numeri, non in aggettivi* — e il numero giusto non
+   e' quello che avevo scritto qui la prima volta. «Parametri attivi sotto i
+   quattro miliardi» sembra la regola, e non lo e': e' il caso particolare di
+   una regola piu' semplice.
 
-   *L'esempio va verificato.* «Bonsai 27B» e' il candidato indicato, ma su
-   questa macchina c'e' solo il suo proiettore visivo, non il modello: prima
-   di metterlo nel catalogo e nel messaggio va scaricato e passato al banco
-   con `--modello`, come si e' fatto per gli altri due. Un consiglio nel
-   README e' una promessa, e oggi si e' visto due volte cosa succede alle
-   promesse non cronometrate.
+   Generare un token, a una richiesta per volta, non e' un lavoro di calcolo:
+   e' **leggere i pesi dalla memoria**. La velocita' e' quindi
+   `banda / byte letti per token`, e i byte letti sono i parametri che si
+   accendono **moltiplicati per quanti bit ciascuno occupa**. La
+   quantizzazione entra nel conto quanto l'architettura.
+
+   Le due misure di stasera lo confermano, e danno anche la banda di questa
+   macchina:
+
+   | | byte letti per token | tok/s in CPU | banda implicita |
+   |---|---|---|---|
+   | Qwen3.8 27B Q4_K_M (denso) | 15,7 GB (tutti) | 1,8 | ~28 GB/s |
+   | Gemma 4 26B-A4B Q3_K_XL (MoE) | ~3,7 GB | 7,6 | ~28 GB/s |
+
+   La stessa banda spiega tutte e due le righe, il che vuol dire che il
+   modello di costo e' quello giusto. E il MoE non legge il 15% del file, che
+   sarebbe la proporzione dei parametri attivi: ne legge circa un terzo,
+   perche' attenzione e strati condivisi si rileggono a ogni token comunque.
+
+   Quindi il campo che manca in `models.json` non e' «parametri attivi»: e'
+   **byte letti per token**, che si ricava da parametri attivi, parametri
+   totali e dimensione del file. La soglia diventa una divisione: sotto i
+   quattro gigabyte per token si sta sopra i sette token al secondo, che e'
+   piu' veloce di quanto legga una persona.
+
+   *L'esempio e' stato verificato, e la risposta e' «non ancora».* Bonsai 27B
+   e' interessante e non e' quello che sembrava. Non e' un MoE: e' un **denso
+   da 27B derivato da Qwen3.6-27B con i pesi portati a un bit** (Q1_0_g128,
+   1,125 bit per peso), 3,8 GB di file, e dichiara il 89,5% del punteggio
+   della versione a 16 bit su quindici prove. Se quei numeri reggono e' la
+   dimostrazione migliore del paragrafo qui sopra: un denso torna leggero
+   comprimendo i pesi invece che spegnendoli.
+
+   Applicandogli la formula: 3,8 GB letti per token, quindi **circa 7,4 tok/s
+   su questa macchina in CPU** — praticamente identico al Gemma MoE. Il suo
+   vantaggio non sarebbe la velocita', sarebbe la qualita' a parita' di byte.
+   E' una previsione, ed e' li' apposta per essere smentita.
+
+   **Il blocco e' un altro, ed e' decisivo:** il GGUF richiede una *fork* di
+   llama.cpp (`PrismML-Eng/llama.cpp`) perche' i kernel `Q1_0_g128` a monte
+   non ci sono. NOVA userebbe quindi un llama.cpp che non e' quello che
+   scarica, su una strada — «non hai una GPU» — dove l'utente ha gia' meno
+   margine di manovra di chiunque altro. E' esattamente il tipo di promessa
+   che si rompe sulla macchina di qualcun altro. Diventa una candidatura vera
+   il giorno in cui quei kernel entrano a monte; fino ad allora il
+   suggerimento per chi non ha scheda video resta un MoE.
+
+   *Nota sulle fonti:* la scheda del modello dice denso, un articolo che
+   gira lo definisce MoE con 3B attivi. Si e' tenuta la scheda; se un giorno
+   si misura, si vedra' chi aveva ragione.
 
 ### Il cervello
 

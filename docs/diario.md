@@ -905,6 +905,64 @@ disco di Bonsai 27B c'e' solo il proiettore visivo, non il modello. Oggi si e'
 visto due volte cosa succede alle promesse non cronometrate; sarebbe buffo
 chiuderla scrivendone una nuova.
 
+### Bonsai, e il criterio che avevo scritto male
+
+L'esempio proposto per il suggerimento — Bonsai 27B — andava verificato prima
+di finire in un messaggio, e verificandolo ha corretto una cosa che avevo
+scritto io un'ora prima.
+
+Non e' un MoE. E' un **denso da 27B derivato da Qwen3.6-27B con i pesi portati
+a un bit** (Q1_0_g128, 1,125 bit per peso): 3,8 GB di file, contro i 53,8
+della versione a sedici bit, e dichiara l'89,5% del punteggio dell'originale
+su quindici prove.
+
+E qui casca il criterio. Avevo scritto che la soglia si esprime in «parametri
+attivi sotto i quattro miliardi». E' sbagliato — o meglio, e' il caso
+particolare di una regola piu' semplice che non avevo visto perche' avevo
+guardato solo modelli quantizzati allo stesso modo.
+
+Generare un token, a una richiesta per volta, non e' un lavoro di calcolo: e'
+**leggere i pesi dalla memoria**. La velocita' e' `banda / byte letti per
+token`, e i byte letti sono i parametri che si accendono **moltiplicati per
+quanti bit ciascuno occupa**. La quantizzazione entra nel conto quanto
+l'architettura, e un denso a un bit puo' finire nella stessa categoria di un
+MoE a tre bit.
+
+Le due misure di stasera si spiegano con questa formula e con una sola banda:
+
+| | byte letti per token | tok/s in CPU | banda implicita |
+|---|---|---|---|
+| Qwen3.8 27B Q4_K_M (denso) | 15,7 GB | 1,8 | ~28 GB/s |
+| Gemma 4 26B-A4B Q3_K_XL (MoE) | ~3,7 GB | 7,6 | ~28 GB/s |
+
+Che le due righe diano la stessa banda e' cio' che rende il modello di costo
+credibile: non e' una spiegazione costruita a posteriori su un numero solo.
+Si nota anche che il MoE non legge il quindici per cento del file, che sarebbe
+la proporzione dei parametri attivi — ne legge circa un terzo, perche'
+attenzione e strati condivisi si rileggono comunque a ogni token.
+
+Applicata a Bonsai la formula prevede **circa 7,4 token al secondo in CPU su
+questa macchina**: praticamente identico al Gemma. Il suo vantaggio non
+sarebbe la velocita', sarebbe la qualita' a parita' di byte letti. E' una
+previsione scritta apposta per essere smentita, il giorno in cui si potra'
+misurarla.
+
+**Perche' oggi non si puo'.** Il GGUF gira solo su una fork di llama.cpp
+(`PrismML-Eng/llama.cpp`): i kernel `Q1_0_g128` a monte non esistono.
+Significherebbe far usare a NOVA un llama.cpp diverso da quello che scarica,
+e proprio sulla strada — «non hai una scheda video» — dove l'utente ha meno
+margine di manovra di chiunque altro. E' la forma esatta della promessa che
+si rompe sulla macchina di qualcun altro, che e' il difetto che questa lista
+esiste per togliere. Diventa una candidatura vera quando quei kernel entrano
+a monte.
+
+Due note di metodo, perche' e' la seconda volta oggi che le fonti litigano.
+Il collegamento arrivato era la variante **MLX**, che e' formato Apple
+Silicon e non gira su Windows: il fratello utile e' il GGUF. E la scheda del
+modello dice denso mentre un articolo che gira lo definisce MoE con 3B
+attivi. Si e' tenuta la scheda, che e' la fonte primaria, e si e' scritto che
+c'e' un disaccordo invece di sceglierne una in silenzio.
+
 ### Quello che questa giornata ha insegnato
 
 Tre cose si ripetono abbastanza da meritare di essere scritte.
