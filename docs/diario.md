@@ -947,21 +947,46 @@ sarebbe la velocita', sarebbe la qualita' a parita' di byte letti. E' una
 previsione scritta apposta per essere smentita, il giorno in cui si potra'
 misurarla.
 
-**Perche' oggi non si puo'.** Il GGUF gira solo su una fork di llama.cpp
-(`PrismML-Eng/llama.cpp`): i kernel `Q1_0_g128` a monte non esistono.
-Significherebbe far usare a NOVA un llama.cpp diverso da quello che scarica,
-e proprio sulla strada — «non hai una scheda video» — dove l'utente ha meno
-margine di manovra di chiunque altro. E' la forma esatta della promessa che
-si rompe sulla macchina di qualcun altro, che e' il difetto che questa lista
-esiste per togliere. Diventa una candidatura vera quando quei kernel entrano
-a monte.
+**E poi ho sbagliato la conclusione, e la correzione e' arrivata in tre
+minuti.** Avevo scritto che il modello era inutilizzabile: la scheda di
+`prism-ml` dice di clonare la loro fork di llama.cpp per i kernel
+`Q1_0_g128`, e da quella riga avevo dedotto che a monte il formato non
+esistesse. Poi e' arrivato il secondo collegamento —
+`lmstudio-community/Bonsai-27B-GGUF`, che dichiara una riquantizzazione fatta
+con gli attrezzi standard e «validated with llama-server» — e la verifica e'
+costata un comando, sul binario che sta gia' in `runtime/`:
 
-Due note di metodo, perche' e' la seconda volta oggi che le fonti litigano.
-Il collegamento arrivato era la variante **MLX**, che e' formato Apple
-Silicon e non gira su Windows: il fratello utile e' il GGUF. E la scheda del
-modello dice denso mentre un articolo che gira lo definisce MoE con 3B
-attivi. Si e' tenuta la scheda, che e' la fonte primaria, e si e' scritto che
-c'e' un disaccordo invece di sceglierne una in silenzio.
+    llama-quantize --help
+      40  or  Q1_0    :  1.125 bpw quantization
+
+C'e' gia'. Nella build che NOVA scarica, con esattamente la larghezza che la
+scheda dichiara. La fork serve ai loro kernel ottimizzati — e'
+un'accelerazione, non un requisito.
+
+Quindi Bonsai e' una candidatura vera, e con tre proprieta' che la rendono
+piu' interessante del solo peso: e' **multimodale** (l'`mmproj` c'e', quindi
+le schermate funzionano anche col cervello di casa, che oggi e' un vantaggio
+del solo Qwen), starebbe **tutta in VRAM con dodici gigabyte di margine** su
+una scheda da sedici, e la formula le prevede circa 7,4 token al secondo in
+CPU. Resta da misurarla, ed e' un download da 3,8 GB.
+
+**La lezione di metodo vale piu' del modello.** La conclusione sbagliata
+veniva dal README di chi ha interesse a mandarti sulla propria fork, e l'ho
+scritta senza interrogare lo strumento che stava sul disco a due metri. Un
+comando. E' la stessa cosa che ho ripetuto tutto il giorno agli altri — i
+quattro byte del GGUF che promettevano piu' di quello che facevano, la
+promessa in CPU mai cronometrata, il ripiego sulla quota mai partito — e
+l'ho rifatta io su una fonte scritta invece che su un pezzo di codice. **Una
+documentazione non e' una misura**, nemmeno quando e' la documentazione
+ufficiale di chi il software l'ha scritto; anzi, meno che mai quando quella
+documentazione ha una preferenza su dove mandarti.
+
+Due note sulle fonti, perche' e' la seconda volta in una sera. Il primo
+collegamento era la variante **MLX**, che e' formato Apple Silicon e non gira
+su Windows: il fratello utile e' il GGUF. E la scheda di `prism-ml` dice
+denso mentre un articolo che gira lo definisce MoE con 3B attivi: si e'
+tenuta la scheda, che e' la fonte primaria, e si e' scritto che c'e' un
+disaccordo invece di sceglierne una in silenzio.
 
 ### Quello che questa giornata ha insegnato
 

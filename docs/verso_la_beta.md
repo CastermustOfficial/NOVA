@@ -268,18 +268,43 @@ uniche che separano l'alpha dalla beta.
    vantaggio non sarebbe la velocita', sarebbe la qualita' a parita' di byte.
    E' una previsione, ed e' li' apposta per essere smentita.
 
-   **Il blocco e' un altro, ed e' decisivo:** il GGUF richiede una *fork* di
-   llama.cpp (`PrismML-Eng/llama.cpp`) perche' i kernel `Q1_0_g128` a monte
-   non ci sono. NOVA userebbe quindi un llama.cpp che non e' quello che
-   scarica, su una strada — «non hai una GPU» — dove l'utente ha gia' meno
-   margine di manovra di chiunque altro. E' esattamente il tipo di promessa
-   che si rompe sulla macchina di qualcun altro. Diventa una candidatura vera
-   il giorno in cui quei kernel entrano a monte; fino ad allora il
-   suggerimento per chi non ha scheda video resta un MoE.
+   **Avevo scritto che c'era un blocco. Non c'e'.** La scheda di `prism-ml`
+   dice di clonare la loro fork di llama.cpp per i kernel `Q1_0_g128`, e da
+   quella riga avevo concluso che a monte il formato non esistesse. Bastava
+   un comando per verificarlo, sul binario che sta gia' in `runtime/`:
 
-   *Nota sulle fonti:* la scheda del modello dice denso, un articolo che
-   gira lo definisce MoE con 3B attivi. Si e' tenuta la scheda; se un giorno
-   si misura, si vedra' chi aveva ragione.
+       llama-quantize --help
+         40  or  Q1_0    :  1.125 bpw quantization
+
+   `Q1_0` a 1,125 bit per peso — esattamente la larghezza che la scheda
+   dichiara — c'e' **gia'** nella build che NOVA scarica (10502). La fork
+   serve ai loro kernel ottimizzati, non a far girare il modello: e'
+   un'accelerazione, non un requisito. E `lmstudio-community` pubblica una
+   riquantizzazione fatta con gli attrezzi standard
+   (`llama-quantize --pure ... Q1_0`, 3,80 GB) dichiarata «validated with
+   llama-server».
+
+   Quindi Bonsai 27B **e' una candidatura vera**, e per giunta con tre
+   proprieta' che la rendono interessante oltre al peso: e' **multimodale**
+   (c'e' l'`mmproj`, quindi le schermate funzionano anche col cervello di
+   casa), sta **tutta in VRAM con dodici gigabyte di margine** su una scheda
+   da 16, e la formula le prevede circa 7,4 token al secondo in CPU pura.
+
+   Resta da misurarla — e' un download da 3,8 GB e il banco e' pronto — ma
+   non c'e' piu' niente che lo impedisca.
+
+   *Due note sulle fonti, perche' e' la seconda volta in una sera.* Il
+   collegamento arrivato per primo era la variante **MLX**, che e' formato
+   Apple Silicon e non gira su Windows. E la scheda di `prism-ml` dice denso
+   mentre un articolo che gira lo definisce MoE con 3B attivi: si e' tenuta
+   la scheda, che e' la fonte primaria.
+
+   *E una nota di metodo, che vale piu' delle altre due.* La conclusione
+   sbagliata veniva dal README di chi ha interesse a mandarti sulla propria
+   fork, ed e' stata scritta senza interrogare lo strumento che stava sul
+   disco a due metri. Un comando. E' la stessa lezione di tutta la giornata —
+   guardare la cosa vera invece di quello che se ne dice — applicata a una
+   fonte scritta invece che a un pezzo di codice.
 
 ### Il cervello
 
