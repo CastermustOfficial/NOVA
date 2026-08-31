@@ -42,14 +42,14 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          # nova-shell e' l'interfaccia (orb), novad il demone, nova la CLI,
-          # nova-schede il lettore della memoria video. Quest'ultimo sembra
-          # accessorio e non lo e': senza, la stima dei layer ripiega su
-          # `nvidia-smi`, che su una scheda AMD o Intel non esiste - e il
-          # modello finisce in CPU senza che nessuno lo dica.
-          foreach ($n in 'novad.exe','nova-shell.exe','nova.exe','nova-schede.exe') {
+          # Di cosa e' fatto NOVA sta in core/binari.json, non qui: l'elenco
+          # scritto a mano in piu' posti si disallinea in silenzio, ed e'
+          # successo davvero (nova-schede aggiunto qui e non nell'installer).
+          $elenco = Get-Content core/binari.json -Raw | ConvertFrom-Json
+          foreach ($e in $elenco.eseguibili) {
+            $n = "$($e.nome).exe"
             $p = "core/target/release/$n"
-            if (Test-Path $p) { Copy-Item $p dist/ } else { throw "manca $n" }
+            if (Test-Path $p) { Copy-Item $p dist/ } else { throw "manca $n ($($e.che_fa))" }
           }
           # Gli hash servono a chi vuole verificare cosa sta installando:
           # e' il vantaggio dell'open source, tanto vale usarlo.

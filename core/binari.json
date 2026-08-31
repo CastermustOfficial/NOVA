@@ -1,0 +1,29 @@
+{
+  "_nota": [
+    "Di cosa e' fatto il core di NOVA. NON e' codice: e' un dato.",
+    "",
+    "PERCHE' ESISTE QUESTO FILE.",
+    "L'elenco stava scritto a mano in tre posti - la CI che raccoglie i",
+    "binari, l'installatore che controlla di averli, e nessuno che li",
+    "copiasse dove il computer di chi sviluppa va a cercarli. Aggiungendo",
+    "nova-schede e' stato aggiornato un posto solo, e il difetto e' della",
+    "specie peggiore: sulla macchina di chi scrive funziona tutto, perche'",
+    "li' i binari li produce cargo. Se ne accorge solo chi installa.",
+    "",
+    "Adesso l'elenco e' qui e lo leggono tutti. `test_binari.py` pretende",
+    "che corrisponda ai bersagli veri del workspace: aggiungere un",
+    "eseguibile senza metterlo qui fa diventare rossa la suite, che e'",
+    "l'unico modo perche' non succeda di nuovo.",
+    "",
+    "I «banco-*» non stanno qui di proposito: sono i banchi di confronto",
+    "fra Rust e Python, vivono dietro la feature «banco» e non finiscono",
+    "in mano a nessuno."
+  ],
+  "revisione": "2026-08-31",
+  "eseguibili": [
+    { "nome": "novad",       "che_fa": "il demone: bus, capacita', processi lunghi, RPC" },
+    { "nome": "nova-shell",  "che_fa": "l'orb e le finestre. E' quello che l'utente vede" },
+    { "nome": "nova",        "che_fa": "la riga di comando" },
+    { "nome": "nova-schede", "che_fa": "quanta memoria video c'e': serve alla stima dei layer, e senza di lui si ripiega su nvidia-smi, che su AMD e Intel non esiste" }
+  ]
+}

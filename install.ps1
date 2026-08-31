@@ -327,7 +327,19 @@ if ($mancanti -and $mancanti.Trim()) {
 Titolo "Il core"
 
 New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
-$binari = @('novad.exe', 'nova-shell.exe', 'nova.exe')
+# Di cosa e' fatto NOVA sta in core/binari.json, non qui. Averne una copia
+# voleva dire tenerla allineata a mano, e non e' andata bene: nova-schede era
+# stato aggiunto alla CI e non a questo elenco, quindi l'installatore non si
+# sarebbe accorto che mancava. Se il file non c'e' si ripiega sui tre storici,
+# perche' un installatore che si ferma per un elenco mancante e' peggio.
+$binari = @('novad.exe', 'nova-shell.exe', 'nova.exe', 'nova-schede.exe')
+$fileBinari = Join-Path $Root 'core\binari.json'
+if (Test-Path $fileBinari) {
+    try {
+        $elenco = Get-Content $fileBinari -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($elenco.eseguibili) { $binari = @($elenco.eseguibili | ForEach-Object { "$($_.nome).exe" }) }
+    } catch { Warn "core\binari.json non e' leggibile: uso l'elenco predefinito." }
+}
 function Core-Presente { foreach ($b in $binari) { if (-not (Test-Path (Join-Path $BinDir $b))) { return $false } }; return $true }
 
 function Scarica-Core {

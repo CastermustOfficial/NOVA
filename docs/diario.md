@@ -1143,3 +1143,64 @@ decide e poi **legge** l'installatore per controllare che la usi davvero, con
 un controllo che fallirebbe se qualcuno rimettesse la vecchia riga «scarico
 la variante piu' leggera». La sintassi di PowerShell si verifica con il
 parser, che legge e non esegue.
+
+### Di cosa e' fatto NOVA, e i quattro elenchi che non erano d'accordo
+
+CMP-14 diceva una cosa sola: su questa macchina l'avvio automatico punta al
+prodotto della compilazione e l'installatore punta a `bin\`, due file che si
+possono disallineare. Andandoci dentro erano **quattro** elenchi di cosa e'
+fatto NOVA, scritti a mano in posti diversi: la CI che raccoglie i binari,
+l'installatore che controlla di averli, i processi da fermare nella
+disinstallazione, e `build.ps1` — che non ne copiava nessuno.
+
+E si erano gia' disallineati, ieri, per mano mia. Aggiungendo `nova-schede`
+ho aggiornato la CI e non l'installatore. Nessun errore, nessun avviso:
+`Core-Presente` continuava a dire di si', perche' controllava tre nomi su
+quattro. Su questa macchina il binario c'era comunque, che e' esattamente il
+motivo per cui non me ne sono accorto.
+
+La cura e' quella che il progetto usa gia' per i modelli: **non e' codice, e'
+un dato**. `core/binari.json`, e lo leggono tutti. `build.ps1` pubblica in
+`bin\` dopo ogni compilazione, cosi' chi sviluppa fa girare quello che gira
+all'utente — che era il punto di CMP-14 prima ancora che scoprissi il resto.
+
+**La parte che conta e' la prova, non la correzione.** Correggere quattro
+elenchi e' facile; impedire che diventino cinque no. `test_binari.py`
+confronta l'elenco con i bersagli veri del workspace nelle due direzioni: chi
+aggiunge un eseguibile e non lo mette nell'elenco trova la suite rossa, e cosi'
+chi scrive un nome che non esiste. L'ho verificata togliendo `nova-schede` e
+poi aggiungendo un `nova-inventato`, per vedere che diventasse rossa davvero e
+non solo che fosse verde quando tutto e' a posto — una rete che non si e' mai
+vista scattare non e' una rete, e' una decorazione.
+
+C'e' un caso che ho lasciato in piedi di proposito: l'installatore tiene un
+elenco di ripiego per quando il file non c'e', perche' puo' essere scaricato
+da solo e uno che si ferma per un dato mancante e' peggio. Ma il ripiego e'
+proprio la cosa che invecchia di nascosto — quindi non l'ho vietato, l'ho
+**verificato**: la prova pretende che dica le stesse cose del file. La prima
+versione della prova lo proibiva e basta, ed era la risposta pigra.
+
+### E provandolo per davvero, un'altra frase in inglese
+
+Ho lanciato `build.ps1` con NOVA aperta. Dopo un minuto e mezzo:
+
+    error: failed to remove file `...\nova-shell.exe`
+    Caused by: Accesso negato. (os error 5)
+
+piu' un traceback di PowerShell. `cargo` non puo' sovrascrivere un programma
+in esecuzione e Windows glielo nega: e' giusto che fallisca. Non e' giusto
+**come** lo dice — il nome di un errore invece di un messaggio, dopo novanta
+secondi di attesa. E' D28, che finora avevo applicato solo al codice che parla
+all'utente, mentre `build.ps1` parla a chi sviluppa, che e' comunque una
+persona.
+
+Adesso guarda prima se NOVA sta girando — usando l'elenco nuovo, che e' il
+suo terzo mestiere — e lo dice in un secondo, in italiano, con cosa fare.
+
+Una piega che stavo per sbagliare: la prima versione bloccava anche
+`-Controlla`. Ma `cargo check` fa tutto il lavoro del compilatore **tranne**
+scrivere i binari, quindi con NOVA aperta funziona benissimo — ed e' proprio
+cio' che serve a chi vuole sapere se il codice sta in piedi senza chiudere
+l'assistente che sta usando. Fermarlo avrebbe tolto l'unica cosa che si
+poteva ancora fare. Provata con NOVA aperta: `-Controlla` passa in diciotto
+secondi, il build si ferma subito.

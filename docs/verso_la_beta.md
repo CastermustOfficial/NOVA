@@ -347,13 +347,37 @@ uniche che separano l'alpha dalla beta.
     decisione da prendere non e' tecnica: o e' una promessa con una data, o si
     dice che NOVA e' un programma Windows.
 
-14. **La macchina che sviluppa NOVA non fa partire quello che fa partire
-    l'installer.** Su questo PC l'avvio automatico punta a
-    `core\target\release\nova-shell.exe` - il prodotto della compilazione -
-    mentre `install.ps1` lo punta a `bin\nova-shell.exe`. Sono due binari
-    diversi che si possono disallineare in silenzio, e il secondo e' l'unico
-    che un utente vedra' mai. E' la forma piu' pura di «da me funziona»:
-    l'unica macchina su cui NOVA e' provata sta provando qualcos'altro.
+14. ~~**La macchina che sviluppa NOVA non fa partire quello che fa partire
+    l'installer.**~~ Fatto, e il difetto era piu' grande di come l'avevo
+    scritto. Non erano due copie: erano **quattro elenchi** di cosa e' fatto
+    NOVA, scritti a mano in posti diversi — la CI che raccoglie i binari,
+    l'installatore che controlla di averli, i processi da fermare nella
+    disinstallazione, e `build.ps1`, che non ne copiava nessuno. Si erano gia'
+    disallineati: aggiungendo `nova-schede` avevo aggiornato la CI e non
+    l'installatore, senza nessun errore, perche' su questa macchina il binario
+    c'era comunque.
+
+    Ora l'elenco sta in `core/binari.json` — non e' codice, e' un dato, come
+    `models.json` — e lo leggono tutti. `build.ps1` pubblica in `bin\` dopo
+    ogni compilazione di release, quindi chi sviluppa fa girare esattamente
+    quello che gira all'utente.
+
+    La parte che vale piu' del resto e' `test_binari.py`: pretende che
+    l'elenco corrisponda ai bersagli veri del workspace **in tutte e due le
+    direzioni** — chi aggiunge un eseguibile e non lo mette nell'elenco trova
+    la suite rossa, e cosi' chi scrive un nome che non esiste. Verificata
+    togliendo e aggiungendo una voce per vedere che diventasse davvero rossa.
+    I banchi di confronto restano fuori di proposito: vivono dietro la feature
+    `banco` e non si consegnano a nessuno.
+
+    E provandolo per davvero e' uscita una cosa in piu'. Con NOVA aperta la
+    compilazione falliva dopo un minuto e mezzo con «failed to remove file ...
+    Accesso negato. (os error 5)» piu' un traceback di PowerShell: il nome di
+    un errore, non un messaggio — D28 applicata al build. Adesso `build.ps1`
+    guarda prima se NOVA sta girando e lo dice in italiano in un secondo.
+    `-Controlla` resta permesso, perche' `cargo check` non scrive binari ed e'
+    proprio cio' che serve a chi vuole sapere se il codice sta in piedi senza
+    chiudere l'assistente che sta usando.
 
 ---
 
