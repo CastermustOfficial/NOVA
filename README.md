@@ -690,6 +690,7 @@ nova/
   setup_wizard.py     rilevamento automatico di modello GGUF e runtime
   modelli_trova.py    dove cercare un .gguf che l'utente ha gia'
   catalogo.py         quale modello ha senso qui, e quale non si scarica
+  cartelle.py         se una cartella la sincronizza qualcun altro col cloud
   componenti.py       cosa serve a ogni funzione, e come procurarlo
   runtime.py          avvia/sorveglia/spegne llama-server.exe (+ auto-tuning GPU)
   daemon.py           accende nova-core quando non gira

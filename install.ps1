@@ -581,6 +581,19 @@ function Trova-Cli {
 
 # Chi ha l'SSD di sistema piccolo e i modelli su un altro disco finora non
 # aveva modo di dirlo: la cartella era cablata accanto a NOVA.
+# Se una cartella e' sincronizzata col cloud, e cosa comporta. Il conto sta in
+# nova/cartelle.py: qui c'e' solo l'involucro, come per la ricerca dei GGUF e
+# per il verdetto sul modello. Senza Python non si puo' chiedere, e allora non
+# si dice niente: un avviso mancante e' meglio di un avviso inventato.
+function Avvertenza-Cartella($percorso, $cosa = 'i modelli') {
+    if (-not $py) { return '' }
+    Push-Location $Root
+    try {
+        $grezzo = & $py -c "import sys; sys.path.insert(0,'.'); from nova.cartelle import avvertenza; print(avvertenza(sys.argv[1], sys.argv[2]))" $percorso $cosa 2>$null
+    } catch { return '' } finally { Pop-Location }
+    return ($grezzo | Out-String).Trim()
+}
+
 function Chiedi-Cartella-Modelli($servonoGb) {
     $predefinita = Join-Path $Runtime 'modelli'
     $dischi = Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=3' -ErrorAction SilentlyContinue |
@@ -588,6 +601,18 @@ function Chiedi-Cartella-Modelli($servonoGb) {
     if ($dischi) { Info "Spazio libero: $($dischi -join '   ')" }
     $scelta = Chiedi-Testo "Dove metto i modelli? [$predefinita]" $predefinita
     $scelta = [IO.Path]::GetFullPath($scelta)
+    # Dentro una cartella sincronizzata dodici gigabyte di modello sono tre
+    # guai in uno: il caricamento verso il cloud, le copie in conflitto, e i
+    # file «liberati» che restano in elenco e diventano segnaposti vuoti.
+    # L'ultimo capita mesi dopo, a NOVA che funzionava. Non e' un divieto - la
+    # cartella e' sua - ma la scelta si fa sapendo.
+    $avviso = Avvertenza-Cartella $scelta
+    if ($avviso) {
+        Warn $avviso
+        $ancora = Chiedi "Vuoi comunque metterli li'?" @(
+            'No, scelgo un''altra cartella', 'Si, so quello che faccio') 1
+        if ($ancora -eq 1) { return (Chiedi-Cartella-Modelli $servonoGb) }
+    }
     # In prova non si crea niente: una cartella lasciata in giro da un giro a
     # vuoto e' esattamente cio' che «non ho toccato niente» promette di non fare.
     if ($Prova) {

@@ -138,13 +138,42 @@ controlla("a ora ferma, due prompt sono identici carattere per carattere",
           uno == due,
           f"differiscono di {sum(1 for x, y in zip(uno, due) if x != y)} caratteri")
 
-# E l'ora e' l'unica cosa che varia: se ne cambiasse un'altra, questa
-# differenza non sarebbe piu' solo il timestamp.
-tre = a.system_prompt()
-diverse = [(x, y) for x, y in zip(uno, tre) if x != y]
-controlla("e a ora vera l'unica differenza e' l'ora",
-          len(diverse) <= len("Saturday 30/08/2026 14:32"),
-          f"{len(diverse)} caratteri diversi: qualcos'altro varia")
+# E l'ora e' l'unica cosa che varia: se ne cambiasse un'altra, la differenza
+# non sarebbe piu' solo il timestamp.
+#
+# ATTENZIONE a come si confronta. La prima versione metteva a confronto il
+# prompt a ora ferma con uno a **ora vera**, e ha funzionato per un giorno
+# esatto: il giorno in cui l'ora ferma era quella di oggi. Il giorno dopo la
+# data vera aveva un nome di giorno di lunghezza diversa, lo `zip` si e'
+# disallineato, e la prova ha dichiarato sedicimila caratteri di differenza
+# annunciando un disastro che non c'era.
+#
+# Era una prova a orologeria - proprio quello contro cui mette in guardia il
+# commento venti righe piu' su. Adesso si confrontano due ore **entrambe
+# ferme**, scelte apposta perche' il testo dell'ora abbia la stessa lunghezza,
+# e si guarda dove cadono le differenze invece di contarle.
+class _AltraOra(_dt.datetime):
+    @classmethod
+    def now(cls, tz=None):
+        # Stesso giorno della settimana e stesse cifre: cambia solo l'ora, e
+        # cosi' la differenza e' confinata dove deve stare.
+        return cls(2026, 8, 30, 17, 45, 0)
+
+_agente.datetime = _AltraOra
+try:
+    tre = a.system_prompt()
+finally:
+    _agente.datetime = _vera
+
+controlla("due ore diverse danno prompt della stessa lunghezza",
+          len(uno) == len(tre), f"{len(uno)} contro {len(tre)}")
+posizioni = [i for i, (x, y) in enumerate(zip(uno, tre)) if x != y]
+controlla("e a ora diversa l'unica differenza e' l'ora",
+          len(posizioni) <= len("14:32"),
+          f"{len(posizioni)} caratteri diversi: qualcos'altro varia")
+controlla("e le differenze stanno tutte in un punto solo",
+          not posizioni or (posizioni[-1] - posizioni[0]) < 20,
+          f"sparse fra {posizioni[:1]} e {posizioni[-1:]}")
 controlla("e sono lunghi quanto ci si aspetta (le regole ci sono)",
           len(uno) > 15000, f"{len(uno)} caratteri: le regole non ci sono?")
 
