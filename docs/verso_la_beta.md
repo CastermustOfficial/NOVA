@@ -403,9 +403,57 @@ uniche che separano l'alpha dalla beta.
 
 ### Il cervello
 
-8. **Modelli che non sono Qwen.** Template di chat diverso, function calling
-   diverso, ragionamento diverso. Gemma 4 e Nemotron sono nel README: vanno
-   provati o tolti.
+8. ~~**Modelli che non sono Qwen.**~~ Provato, ed e' la quarta voce che non
+   aveva bisogno di una seconda macchina: i modelli sono qui. Finora erano
+   stati misurati in **velocita'**, che e' un'altra cosa - un modello puo'
+   fare quaranta token al secondo e non saper chiamare un tool, e allora quei
+   token non servono a niente.
+
+   `banco_cervello.py` non chiede «quanto e' veloce» ma «sceglie il tool
+   giusto fra sessanta»: dieci domande con un tool atteso, tre a cui si
+   risponde parlando (che e' il caso che i modelli piccoli sbagliano di piu',
+   chiamando qualcosa per compiacenza).
+
+   | | tool giusti | inventati | mancati | chiamate di troppo |
+   |---|---|---|---|---|
+   | Gemma 4 26B-A4B Q3_K_XL | 7 su 8 | 0 | 0 | 0 |
+   | Qwen3.8 27B Q4_K_M | 7 su 8 | 0 | 0 | 0 |
+
+   **Gemma regge il confronto con Qwen**, e la riga del README che lo
+   consiglia adesso ha una prova sotto invece di una speranza. Nessuno dei due
+   inventa strumenti, nessuno dei due ne chiama uno quando basta parlare.
+
+   **Ma sbagliano la stessa domanda**, ed e' il motivo per cui questa voce ha
+   fruttato piu' di quanto chiedesse. Vedi il punto 15.
+
+15. **«Ricordati che...» non finisce in memoria.** A «Ricordati che il mio
+    gatto si chiama Ugo» tutti e due i modelli chiamano `kb_search` invece di
+    `kb_note`: cercano una cosa che l'utente sta dicendo adesso. Due modelli
+    diversi che sbagliano identico non sono due modelli sbagliati: e' NOVA che
+    glielo sta dicendo male.
+
+    Provato anche con «Il mio gatto si chiama Ugo», senza imperativo, per
+    escludere che fosse il verbo «ricordati» a essere letto come «recall» da
+    un modello addestrato in inglese. Stesso esito: non e' la parola.
+
+    Ho riscritto la sezione della memoria nel prompt di sistema (prima diceva
+    `kb_search` per primo e in forma generale, `kb_note` dopo con un verbo
+    passivo) e le descrizioni dei due strumenti. **Non e' bastato**, e lo
+    scrivo perche' e' misurato: la correzione c'e' ed e' un miglioramento di
+    chiarezza, ma il comportamento non e' cambiato.
+
+    Cosa resta da provare, in ordine di costo:
+    - **l'ordine degli strumenti**: `kb_search` compare prima di `kb_note`
+      nell'elenco dei sessanta, e la posizione pesa;
+    - **la coda del turno**: il banco manda sistema piu' domanda, mentre NOVA
+      aggiunge in coda memoria, procedure e postilla. Il difetto potrebbe
+      stare li' e il banco non lo vedrebbe;
+    - **un solo strumento di memoria** che decide da se' se scrivere o
+      cercare, invece di due che si somigliano.
+
+    Vale la pena tenerlo alto in lista: «ricordati che...» e' una delle prime
+    cose che chiunque prova, e il README promette una memoria che sopravvive
+    alle sessioni.
 9. **Le CLI dichiarate ma non provate**: Gemini, Codex, Qwen. Sono nel menu.
    Ognuna ha permessi e formato di output suoi.
 10. **Gli endpoint API.** OpenRouter, Groq, Together parlano lo stesso dialetto

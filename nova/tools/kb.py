@@ -22,9 +22,10 @@ def _pronta():
 
 @tool(
     "kb_search",
-    "Cerca nella tua memoria a lungo termine (KB a grafo) quello che sai su una persona, "
-    "un progetto, una preferenza o un fatto. Usalo PRIMA di chiedere all'utente qualcosa "
-    "che potresti gia' sapere.",
+    "Cerca nella tua memoria a lungo termine quello che sai su una persona, un progetto, "
+    "una preferenza o un fatto. Serve quando sei TU ad aver bisogno di sapere: usalo prima "
+    "di chiedere all'utente qualcosa che potresti gia' sapere. Non quando e' lui a dirti "
+    "una cosa nuova.",
     {
         "query": {"type": "string", "description": "Cosa stai cercando"},
         "top_k": {"type": "integer", "description": "Quanti nodi (default 5)"},
@@ -53,8 +54,9 @@ def kb_search(query: str, top_k: int = 5) -> str:
 
 @tool(
     "kb_note",
-    "Salva o aggiorna un nodo nella tua memoria a lungo termine. Usalo quando l'utente "
-    "dice qualcosa di durevole su di se', sul suo lavoro o sulle sue preferenze.",
+    "Salva un fatto nella tua memoria a lungo termine. Usalo quando l'utente ti dice di "
+    "ricordare qualcosa, o dice un fatto durevole su di se', sul suo lavoro o sulle sue "
+    "preferenze. Se te lo sta dicendo lui, non cercarlo prima: scrivilo.",
     {
         "titolo": {"type": "string", "description": "Titolo breve del nodo (2-6 parole)"},
         "testo": {"type": "string", "description": "Il contenuto, una o due frasi autoconsistenti"},

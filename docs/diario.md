@@ -1583,3 +1583,81 @@ prova, e' una che si impara a ignorare». L'avevo scritto io, e due righe dopo
 avevo messo una bomba a orologeria. Adesso si confrontano due ore **entrambe
 ferme**, scelte perche' il testo abbia la stessa lunghezza, e si guarda **dove
 cadono** le differenze invece di contarle.
+
+### CMP-8: Gemma regge, e tutti e due sbagliano la stessa cosa
+
+Quarta voce mal classificata. «Modelli che non sono Qwen: vanno provati o
+tolti» stava fra quelle in attesa di un secondo PC, e i modelli sono qui — li
+sto misurando da due giorni. Solo che li avevo misurati in **velocita'**, e un
+modello puo' fare quaranta token al secondo senza saper chiamare un tool: quei
+token non servono a niente.
+
+`banco_cervello.py` chiede un'altra cosa: fra sessanta strumenti, sceglie
+quello giusto? E sa anche **non** sceglierne nessuno, quando la domanda si
+risponde parlando — che e' il caso che i modelli piccoli sbagliano di piu',
+perche' chiamano qualcosa per compiacenza.
+
+| | tool giusti | inventati | mancati | di troppo |
+|---|---|---|---|---|
+| Gemma 4 26B-A4B | 7 su 8 | 0 | 0 | 0 |
+| Qwen3.8 27B | 7 su 8 | 0 | 0 | 0 |
+
+Gemma regge il confronto. La riga del README che lo consiglia adesso ha una
+prova sotto invece di una speranza, e la domanda su `models.json` — quale
+famiglia sia `consigliata` — perde l'ultimo argomento contrario.
+
+### Ma sbagliano **la stessa** domanda
+
+A «Ricordati che il mio gatto si chiama Ugo» tutti e due chiamano `kb_search`
+invece di `kb_note`. Cercano una cosa che l'utente sta dicendo in quel
+momento.
+
+Due modelli diversi, addestrati da aziende diverse, che sbagliano identico non
+sono due modelli sbagliati: **e' NOVA che glielo sta dicendo male**. E il
+banco non poteva dirmelo confrontandoli fra loro — l'avrebbe scritto come «i
+due sono d'accordo, tutto bene». E' la stessa lezione delle chiavi di ieri, e
+stavolta l'ho vista perche' la prova non chiedeva l'accordo: chiedeva se il
+tool scelto fosse quello giusto.
+
+Il sospetto naturale era la lingua. «Ricordati» in italiano e' un imperativo
+che vuol dire «memorizza», ma un modello addestrato per lo piu' in inglese
+puo' leggerlo come «recall», cioe' cerca. L'ho provato con «Il mio gatto si
+chiama Ugo», che e' un'affermazione secca senza nessun verbo ambiguo. Stesso
+esito. **Non e' la parola.**
+
+Guardando il prompt di sistema il colpevole sembrava ovvio:
+
+> Prima di chiedere qualcosa che potresti gia' sapere, cerca con kb_search.
+> Quando l'utente rivela qualcosa di durevole [...], salvalo con kb_note
+
+`kb_search` arriva per primo e in forma generale; `kb_note` dopo, con
+«rivela», che e' passivo. L'ho riscritto mettendo prima il caso di chi
+racconta, e ho corretto le descrizioni dei due strumenti.
+
+**Non e' bastato**, e lo scrivo perche' e' misurato e non supposto. La
+riscrittura e' piu' chiara e resta, ma il comportamento non e' cambiato. Le
+ipotesi che restano, in ordine di costo: l'**ordine** degli strumenti
+(`kb_search` compare prima di `kb_note` fra i sessanta, e la posizione pesa);
+la **coda del turno**, perche' il banco manda sistema piu' domanda mentre NOVA
+aggiunge memoria, procedure e postilla, e il difetto potrebbe stare li' senza
+che il banco lo veda; oppure **un solo strumento di memoria** che decida da
+se' se scrivere o cercare, invece di due che si somigliano.
+
+E' un difetto che pesa piu' della sua dimensione: «ricordati che...» e' fra le
+prime cose che chiunque prova, e il README promette una memoria che sopravvive
+alle sessioni. Prometterla e non scriverla e' peggio che non prometterla.
+
+### Due note su come e' andata la misura
+
+**NOVA stava girando.** A meta' dei giri il banco ha cominciato a morire con
+un `ConnectionResetError`: il modello di NOVA occupava 8,7 GB di VRAM e il
+secondo non ci stava piu' accanto. Non ho fermato niente di suo — il banco ha
+imparato `--strati 0`, che lo fa girare sul processore. Piu' lento, ma **quale
+tool sceglie un modello non dipende da dove gira**: la risposta e' la stessa,
+e la domanda a cui rispondevo non era sulla velocita'.
+
+**E il banco confronta due modelli su una prova sola.** Otto domande non sono
+una valutazione: sono un controllo di funzionamento. Non dicono che Gemma e'
+bravo quanto Qwen, dicono che entrambi sanno usare gli strumenti di NOVA e che
+nessuno dei due ne inventa. Per la voce CMP-8, che chiedeva «provati o tolti»,
+e' esattamente quello che serviva.
