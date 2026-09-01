@@ -886,7 +886,14 @@ E si rimisura, perche' la VRAM libera dipende da cos'altro c'e' acceso:
 python banco_modello.py            # tutte le configurazioni
 python banco_modello.py kv8-60     # una sola
 python banco_taglio.py             # quanto costa accorciare la conversazione
+python banco_cervello.py           # sa scegliere il tool giusto fra sessanta?
 ```
+
+L'ultimo misura una cosa diversa dalle altre: non quanto e' veloce un modello,
+ma se **sa usare gli strumenti**. Un modello puo' fare quaranta token al
+secondo e non saper chiamare un tool, e allora quei token non servono a
+niente. Gemma 4 26B-A4B e Qwen3.8 27B fanno tutti e due 7 su 8, senza
+inventare strumenti e senza chiamarne quando basta rispondere a parole.
 
 Quell'ultimo misura una cosa che non si vede: quando la conversazione si
 allunga NOVA la accorcia, e accorciarla butta via la cache del prompt. Se lo
