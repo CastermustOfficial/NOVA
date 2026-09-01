@@ -1493,3 +1493,93 @@ registro vuole sapere **quale** segreto e' stato coperto, non solo che ce n'era
 uno. Non l'ho uniformata perche' e' un miglioramento, e la prova non la
 segnala perche' non pretende l'uguaglianza: pretende che il Rust non copra
 meno, e coprire meglio lo stesso valore non e' coprire meno.
+
+## 1 settembre 2026 — le voci che non aspettavano nessuno
+
+Detto che la seconda macchina per ora non c'e', la cosa utile non era
+scegliere un'altra voce: era rileggere quelle che avevo messo in attesa.
+Dieci voci di compatibilita' su dieci portavano l'etichetta «serve un altro
+PC», e almeno tre non l'hanno mai meritata. **I percorsi ostili si
+costruiscono qui.**
+
+Questa macchina ha quelli facili — `C:\Users\giova`, niente OneDrive, niente
+accenti — ed e' precisamente per questo che nessuno di quei casi era mai stato
+esercitato. L'etichetta non descriveva la voce: descriveva la mia distrazione.
+
+`test_percorsi_ostili.py` costruisce sei cartelle che rompono cose diverse, e
+ognuna per un motivo suo: gli spazi rompono chi concatena una riga di comando
+invece di passare una lista; gli accenti rompono chi apre un file con la
+codifica di sistema; l'apostrofo rompe le virgolette di PowerShell ed e'
+comunissimo in italiano; le parentesi e la `&` sono metacaratteri di shell.
+
+**Tutto verde al primo colpo**, ed e' un risultato piu' che una delusione:
+vuol dire che passare le radici come **dati** invece che come stringhe di
+comando — scelta fatta giorni fa per poter provare con una cartella finta — ha
+pagato anche qui, su un problema che non stavo cercando di risolvere.
+
+### Ma il guaio di OneDrive era un altro
+
+La voce diceva «Documenti ridiretto su OneDrive». Cercandolo si scopre che il
+meccanismo non e' quello: **non e' il percorso che si rompe, e' che NOVA ci si
+installa dentro**. L'installatore mette i modelli sotto la propria cartella, e
+la propria cartella e' dove qualcuno ha scompattato il file. Se e' Documenti,
+e Documenti e' sincronizzato:
+
+- dodici gigabyte di modello partono verso il cloud, e su un piano gratuito da
+  cinque non ci stanno: il messaggio che ne esce parla di quota e non di NOVA;
+- il vault viene sincronizzato **mentre** NOVA ci scrive, e nascono le copie
+  in conflitto accanto agli originali;
+- e con i file su richiesta il modello viene «liberato» per far spazio: resta
+  in elenco, diventa un segnaposto vuoto, e llama.cpp trova zero byte.
+
+L'ultima e' la peggiore perche' capita **mesi dopo**, a NOVA che funzionava, e
+chi la subisce non ha nessun motivo di collegarla all'installazione.
+
+`nova/cartelle.py` lo riconosce, e l'installatore lo dice **prima** di creare
+la cartella — la prova controlla anche l'ordine, perche' un avviso dopo il
+fatto e' un rimprovero. Non e' un divieto: la cartella e' dell'utente. Ma la
+scelta si fa sapendo.
+
+### Un avviso sbagliato e' peggio di nessun avviso
+
+La prima versione del riconoscimento accettava il nome del servizio seguito da
+un trattino secco, per prendere «OneDrive - Acme». Cosi' segnalava anche
+`dropbox-export-2024`, che e' una cartella di roba **tirata fuori** da
+Dropbox: il contrario di una cartella sincronizzata. La prova l'ha bocciata, e
+ha ragione — la seconda volta che un avviso e' sbagliato non lo legge piu'
+nessuno, e il terzo che era giusto passa inosservato.
+
+Rileggendo l'elenco dei nomi ci ho anche trovato tre varianti di «iCloud» che
+non esistono, e un «sync» talmente generico da segnalare mezzo disco. Scritti
+di getto e mai riletti.
+
+### Il verde che vale meno di quello che sembra
+
+I percorsi oltre i 260 caratteri qui funzionano. Ho controllato **perche'**:
+`LongPathsEnabled` vale 1 su questa macchina, e il valore di fabbrica di
+Windows e' 0. Quindi quella riga verde vuol dire «funziona dove non serviva
+che funzionasse», e sulla macchina di chiunque altro fallirebbe.
+
+Adesso la prova legge il registro e lo scrive a schermo. Non l'ho fatta
+fallire — non c'e' niente di rotto qui — ma passare in silenzio sarebbe stata
+falsa sicurezza: «da me funziona» con un bollino verde sopra, che e' la
+versione peggiore perche' si difende da sola.
+
+### E una prova a orologeria
+
+Nel giro completo e' saltata fuori `test_prefisso.py`, che ha annunciato
+sedicimila caratteri di differenza nel prompt di sistema — cioe' il prefisso
+instabile, cioe' il disastro che ho passato ieri a curare.
+
+Non c'era niente di rotto. Quella prova confrontava il prompt a **ora ferma**
+(congelata al 30 agosto) con uno a **ora vera**. Ha funzionato per un giorno
+esatto: il giorno in cui le due coincidevano. Oggi la data vera ha un nome di
+giorno di lunghezza diversa, lo `zip` si e' disallineato, e tutto quello che
+veniva dopo e' risultato diverso.
+
+La cosa che fa piu' impressione e' che venti righe sopra, in quello stesso
+file, c'e' scritto: «una prova che fallisce una volta ogni tanto non e' una
+prova, e' una che si impara a ignorare». L'avevo scritto io, e due righe dopo
+avevo messo una bomba a orologeria. Adesso si confrontano due ore **entrambe
+ferme**, scelte perche' il testo abbia la stessa lunghezza, e si guarda **dove
+cadono** le differenze invece di contarle.

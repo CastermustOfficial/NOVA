@@ -173,8 +173,38 @@ uniche che separano l'alpha dalla beta.
    su 10, ma «ci sono» non e' «provato».
 2. **Utente senza diritti di amministratore.** L'installer scrive
    nell'avvio automatico e crea un collegamento: cosa succede se non puo'.
-3. **Percorsi ostili**: spazi, accenti, e soprattutto **Documenti
-   ridiretto su OneDrive**, che e' il caso normale e non quello raro.
+3. ~~**Percorsi ostili**~~ — e questa voce non ha mai avuto bisogno di una
+   seconda macchina: i percorsi ostili si costruiscono qui. Questa ha quelli
+   facili (`C:\Users\giova`, niente OneDrive, niente accenti), che e'
+   esattamente il motivo per cui nessuno di questi casi era mai stato provato.
+
+   `test_percorsi_ostili.py` costruisce sei cartelle che rompono cose diverse
+   — spazi, accenti, apostrofo, parentesi e `&`, trattini, punto iniziale — ci
+   mette dentro dei GGUF e ci passa sopra tutta la catena, da tutte e due le
+   parti. **Tutto verde al primo colpo**, ed e' un risultato: vuol dire che
+   passare le radici come dati invece che come stringhe di comando, scelta
+   fatta per poter provare, ha pagato anche qui.
+
+   **Ma il guaio di OneDrive era un altro**, e non e' quello che questa voce
+   immaginava. Non e' che il percorso si rompe: e' che **NOVA ci si installa
+   dentro**. L'installatore mette i modelli sotto la propria cartella, e la
+   propria cartella e' dove qualcuno ha scompattato il file. Se e' Documenti,
+   e Documenti e' sincronizzato: dodici gigabyte partono verso il cloud (su un
+   piano gratuito da cinque non ci stanno), il vault viene sincronizzato
+   mentre NOVA ci scrive e nascono le copie in conflitto, e — la peggiore — i
+   file vengono «liberati» per far spazio e restano in elenco come segnaposti
+   vuoti. Quest'ultima capita **mesi dopo**, a NOVA che funzionava.
+
+   `nova/cartelle.py` lo riconosce e l'installatore lo dice prima di creare la
+   cartella. Non e' un divieto: la cartella e' dell'utente e la scelta e' sua.
+   Ma la scelta si fa sapendo, e queste tre conseguenze non le indovina
+   nessuno.
+
+   *Una cosa resta scoperta, e va detta.* I percorsi oltre i 260 caratteri qui
+   funzionano perche' su questa macchina `LongPathsEnabled` e' **acceso**, e
+   il valore di fabbrica e' spento. La prova lo legge dal registro e lo
+   scrive, invece di passare in silenzio: passare senza dirlo sarebbe falsa
+   sicurezza, cioe' «da me funziona» con un bollino verde sopra.
 4. **SmartScreen e antivirus.** Un binario non firmato scaricato da GitHub
    viene messo in quarantena, e l'utente pensa a un virus. Decidere se si
    firma o se si spiega.
