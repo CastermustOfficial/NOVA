@@ -499,6 +499,8 @@ def _traccia_avvio(brain) -> None:
         # che puo' finire altrove non e' una traccia.
         f = Path(__file__).resolve().parent.parent.parent / "avvio.log"
         from ..config import CONFIG_PATH
+        # Gli argomenti sono cio' che l'utente ha digitato.
+        from ..forme_riservate import solo_opzioni as _solo_opzioni
         quando = datetime.datetime.now().strftime("%d/%m %H:%M:%S")
         try:
             mtime = datetime.datetime.fromtimestamp(
@@ -510,7 +512,7 @@ def _traccia_avvio(brain) -> None:
                 f"config={CONFIG_PATH} (scritto {mtime}) "
                 f"APPDATA={os.environ.get('APPDATA')!r} "
                 f"python={sys.version.split()[0]} "
-                f"argv={' '.join(sys.argv[:3])!r}\n")
+                f"argv={_solo_opzioni(sys.argv[:3])!r}\n")
         with open(f, "a", encoding="utf-8") as fh:
             fh.write(riga)
     except Exception:

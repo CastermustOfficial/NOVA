@@ -744,6 +744,9 @@ def _traccia_config(verso: str, path: "Path", turni: int) -> None:
         import datetime
         import os as _os
         import sys as _sys
+        # Cio' che l'utente ha digitato non finisce in chiaro in un
+        # file che resta: e' la stessa ragione del giornale delle azioni.
+        from .forme_riservate import solo_opzioni as _solo_opzioni
         f = Path(__file__).resolve().parent.parent / "avvio.log"
         try:
             st = Path(path).stat()
@@ -762,6 +765,6 @@ def _traccia_config(verso: str, path: "Path", turni: int) -> None:
                      f"pid={_os.getpid()} CONFIG {verso} turni={turni} "
                      f"file=({quando_file}, {byte} byte, id {chi}) "
                      f"vero={_os.path.realpath(path)!r} "
-                     f"argv={' '.join(_sys.argv[:2])!r}\n")
+                     f"argv={_solo_opzioni(_sys.argv[:2])!r}\n")
     except Exception:
         pass

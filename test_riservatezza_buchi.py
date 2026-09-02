@@ -198,6 +198,55 @@ controlla("i risultati versati si mascherano prima di toccare il disco",
           "maschera(testo)" in sorgente,
           "uno strumento legge .env e lancia comandi: il file resta")
 
+print("\n=== E i due che restavano: la frase del guasto e il log d'avvio ===")
+from nova.guasti import registra, spiega                    # noqa: E402
+from nova.forme_riservate import solo_opzioni               # noqa: E402
+
+# `spiega` finiva con `return str(e)`: il messaggio di un'eccezione porta
+# volentieri il valore che l'ha causata. E' il caso vero di D29 — «Incorrect
+# API key provided: sk-...» — dove allora si era chiuso il corpo delle
+# risposte HTTP e questo ramo, per cui passa tutto il resto, era rimasto
+# aperto. Terza volta della stessa lezione, in un posto diverso.
+for nome, eccezione, pezzo in [
+    ("la chiave rimandata indietro dal fornitore",
+     ValueError("Incorrect API key provided: sk-proj-abcdefghij1234567890"),
+     "sk-proj-abcdefghij1234567890"),
+    ("le credenziali dentro un indirizzo",
+     RuntimeError("connessione a postgres://utente:segreto@host/db fallita"),
+     "utente:segreto@"),
+]:
+    controlla(f"la frase del guasto non ripete {nome}",
+              pezzo not in spiega(eccezione), spiega(eccezione)[:70])
+
+# E un errore normale deve restare leggibile: mascherare tutto renderebbe
+# inutile la frase, che esiste per farsi capire.
+controlla("un guasto qualunque resta leggibile",
+          "spazio" in spiega(OSError(28, "No space left")).lower()
+          or "sistema" in spiega(OSError("il disco e' pieno")).lower())
+
+try:
+    raise ValueError("token=sk-proj-abcdefghij1234567890 rifiutato")
+except ValueError as e:
+    percorso = registra(e, dove="prova")
+ultima = json.loads(
+    Path(percorso).read_text(encoding="utf-8").strip().splitlines()[-1])
+controlla("e nemmeno il file dei guasti lo conserva",
+          "sk-proj-abcdefghij1234567890" not in json.dumps(ultima))
+controlla("traccia compresa, che era l'unico campo grosso senza filtro",
+          "sk-proj-abcdefghij1234567890" not in ultima["traccia"])
+
+# Il giornale d'avvio: qui non si maschera, si **omette**. Il filtro prende le
+# forme note, non una parola qualunque che per l'utente e' un segreto, e a
+# quel log servono i flag — non il contenuto di `--ask`.
+detto = solo_opzioni(["__main__.py", "--ask",
+                      "ricordati che la password del wifi e Tramonto2026"])
+controlla("la domanda dell'utente non finisce nel log d'avvio",
+          "Tramonto2026" not in detto and "password" not in detto, detto)
+controlla("ma il flag resta, che e' quello che serve a capire cosa e' partito",
+          "--ask" in detto, detto)
+controlla("e un comando senza testo libero resta per intero",
+          solo_opzioni(["__main__.py", "--brains"]) == "__main__.py --brains")
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")

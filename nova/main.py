@@ -18,9 +18,16 @@ def _traccia_main() -> None:
         import datetime, os
         from pathlib import Path as _P
         f = _P(__file__).resolve().parent.parent / "avvio.log"
+        # Gli argomenti sono cio' che l'utente ha **digitato**: con `--ask`
+        # qui dentro finisce la domanda per intero. Se quella domanda contiene
+        # una password — «ricordati che la password del wifi e' ...» — questo
+        # file la conserva in chiaro, e sta nella cartella del progetto, che
+        # per D52 puo' essere sincronizzata col cloud.
+        from .forme_riservate import solo_opzioni
+        argomenti = solo_opzioni(sys.argv[:3])
         with open(f, "a", encoding="utf-8") as fh:
             fh.write(f"{datetime.datetime.now():%d/%m %H:%M:%S} "
-                     f"pid={os.getpid()} MAIN argv={' '.join(sys.argv[:3])!r}\n")
+                     f"pid={os.getpid()} MAIN argv={argomenti!r}\n")
     except Exception:
         pass
 

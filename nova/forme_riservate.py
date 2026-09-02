@@ -110,3 +110,26 @@ def maschera(testo: str, con: str = "[chiave]") -> str:
     for _nome, forma in FORME:
         fuori = forma.sub(con, fuori)
     return ETICHETTATA.sub(con, fuori)
+
+
+def solo_opzioni(argomenti: list[str]) -> str:
+    """La riga di comando ridotta alle **opzioni**, senza i valori liberi.
+
+    Serve ai giornali di avvio, che esistono per distinguere «il cervello non
+    e' questo» da «il cervello e' questo ma non passa di qui». Per quella
+    domanda servono i flag, non il contenuto: `--ask` seguito dalla domanda
+    dell'utente non aiuta a rispondere, e conserva in chiaro tutto quello che
+    e' stato digitato — comprese le frasi che cominciano con «ricordati che la
+    password del wifi e'...».
+
+    Mascherare non basterebbe: il filtro prende le forme note e le coppie
+    etichettate, non una parola qualunque che per l'utente e' un segreto. Il
+    modo sicuro di non scrivere una cosa e' non scriverla.
+    """
+    fuori = []
+    for k, a in enumerate(argomenti or []):
+        if k == 0 or a.startswith("-"):
+            fuori.append(a)
+        else:
+            fuori.append(f"<{len(a)} caratteri>")
+    return " ".join(fuori)
