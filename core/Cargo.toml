@@ -10,6 +10,7 @@ members = [
     "crates/nova-calendario",
     "crates/nova-pianificazione",
     "crates/nova-salita",
+    "crates/nova-catalogo",
     "crates/nova-guasti",
     "crates/nova-core",
     "crates/nova-platform",

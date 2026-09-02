@@ -2179,3 +2179,77 @@ Un caso che ho messo apposta fra le prove Rust: `passi_prima_di_salire` a
 zero deve **spegnere** la soglia, non accenderla. Con un `>=` scritto senza
 pensarci, «passi >= 0» e' sempre vero e si salirebbe al primo giro — cioe' la
 manopola che serve a disattivare la funzione la farebbe scattare sempre.
+
+## 2 settembre 2026, notte — il decimo pezzo, e Python che esce da una strada
+
+`nova-catalogo`: se un modello ha senso su questa macchina, quale variante, e
+cosa dire mentre lo si fa.
+
+E' il pezzo con il criterio d'ordine piu' limpido del cantiere, quello scritto
+mesi fa e mai applicato fino in fondo: **quando** una cosa deve funzionare.
+`catalogo.py` porta in testa che e' di sola libreria standard «perche' viene
+eseguito dall'installatore prima che le dipendenze del progetto siano
+garantite». Cioe' il primo passo dell'installazione dipende da qualcosa che
+l'installazione non ha ancora fatto. In Rust quel vincolo non esiste: e' un
+binario, e i binari il core li ha gia' scaricati due sezioni prima.
+
+`install.ps1` ora chiede al binario e ripiega su Python solo per chi compila
+da sorgente. La regola resta in un posto solo — l'installatore non ne ha una
+copia sua, che era il punto di `_principale()` fin dall'inizio — ma non serve
+piu' un interprete per applicarla.
+
+### Le prove passavano. Il programma no.
+
+216 verdetti confrontati col Python, testo compreso, zero divergenze. Poi ho
+fatto la cosa che le prove non facevano: ho chiamato il binario **come lo
+chiama l'installatore**, da PowerShell, col catalogo vero.
+
+    {"si_scarica":false,"motivo":"questo modello legge almeno 0.0 GB
+     per ogni token che scrive, e senza scheda video ..."}
+
+«questo modello». «0.0 GB». Nessun nome, nessun numero. La famiglia non era
+arrivata affatto.
+
+Due difetti, e il secondo e' quello che conta.
+
+**Il BOM.** `Set-Content -Encoding UTF8` su Windows PowerShell 5.1 mette tre
+byte davanti al primo `{`, e serde si ferma con «expected value at line 1
+column 1» — che e' vero e non aiuta nessuno. Si potrebbe dire che sbaglia chi
+chiama. Ma chi chiama e' PowerShell, e questo binario esiste **per** essere
+chiamato da PowerShell: incontrarlo li' e' compito suo. Lo stesso inciampo era
+gia' costato tempo dalla parte Python, dove i sorgenti si leggono con
+`utf-8-sig`.
+
+**E `unwrap_or_default()`.** Questo e' il difetto vero, e l'ho scritto io
+un'ora prima. Una domanda illeggibile diventava una `Famiglia` vuota; la
+famiglia vuota attraversava tutta la logica senza inciampare e produceva un
+verdetto **perfettamente formato**: si_scarica false, un motivo in italiano,
+un suggerimento. Sembrava una risposta. Sarebbe stato un installatore che
+rifiuta ogni modello, a chiunque, dando una ragione inventata — e nessuno se
+ne sarebbe accorto, perche' rifiutare e' anche la risposta giusta in molti
+casi veri.
+
+E' la stessa frase che sta scritta in cima a `immagini.py` da settimane: *uno
+strumento che riesce senza consegnare niente e' peggio di uno che manca,
+perche' produce fiducia mal riposta.* L'avevo scritta io, e un'ora dopo ho
+messo un `unwrap_or_default()` su un ingresso esterno. Saperlo non basta:
+serve guardare, e guardare vuol dire eseguire la cosa nel posto dove vivra'.
+
+Adesso una domanda illeggibile dice «non ho capito la domanda sul modello» e
+la prova pretende che il motivo **non** contenga «0.0 GB» — cioe' che non
+finga di aver misurato qualcosa.
+
+### Cosa ho imparato sull'ordine delle prove
+
+Il confronto Rust/Python era verde con il difetto dentro, perche' il confronto
+manda JSON scritto da `json.dumps`: niente BOM, e sempre valido. Le prove
+parlavano al binario in una lingua che l'installatore non usa.
+
+Non e' un difetto del metodo del banco — quello trova le divergenze, e le
+trova bene. E' che il banco misura la **traduzione**, e questi due difetti
+stavano nel **giunto**. Per quelli serve chiamare la cosa da dove verra'
+chiamata davvero, una volta, a mano. Un minuto di lavoro che ha trovato piu' di
+216 casi automatici.
+
+12 prove nuove, 216 verdetti identici, e due che l'automatismo non poteva
+vedere.
