@@ -2469,6 +2469,14 @@ name = "nova-calendario"
 version = "0.1.0"
 
 [[package]]
+name = "nova-catalogo"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "nova-cli"
 version = "0.1.0"
 dependencies = [

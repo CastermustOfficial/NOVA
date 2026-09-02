@@ -386,7 +386,7 @@ New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
 # stato aggiunto alla CI e non a questo elenco, quindi l'installatore non si
 # sarebbe accorto che mancava. Se il file non c'e' si ripiega sui tre storici,
 # perche' un installatore che si ferma per un elenco mancante e' peggio.
-$binari = @('novad.exe', 'nova-shell.exe', 'nova.exe', 'nova-schede.exe')
+$binari = @('novad.exe', 'nova-shell.exe', 'nova.exe', 'nova-catalogo.exe', 'nova-schede.exe')
 $fileBinari = Join-Path $Root 'core\binari.json'
 if (Test-Path $fileBinari) {
     try {
@@ -615,14 +615,27 @@ function Verdetto-Modello($famiglia, $vramGb) {
         motivo      = "Non so dire se questo modello girerebbe su questa macchina."
         suggerimento = "Configura il cervello dopo l'installazione, dalle impostazioni di NOVA."
     }
+    # La RAM entra nel conto quanto la VRAM: sul processore il modello non sta
+    # in VRAM, sta in RAM - tutto - e accanto ci devono stare il sistema e il
+    # browser.
+    $ingresso = @{ famiglia = $famiglia; vram_gb = $vramGb; ram_gb = $ram; catalogo = $catalogo } |
+        ConvertTo-Json -Depth 12 -Compress
+
+    # Prima il binario, che a questo punto c'e' gia': il core si scarica
+    # sopra, e questo conto e' proprio quello che deve funzionare PRIMA che
+    # Python e le dipendenze siano garantiti. Il ripiego su Python resta per
+    # chi compila da sorgente e non ha ancora i binari.
+    $exe = Join-Path $BinDir 'nova-catalogo.exe'
+    if (Test-Path $exe) {
+        try {
+            $grezzo = $ingresso | & $exe 2>$null | Out-String
+            if ($grezzo.Trim()) { return ($grezzo | ConvertFrom-Json) }
+        } catch { }
+    }
+
     if (-not $py) { return $muto }
     Push-Location $Root
     try {
-        # La RAM entra nel conto quanto la VRAM: sul processore il modello
-        # non sta in VRAM, sta in RAM - tutto - e accanto ci devono stare il
-        # sistema e il browser.
-        $ingresso = @{ famiglia = $famiglia; vram_gb = $vramGb; ram_gb = $ram; catalogo = $catalogo } |
-            ConvertTo-Json -Depth 12 -Compress
         $grezzo = $ingresso | & $py -m nova.catalogo 2>$null | Out-String
     } catch { return $muto } finally { Pop-Location }
     if (-not $grezzo.Trim()) { return $muto }

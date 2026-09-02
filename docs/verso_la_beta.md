@@ -777,6 +777,30 @@ in Rust e meta' no, l'utente installa comunque Python e ci sono due
 implementazioni della stessa cosa da tenere allineate. Il guadagno arriva
 tutto insieme, alla fine.
 
+**Il decimo pezzo, e il primo che toglie Python da una strada vera.**
+`nova-catalogo` decide se un modello ha senso su questa macchina, quale
+variante, e cosa dire mentre lo si fa. E' il pezzo con il criterio d'ordine
+piu' limpido di tutto il cantiere: lo chiama **l'installatore**, che gira
+prima che le dipendenze del progetto esistano. In Python era di sola libreria
+standard proprio per questo; in Rust il vincolo sparisce, perche' e' un
+binario e non ha niente da installare.
+
+`install.ps1` adesso chiede al binario e ripiega su Python solo per chi
+compila da sorgente e non ha ancora i binari. La regola resta scritta in un
+posto solo — l'installatore non ne ha una copia sua — ma non serve piu' un
+interprete per applicarla.
+
+Due difetti trovati **dall'integrazione, non dalle prove di unita'**, ed e' la
+parte da ricordare. Il primo: PowerShell scrive un BOM davanti al JSON, e
+serde si fermava con «expected value at line 1 column 1» — vero e inutile. Non
+e' sciatteria di chi chiama: e' l'ambiente in cui quel binario deve
+funzionare, ed e' compito suo incontrarlo li'. Il secondo, peggiore: il banco
+faceva `unwrap_or_default()` su una domanda illeggibile, e la famiglia vuota
+che ne usciva produceva un verdetto **perfettamente formato** — «legge almeno
+0.0 GB per token, non te lo faccio scaricare». Sembrava una risposta. Sarebbe
+stato un installatore che rifiuta ogni modello dando all'utente una ragione
+inventata.
+
 **Il nono pezzo.** `nova-salita`: quando si sale di gradino, e quando si
 sta solo girando a vuoto. Chiude il gruppo delle decisioni insieme a
 `nova-scala` e `nova-pianificazione`, ed e' il pezzo che decide **quando un
