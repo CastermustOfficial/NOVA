@@ -38,18 +38,25 @@ VARIABILI = ("OneDrive", "OneDriveCommercial", "OneDriveConsumer")
 #: I nomi di cartella che dicono «qui dentro sincronizza qualcuno».
 #: Si guardano i **componenti** del percorso, non la stringa intera: una
 #: cartella «vecchio-dropbox-export» non e' Dropbox.
-NOMI = (
-    "onedrive",
-    "dropbox",
-    "google drive",
-    "googledrive",
-    "il mio drive",
-    "my drive",
-    "icloud drive",
-    "icloakdrive",
-    "nextcloud",
-    "creative cloud files",
-)
+#: A ogni nome da cercare corrisponde **come si scrive**. Prima si usava
+#: `.title()`, che da «onedrive» tira fuori «Onedrive»: lo stesso servizio
+#: finiva scritto in due modi diversi nella stessa installazione, perche'
+#: riconosciuto dalla variabile d'ambiente diceva «OneDrive» e riconosciuto dal
+#: nome diceva «Onedrive». E' il genere di dettaglio che fa sembrare un
+#: messaggio generato invece che scritto, proprio nel punto in cui deve essere
+#: creduto.
+NOMI = {
+    "onedrive": "OneDrive",
+    "dropbox": "Dropbox",
+    "google drive": "Google Drive",
+    "googledrive": "Google Drive",
+    "il mio drive": "Google Drive",
+    "my drive": "Google Drive",
+    "icloud drive": "iCloud Drive",
+    "icloakdrive": "iCloud Drive",
+    "nextcloud": "Nextcloud",
+    "creative cloud files": "Creative Cloud",
+}
 
 #: `FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS`: il file c'e' nell'elenco ma i suoi
 #: byte stanno nel cloud. E' il caso che non si vede guardando la cartella.
@@ -95,7 +102,7 @@ def sincronizzata(percorso: str | Path) -> str:
             continue
 
     for c in _componenti(p):
-        for nome in NOMI:
+        for nome, come_si_scrive in NOMI.items():
             # Componente **intero**, oppure il nome seguito da « - », che e'
             # come OneDrive chiama le cartelle aziendali: «OneDrive - Acme».
             #
@@ -106,7 +113,7 @@ def sincronizzata(percorso: str | Path) -> str:
             # avviso sbagliato e' peggio di nessun avviso: la seconda volta
             # non lo legge piu' nessuno.
             if c == nome or c.startswith(nome + " -"):
-                return nome.title()
+                return come_si_scrive
     return ""
 
 

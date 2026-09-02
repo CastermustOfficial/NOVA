@@ -1,0 +1,16 @@
+[package]
+name = "nova-cartelle"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Che tipo di cartella e' questa, prima di metterci dentro dodici gigabyte."
+
+[dependencies]
+nova-platform = { path = "../nova-platform" }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+[[bin]]
+name = "nova-cartelle"
+path = "src/banco.rs"
