@@ -79,6 +79,81 @@ fn visibile(finestra: &WebviewWindow, p: Posto) -> bool {
     })
 }
 
+/// Riporta l'orb sotto gli occhi di chi l'ha cercato.
+///
+/// La chiama la guardia di istanza singola: se NOVA gira gia' e qualcuno
+/// riapre il collegamento, quel doppio clic non vuol dire «voglio un secondo
+/// orb» — vuol dire **non lo trovo**.
+///
+/// E «non lo trovo» ha una causa che il controllo qui sopra non prende. Si
+/// verifica che il posto salvato sia ancora su uno schermo, e lo era: la
+/// mattina in cui e' successo davvero, l'orb stava a x=-394 su un monitor
+/// che Windows elencava regolarmente. Uno schermo **elencato** non e' uno
+/// schermo che **si vede**: spento, in standby, o con l'ingresso commutato
+/// altrove resta nell'elenco identico a uno acceso. Quella differenza dal
+/// software non si distingue, quindi non serve un controllo migliore: serve
+/// una via di ritorno.
+///
+/// Chi ha appena fatto doppio clic stava guardando lo schermo su cui sta il
+/// collegamento, e quello e' il principale. Percio' se l'orb e' altrove lo si
+/// porta li'. Sposta una finestra che l'utente aveva messo apposta da
+/// un'altra parte, ed e' voluto: chi la stava vedendo dov'era non riapre il
+/// collegamento.
+pub fn richiama(app: &AppHandle) {
+    let Some(orb) = app.get_webview_window("orb") else {
+        tracing::warn!("richiamata ma l'orb non c'e'");
+        return;
+    };
+    let _ = orb.unminimize();
+    let _ = orb.show();
+
+    match sul_principale(&orb) {
+        Some(true) => tracing::info!("orb gia' sullo schermo principale: la mostro e basta"),
+        Some(false) => match posto_di_ritorno(&orb) {
+            Some(p) => match orb.set_position(PhysicalPosition::new(p.x, p.y)) {
+                Ok(()) => {
+                    tracing::info!(x = p.x, y = p.y, "orb richiamato sullo schermo principale");
+                    // Il posto nuovo si ricorda: se e' stato richiamato una
+                    // volta, riaprire NOVA domani non deve rimandarla dove
+                    // non si vedeva.
+                    scrivi(p);
+                }
+                Err(e) => tracing::warn!(errore = %e, "non riesco a richiamare l'orb"),
+            },
+            None => tracing::warn!("non so dove sia lo schermo principale: lascio l'orb dov'e'"),
+        },
+        None => tracing::warn!("non riesco a leggere gli schermi: lascio l'orb dov'e'"),
+    }
+    let _ = orb.set_focus();
+}
+
+/// Se l'orb sta sullo schermo principale. `None` se gli schermi non si leggono.
+fn sul_principale(orb: &WebviewWindow) -> Option<bool> {
+    let p = orb.outer_position().ok()?;
+    let m = orb.primary_monitor().ok()??;
+    let o = m.position();
+    let d = m.size();
+    Some(p.x >= o.x && p.y >= o.y
+        && p.x < o.x + d.width as i32
+        && p.y < o.y + d.height as i32)
+}
+
+/// Dove posare l'orb quando lo si richiama: in basso a destra sul principale.
+///
+/// Non al centro: l'orb e' un compagno, non un avviso. Il posto di fabbrica e'
+/// l'angolo, ed e' li' che chi non l'ha mai spostato se lo aspetta.
+fn posto_di_ritorno(orb: &WebviewWindow) -> Option<Posto> {
+    const MARGINE: i32 = 64;
+    let m = orb.primary_monitor().ok()??;
+    let o = m.position();
+    let d = m.size();
+    let s = orb.outer_size().ok()?;
+    Some(Posto {
+        x: o.x + d.width as i32 - s.width as i32 - MARGINE,
+        y: o.y + d.height as i32 - s.height as i32 - MARGINE * 2,
+    })
+}
+
 /// Rimette l'orb dove l'utente l'aveva lasciato, se quel posto esiste ancora.
 ///
 /// Non è detto che la finestra esista già quando parte l'avvio: dipende da

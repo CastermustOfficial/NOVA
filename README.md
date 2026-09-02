@@ -73,8 +73,14 @@ dietro, non davanti*.
 
 ### Usa il browser come lo useresti tu, ma a blocchi
 
-NOVA pilota Chrome parlando con lui in CDP. Non simula le battute sui tasti:
-incolla. Riempire cinque campi di un foglio di calcolo online costa **una**
+NOVA pilota **Edge o Chrome** parlando con loro in CDP — cerca prima Edge,
+che su Windows c'e' sempre, poi Chrome. **Firefox e Safari no**, e non e' una
+dimenticanza: parlano un altro protocollo, e far finta che vada ovunque
+sarebbe una promessa che si rompe sul PC di qualcun altro. Se non hai ne' Edge
+ne' Chrome, tutto il resto di NOVA funziona e i comandi del browser dicono che
+non trovano un browser da pilotare.
+
+Non simula le battute sui tasti: incolla. Riempire cinque campi di un foglio di calcolo online costa **una**
 chiamata invece di cinque, e leggere una tabella intera ne costa una sola.
 
 | Operazione | Misurato |
@@ -707,7 +713,7 @@ nova/
   dati.py             dove NOVA tiene le tue cose, e cosa succede se le cancelli
   processi.py         nessun processo di NOVA apre una finestra nera
   lingue.py           in che lingua risponde, e i nomi dell'interfaccia
-  browser.py          pilota Chrome in CDP: incolla, tabelle, caricamenti
+  browser.py          pilota Edge o Chrome in CDP: incolla, tabelle, caricamenti
   cerca.py            ricerca web senza aprire un browser sullo schermo
   immagini.py         le schermate che il modello puo' guardare
   ricette.py          le procedure imparate, ritrovate anche con un refuso
