@@ -476,34 +476,58 @@ uniche che separano l'alpha dalla beta.
    **Ma sbagliano la stessa domanda**, ed e' il motivo per cui questa voce ha
    fruttato piu' di quanto chiedesse. Vedi il punto 15.
 
-15. **«Ricordati che...» non finisce in memoria.** A «Ricordati che il mio
-    gatto si chiama Ugo» tutti e due i modelli chiamano `kb_search` invece di
-    `kb_note`: cercano una cosa che l'utente sta dicendo adesso. Due modelli
-    diversi che sbagliano identico non sono due modelli sbagliati: e' NOVA che
-    glielo sta dicendo male.
+15. ~~**«Ricordati che...» non finisce in memoria.**~~ Chiusa, e la chiusura
+    e' che la voce misurava la strada sbagliata.
 
-    Provato anche con «Il mio gatto si chiama Ugo», senza imperativo, per
-    escludere che fosse il verbo «ricordati» a essere letto come «recall» da
-    un modello addestrato in inglese. Stesso esito: non e' la parola.
+    Prima cosa, la diagnosi vecchia era imprecisa. Rimisurato pulito su Gemma,
+    a temperatura 0: «Ricordati che il mio gatto si chiama Ugo» non chiama
+    `kb_search`. Non chiama **niente**: risponde a parole, «certo, me lo
+    ricordero'». Le altre due forme («Il mio gatto si chiama Ugo», «Salva in
+    memoria: ...») chiamano `kb_note` giuste, e «Che cosa sai di me» chiama
+    `kb_search` giusto. Tre su quattro. A vacillare e' solo l'imperativo, e
+    vacilla fra parlare e agire, non fra i due strumenti.
 
-    Ho riscritto la sezione della memoria nel prompt di sistema (prima diceva
-    `kb_search` per primo e in forma generale, `kb_note` dopo con un verbo
-    passivo) e le descrizioni dei due strumenti. **Non e' bastato**, e lo
-    scrivo perche' e' misurato: la correzione c'e' ed e' un miglioramento di
-    chiarezza, ma il comportamento non e' cambiato.
+    Seconda cosa, e piu' importante: **ho provato a forzarlo dal prompt e l'ho
+    peggiorato**. Ho rafforzato la descrizione di `kb_note` e il prompt di
+    sistema — «rispondere lo ricordero' senza scrivere e' mentire». Risultato
+    misurato: da 3/4 a **1/6**. Detto piu' forte, il modello obbedisce di
+    meno: la lingua insistente lo spinge a rassicurare a parole invece di
+    agire. Ripristinato tutto. Vale la pena tenerlo scritto: sul tool calling
+    di un modello locale, alzare la voce nel prompt e' spesso
+    controproducente.
 
-    Cosa resta da provare, in ordine di costo:
-    - **l'ordine degli strumenti**: `kb_search` compare prima di `kb_note`
-      nell'elenco dei sessanta, e la posizione pesa;
-    - **la coda del turno**: il banco manda sistema piu' domanda, mentre NOVA
-      aggiunge in coda memoria, procedure e postilla. Il difetto potrebbe
-      stare li' e il banco non lo vedrebbe;
-    - **un solo strumento di memoria** che decide da se' se scrivere o
-      cercare, invece di due che si somigliano.
+    Terza cosa, quella che chiude la voce. NOVA ha **due strade** verso la
+    memoria, non una. La prima e' `kb_note`, che il modello chiama o no. La
+    seconda e' l'apprendimento automatico: un estrattore in sottofondo che a
+    ogni turno rilegge lo scambio e scrive da se' i fatti durevoli — e legge
+    il messaggio dell'**utente**, non solo la risposta. Il banco misurava solo
+    la prima strada. Ma la domanda dell'utente non e' «hai chiamato lo
+    strumento giusto?», e' «te lo sei ricordato?».
 
-    Vale la pena tenerlo alto in lista: «ricordati che...» e' una delle prime
-    cose che chiunque prova, e il README promette una memoria che sopravvive
-    alle sessioni.
+    Misurato end-to-end, nel caso peggiore (il modello non chiama niente,
+    risponde solo «certo, me lo ricordero'»):
+
+        utente: Ricordati che il mio gatto si chiama Ugo.
+        NOVA (solo parole): Certo, me lo ricordero'!
+        -> vault: [il-gatto-di-gio] «Il gatto di Gio si chiama Ugo.»
+
+        utente: Ricorda che lavoro meglio la mattina presto.
+        NOVA (solo parole): Perfetto, ne terro' conto.
+        -> vault: [preferenza-orario-di-lavoro] «Gio lavora meglio
+                   durante le prime ore del mattino.»
+
+    Il fatto arriva in memoria comunque. La promessa del README —
+    «una memoria che sopravvive alle sessioni» — e' mantenuta dalla seconda
+    strada, che il banco non aveva mai guardato. E' D51 di nuovo: due
+    implementazioni che concordano non sono verificate, e un banco che misura
+    lo strumento scelto non misura il risultato. La prova giusta chiede
+    «e' finito nel vault?», e la risposta e' si'.
+
+    Resta un margine di lucidatura per dopo, non un blocco: l'imperativo
+    potrebbe far scattare `kb_note` piu' spesso, cosi' il fatto compare
+    **subito** in conversazione invece che al giro dell'estrattore. Ma non e'
+    la differenza fra ricordare e dimenticare — e' la differenza fra ora e
+    fra due secondi.
 9. **Le CLI dichiarate ma non provate**: Gemini, Codex, Qwen. Sono nel menu.
    Ognuna ha permessi e formato di output suoi.
 10. **Gli endpoint API.** OpenRouter, Groq, Together parlano lo stesso dialetto
@@ -635,12 +659,20 @@ installato dopo il primo giorno.
    se il verdetto non peggiora — confronto con **prima**, non col verde
    assoluto (D31).
 
-14. **L'orb si apre due volte.** Non c'e' una guardia di istanza singola:
-    due doppi clic sul collegamento danno due orb, che si contendono lo
-    stesso demone e la stessa configurazione. Si vede subito e sembra un
-    guasto. In Tauri si risolve con la guardia di istanza singola, che alla
-    seconda apertura mostra la finestra che c'e' gia' invece di crearne
-    un'altra.
+14. ~~**L'orb si apre due volte.**~~ Chiuso e **provato dal vivo**: due
+    avvii di `nova-shell.exe` di fila, e il secondo si chiude da solo mentre
+    il primo resta — stesso PID prima e dopo. La guardia e'
+    `tauri-plugin-single-instance`, registrata come **primo** plugin (deve
+    vedere l'avvio prima di chiunque altro), e alla seconda apertura richiama
+    l'orb che c'e' gia' invece di crearne un altro: `finestre::richiama`, che
+    lo rimette nell'angolo in basso a destra dello schermo principale.
+
+    Nota che la voce e' costata piu' del suo codice non per il codice ma per
+    la **verifica**: Windows non lascia riscrivere un `.exe` mentre gira, e
+    l'orb tiene aperto `nova-shell.exe`, quindi il binario nuovo non si
+    compilava finche' NOVA era accesa. `build.ps1` adesso se ne accorge e lo
+    dice invece di lasciar fallire `cargo` dopo un minuto — ma la prova vera
+    resta chiudere, compilare, riaprire, e guardare due avvii diventare uno.
 
 
 ### Fiducia
