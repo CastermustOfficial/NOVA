@@ -1845,3 +1845,58 @@ sta dentro `NOVA`.
 Con questa il cancello della beta ha una sbarra in meno. Resta da provarlo su
 una macchina che non e' questa — ma non e' piu' una voce da scrivere: e' una
 voce da guardare mentre gira.
+
+## 2 settembre 2026, sera — la promessa che nessuno aveva verificato
+
+Terza voce. «Python 3.10, 3.11, 3.12, 3.13: l'installer dichiara 3.10+, la CI
+ne prova una.»
+
+Una versione provata su quattro dichiarate non e' una copertura parziale. Le
+tre non provate sono precisamente quelle dove l'utente e' da solo: chi ha
+3.12 come me non scopre mai niente, e chi ha 3.10 scopre tutto insieme, il
+primo giorno, e se ne va.
+
+La CI adesso le prova tutte e quattro, con `fail-fast: false`. Non e' un
+dettaglio: fermarsi alla prima che si rompe fa arrivare la notizia «si
+rompe», mentre quella utile e' «si rompe **solo** su 3.10».
+
+### Provare quattro grammatiche con un interprete solo
+
+Il rosso su un agente costa un giro di push e qualche minuto. Meta' di quel
+lavoro si puo' fare qui, e la parte piu' insidiosa e' proprio quella che si
+puo' fare qui.
+
+`ast.parse(sorgente, feature_version=(3, 10))` fa rifiutare a Python la
+sintassi arrivata dopo la 3.10. Non serve avere i quattro interpreti: la
+grammatica del minimo dichiarato si prova con quello che c'e'. 128 file, tutti
+leggibili come 3.10.
+
+La libreria standard no, e li' sta l'inciampo vero: `import tomllib` **si
+compila benissimo** su 3.10 e poi non parte. Sono le cose che uno usa senza
+pensarci perche' sul suo PC ci sono gia': `datetime.UTC`, `StrEnum`,
+`itertools.batched`, `except*`, `Path.walk`. Sedici voci cercate per nome. Non
+e' un elenco completo della libreria standard e non pretende di esserlo: e'
+una rete per gli inciampi comuni. Nessuna presente.
+
+Quindi la promessa era **vera**. Ed e' il risultato meno soddisfacente e piu'
+istruttivo di oggi: era vera per caso, e nessuno lo sapeva. La differenza fra
+alpha e beta non e' quante cose fa un programma — e' quante di quelle che dice
+di fare sono verificate.
+
+### La prova sa dire di no
+
+Ce n'e' due che passerebbero anche se non guardassero niente: una
+`feature_version` ignorata, una regex che non compila, e restano verdi per
+sempre. Allora prima di fidarsene si chiede loro di bocciare qualcosa: `type
+X = int`, che e' 3.12, deve fallire; un `import tomllib` piantato apposta deve
+essere trovato. E' la lezione dei percorsi ostili — una prova che passa va
+guardata come una che fallisce, chiedendosi *perche'* passa — applicata alla
+prova stessa mentre la si scrive, invece che tre giorni dopo.
+
+### E una nota su dove va a finire
+
+Nella sezione «da fare, ma dopo» c'e' scritto che con il porting in Rust
+questa voce **sparisce**: senza Python sul PC dell'utente non ci sono quattro
+versioni da provare. E' vero e non cambia niente oggi: la beta si spedisce con
+Python, e finche' e' cosi' la riga «3.10 o superiore» dev'essere vera per
+misura e non per fortuna.

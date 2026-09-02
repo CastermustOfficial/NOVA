@@ -208,8 +208,32 @@ uniche che separano l'alpha dalla beta.
 4. **SmartScreen e antivirus.** Un binario non firmato scaricato da GitHub
    viene messo in quarantena, e l'utente pensa a un virus. Decidere se si
    firma o se si spiega.
-5. **Python 3.10, 3.11, 3.12, 3.13.** L'installer dichiara 3.10+; la CI ne
-   prova una.
+5. ~~**Python 3.10, 3.11, 3.12, 3.13.**~~ Chiusa. L'installer dichiarava
+   3.10+ e la CI ne provava **una**: non e' una copertura parziale, e' una
+   frase che nessuno aveva verificato, e le tre non provate erano
+   esattamente quelle su cui l'utente resta da solo.
+
+   Ora la CI le prova tutte e quattro, con `fail-fast: false` — «si rompe» e
+   «si rompe solo su 3.10» sono due notizie diverse, e fermarsi alla prima
+   nasconde la seconda.
+
+   Ma il rosso su un agente arriva tardi e costa un giro. `test_python_minimo.py`
+   controlla tre cose sul portatile: che il numero dichiarato sia lo stesso
+   nell'installer e nei due README (una promessa scritta in tre posti si
+   sdoppia al primo cambio); che tutti i file si leggano con la **grammatica**
+   del minimo dichiarato — `ast.parse(..., feature_version=)` sa fingere di
+   essere piu' vecchio di quanto e', quindi quattro grammatiche si provano con
+   un interprete solo; e che non si usi niente della libreria standard
+   arrivato dopo, perche' `import tomllib` si compila benissimo su 3.10 e poi
+   non parte.
+
+   Misurato mentre la scrivevo: 128 file, tutti leggibili con la grammatica
+   3.10, e nessun uso di roba piu' nuova. La promessa era vera — ma non lo
+   sapeva nessuno, ed e' una differenza che conta.
+
+   E la prova sa dire di no: prima di fidarsi le si fa bocciare `type X = int`
+   (che e' 3.12) e riconoscere un `import tomllib` piantato apposta. Una prova
+   che passa va guardata come una che fallisce.
 
 ### La scheda video
 
