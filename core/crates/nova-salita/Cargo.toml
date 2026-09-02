@@ -1,0 +1,19 @@
+[package]
+name = "nova-salita"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Quando si sale di gradino, e quando si sta solo girando a vuoto."
+
+[dependencies]
+serde = { workspace = true, features = ["derive"], optional = true }
+serde_json = { workspace = true, optional = true }
+
+[features]
+banco = ["dep:serde", "dep:serde_json"]
+
+[[bin]]
+name = "banco-salita"
+path = "src/banco.rs"
+required-features = ["banco"]
