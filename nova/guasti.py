@@ -275,6 +275,18 @@ def _misure_del_contesto(corpo: str) -> tuple[int, int]:
         return 0, 0
 
 
+def senza_vista(corpo: str) -> bool:
+    """Se il corpo dell'errore dice «di immagini non ne ho mai viste».
+
+    Si guarda il testo e non solo il codice perche' il codice e' 500, cioe'
+    la casella dove finisce tutto quello che non ha una casella. Due indizi
+    invece di uno: la frase di llama.cpp cambiera', ma difficilmente
+    smetteranno entrambe di comparire.
+    """
+    b = (corpo or "").lower()
+    return "mmproj" in b or "image input is not supported" in b
+
+
 def spiega_http(codice: int, corpo: str = "", dove: str = "Il fornitore") -> str:
     """Un codice HTTP in una frase, e cosa si puo' fare.
 
@@ -312,6 +324,17 @@ def spiega_http(codice: int, corpo: str = "", dove: str = "Il fornitore") -> str
                 "«contesto» nelle impostazioni del cervello locale.")
     if codice == 429:
         return "la quota e' finita per adesso." + coda
+    # Un 500 che non passa da solo. llama-server risponde cosi' quando gli
+    # arriva un'immagine e lui e' partito senza proiettore visivo: e' un
+    # errore di configurazione travestito da guasto del server, e dirgli
+    # «di solito passa da solo» manda l'utente ad aspettare una cosa che non
+    # succedera' mai. Misurato: HTTP 500, «image input is not supported -
+    # hint: if this is unexpected, you may need to provide the mmproj».
+    if 500 <= codice < 600 and senza_vista(corpo):
+        return ("questo modello non sa guardare le immagini: e' stato avviato "
+                "senza il proiettore visivo (`mmproj`), che va scaricato "
+                "accanto al file del modello. Non passa da solo. Nel "
+                "frattempo va tutto il resto: e' solo la vista che manca.")
     if 500 <= codice < 600:
         return ("il problema e' dall'altra parte, non tua. Di solito passa "
                 "da solo." + coda)

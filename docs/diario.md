@@ -1661,3 +1661,108 @@ una valutazione: sono un controllo di funzionamento. Non dicono che Gemma e'
 bravo quanto Qwen, dicono che entrambi sanno usare gli strumenti di NOVA e che
 nessuno dei due ne inventa. Per la voce CMP-8, che chiedeva «provati o tolti»,
 e' esattamente quello che serviva.
+
+## 2 settembre 2026 — lo strumento che riesce
+
+COM-11 diceva: «il modello locale senza `mmproj` — `schermo` non deve
+rompersi, deve spiegarsi». L'ho letta come una voce sulla robustezza di uno
+strumento. Era una voce su una **bugia**.
+
+`schermo` non si rompeva. Scattava la schermata, la salvava, tornava il
+percorso: tutto giusto. Poi `_consegna_immagini` vedeva un file immagine
+nominato nel risultato e lo allegava alla conversazione, come deve. E li'
+finiva bene la parte che si vedeva.
+
+### Cosa dice davvero llama-server
+
+Non l'ho dedotto, l'ho chiesto. Server acceso a mano sulla 8499 con Gemma 4
+26B-A4B, `-ngl 0` perche' NOVA aveva la GPU, `--no-warmup` perche' non serviva
+generare niente, **senza** `--mmproj`. Una chiamata OpenAI con dentro un JPEG
+di un pixel:
+
+    HTTP 500
+    {"error":{"code":500,
+              "message":"image input is not supported - hint: if this is
+                         unexpected, you may need to provide the mmproj",
+              "type":"server_error"}}
+
+Buona notizia: il server **non** ignora l'immagine in silenzio. Il modello
+cieco non risponde inventandosi cosa c'era sullo schermo — quella era la
+paura, e non era fondata. Cattiva notizia: da qui in poi tre cose sbagliate.
+
+**Uno.** `spiega_http` mandava ogni 5xx a «il problema e' dall'altra parte,
+non tua. Di solito passa da solo». Questo non passa da solo. E' un file che
+non e' stato scaricato, e restera' non scaricato per sempre. Una diagnosi
+sbagliata non e' neutra: manda qualcuno ad aspettare.
+
+**Due, ed e' il vero difetto.** Il messaggio con la figura resta in
+conversazione. Il turno dopo la rimanda. Fallisce uguale. E quello dopo
+ancora. Non e' un turno perso: e' una conversazione che **non riparte piu'**
+finche' non la si butta via. Un errore che si ripete a comando e' peggio di
+uno che esplode una volta, perche' il secondo lo capisci.
+
+**Tre.** Nessuno chiedeva prima. `runtime._build_args` cercava gia' il
+proiettore accanto al modello per decidere se passare `--mmproj`. La risposta
+c'era. Chi allegava le figure non la leggeva.
+
+### La cura, nell'ordine in cui conta
+
+Prima **non mandare**: `proiettore_accanto` esce da `_build_args` e diventa
+una funzione sua, `vede_il_modello_locale` la usa, e `_consegna_immagini`
+la chiede prima di allegare. La stessa condizione con cui si costruisce la
+riga di comando decide se la figura parte — se rispondessero in due posti
+diversi, prima o poi risponderebbero diverso.
+
+Poi **dirlo al modello**. Non allegare e basta non bastava: il risultato dello
+strumento nomina lo stesso un file, e un modello a cui arriva «salvata in
+C:\...» e nient'altro racconta volentieri cosa c'era dentro. Al suo posto
+arriva una riga che dice tre cose: la figura c'e', non te la posso far vedere,
+non dire di averla guardata — e usa `ui.tree`, che legge l'interfaccia come
+testo ed e' quello che NOVA preferisce comunque.
+
+Poi **la verita' nell'errore**, per i casi che restano: un server adottato dal
+demone, un endpoint di qualcun altro. `senza_vista()` guarda due indizi invece
+di uno (la parola `mmproj` e la frase inglese), perche' il codice e' 500,
+cioe' la casella dove finisce tutto quello che non ha una casella.
+
+E infine **smurare**: se l'errore arriva lo stesso, si sfilano le immagini
+dalla conversazione tenendo il testo, e si riprova una volta. Il turno
+finisce invece di lasciare tutto bloccato.
+
+### L'errore che ho fatto scrivendolo
+
+Il ramo nuovo l'ho messo cosi':
+
+    except RuntimeError as e:
+        ...
+    except LimiteUso as e:
+        ...
+
+`LimiteUso` **eredita da** `RuntimeError`. Scritto in quell'ordine, il ramo
+nuovo si mangiava la quota finita: il gradino non sarebbe piu' andato in
+pausa, il ripiego su un altro fornitore non sarebbe piu' partito, e l'utente
+avrebbe ribattuto contro un muro esattamente come nel difetto che stavo
+curando. Me ne sono accorto andando a controllare la classe base — non per
+prudenza generica, ma perche' aggiungere un `except` sopra un `except` che
+c'era gia' e' un posto dove si sbaglia.
+
+In `test_visione.py` c'e' una prova che legge il sorgente di `_giro` e
+controlla che `except LimiteUso` compaia **prima** di `except RuntimeError`.
+E' una prova brutta e la tengo: la prossima persona che aggiunge un ramo li'
+in mezzo non ha modo di sapere questa storia, e la prova gliela racconta.
+
+Una seconda inciampata, piu' piccola e piu' istruttiva. La prova diceva
+«non promettere che passa da solo» cercando la sottostringa `passa da solo`.
+La risposta giusta e' «**Non** passa da solo». La prova bocciava la cura. Un
+test che boccia la risposta corretta e' peggio di nessun test, perche' il modo
+piu' rapido di farlo passare e' peggiorare il codice.
+
+### Una nota di attrezzi
+
+`git` dentro la VM Linux, su questa cartella montata, vede LF dove `git` di
+Windows vede CRLF: dice 55 file modificati e 9.553 righe cambiate che non
+esistono, e lascia un `index.lock` che da li' non si puo' cancellare. Da
+Windows la stessa cartella e' pulita. Per lo stato e per i commit si usa
+PowerShell.
+
+32 prove nuove, tutte verdi.

@@ -579,6 +579,20 @@ class Agent:
                     f"{e} Riprovo fra circa {minuti} minuti. Nel frattempo "
                     "puoi cambiare cervello dalle impostazioni, alla voce "
                     "Cervello.") from e
+            except RuntimeError as e:
+                # Un cervello cieco a cui e' arrivata una figura non fallisce
+                # una volta: fallisce **per sempre**, perche' l'immagine resta
+                # in conversazione e ogni turno successivo la rimanda. Si
+                # sfila e si riprova una volta sola, cosi' il turno finisce
+                # invece di lasciare la conversazione murata.
+                #
+                # Questo ramo sta sotto quello di `LimiteUso` e non sopra:
+                # `LimiteUso` eredita da `RuntimeError`, e messo prima se lo
+                # mangerebbe: la quota finita non metterebbe piu' in pausa il
+                # gradino e il ripiego non partirebbe mai.
+                if not self._sfila_le_immagini(e):
+                    raise
+                risposta = self.brain.chat(self.messages, tools, self.cfg)
 
             content = risposta.contenuto
             tool_calls = list(risposta.tool_calls)
@@ -926,6 +940,24 @@ class Agent:
             percorsi = percorsi_immagine(risultato)
             if not percorsi:
                 return
+            # Il modello locale senza proiettore non vede, e llama-server non
+            # lo lascia passare: risponde 500 e quel messaggio resta in
+            # conversazione a far fallire anche tutti i turni dopo. Meglio non
+            # allegarla affatto — ma **dirlo**, perche' il risultato dello
+            # strumento nomina lo stesso un file, e un modello a cui arriva
+            # «salvata in C:\...» e nient'altro racconta volentieri cosa c'era
+            # dentro.
+            if not self._vede_il_cervello():
+                self.messages.append({
+                    "role": "user",
+                    "content": (
+                        "[NOVA] L'immagine c'e' su disco, ma non te la posso "
+                        "far vedere: questo cervello e' partito senza "
+                        "proiettore visivo. Non dire di averla guardata. Se "
+                        "ti serve sapere cosa c'e' sullo schermo usa ui.tree "
+                        "o ui.find, che leggono l'interfaccia come testo."),
+                })
+                return
             msg = messaggio_con_immagini(percorsi)
             if msg:
                 self.messages.append(msg)
@@ -933,6 +965,62 @@ class Agent:
             log = getattr(self, "_log", None)
             if callable(log):
                 log(f"non sono riuscito a mostrare l'immagine: {e}")
+
+    def _sfila_le_immagini(self, errore: Exception) -> bool:
+        """Toglie dalla conversazione le figure che il modello non puo' vedere.
+
+        Torna `False` se non c'era niente da togliere o se l'errore parlava
+        d'altro — e allora chi ha chiamato deve rilanciare, perche' riprovare
+        una cosa identica e' il modo piu' rapido di trasformare un errore in
+        un ciclo.
+
+        Il testo del messaggio resta e l'immagine se ne va: il modello continua
+        a sapere che una figura c'era, e non crede di averla guardata.
+        """
+        from .guasti import senza_vista
+        if not senza_vista(str(errore)):
+            return False
+        tolte = 0
+        for m in self.messages:
+            contenuto = m.get("content")
+            if not isinstance(contenuto, list):
+                continue
+            testi = [b for b in contenuto
+                     if isinstance(b, dict) and b.get("type") != "image_url"]
+            if len(testi) == len(contenuto):
+                continue
+            tolte += len(contenuto) - len(testi)
+            m["content"] = ("\n".join(b.get("text", "") for b in testi).strip()
+                            + "\n[NOVA] La figura non e' allegata: questo "
+                            "cervello non sa guardare le immagini.").strip()
+        if tolte:
+            log = getattr(self, "_log", None)
+            if callable(log):
+                log(f"il cervello attivo non vede: ho sfilato {tolte} "
+                    "figur" + ("a" if tolte == 1 else "e") +
+                    " dalla conversazione")
+        return tolte > 0
+
+    def _vede_il_cervello(self) -> bool:
+        """Se il cervello attivo, com'e' configurato adesso, guarda davvero.
+
+        Le API vedono tutte. Il modello locale vede solo se accanto al suo
+        GGUF c'e' il proiettore, che e' esattamente la condizione con cui
+        `runtime` decide di passare `--mmproj`: la domanda e' una sola e la
+        risposta arriva da un posto solo.
+
+        Nel dubbio si risponde di si'. Un'immagine allegata a un modello che
+        non vede fallisce con un errore che ora sappiamo spiegare; una
+        immagine *non* allegata a un modello che vedeva non fallisce affatto,
+        e nessuno se ne accorge mai.
+        """
+        if (self.cfg.brains.active or "").strip().lower() != "locale":
+            return True
+        try:
+            from .runtime import vede_il_modello_locale
+            return vede_il_modello_locale(self.cfg)
+        except Exception:                                   # noqa: BLE001
+            return True
 
     # Strumenti che mostrano *cosa c'e' aperto adesso*, non *com'e' fatto il
     # PC. Leggerli serve ad agire; ricordarli scriverebbe nel vault i titoli

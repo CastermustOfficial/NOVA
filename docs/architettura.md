@@ -782,3 +782,20 @@ questioni aperte.
   l'installer scarica `mmproj-F16.gguf` insieme al modello e lo conta nello
   spazio richiesto. Se il download fallisce lo dice, invece di lasciare la
   vista spenta in silenzio.
+
+  E chi porta un modello suo, senza passare dall'installer? Quel caso ora
+  degrada da solo. `runtime.proiettore_accanto()` risponde a una domanda
+  sola — «c'e' il proiettore accanto a questo GGUF?» — e la stessa risposta
+  serve a due decisioni: se passare `--mmproj` alla riga di comando, e se
+  allegare una figura alla conversazione. Tenerle separate voleva dire
+  lasciarle divergere.
+
+  Quando la risposta e' no, la schermata si scatta lo stesso (il file su
+  disco ha valore comunque) ma al modello arriva una riga di testo al posto
+  dell'immagine, che gli dice di non fingere di averla guardata e di usare
+  `ui.tree`. Se l'immagine parte comunque — un server acceso da altri, un
+  endpoint esterno — `llama-server` risponde **HTTP 500** con
+  `image input is not supported [...] provide the mmproj`, e a quel punto
+  NOVA sfila le figure dalla conversazione e riprova una volta: senza
+  quello il messaggio con l'immagine resterebbe in coda e farebbe fallire
+  **tutti** i turni successivi, non solo il suo.

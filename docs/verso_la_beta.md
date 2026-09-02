@@ -458,8 +458,38 @@ uniche che separano l'alpha dalla beta.
    Ognuna ha permessi e formato di output suoi.
 10. **Gli endpoint API.** OpenRouter, Groq, Together parlano lo stesso dialetto
     «quasi»: il tool calling e' il punto dove smettono di somigliarsi.
-11. **Il modello locale senza `mmproj`.** L'installer lo dice, ma il resto del
-    sistema deve degradare bene: `schermo` non deve rompersi, deve spiegarsi.
+11. ~~**Il modello locale senza `mmproj`.**~~ Chiusa, e la misura ha
+    cambiato la forma della cura. Avevo scritto «`schermo` non deve
+    rompersi»: `schermo` non si rompeva affatto, scattava benissimo. A
+    rompersi era il **turno dopo**.
+
+    Misurato: `llama-server` avviato senza proiettore, una chiamata con
+    dentro un `image_url`, e risponde **HTTP 500** con
+    `image input is not supported - hint: [...] provide the mmproj`. Da li'
+    tre difetti che non si vedevano:
+
+    - `spiega_http` mandava ogni 5xx a «di solito passa da solo». Questo non
+      passa da solo: e' un file che non e' stato scaricato. Mandare qualcuno
+      ad aspettare una cosa che non succedera' mai e' peggio che dirgli
+      «non lo so»;
+    - il messaggio con la figura **restava in conversazione**, quindi il
+      turno dopo la rimandava e falliva uguale. Non un turno perso: una
+      conversazione murata finche' non la si butta;
+    - e nessuno chiedeva **prima**. `runtime` sapeva gia' se il proiettore
+      c'era — lo cercava per decidere se passare `--mmproj` — ma chi
+      allegava le figure non glielo domandava mai.
+
+    Ora la domanda si fa prima (`vede_il_modello_locale`), la figura non
+    parte e al modello arriva una riga che gli dice di non fingere di aver
+    guardato e di usare `ui.tree`; se l'errore arriva lo stesso — server
+    adottato, endpoint di qualcun altro — si sfila l'immagine e si riprova
+    una volta, e la spiegazione dice la verita'.
+
+    Da tenere a mente per la prossima volta: il difetto non stava dove
+    diceva la voce. Una schermata consegnata a un modello cieco non e' uno
+    strumento che fallisce, e' uno strumento che **riesce** e avvelena il
+    resto della conversazione — e sono i secondi quelli che non si trovano
+    guardando l'elenco degli strumenti.
 
 ### Il contorno
 
