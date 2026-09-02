@@ -2565,6 +2565,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "nova-salita"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "nova-scala"
 version = "0.1.0"
 dependencies = [

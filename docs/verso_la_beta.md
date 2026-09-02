@@ -777,6 +777,22 @@ in Rust e meta' no, l'utente installa comunque Python e ci sono due
 implementazioni della stessa cosa da tenere allineate. Il guadagno arriva
 tutto insieme, alla fine.
 
+**Il nono pezzo.** `nova-salita`: quando si sale di gradino, e quando si
+sta solo girando a vuoto. Chiude il gruppo delle decisioni insieme a
+`nova-scala` e `nova-pianificazione`, ed e' il pezzo che decide **quando un
+compito esce dal PC** — salire quando non serve manda fuori roba che poteva
+restare in casa, non salire quando serve lascia l'utente davanti a un muro.
+
+Due sintomi diversi con due cure opposte, e vale la pena tenerli distinti:
+sbattere contro un muro (N fallimenti di fila) si cura **salendo**; girare a
+vuoto (la stessa chiamata con gli stessi argomenti, magari riuscendo ogni
+volta) non si cura salendo, perche' non c'e' niente da far salire — si cura
+**facendolo notare**. La ripetizione produce un promemoria, mai un divieto:
+la decisione resta al modello, e una ripetizione legittima non viene bloccata
+da niente. C'e' una prova apposta su questo, perche' se un domani diventasse
+un blocco il confronto fra le due implementazioni resterebbe verde — sarebbero
+d'accordo nel fare la cosa sbagliata.
+
 **L'ottavo pezzo.** Portati: ricette, memoria, registro, modelli, motore,
 scala, guasti, **calendario e pianificazione**. L'ottavo sta nel gruppo delle
 decisioni insieme a `nova-scala`: `prossimo()` traduce «ogni lunedi' alle 9»

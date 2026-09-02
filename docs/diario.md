@@ -2110,3 +2110,72 @@ nuovo, e poi di nuovo — il difetto che non si vede finche' non e' notte.
 
 126 prove Rust verdi in tutto il workspace, 196 casi di confronto, 0
 divergenze.
+
+## 2 settembre 2026, notte — il nono pezzo: quando si molla
+
+`nova-salita`. Chiude il gruppo delle decisioni, e come `nova-scala` decide
+una cosa che si vede in bolletta e in riservatezza: **quando un compito esce
+dal PC**. Salire di gradino vuol dire passarlo a un modello piu' capace, che
+quasi sempre e' un modello di qualcun altro.
+
+### Due modi di non farcela, e non si curano allo stesso modo
+
+Il Python aveva gia' la distinzione giusta, e portandola si vede meglio.
+
+**Sbattere contro un muro**: N chiamate di fila che falliscono. Qui si sale.
+
+**Girare a vuoto**: la stessa `list_directory` sulla stessa cartella, otto
+volte, e ogni volta con esito OK. Qui non c'e' niente da far salire — il
+gradino sopra rifarebbe lo stesso giro. C'e' da far **notare**.
+
+La seconda e' quella che fa davvero il modello locale, ed e' anche quella in
+cui e' piu' facile scrivere la cosa sbagliata: bloccare la chiamata ripetuta.
+Non si fa. Esce un promemoria e la decisione resta al modello — riprovare
+diversamente, cercare altrove, o concludere con quello che ha. Una
+ripetizione legittima non viene impedita da niente.
+
+Tre soglie — la terza, la quinta, l'ottava — e poi silenzio. Un promemoria a
+ogni giro diventa rumore, e il rumore si impara a saltare.
+
+E un dettaglio che sembra piccolo e non lo e': gli strumenti di servizio
+(`get_datetime`, `kb_stats`, `modelli`) non spezzano la catena. Se contassero,
+basterebbe un `get_datetime` in mezzo per ripulire un ciclo e renderlo
+invisibile — cioe' il modo piu' facile di girare a vuoto senza che nessuno lo
+dica.
+
+### Cosa ho deciso di NON portare
+
+Gli argomenti di una chiamata arrivano al Rust **gia' resi in testo**.
+
+La tentazione era far produrre al Rust la stessa identica stringa di
+`json.dumps(args, sort_keys=True)`, per confrontarla a byte col Python.
+Sarebbe stato lavoro vero — le spaziature di `json.dumps` non sono quelle di
+`serde_json`, e poi c'e' `ensure_ascii`, e poi `default=str` — per far
+combaciare una stringa **che non esce mai dal processo**. Serve solo a dire
+«questa chiamata e' uguale alla precedente».
+
+Quindi la serializzazione resta fuori e si confrontano le **decisioni**. E'
+la stessa linea di `nova-calendario` senza fusi e di `nova-registro` senza
+disco: dentro la parte che decide, fuori la parte che parla con qualcun
+altro.
+
+### La prova che il confronto non puo' fare
+
+512 combinazioni di `serve_salire` — quattro configurazioni per tutti i
+valori di fallimenti, salite e passi — tutte identiche. La catena delle
+ripetizioni confrontata passo per passo su una sequenza che contiene i due
+casi scomodi: gli argomenti che cambiano, e il tool trasparente in mezzo.
+Zero divergenze.
+
+Ma c'e' una prova che il confronto non potrebbe mai fare, ed e' quella sul
+promemoria che resta un promemoria. Se un domani qualcuno lo trasformasse in
+un veto, e lo facesse in tutte e due le implementazioni, il confronto
+resterebbe verde: sarebbero d'accordo nel fare la cosa sbagliata. Quindi c'e'
+un controllo che guarda il **testo che esce** e pretende che dica al modello
+che la scelta e' sua, e che non contenga «non puoi», «vietato», «bloccato».
+E' D51 applicata a una proprieta' di prodotto invece che a un segreto.
+
+Un caso che ho messo apposta fra le prove Rust: `passi_prima_di_salire` a
+zero deve **spegnere** la soglia, non accenderla. Con un `>=` scritto senza
+pensarci, «passi >= 0» e' sempre vero e si salirebbe al primo giro — cioe' la
+manopola che serve a disattivare la funzione la farebbe scattare sempre.
