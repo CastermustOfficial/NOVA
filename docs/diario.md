@@ -2035,3 +2035,78 @@ Resta un margine di lucidatura per dopo — far scattare `kb_note` sull'imperati
 cosi' il fatto compare *subito* invece che al giro dell'estrattore — ma non e'
 la differenza fra ricordare e dimenticare. E' la differenza fra ora e fra due
 secondi, e non tiene aperta la voce.
+
+## 2 settembre 2026, notte — il cantiere riaperto: calendario e pianificazione
+
+Chiusa la todo di quel che si poteva chiudere da soli, ho riaperto il
+cantiere. Ottavo pezzo: `prossimo()` di `pianificazione.py`, cioe' la
+funzione che traduce «ogni lunedi' alle 9» nell'istante in cui tocca.
+
+Sta nel gruppo delle **decisioni**, con `nova-scala`. Non calcola qualcosa da
+mostrare: decide quando NOVA fa una cosa da sola. Sbagliarlo di un giorno vuol
+dire un'attivita' che non parte, o che parte in continuazione.
+
+### Il pezzo che non era in programma
+
+Aprendo il lavoro serviva `giorni_del_mese`. Esisteva gia' — privata, dentro
+`nova-registro`, dodici righe con la regola gregoriana giusta (il 1900 non
+bisestile, il 2000 si').
+
+La strada comoda era ricopiarla. Sarebbe stata la **quarta** volta che questo
+progetto si accorge di aver duplicato cio' di cui una cosa e' fatta: l'elenco
+dei binari, le cartelle sincronizzate, i posti dei dati, e adesso il
+calendario. Le prime tre le ho scoperte dopo che si erano gia' disallineate.
+Questa l'ho vista prima, il che e' l'unica differenza che conta.
+
+Quindi e' nato `nova-calendario`, e `nova-registro` adesso lo usa al posto
+della sua copia. Alla seconda occorrenza si mette in comune, non alla quarta.
+
+Due scelte dentro, tutte e due ereditate da com'era gia' fatto il registro:
+**nessun orologio** — l'ora si passa da fuori, come `oggi` in `giorno()`,
+cosi' si prova a qualunque ora — e **nessun fuso**, perche' un fuso e' una
+domanda di piattaforma e sta in `nova-platform`. Qui resta la parte che non
+cambia mai: quanti giorni ha febbraio, che giorno della settimana e' il tre
+marzo, cosa viene dopo il 31 dicembre.
+
+### La prova che sbagliava era la prova
+
+`piu_giorni` ha una proprieta' che volevo verificare: andata e ritorno devono
+tornare al punto di partenza. L'ho scritta, e ha fallito:
+
+    left:  "2025-12-31T10:00:00"
+    right: "2026-01-01T10:00:00"
+
+Il primo istinto e' cercare il difetto nel riporto sui mesi. Non c'era: il
+2026 **non e' bisestile**, ha 365 giorni, quindi 366 giorni indietro dal primo
+gennaio 2027 sono il 31 dicembre 2025. Avevo scritto 366 per analogia con «un
+anno», che e' vero solo negli anni bisestili. **A sbagliare era l'attesa, non
+il codice.**
+
+E' il caso opposto a quello solito e vale la pena tenerlo scritto: quando una
+prova fallisce, la prima cosa da verificare e' che abbia ragione lei. Adesso
+la prova controlla 365 e 366 separati, e in piu' lo stesso conto a partire dal
+2025 — che segue un anno bisestile e quindi da' un risultato diverso di un
+giorno. Se un domani qualcuno «aggiusta» il riporto, quelle tre righe insieme
+gli dicono che il calendario non e' simmetrico.
+
+### Il confronto, e cosa il confronto non vede
+
+`test_pianificazione_rust.py` manda 7 momenti per 28 frasi — 196 casi — a
+tutte e due le implementazioni e le confronta cifra per cifra. Tutte uguali.
+
+Ma il confronto da solo non basta, ed e' D51: due implementazioni che
+concordano non sono due implementazioni verificate. Se avessi copiato un
+errore dal Python al Rust senza accorgermene, 196 casi su 196 sarebbero
+d'accordo e nessuno direbbe niente. Quindi la prova ha anche undici
+**risultati attesi calcolati sul calendario**, scritti a mano senza chiedere
+niente a nessuna delle due: che il 2 settembre 2026 e' un mercoledi', che dal
+28 febbraio 2024 si passa per il 29 e dal 28 febbraio 2026 no, che «ogni 30
+minuti» alle 23:30 del 31 dicembre da' Capodanno. Il Rust li da' giusti, e il
+Python pure.
+
+E una proprieta' che nessuno dei due deve rompere: **il prossimo e' sempre
+avanti**. Un istante nel passato farebbe partire l'attivita' subito, e poi di
+nuovo, e poi di nuovo — il difetto che non si vede finche' non e' notte.
+
+126 prove Rust verdi in tutto il workspace, 196 casi di confronto, 0
+divergenze.

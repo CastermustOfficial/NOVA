@@ -777,6 +777,26 @@ in Rust e meta' no, l'utente installa comunque Python e ci sono due
 implementazioni della stessa cosa da tenere allineate. Il guadagno arriva
 tutto insieme, alla fine.
 
+**L'ottavo pezzo.** Portati: ricette, memoria, registro, modelli, motore,
+scala, guasti, **calendario e pianificazione**. L'ottavo sta nel gruppo delle
+decisioni insieme a `nova-scala`: `prossimo()` traduce «ogni lunedi' alle 9»
+nell'istante in cui tocca, e sbagliarlo di un giorno vuol dire un'attivita'
+che non parte o che parte a ripetizione.
+
+E' arrivato con un pezzo che non era in programma. `giorni_del_mese` esisteva
+gia', privata, dentro `nova-registro`, e serviva di nuovo al calendario della
+pianificazione. Scriverne una seconda copia sarebbe stata la quarta volta —
+dopo l'elenco dei binari, le cartelle sincronizzate e i posti dei dati — che
+questo progetto si accorge di aver duplicato cio' di cui una cosa e' fatta.
+Alla seconda occorrenza si mette in comune, non alla quarta: e' nato
+`nova-calendario`, e `nova-registro` adesso lo usa al posto della sua copia.
+
+`nova-calendario` non ha un orologio dentro, di proposito: l'ora si passa
+sempre da fuori, come `oggi` in `nova-registro::giorno`. Cosi' si prova a
+qualunque ora, anche il 29 febbraio, anche a Capodanno. E non ha fusi: un
+fuso e' una domanda di piattaforma e sta in `nova-platform`; qui resta la
+parte che non cambia mai.
+
 **Il settimo pezzo, e il conto di quel che resta.** Portati: ricette,
 memoria, registro, modelli, motore, scala, guasti. I primi tre erano logica pura; gli ultimi due sono
 il gruppo che risponde alla domanda «cosa c'e' su questo PC» — dischi, GGUF,
