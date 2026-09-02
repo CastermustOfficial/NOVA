@@ -1900,3 +1900,65 @@ questa voce **sparisce**: senza Python sul PC dell'utente non ci sono quattro
 versioni da provare. E' vero e non cambia niente oggi: la beta si spedisce con
 Python, e finche' e' cosi' la riga «3.10 o superiore» dev'essere vera per
 misura e non per fortuna.
+
+## 2 settembre 2026, sera — firmare o spiegare
+
+Quarta voce, e la prima che si chiude con una **decisione** invece che con
+del codice: «SmartScreen e antivirus. Decidere se si firma o se si spiega.»
+
+Si spiega. Non per risparmiare: una firma per un editore nuovo **non toglie
+comunque** l'avviso finche' SmartScreen non gli ha costruito una
+reputazione, quindi si pagherebbe qualche centinaio di euro l'anno per non
+risolvere il problema. Il giorno che NOVA avra' abbastanza installazioni la
+firma avra' senso, perche' allora la reputazione ci sara'. Oggi no.
+
+Ma «spiegare» e' facile da dire e quasi sempre finisce in una riga di README
+che nessuno legge nel momento sbagliato. La spiegazione vale se arriva dove
+capita il fatto, e i posti erano tre.
+
+### Uno: prima, nei README
+
+Cosa dira' Windows e perche'. E soprattutto la cosa che l'avviso di Windows
+**non** dice: l'installer confronta le impronte SHA256 pubblicate con la
+release. «Non conosco l'editore» e «questo file e' diverso da quello
+pubblicato» sono due affermazioni diverse, e solo la seconda e' quella che
+un utente vuole davvero sapere. Windows fa la prima, l'installer fa la
+seconda.
+
+### Due: nel momento in cui succede
+
+Questo era un difetto vero, non una mancanza di documentazione.
+
+    if (-not (Core-Presente)) { throw "l'archivio non conteneva tutti i binari attesi" }
+
+Frase sbagliata nel caso piu' probabile. L'archivio li conteneva tutti: e'
+Windows Defender che si porta via un eseguibile nuovo e non firmato appena
+compare su disco. Sono due guasti che si somigliano e si curano in modo
+**opposto**: se la release e' incompleta, sul PC dell'utente non c'e' niente
+da fare e va segnalato a noi; se e' l'antivirus, la release e' a posto e la
+cura sta tutta sul suo PC. Dirgli quella sbagliata gli fa perdere il
+pomeriggio dalla parte sbagliata.
+
+Adesso l'installer legge l'elenco dei file **dentro** l'archivio prima di
+scompattarlo. Se un binario c'era e dopo non c'e' piu', la diagnosi e'
+certa, e la frase dice dove ripristinarlo e quale cartella consentire.
+
+### Tre: il contrassegno «scaricato da Internet»
+
+Windows lo attacca a ogni file che arriva dalla rete, e senza toglierlo
+SmartScreen chiede conferma a **ogni** avvio — non la prima volta: sempre.
+La schermata blu «Windows ha protetto il PC», ogni giorno, su un programma
+che l'utente ha installato di sua volonta'.
+
+Si toglie con `Unblock-File`, che e' esattamente la spunta «Annulla blocco»
+nelle proprieta' del file. La cosa che rende la scelta accettabile e'
+l'**ordine**: si toglie solo dopo aver confrontato le impronte. Al
+contrario, si zittirebbe l'avviso di Windows su un file di cui non si sa
+ancora niente — che e' precisamente il comportamento di un installer
+malevolo. C'e' una prova che legge il sorgente e pretende che
+«Impronte verificate» venga prima di `Unblock-File`, perche' quell'ordine e'
+l'unica cosa che separa le due letture della stessa riga.
+
+E si dice, invece di farlo di nascosto. Piu' potente e' il mezzo, piu' alti
+sono i rischi; piu' alti sono i rischi, piu' si e' responsabili — e la
+responsabilita' comincia dal dire cosa si e' fatto al PC di qualcun altro.

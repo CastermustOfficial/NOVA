@@ -28,6 +28,18 @@ cd NOVA
 .\install.ps1
 ```
 
+> **Windows dira' che non conosce l'editore.** I binari di NOVA non sono
+> firmati con un certificato: una firma costa qualche centinaio di euro
+> l'anno e, per un editore nuovo, **non toglie comunque** l'avviso finche'
+> non ha una reputazione. Quindi la scelta e' dichiarata invece che
+> nascosta. Cosa aspettarsi: SmartScreen puo' dire «Windows ha protetto il
+> PC» al primo avvio — «Ulteriori informazioni» > «Esegui comunque»; e
+> l'antivirus puo' mettere in quarantena un eseguibile appena scaricato,
+> nel qual caso l'installer te lo dice e ti dice dove ripristinarlo.
+> L'installer confronta le impronte SHA256 pubblicate con la release prima
+> di installare qualunque cosa: e' un controllo che l'avviso di Windows non
+> fa, ed e' quello che dice se il file e' davvero il nostro.
+
 **Compare un orb** in un angolo dello schermo. Cliccalo, oppure chiamala per
 nome. La prima volta ti propone tre cose da provare — sono queste. Nessuna
 tocca un tuo file: le prime due leggono e basta, la terza si scrive un

@@ -205,9 +205,35 @@ uniche che separano l'alpha dalla beta.
    il valore di fabbrica e' spento. La prova lo legge dal registro e lo
    scrive, invece di passare in silenzio: passare senza dirlo sarebbe falsa
    sicurezza, cioe' «da me funziona» con un bollino verde sopra.
-4. **SmartScreen e antivirus.** Un binario non firmato scaricato da GitHub
-   viene messo in quarantena, e l'utente pensa a un virus. Decidere se si
-   firma o se si spiega.
+4. ~~**SmartScreen e antivirus.**~~ Deciso: **si spiega**. Una firma costa
+   qualche centinaio di euro l'anno e, per un editore nuovo, non toglie
+   comunque l'avviso finche' SmartScreen non gli ha costruito una
+   reputazione: si pagherebbe per non risolvere il problema. Il giorno che
+   NOVA avra' abbastanza installazioni la firma avra' senso; oggi no.
+
+   «Spiegare» pero' vale solo se la spiegazione arriva **dove capita il
+   fatto**, e i posti sono tre.
+
+   - **Nei due README, prima di installare.** Cosa dira' Windows, perche',
+     e cosa fa invece l'installer: confronta le impronte SHA256 pubblicate
+     con la release. E' un controllo che l'avviso di Windows non fa — quello
+     dice «non conosco l'editore», non «questo file e' diverso da quello
+     pubblicato».
+   - **Nell'installer, nel momento in cui succede.** Prima diceva
+     «l'archivio non conteneva tutti i binari attesi» anche quando li
+     conteneva tutti e l'antivirus se n'era portato via uno dopo. Sono due
+     guasti che si somigliano e si curano in modo opposto: uno e' colpa
+     della release e sul PC non c'e' niente da fare, l'altro e' il
+     contrario. Adesso l'installer legge l'elenco dei file **dentro
+     l'archivio** prima di scompattarlo, e se un binario c'era e poi non
+     c'e' piu' lo dice, con il percorso da consentire in Sicurezza di
+     Windows.
+   - **Sul contrassegno «scaricato da Internet»**, che senza toglierlo fa
+     comparire la schermata blu a **ogni** avvio, non una volta. Si toglie,
+     ma solo ai file appena verificati, e dicendolo. L'ordine e' la cosa che
+     conta e c'e' una prova che lo blocca: prima le impronte, poi
+     `Unblock-File`. Al contrario si zittirebbe l'avviso di Windows su un
+     file di cui non si sa ancora niente.
 5. ~~**Python 3.10, 3.11, 3.12, 3.13.**~~ Chiusa. L'installer dichiarava
    3.10+ e la CI ne provava **una**: non e' una copertura parziale, e' una
    frase che nessuno aveva verificato, e le tre non provate erano

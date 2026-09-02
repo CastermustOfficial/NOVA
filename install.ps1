@@ -419,6 +419,20 @@ function Scarica-Core {
     }
     $zip = Join-Path $env:TEMP $asset.name
     Scarica $asset.browser_download_url $zip "core $($rel.tag_name)"
+    # Cosa c'era DENTRO l'archivio, prima di scompattarlo. Serve piu' tardi
+    # per distinguere due guasti che si somigliano e che si curano in modo
+    # opposto: «la release e' incompleta» (colpa nostra, non c'e' niente da
+    # fare sul PC dell'utente) e «l'antivirus ha portato via un eseguibile»
+    # (la release e' a posto, e la cura e' sul PC). Senza questo elenco
+    # l'installer diceva «l'archivio non conteneva tutti i binari attesi»
+    # anche quando li conteneva tutti.
+    $dentroLoZip = @()
+    try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem -EA SilentlyContinue
+        $arch = [System.IO.Compression.ZipFile]::OpenRead($zip)
+        $dentroLoZip = @($arch.Entries | ForEach-Object { $_.Name })
+        $arch.Dispose()
+    } catch { }
     Expand-Archive -Path $zip -DestinationPath $BinDir -Force
     Remove-Item $zip -Force
     # Gli hash sono pubblicati apposta: verificarli costa un secondo.
@@ -436,7 +450,33 @@ function Scarica-Core {
         }
         Ok "Impronte verificate."
     }
-    if (-not (Core-Presente)) { throw "l'archivio non conteneva tutti i binari attesi" }
+
+    # Il contrassegno «scaricato da Internet». Windows lo attacca a ogni file
+    # che arriva dalla rete, e senza toglierlo SmartScreen chiede conferma a
+    # ogni avvio - non una volta: ogni volta, con la schermata blu che dice
+    # «Windows ha protetto il PC», che chi non la conosce legge come «questo
+    # e' un virus». Si toglie solo qui, solo a questi file, e solo DOPO aver
+    # confrontato le impronte SHA256 pubblicate con la release: e' la stessa
+    # cosa che farebbe l'utente spuntando «Annulla blocco» nelle proprieta'
+    # del file, fatta una volta sola e dopo un controllo che a mano non
+    # avrebbe fatto.
+    Get-ChildItem $BinDir -Filter *.exe -EA SilentlyContinue | Unblock-File -EA SilentlyContinue
+    Ok "Tolto il contrassegno «scaricato da Internet» ai binari verificati."
+
+    if (-not (Core-Presente)) {
+        $mancanti = @($binari | Where-Object { -not (Test-Path (Join-Path $BinDir $_)) })
+        $c_erano = @($mancanti | Where-Object { $dentroLoZip -contains $_ })
+        if ($c_erano.Count -eq $mancanti.Count -and $dentroLoZip.Count) {
+            # C'erano nell'archivio e adesso non ci sono: non li ha persi
+            # l'archivio, li ha tolti qualcosa su questo PC.
+            throw ("$($c_erano -join ', ') erano nell'archivio e adesso non ci sono piu': " +
+                   "quasi sempre e' l'antivirus, perche' sono eseguibili nuovi e non firmati. " +
+                   "Sicurezza di Windows > Protezione da virus e minacce > Cronologia protezione: " +
+                   "ripristinali e consenti la cartella $BinDir, poi rilancia questo installer.")
+        }
+        throw ("l'archivio non conteneva tutti i binari attesi (mancano: $($mancanti -join ', ')). " +
+               "E' un problema della release, non del tuo PC: segnalalo.")
+    }
 }
 
 function Compila-Core {
