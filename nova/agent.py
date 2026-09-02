@@ -886,7 +886,15 @@ class Agent:
             radice.mkdir(parents=True, exist_ok=True)
             sicuro = re.sub(r"[^A-Za-z0-9_.-]", "_", f"{name}-{call_id}")[:60]
             percorso = radice / f"{datetime.now():%Y%m%d-%H%M%S}-{sicuro}.txt"
-            percorso.write_text(testo, encoding="utf-8", errors="replace")
+            # Mascherato prima di toccare il disco. Qui finisce il risultato
+            # **intero** di uno strumento, e uno strumento legge file e lancia
+            # comandi: un `.env`, l'uscita di `git config`, un curl con
+            # l'intestazione dentro. Il modello quel testo l'ha gia' visto nel
+            # turno; questo file invece resta, dentro la cartella del progetto
+            # — che puo' benissimo essere sincronizzata col cloud.
+            from .forme_riservate import maschera
+            percorso.write_text(maschera(testo), encoding="utf-8",
+                                errors="replace")
         except Exception as e:
             # Se il file non si scrive si torna al taglio, ma dichiarato:
             # meglio una perdita detta di una promessa non mantenuta.

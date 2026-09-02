@@ -37,6 +37,8 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from .forme_riservate import etichetta_di_segreto, maschera
+
 # Oltre questa soglia il file viene ruotato in .1: un registro che cresce
 # senza fine e' un registro che nessuno apre.
 BYTE_MAX = 2_000_000
@@ -60,6 +62,25 @@ def _ruota(f: Path) -> None:
         pass
 
 
+def _dettagli_sicuri(azione: str, dove: str, dettagli: str) -> str:
+    """I dettagli mascherati, e sostituiti del tutto se il campo li annuncia.
+
+    Il caso che il filtro per forme non puo' prendere: NOVA compila un modulo
+    di accesso e scrive «scritto in #password» nell'azione e «Tramonto2026!»
+    nei dettagli. Guardati uno per volta non sono niente — la seconda e' una
+    parola con dentro un anno. Guardati insieme sono una credenziale.
+
+    Saper compilare un modulo di accesso e' una cosa che NOVA deve fare. Il
+    prezzo e' che il registro di quelle azioni non puo' conservare cio' che ha
+    scritto: resta la riga, che dice cosa e' successo e dove, e sparisce il
+    valore, che e' l'unica parte che non serve a nessuno per rileggere la
+    storia.
+    """
+    if etichetta_di_segreto(azione) or etichetta_di_segreto(dove):
+        return "[non registrato: il campo contiene una credenziale]"
+    return maschera(dettagli or "")[:TESTO_MAX]
+
+
 def annota(azione: str, dove: str = "", dettagli: str = "",
            tipo: str = "browser", esito: str = "") -> None:
     """Scrive una riga. Non solleva mai: un registro che impedisce di
@@ -69,15 +90,28 @@ def annota(azione: str, dove: str = "", dettagli: str = "",
         f = percorso()
         f.parent.mkdir(parents=True, exist_ok=True)
         _ruota(f)
+        # Tutto quello che entra qui passa dal filtro, senza eccezioni.
+        #
+        # Il registro e' un file che resta, e ci finisce dentro anche il testo
+        # che NOVA **scrive** nei campi: `annota("scritto in ...",
+        # dettagli=testo)`. NOVA sa compilare un modulo di accesso — e' una
+        # cosa che deve saper fare — quindi prima o poi in `dettagli` c'e' una
+        # password. Ci finiscono anche le righe di comando, e una riga di
+        # comando porta volentieri un `Authorization: Bearer`.
+        #
+        # Si maschera **qui** e non nei quindici posti che chiamano `annota`,
+        # per la stessa ragione per cui il vault si chiude su `upsert`: la
+        # porta e' una sola, e chiuderla li' vuol dire chiuderla e basta. Un
+        # chiamante che si dimentica non e' un'ipotesi, e' una certezza.
         riga = {
             "quando": datetime.now().isoformat(timespec="seconds"),
             "tipo": tipo,
-            "azione": (azione or "")[:200],
-            "dove": (dove or "")[:300],
-            "dettagli": (dettagli or "")[:TESTO_MAX],
+            "azione": maschera(azione or "")[:200],
+            "dove": maschera(dove or "")[:300],
+            "dettagli": _dettagli_sicuri(azione, dove, dettagli),
         }
         if esito:
-            riga["esito"] = esito[:200]
+            riga["esito"] = maschera(esito)[:200]
         with open(f, "a", encoding="utf-8") as fh:
             fh.write(json.dumps(riga, ensure_ascii=False) + "\n")
     except Exception:

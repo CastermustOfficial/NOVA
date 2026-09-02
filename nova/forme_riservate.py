@@ -62,6 +62,29 @@ ETICHETTATA = re.compile(
 )
 
 
+#: Le parole che, quando compaiono nel **nome del campo**, dicono che il
+#: contenuto e' un segreto anche se preso da solo non lo sembra.
+#: «Tramonto2026!» e' una parola qualunque finche' non si sa che sta in un
+#: campo che si chiama «password».
+_ETICHETTE = re.compile(
+    r"password|passwd|pwd|parola\s+d[i']?\s*ordine|passphrase|"
+    r"\bpin\b|\botp\b|token|secret|segreto|bearer|authorization|"
+    r"credenzial[ei]|api[\s_-]?key|chiave\s+(?:api|privata|segreta)|"
+    r"private[\s_-]?key|seed\s*phrase",
+    re.IGNORECASE,
+)
+
+
+def etichetta_di_segreto(testo: str) -> bool:
+    """Se questo testo e' il **nome** di qualcosa che contiene un segreto.
+
+    Serve a chi ha l'etichetta e il valore in due posti diversi — il registro
+    scrive «scritto in #password» in un campo e «Tramonto2026!» in un altro,
+    e guardandoli uno per volta nessuno dei due sembra niente.
+    """
+    return bool(_ETICHETTE.search(testo or ""))
+
+
 def che_forma(testo: str) -> str | None:
     """Come si chiama il segreto che c'e' qui dentro, se ce n'e' uno.
 
