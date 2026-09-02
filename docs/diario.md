@@ -2476,3 +2476,62 @@ chiedera' a `forme_riservate` come fanno gia' le altre tre.
 **Il conto della serata**: quattro posti dove un segreto poteva restare su
 disco — il vault, il giornale dei guasti, il giornale delle azioni, i
 risultati versati — e uno solo dei quattro se ne stava occupando.
+
+### Sei, non quattro
+
+Continuando a cercare ne sono usciti altri due, e uno e' la stessa lezione per
+la terza volta.
+
+**La frase del guasto.** `spiega` finisce cosi':
+
+    messaggio = str(e).strip()
+    return premessa + (messaggio if messaggio else "...")
+
+`str(e)` cosi' com'e'. E il messaggio di un'eccezione porta volentieri il
+valore che l'ha causata: `Incorrect API key provided: sk-...`. E' il caso
+**vero** da cui era nata D29 — il fornitore che rimanda indietro la chiave
+dentro il proprio errore — e allora si era chiuso il corpo delle risposte
+HTTP. Questo ramo, che e' quello per cui passa tutto il resto, era rimasto
+aperto. Terza volta della stessa lezione, in un modulo diverso: la prima nei
+guasti, la seconda nel vault, la terza qui, a due funzioni di distanza dalla
+prima.
+
+Il rimedio non e' mascherare nei rami — sono quindici e crescono, e basta che
+il prossimo dimentichi. Il corpo diventa `_spiega_grezzo` e `spiega` e' il
+varco: `senza_chiavi(_spiega_grezzo(...))`. Vale per i rami di oggi e per
+quelli che verranno.
+
+Nello stesso file, `registra` scriveva la **traccia** intera senza filtro:
+l'unico campo grosso di quel file a non passare dal mascheratore che il file
+stesso possiede.
+
+**Il giornale d'avvio.** Tre punti — `main`, `config`, il cervello di Claude —
+scrivono in `avvio.log` una riga con dentro `argv`. E `argv[:3]` con `--ask`
+e' **la domanda dell'utente per intero**. L'avevo gia' vista, quel file, mesi
+fa: c'era dentro una lista di calciatori lunga venti righe. Se un giorno la
+domanda comincia con «ricordati che la password del wifi e'...», resta li'.
+
+Qui non ho mascherato: ho **omesso**. Il filtro prende le forme note e le
+coppie etichettate, non una parola qualunque che per l'utente e' un segreto —
+`Tramonto2026` da sola non somiglia a niente. E a quel log servono i **flag**,
+non il contenuto: esiste per distinguere «il cervello non e' questo» da «il
+cervello e' questo ma non passa di qui», e per quella domanda `--ask` basta e
+avanza. Adesso scrive `--ask <49 caratteri>`, e `--brains` per intero.
+
+Il modo sicuro di non scrivere una cosa e' non scriverla.
+
+### Il conto vero
+
+Sei posti dove un segreto poteva restare su disco o arrivare all'utente:
+
+    il vault                      cinque forme non riconosciute
+    il giornale dei guasti        sette forme non mascherate
+    il giornale delle azioni      niente mascherato, e ci finisce
+                                  cio' che NOVA digita nei campi
+    i risultati versati           niente mascherato, file che resta
+    la frase del guasto           str(e) grezzo, e va anche all'utente
+    il giornale d'avvio           la domanda dell'utente per intero
+
+Uno solo dei sei se ne stava occupando, ed era anche quello che sapeva meno.
+Nessuno di questi era un difetto di codice sbagliato: erano sei posti che
+facevano la stessa domanda senza sapere l'uno dell'altro.

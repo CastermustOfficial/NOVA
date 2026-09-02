@@ -76,7 +76,22 @@ def _dove(e: BaseException) -> str:
 
 
 def spiega(e: BaseException, cosa: str = "") -> str:
-    """Il guasto in una frase. `cosa` e' quello che si stava facendo."""
+    """Il guasto in una frase, senza chiavi dentro.
+
+    Il mascheramento sta **qui**, sull'unico varco, e non nei rami: i rami
+    sono quindici e crescono, e basta che il prossimo dimentichi. Il ramo
+    finale in particolare restituisce `str(e)` cosi' com'e', e il messaggio di
+    un'eccezione porta volentieri il valore che l'ha causata — «Incorrect API
+    key provided: sk-...» e' il caso vero da cui era nata D29. Allora si era
+    chiuso il corpo delle risposte HTTP; questo ramo, che e' quello per cui
+    passa tutto il resto, era rimasto aperto. Terza volta che la stessa
+    lezione si presenta in un posto diverso.
+    """
+    return senza_chiavi(_spiega_grezzo(e, cosa))
+
+
+def _spiega_grezzo(e: BaseException, cosa: str = "") -> str:
+    """La frase, prima del filtro. Non si chiama da fuori."""
     premessa = f"{cosa}: " if cosa else ""
     nome = getattr(e, "filename", None) or getattr(e, "filename2", None)
     nome = Path(nome).name if nome else ""
@@ -143,9 +158,15 @@ def registra(e: BaseException, dove: str = "") -> Path:
         "dove": dove or _dove(e),
         "tipo": type(e).__name__,
         "detto": spiega(e),
-        "traccia": "".join(traceback.format_exception(
-            type(e), e, e.__traceback__))[-4000:],
+        # Anche la traccia. Era l'unico campo grosso di questo file a non
+        # passare dal filtro che questo stesso file possiede: il messaggio di
+        # un'eccezione porta spessissimo il valore che l'ha causata — «invalid
+        # token 'sk-...'», il corpo di una risposta HTTP, la riga di comando
+        # che non e' partita.
+        "traccia": senza_chiavi("".join(traceback.format_exception(
+            type(e), e, e.__traceback__)))[-4000:],
     }
+    riga["dove"] = senza_chiavi(riga["dove"])
     try:
         # Un file che cresce all'infinito e' un file che nessuno apre.
         if f.exists() and f.stat().st_size > 512_000:
