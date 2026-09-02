@@ -138,6 +138,66 @@ else:
     passati += 1
     print("  [ok ] nessun motivo ripete il valore che ha appena rifiutato")
 
+print("\n=== E gli altri posti dove un segreto finisce su disco ===")
+# Applicata la lezione: se un difetto sta in un modulo, si cerca in tutti
+# quelli che fanno la stessa domanda. Il vault non e' l'unico posto che
+# conserva testo — ci sono il giornale delle azioni e i risultati «versati»
+# degli strumenti, e nessuno dei due mascherava niente.
+import importlib                                            # noqa: E402
+import json                                                 # noqa: E402
+import os                                                   # noqa: E402
+import tempfile                                             # noqa: E402
+
+os.environ["APPDATA"] = tempfile.mkdtemp()
+import nova.registro as registro                            # noqa: E402
+importlib.reload(registro)
+
+SEGRETE = [
+    ("una password digitata in un campo",
+     ("scritto in #password", "https://banca.example/login", "Tramonto2026!")),
+    ("un PIN digitato",
+     ("digitato", "campo PIN", "4829")),
+    ("un comando con l'intestazione",
+     ("comando", "shell",
+      'curl -H "Authorization: Bearer abcdef1234567890abcdef" https://api.x')),
+    ("una chiave letta da un .env",
+     ("lettura", "C:/x/.env", "AWS_KEY=AKIA1234567890ABCDEF")),
+    ("un indirizzo con le credenziali",
+     ("accesso", "db", "postgres://utente:segreto@host/db")),
+]
+for nome, (azione, dove, dettagli) in SEGRETE:
+    registro.annota(azione, dove=dove, dettagli=dettagli)
+
+righe = registro.leggi(30)
+tutto = json.dumps(righe, ensure_ascii=False)
+for pezzo, come in (("Tramonto2026", "la password digitata"),
+                    ("4829", "il PIN"),
+                    ("abcdef1234567890abcdef", "il bearer nel comando"),
+                    ("AKIA1234567890ABCDEF", "la chiave AWS"),
+                    ("utente:segreto@", "le credenziali nell'indirizzo")):
+    controlla(f"nel giornale non resta {come}", pezzo not in tutto)
+
+# Ma la riga deve restare: il registro serve a sapere **cosa** e' successo, e
+# una riga sparita e' peggio di un valore coperto.
+controlla("la riga resta, e dice cosa e' successo",
+          any("#password" in (r.get("azione") or "") for r in righe))
+controlla("e un valore che non e' un segreto non viene toccato",
+          True if registro.annota("scritto in #utente",
+                                  dove="https://x/login",
+                                  dettagli="giovanni.rossi") is None else True)
+righe = registro.leggi(30)
+controlla("un nome utente non e' una credenziale",
+          any("giovanni.rossi" == (r.get("dettagli") or "") for r in righe),
+          "bloccarlo sarebbe un falso allarme: il registro perderebbe senso")
+
+# I risultati versati: `_versa` scrive il risultato **intero** di uno
+# strumento in un file che resta, dentro la cartella del progetto.
+from nova.agent import Agent                                # noqa: E402
+sorgente = __import__("inspect").getsource(Agent._versa)
+controlla("i risultati versati si mascherano prima di toccare il disco",
+          "maschera(testo)" in sorgente,
+          "uno strumento legge .env e lancia comandi: il file resta")
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")

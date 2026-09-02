@@ -2423,3 +2423,56 @@ Rust non copriva i numeri di carta. Nessuno dei due era «quello giusto».
 Adesso, su sedici testi, zero segreti sopravvivono da nessuna delle due parti
 — che e' il metro che questo file si era dato fin dall'inizio, e che nessuno
 gli aveva ancora chiesto sul serio.
+
+### La stessa domanda, negli altri tre posti
+
+Se la lezione e' «cercala negli altri moduli», non ci si ferma al secondo. Ho
+guardato chi altro scrive su disco testo che puo' contenere un segreto.
+
+**Il giornale delle azioni** (`azioni.jsonl`, quello che si legge con
+`--registro`) non mascherava niente. E fra i suoi chiamanti c'e' questo:
+
+    annota(f"scritto in {selettore}", dove=dove, dettagli=testo)
+
+`testo` e' cio' che NOVA **ha digitato in un campo**. NOVA sa compilare un
+modulo di accesso — e' una cosa che deve saper fare — quindi prima o poi in
+`dettagli` c'e' una password, in chiaro, in un file che resta.
+
+**I risultati versati.** Quando un risultato supera i 24.000 caratteri,
+`_versa` scrive il testo **intero** in `runtime/versati/`. Uno strumento legge
+file e lancia comandi: un `.env`, l'uscita di `git config`, un `curl` con
+l'intestazione dentro. Il modello quel testo l'ha gia' visto nel turno; quel
+file invece resta, dentro la cartella del progetto — che, come sappiamo da
+D52, puo' benissimo essere sincronizzata col cloud.
+
+Tutti e due passano ora da `forme_riservate.maschera`. E il mascheramento sta
+**dentro `annota`**, non nei quindici posti che la chiamano, per la stessa
+ragione per cui il vault si chiude su `upsert`: la porta e' una sola, e un
+chiamante che si dimentica non e' un'ipotesi, e' una certezza.
+
+### Il caso che il filtro per forme non poteva prendere
+
+    azione:   "scritto in #password"
+    dettagli: "Tramonto2026!"
+
+Guardati uno per volta non sono niente: il secondo e' una parola con dentro un
+anno, e nessuna forma lo riconosce. Guardati insieme sono una credenziale. Il
+filtro lavorava campo per campo e non poteva collegarli.
+
+Ora `annota` chiede anche: **l'etichetta annuncia un segreto?** Se il nome del
+campo o del posto contiene «password», «pin», «token», «credenziali» e simili,
+il valore non si scrive affatto — resta la riga, che dice cosa e' successo e
+dove, e sparisce il contenuto, che e' l'unica parte che non serve a nessuno
+per rileggere la storia.
+
+E non si esagera nell'altro verso: «scritto in #utente» con dentro
+«giovanni.rossi» resta scritto. Un nome utente non e' una credenziale, e un
+registro che copre tutto e' un registro che non si legge piu'.
+
+Il registro in Rust non ha avuto bisogno di niente: `nova-registro` legge,
+cerca e racconta, non scrive righe. Quando arrivera' la parte che scrive,
+chiedera' a `forme_riservate` come fanno gia' le altre tre.
+
+**Il conto della serata**: quattro posti dove un segreto poteva restare su
+disco — il vault, il giornale dei guasti, il giornale delle azioni, i
+risultati versati — e uno solo dei quattro se ne stava occupando.
