@@ -1766,3 +1766,82 @@ Windows la stessa cartella e' pulita. Per lo stato e per i commit si usa
 PowerShell.
 
 32 prove nuove, tutte verdi.
+
+## 2 settembre 2026, pomeriggio — quello che resta
+
+Seconda voce chiusa oggi, e anche questa non stava dove diceva la sua riga.
+
+«Disinstallare deve togliere tutto, dire cosa ha tolto e cosa ha lasciato
+apposta.» Il primo pezzo c'era da un mese: l'uscita e' una tabella, «avvio
+automatico: rimosso», «attivita' pianificate: rimosse (2)», e le attivita'
+pianificate sono la cosa che pesa davvero, perche' sono l'unica che
+*continua a girare* dopo che il programma non c'e' piu'.
+
+Il secondo pezzo era una frase: «i tuoi dati restano dove sono». Vera. E che
+non dice niente, perche' il punto e' **dove**.
+
+### I posti sono tre
+
+Gliel'ho chiesto invece di leggerlo:
+
+    Le credenziali            %APPDATA%\NOVA            dentro
+    Il fascicolo              Documenti\NOVA\fascicolo  fuori
+    La memoria a grafo        C:\...\NOVA\vault         fuori
+    Il registro, i guasti,
+    le procedure, l'harness   %APPDATA%\NOVA            dentro
+    Il modello                dove l'hai scaricato      fuori, 15,66 GB
+
+`-ConIDati` cancellava `%APPDATA%\NOVA`. Cioe' due dei cinque. Il vault
+sopravviveva **in silenzio**, e il vault e' la memoria: chi disinstalla per
+ricominciare pulito si ritrovava NOVA che si ricorda tutto. E il modello,
+sedici gigabyte, non era nominato da nessuna parte — un disinstallatore che
+tace su sedici gigabyte non e' discreto, e' reticente.
+
+### L'elenco non si riscrive
+
+Dentro `install.ps1` la tentazione era mettere una lista di percorsi. Sarebbe
+stata la terza volta: l'elenco dei binari, l'elenco delle cartelle
+sincronizzate, e adesso questa. Una copia scritta a mano di cio' di cui una
+cosa e' fatta si disallinea sempre, e si scopre il giorno in cui qualcuno si
+fida.
+
+`nova/dati.py` sapeva gia' tutto: e' il modulo che risponde a «dove sono i
+miei dati». Gli ho aggiunto `rendiconto()`, che e' lo **stesso** elenco in
+JSON, piu' il modello, piu' per ogni voce la sola cosa che l'installer deve
+sapere: *sparisce cancellando `%APPDATA%\NOVA`, si' o no*. L'installer lo
+legge — prima di cancellare, che se no i pesi sono tutti zero — e alla fine
+stampa cosa resta, con nome, peso, percorso e il comando per toglierlo.
+
+Una scelta che tengo: **fuori da `%APPDATA%\NOVA` non si cancella niente**,
+nemmeno con `-ConIDati`. Il fascicolo sono file scritti dall'utente. Il vault
+puo' essere una cartella di Obsidian dove ci sono anche le sue note. Un
+disinstallatore che cancella una cosa che non ha creato lui e' un
+disinstallatore di cui non ci si fida mai piu'. Si dice dov'e' e decide chi
+possiede il file.
+
+### Lo strumento che falsava la misura
+
+La prima versione di `_dentro` faceva `figlio.resolve().relative_to(...)`, ed
+e' uscita una tabella incoerente: `segreti.dat` e `ricette.json` dentro,
+`config.json` e `azioni.jsonl` **fuori** — tutti e quattro nella stessa
+cartella. Impossibile.
+
+Non era NOVA. Era il PowerShell da cui stavo misurando: gira dentro un
+pacchetto MSIX, e per quei processi Windows reindirizza pezzi di `%APPDATA%`
+in `...\Packages\<pacchetto>\LocalCache\Roaming\`. `resolve()` segue il
+reinnesto e porta il file **fuori dalla sua stessa cartella**.
+
+Lo strumento con cui misuravo cambiava la misura. Poteva finire in due modi
+peggiori: crederci e scrivere codice per un problema che non esiste, oppure
+non guardare la tabella e non accorgersi che il confronto era fragile.
+
+La cura e' comunque quella giusta a prescindere dal caso MSIX: il confronto e'
+**lessicale**, sui nomi. La domanda vera e' «se cancello questa cartella, se
+ne va anche questo file?», e chi cancella una cartella cancella i nomi che ci
+stanno sotto, non le destinazioni dei collegamenti. C'e' una prova apposta sul
+caso che rovina uno `startswith` scritto senza separatore: `NOVA-vecchio` non
+sta dentro `NOVA`.
+
+Con questa il cancello della beta ha una sbarra in meno. Resta da provarlo su
+una macchina che non e' questa — ma non e' piu' una voce da scrivere: e' una
+voce da guardare mentre gira.

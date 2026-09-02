@@ -560,7 +560,8 @@ cd NOVA
 | `.\install.ps1 -ConCuda` | scarica anche llama.cpp CUDA, per il modello locale |
 | `.\install.ps1 -DaSorgente` | compila il core invece di scaricarlo (serve Rust + MSVC) |
 | `.\install.ps1 -SenzaAvvioAuto` | non parte all'accensione |
-| `.\install.ps1 -Disinstalla` | toglie avvio automatico e collegamento |
+| `.\install.ps1 -Disinstalla` | toglie processi, attivita' pianificate, avvio automatico e collegamento, e dice cosa resta |
+| `.\install.ps1 -Disinstalla -ConIDati` | e anche memoria, credenziali e configurazione. Il fascicolo e i file fuori dalla cartella di NOVA non si toccano mai: te li elenca |
 
 Poi avvia NOVA dal collegamento sul Desktop: comparira' un orb in un angolo
 dello schermo. Cliccalo per scrivere, oppure chiamala per nome.

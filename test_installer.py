@@ -176,9 +176,19 @@ posto = INST.index("$dati = Join-Path $env:APPDATA 'NOVA'")
 ramo = INST[posto:posto + 380]
 controlla("si cancella solo la cartella di NOVA",
           "Remove-Item $dati -Recurse" in ramo and "fascicolo" not in ramo.lower())
-controlla("e a chi cancella si dice che il fascicolo e' rimasto",
-          "Il fascicolo NON e' stato toccato" in INST
-          and "Documenti\\NOVA\\fascicolo" in INST)
+# Prima qui c'era una frase fissa: «Il fascicolo NON e' stato toccato», con
+# dentro il percorso scritto a mano. Diceva una cosa sola e la diceva sempre,
+# anche a chi il fascicolo non ce l'ha, e taceva sugli altri due posti fuori
+# dalla cartella di NOVA — il vault e il modello. Adesso l'elenco arriva da
+# `nova.dati`, che e' lo stesso che risponde a «dove sono i miei dati», e
+# stampa nome, peso e percorso di cio' che resta.
+controlla("l'elenco di cio' che resta lo chiede a NOVA, non se lo riscrive",
+          "nova.dati --json" in INST)
+controlla("e lo stampa con il percorso, non con una frase generica",
+          "$v.dove" in INST and "apposta" in INST)
+controlla("il fascicolo non compare in nessuna riga che cancella",
+          all("fascicolo" not in r.lower()
+              for r in INST.splitlines() if "Remove-Item" in r))
 controlla("e nemmeno la cartella del progetto",
           "La cartella del progetto resta" in INST)
 controlla("chi non chiede i dati sa dove sono e come si guardano",
