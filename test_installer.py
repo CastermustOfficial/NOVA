@@ -199,6 +199,42 @@ controlla("con -Prova non si tocca niente",
           "[prova] toglierei" in INST)
 
 
+print("\n11. SmartScreen e antivirus: si spiega, non si tace")
+# La voce chiedeva «decidere se si firma o se si spiega». Deciso: si spiega,
+# perche' una firma per un editore nuovo costa e non toglie comunque l'avviso
+# finche' non ha reputazione. Ma «spiegare» vale solo se la spiegazione
+# arriva dove capita il fatto: nei README prima di installare, e
+# nell'installer nel momento in cui l'antivirus si porta via un file.
+
+controlla("l'installer guarda cosa c'era dentro l'archivio",
+          "$dentroLoZip" in INST,
+          "senza, «mancano dei binari» e «l'antivirus li ha presi» sono "
+          "indistinguibili, e si curano in modo opposto")
+controlla("e se c'erano e non ci sono piu', lo dice",
+          "quasi sempre e' l'antivirus" in INST)
+controlla("e dice dove si ripristinano",
+          "Cronologia protezione" in INST)
+controlla("mentre una release incompleta resta colpa nostra",
+          "E' un problema della release, non del tuo PC" in INST)
+
+# L'ordine e' la parte che conta: togliere il contrassegno «scaricato da
+# Internet» PRIMA di aver confrontato le impronte vorrebbe dire zittire
+# l'avviso di Windows su un file di cui non si sa ancora niente.
+controlla("il contrassegno si toglie solo dopo aver verificato le impronte",
+          INST.index("Impronte verificate") < INST.index("Unblock-File"),
+          "e' l'unica cosa che rende accettabile toglierlo")
+controlla("e si toglie solo agli eseguibili della cartella bin",
+          "Get-ChildItem $BinDir -Filter *.exe" in INST)
+controlla("dicendolo, invece che di nascosto",
+          "scaricato da Internet" in INST)
+
+for nome, frase in (("README.md", "non conosce l'editore"),
+                    ("README.en.md", "doesn't know the publisher")):
+    testo = (RADICE / nome).read_text(encoding="utf-8")
+    controlla(f"{nome} avvisa prima, non dopo", frase in testo)
+    controlla(f"{nome} dice anche che le impronte si controllano",
+              "SHA256" in testo)
+
 print(f"\n{passati}/{passati + len(falliti)} passati")
 for x in falliti:
     print("  FALLITO:", x)

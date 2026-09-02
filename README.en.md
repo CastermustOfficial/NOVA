@@ -37,6 +37,17 @@ cd NOVA
 .\install.ps1
 ```
 
+> **Windows will say it doesn't know the publisher.** NOVA's binaries are
+> not code-signed: a certificate costs a few hundred euros a year and, for a
+> new publisher, **doesn't remove** the warning until it has built up
+> reputation. So the choice is stated rather than hidden. What to expect:
+> SmartScreen may show "Windows protected your PC" on first launch — "More
+> info" > "Run anyway"; and your antivirus may quarantine a freshly
+> downloaded executable, in which case the installer tells you so and where
+> to restore it. The installer checks the SHA256 hashes published with the
+> release before installing anything: that is a check Windows' warning does
+> not do, and it is the one that tells you the file is really ours.
+
 **An orb appears** in a corner of the screen. Click it, or call it by name.
 The first time, it offers three things to try — these. None of them touches
 a file of yours: the first two only read, the third writes itself a note in
