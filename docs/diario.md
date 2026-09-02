@@ -2535,3 +2535,69 @@ Sei posti dove un segreto poteva restare su disco o arrivare all'utente:
 Uno solo dei sei se ne stava occupando, ed era anche quello che sapeva meno.
 Nessuno di questi era un difetto di codice sbagliato: erano sei posti che
 facevano la stessa domanda senza sapere l'uno dell'altro.
+
+## 3 settembre 2026 — il dodicesimo pezzo, e il formato come contratto
+
+`nova-nodi`: cos'e' un nodo della memoria e che forma ha su disco. Viene
+subito dopo il guardiano scritto stanotte, e nell'ordine giusto: prima si
+decide cosa **puo'** entrare in memoria, poi si costruisce la porta.
+
+Il vault e' una cartella di `.md` apribile in Obsidian. E' una scelta che si
+paga in rigidita' del formato e si riprende tutta in fiducia — l'utente puo'
+leggere e correggere a mano cio' che NOVA ricorda di lui — ma vuol dire anche
+che **il formato e' un contratto**. Se le due meta' scrivono il frontmatter in
+due modi, la prima che rilegge il file dell'altra perde dei campi in silenzio,
+e non se ne accorge nessuno finche' non manca un tag.
+
+Quindi il banco non confronta una funzione: confronta il **giro completo** —
+scrivi, rileggi, riscrivi — e lo fa anche **incrociato**. Il Python deve
+rileggere il file del Rust ricavandone lo stesso nodo che ricava dal proprio,
+e viceversa. E' il caso che conta davvero: due meta' che si scambiano i file.
+
+### «Œuvre», e perche' il mio era sbagliato
+
+Prima divergenza:
+
+    'Œuvre'   rust='oeuvre'   python='uvre'
+
+Il Python fa `NFKD` e butta cio' che non e' ASCII. E `Œ` (U+0152) in Unicode
+**non ha nessuna decomposizione**, nemmeno di compatibilita': NFKD la lascia
+com'e', e il filtro successivo la trasforma in un trattino. Quindi «uvre».
+
+Io nella tavola l'avevo mappata su «oe», ragionando che fosse la cosa giusta
+da fare. Ed e' vero che `oeuvre` e' un nome di file migliore. Ma e' **il nome
+sbagliato**, perche' il nome del file non e' una preferenza estetica: e' un
+contratto gia' firmato con i file che stanno nel vault adesso. Cambiarlo li
+rinomina tutti, e da quel momento lo stesso nodo esiste sotto due nomi — che
+e' esattamente il guaio che la tavola degli accenti esiste per evitare
+(«caffe» e «caffè» devono dare lo stesso file).
+
+Portare non e' migliorare. Se una cosa va migliorata, si migliora **dopo**, in
+tutte e due le meta' insieme, con un pensiero su cosa succede ai file gia'
+scritti. Non di soppiatto, dentro un porting, perche' sembrava piu' bello.
+
+Le legature invece ci restano — `ﬁ` (U+FB01) **ha** una decomposizione di
+compatibilita', quindi NFKD la scioglie in «fi» e i due concordano. La
+differenza fra i due casi non e' intuibile: e' andata guardata.
+
+### Un carattere
+
+Seconda divergenza: la confidenza `1.0`. Rust con `{}` stampa `1`, Python con
+`str(float)` stampa `1.0`. Un carattere su un file di seicento, e i due testi
+non coincidono piu'.
+
+Non e' pedanteria: quel confronto carattere per carattere e' l'unico modo di
+sapere che le due meta' scrivono lo stesso file. Se avessi confrontato «i
+campi rileggendoli» invece dei byte, sarebbe passato — e sarebbe rimasto li'
+finche' qualcuno non avesse fatto un `diff` su un vault toccato da tutti e
+due, trovandosi ogni file modificato senza motivo.
+
+### La data si passa da fuori
+
+`to_markdown` in Python chiama `date.today()`. In Rust `oggi` e' un argomento,
+come in `nova-calendario` e `nova-pianificazione`: una funzione che legge
+l'orologio non si prova due volte con lo stesso risultato, e questo banco
+fallirebbe a mezzanotte. E' la terza volta che quella scelta si ripaga.
+
+Ventiquattro titoli, otto nodi, sette frontmatter e sette liste: tutto
+identico, incrociati compresi.
