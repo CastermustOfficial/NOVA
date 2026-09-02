@@ -777,6 +777,26 @@ in Rust e meta' no, l'utente installa comunque Python e ci sono due
 implementazioni della stessa cosa da tenere allineate. Il guadagno arriva
 tutto insieme, alla fine.
 
+**Il dodicesimo pezzo, e il primo del vault.** `nova-nodi`: cos'e' un nodo
+della memoria e come si scrive su disco. Arriva subito dopo il guardiano —
+cosa **puo'** entrare in memoria — che era stato scritto per una porta che
+ancora non c'era.
+
+Il vault e' una cartella di `.md` che si apre in Obsidian, e questo vuol dire
+che il formato **e' un contratto**: se le due meta' scrivono il frontmatter in
+due modi, la prima che rilegge il file dell'altra perde dei campi in silenzio.
+Percio' il banco non confronta una funzione, confronta il **giro completo**, e
+anche incrociato: il Python deve rileggere il file del Rust come il proprio, e
+viceversa.
+
+Due divergenze, e la prima e' quella da ricordare. «Œuvre» dava `oeuvre` in
+Rust e `uvre` in Python, perche' `Œ` in Unicode non ha nessuna decomposizione
+e NFKD la butta. Il mio era piu' bello ed era **sbagliato**: il nome del file
+e' un contratto gia' firmato con i file che stanno nel vault adesso, e
+cambiarlo li rinomina tutti — due nomi per lo stesso nodo sono due nodi. La
+seconda: la confidenza `1.0`, che Rust stampa `1` e Python `1.0`. Un carattere,
+e il file diverge.
+
 **L'undicesimo pezzo, e la domanda che non faceva nessuno.**
 `nova-cartelle` riconosce se una cartella e' sincronizzata col cloud prima che
 ci finiscano dentro dodici gigabyte. Chiude, con `nova-catalogo`, il gruppo

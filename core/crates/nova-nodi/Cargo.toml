@@ -1,0 +1,19 @@
+[package]
+name = "nova-nodi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Il nodo della memoria e la sua forma su disco: markdown piu' frontmatter."
+
+[dependencies]
+serde = { workspace = true, features = ["derive"], optional = true }
+serde_json = { workspace = true, optional = true }
+
+[features]
+banco = ["dep:serde", "dep:serde_json"]
+
+[[bin]]
+name = "banco-nodi"
+path = "src/banco.rs"
+required-features = ["banco"]

@@ -2537,6 +2537,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "nova-nodi"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "nova-pianificazione"
 version = "0.1.0"
 dependencies = [
