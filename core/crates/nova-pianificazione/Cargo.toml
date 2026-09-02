@@ -1,9 +1,10 @@
 [package]
-name = "nova-registro"
+name = "nova-pianificazione"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+description = "«ogni lunedi' alle 9» tradotto nel prossimo istante in cui tocca."
 
 [dependencies]
 nova-calendario = { path = "../nova-calendario" }
@@ -14,6 +15,6 @@ serde_json = { workspace = true, optional = true }
 banco = ["dep:serde", "dep:serde_json"]
 
 [[bin]]
-name = "banco-registro"
+name = "banco-pianificazione"
 path = "src/banco.rs"
 required-features = ["banco"]

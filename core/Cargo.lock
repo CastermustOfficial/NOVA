@@ -2465,6 +2465,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "nova-calendario"
+version = "0.1.0"
+
+[[package]]
 name = "nova-cli"
 version = "0.1.0"
 dependencies = [
@@ -2516,6 +2520,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "nova-pianificazione"
+version = "0.1.0"
+dependencies = [
+ "nova-calendario",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "nova-platform"
 version = "0.1.0"
 dependencies = [
@@ -2538,6 +2551,7 @@ dependencies = [
 name = "nova-registro"
 version = "0.1.0"
 dependencies = [
+ "nova-calendario",
  "serde",
  "serde_json",
 ]

@@ -16,6 +16,7 @@
 //! maiuscole. Chi cerca «societa» deve trovare «Societa'», e chi scrive di
 //! fretta non mette le maiuscole.
 
+use nova_calendario::giorni_del_mese;
 use std::collections::HashMap;
 
 /// Una riga del registro, ridotta a cio' su cui si cerca.
@@ -181,17 +182,11 @@ fn ieri(oggi: &str) -> String {
     format!("{a2:04}-{m2:02}-{:02}", giorni_del_mese(a2, m2))
 }
 
-fn giorni_del_mese(anno: i32, mese: u32) -> u32 {
-    match mese {
-        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
-        4 | 6 | 9 | 11 => 30,
-        // Bisestile secondo il calendario gregoriano, non «divisibile per
-        // quattro»: il 1900 non lo era e il 2000 si'.
-        2 if (anno % 4 == 0 && anno % 100 != 0) || anno % 400 == 0 => 29,
-        2 => 28,
-        _ => 30,
-    }
-}
+// `giorni_del_mese` stava qui, privata. Adesso sta in `nova-calendario`,
+// perche' serviva anche a `nova-pianificazione` e una seconda copia scritta a
+// mano si disallinea sempre — questo progetto l'ha gia' imparato con l'elenco
+// dei binari, le cartelle sincronizzate e i posti dei dati. Alla seconda
+// occorrenza la si mette in comune, non alla quarta.
 
 /// Le righe in una forma che si legge, raggruppate per giorno.
 ///
