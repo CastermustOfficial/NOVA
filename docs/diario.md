@@ -1962,3 +1962,76 @@ l'unica cosa che separa le due letture della stessa riga.
 E si dice, invece di farlo di nascosto. Piu' potente e' il mezzo, piu' alti
 sono i rischi; piu' alti sono i rischi, piu' si e' responsabili — e la
 responsabilita' comincia dal dire cosa si e' fatto al PC di qualcun altro.
+
+## 2 settembre 2026, notte — la memoria, e il banco che guardava la strada sbagliata
+
+COM-15 era la voce che «pesava piu' della sua dimensione»: «Ricordati che il
+mio gatto si chiama Ugo» non finiva in memoria, e il README promette una
+memoria che sopravvive alle sessioni. L'avevo lasciata aperta con tre
+ipotesi. Oggi l'ho chiusa, e nessuna delle tre era la risposta.
+
+### La diagnosi vecchia era imprecisa
+
+Il diario diceva: «tutti e due i modelli chiamano kb_search invece di
+kb_note». Rimisurato pulito, Gemma a temperatura 0:
+
+    [NO] Ricordati che il mio gatto si chiama Ugo   -> (parla)
+    [ok] Il mio gatto si chiama Ugo.                -> kb_note
+    [ok] Salva in memoria: il mio gatto si chiama   -> kb_note
+    [ok] Che cosa sai di me?                        -> kb_search
+
+Non chiama `kb_search`. Non chiama **niente**: risponde a parole. E sbaglia
+solo l'imperativo — le altre due forme scrivono giuste. Tre su quattro. La
+diagnosi vecchia aveva unito due misure diverse (Qwen e Gemma, codice di
+ieri) e ne era uscita una frase piu' netta del vero.
+
+### Ho provato a forzarlo, e l'ho peggiorato
+
+Ipotesi economica: dirlo piu' forte. Ho rafforzato la descrizione di
+`kb_note` e il prompt di sistema — «rispondere lo ricordero' senza scrivere
+e' il modo piu' facile di mentire». Misurato: da 3/4 a **1/6**. Ogni caso di
+memoria e' passato a «(parla)». La lingua insistente spinge il modello a
+rassicurare a parole invece di agire: piu' lo imploravo di usare lo strumento,
+meno lo usava. Ripristinato tutto.
+
+Lo scrivo perche' e' contro-intuitivo e vale per la prossima volta: sul tool
+calling di un modello locale piccolo, alzare la voce nel prompt e' spesso
+controproducente. Il modello non ha un capo a cui obbedire; ha una
+distribuzione da seguire, e il testo drammatico la sposta verso il registro
+drammatico, che e' fatto di parole, non di chiamate.
+
+### La strada che il banco non guardava
+
+Poi mi sono ricordato che NOVA ha **due** strade verso la memoria. `kb_note`
+e' la prima. La seconda e' `MemoryWriter.osserva`: un estrattore in
+sottofondo che a ogni turno rilegge lo scambio e scrive da se' i fatti
+durevoli. E legge il messaggio dell'**utente**, non solo la risposta.
+
+Il banco misurava solo la prima strada — quale tool sceglie il modello in un
+turno. Ma la domanda dell'utente non e' «hai chiamato lo strumento giusto?».
+E' «te lo sei ricordato?». Misurato end-to-end, nel caso peggiore in cui il
+modello non chiama niente:
+
+    utente: Ricordati che il mio gatto si chiama Ugo.
+    NOVA (solo parole): Certo, me lo ricordero'!
+    -> vault: [il-gatto-di-gio] «Il gatto di Gio si chiama Ugo.»
+
+    utente: Ricorda che lavoro meglio la mattina presto.
+    NOVA (solo parole): Perfetto, ne terro' conto.
+    -> vault: [preferenza-orario-di-lavoro] «Gio lavora meglio
+               durante le prime ore del mattino.»
+
+Il fatto arriva in memoria comunque. La promessa e' mantenuta dalla seconda
+strada. E' D51 un'altra volta: un banco che confronta lo strumento scelto non
+misura il risultato, e la prova giusta chiede «e' finito nel vault?».
+
+`test_memoria_seconda_strada.py` mette al posto del modello un finto LLM e
+controlla la tubatura senza accenderne uno: che `osserva` passi il messaggio
+dell'utente all'estrattore, che scriva il nodo anche quando la risposta e'
+solo una promessa, e che un turno che ha guardato lo schermo non finisca in
+memoria. Undici prove, tutte verdi.
+
+Resta un margine di lucidatura per dopo — far scattare `kb_note` sull'imperativo
+cosi' il fatto compare *subito* invece che al giro dell'estrattore — ma non e'
+la differenza fra ricordare e dimenticare. E' la differenza fra ora e fra due
+secondi, e non tiene aperta la voce.
