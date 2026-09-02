@@ -386,7 +386,7 @@ New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
 # stato aggiunto alla CI e non a questo elenco, quindi l'installatore non si
 # sarebbe accorto che mancava. Se il file non c'e' si ripiega sui tre storici,
 # perche' un installatore che si ferma per un elenco mancante e' peggio.
-$binari = @('novad.exe', 'nova-shell.exe', 'nova.exe', 'nova-catalogo.exe', 'nova-schede.exe')
+$binari = @('novad.exe', 'nova-shell.exe', 'nova.exe', 'nova-catalogo.exe', 'nova-cartelle.exe', 'nova-schede.exe')
 $fileBinari = Join-Path $Root 'core\binari.json'
 if (Test-Path $fileBinari) {
     try {
@@ -693,12 +693,36 @@ function Trova-Cli {
 # per il verdetto sul modello. Senza Python non si puo' chiedere, e allora non
 # si dice niente: un avviso mancante e' meglio di un avviso inventato.
 function Avvertenza-Cartella($percorso, $cosa = 'i modelli') {
+    # Prima il binario, come per il catalogo: e' una domanda che si fa mentre
+    # si sceglie dove mettere i modelli, cioe' prima che Python e le
+    # dipendenze siano garantiti.
+    $exe = Join-Path $BinDir 'nova-cartelle.exe'
+    if (Test-Path $exe) {
+        try {
+            $r = (& $exe "$percorso" "$cosa" 2>$null | Out-String).Trim()
+            if ($r) { return (($r | ConvertFrom-Json).avvertenza) }
+        } catch { }
+    }
     if (-not $py) { return '' }
     Push-Location $Root
     try {
         $grezzo = & $py -c "import sys; sys.path.insert(0,'.'); from nova.cartelle import avvertenza; print(avvertenza(sys.argv[1], sys.argv[2]))" $percorso $cosa 2>$null
     } catch { return '' } finally { Pop-Location }
     return ($grezzo | Out-String).Trim()
+}
+
+# Il file c'e' in elenco ma i suoi byte stanno nel cloud. E' il peggiore dei
+# tre guai della cartella sincronizzata, perche' capita mesi dopo a NOVA che
+# funzionava: llama.cpp apre il modello e trova zero byte. In Python la
+# funzione esisteva, con la sua prova, e non la chiamava nessuno.
+function E-Segnaposto($percorso) {
+    $exe = Join-Path $BinDir 'nova-cartelle.exe'
+    if (-not (Test-Path $exe)) { return $false }
+    try {
+        $r = (& $exe "$percorso" 2>$null | Out-String).Trim()
+        if ($r) { return [bool](($r | ConvertFrom-Json).segnaposto) }
+    } catch { }
+    return $false
 }
 
 function Chiedi-Cartella-Modelli($servonoGb) {
@@ -862,7 +886,17 @@ switch ($scelta) {
           $percorso = Chiedi-Testo "Percorso del file .gguf (invio per saltare)"
           if ($percorso) {
               $v = Verifica-Gguf $percorso
-              if ($v -and $v.ok) { $scelto = $v }
+              # Prima di tutto: quel file c'e' davvero, o e' un segnaposto?
+              # Un modello «liberato» da OneDrive resta in elenco con la sua
+              # dimensione, e ogni controllo che guarda l'elenco lo promuove.
+              # Se ne accorge llama.cpp, mesi dopo, trovando zero byte.
+              if (E-Segnaposto $percorso) {
+                  Warn "$percorso e' in elenco ma i suoi byte stanno nel cloud:"
+                  Warn "il servizio di sincronizzazione l'ha «liberato» per far spazio."
+                  Warn "Aprilo una volta da Esplora risorse per riscaricarlo, oppure"
+                  Warn "segnalo come «Conserva sempre su questo dispositivo»."
+              }
+              elseif ($v -and $v.ok) { $scelto = $v }
               elseif ($v) { Warn "$($v.percorso): $($v.motivo)" }
               else { Warn "Non riesco a controllare quel file." }
           }

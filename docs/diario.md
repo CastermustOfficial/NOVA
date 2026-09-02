@@ -2253,3 +2253,74 @@ chiamata davvero, una volta, a mano. Un minuto di lavoro che ha trovato piu' di
 
 12 prove nuove, 216 verdetti identici, e due che l'automatismo non poteva
 vedere.
+
+## 2 settembre 2026, notte — l'undicesimo pezzo, e una funzione in un cassetto
+
+`nova-cartelle`: se una cartella e' sincronizzata col cloud, prima che ci
+finiscano dentro dodici gigabyte. Con `nova-catalogo` chiude il gruppo delle
+domande che l'installatore fa **prima** che Python esista — adesso le fa un
+binario tutte e due.
+
+Il porting in se' e' stato liscio: 34 casi confrontati, testo compreso, zero
+divergenze. La cosa che vale la pena scrivere e' quello che ho trovato mentre
+lo facevo.
+
+### Una funzione che nessuno chiamava
+
+`cartelle.py` descrive tre guai della cartella sincronizzata, e dice
+esplicitamente qual e' il peggiore: il modello «liberato» per far spazio, che
+resta in elenco con la sua dimensione e dentro non ha piu' niente. llama.cpp
+lo apre e trova zero byte. Capita **mesi dopo**, a NOVA che funzionava, il che
+lo rende il piu' difficile da collegare alla sua causa.
+
+Il rilevatore c'era: `solo_segnaposto`, quindici righe, con la sua prova. Ho
+cercato chi lo chiamasse:
+
+    ./nova/cartelle.py:113:def solo_segnaposto(...)
+    ./test_percorsi_ostili.py:244: ... not cartelle.solo_segnaposto(...)
+    ./test_percorsi_ostili.py:246: ... not cartelle.solo_segnaposto(...)
+
+Solo la definizione e la sua prova. In tutto il programma, nessuno. NOVA
+descriveva con precisione il guasto peggiore e **non lo guardava mai**.
+
+Non e' un difetto di codice — il codice era giusto e passava le prove. E' un
+difetto di collegamento, ed e' il tipo che le prove non trovano per
+costruzione: una funzione pura, provata, corretta e mai invocata ha tutte le
+prove verdi che si possono desiderare. La prova diceva «se la chiami,
+risponde bene». Non diceva «la chiama qualcuno».
+
+Adesso `segnaposto` sta in `nova-platform` — e' una domanda al filesystem, e
+quelle stanno li' — e l'installatore la fa prima di accettare un modello che
+l'utente indica. E c'e' una prova che legge `install.ps1` e pretende che ci
+sia la chiamata: **una funzione che nessuno invoca e' come non averla**, e la
+differenza non si vede finche' non serve.
+
+### «Onedrive»
+
+Chiamando il binario come lo chiama l'installatore — la stessa abitudine che
+ieri sera ha trovato il BOM e l'`unwrap_or_default()` — e' uscito questo:
+
+    {"servizio":"Onedrive", ...}
+
+Il Python faceva uguale, quindi il confronto era verde. Ma il servizio si
+chiama OneDrive, e — peggio — nella **stessa installazione** poteva uscire in
+due modi: «OneDrive» se riconosciuto dalla variabile d'ambiente, dove il nome
+e' scritto a mano, e «Onedrive» se riconosciuto dal nome della cartella, dove
+passava da un `.title()`.
+
+E' un dettaglio, e qui i dettagli di lingua sono sostanza: quel messaggio deve
+convincere qualcuno a spostare una cartella. Una maiuscola sbagliata lo fa
+sembrare generato invece che scritto, proprio nel punto in cui deve essere
+creduto. Adesso c'e' una tabella di come si scrivono — e i tre nomi di Google
+Drive («Google Drive», «My Drive», «Il mio Drive») danno tutti «Google Drive»,
+che e' quello che l'utente riconosce.
+
+### Il conto delle tre serate
+
+Tre volte di fila, il difetto vero l'ha trovato la stessa cosa: **chiamare il
+programma da dove verra' chiamato davvero**, una volta, a mano. Il BOM,
+l'`unwrap_or_default()`, e adesso la maiuscola e la funzione nel cassetto.
+
+I banchi confrontano bene le traduzioni, e le traduzioni erano tutte corrette.
+Ma un banco parla al codice nella lingua del banco, e i difetti stavano nel
+punto in cui il codice incontra il mondo.

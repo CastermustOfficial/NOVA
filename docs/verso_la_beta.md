@@ -777,6 +777,32 @@ in Rust e meta' no, l'utente installa comunque Python e ci sono due
 implementazioni della stessa cosa da tenere allineate. Il guadagno arriva
 tutto insieme, alla fine.
 
+**L'undicesimo pezzo, e la domanda che non faceva nessuno.**
+`nova-cartelle` riconosce se una cartella e' sincronizzata col cloud prima che
+ci finiscano dentro dodici gigabyte. Chiude, con `nova-catalogo`, il gruppo
+delle cose che l'installatore chiede **prima** che Python esista: adesso
+entrambe le domande le fa un binario.
+
+Ma la parte che conta e' un'altra. `solo_segnaposto` — il rilevatore del guaio
+**peggiore** dei tre, il modello «liberato» dal cloud che resta in elenco con
+zero byte dentro — esisteva in Python da settimane, con la sua prova, e in
+tutto il programma **non la chiamava nessuno**. NOVA descriveva con precisione
+il guasto che capita mesi dopo, a NOVA che funzionava, e non lo guardava mai.
+Adesso sta in `nova-platform` (e' una domanda di filesystem, e quelle stanno
+li') e l'installatore la fa davvero, prima di accettare un modello che
+l'utente indica.
+
+Una prova apposta pretende che `install.ps1` la chiami: una funzione che c'e'
+e che nessuno invoca e' come non averla, e la differenza non si vede finche'
+non serve.
+
+E un dettaglio di lingua, che qui e' sostanza: lo stesso servizio usciva
+scritto in due modi nella stessa installazione — «OneDrive» se riconosciuto
+dalla variabile d'ambiente, «Onedrive» se riconosciuto dal nome della
+cartella, perche' il secondo passava da un `.title()`. Ora c'e' una tabella di
+come si scrivono. E' il genere di sciatteria che fa sembrare un messaggio
+generato invece che scritto, proprio nel punto in cui deve essere creduto.
+
 **Il decimo pezzo, e il primo che toglie Python da una strada vera.**
 `nova-catalogo` decide se un modello ha senso su questa macchina, quale
 variante, e cosa dire mentre lo si fa. E' il pezzo con il criterio d'ordine

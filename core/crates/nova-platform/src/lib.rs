@@ -28,6 +28,12 @@ pub mod dischi;
 // rispondeva un programma di NVIDIA.
 pub mod gpu;
 
+// Se i byte di un file stanno qui o nel cloud. Serve prima di leggere un
+// modello da dodici gigabyte che una cartella sincronizzata puo' aver
+// «liberato» lasciando un segnaposto al suo posto.
+pub mod nuvola;
+pub use nuvola::segnaposto;
+
 pub mod finestre;
 pub use finestre::{schermi, schermo_di, schermo_di_lavoro, sposta, Posa, Schermo};
 
