@@ -213,18 +213,18 @@ def installa(mostra=None, riscrivi: bool = False) -> bool:
 # d'accordo, quindi un confronto fra loro non poteva accorgersene: l'ha
 # trovato una prova che invece di chiedere «dicono la stessa cosa?» chiede
 # «e' rimasto qualcosa di segreto?».
-_SPIE = "key|token|secret|bearer|authorization|password|passwd"
-
-_CHIAVE = re.compile(
-    r"\b(sk-[A-Za-z0-9_\-]{8,}|gsk_[A-Za-z0-9_\-]{8,}|"
-    r"xai-[A-Za-z0-9_\-]{8,}|AIza[A-Za-z0-9_\-]{8,}|"
-    r"[A-Za-z0-9_\-]{0,8}(?:" + _SPIE + r")[\"'\s:=]{1,4}[A-Za-z0-9_\-]{16,})",
-    re.IGNORECASE)
+# Le forme dei segreti stanno in `forme_riservate`, insieme a quelle che
+# conosceva solo il guardiano del vault. Prima qui c'era un elenco suo, e
+# sapeva meno: `Bearer <token>` e `sk-...` si', ma le chiavi AWS, i token
+# Slack, le credenziali dentro un indirizzo e i blocchi di chiave privata
+# uscivano **in chiaro** nel giornale dei guasti. Ognuno dei due elenchi
+# passava le proprie prove, e nessuno guardava l'altro.
+from .forme_riservate import maschera as _maschera        # noqa: E402
 
 
 def senza_chiavi(testo: str) -> str:
     """Quello che assomiglia a una chiave non esce di qui."""
-    return _CHIAVE.sub("[chiave]", testo or "")
+    return _maschera(testo or "")
 
 
 def _motivo_del_fornitore(corpo: str) -> str:

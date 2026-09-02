@@ -132,12 +132,32 @@ controlla("il nome da installare e' lo stesso", not diversi, str(diversi[:2]))
 
 print("\n=== Le chiavi, che e' la parte che conta ===")
 
+# Il corpus e' cresciuto, e non per completezza: per un difetto.
+#
+# Le due implementazioni avevano due elenchi di forme **diversi**, e questo
+# confronto restava verde perche' chiedeva solo delle quattro forme che
+# conoscevano tutte e due. Fuori dal corpus, il Python lasciava scoperta la
+# firma del JWT e il Rust non copriva affatto le chiavi AWS, i token Slack e
+# GitHub, i blocchi di chiave privata, le credenziali dentro un indirizzo e i
+# numeri di carta. Un confronto vale quanto le domande che fa.
 SEGRETI = [
     "sk-abcd1234efgh5678ijkl",
     "gsk_abcd1234efgh5678ijkl",
     "xai-abcd1234efgh5678ijkl",
     "AIzaAbcd1234efgh5678ijkl",
     "abcdefghijklmnop1234567890",
+    "ghp_abcdefghijklmnopqrstuvwxyz123456",
+    "xoxb-1234567890-abcdefghijkl",
+    "AKIA1234567890ABCDEF",
+    "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.abcdef",
+    "4111 1111 1111 1111",
+    "4111-1111-1111-1111",
+    # Anche questi sono segreti, e vanno dichiarati tali: cio' che non e' in
+    # questo elenco la prova lo considera innocuo, e pretende che resti
+    # leggibile. Dimenticarne uno qui vuol dire pretendere che un segreto
+    # NON venga coperto — il contrario di quello che serve.
+    "utente:segreto@example.com",
+    "BEGIN RSA PRIVATE KEY",
 ]
 TESTI = [
     "Incorrect API key provided: sk-abcd1234efgh5678ijkl",
@@ -150,11 +170,23 @@ TESTI = [
     "secret = abcdefghijklmnop1234567890",
     "prima sk-abcd1234efgh5678ijkl poi gsk_abcd1234efgh5678ijkl",
     "perché la chiave sk-abcd1234efgh5678ijkl è sbagliata",
+    # Le forme che una sola delle due parti conosceva.
+    "token ghp_abcdefghijklmnopqrstuvwxyz123456 rifiutato",
+    "webhook xoxb-1234567890-abcdefghijkl non valido",
+    "AKIA1234567890ABCDEF non autorizzata",
+    "connessione a https://utente:segreto@example.com/db fallita",
+    "-----BEGIN RSA PRIVATE KEY----- non leggibile",
+    "jwt eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.abcdef scaduto",
+    "pagamento con 4111 1111 1111 1111 rifiutato",
+    "pagamento con 4111-1111-1111-1111 rifiutato",
     # E i casi che NON devono essere coperti, o i messaggi diventano illeggibili.
     "la chiave non e' stata accettata",
     "token non valido",
     "ask-me di nuovo",
     "key: 1234",
+    "connessione rifiutata su 127.0.0.1:8080",
+    "HTTP 500 dal fornitore",
+    "porta 8080 gia in uso",
     "",
 ]
 
