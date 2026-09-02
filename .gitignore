@@ -48,3 +48,8 @@ salvagente/
 banco_prestazioni.json
 
 banco_modello.json
+
+# scratch: i messaggi di commit lunghi passano da un file, PowerShell rovina le virgolette
+_msg.txt
+_probe_*.py
+_suite.txt

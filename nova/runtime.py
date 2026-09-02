@@ -285,6 +285,42 @@ def estimate_gpu_layers(model_path: str, ctx_size: int, reserve_mb: int = 900,
     return max(0, min(n_layers, int(budget // per_layer)))
 
 
+def proiettore_accanto(percorso_modello: str) -> Path | None:
+    """Il proiettore multimodale che sta accanto al modello, se c'e'.
+
+    I repository lo mettono nella stessa cartella del GGUF e lo chiamano
+    `mmproj-F16.gguf` o giu' di li'. Chi non ce l'ha non e' un modello rotto:
+    e' un modello che non vede, il che va benissimo finche' nessuno gli manda
+    una figura fingendo che la guardi.
+
+    Torna `None` anche quando il percorso e' vuoto o illeggibile, perche' il
+    chiamante deve poter fare una domanda sola — «vede?» — senza doversi
+    difendere da un disco che non risponde.
+    """
+    try:
+        cartella = Path(percorso_modello).parent
+        return next((f for f in sorted(cartella.glob("*mmproj*.gguf"))
+                     if f.is_file()), None)
+    except Exception:                                       # noqa: BLE001
+        return None
+
+
+def vede_il_modello_locale(cfg) -> bool:
+    """Se il cervello locale, cosi' com'e' configurato, sa guardare.
+
+    E' la stessa condizione con cui si costruisce la riga di comando: se il
+    proiettore non c'e', `--mmproj` non viene passato, e allora llama-server
+    rifiuta ogni immagine con un 500. Saperlo *prima* vale piu' che
+    tradurre l'errore *dopo*, perche' l'immagine che non si manda non occupa
+    contesto e non lascia in conversazione un messaggio che fa fallire anche
+    tutti i turni successivi.
+    """
+    try:
+        return proiettore_accanto(cfg.server.model_path) is not None
+    except Exception:                                       # noqa: BLE001
+        return False
+
+
 class LlamaServer:
     """Avvia, sorveglia e spegne llama-server.exe."""
 
@@ -367,21 +403,13 @@ class LlamaServer:
         tipo_kv = (getattr(s, "kv_cache_type", "") or "f16").strip()
         if tipo_kv and tipo_kv != "f16":
             args += ["-ctk", tipo_kv, "-ctv", tipo_kv]
-        # Il proiettore visivo: senza, un modello che saprebbe vedere resta
-        # cieco e llama.cpp non lo dice. Si cerca accanto al modello, che e'
-        # dove lo mettono tutti i repository (mmproj-F16.gguf e simili).
-        try:
-            from pathlib import Path as _P
-            cartella = _P(s.model_path).parent
-            proiettore = next(
-                (f for f in sorted(cartella.glob("*mmproj*.gguf"))
-                 if f.is_file()),
-                None,
-            )
-            if proiettore is not None:
-                args += ["--mmproj", str(proiettore)]
-        except Exception:
-            pass
+        # Il proiettore visivo: senza, il modello resta cieco. La ricerca sta
+        # in `proiettore_accanto` e non qui perche' la stessa domanda la fa
+        # anche chi decide *se allegare una figura*: se la rispondessero in
+        # due posti diversi, prima o poi risponderebbero diverso.
+        proiettore = proiettore_accanto(s.model_path)
+        if proiettore is not None:
+            args += ["--mmproj", str(proiettore)]
         args += list(s.extra_args)
         return args
 
