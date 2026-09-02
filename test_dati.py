@@ -133,6 +133,66 @@ from nova.mcp_kb import STRUMENTI                               # noqa: E402
 controlla("e il modello ha dati_dove",
           any(s["name"] == "dati_dove" for s in STRUMENTI))
 
+print("\n9. il rendiconto per chi disinstalla")
+# Un disinstallatore che dice «i tuoi dati restano dove sono» senza dire dove
+# non ha detto niente. E l'elenco non puo' essere riscritto a mano dentro
+# install.ps1: sarebbe una seconda copia di cio' di cui NOVA e' fatta, e le
+# seconde copie si disallineano — lo si e' gia' pagato con l'elenco dei binari.
+
+base = Path(os.environ.get("APPDATA") or Path.home()) / "NOVA"
+controlla("un file dentro la cartella ci sta dentro",
+          dati._dentro(base / "config.json", base))
+controlla("la cartella sta dentro se stessa", dati._dentro(base, base))
+controlla("una cartella che comincia uguale NON ci sta dentro",
+          not dati._dentro(Path(str(base) + "-vecchio") / "x", base),
+          "e' il caso che rovina uno startswith scritto senza separatore")
+controlla("il fascicolo in Documenti sta fuori",
+          not dati._dentro(Path.home() / "Documents" / "NOVA" / "fascicolo", base))
+controlla("e un percorso senza senso non fa esplodere niente",
+          dati._dentro(Path(""), base) in (True, False))
+
+r = dati.rendiconto()
+controlla("il rendiconto ha le tre parti",
+          {"base", "voci", "totale"} <= set(r))
+controlla("ogni voce dice dove, quanto e se sparisce con la cartella",
+          all({"che_cos_e", "dove", "misura", "va_via_con_la_cartella",
+               "se_lo_cancelli"} <= set(v) for v in r["voci"]))
+controlla("non ci sono voci per cose che non esistono",
+          all(Path(v["dove"]).exists() for v in r["voci"]))
+
+# Il valore di una credenziale non deve arrivarci nemmeno per sbaglio: qui si
+# guarda tutto il JSON, non solo i campi che ci si aspetta.
+import json                                                     # noqa: E402
+crudo = json.dumps(r, ensure_ascii=False)
+controlla("nel rendiconto non c'e' niente che somigli a un segreto",
+          not re.search(r"(sk-|ghp_|Bearer\s|BEGIN [A-Z ]*PRIVATE KEY)", crudo),
+          crudo[:120])
+
+with tempfile.TemporaryDirectory() as tmp:
+    vuoto = Path(tmp) / "niente.gguf"
+    controlla("senza modello sul disco non si inventa una voce",
+              dati.il_modello() is None or
+              Path(dati.il_modello().dove).is_file())
+
+print("\n10. e l'installer lo usa invece di riscriverlo")
+sorgente = (RADICE / "install.ps1").read_text(encoding="utf-8-sig")
+ramo = sorgente[sorgente.index("if ($Disinstalla) {"):]
+ramo = ramo[:ramo.index("Write-Host \"\"\nWrite-Host \"   NOVA\"")] if \
+    "Write-Host \"   NOVA\"" in ramo else ramo
+controlla("il ramo chiede il rendiconto a NOVA", "nova.dati --json" in ramo)
+controlla("lo chiede prima di cancellare, se no pesa tutto zero",
+          ramo.index("nova.dati --json") < ramo.index("Remove-Item $dati"))
+controlla("non promette piu' genericamente che «restano dove sono»",
+          "I tuoi dati restano dove sono" not in ramo)
+controlla("dice che quello che resta e' apposta",
+          "apposta" in ramo)
+controlla("non cancella il fascicolo", "fascicolo" not in
+          " ".join(l for l in ramo.splitlines() if "Remove-Item" in l))
+controlla("non cancella il vault", "vault" not in
+          " ".join(l for l in ramo.splitlines() if "Remove-Item" in l))
+controlla("e sopravvive a un PC senza Python",
+          "Non ho trovato Python" in ramo)
+
 print(f"\n{passati}/{passati + len(falliti)} passati")
 for x in falliti:
     print("  FALLITO:", x)

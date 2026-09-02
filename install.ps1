@@ -87,6 +87,20 @@ function Chiedi($domanda, $opzioni, $predefinita = 1) {
 
 # Scarica mostrando l'avanzamento. Invoke-WebRequest su PowerShell 5 tiene
 # tutto in memoria: per un file da 16 GB non e' un'opzione.
+# Cercato in due posti perche' servono a due momenti diversi: l'installazione
+# non parte senza, la disinstallazione se ne fa una ragione. Una funzione sola
+# per non avere due idee diverse di «Python c'e'».
+function Trova-Python {
+    foreach ($c in 'python', 'py') {
+        $trovato = (Get-Command $c -ErrorAction SilentlyContinue)
+        if ($trovato) {
+            $v = & $trovato.Source -c "import sys;print('%d.%d'%sys.version_info[:2])" 2>$null
+            if ($v -and [version]$v -ge [version]'3.10') { return $trovato.Source }
+        }
+    }
+    return $null
+}
+
 function Scarica($url, $destinazione, $etichetta) {
     if (Test-Path $destinazione) {
         $mb = [math]::Round((Get-Item $destinazione).Length / 1MB)
@@ -150,10 +164,40 @@ if ($Disinstalla) {
     $azioni = @()
     function Fatto($cosa, $esito) { $script:azioni += ,@($cosa, $esito) }
 
+    # Il rendiconto lo fa NOVA, non l'installer. La prima versione aveva qui
+    # una lista scritta a mano di cosa cancellare, e diceva «i tuoi dati
+    # restano dove sono» senza dire dove: il fascicolo sta in Documenti e il
+    # vault sta dove l'utente ha deciso, quindi «i dati» erano tre posti e
+    # -ConIDati ne cancellava uno. `nova.dati` sa gia' quali sono, perche' e'
+    # lo stesso elenco che risponde a «dove sono i miei dati».
+    #
+    # Si chiede **prima** di cancellare: dopo, le dimensioni sono tutte zero.
+    $rendiconto = $null
+    $pyR = Trova-Python
+    if ($pyR) {
+        # Dalla cartella del progetto, se no `-m nova.dati` non trova il
+        # pacchetto: chi disinstalla lancia lo script per percorso, e la
+        # cartella corrente e' quella dove si trovava, non questa.
+        Push-Location $Root
+        try {
+            $grezzo = & $pyR -m nova.dati --json 2>$null
+            if ($grezzo) { $rendiconto = $grezzo | ConvertFrom-Json }
+        } catch { $rendiconto = $null } finally { Pop-Location }
+    }
+    $restano = @()
+    if ($rendiconto) {
+        $restano = @($rendiconto.voci | Where-Object {
+            -not $_.va_via_con_la_cartella -or -not $ConIDati })
+    }
+
     if ($Prova) {
         Info "[prova] toglierei: processi accesi, attivita' pianificate,"
         Info "[prova] avvio automatico, collegamento sul Desktop"
         if ($ConIDati) { Info "[prova] e anche i dati in $env:APPDATA\NOVA" }
+        foreach ($v in $restano) {
+            Info ("[prova] resterebbe: {0} — {1} — {2}" -f $v.che_cos_e, $v.misura, $v.dove)
+        }
+        if (-not $rendiconto) { Warn "[prova] senza Python non so dirti cosa resterebbe." }
         exit 0
     }
 
@@ -213,14 +257,31 @@ if ($Disinstalla) {
     foreach ($a in $azioni) { Ok ("{0,-38} {1}" -f $a[0], $a[1]) }
     Write-Host ""
 
-    if ($ConIDati) {
-        Warn "Il fascicolo NON e' stato toccato: sono file tuoi, scritti da te."
-        Warn "Sta in Documenti\NOVA\fascicolo, e lo cancelli tu se vuoi."
+    # Cosa resta, con nome, peso e percorso. Non si cancella niente fuori da
+    # %APPDATA%\NOVA nemmeno con -ConIDati: il fascicolo sono file dell'utente,
+    # e il vault puo' essere una cartella di Obsidian che l'utente usa anche
+    # per i fatti suoi. Un disinstallatore che cancella una cosa che non ha
+    # creato lui e' un disinstallatore di cui non ci si fida mai piu'.
+    if ($restano.Count) {
+        Warn "Resta questo, apposta:"
+        foreach ($v in $restano) {
+            Warn ("    {0,-42} {1,9}" -f $v.che_cos_e, $v.misura)
+            Warn ("    {0}" -f $v.dove)
+        }
+        Warn ""
+        if (-not $ConIDati) {
+            Warn "Per togliere quelli dentro la cartella di NOVA:"
+            Warn "    .\install.ps1 -Disinstalla -ConIDati"
+        }
+        Warn "Il resto e' fuori dalla cartella di NOVA e si cancella a mano:"
+        Warn "sono file tuoi, o file che usano anche altri programmi."
+    } elseif (-not $rendiconto) {
+        Warn "Non ho trovato Python, quindi non posso dirti cosa resta."
+        Warn "Con Python:    python -m nova --dati"
     } else {
-        Warn "I tuoi dati restano dove sono. Per vedere cosa c'e', quanto pesa"
-        Warn "e cosa succede a cancellarlo:    python -m nova --dati"
-        Warn "Per togliere anche quelli:       .\install.ps1 -Disinstalla -ConIDati"
+        Ok "Non e' rimasto niente di NOVA fuori dalla cartella del progetto."
     }
+    Write-Host ""
     Ok "La cartella del progetto resta: quella la cancelli tu."
     exit 0
 }
@@ -284,14 +345,7 @@ if ($wv) {
 # ------------------------------------------------------------------ Python
 Titolo "Python e dipendenze"
 
-$py = $null
-foreach ($c in 'python', 'py') {
-    $trovato = (Get-Command $c -ErrorAction SilentlyContinue)
-    if ($trovato) {
-        $v = & $trovato.Source -c "import sys;print('%d.%d'%sys.version_info[:2])" 2>$null
-        if ($v -and [version]$v -ge [version]'3.10') { $py = $trovato.Source; break }
-    }
-}
+$py = Trova-Python
 if (-not $py) {
     Err "Serve Python 3.10 o piu' recente."
     Err "Scaricalo da https://www.python.org/downloads/ e spunta «Add python.exe to PATH»."

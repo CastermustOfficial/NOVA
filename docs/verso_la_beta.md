@@ -600,9 +600,37 @@ installato dopo il primo giorno.
 11. ~~**«Cosa esce dal mio PC?»**~~ Fatto: la fascia della riservatezza nel
     pannello lo dice mentre si sceglie il cervello, distinguendo cosa resta in
     casa da cosa va a un fornitore e a quale.
-12. **Disinstallare deve togliere tutto**, dire cosa ha tolto e cosa ha
-    lasciato apposta. Un disinstallatore che lascia in giro roba e' l'ultima
-    cosa che un utente ricorda.
+12. ~~**Disinstallare deve togliere tutto**, dire cosa ha tolto e cosa ha
+    lasciato apposta.~~ Chiuso, e la meta' che mancava era la seconda.
+
+    Il «cosa ho tolto» c'era gia': riga per riga, con «rimosso» o «non
+    c'era», comprese le attivita' pianificate — che sono l'unica cosa che
+    *continua a girare* dopo la disinstallazione. Il «cosa ho lasciato»
+    invece era una frase: «i tuoi dati restano dove sono». Vera e inutile,
+    perche' non diceva **dove**, e i posti sono tre, non uno:
+
+        Le credenziali          %APPDATA%\NOVA        via con -ConIDati
+        Il fascicolo            Documenti\NOVA        resta sempre
+        La memoria a grafo      dove l'hai messa tu    restava, in silenzio
+
+    `-ConIDati` cancellava `%APPDATA%\NOVA` e basta. Il vault, se
+    configurato altrove — ed e' il caso normale, chi lo apre in Obsidian lo
+    tiene con le sue note — sopravviveva senza che nessuno lo dicesse. E il
+    modello, che sono sedici gigabyte, non era nominato da nessuna parte.
+
+    Ora l'elenco lo fa `nova.dati.rendiconto()`, cioe' **la stessa lista che
+    risponde a «dove sono i miei dati»**, e l'installer la legge in JSON
+    invece di riscriverla: una seconda copia di cio' di cui una cosa e'
+    fatta si disallinea sempre, e questa e' la terza volta che il progetto
+    lo impara. Alla fine il disinstallatore stampa cosa resta, con nome,
+    peso e percorso, e con quale comando toglierlo.
+
+    Una scelta che resta: **fuori da `%APPDATA%\NOVA` non si cancella
+    niente**, nemmeno con `-ConIDati`. Il fascicolo sono file scritti
+    dall'utente; il vault puo' essere una cartella di Obsidian che l'utente
+    usa anche per i fatti suoi. Un disinstallatore che cancella qualcosa che
+    non ha creato lui e' un disinstallatore di cui non ci si fida mai piu'.
+    Si dice dove sta e si lascia decidere a chi possiede il file.
 13. ~~**Il menu delle impostazioni e' disordinato.**~~ Fatto: tre fasce —
     chi ragiona, come ti parla, com'e' messa.
 
@@ -715,7 +743,8 @@ Non e' una data, sono cinque frasi che devono essere vere insieme:
 1. **Qualcuno che non e' l'autore l'ha installato**, su una macchina che non e'
    questa, e gli ha fatto fare qualcosa di utile.
 2. **Nessun traceback raggiunge l'utente**, in nessuna delle strade provate.
-3. **La disinstallazione e' pulita** e lo dice.
+3. ~~**La disinstallazione e' pulita** e lo dice.~~ Fatto: dice cosa ha tolto riga per riga, e cosa ha lasciato apposta con nome, peso e
+   percorso. Resta da provarlo su una macchina che non e' questa.
 4. **Le compatibilita' dichiarate sono provate**, oppure sono state tolte dal
    README. Nessuna promessa in sospeso.
 5. **I numeri del README sono misurati**, anche quelli dei modelli consigliati.

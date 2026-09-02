@@ -151,3 +151,97 @@ def racconta(solo_esistenti: bool = True) -> str:
                  "della conversazione e i nodi di memoria pertinenti — mai le "
                  "credenziali, che il modello non vede in nessun caso.")
     return "\n".join(righe)
+
+
+def _dentro(figlio: Path, cartella: Path) -> bool:
+    r"""Se cancellando `cartella` se ne va anche `figlio`.
+
+    Serve al disinstallatore per dire la verita' invece di una frase
+    rassicurante: `%APPDATA%\\NOVA` si cancella in un colpo, ma il fascicolo
+    sta in Documenti e il vault puo' stare dove l'utente ha deciso. Chiamarli
+    tutti «i tuoi dati» e cancellarne meta' e' il modo migliore per far
+    scoprire il resto sei mesi dopo.
+
+    Il confronto e' **lessicale** — sui nomi, non su dove portano — e non e'
+    pigrizia: `resolve()` segue i punti di reinnesto, e ci sono sistemi dove
+    lo stesso file risponde da due posti. Misurato per sbaglio il 2 settembre:
+    un PowerShell dentro un pacchetto MSIX vede meta' di `%APPDATA%\NOVA`
+    reindirizzata in `...\Packages\<pacchetto>\LocalCache\Roaming\NOVA`,
+    quindi `resolve()` portava dei file **fuori** dalla loro stessa cartella e
+    il rendiconto li dichiarava «lasciati» mentre sarebbero spariti. Chi
+    cancella una cartella cancella i nomi che ci stanno sotto: e' quella la
+    domanda, ed e' quella che si risponde.
+    """
+    try:
+        a = os.path.normcase(os.path.abspath(str(figlio)))
+        b = os.path.normcase(os.path.abspath(str(cartella)))
+        return a == b or a.startswith(b.rstrip("\\/") + os.sep)
+    except Exception:                                       # noqa: BLE001
+        return False
+
+
+def il_modello() -> Posto | None:
+    """Il GGUF configurato: non e' roba di NOVA, ed e' la cosa piu' pesante.
+
+    Un disinstallatore che tace su sedici gigabyte non e' discreto, e'
+    reticente. NOVA non lo cancella — potrebbe servire a LM Studio, a
+    llama.cpp, a chiunque — ma deve dire dov'e' e quanto pesa, perche' e'
+    l'unica cosa che l'utente potrebbe voler togliere a mano.
+    """
+    try:
+        from .config import Config
+        p = Path(Config.load().server.model_path)
+    except Exception:                                       # noqa: BLE001
+        return None
+    if not str(p).strip() or not p.is_file():
+        return None
+    return Posto("Il modello scaricato", p,
+                 "NOVA non ha piu' un cervello locale finche' non ne "
+                 "scarichi un altro. Non e' un file di NOVA: se usi anche "
+                 "LM Studio o llama.cpp, e' lo stesso che usano loro.")
+
+
+def rendiconto() -> dict:
+    """L'inventario in JSON, per chi disinstalla da PowerShell.
+
+    L'elenco viene da `posti()` e non da una seconda lista scritta a mano
+    dentro `install.ps1`. E' la stessa lezione dell'elenco dei binari: una
+    copia scritta a mano di cio' di cui una cosa e' fatta si disallinea
+    sempre, e si scopre il giorno in cui qualcuno si fida.
+
+    Non esce nessun contenuto: solo dove, quanto pesa, e se sparisce
+    cancellando la cartella di NOVA. `segreti.dat` e' cifrato e non viene
+    aperto comunque.
+    """
+    base = _base()
+    voci = []
+    for p in posti() + [q for q in (il_modello(),) if q is not None]:
+        if not p.esiste:
+            continue
+        voci.append({
+            "che_cos_e": p.che_cos_e,
+            "dove": str(p.dove),
+            "byte": p.byte,
+            "misura": pesa(p.byte),
+            "delicato": p.delicato,
+            "va_via_con_la_cartella": _dentro(p.dove, base),
+            "se_lo_cancelli": p.se_lo_cancelli,
+        })
+    return {"base": str(base), "voci": voci,
+            "totale": pesa(sum(v["byte"] for v in voci))}
+
+
+def _principale() -> int:
+    """`python -m nova.dati --json`: l'inventario per il disinstallatore."""
+    import json
+    import sys
+
+    if "--json" in sys.argv:
+        print(json.dumps(rendiconto(), ensure_ascii=False))
+    else:
+        print(racconta())
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(_principale())
