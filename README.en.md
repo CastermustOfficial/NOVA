@@ -81,7 +81,13 @@ in front*.
 
 ### It uses the browser the way you would, but in blocks
 
-NOVA drives Chrome by talking to it over CDP. It does not simulate keystrokes:
+NOVA drives **Edge or Chrome** by talking to them over CDP — it looks for Edge
+first, which is always there on Windows, then Chrome. **Not Firefox, not
+Safari**: they speak a different protocol, and pretending otherwise would be a
+promise that breaks on somebody else's PC. Without either, the rest of NOVA
+works and the browser commands say they can't find a browser to drive.
+
+It does not simulate keystrokes:
 it pastes. Filling five fields of an online spreadsheet costs **one** call
 instead of five, and reading a whole table costs one.
 
@@ -719,7 +725,7 @@ nova/
   dati.py             where NOVA keeps your things, and what happens if you delete them
   processi.py         no NOVA process opens a black window
   lingue.py           which language it answers in, and the interface's names
-  browser.py          drives Chrome over CDP: paste, tables, uploads
+  browser.py          drives Edge or Chrome over CDP: paste, tables, uploads
   cerca.py            web search without opening a browser on screen
   immagini.py         the screenshots the model can look at
   ricette.py          the learned procedures, found again even with a typo

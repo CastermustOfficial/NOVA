@@ -463,8 +463,16 @@ uniche che separano l'alpha dalla beta.
 
 ### Il contorno
 
-12. **Solo Chrome ed Edge**, via CDP. Firefox no, e va scritto invece che
-    scoperto.
+12. ~~**Solo Chrome ed Edge**, via CDP.~~ Scritto. Non c'era niente da
+    provare: c'era da **dirlo**. Il README diceva «NOVA pilota Chrome», che e'
+    sbagliato in tutte e due le direzioni — cerca prima Edge, e Firefox non lo
+    pilota affatto. Ora dice quali due, in che ordine, e cosa succede se non
+    c'e' nessuno dei due: il resto di NOVA funziona e i comandi del browser
+    dicono che non trovano un browser da pilotare.
+
+    Una voce chiusa scrivendo una frase invece che del codice conta quanto le
+    altre. La differenza fra alpha e beta non e' quante cose fa un programma:
+    e' quante di quelle che dice di fare sono vere.
 13. **macOS e Linux.** Oggi `non_implementato.rs` compila e non fa niente. La
     decisione da prendere non e' tecnica: o e' una promessa con una data, o si
     dice che NOVA e' un programma Windows.

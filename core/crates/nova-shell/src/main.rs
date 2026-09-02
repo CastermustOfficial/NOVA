@@ -294,6 +294,21 @@ fn main() {
     avvia_registro();
 
     tauri::Builder::default()
+        // PRIMO fra i plugin, e non e' una preferenza di stile: la guardia
+        // deve poter dire «c'e' gia' un'istanza» prima che il resto
+        // dell'applicazione cominci a costruire finestre e ad accendere il
+        // demone. Registrata dopo, il secondo avvio farebbe meta' del lavoro
+        // e poi si accorgerebbe di essere di troppo.
+        //
+        // Due doppi clic sul collegamento davano due orb, che si contendevano
+        // lo stesso demone e la stessa configurazione. Ma il caso che conta
+        // di piu' e' un altro: chi riapre il collegamento non vuole un
+        // secondo orb, vuole quello che c'e' — e di solito perche' non lo
+        // trova. Vedi `finestre::richiama`.
+        .plugin(tauri_plugin_single_instance::init(|app, _argomenti, _cartella| {
+            tracing::info!("NOVA e' gia' aperta: richiamo l'orb invece di aprirne un altro");
+            finestre::richiama(app);
+        }))
         .invoke_handler(tauri::generate_handler![
             apri_chat,
             mostra_chat,
