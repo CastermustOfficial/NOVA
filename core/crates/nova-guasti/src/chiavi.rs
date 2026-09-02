@@ -17,7 +17,18 @@
 ///
 /// Sono marchi di fabbrica, non convenzioni: `sk-` e' OpenAI e chi ne copia
 /// il dialetto, `gsk_` e' Groq, `xai-` e' xAI, `AIza` e' Google.
-pub const PREFISSI: &[&str] = &["sk-", "gsk_", "xai-", "AIza"];
+/// I prefissi che annunciano una chiave. Erano quattro, e il guardiano del
+/// vault ne conosceva altri sei che qui uscivano **in chiaro** nel giornale
+/// dei guasti: le chiavi AWS, i token GitHub e Slack. Due elenchi separati
+/// sanno sempre cose diverse — vedi `nova/forme_riservate.py`, che dalla
+/// parte Python li ha uniti in uno solo.
+pub const PREFISSI: &[&str] = &[
+    "sk-", "pk-", "rk-", "sk_", "pk_", "rk_",
+    "gsk_", "xai-", "AIza",
+    "ghp_", "gho_", "ghu_", "ghs_", "ghr_",
+    "xoxb-", "xoxa-", "xoxp-", "xoxr-", "xoxs-",
+    "AKIA", "ASIA",
+];
 
 /// Quanto deve essere lunga la parte dopo il prefisso perche' sia una chiave
 /// e non una parola che comincia per caso allo stesso modo.
@@ -72,6 +83,11 @@ pub fn senza_chiavi(testo: &str) -> String {
             i = fine;
             continue;
         }
+        if let Some(fine) = da_forma(&b, i) {
+            fuori.push_str(COPERTA);
+            i = fine;
+            continue;
+        }
         if let Some((inizio_valore, fine)) = da_parola_spia(&b, i) {
             // La parola spia e il separatore restano: e' il **valore** che si
             // copre. «api_key: [chiave]» si legge; «[chiave]» da solo no.
@@ -86,6 +102,163 @@ pub fn senza_chiavi(testo: &str) -> String {
         i += 1;
     }
     fuori
+}
+
+/// Le forme che non hanno un prefisso ma si riconoscono lo stesso.
+///
+/// Sono i tre casi che il guardiano del vault prendeva e questo no: il blocco
+/// di chiave privata, le credenziali infilate dentro un indirizzo, e il JSON
+/// Web Token. Un messaggio d'errore con dentro `https://utente:parola@host`
+/// finiva nel giornale dei guasti cosi' com'era.
+fn da_forma(b: &[char], i: usize) -> Option<usize> {
+    if let Some(f) = blocco_di_chiave(b, i) {
+        return Some(f);
+    }
+    if let Some(f) = credenziali_in_indirizzo(b, i) {
+        return Some(f);
+    }
+    if let Some(f) = jwt(b, i) {
+        return Some(f);
+    }
+    numero_di_carta(b, i)
+}
+
+/// Da tredici a diciannove cifre, con o senza spazi e trattini in mezzo.
+///
+/// Il guardiano del vault lo prendeva e questo no: un numero di carta poteva
+/// finire in chiaro nel giornale dei guasti. Trovato confrontando le due
+/// implementazioni su un corpus che chiedeva «e' sopravvissuto qualcosa?»
+/// invece di «siete d'accordo?».
+fn numero_di_carta(b: &[char], i: usize) -> Option<usize> {
+    if i > 0 && (b[i - 1].is_ascii_alphanumeric() || b[i - 1] == '_') {
+        return None;
+    }
+    if !b[i].is_ascii_digit() {
+        return None;
+    }
+    let mut j = i;
+    let mut cifre = 0usize;
+    let mut ultima_cifra = i;
+    while j < b.len() && cifre < 19 {
+        if b[j].is_ascii_digit() {
+            cifre += 1;
+            ultima_cifra = j;
+            j += 1;
+            // un solo separatore fra una cifra e l'altra
+            if j < b.len() && (b[j] == ' ' || b[j] == '-') {
+                j += 1;
+            }
+        } else {
+            break;
+        }
+    }
+    if cifre < 13 {
+        return None;
+    }
+    // Deve finire su una cifra, e dopo non puo' esserci altra roba di parola.
+    let fine = ultima_cifra + 1;
+    if fine < b.len() && (b[fine].is_ascii_alphanumeric() || b[fine] == '_') {
+        return None;
+    }
+    Some(fine)
+}
+
+/// `-----BEGIN RSA PRIVATE KEY-----` e parenti.
+fn blocco_di_chiave(b: &[char], i: usize) -> Option<usize> {
+    if b[i] != '-' {
+        return None;
+    }
+    let mut j = i;
+    while j < b.len() && b[j] == '-' {
+        j += 1;
+    }
+    if j - i < 3 {
+        return None;
+    }
+    while j < b.len() && b[j].is_whitespace() {
+        j += 1;
+    }
+    let resto: String = b[j..].iter().collect();
+    if !resto.starts_with("BEGIN ") {
+        return None;
+    }
+    // «BEGIN » piu' le parole maiuscole fino a «PRIVATE KEY».
+    let dopo = &resto["BEGIN ".len()..];
+    let fine_etichetta = dopo
+        .char_indices()
+        .take_while(|(_, c)| c.is_ascii_uppercase() || *c == ' ')
+        .last()
+        .map(|(k, c)| k + c.len_utf8())
+        .unwrap_or(0);
+    let etichetta = &dopo[..fine_etichetta];
+    if !etichetta.contains("PRIVATE KEY") {
+        return None;
+    }
+    let consumati = "BEGIN ".len() + etichetta.trim_end().len();
+    Some(j + consumati)
+}
+
+/// `schema://utente:parola@host`: si copre fino alla chiocciola compresa.
+fn credenziali_in_indirizzo(b: &[char], i: usize) -> Option<usize> {
+    if i > 0 && di_chiave(b[i - 1]) {
+        return None;
+    }
+    if !b[i].is_ascii_lowercase() {
+        return None;
+    }
+    let mut j = i;
+    while j < b.len()
+        && (b[j].is_ascii_lowercase() || b[j].is_ascii_digit() || "+.-".contains(b[j]))
+    {
+        j += 1;
+    }
+    let resto: String = b[j..].iter().collect();
+    if !resto.starts_with("://") {
+        return None;
+    }
+    j += 3;
+    // utente: niente spazi, niente / : @
+    let inizio_utente = j;
+    while j < b.len() && !b[j].is_whitespace() && !"/:@".contains(b[j]) {
+        j += 1;
+    }
+    if j == inizio_utente || j >= b.len() || b[j] != ':' {
+        return None;
+    }
+    j += 1;
+    let inizio_parola = j;
+    while j < b.len() && !b[j].is_whitespace() && !"/@".contains(b[j]) {
+        j += 1;
+    }
+    if j == inizio_parola || j >= b.len() || b[j] != '@' {
+        return None;
+    }
+    Some(j + 1)
+}
+
+/// `eyJ....` con due punti: intestazione, contenuto e firma.
+fn jwt(b: &[char], i: usize) -> Option<usize> {
+    if i > 0 && di_chiave(b[i - 1]) {
+        return None;
+    }
+    let resto: String = b[i..].iter().collect();
+    if !resto.starts_with("eyJ") {
+        return None;
+    }
+    let di_jwt = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '-';
+    let mut j = i;
+    let mut punti = 0;
+    while j < b.len() && (di_jwt(b[j]) || b[j] == '.') {
+        if b[j] == '.' {
+            punti += 1;
+        }
+        j += 1;
+    }
+    if punti >= 2 && j - i >= 24 {
+        Some(j)
+    } else {
+        None
+    }
 }
 
 /// Una chiave che comincia con un prefisso noto: torna dove finisce.

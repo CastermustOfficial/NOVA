@@ -21,11 +21,29 @@ from __future__ import annotations
 import re
 
 # Le parole che, seguite da un valore, indicano una credenziale.
+#
+# «parola d ordine» senza apostrofo non e' un refuso: NOVA si fa dettare, e
+# whisper l'apostrofo non sempre lo mette. Una regola che vale solo per chi
+# scrive protegge meta' degli utenti.
 _CHIAVI = (
-    r"password|passwd|pwd|parola\s+d[i']\s*ordine|passphrase|"
+    r"password|passwd|pwd|parola\s+d[i']?\s*ordine|passphrase|"
     r"api[\s_-]?key|chiave\s+api|secret|segreto|token|bearer|"
+    r"authorization|autorizzazione|"
     r"credenzial[ei]|access[\s_-]?key|client[\s_-]?secret|"
     r"private[\s_-]?key|chiave\s+privata|pin|otp|seed\s*phrase"
+)
+
+# Le chiavi il cui valore e' fatto di parole comuni: una passphrase e una
+# seed phrase sono *per costruzione* sei parole del vocabolario, e il
+# controllo sulla densita' - pensato per distinguere «la password e cambiata»
+# da «la password e Tramonto2026» - le lascia passare tutte.
+#
+# Sono anche le due cose che non si possono cambiare dopo: una seed phrase
+# rubata svuota un portafoglio, e non c'e' un «reimposta». Qui l'errore da
+# evitare non e' bloccare una frase di troppo.
+_CHIAVI_A_PAROLE = (
+    r"passphrase|seed\s*phrase|frase\s+di\s+recupero|recovery\s+phrase|"
+    r"parola\s+d[i']?\s*ordine"
 )
 
 # La forma «chiave (qualcosa) separatore valore».
@@ -34,28 +52,68 @@ _CHIAVI = (
 # wifi* e' ...» — quindi si tollerano fino a tre parole di mezzo. Il separatore
 # include i verbi, perche' a voce nessuno dice «password due punti»: dice
 # «la password e' ...».
-_COPPIA = re.compile(
-    rf"\b(?:{_CHIAVI})\b"
-    r"(?:\s+\w+){0,3}?"
-    # La «e» nuda serve: chi detta a voce dice «la password e Tramonto2026»,
-    # e whisper non sempre mette l'accento. Il rischio di prenderla come
-    # congiunzione lo copre il controllo sulla densita' del valore.
-    r"\s*(?::|=|\bè\b|\be'|\be\b|\bsono\b|\bera\b|\bsarebbe\b)\s*"
-    r"[\"'`]?(\S{4,})",
+# La chiave da sola. Il valore si cerca **dopo**, guardando i primi token, e
+# non con una sola espressione che leghi chiave e valore in un colpo.
+#
+# Perche' non in un colpo: una espressione sola trova la prima coppia e si
+# ferma li'. In «la password del wifi e Tramonto2026» la prima coppia e'
+# «password ... wifi» — una parola comune, che giustamente non fa scattare
+# niente — e il segreto due parole piu' in la' non veniva mai guardato. E
+# nemmeno `finditer` rimedia: le corrispondenze non si sovrappongono, quindi
+# la prima **consuma la chiave** e la seconda non ha piu' da cosa partire.
+#
+# Lo stesso buco travestito da un altro caso: «Authorization: Bearer eyJhb...»
+# legava «authorization» a «Bearer», che e' innocuo, e il token restava fuori.
+# Era la lezione di D51 — le chiavi mascherate nei messaggi d'errore — mai
+# arrivata fin qui: stessa forma, stesso buco, due moduli diversi. Una lezione
+# imparata in un posto non si sposta da sola.
+_CHIAVE_SOLA = re.compile(rf"\b(?:{_CHIAVI})\b", re.IGNORECASE)
+
+#: Token che sono solo il ponte fra la chiave e il valore: non si contano.
+_PONTI = frozenset({
+    ":", "=", "è", "e'", "e", "sono", "era", "sarebbe", "il", "la", "lo",
+    "del", "della", "dello", "dei", "di", "d'", "mia", "mio", "un", "una",
+})
+
+#: Quanti token dopo la chiave si guardano. Quattro: e' la stessa distanza
+#: che ammetteva la vecchia espressione (fino a tre parole di mezzo, poi il
+#: valore). Piu' in la' e' un'altra frase, e prenderla darebbe falsi allarmi.
+_QUANTI_TOKEN = 4
+
+
+def _sembra_un_valore(valore: str) -> bool:
+    """Se questa stringa e' un segreto invece che una parola.
+
+    «la password e' cambiata», «il token e' scaduto» non sono segreti: sono
+    frasi. Cio' che distingue un valore vero e' la **densita'** — una cifra,
+    un simbolo — oppure una lunghezza che nessuna parola italiana normale
+    raggiunge. Meglio lasciar passare «segretissima» che rifiutare mezza
+    conversazione.
+    """
+    # Un PIN e' corto per costruzione: quattro cifre sono gia' il segreto
+    # intero, e la regola generale sulla lunghezza lo lascerebbe passare.
+    if valore.isdigit() and 4 <= len(valore) <= 19:
+        return True
+    if len(valore) >= 6 and not valore.isalpha():
+        return True
+    return len(valore) >= 16
+
+
+# Le chiavi «a parole» con un separatore esplicito e almeno due parole dietro.
+_COPPIA_A_PAROLE = re.compile(
+    rf"\b(?:{_CHIAVI_A_PAROLE})\b"
+    r"\s*(?::|=|\bè\b|\be'|\be\b|\bsono\b|\bera\b|\bsarebbe\b|\s)\s*"
+    r"([A-Za-z\u00c0-\u017f]{3,}(?:\s+[A-Za-z\u00c0-\u017f]{3,}){1,})",
     re.IGNORECASE,
 )
 
-# Le forme che sono un segreto per come sono fatte, senza bisogno di etichetta.
-_FORME: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("una chiave di servizio", re.compile(r"\b(?:sk|pk|rk)[-_][A-Za-z0-9]{16,}")),
-    ("un token GitHub", re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}")),
-    ("un token Slack", re.compile(r"\bxox[abprs]-[A-Za-z0-9-]{10,}")),
-    ("una chiave AWS", re.compile(r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b")),
-    ("un blocco di chiave privata", re.compile(r"-{3,}\s*BEGIN [A-Z ]*PRIVATE KEY")),
-    ("un JSON Web Token", re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.")),
-    ("credenziali dentro un indirizzo", re.compile(r"\b[a-z][a-z0-9+.-]*://[^\s/:@]+:[^\s/@]+@")),
-    ("un numero di carta", re.compile(r"\b(?:\d[ -]?){13,19}\b")),
-)
+# Le forme che sono un segreto per come sono fatte, senza bisogno di
+# etichetta, stanno in `nova.forme_riservate`: le usa anche `guasti` per
+# mascherarle nei messaggi d'errore. Erano due elenchi separati e sapevano
+# cose diverse — quello di la' conosceva il `Bearer`, questo le chiavi AWS —
+# quindi un segreto poteva essere rifiutato dal vault e finire in chiaro nel
+# giornale dei guasti, o viceversa.
+from ..forme_riservate import che_forma as _che_forma
 
 
 def perche_non_si_salva(testo: str) -> str | None:
@@ -67,25 +125,22 @@ def perche_non_si_salva(testo: str) -> str | None:
     """
     if not testo:
         return None
-    for nome, forma in _FORME:
-        if forma.search(testo):
-            return nome
-    m = _COPPIA.search(testo)
-    if m:
-        valore = m.group(1).strip("\"'`.,;)")
-        # «la password e' cambiata», «il token e' scaduto» non sono segreti:
-        # sono frasi. Cio' che distingue un valore vero e' la densita' — una
-        # cifra, un simbolo — oppure una lunghezza che nessuna parola italiana
-        # normale raggiunge. Meglio lasciar passare «segretissima» che
-        # rifiutare mezza conversazione.
-        # Un PIN e' corto per costruzione: quattro cifre sono gia' il segreto
-        # intero, e la regola generale sulla lunghezza lo lascerebbe passare.
-        if valore.isdigit() and 4 <= len(valore) <= 19:
-            return "una credenziale in chiaro"
-        if len(valore) >= 6 and not valore.isalpha():
-            return "una credenziale in chiaro"
-        if len(valore) >= 16:
-            return "una credenziale in chiaro"
+    forma = _che_forma(testo)
+    if forma:
+        return forma
+    if _COPPIA_A_PAROLE.search(testo):
+        return "una credenziale in chiaro"
+    for m in _CHIAVE_SOLA.finditer(testo):
+        visti = 0
+        for grezzo in testo[m.end():].split():
+            valore = grezzo.strip("\"'`.,;:)=")
+            if not valore or valore.lower() in _PONTI:
+                continue
+            if _sembra_un_valore(valore):
+                return "una credenziale in chiaro"
+            visti += 1
+            if visti >= _QUANTI_TOKEN:
+                break
     return None
 
 

@@ -2324,3 +2324,102 @@ l'`unwrap_or_default()`, e adesso la maiuscola e la funzione nel cassetto.
 I banchi confrontano bene le traduzioni, e le traduzioni erano tutte corrette.
 Ma un banco parla al codice nella lingua del banco, e i difetti stavano nel
 punto in cui il codice incontra il mondo.
+
+## 2 settembre 2026, notte fonda — il guardiano del vault, e una lezione che non si era spostata
+
+Volevo portare `riservatezza.py` in Rust. Prima di replicare una logica ho
+fatto la cosa che le ultime tre serate mi hanno insegnato: invece di chiedergli
+se era d'accordo con se stesso, gli ho dato venti segreti di forma realistica e
+gli ho chiesto di giudicarli.
+
+Ne sono passati cinque.
+
+### Il buco che fa piu' male
+
+    Authorization: Bearer abcdef1234567890abcdef   ->  PASSA
+
+E' **esattamente** il caso di D51. Quella decisione dice: «due implementazioni
+che concordano non sono due implementazioni verificate», ed era nata proprio
+da `Bearer`, mancante sia nel Python sia nel Rust dei **guasti**. Li' era stato
+trovato e chiuso. Nel guardiano del vault no. Stessa forma, stesso buco, due
+moduli diversi.
+
+Quindi la decisione andava scritta piu' larga di com'era, e adesso c'e': **una
+lezione imparata in un posto non si sposta da sola.** Quando si chiude un
+difetto, va cercato a mano in tutti i moduli che fanno la stessa domanda. Non
+c'e' un modo automatico: le prove di ciascuno passano, perche' ciascuno prova
+se stesso.
+
+### Gli altri quattro
+
+**`seed phrase: abandon ability able about above absent`** passava. Il
+controllo sulla densita' — quello che distingue «la password e' cambiata» da
+«la password e' Tramonto2026» — scarta i valori fatti di lettere, e una seed
+phrase e' per costruzione sei parole del vocabolario. Ed e' la cosa che non si
+puo' cambiare dopo: una seed phrase rubata svuota un portafoglio, non c'e' un
+«reimposta». Ora le chiavi «a parole» (passphrase, seed phrase, parola
+d'ordine) hanno una regola loro.
+
+**`otp 903214`** e **`PIN 4829`** passavano: il separatore era obbligatorio, e
+li' fra la chiave e il valore non c'e' niente.
+
+**`parola d ordine`** senza apostrofo passava. Non e' un refuso: NOVA si fa
+dettare, e whisper l'apostrofo non sempre lo mette. Una regola che vale solo
+per chi scrive protegge meta' degli utenti.
+
+**E il piu' insidioso.** In «la password del wifi e Tramonto2026»
+l'espressione trovava la coppia «password ... wifi» — parola comune, nessun
+allarme — e si fermava li'. Il segreto due parole piu' in la' non veniva mai
+guardato. `finditer` non rimedia, perche' le corrispondenze non si
+sovrappongono: la prima **consuma la chiave**. Un segreto si nascondeva
+mettendogli davanti una frase innocua, che e' quello che succede da solo
+quando qualcuno incolla una riga di configurazione intera. Adesso si trovano
+le chiavi e si guardano tutti i candidati che seguono.
+
+Quarantuno casi, ventitre' da rifiutare e diciotto da lasciar passare: zero
+sbagliati. I falsi allarmi contano quanto i buchi — un guardiano che blocca
+meta' della conversazione viene spento, e allora non protegge piu' niente.
+
+### E poi la stessa domanda, dall'altra parte
+
+Se la lezione e' «cercala negli altri moduli», la si applica subito.
+`guasti.senza_chiavi` maschera le chiavi nei messaggi d'errore. Gli ho dato lo
+stesso corpus:
+
+    AKIA1234567890ABCDEF                    IN CHIARO
+    https://utente:segreto@example.com/x    IN CHIARO
+    xoxb-1234567890-abcdefghijkl            IN CHIARO
+    -----BEGIN RSA PRIVATE KEY-----         IN CHIARO
+    carta 4111 1111 1111 1111               IN CHIARO
+
+Il buco simmetrico, e piu' largo. `guasti` conosceva il `Bearer` e le chiavi
+`sk-` — dove la cura era arrivata — e ignorava tutto il resto, che invece il
+vault rifiutava da sempre. Un errore con dentro una chiave AWS finiva nel
+giornale dei guasti cosi' com'era.
+
+La cura non e' aggiungere le voci mancanti a tutti e due: sarebbero due
+elenchi da tenere allineati a mano, e si disallineerebbero di nuovo — e' gia'
+successo con gli eseguibili e con le cartelle sincronizzate. La cura e'
+`nova/forme_riservate.py`: **la domanda si fa in un posto solo**, e sta li' e
+non dentro `guasti` o dentro `kb` perche' lo usano tutti e due e non deve
+pesare — importa `re` e nient'altro.
+
+### Il confronto che mentiva, due volte
+
+Prima cosa: mentre verificavo il Rust ho scritto una sonda che ha stampato
+«divergenze: 0 su 14». Era falso. Il banco vuole un JSON solo e io gli mandavo
+righe: l'uscita era vuota, e `zip` su una lista vuota non itera. **Zero
+confronti si stampano come zero divergenze.** La sonda diceva la verita' su
+niente. Ora c'e' un `assert` sul numero di risposte.
+
+Seconda cosa, e piu' seria: `test_guasti_rust.py` era **verde** mentre le due
+implementazioni divergevano su sei forme. Perche' il suo corpus conteneva solo
+le quattro che conoscevano tutte e due. Un confronto vale quanto le domande
+che fa, e questo ne faceva quattro.
+
+Allargato il corpus, sono usciti due difetti veri, **uno per parte**: il
+Python lasciava scoperta la firma del JWT (si fermava all'ultimo punto), il
+Rust non copriva i numeri di carta. Nessuno dei due era «quello giusto».
+Adesso, su sedici testi, zero segreti sopravvivono da nessuna delle due parti
+— che e' il metro che questo file si era dato fin dall'inizio, e che nessuno
+gli aveva ancora chiesto sul serio.
