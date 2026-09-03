@@ -3036,3 +3036,77 @@ sorgente; arrivera' li' col prossimo pacchetto, o subito se Gio vuole che gli
 aggiorni i binari installati a mano. Sovrascrivere di nascosto dei file di cui
 l'installatore controlla l'impronta e' un modo di rompere le cose che poi non
 si capiscono piu'.
+
+---
+
+## 3 settembre 2026, notte — La stessa domanda, due ricordi diversi
+
+Stavo per portare in Rust il retrieval — BM25, la fusione RRF, l'espansione
+sul grafo. Prima di scrivere una riga ho riletto il Python per capire cosa
+avrei dovuto far combaciare, e mi sono fermato su tre righe che sembrano
+identiche:
+
+    ordinati = sorted(punteggi.items(), key=lambda kv: kv[1], reverse=True)
+    candidati.sort(key=lambda kv: kv[1], reverse=True)
+    hits.sort(key=lambda h: h.score, reverse=True)
+
+Tre ordinamenti **stabili**: a parita' di punteggio vince chi e' arrivato
+prima. E allora la domanda diventa: chi e' arrivato prima?
+
+L'ordine risale a `set(tokenizza(query))` e a `postings[t]`, che sono due
+insiemi di stringhe. Python randomizza l'hash delle stringhe **a ogni
+processo**. Quindi i pari merito venivano ordinati in un modo diverso a ogni
+avvio di NOVA.
+
+### Non e' teoria: e' il vault di Gio
+
+Ho preso il vocabolario vero dei 139 nodi, ho costruito 444 domande con le
+sue parole e le ho fatte in due processi diversi:
+
+    domande diverse fra due processi: 11 su 444
+      di cui cambia proprio CHI viene ricordato: 3
+
+Una delle tre e' **«progetto»**. Cioe' la domanda piu' naturale che si possa
+fare a questa memoria.
+
+    A: [...] progetto-restauratore, progetto-unrealagent, progetto-passaporti
+    B: [...] progetto-restauratore, progetto-passaporti,  progetto-chess-ai
+
+Stesso vault, stessa domanda, stesso codice, un secondo di distanza. Un
+progetto entra nel contesto e l'altro no, e nessuno dei due e' sbagliato:
+sono a pari merito. Semplicemente il taglio a `top_k` butta via l'ultimo, e
+chi sia l'ultimo lo decideva il seme dell'hash.
+
+### La cura, che e' una virgola
+
+A parita' di punteggio decide lo **slug**. Tre chiavi di ordinamento da
+`score` a `(-score, slug)`. Zero divergenze su 444 domande, dopo.
+
+Lo slug e' un criterio arbitrario, e lo dico apertamente: a parita' esatta
+qualcuno deve vincere. E' arbitrario ma **stabile e leggibile** — chi apre
+l'audit capisce perche' quel nodo e' entrato.
+
+Resta una domanda che non tocca a me: a parita' di punteggio, non sarebbe
+meglio ricordare il nodo **piu' recente**? I nodi crescono per accodamento, e
+uno toccato ieri e' quasi sempre piu' vivo di uno fermo da mesi. Ma quella non
+e' una correzione, e' una scelta su come deve ricordare NOVA, e la lascio a
+Gio. Quello che ho corretto e' solo che la stessa domanda dia la stessa
+risposta.
+
+### La prova che non si poteva scrivere da dentro
+
+Questo difetto **non si vede da un processo solo**: l'ordine dei pari merito
+e' fisso per tutta la vita del processo. Una prova normale sarebbe passata col
+difetto dentro, felice.
+
+Percio' la prova ne apre quattro, con quattro `PYTHONHASHSEED` diversi, e
+confronta le classifiche. Ho rimesso il difetto per vederla fallire — quattro
+classifiche diverse su quattro semi — e poi l'ho tolto. Una prova che non ho
+visto fallire non e' una prova, e' una decorazione.
+
+C'e' anche una lezione sul cantiere. Questo non l'ha trovato il banco: il
+banco confronta due implementazioni, e qui l'implementazione era una sola. **L'ha
+trovato il doverla spiegare a un linguaggio che non ha i dizionari ordinati.**
+Rust mi avrebbe costretto a scegliere un ordine esplicito, e la domanda «quale
+ordine?» non ha risposta finche' non ci si accorge che in Python non ce n'era
+nessuno.
