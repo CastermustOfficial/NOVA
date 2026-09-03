@@ -2947,3 +2947,92 @@ C'e' anche una seconda lezione, piu' scomoda. Sul disco dell'utente `rm` non
 mi e' permesso, ed e' una protezione che ho sempre trovato giusta. Ma la
 scrittura si', e una scrittura sbagliata cancella lo stesso. Il divieto sulla
 cancellazione non e' una rete: e' un solo filo.
+
+---
+
+## 3 settembre 2026, sera — Duemilaseicento megabyte che non c'erano
+
+`test_schede.py` falliva. Non sotto carico, non a intermittenza: da solo, con
+un numero.
+
+    DXGI 15341 MiB, nvidia-smi 12699 MiB, scarto +2643
+    [NO ] lo scarto sta dentro la riserva (900 MiB + 4%)  riserva 1407
+
+Il commento sopra quella riga l'avevo scritto io giorni fa, e diceva gia'
+tutto: «DXGI e' il piu' ottimista dei due, ed e' la direzione pericolosa: si
+sopravvaluta e si mettono troppi layer. Il margine deve coprire lo scarto, o
+la riserva e' una cifra scritta a caso.»
+
+Era una cifra scritta a caso. Non perche' fosse sbagliata: perche' era **una
+cifra**, e lo scarto non e' una costante.
+
+### Perche' oggi e non ieri
+
+Sul PC girava League of Legends, piu' trenta finestre fra Edge, Discord e il
+resto. `nvidia-smi` diceva 3.411 MiB occupati; DXGI ne vedeva circa mille.
+
+Il budget di DXGI non e' «quanto e' libero»: e' **«quanto il sistema sarebbe
+disposto a darti»**, contando di poter sfrattare chi non sta disegnando
+adesso. E' una risposta onesta a una domanda diversa dalla mia.
+
+Lo scarto quindi non scala con la scheda — scala con **quanto stanno usando
+gli altri**. Una riserva fissa non puo' coprirlo per costruzione: il giorno
+che uno apre un gioco, la riserva e' vecchia.
+
+### Cosa costava davvero
+
+Non un numero storto in un log. Ho chiesto al codice vero, col modello
+configurato (Qwen3.8-27B Q4_K_M, 15,66 GB):
+
+    15341 MiB liberi -> 55 strati
+    12699 MiB liberi -> 44 strati
+
+Undici strati di troppo, circa due gigabyte e mezzo che sulla scheda non ci
+stanno. E non fallisce: il driver li mette in memoria condivisa, e il modello
+continua a rispondere — dieci volte piu' piano. E' esattamente il guasto per
+cui `gpu.rs` esiste, arrivato dalla porta di servizio.
+
+### La cura, e perche' non e' un ritorno a nvidia-smi
+
+DXGI resta la risposta per tutti. Dove c'e' `nvml.dll` — che e' una DLL del
+driver, non un programma da lanciare e di cui leggere il testo — si prende il
+**minore** dei due numeri.
+
+Il rifiuto di `nvidia-smi`, scritto in cima al modulo, era verso un eseguibile
+esterno che su una Radeon non esiste e fa tornare zero: chi aveva una scheda
+AMD non la usava e non gli veniva detto. Qui non torna niente di quello. NVML
+non e' la fonte: e' un secondo parere che puo' solo abbassare, e solo dove
+c'e'. Il tetto sulla memoria dedicata resta, perche' e' quello che impedisce
+di credere all'integrata che dichiara quindici gigabyte prendendoli in
+prestito dalla RAM.
+
+Misurato subito dopo: `nova-schede` dice 12.724, `nvidia-smi` 12.725. Un MiB
+di arrotondamento.
+
+Due limiti, scritti nel codice invece che scoperti dopo. Con **due** schede
+NVIDIA non si corregge niente: il numero e' di una delle due e non si sa
+quale, e accoppiarle vorrebbe dire attraversare la struttura PCI di NVML, che
+ha dentro due buffer di caratteri a dimensione fissa — sbagliarne uno di un
+byte vuol dire farsi scrivere nello stack dal driver. E la DLL, una volta
+caricata, resta: scaricare una libreria del driver che puo' aver lasciato
+thread dietro di se' e' il genere di pulizia che costa un crash.
+
+### Il giro dei posti che fanno la stessa domanda (D72)
+
+- `nova/runtime.py` chiede al binario e tiene `nvidia-smi` come ripiego. Il
+  ripiego chiede `memory.free`, cioe' **era gia' piu' onesto del primo**.
+- `install.ps1` chiede `memory.total`: quanta scheda c'e', per scegliere che
+  modello scaricare. Domanda diversa, non tocca.
+- Il ramo Linux legge da sysfs, che il totale lo da' e il libero no. Resta
+  come sta: non ho una macchina per provarlo, e indovinare qui e' come
+  indovinare un monitor spento.
+
+### Quello che resta aperto, e non decido io
+
+Il test **continua a fallire sul PC di Gio**, ed e' giusto cosi'. Legge
+`bin\\nova-schede.exe`, cioe' la copia *installata*, che viene da una release
+firmata e verificata con SHA256 — non da `core\\target`. La correzione e' nel
+sorgente; arrivera' li' col prossimo pacchetto, o subito se Gio vuole che gli
+aggiorni i binari installati a mano. Sovrascrivere di nascosto dei file di cui
+l'installatore controlla l'impronta e' un modo di rompere le cose che poi non
+si capiscono piu'.

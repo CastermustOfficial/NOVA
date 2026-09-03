@@ -34,6 +34,10 @@ features = [
     # nvidia-smi.
     "Win32_Graphics_Dxgi",
     "Win32_Graphics_Dxgi_Common",
+    # LoadLibrary/GetProcAddress: NVML si carica a mano, se c'e'. Non e' una
+    # dipendenza dal driver NVIDIA - e' una dipendenza *facoltativa*, che su
+    # una Radeon semplicemente non si trova e non cambia niente.
+    "Win32_System_LibraryLoader",
 ]
 
 # Una risposta sola alla domanda «quanta memoria video c'e'»: la usano
