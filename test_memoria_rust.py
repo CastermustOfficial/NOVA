@@ -16,6 +16,7 @@ Esce 2 - «qui non si puo' provare» - se il binario non e' costruito.
 import json
 import os
 import math
+import random
 import subprocess
 import sys
 from pathlib import Path
@@ -56,7 +57,8 @@ def controlla(nome, condizione, dettaglio=""):
         print(f"  [NO ] {nome}  {dettaglio}")
 
 
-from nova.kb.retrieval import BM25, coseno, rrf, tokenizza          # noqa: E402
+from nova.kb.retrieval import (BM25, MAX_CORPO_NEL_CONTESTO,        # noqa: E402
+                               _testa_e_coda, coseno, rrf, tokenizza)
 from nova.kb.schema import Node                                     # noqa: E402
 
 NODI = [
@@ -106,8 +108,21 @@ VETTORI = [
     [[1.0, 2.0], [1.0]],
 ]
 
+TAGLI = [
+    ("corto", "ciao"),
+    ("al limite esatto", "a" * MAX_CORPO_NEL_CONTESTO),
+    ("uno oltre", "a" * (MAX_CORPO_NEL_CONTESTO + 1)),
+    ("con inizio e fine riconoscibili", "INIZIO" + "x" * 3000 + "FINE"),
+    ("tutto accenti", "è" * 2000),
+    ("spazi ai bordi del taglio", "a" * 500 + "   " + "b" * 500),
+    ("vuoto", ""),
+    ("a capo dappertutto", "riga\n" * 400),
+]
+
 dentro = json.dumps({"nodi": NODI, "domande": DOMANDE,
-                     "fusioni": FUSIONI, "vettori": VETTORI}, ensure_ascii=False)
+                     "fusioni": FUSIONI, "vettori": VETTORI,
+                     "tagli": [[c, MAX_CORPO_NEL_CONTESTO]
+                               for _, c in TAGLI]}, ensure_ascii=False)
 try:
     esito = subprocess.run([str(BINARIO)], input=dentro, capture_output=True,
                            text=True, encoding="utf-8", errors="replace", timeout=60)
@@ -172,6 +187,66 @@ for nome, valore in [("K1", "1.5"), ("B", "0.75"), ("RRF_K", "60")]:
     controlla(f"{nome} = {valore}", f"{nome}: " in sorgente and valore in sorgente)
 controlla("il titolo pesa il doppio, come nel Python",
           'format!("{} ", n.titolo).repeat(2)' in sorgente)
+
+print("\n6. il corpo che entra nel contesto")
+for i, (nome, corpo) in enumerate(TAGLI):
+    mio = _testa_e_coda(corpo, MAX_CORPO_NEL_CONTESTO)
+    suo = rust["tagli"][i]
+    controlla(f"corpo: {nome}", mio == suo,
+              f"python {len(mio)} car, rust {len(suo)} car")
+
+print("\n7. e la domanda vera: sul vault di chi usa NOVA")
+# D51: due implementazioni d'accordo su un corpus inventato da me non dicono
+# niente sul vault vero, che ha nodi lunghi, accenti, slug simili e parole che
+# ricorrono ovunque. Qui il confronto e' sull'**ordine** prima che sui numeri:
+# due punteggi possono differire nell'ultimo bit senza conseguenze, mentre una
+# posizione scambiata cambia chi entra nel contesto.
+VAULT = RADICE / "vault"
+if not VAULT.is_dir():
+    print("  (nessun vault su questa macchina: salto)")
+else:
+    from nova.kb.store import Vault  # noqa: E402
+    nodi_veri = Vault(VAULT).all()
+    if not nodi_veri:
+        print("  (vault vuoto: salto)")
+    else:
+        vero = BM25()
+        vero.indicizza(nodi_veri)
+        vocab = sorted({t for n in nodi_veri
+                        for t in tokenizza(BM25.testo_pesato(n))})
+        random.seed(7)
+        domande_vere = [" ".join(random.sample(vocab, k))
+                        for k in (1, 2, 3) for _ in range(40)]
+        dentro2 = json.dumps({
+            "nodi": [{"slug": n.slug, "titolo": n.title, "tag": n.tags,
+                      "corpo": n.body} for n in nodi_veri],
+            "domande": domande_vere}, ensure_ascii=False)
+        e2 = subprocess.run([str(BINARIO)], input=dentro2, capture_output=True,
+                            text=True, encoding="utf-8", errors="replace",
+                            timeout=180)
+        if e2.returncode != 0:
+            controlla("il banco regge il vault vero", False,
+                      e2.stderr.strip()[:200])
+        else:
+            r2 = json.loads(e2.stdout)
+            assert len(r2["bm25"]) == len(domande_vere), "confronti mancanti"
+            fuori_ordine, fuori_numero = [], []
+            for (q, suoi) in r2["bm25"]:
+                miei = ordina(vero.cerca(q))
+                suoi = [tuple(x) for x in suoi]
+                if [s for s, _ in miei] != [s for s, _ in suoi]:
+                    fuori_ordine.append(f"{q!r}: {[s for s, _ in suoi][:3]} vs "
+                                        f"{[s for s, _ in miei][:3]}")
+                    continue
+                for (s, m), (_, u) in zip(miei, suoi):
+                    if not math.isclose(m, u, rel_tol=0, abs_tol=TOLLERANZA):
+                        fuori_numero.append(f"{q!r} {s}: {u!r} vs {m!r}")
+            print(f"  {len(nodi_veri)} nodi, {len(vocab)} parole, "
+                  f"{len(domande_vere)} domande")
+            controlla("stessa classifica sul vault vero", not fuori_ordine,
+                      " | ".join(fuori_ordine[:2]))
+            controlla("stessi punteggi sul vault vero", not fuori_numero,
+                      " | ".join(fuori_numero[:2]))
 
 print(f"\n{passati}/{passati + len(falliti)} passati")
 for x in falliti:

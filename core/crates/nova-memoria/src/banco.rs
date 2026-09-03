@@ -32,6 +32,9 @@ struct Dentro {
     /// Coppie di vettori, per provare il coseno.
     #[serde(default)]
     vettori: Vec<(Vec<f64>, Vec<f64>)>,
+    /// Corpi da tagliare per il contesto, col loro massimo.
+    #[serde(default)]
+    tagli: Vec<(String, usize)>,
 }
 
 #[derive(Serialize)]
@@ -42,13 +45,16 @@ struct Fuori {
     parole: Vec<(String, Vec<String>)>,
     fusioni: Vec<Vec<(String, f64)>>,
     coseni: Vec<f64>,
+    tagli: Vec<String>,
 }
 
-fn ordina(m: std::collections::HashMap<String, f64>) -> Vec<(String, f64)> {
+fn ordina(m: std::collections::BTreeMap<String, f64>) -> Vec<(String, f64)> {
     let mut v: Vec<(String, f64)> = m.into_iter().collect();
-    // Punteggio decrescente, poi slug: senza il secondo criterio due nodi a
-    // pari merito uscirebbero in ordine di tabella hash, che cambia a ogni
-    // esecuzione e renderebbe il confronto una lotteria.
+    // Punteggio decrescente, poi slug. Questo criterio stava **solo** qui, e
+    // per questo il banco passava: la lotteria dell'ordine restava dentro la
+    // libreria, e il banco la nascondeva riordinando all'uscita. Adesso lo
+    // spareggio e' anche dentro `rrf` e le mappe sono ordinate; questa riga
+    // resta perche' il banco non deve dipendere da cio' che prova.
     v.sort_by(|a, b| {
         b.1.partial_cmp(&a.1)
             .unwrap_or(std::cmp::Ordering::Equal)
@@ -95,6 +101,11 @@ fn main() {
             .map(|r| ordina(rrf(r, RRF_K)))
             .collect(),
         coseni: dentro.vettori.iter().map(|(a, b)| coseno(a, b)).collect(),
+        tagli: dentro
+            .tagli
+            .iter()
+            .map(|(c, m)| nova_memoria::testa_e_coda(c, *m))
+            .collect(),
     };
     match serde_json::to_string(&fuori) {
         Ok(s) => println!("{s}"),

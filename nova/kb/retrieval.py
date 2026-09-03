@@ -131,12 +131,19 @@ class BM25:
             return {}
         N = len(self.freq)
         punteggi: dict[str, float] = {}
-        for t in termini:
+        # Ordinati, tutti e due. Non per bellezza: la somma dei contributi e'
+        # in virgola mobile, e sommare gli stessi addendi in ordine diverso
+        # puo' dare un ultimo bit diverso. Oggi non capita — misurato, 205
+        # punteggi identici fra due processi — ma «oggi non capita» era anche
+        # cio' che si diceva della riserva sulla VRAM. Un ordine esplicito
+        # costa un `sorted` su una manciata di termini e trasforma una
+        # coincidenza in una garanzia.
+        for t in sorted(termini):
             df = self.df.get(t, 0)
             if not df:
                 continue
             idf = math.log(1 + (N - df + 0.5) / (df + 0.5))
-            for slug in self.postings.get(t, ()):
+            for slug in sorted(self.postings.get(t, ())):
                 f = self.freq[slug].get(t, 0)
                 if not f:
                     continue
