@@ -2748,3 +2748,70 @@ sopravvissuto allo spegnimento e la compilazione si e' rifiutata di partire —
 correttamente, perche' la guardia di `build.ps1` funziona. Non l'ho inseguito
 adesso, ma va guardato: uno spegnimento che non spegne e' una promessa non
 mantenuta, e si scopre solo quando qualcosa d'altro si lamenta.
+
+
+## 3 settembre 2026, sera — la cura giusta per la diagnosi sbagliata
+
+Va scritto perche' e' un errore mio, ed e' del tipo peggiore: non ho sbagliato
+un calcolo, ho sbagliato **a chiamare misura una deduzione**.
+
+Stamattina, su «non e' spawnato nova all'avvio del pc», avevo misurato l'orb a
+x=-113, su DISPLAY2. Da li' ho concluso che DISPLAY2 fosse uno schermo che Gio
+non vede — spento, o con l'ingresso commutato — e ho cambiato la regola: **se
+il posto salvato non e' sul principale, all'avvio l'orb torna nell'angolo**.
+
+La cosa ha funzionato: verificata dal vivo, l'orb si posava a 1864,954, sullo
+schermo principale. Ho scritto che era risolto.
+
+La prima cosa che ha detto Gio dopo: «mi e' riapparso in posizione sbagliata».
+
+DISPLAY2 lo vede benissimo. L'orb ce lo tiene **apposta**, e la mia regola
+gliela spostava a ogni accensione. Avevo curato il sintomo con l'ipotesi
+sbagliata, e il prezzo l'ha pagato la cosa che volevo proteggere: la sua
+finestra, dove l'aveva messa lui.
+
+### Cosa avrei dovuto fare
+
+Chiedere. Erano due righe: «l'orb sta sul monitor di sinistra — quello lo
+vedi?». La differenza fra «uno schermo che non si vede» e «uno schermo che
+l'utente usa» non e' misurabile dal software — l'avevo perfino **scritto**, tre
+giorni fa, nel commento di `richiama()`. Ho riletto quella frase, ci ho
+costruito sopra, e non mi sono accorto che diceva anche il contrario: se dal
+software non si distingue, allora non lo sa nemmeno chi scrive il software.
+
+Ho anche provato a correggere una seconda volta senza fermarmi — regola piu'
+morbida, «si onora il posto se cade su uno qualunque degli schermi attaccati»
+— e nemmeno quella si comportava come mi aspettavo, perche' Tauri lavora in
+pixel **fisici** mentre le misure che facevo da PowerShell erano in pixel
+**logici**: su un monitor al 125% sono numeri diversi per lo stesso punto, e
+ho passato tre giri a confrontare mele con pere.
+
+A quel punto la cosa giusta non era una terza versione. Era **rimettere tutto
+com'era** e chiedere.
+
+### Cos'e' rimasto
+
+Tutto ripristinato: `finestre.rs` torna al comportamento di prima, l'orb sta a
+-141,1107 dove Gio lo tiene, e `orb.json` lo conserva.
+
+Resta la correzione di `cli_nova()`, che non c'entrava niente con le finestre
+ed era giusta: cercava il client del demone solo in `core/target/release`,
+cioe' dove i binari li produce cargo — la cartella che esiste sulla macchina di
+chi sviluppa e su nessun'altra. Chi installa da una release ha i binari in
+`bin\`, e si sentiva dire per sempre «il client del demone non e' compilato».
+
+E resta la domanda vera, che adesso e' di nuovo aperta e stavolta la faccio a
+chi sa la risposta: **all'accensione, cosa succede davvero?** Perche' se
+DISPLAY2 si vede, l'orb a x=-113 Gio lo avrebbe visto — a meno che
+all'accensione quel monitor non ci sia ancora, e la finestra nasca in un posto
+che nel giro di qualche secondo non esiste piu'.
+
+### La lezione, che e' diversa da tutte le altre di questa settimana
+
+Le altre erano «guarda il risultato, non l'accordo», «chiama la cosa da dove
+verra' chiamata». Sono tutte forme di misurare meglio.
+
+Questa e' un'altra: **ci sono domande che nessuna misura risponde**, perche' il
+fatto non e' nel computer. Se lo schermo si vede o no lo sa una persona sola, e
+non e' quella che scrive il codice. Trattare una deduzione come un dato
+misurato e' peggio che non misurare, perche' arriva con la stessa faccia.
