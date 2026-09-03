@@ -287,6 +287,24 @@ uniche che separano l'alpha dalla beta.
    smette di essere una cifra scritta a caso. In pratica la stima passa da 53
    a 56 layer, e il ginocchio misurato su questa scheda e' a 60.
 
+   **Correzione, 3 settembre.** «Lo scarto sta dentro la riserva» era vero
+   quel giorno, su quella macchina, a desktop fermo. Con un gioco aperto lo
+   scarto e' diventato **+2.643** contro una riserva di 1.407, cioe' undici
+   strati di troppo — proprio il rallentamento da dieci volte che questa
+   voce doveva chiudere.
+
+   Il difetto non era il numero: era la forma. Lo scarto non scala con la
+   scheda, scala con **quanto stanno usando gli altri**, e una riserva fissa
+   non puo' coprirlo per costruzione. Misurare una volta, a macchina scarica,
+   e concluderne una costante e' lo stesso errore di prima in un vestito
+   nuovo.
+
+   Ora, dove c'e' `nvml.dll`, si prende il minore fra DXGI e il numero del
+   driver. Non e' un ritorno a `nvidia-smi`: DXGI resta la risposta per
+   tutti, NVML e' una libreria e non un processo, e puo' solo abbassare.
+   Misurato subito dopo: 12.724 contro 12.725. Con due schede NVIDIA non si
+   corregge niente, ed e' scritto nel codice il perche'. Vedi D92 e D93.
+
    **E il tiro al buio non c'e' piu'.** Quando la VRAM non si leggeva,
    `_gpu_layer_ladder` partiva da `-ngl 64`, e non si poteva correggere: la
    scala di ripiego scende di sei layer a ogni errore di memoria, ma la

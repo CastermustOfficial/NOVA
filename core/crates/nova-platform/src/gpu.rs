@@ -100,6 +100,139 @@ pub fn libera_dedotta(totale_mb: u64) -> u64 {
     (totale_mb as f64 * (1.0 - QUOTA_GIA_USATA)) as u64
 }
 
+/// Il secondo parere applicato: si prende il **minore** dei due numeri.
+///
+/// Non quello di NVML e basta. Il tetto di DXGI sulla memoria dedicata serve
+/// ancora, perche' e' quello che impedisce di credere a una integrata che
+/// dichiara quindici gigabyte prendendoli in prestito dalla RAM. Qui si
+/// corregge solo verso il basso, che e' la direzione in cui sbagliare costa
+/// poco: qualche strato in meno sulla scheda si vede in un millisecondo per
+/// token, qualche strato in piu' si vede in dieci volte tutto.
+///
+/// Sta fuori dal backend, e prende il numero invece di andarselo a prendere,
+/// perche' cosi' si puo' provare senza una scheda NVIDIA sotto.
+pub fn applica_secondo_parere(schede: &mut [Scheda], libera_nvml_mb: u64) {
+    let nvidia: Vec<usize> = schede
+        .iter()
+        .enumerate()
+        .filter(|(_, s)| s.marca == "nvidia" && s.vram_totale_mb > 0)
+        .map(|(i, _)| i)
+        .collect();
+    // Con due schede NVIDIA il numero e' di una delle due e non si sa quale:
+    // correggere quella sbagliata sarebbe peggio che non correggere.
+    if nvidia.len() != 1 {
+        return;
+    }
+    let s = &mut schede[nvidia[0]];
+    s.vram_libera_mb = s.vram_libera_mb.min(libera_nvml_mb);
+    s.certezza = Certezza::Misurata;
+}
+
+/// Il secondo parere di NVIDIA, dove c'e'.
+///
+/// DXGI non e' sbagliato, e' **ottimista per costruzione**: il suo budget e'
+/// «quanto il sistema sarebbe disposto a darti», contando di poter sfrattare
+/// chi non sta usando la sua memoria adesso. Con un gioco aperto la
+/// differenza smette di essere teorica — misurata su questa macchina, con
+/// League of Legends e trenta finestre: DXGI 15.341 MiB liberi, la scheda
+/// 12.699. Duemilaseicento megabyte di scarto, contro una riserva di 1.400.
+/// Sono undici strati di modello in piu' di quanti ce ne stiano, e non
+/// falliscono: finiscono in memoria condivisa, cioe' nel rallentamento da
+/// dieci volte che questo modulo esiste per evitare.
+///
+/// La riserva non puo' rimediare, perche' lo scarto non scala con la scheda:
+/// scala con **quanto stanno usando gli altri**, che DXGI non vede.
+///
+/// Questo non riapre la porta a `nvidia-smi`. Il rifiuto era verso un
+/// programma esterno da lanciare e di cui leggere il testo, che su una Radeon
+/// non esiste e fa tornare zero. Qui DXGI resta la risposta per tutti, e
+/// NVML — che e' una DLL del driver, non un processo — la corregge solo
+/// verso il basso, solo dove c'e'.
+#[cfg(windows)]
+mod nvml {
+    use std::ffi::c_void;
+    use std::sync::OnceLock;
+    use windows::core::{s, PCSTR};
+    use windows::Win32::Foundation::HMODULE;
+    use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryA};
+
+    /// `nvmlMemory_t`: tre interi da 64 bit, in quest'ordine. E' l'unica
+    /// struttura che attraversa il confine, ed e' scelta apposta: la versione
+    /// con le informazioni PCI ha dentro due buffer di caratteri di
+    /// dimensione fissa, e sbagliarne una di un byte vuol dire farsi scrivere
+    /// nello stack dal driver.
+    #[repr(C)]
+    #[derive(Default)]
+    struct Memoria {
+        totale: u64,
+        libera: u64,
+        usata: u64,
+    }
+
+    type Init = unsafe extern "C" fn() -> i32;
+    type Conta = unsafe extern "C" fn(*mut u32) -> i32;
+    type Presa = unsafe extern "C" fn(u32, *mut *mut c_void) -> i32;
+    type Mem = unsafe extern "C" fn(*mut c_void, *mut Memoria) -> i32;
+    type Chiudi = unsafe extern "C" fn() -> i32;
+
+    /// La DLL si carica una volta sola e resta. Il conto dei riferimenti di
+    /// `LoadLibrary` cresce a ogni chiamata, e `novad` vive per giorni; e
+    /// scaricare una DLL del driver, che puo' aver lasciato thread dietro di
+    /// se', e' il genere di pulizia che costa un crash.
+    fn modulo() -> Option<HMODULE> {
+        static UNA_VOLTA: OnceLock<Option<usize>> = OnceLock::new();
+        let grezzo = UNA_VOLTA.get_or_init(|| unsafe {
+            LoadLibraryA(s!("nvml.dll")).ok().map(|m| m.0 as usize)
+        });
+        grezzo.map(|p| HMODULE(p as *mut c_void))
+    }
+
+    /// Quanti MiB sono liberi davvero, se e solo se la scheda NVIDIA e' una
+    /// sola.
+    ///
+    /// «Una sola» non e' pigrizia: per accoppiare piu' schede NVML a piu'
+    /// adattatori DXGI servirebbe l'identificatore PCI di tutti e due, cioe'
+    /// proprio la struttura che ho deciso di non attraversare. Con due schede
+    /// si resta al comportamento di prima — ottimista, ma non peggiore di
+    /// ieri — invece di correggere la scheda sbagliata.
+    pub fn libera_mb_se_una_sola() -> Option<u64> {
+        unsafe {
+            let dll = modulo()?;
+            let prendi = |nome: PCSTR| GetProcAddress(dll, nome);
+            let init: Init = std::mem::transmute(prendi(s!("nvmlInit_v2"))?);
+            let conta: Conta = std::mem::transmute(prendi(s!("nvmlDeviceGetCount_v2"))?);
+            let presa: Presa = std::mem::transmute(prendi(s!("nvmlDeviceGetHandleByIndex_v2"))?);
+            let mem: Mem = std::mem::transmute(prendi(s!("nvmlDeviceGetMemoryInfo"))?);
+            let chiudi: Chiudi = std::mem::transmute(prendi(s!("nvmlShutdown"))?);
+
+            if init() != 0 {
+                return None;
+            }
+            // Da qui in poi si esce sempre passando da `nvmlShutdown`: NVML
+            // tiene un conto delle inizializzazioni, e un ritorno anticipato
+            // lo lascerebbe alzato per sempre.
+            let mut quante = 0u32;
+            let risposta = if conta(&mut quante) != 0 || quante != 1 {
+                None
+            } else {
+                let mut scheda: *mut c_void = std::ptr::null_mut();
+                if presa(0, &mut scheda) != 0 || scheda.is_null() {
+                    None
+                } else {
+                    let mut m = Memoria::default();
+                    if mem(scheda, &mut m) != 0 || m.totale == 0 {
+                        None
+                    } else {
+                        Some(m.libera / (1024 * 1024))
+                    }
+                }
+            };
+            chiudi();
+            risposta
+        }
+    }
+}
+
 #[cfg(windows)]
 mod imp {
     use super::{marca_da_venditore, libera_dedotta, Certezza, Scheda};
@@ -188,7 +321,23 @@ mod imp {
                 });
             }
         }
+        correggi_con_nvml(&mut fuori);
         Ok(fuori)
+    }
+
+    /// Dove NVIDIA sa rispondere, si prende il **minore** dei due numeri.
+    ///
+    /// Non il suo e basta: il tetto di DXGI sulla memoria dedicata serve
+    /// ancora, perche' e' quello che impedisce di credere a una integrata che
+    /// dichiara quindici gigabyte prendendoli in prestito dalla RAM. Qui si
+    /// corregge solo verso il basso, che e' la direzione in cui sbagliare
+    /// costa poco: qualche strato in meno sulla scheda si vede in un
+    /// millisecondo per token, qualche strato in piu' si vede in dieci volte
+    /// tutto.
+    fn correggi_con_nvml(schede: &mut [Scheda]) {
+        if let Some(libera) = super::nvml::libera_mb_se_una_sola() {
+            super::applica_secondo_parere(schede, libera);
+        }
     }
 }
 
@@ -328,6 +477,83 @@ pub fn vram_libera_mb() -> u64 {
 mod prove {
     use super::*;
     use std::fs;
+
+    fn scheda(nome: &str, marca: &str, totale: u64, libera: u64) -> Scheda {
+        Scheda {
+            nome: nome.into(),
+            vram_totale_mb: totale,
+            vram_libera_mb: libera,
+            marca: marca.into(),
+            certezza: Certezza::Misurata,
+        }
+    }
+
+    #[test]
+    fn il_secondo_parere_corregge_solo_verso_il_basso() {
+        // Il caso vero, misurato con un gioco aperto: DXGI diceva 15.341,
+        // la scheda ne aveva 12.699.
+        let mut s = vec![scheda("RTX 4060 Ti", "nvidia", 16109, 15341)];
+        applica_secondo_parere(&mut s, 12699);
+        assert_eq!(s[0].vram_libera_mb, 12699);
+
+        // E se NVML fosse il piu' ottimista dei due, non lo si ascolta: il
+        // tetto di DXGI sulla memoria dedicata resta.
+        let mut s = vec![scheda("RTX 4060 Ti", "nvidia", 16109, 8000)];
+        applica_secondo_parere(&mut s, 15000);
+        assert_eq!(s[0].vram_libera_mb, 8000);
+    }
+
+    #[test]
+    fn il_secondo_parere_non_tocca_le_schede_di_altri() {
+        // L'integrata AMD sta nella stessa lista, e il numero di NVML non ha
+        // niente a che vedere con lei.
+        let mut s = vec![
+            scheda("RTX 4060 Ti", "nvidia", 16109, 15341),
+            scheda("Radeon(TM) Graphics", "amd", 485, 485),
+        ];
+        applica_secondo_parere(&mut s, 12699);
+        assert_eq!(s[0].vram_libera_mb, 12699);
+        assert_eq!(s[1].vram_libera_mb, 485, "ha corretto la scheda sbagliata");
+    }
+
+    #[test]
+    fn con_due_schede_nvidia_non_si_indovina() {
+        // Il numero e' di una delle due e non si sa quale. Correggere quella
+        // sbagliata sarebbe peggio che restare ottimisti: si toglierebbero
+        // strati a chi ha memoria e si lascerebbero a chi non ne ha.
+        let mut s = vec![
+            scheda("prima", "nvidia", 16109, 15341),
+            scheda("seconda", "nvidia", 16109, 15341),
+        ];
+        applica_secondo_parere(&mut s, 4000);
+        assert_eq!(s[0].vram_libera_mb, 15341);
+        assert_eq!(s[1].vram_libera_mb, 15341);
+    }
+
+    #[test]
+    fn e_la_domanda_vera_e_quanti_strati_ne_escono() {
+        // D51: due numeri diversi non dicono niente da soli. La differenza si
+        // misura dove finisce, cioe' negli strati che llama.cpp mettera'
+        // sulla scheda. Qui il calcolo e' rifatto in piccolo, con le stesse
+        // costanti di `nova-modelli::strati`, perche' questo modulo non
+        // dipende da quello.
+        let strati = |libera_mb: f64| -> u32 {
+            let mb_modello = 16033.0; // il Qwen3.8-27B Q4_K_M, in MiB
+            let kv_mb = 8192.0 * 0.12; // contesto da 8k, f16
+            let disponibile = libera_mb * 0.96 - 900.0 - kv_mb;
+            let per_strato = mb_modello / 63.0;
+            if disponibile <= per_strato { 0 } else {
+                ((disponibile / per_strato).floor() as u32).min(62)
+            }
+        };
+        let ottimista = strati(15341.0);
+        let onesto = strati(12699.0);
+        assert!(
+            ottimista > onesto + 5,
+            "senza correzione si mettono {ottimista} strati invece di {onesto}: \
+             se la differenza fosse piccola questa correzione non varrebbe il codice"
+        );
+    }
 
     #[test]
     fn le_marche_si_riconoscono_dal_numero() {
