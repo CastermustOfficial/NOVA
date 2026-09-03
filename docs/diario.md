@@ -3027,6 +3027,23 @@ thread dietro di se' e' il genere di pulizia che costa un crash.
   come sta: non ho una macchina per provarlo, e indovinare qui e' come
   indovinare un monitor spento.
 
+### Una conferma arrivata da sola
+
+A fine giornata la prova sulla scheda e' tornata verde senza che toccassi
+niente:
+
+    DXGI 15341 MiB, nvidia-smi 14855 MiB, scarto +486
+    [ok ] lo scarto sta dentro la riserva
+
+Il gioco era stato chiuso. Lo scarto e' passato da 2.643 a 486, cioe' e'
+rientrato nella riserva esattamente come il giorno in cui l'avevo dichiarata
+adeguata — a macchina scarica.
+
+Non c'e' misura piu' netta di questa: la riserva non era sbagliata di poco,
+era **misurata nella condizione sbagliata**. Se avessi guardato solo oggi
+pomeriggio, o solo stasera, avrei concluso due cose opposte, e tutte e due con
+un numero in mano.
+
 ### Quello che resta aperto, e non decido io
 
 Il test **continua a fallire sul PC di Gio**, ed e' giusto cosi'. Legge
@@ -3110,3 +3127,102 @@ trovato il doverla spiegare a un linguaggio che non ha i dizionari ordinati.**
 Rust mi avrebbe costretto a scegliere un ordine esplicito, e la domanda «quale
 ordine?» non ha risposta finche' non ci si accorge che in Python non ce n'era
 nessuno.
+
+---
+
+## 3 settembre 2026, tarda notte — Ho scritto un pezzo che c'era gia'
+
+Ho passato la sera a scrivere `nova-ricerca`: BM25, fusione RRF, taglio del
+corpo. Banco, sedici confronti, verdi al primo colpo — 120 dei quali sulle
+domande vere del vault, punteggi confrontati fino al miliardesimo.
+
+Poi la suite completa ha segnalato `test_memoria_rust.py` rosso, e la ragione
+era piu' semplice e piu' brutta di qualunque bug: **quel codice esisteva
+gia'**. `nova-memoria` — il secondo pezzo del cantiere, scritto settimane fa —
+e' esattamente BM25 piu' la fusione.
+
+Avevo guardato il Python per capire cosa restasse da portare. Non ho guardato
+il Rust. In un progetto la cui unica ragione e' avere **una** risposta in
+**un** posto, avevo appena scritto la seconda — e ci sarei riuscito, se la
+suite non avesse avuto una prova che le confrontava tutte e due col Python.
+
+E' D88 in un vestito nuovo. La', avevo cercato un file in una cartella, non
+l'avevo trovato, e avevo concluso «non c'e'». Qui non ho proprio cercato:
+sapevo cosa mancava al Python e ho dato per scontato di sapere cosa c'era nel
+Rust. Prima di scrivere un pezzo nuovo, la domanda non e' «cosa manca la'»,
+e' **«cosa c'e' gia' qui»**.
+
+### Cosa ho tenuto
+
+`nova-ricerca` cancellato. Dentro `nova-memoria` e' finito quello che
+aggiungeva davvero, ed era parecchio:
+
+- Le mappe da `HashMap`/`HashSet` a `BTreeMap`/`BTreeSet`. Non e' pignoleria:
+  la somma dei contributi BM25 e' in virgola mobile e non e' associativa, e
+  scorrere in ordine di tabella hash vuol dire sommarli in ordine diverso.
+- Lo **spareggio per slug dentro `rrf`**, che e' il difetto vero della
+  giornata (D94).
+- Il taglio testa-e-coda del corpo, che nel Rust non c'era.
+- Il banco piu' largo: 45 confronti invece di 35, con dentro le 120 domande
+  del vault vero.
+
+### La riga che nascondeva il difetto
+
+Il banco di `nova-memoria` aveva questo commento, scritto da me settimane fa:
+
+> Punteggio decrescente, poi slug: senza il secondo criterio due nodi a pari
+> merito uscirebbero in ordine di tabella hash, che cambia a ogni esecuzione
+> e renderebbe il confronto una lotteria.
+
+Avevo visto il problema. L'avevo risolto **nel banco**, riordinando in uscita,
+invece che nella libreria. Il confronto tornava pulito e la lotteria restava
+esattamente dov'era, dentro il codice che va in produzione.
+
+E' un modo di sbagliare che non sembra sbagliato mentre lo si fa: la prova
+diventa verde, e diventa verde per la ragione giusta — quel riordino *serve*,
+perche' un banco non deve dipendere dall'ordine di cio' che prova. Solo che
+avevo sistemato il termometro e non la febbre.
+
+
+### Due cose imparate prima di accorgermene
+
+Le ho imparate mentre chiudevo il pezzo sbagliato, e valgono lo stesso.
+
+#### Una prova verde non l'ho creduta, e ho fatto bene a non crederle
+
+Sedici su sedici al primo colpo. Ma il banco dei guasti, giorni fa, era verde
+mentre le due meta' divergevano su sei forme: il corpus conteneva solo cio'
+che sapevano tutte e due.
+
+Percio' ho rotto il Rust apposta, col difetto piu' plausibile che ci sia qui —
+lo spazio in coda alla ripetizione dei tag, che in Python e' documentato come
+un errore gia' fatto: senza, l'ultimo tag della prima copia si fonde col primo
+della seconda in un termine inesistente (`betaalfa`).
+
+Cinque controlli su sedici sono diventati rossi, e uno diceva questo:
+
+    'progetto': [..., idea-progetto-compact-come-catalogo, ...]
+        vs      [..., progetto-sluted-015, ...]
+
+Un carattere di differenza in una funzione che costruisce un testo, e la
+memoria ricorda un altro progetto. Adesso so che il banco misura qualcosa.
+
+#### La copia che ha mentito
+
+Rimesso a posto il file e ricostruito, il banco falliva ancora. Cargo aveva
+detto «Finished in 0.15s»: non aveva ricompilato niente.
+
+`Copy-Item` in PowerShell **conserva la data di modifica dell'originale**.
+Cargo decide cosa ricompilare guardando le date. Il sorgente era giusto, il
+binario era ancora quello rotto, e la prova stava misurando un programma che
+non esisteva piu' da nessuna parte.
+
+E' la stessa famiglia di D88 — «cercare in un posto e non trovare non e' non
+c'e'» — in versione peggiore: qui avevo guardato nel posto giusto e mi ero
+fidato di una risposta vecchia. Se non avessi avuto in mano un risultato che
+*mi aspettavo diverso*, avrei concluso che il ripristino non aveva funzionato
+e sarei andato a cercare il guasto nel codice.
+
+La regola: un binario ricostruito che si comporta come prima non e' un
+mistero, e' un binario che non e' stato ricostruito. Guardare la riga di
+cargo prima di guardare il proprio codice.

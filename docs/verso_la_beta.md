@@ -827,6 +827,46 @@ in Rust e meta' no, l'utente installa comunque Python e ci sono due
 implementazioni della stessa cosa da tenere allineate. Il guadagno arriva
 tutto insieme, alla fine.
 
+**Il pezzo che non andava scritto.** Volevo portare il retrieval — BM25,
+fusione RRF, taglio del corpo — e ho scritto un `nova-ricerca` intero, con
+banco e sedici confronti verdi al primo colpo, 120 dei quali sulle domande
+vere del vault. Poi la suite ha segnalato `test_memoria_rust.py` rosso, e il
+motivo era che **quel codice esisteva gia'**: `nova-memoria`, il secondo pezzo
+del cantiere, e' proprio BM25 piu' la fusione.
+
+Avevo cercato «cosa resta da portare» guardando il Python. Non il Rust. In un
+progetto la cui unica ragione e' avere **una** risposta in **un** posto, avevo
+appena creato la seconda.
+
+`nova-ricerca` e' stato cancellato. Di suo e' rimasto quello che aggiungeva
+davvero: le mappe ordinate al posto di quelle a dispersione, lo spareggio per
+slug dentro `rrf`, il taglio testa-e-coda del corpo, e il banco piu' largo —
+tutto dentro `nova-memoria`, che adesso passa 45 confronti.
+
+E il pezzo si e' ripagato lo stesso, perche' ha trovato un difetto **prima di
+esistere**. Riscrivere l'RRF impone una domanda che in Python nessuno era
+costretto a farsi: a parita' di punteggio, chi viene prima? La' la risposta
+era «chi e' arrivato prima nel dizionario», e l'ordine di arrivo risaliva a
+`set(tokenizza(query))` e a `postings[t]` — due insiemi di stringhe, e Python
+randomizza l'hash delle stringhe a ogni processo. Misurato sul vault vero: 444
+domande, undici con un ordine diverso fra due processi, tre in cui cambiava
+**quale nodo veniva ricordato**. Fra queste «progetto», la domanda piu'
+naturale che si possa fare a questa memoria. Vedi D94 e D95.
+
+Il Rust aveva lo stesso difetto, tradotto fedelmente: il commento sopra `rrf`
+diceva «a parita' vince chi e' stato inserito prima», e riprodurre fedelmente
+un difetto resta un difetto. Il banco non se ne accorgeva perche' riordinava
+per slug **in uscita**: la lotteria restava dentro la libreria e il confronto
+la nascondeva. Vedi D98.
+
+Un difetto invece resta dentro apposta: l'insieme dei caratteri «di parola»
+contiene otto lettere accentate e non le altre, cosi' `Nunez` con gli accenti
+diventa `n` e `ez`. L'indice non e' una funzione pura, e' un contratto con i
+nodi che stanno nel vault adesso: allargarlo cambierebbe la tokenizzazione di
+ogni nodo gia' scritto e farebbe sparire dei ricordi mentre si crede di aver
+migliorato qualcosa. Se un giorno si allarga, da tutte e due le parti insieme
+e con un reindicizzamento. Vedi D96.
+
 **Il quattordicesimo pezzo: dove vive un nodo.** `nova-nodi::posto` porta
 l'altra meta' di `Vault.upsert` che non tocca il disco: in che cartella va un
 nodo, e sotto che nome.

@@ -17,7 +17,7 @@
 //! Come per le ricette: costanti e formule identiche al Python, e un banco
 //! (`src/banco.rs`) che pretende gli stessi punteggi sulle stesse domande.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 /// Quanto conta la frequenza di un termine prima di saturare.
 pub const K1: f64 = 1.5;
@@ -91,14 +91,23 @@ pub fn testo_pesato(n: &Nodo) -> String {
 }
 
 /// Indice invertito su cui si misura BM25.
+///
+/// Le mappe sono **ordinate** e non a dispersione, e non e' un dettaglio di
+/// gusto. In Python erano `dict` e `set`: l'ordine di scorrimento dipendeva
+/// dal seme dell'hash del processo, e siccome la fusione RRF trasforma la
+/// posizione in punteggio e il taglio a `top_k` butta via l'ultimo, la stessa
+/// domanda sulla stessa memoria restituiva ricordi diversi a riavvii diversi.
+/// Misurato sul vault vero: 444 domande, tre in cui cambiava quale nodo
+/// veniva ricordato. Qui l'ordine e' quello degli slug, sempre — anche la
+/// somma dei contributi, che e' in virgola mobile e non e' associativa.
 #[derive(Debug, Default)]
 pub struct Bm25 {
     pub k1: f64,
     pub b: f64,
-    df: HashMap<String, usize>,
-    freq: HashMap<String, HashMap<String, usize>>,
-    lunghezze: HashMap<String, usize>,
-    postings: HashMap<String, HashSet<String>>,
+    df: BTreeMap<String, usize>,
+    freq: BTreeMap<String, BTreeMap<String, usize>>,
+    lunghezze: BTreeMap<String, usize>,
+    postings: BTreeMap<String, BTreeSet<String>>,
     lunghezza_media: f64,
 }
 
@@ -120,7 +129,7 @@ impl Bm25 {
         self.postings.clear();
         for n in nodi {
             let tok = tokenizza(&testo_pesato(n));
-            let mut conteggi: HashMap<String, usize> = HashMap::new();
+            let mut conteggi: BTreeMap<String, usize> = BTreeMap::new();
             for t in &tok {
                 *conteggi.entry(t.clone()).or_insert(0) += 1;
             }
@@ -140,9 +149,9 @@ impl Bm25 {
     }
 
     /// I punteggi dei nodi che contengono almeno un termine della domanda.
-    pub fn cerca(&self, query: &str) -> HashMap<String, f64> {
-        let termini: HashSet<String> = tokenizza(query).into_iter().collect();
-        let mut punteggi: HashMap<String, f64> = HashMap::new();
+    pub fn cerca(&self, query: &str) -> BTreeMap<String, f64> {
+        let termini: BTreeSet<String> = tokenizza(query).into_iter().collect();
+        let mut punteggi: BTreeMap<String, f64> = BTreeMap::new();
         if termini.is_empty() || self.freq.is_empty() {
             return punteggi;
         }
@@ -174,15 +183,27 @@ impl Bm25 {
 
 /// Reciprocal Rank Fusion: unisce ranking eterogenei senza normalizzarli.
 ///
-/// L'ordinamento dentro ogni ranking deve essere quello del Python, che usa
-/// `sorted(..., reverse=True)` su `dict.items()`: stabile, quindi a parita'
-/// di punteggio vince chi e' stato inserito prima. Qui i punteggi arrivano
-/// gia' in ordine di inserimento, e si ordina in modo stabile.
-pub fn rrf(ranking: &[Vec<(String, f64)>], k: usize) -> HashMap<String, f64> {
-    let mut fusi: HashMap<String, f64> = HashMap::new();
+/// **A parita' di punteggio decide lo slug.** Prima questa funzione
+/// riproduceva fedelmente il Python — `sorted(..., reverse=True)` stabile,
+/// cioe' «vince chi e' stato inserito prima» — e riprodurre fedelmente un
+/// difetto resta un difetto. La', l'ordine di inserimento risaliva a due
+/// insiemi di stringhe e quindi al seme dell'hash del processo; qui sarebbe
+/// risalito all'ordine in cui il chiamante passa i ranking. In tutti e due i
+/// casi la risposta alla domanda «chi viene prima?» era «dipende», e il
+/// taglio a `top_k` la trasformava in «questo ricordo lo tengo, quest'altro
+/// no».
+///
+/// Lo slug e' arbitrario, ma e' stabile e si legge nell'audit: chi guarda
+/// capisce perche' quel nodo e' entrato.
+pub fn rrf(ranking: &[Vec<(String, f64)>], k: usize) -> BTreeMap<String, f64> {
+    let mut fusi: BTreeMap<String, f64> = BTreeMap::new();
     for punteggi in ranking {
         let mut ordinati: Vec<&(String, f64)> = punteggi.iter().collect();
-        ordinati.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        ordinati.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.0.cmp(&b.0))
+        });
         for (posizione, (slug, _)) in ordinati.iter().enumerate() {
             *fusi.entry(slug.clone()).or_insert(0.0) += 1.0 / (k + posizione + 1) as f64;
         }
@@ -196,6 +217,30 @@ pub fn coseno(a: &[f64], b: &[f64]) -> f64 {
         return 0.0;
     }
     a.iter().zip(b).map(|(x, y)| x * y).sum()
+}
+
+/// I caratteri di corpo che un nodo puo' occupare nel contesto del modello.
+pub const MAX_CORPO_NEL_CONTESTO: usize = 950;
+
+/// Tiene l'inizio **e** la fine di un corpo lungo.
+///
+/// I nodi crescono per accodamento: tagliare solo la coda vuol dire tenere la
+/// definizione originale e buttare via proprio i fatti piu' recenti, che sono
+/// quasi sempre quelli che servono.
+///
+/// Il conto e' in **caratteri**, non in byte, perche' in Python `len()` conta
+/// caratteri: su un corpo pieno di accenti un taglio a byte cadrebbe prima —
+/// e potrebbe cadere in mezzo a una lettera.
+pub fn testa_e_coda(corpo: &str, massimo: usize) -> String {
+    let quanti = corpo.chars().count();
+    if quanti <= massimo {
+        return corpo.to_string();
+    }
+    let quanti_testa = (massimo as f64 * 0.6) as usize;
+    let quanti_coda = massimo - quanti_testa;
+    let testa: String = corpo.chars().take(quanti_testa).collect();
+    let coda: String = corpo.chars().skip(quanti - quanti_coda).collect();
+    format!("{}\n[...]\n{}", testa.trim_end(), coda.trim_start())
 }
 
 #[cfg(test)]
@@ -251,5 +296,57 @@ mod prove {
         let b = vec![("y".to_string(), 0.9), ("x".to_string(), 0.8)];
         let f = rrf(&[a, b], RRF_K);
         assert!((f["x"] - f["y"]).abs() < 1e-9, "{f:?}");
+    }
+
+    #[test]
+    fn la_fusione_non_dipende_da_come_arrivano_i_ranking() {
+        // Il difetto vero, in versione Rust: se lo spareggio fosse l'ordine di
+        // inserimento, girare la lista d'ingresso cambierebbe la classifica.
+        let avanti = vec![("a".to_string(), 1.0), ("b".to_string(), 1.0),
+                          ("c".to_string(), 1.0)];
+        let mut indietro = avanti.clone();
+        indietro.reverse();
+        assert_eq!(rrf(&[avanti], RRF_K), rrf(&[indietro], RRF_K));
+    }
+
+    #[test]
+    fn a_parita_esatta_vince_lo_slug_e_non_il_caso() {
+        let f = rrf(&[vec![("zeta".to_string(), 1.0), ("alfa".to_string(), 1.0)]], RRF_K);
+        assert!(f["alfa"] > f["zeta"], "{f:?}");
+    }
+
+    #[test]
+    fn i_punteggi_non_dipendono_dallordine_dei_nodi() {
+        let n = |s: &str| Nodo {
+            slug: s.into(),
+            titolo: "progetto".into(),
+            tag: vec![],
+            corpo: "un progetto di prova".into(),
+        };
+        let avanti = [n("a"), n("b"), n("c")];
+        let mut indietro = avanti.clone();
+        indietro.reverse();
+        let (mut x, mut y) = (Bm25::nuovo(), Bm25::nuovo());
+        x.indicizza(&avanti);
+        y.indicizza(&indietro);
+        assert_eq!(x.cerca("progetto"), y.cerca("progetto"));
+    }
+
+    #[test]
+    fn del_corpo_lungo_restano_la_testa_e_la_coda() {
+        let corpo = format!("INIZIO{}FINE", "x".repeat(2000));
+        let t = testa_e_coda(&corpo, 100);
+        assert!(t.starts_with("INIZIO") && t.ends_with("FINE") && t.contains("[...]"), "{t}");
+        assert_eq!(testa_e_coda("ciao", 950), "ciao");
+    }
+
+    #[test]
+    fn il_taglio_conta_caratteri_e_non_byte() {
+        // Con un conto in byte, 600 lettere accentate sarebbero 1200 e il
+        // taglio cadrebbe a meta' di una lettera.
+        let corpo = "è".repeat(600);
+        let t = testa_e_coda(&corpo, 500);
+        assert!(t.contains("[...]"));
+        assert!(t.chars().all(|c| c == 'è' || "[.]\n".contains(c)), "{t}");
     }
 }
