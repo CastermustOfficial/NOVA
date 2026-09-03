@@ -674,10 +674,18 @@ installato dopo il primo giorno.
     all'avvio l'orb tornava nel posto salvato dopo aver controllato che quel
     posto fosse su uno degli schermi elencati, e lo era.
 
-    Adesso all'avvio si onora il posto salvato solo se sta sul principale. La
-    decisione e' in `posto_all_avvio`, pura e provata col caso misurato
-    accanto. Verificato dal vivo lanciando come lancia Windows: l'orb si posa
-    a 1864,954.
+    Ci avevo messo una regola — all'avvio l'orb torna sul principale se il
+    posto salvato non e' li' — e **l'ho ritirata lo stesso giorno**. La
+    premessa era che DISPLAY2 fosse uno schermo spento; e' invece uno schermo
+    che l'utente vede e su cui tiene l'orb apposta, e la regola gliela
+    spostava a ogni accensione. Curare il sintomo con l'ipotesi sbagliata
+    costa la cosa che si voleva proteggere.
+
+    La voce resta **aperta**, e la prossima mossa non e' codice: e' una
+    domanda a chi sa la risposta. Se DISPLAY2 si vede, l'orb a x=-113 sarebbe
+    stato visibile — a meno che all'accensione quel monitor non ci sia ancora,
+    e la finestra nasca dove nel giro di qualche secondo non c'e' piu'. Quello
+    e' il fatto da accertare prima di scrivere altro.
 
     Nota che la voce e' costata piu' del suo codice non per il codice ma per
     la **verifica**: Windows non lascia riscrivere un `.exe` mentre gira, e

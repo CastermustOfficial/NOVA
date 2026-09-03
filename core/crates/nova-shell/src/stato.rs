@@ -34,8 +34,8 @@ pub fn radice() -> PathBuf {
 /// li produce cargo — cioe' quella che esiste sulla macchina di chi sviluppa e
 /// su nessun'altra. Chi installa da una release ha i binari in `bin\`, quindi
 /// per lui questo controllo falliva sempre e il pannello diceva per sempre
-/// «il client del demone non e' compilato», che oltre a essere falso e' anche
-/// incomprensibile per chi non ha mai compilato niente.
+/// «il client del demone non e' compilato»: falso, e incomprensibile per chi
+/// non ha mai compilato niente.
 ///
 /// E' lo stesso difetto che ha fatto nascere `binari.json`: sulla macchina di
 /// chi scrive funziona tutto, e se ne accorge solo chi installa. `demone.rs`
