@@ -23,6 +23,11 @@
 pub mod slug;
 pub use slug::slug;
 
+// Cosa succede quando NOVA impara qualcosa su un fatto che sa gia'. E'
+// la parte di `upsert` che non tocca il disco, ed e' quella dove la
+// memoria si corrompe in silenzio se la regola e' sbagliata.
+pub mod fusione;
+
 pub const STATUS_ATTIVO: &str = "attivo";
 pub const STATUS_ARCHIVIATO: &str = "archiviato";
 

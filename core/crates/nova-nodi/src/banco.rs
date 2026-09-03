@@ -1,5 +1,6 @@
 //! Il banco: una riga JSON per domanda, per il confronto col Python.
 
+use nova_nodi::fusione;
 use nova_nodi::{come_lista, dividi_frontmatter, slug, Nodo};
 use serde::{Deserialize, Serialize};
 
@@ -25,6 +26,21 @@ enum Domanda {
     Lista { testo: String },
     #[serde(rename = "frontmatter")]
     Frontmatter { testo: String },
+    #[serde(rename = "fondi")]
+    Fondi {
+        #[serde(default)]
+        vecchio: NodoJson,
+        #[serde(default)]
+        nuovo: NodoJson,
+    },
+    #[serde(rename = "limita")]
+    Limita { testo: String, massimo: usize },
+    #[serde(rename = "tipo")]
+    TipoPiuSpecifico { vecchio: String, nuovo: String },
+    #[serde(rename = "wikilink")]
+    Wikilink { corpo: String, vecchio: String, nuovo: String },
+    #[serde(rename = "prefisso")]
+    Prefisso { testo: String },
 }
 
 #[derive(Deserialize, Serialize, Default, Clone)]
@@ -104,12 +120,15 @@ struct Risposta {
     #[serde(skip_serializing_if = "Option::is_none")]
     corpo: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    testo: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     errore: Option<String>,
 }
 
 fn vuota() -> Risposta {
     Risposta { slug: None, markdown: None, nodo: None, relazioni: None,
-               lista: None, frontmatter: None, corpo: None, errore: None }
+               lista: None, frontmatter: None, corpo: None, testo: None,
+               errore: None }
 }
 
 fn main() {
@@ -144,6 +163,27 @@ fn main() {
                 let (fm, corpo) = dividi_frontmatter(&testo);
                 Risposta { frontmatter: Some(fm), corpo: Some(corpo), ..vuota() }
             }
+            Ok(Domanda::Fondi { vecchio, nuovo }) => {
+                let v: Nodo = vecchio.into();
+                let n: Nodo = nuovo.into();
+                Risposta { nodo: Some(fusione::fondi(&v, &n).into()), ..vuota() }
+            }
+            Ok(Domanda::Limita { testo, massimo }) => Risposta {
+                testo: Some(fusione::limita_corpo(&testo, massimo)),
+                ..vuota()
+            },
+            Ok(Domanda::TipoPiuSpecifico { vecchio, nuovo }) => Risposta {
+                testo: Some(fusione::tipo_piu_specifico(&vecchio, &nuovo).to_string()),
+                ..vuota()
+            },
+            Ok(Domanda::Wikilink { corpo, vecchio, nuovo }) => Risposta {
+                testo: Some(fusione::rinomina_wikilink(&corpo, &vecchio, &nuovo)),
+                ..vuota()
+            },
+            Ok(Domanda::Prefisso { testo }) => Risposta {
+                testo: Some(fusione::senza_prefisso(&testo)),
+                ..vuota()
+            },
         };
         println!("{}", serde_json::to_string(&r).unwrap());
     }
