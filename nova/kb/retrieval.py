@@ -214,10 +214,27 @@ def coseno(a: list[float], b: list[float]) -> float:
 
 # ------------------------------------------------------------------ RRF
 def rrf(ranking: list[dict[str, float]], k: int = RRF_K) -> dict[str, float]:
-    """Reciprocal Rank Fusion: unisce ranking eterogenei senza normalizzare."""
+    """Reciprocal Rank Fusion: unisce ranking eterogenei senza normalizzare.
+
+    **A parita' di punteggio decide lo slug**, e non e' pignoleria. Prima
+    l'ordine era quello di inserimento nel dizionario, che risale a
+    `set(tokenizza(query))` e a `postings[t]`, cioe' a due insiemi di stringhe:
+    Python randomizza l'hash delle stringhe a ogni processo, quindi i pari
+    merito venivano ordinati in modo diverso a ogni avvio. L'RRF trasforma la
+    posizione in punteggio, il taglio a `top_k` butta via l'ultimo, e la stessa
+    domanda sulla stessa memoria dava due ricordi diversi.
+
+    Misurato sul vault vero, 444 domande: undici davano un ordine diverso fra
+    due processi, tre cambiavano proprio **quale nodo veniva ricordato**. Fra
+    queste la domanda «progetto», che e' la piu' naturale che si possa fare a
+    questa memoria.
+
+    Lo slug e' un criterio arbitrario ma **stabile e leggibile**: a parita'
+    esatta qualcuno deve vincere, e chi legge l'audit puo' capire perche'.
+    """
     fusi: dict[str, float] = {}
     for punteggi in ranking:
-        ordinati = sorted(punteggi.items(), key=lambda kv: kv[1], reverse=True)
+        ordinati = sorted(punteggi.items(), key=lambda kv: (-kv[1], kv[0]))
         for posizione, (slug, _s) in enumerate(ordinati, start=1):
             fusi[slug] = fusi.get(slug, 0.0) + 1.0 / (k + posizione)
     return fusi
@@ -403,7 +420,9 @@ class KBEngine:
                 scartati.append(slug)
                 continue
             candidati.append((slug, score))
-        candidati.sort(key=lambda kv: kv[1], reverse=True)
+        # Stesso motivo dell'RRF: a parita' di punteggio decide lo slug, non
+        # l'ordine in cui il dizionario e' stato riempito.
+        candidati.sort(key=lambda kv: (-kv[1], kv[0]))
 
         hits: list[Hit] = []
         for slug, score in candidati[:top_k]:
@@ -443,7 +462,7 @@ class KBEngine:
         # 6. riordino e taglio finale: i vicini entrano in coda con un
         # punteggio ridotto, ma senza riordinare l'ordine mostrato non
         # rispecchiava i punteggi finiti nell'audit
-        hits.sort(key=lambda h: h.score, reverse=True)
+        hits.sort(key=lambda h: (-h.score, h.node.slug))
         hits = hits[: top_k + massimo_grafo]
 
         # 7. audit

@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, ".")
 from nova.kb.schema import Node, ORIGINE_AUTO, ORIGINE_SCANSIONE, ORIGINE_UTENTE
 from nova.kb.store import Vault, _fondi, _limita_corpo, MAX_CORPO
-from nova.kb.retrieval import BM25, KBEngine, _testa_e_coda, tokenizza
+from nova.kb.retrieval import BM25, KBEngine, rrf, _testa_e_coda, tokenizza
 from nova.kb.memory import MemoryWriter, _pulisci_titolo
 
 esiti: list[tuple[bool, str]] = []
@@ -206,6 +206,50 @@ n = v.upsert(nodo("t", "Titolo\ncon a capo", "corpo"))
 riletto = Vault(v.root).get("t")
 verifica(riletto is not None and "\n" not in riletto.title,
          "e il titolo sopravvive intero alla riscrittura")
+
+# -- Lo stesso ricordo alla stessa domanda -----------------------------
+# Questo difetto non si vede da dentro un processo solo: l'ordine dei pari
+# merito e' fisso per tutta la vita del processo, e cambia al successivo.
+# Percio' la prova ne apre due, con due semi di hash diversi, e confronta.
+#
+# Misurato prima della cura, sul vault vero, 444 domande: undici davano un
+# ordine diverso fra due processi, e tre cambiavano proprio quale nodo
+# veniva ricordato — fra queste la domanda «progetto».
+import json, os, subprocess
+
+# Primo controllo, in casa: l'RRF non deve dipendere dall'ordine in cui il
+# dizionario e' stato riempito. Stessi punteggi, due ordini di inserimento.
+avanti = {f"nodo-{i}": 1.0 for i in range(6)}
+indietro = {f"nodo-{i}": 1.0 for i in reversed(range(6))}
+verifica(rrf([avanti]) == rrf([indietro]),
+         "l'RRF non cambia se il dizionario e' stato riempito al contrario")
+
+# E poi la domanda vera, da dove viene fatta davvero: due processi.
+_SONDA = r'''
+import json, sys, tempfile
+sys.path.insert(0, %(radice)r)
+from nova.kb.schema import Node
+from nova.kb.store import Vault
+from nova.kb.retrieval import BM25, rrf
+# Sei nodi che pareggiano esattamente: stesso corpo, stessa lunghezza.
+nodi = [Node(slug="progetto-%%s" %% nome, title="progetto " + nome,
+             body="un progetto di prova", tipo="progetto")
+        for nome in ("alfa", "beta", "gamma", "delta", "epsilon", "zeta")]
+b = BM25(); b.indicizza(nodi)
+fusi = rrf([b.cerca("progetto")])
+print(json.dumps([s for s, _ in sorted(fusi.items(), key=lambda kv: (-kv[1], kv[0]))]))
+''' % {"radice": str(Path(".").resolve())}
+
+def _classifica(seme: str) -> list[str]:
+    amb = dict(os.environ, PYTHONHASHSEED=seme)
+    r = subprocess.run([sys.executable, "-c", _SONDA], capture_output=True,
+                       text=True, env=amb, timeout=120)
+    return json.loads(r.stdout.strip().splitlines()[-1])
+
+_viste = {tuple(_classifica(s)) for s in ("1", "2", "3", "17")}
+verifica(len(_viste) == 1,
+         "la stessa domanda da' lo stesso ricordo in processi diversi "
+         f"({len(_viste)} classifiche diverse su 4 semi)")
 
 # -- esito -------------------------------------------------------------
 falliti = [d for ok, d in esiti if not ok]
