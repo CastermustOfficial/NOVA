@@ -2660,3 +2660,91 @@ per tremila caratteri» sta fra le prove apposta.
 E `max((a, b), key=...)` di Python, a parita' di peso, torna **il primo**: nel
 Rust va scritto `>` e non `>=`, se no a parita' di origine vincerebbe il nuovo
 e il nodo cambierebbe fonte senza motivo. Un carattere, di nuovo.
+
+## 3 settembre 2026 — «non è partita», per la seconda volta
+
+Gio: «non è spawnato nova all'avvio del pc». Stessa frase di qualche giorno
+fa, e stessa causa — che e' la parte che fa piu' male, perche' vuol dire che
+la volta scorsa avevo diagnosticato e non curato.
+
+### Cosa ho misurato
+
+La chiave di avvio automatico c'era e puntava a un file che esiste. Lanciata a
+mano **esattamente come la lancia Windows** — cartella di lavoro `C:\`,
+percorso di sviluppo — NOVA partiva e restava su. Quindi il meccanismo era
+sano, e il difetto stava altrove.
+
+Ho chiesto a Windows dov'erano le finestre dell'orb:
+
+    orb "NOVA"  visibile=True   rect  -113,1119 - 20,1215
+
+    \\.\DISPLAY2  primario=False  {X=-1920, Y=190,  1920x1080}
+    \\.\DISPLAY1  primario=True   {X=0,     Y=0,    2048x1152}
+
+DISPLAY2 va da x=-1920 a x=0. L'orb stava a x=-113: quasi tutto sul monitor
+che Gio non vede, con venti pixel che sbordavano sul principale. **NOVA era
+partita.** Semplicemente compariva dove non si puo' guardare.
+
+### Il difetto era gia' scritto, accanto alla cura sbagliata
+
+`richiama()` — la funzione della guardia di istanza singola, quella di ATT-14
+— ha in cima questo commento, scritto da me tre giorni fa:
+
+> Uno schermo **elencato** non e' uno schermo che **si vede**: spento, in
+> standby, o con l'ingresso commutato altrove resta nell'elenco identico a uno
+> acceso. Quella differenza dal software non si distingue, quindi non serve un
+> controllo migliore: serve una via di ritorno.
+
+Tutto giusto. E la via di ritorno l'avevo messa **solo** in `richiama()`, cioe'
+solo se l'utente fa doppio clic una seconda volta sul collegamento. All'avvio,
+`ripristina()` rimetteva l'orb nel posto salvato dopo aver controllato che
+quel posto fosse «su uno degli schermi che ci sono adesso» — e lo era.
+
+E' D72 un'altra volta, a due funzioni di distanza: **una lezione imparata in
+un posto non si sposta da sola**, nemmeno dentro lo stesso file, nemmeno
+quando l'ho scritta io tre giorni prima.
+
+### La regola, e perche' non e' prepotente
+
+All'avvio si onora il posto salvato **solo se sta sul principale**. Altrimenti
+l'orb torna nell'angolo in basso a destra.
+
+Sembra una prepotenza — sposta una finestra che qualcuno aveva messo apposta
+da un'altra parte — e la ragione per cui non lo e' sta tutta nel momento.
+All'avvio l'utente non ha chiesto niente: ha acceso il computer. L'orb e'
+l'unica cosa che dice che NOVA c'e', e se compare su uno schermo che non si
+vede la conclusione non e' «sara' sull'altro monitor», e' **«non e' partita»**.
+
+E l'accensione e' anche il momento peggiore per fidarsi dell'elenco degli
+schermi, perche' un secondo monitor puo' non essersi ancora svegliato quando
+l'avvio automatico fa partire il programma.
+
+Il conto fra i due errori non e' pari: sbagliare in un verso costa una
+trascinata, e chi sposta l'orb se lo ritrova li' per tutta la sessione.
+Sbagliare nell'altro costa la fiducia di qualcuno che accende il PC e non
+trova il programma che aveva installato.
+
+La decisione sta in `posto_all_avvio`, che e' **pura**: prende il posto
+salvato e il rettangolo del principale e torna dove posare. Cosi' si prova
+senza una finestra vera, e fra le prove c'e' il caso misurato — x=-113,
+y=1119 — con accanto il numero, non una descrizione.
+
+Verificato dal vivo, lanciando come lancia Windows: l'orb si posa a
+**1864,954**, angolo in basso a destra del principale.
+
+### Due cose viste per strada
+
+**`cli_nova()` cercava solo in `core/target/release`.** E' la cartella in cui i
+binari li produce cargo, cioe' quella che esiste sulla macchina di chi
+sviluppa e su nessun'altra: chi installa da una release ha i binari in `bin\`,
+quindi per lui quel controllo falliva **sempre** e il pannello diceva per
+sempre «il client del demone non e' compilato» — falso, e incomprensibile per
+chi non ha mai compilato niente. E' lo stesso difetto che ha fatto nascere
+`binari.json`. `demone.rs` cercava gia' `novad` accanto all'eseguibile; questa
+riga non era stata portata dietro. Adesso guarda prima accanto a se'.
+
+**E `nova shutdown` non ferma sempre il demone.** Due volte oggi `novad` e'
+sopravvissuto allo spegnimento e la compilazione si e' rifiutata di partire —
+correttamente, perche' la guardia di `build.ps1` funziona. Non l'ho inseguito
+adesso, ma va guardato: uno spegnimento che non spegne e' una promessa non
+mantenuta, e si scopre solo quando qualcosa d'altro si lamenta.
