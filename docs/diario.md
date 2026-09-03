@@ -2601,3 +2601,62 @@ fallirebbe a mezzanotte. E' la terza volta che quella scelta si ripaga.
 
 Ventiquattro titoli, otto nodi, sette frontmatter e sette liste: tutto
 identico, incrociati compresi.
+
+## 3 settembre 2026 — il tredicesimo pezzo, e la prima volta che non trovo niente
+
+`nova-nodi::fusione`. La parte di `Vault.upsert` che non tocca il disco: cosa
+succede quando NOVA impara qualcosa su un fatto che **sa gia'**.
+
+E' il posto piu' insidioso del vault, perche' un nodo peggiorato ha lo stesso
+aspetto di un nodo giusto. Se la regola sbaglia, la memoria si degrada un po'
+a ogni conversazione e nessuno se ne accorge — non c'e' un errore, non c'e' un
+rosso, c'e' solo che fra sei mesi NOVA sa di te qualcosa di leggermente falso.
+
+Le regole sono tutte difetti gia' successi, e i commenti del Python li chiamano
+per nome:
+
+- un «fatto» generico **declassava una persona**. L'estrattore mette sempre un
+  tipo (di fabbrica «fatto»), quindi `nuovo.tipo or vecchio.tipo` sceglieva
+  sempre il nuovo: la prima annotazione su Anna la trasformava in un fatto, il
+  file restava in `02-persone` e l'indice diceva `06-fatti`;
+- la confidenza saliva **a ogni riformulazione**, cioe' premiava esattamente
+  il caso in cui NOVA non ha imparato niente di nuovo. Adesso sale quando lo
+  stesso fatto torna **identico** da una seconda osservazione: confermato, non
+  ridetto con altre parole;
+- un primo paragrafo piu' lungo del tetto **congelava il nodo per sempre**:
+  c'era spazio per la testa e per nient'altro, quindi ogni fatto nuovo veniva
+  scartato in silenzio a ogni scrittura. Adesso anche la testa ha una quota, e
+  il fatto piu' recente entra sempre, tagliato se serve;
+- e l'osservazione automatica non declassa cio' che ha detto l'utente: chi
+  l'ha detto conta piu' di quante volte e' stato detto.
+
+### Trentun confronti, zero divergenze
+
+E' la prima volta nel cantiere che un pezzo passa al primo colpo. Nessun
+`unwrap_or_default()`, nessun BOM, nessuna maiuscola sbagliata, nessuna attesa
+mia da correggere.
+
+Vale la pena chiedersi perche', invece di prenderlo come un buon segno e
+basta. Credo siano due cose. La prima: qui non c'e' nessun **giunto** — la
+funzione non incontra PowerShell, non legge un file, non parla con un
+processo. Tutti i difetti delle serate scorse stavano nel punto in cui il
+codice incontra il mondo, e qui quel punto non esiste. La seconda: le regole
+erano gia' state pagate. Ognuna di quelle quattro e' un difetto trovato mesi
+fa, capito e scritto con il suo perche' accanto. Portare del codice che
+qualcuno ha gia' sbagliato una volta e corretto capendo e' facile; portare del
+codice mai messo alla prova e' dove si trovano le cose.
+
+Quindi il porting qui non ha trovato difetti: ha trovato **conferme**. E ha
+lasciato in Rust, accanto a ogni regola, il difetto che l'ha generata — che e'
+l'unica forma di documentazione che non invecchia, perche' racconta un fatto
+invece di un'intenzione.
+
+### Due dettagli di traduzione
+
+`len()` in Python conta i **caratteri**; in Rust conta i byte. Con un accento
+dentro, i tagli del corpo sarebbero caduti in un punto diverso — e il caso «è
+per tremila caratteri» sta fra le prove apposta.
+
+E `max((a, b), key=...)` di Python, a parita' di peso, torna **il primo**: nel
+Rust va scritto `>` e non `>=`, se no a parita' di origine vincerebbe il nuovo
+e il nodo cambierebbe fonte senza motivo. Un carattere, di nuovo.

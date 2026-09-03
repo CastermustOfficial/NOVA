@@ -219,6 +219,126 @@ controlla("un nodo senza titolo prende il nome dal file",
 controlla("e un titolo che diventerebbe vuoto ha comunque un nome",
           rust([{"tipo": "slug", "testo": "..."}])[0]["slug"] == "nodo")
 
+print("\n=== La fusione: quando NOVA impara su un fatto che sa gia' ===")
+# E' la parte di `upsert` che non tocca il disco, ed e' quella dove la memoria
+# si corrompe **in silenzio**: un nodo peggiorato ha lo stesso aspetto di un
+# nodo giusto, e nessuno se ne accorge finche' non serve.
+from nova.kb.store import (MAX_CORPO, _fondi, _limita_corpo,  # noqa: E402
+                           _rinomina_wikilink, _senza_prefisso,
+                           _tipo_piu_specifico)
+
+COPPIE = [
+    # (vecchio, nuovo) — i casi che i commenti del Python chiamano per nome
+    ("un fatto generico non declassa una persona",
+     Node(slug="persona-anna", title="Anna", body="Sa il francese.",
+          tipo="persona", confidenza=0.7, origine="utente"),
+     Node(slug="persona-anna", title="Anna", body="Vive a Roma.",
+          tipo="fatto", confidenza=0.6, origine="auto")),
+    ("lo stesso fatto ripetuto conferma invece di ripetersi",
+     Node(slug="x", title="X", body="Sa il francese.", tipo="persona",
+          confidenza=0.7, origine="auto"),
+     Node(slug="x", title="X", body="Sa il francese.", tipo="fatto",
+          confidenza=0.7, origine="auto")),
+    ("una riformulazione non alza la confidenza",
+     Node(slug="x", title="X", body="Sa il francese.", tipo="persona",
+          confidenza=0.7, origine="auto"),
+     Node(slug="x", title="X", body="Conosce il francese.", tipo="fatto",
+          confidenza=0.7, origine="auto")),
+    ("l'osservazione automatica non declassa cio' che ha detto l'utente",
+     Node(slug="x", title="X", body="a", tipo="fatto", confidenza=0.9,
+          origine="utente"),
+     Node(slug="x", title="X", body="b", tipo="fatto", confidenza=0.5,
+          origine="auto")),
+    ("e l'utente promuove cio' che NOVA aveva dedotto",
+     Node(slug="x", title="X", body="a", tipo="fatto", confidenza=0.5,
+          origine="auto"),
+     Node(slug="x", title="X", body="b", tipo="fatto", confidenza=0.9,
+          origine="utente")),
+    ("tag e relazioni si uniscono senza doppioni e in ordine",
+     Node(slug="x", title="X", body="a", tags=["uno", "due"],
+          relazioni=["gio"], confidenza=0.7),
+     Node(slug="x", title="X", body="b", tags=["due", "tre"],
+          relazioni=["gio", "anna"], confidenza=0.7)),
+    ("un corpo nuovo vuoto non cancella quello che c'era",
+     Node(slug="x", title="X", body="il fatto importante", confidenza=0.7),
+     Node(slug="x", title="X", body="", confidenza=0.8)),
+    ("il titolo nuovo vince, ma solo se c'e'",
+     Node(slug="x", title="Vecchio titolo", body="a", confidenza=0.7),
+     Node(slug="x", title="", body="b", confidenza=0.7)),
+    ("la data di creazione resta quella del vecchio",
+     Node(slug="x", title="X", body="a", creato="2026-01-01", confidenza=0.7),
+     Node(slug="x", title="X", body="b", creato="2026-09-03", confidenza=0.7)),
+]
+domande = [{"tipo": "fondi", "vecchio": a_json(v), "nuovo": a_json(n)}
+           for _, v, n in COPPIE]
+risposte = rust(domande)
+CAMPI = ("slug", "title", "body", "tipo", "tags", "relazioni", "area",
+         "status", "origine", "confidenza", "riferimenti", "creato")
+for (nome, v, n), r in zip(COPPIE, risposte):
+    atteso = _fondi(v, n)
+    diverse = [f"{c}: rust={r['nodo'][c]!r} python={getattr(atteso, c)!r}"
+               for c in CAMPI
+               if (r["nodo"][c] != getattr(atteso, c)
+                   if c != "confidenza"
+                   else abs(r["nodo"][c] - getattr(atteso, c)) > 1e-9)]
+    controlla(nome, not diverse, " | ".join(diverse[:3]))
+
+
+print("\n=== Il corpo che non ci sta piu' ===")
+# Il difetto vero: un primo paragrafo piu' lungo del tetto congelava il nodo
+# per sempre, e ogni fatto nuovo spariva in silenzio a ogni scrittura.
+CORPI = [
+    ("corto", "una riga sola"),
+    ("giusto al limite", "a" * MAX_CORPO),
+    ("un blocco solo, enorme", "a" * 5000),
+    ("testa enorme piu' un fatto nuovo", "a" * 5000 + "\n\nfatto nuovo"),
+    ("tanti blocchi", "\n\n".join(f"blocco numero {i} " + "x" * 200
+                                   for i in range(40))),
+    ("un blocco recente lunghissimo",
+     "testa breve\n\n" + "z" * 6000),
+    ("con accenti, che contano come un carattere",
+     "è" * 3000 + "\n\nperché"),
+    ("vuoto", ""),
+]
+risposte = rust([{"tipo": "limita", "testo": c, "massimo": MAX_CORPO}
+                 for _, c in CORPI])
+for (nome, c), r in zip(CORPI, risposte):
+    atteso = _limita_corpo(c, MAX_CORPO)
+    controlla(f"corpo: {nome}", r["testo"] == atteso,
+              f"rust {len(r['testo'])} car, python {len(atteso)} car")
+
+print("\n=== E il resto delle regole ===")
+TIPI = [("persona", "fatto"), ("fatto", "persona"), ("fatto", "nota"),
+        ("", "fatto"), ("persona", ""), ("", ""), ("app", "progetto")]
+risposte = rust([{"tipo": "tipo", "vecchio": v, "nuovo": n} for v, n in TIPI])
+diverse = [f"({v},{n}): {r['testo']!r} vs {_tipo_piu_specifico(v, n)!r}"
+           for (v, n), r in zip(TIPI, risposte)
+           if r["testo"] != _tipo_piu_specifico(v, n)]
+controlla("il tipo piu' specifico vince sempre", not diverse,
+          " | ".join(diverse[:3]))
+
+LINK = [
+    ("vedi [[Il Gatto]] e [[il-gatto|il gatto]] e [[altro]]", "il-gatto", "ugo"),
+    ("[[aperto", "aperto", "x"),
+    ("niente link qui", "a", "b"),
+    ("[[a]][[b]][[a]]", "a", "z"),
+    ("[[Però]] con accento", "pero", "dopo"),
+]
+risposte = rust([{"tipo": "wikilink", "corpo": c, "vecchio": v, "nuovo": n}
+                 for c, v, n in LINK])
+diverse = [f"{c[:24]!r}: {r['testo']!r} vs {_rinomina_wikilink(c, v, n)!r}"
+           for (c, v, n), r in zip(LINK, risposte)
+           if r["testo"] != _rinomina_wikilink(c, v, n)]
+controlla("i wikilink si rinominano per slug, non per testo", not diverse,
+          " | ".join(diverse[:3]))
+
+SLUG = ["persona-anna", "anna-persona", "progetto-x", "nodo-", "semplice"]
+risposte = rust([{"tipo": "prefisso", "testo": s} for s in SLUG])
+diverse = [f"{s!r}: {r['testo']!r} vs {_senza_prefisso(s)!r}"
+           for s, r in zip(SLUG, risposte) if r["testo"] != _senza_prefisso(s)]
+controlla("e i prefissi si tolgono solo in testa", not diverse,
+          " | ".join(diverse[:3]))
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")

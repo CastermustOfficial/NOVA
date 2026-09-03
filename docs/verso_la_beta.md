@@ -777,6 +777,23 @@ in Rust e meta' no, l'utente installa comunque Python e ci sono due
 implementazioni della stessa cosa da tenere allineate. Il guadagno arriva
 tutto insieme, alla fine.
 
+**Il tredicesimo pezzo: la fusione.** `nova-nodi::fusione` porta la parte di
+`Vault.upsert` che non tocca il disco — cosa succede quando NOVA impara
+qualcosa su un fatto che **sa gia'**. E' il posto dove la memoria si corrompe
+in silenzio: un nodo peggiorato ha lo stesso aspetto di un nodo giusto, e
+nessuno se ne accorge finche' non serve.
+
+Le regole sono tutte difetti gia' successi, e i commenti del Python li
+chiamano per nome: un «fatto» generico che declassava una persona (e il file
+restava in `02-persone` mentre l'indice diceva `06-fatti`); la confidenza che
+saliva a ogni **riformulazione**, cioe' premiava proprio il caso in cui NOVA
+non aveva imparato niente; un primo paragrafo piu' lungo del tetto che
+congelava il nodo per sempre, facendo sparire in silenzio ogni fatto nuovo.
+
+Trentuno confronti, zero divergenze al primo colpo — la prima volta nel
+cantiere. Le regole erano gia' scritte bene: qui il porting non ha trovato
+difetti, ha trovato conferme.
+
 **Il dodicesimo pezzo, e il primo del vault.** `nova-nodi`: cos'e' un nodo
 della memoria e come si scrive su disco. Arriva subito dopo il guardiano —
 cosa **puo'** entrare in memoria — che era stato scritto per una porta che
