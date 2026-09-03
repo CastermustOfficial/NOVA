@@ -1166,11 +1166,58 @@ print('  configurazione aggiornata:', ', '.join(patch))
 Titolo "Avvio"
 
 $shell = Join-Path $BinDir 'nova-shell.exe'
+
+# Un'attivita' pianificata «all'accesso», non la chiave Run.
+#
+# Misurato il 3 settembre su questa macchina: PC acceso alle 10:16:10, NOVA
+# comparsa alle 10:17:15. **Sessantacinque secondi.** Non e' lentezza di NOVA -
+# dal registro, fra «guscio in avvio» e «demone acceso» passano 0,65 secondi -
+# e' Windows che ritarda apposta i programmi della chiave Run, per far
+# comparire prima il desktop.
+#
+# Per chi guarda, un minuto di niente non e' un ritardo: e' «non e' partita».
+# E' esattamente quello che e' successo, ed e' il difetto peggiore che possa
+# avere un programma che deve stare li' ad aspettarti.
+#
+# Un'attivita' con innesco «all'accesso» non passa da quel ritardo. Non serve
+# essere amministratori: e' un'attivita' dell'utente per l'utente. E il
+# disinstallatore le toglie gia' - cerca le attivita' che cominciano per NOVA -
+# quindi questa strada era gia' pulita prima di essere presa.
+function Avvio-Automatico($eseguibile) {
+    $chiave = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+    try {
+        # /f sovrascrive: reinstallare non deve creare la seconda copia.
+        & schtasks /create /tn $RunName /tr "`"$eseguibile`"" /sc onlogon /f *> $null
+        if ($LASTEXITCODE -eq 0) {
+            # Se c'era la vecchia voce in Run va tolta, se no NOVA parte due
+            # volte - e la seconda si chiude da sola grazie alla guardia di
+            # istanza singola, ma e' comunque un processo avviato per niente.
+            Remove-ItemProperty $chiave -Name $RunName -ErrorAction SilentlyContinue
+            return 'attivita'
+        }
+    } catch { }
+    # Il ripiego. Alcune installazioni di Windows hanno l'Utilita' di
+    # pianificazione disattivata da una policy: li' la chiave Run resta
+    # l'unica strada, e vale la pena dirlo invece di lasciare NOVA senza
+    # avvio automatico.
+    try {
+        Set-ItemProperty $chiave -Name $RunName -Value "`"$eseguibile`""
+        return 'chiave'
+    } catch { return 'niente' }
+}
+
 if (-not $SenzaAvvioAuto) {
-    if ($Prova) { Info "[prova] configurerei l'avvio automatico" }
+    if ($Prova) { Info "[prova] registrerei l'avvio automatico all'accesso" }
     else {
-        Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name $RunName -Value "`"$shell`""
-        Ok "NOVA si avviera' da sola all'accensione."
+        switch (Avvio-Automatico $shell) {
+            'attivita' { Ok "NOVA si avviera' da sola all'accesso, senza il ritardo di Windows." }
+            'chiave'   {
+                Ok "NOVA si avviera' da sola all'accensione."
+                Warn "Non ho potuto registrare l'attivita' pianificata: NOVA partira'"
+                Warn "col ritardo che Windows applica ai programmi in avvio (un minuto circa)."
+            }
+            default    { Warn "Non sono riuscito a configurare l'avvio automatico." }
+        }
     }
 }
 if ($Prova) { Info "[prova] creerei il collegamento sul Desktop" }

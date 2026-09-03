@@ -81,9 +81,17 @@ print("\n4. l'installer punta alla stessa porta")
 inst = (RADICE / "install.ps1").read_text(encoding="utf-8", errors="replace")
 controlla("il collegamento sul Desktop e' il guscio",
           "$lnk.TargetPath = $shell" in inst)
+# La proprieta' e' «l'avvio automatico apre la stessa porta del
+# collegamento», non «lo fa con la chiave Run»: da oggi si registra
+# un'attivita' pianificata all'accesso, perche' la chiave Run passa dal
+# ritardo che Windows applica ai programmi in avvio — misurato, 65 secondi.
+# La prova guardava la forma; ora guarda la cosa.
 controlla("e l'avvio automatico pure",
-          "-Name $RunName -Value \"`\"$shell`\"\"" in inst
-          or "$shell" in inst.split("CurrentVersion\\Run")[1][:200])
+          "Avvio-Automatico $shell" in inst,
+          "l'avvio automatico deve ricevere lo stesso $shell del collegamento")
+controlla("qualunque strada prenda, e' sempre quell'eseguibile",
+          '/tr "`"$eseguibile`""' in inst
+          and '-Name $RunName -Value "`"$eseguibile`""' in inst)
 
 print("\n5. il README non promette una finestra che non c'e'")
 for nome in ["README.md", "README.en.md"]:

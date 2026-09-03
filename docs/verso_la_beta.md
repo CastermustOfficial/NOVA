@@ -681,11 +681,23 @@ installato dopo il primo giorno.
     spostava a ogni accensione. Curare il sintomo con l'ipotesi sbagliata
     costa la cosa che si voleva proteggere.
 
-    La voce resta **aperta**, e la prossima mossa non e' codice: e' una
-    domanda a chi sa la risposta. Se DISPLAY2 si vede, l'orb a x=-113 sarebbe
-    stato visibile — a meno che all'accensione quel monitor non ci sia ancora,
-    e la finestra nasca dove nel giro di qualche secondo non c'e' piu'. Quello
-    e' il fatto da accertare prima di scrivere altro.
+    **E il fatto era scritto.** `runtime/guscio.log` — che avevo cercato in
+    `%APPDATA%` e non trovato, concludendone che non esistesse — tiene una
+    riga per ogni avvio dal 30 agosto:
+
+        2026-09-03T08:17:15.341Z  guscio in avvio
+        2026-09-03T08:17:15.640Z  orb rimesso dov'era x=-104 y=1129
+        2026-09-03T08:17:15.993Z  demone acceso all'avvio
+
+    Sono le 10:17:15 locali; il PC si era acceso alle 10:16:10. **NOVA parte
+    all'avvio, sessantacinque secondi dopo** — e non per lentezza sua, visto
+    che fra la prima riga e l'ultima passano 0,65 secondi. E' Windows che
+    ritarda apposta i programmi della chiave `Run`.
+
+    Per chi guarda lo schermo, un minuto di niente non e' un ritardo: e' «non
+    e' partita». Curato dove andava curato — **come** parte, non dove si
+    mette: `install.ps1` registra un'attivita' pianificata «all'accesso», che
+    quel ritardo non ce l'ha, e toglie la vecchia voce in `Run`.
 
     Nota che la voce e' costata piu' del suo codice non per il codice ma per
     la **verifica**: Windows non lascia riscrivere un `.exe` mentre gira, e

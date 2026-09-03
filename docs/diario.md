@@ -2815,3 +2815,71 @@ Questa e' un'altra: **ci sono domande che nessuna misura risponde**, perche' il
 fatto non e' nel computer. Se lo schermo si vede o no lo sa una persona sola, e
 non e' quella che scrive il codice. Trattare una deduzione come un dato
 misurato e' peggio che non misurare, perche' arriva con la stessa faccia.
+
+## 3 settembre 2026, notte — sessantacinque secondi
+
+Il registro c'era da sempre. `runtime/guscio.log`, nella cartella del
+progetto: 275 righe, una per ogni avvio dal 30 agosto. Io avevo cercato in
+`%APPDATA%\NOVA\logs`, non l'avevo trovato, e avevo concluso che non ci
+fosse **niente** — e da li' avevo cominciato a dedurre.
+
+Dentro c'era la risposta, scritta da NOVA stessa, con l'ora:
+
+    2026-09-03T08:17:15.341Z  INFO nova_shell: guscio in avvio versione="0.1.0"
+    2026-09-03T08:17:15.640Z  INFO nova_shell::finestre: orb rimesso dov'era x=-104 y=1129
+    2026-09-03T08:17:15.993Z  INFO nova_shell::demone: demone avviato dal guscio
+    2026-09-03T08:17:15.993Z  INFO nova_shell: demone acceso all'avvio
+
+Il fuso e' UTC+2, quindi sono le **10:17:15 locali**. Il PC si e' acceso alle
+10:16:10.
+
+**NOVA e' partita. Sessantacinque secondi dopo l'accensione.**
+
+E non per lentezza sua: fra la prima riga e l'ultima passano **0,65 secondi**.
+E' Windows che ritarda apposta i programmi della chiave `Run`, per far
+comparire prima il desktop.
+
+Per chi guarda lo schermo, un minuto di niente non e' un ritardo: e' «non e'
+partita». Che e' precisamente quello che Gio ha detto, ed e' il difetto
+peggiore che possa avere un programma il cui compito e' **stare li' ad
+aspettarti**.
+
+### La cura: come parte, non dove si mette
+
+Un'attivita' pianificata con innesco «all'accesso» non passa da quel ritardo.
+Non serve essere amministratori — e' un'attivita' dell'utente per l'utente — e
+il disinstallatore toglie gia' le attivita' che cominciano per NOVA, quindi
+quella strada era **pulita prima di essere presa**.
+
+`install.ps1` adesso registra l'attivita' e toglie la vecchia voce in `Run`
+(se restassero tutte e due, NOVA partirebbe due volte: la seconda si chiude da
+sola grazie alla guardia di istanza singola, ma e' comunque un processo
+avviato per niente). Resta un ripiego sulla chiave `Run` per le installazioni
+dove una policy ha disattivato l'Utilita' di pianificazione — e in quel caso
+lo **dice**, invece di lasciar credere che sia tutto uguale.
+
+### Cosa mi porto via, che e' piu' importante della cura
+
+Stamattina, sulla stessa domanda, avevo dedotto che un monitor fosse spento e
+avevo cambiato il comportamento delle finestre. Sbagliato, ritirato in serata.
+
+La differenza fra le due giornate non e' che la seconda volta ho ragionato
+meglio. E' che la seconda volta **ho trovato il file**.
+
+Avevo perfino scritto io, tre giorni fa, il commento in cima ad
+`avvia_registro()`:
+
+> Ed e' esattamente li' che serve leggerlo — quando NOVA parte da sola
+> all'accensione del PC e qualcosa non va, non c'e' nessuno a guardare uno
+> schermo. Un avvio che fallisce in silenzio e' un avvio che non si puo'
+> riparare.
+
+Il registro l'avevo messo apposta per questa esatta domanda, e poi ho passato
+mezza giornata a dedurre invece di aprirlo. **Cercare in un posto e non
+trovare non e' «non c'e'»**: e' «non c'e' li'». La distanza fra le due frasi
+e' una regola sbagliata, una finestra spostata a un utente che la teneva dove
+voleva lui, e due commit da ritirare.
+
+Quando qualcosa non torna, la prima domanda non e' «cosa sara' successo». E'
+**«chi lo ha scritto da qualche parte?»** — e nel dubbio, chiederlo al
+programma prima che a se stessi.
