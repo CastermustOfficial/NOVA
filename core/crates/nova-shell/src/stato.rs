@@ -28,9 +28,28 @@ pub fn radice() -> PathBuf {
     std::env::current_dir().unwrap_or_default()
 }
 
+/// Il client del demone: **prima accanto a me**, poi dove lo mette cargo.
+///
+/// Prima c'era solo `core/target/release`, che e' la cartella in cui i binari
+/// li produce cargo — cioe' quella che esiste sulla macchina di chi sviluppa e
+/// su nessun'altra. Chi installa da una release ha i binari in `bin\`, quindi
+/// per lui questo controllo falliva sempre e il pannello diceva per sempre
+/// «il client del demone non e' compilato», che oltre a essere falso e' anche
+/// incomprensibile per chi non ha mai compilato niente.
+///
+/// E' lo stesso difetto che ha fatto nascere `binari.json`: sulla macchina di
+/// chi scrive funziona tutto, e se ne accorge solo chi installa. `demone.rs`
+/// cercava gia' `novad` accanto all'eseguibile; questa riga non era stata
+/// portata dietro.
 fn cli_nova() -> PathBuf {
-    let base = radice().join("core").join("target").join("release");
-    base.join(if cfg!(windows) { "nova.exe" } else { "nova" })
+    let nome = if cfg!(windows) { "nova.exe" } else { "nova" };
+    if let Ok(exe) = std::env::current_exe() {
+        let accanto = exe.with_file_name(nome);
+        if accanto.exists() {
+            return accanto;
+        }
+    }
+    radice().join("core").join("target").join("release").join(nome)
 }
 
 /// Il primo oggetto JSON dentro un'uscita che puo' avere righe di contorno.

@@ -667,6 +667,18 @@ installato dopo il primo giorno.
     l'orb che c'e' gia' invece di crearne un altro: `finestre::richiama`, che
     lo rimette nell'angolo in basso a destra dello schermo principale.
 
+    **E la voce non era finita.** Due giorni dopo, di nuovo: «non e' spawnato
+    nova all'avvio del pc». NOVA partiva — l'orb stava a x=-113, quasi tutto
+    sul monitor che l'utente non vede. La via di ritorno l'avevo messa solo in
+    `richiama()`, cioe' solo se qualcuno fa doppio clic una **seconda** volta;
+    all'avvio l'orb tornava nel posto salvato dopo aver controllato che quel
+    posto fosse su uno degli schermi elencati, e lo era.
+
+    Adesso all'avvio si onora il posto salvato solo se sta sul principale. La
+    decisione e' in `posto_all_avvio`, pura e provata col caso misurato
+    accanto. Verificato dal vivo lanciando come lancia Windows: l'orb si posa
+    a 1864,954.
+
     Nota che la voce e' costata piu' del suo codice non per il codice ma per
     la **verifica**: Windows non lascia riscrivere un `.exe` mentre gira, e
     l'orb tiene aperto `nova-shell.exe`, quindi il binario nuovo non si

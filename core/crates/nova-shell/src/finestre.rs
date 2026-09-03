@@ -62,21 +62,72 @@ fn in_attesa() -> &'static Mutex<Option<Posto>> {
     P.get_or_init(|| Mutex::new(None))
 }
 
-/// Il punto cade dentro uno degli schermi che ci sono adesso?
+/// Un rettangolo di schermo, in pixel fisici.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Rettangolo {
+    pub x: i32,
+    pub y: i32,
+    pub larghezza: u32,
+    pub altezza: u32,
+}
+
+/// Quanto puo' sporgere un orb appoggiato a un bordo ed essere ancora a posto.
+const MARGINE: i32 = 48;
+
+/// Il margine dall'angolo quando l'orb si posa da solo.
+const ANGOLO: i32 = 64;
+
+fn dentro(p: Posto, r: Rettangolo) -> bool {
+    p.x + MARGINE > r.x
+        && p.y + MARGINE > r.y
+        && p.x < r.x + r.larghezza as i32
+        && p.y < r.y + r.altezza as i32
+}
+
+fn angolo(r: Rettangolo, larghezza: u32, altezza: u32) -> Posto {
+    Posto {
+        x: r.x + r.larghezza as i32 - larghezza as i32 - ANGOLO,
+        y: r.y + r.altezza as i32 - altezza as i32 - ANGOLO * 2,
+    }
+}
+
+/// Dove posare l'orb **all'avvio**, dato il posto salvato e lo schermo
+/// principale.
 ///
-/// Si chiede che ci stia il primo pezzo di finestra, non tutta: un orb
-/// appoggiato al bordo destro sporge di qualche pixel ed è messo benissimo.
-fn visibile(finestra: &WebviewWindow, p: Posto) -> bool {
-    let Ok(monitor) = finestra.available_monitors() else { return false };
-    const MARGINE: i32 = 48;
-    monitor.iter().any(|m| {
-        let o = m.position();
-        let d = m.size();
-        p.x + MARGINE > o.x
-            && p.y + MARGINE > o.y
-            && p.x < o.x + d.width as i32
-            && p.y < o.y + d.height as i32
-    })
+/// La regola: si onora il posto salvato solo se sta sul principale. Altrimenti
+/// si torna nell'angolo in basso a destra.
+///
+/// Sembra prepotente, e la ragione per cui non lo e' sta tutta nel momento.
+/// All'avvio l'utente non ha chiesto niente: ha acceso il computer. L'orb e'
+/// l'**unica** cosa che dice che NOVA c'e', e se compare su uno schermo che non
+/// si vede la conclusione non e' «e' sull'altro monitor», e' «non e' partita».
+/// E' successo due volte, e la seconda l'orb stava a x=-113 su un monitor che
+/// Windows elencava regolarmente.
+///
+/// Uno schermo **elencato** non e' uno schermo che **si vede**: spento, in
+/// standby o con l'ingresso commutato altrove resta nell'elenco identico a uno
+/// acceso, e quella differenza dal software non si distingue. All'accensione
+/// per giunta e' il momento peggiore per fidarsi dell'elenco, perche' un
+/// secondo monitor puo' non essersi ancora svegliato quando parte l'avvio
+/// automatico.
+///
+/// Il conto fra i due errori non e' pari. Sbagliare in un verso costa una
+/// trascinata — e chi sposta l'orb se lo ritrova li' per tutta la sessione.
+/// Sbagliare nell'altro costa la fiducia di qualcuno che accende il PC e non
+/// trova il programma che aveva installato.
+///
+/// La stessa idea era gia' scritta in `richiama`, e valeva solo se qualcuno
+/// faceva doppio clic una seconda volta. Qui vale sempre.
+pub fn posto_all_avvio(
+    salvato: Option<Posto>,
+    principale: Rettangolo,
+    larghezza: u32,
+    altezza: u32,
+) -> Posto {
+    match salvato {
+        Some(p) if dentro(p, principale) => p,
+        _ => angolo(principale, larghezza, altezza),
+    }
 }
 
 /// Riporta l'orb sotto gli occhi di chi l'ha cercato.
@@ -128,6 +179,13 @@ pub fn richiama(app: &AppHandle) {
 }
 
 /// Se l'orb sta sullo schermo principale. `None` se gli schermi non si leggono.
+fn rettangolo_principale(orb: &WebviewWindow) -> Option<Rettangolo> {
+    let m = orb.primary_monitor().ok()??;
+    let o = m.position();
+    let d = m.size();
+    Some(Rettangolo { x: o.x, y: o.y, larghezza: d.width, altezza: d.height })
+}
+
 fn sul_principale(orb: &WebviewWindow) -> Option<bool> {
     let p = orb.outer_position().ok()?;
     let m = orb.primary_monitor().ok()??;
@@ -143,15 +201,10 @@ fn sul_principale(orb: &WebviewWindow) -> Option<bool> {
 /// Non al centro: l'orb e' un compagno, non un avviso. Il posto di fabbrica e'
 /// l'angolo, ed e' li' che chi non l'ha mai spostato se lo aspetta.
 fn posto_di_ritorno(orb: &WebviewWindow) -> Option<Posto> {
-    const MARGINE: i32 = 64;
-    let m = orb.primary_monitor().ok()??;
-    let o = m.position();
-    let d = m.size();
+    // La formula sta in `angolo`, che la usa anche l'avvio: due copie della
+    // stessa aritmetica sono due angoli destinati a non coincidere.
     let s = orb.outer_size().ok()?;
-    Some(Posto {
-        x: o.x + d.width as i32 - s.width as i32 - MARGINE,
-        y: o.y + d.height as i32 - s.height as i32 - MARGINE * 2,
-    })
+    Some(angolo(rettangolo_principale(orb)?, s.width, s.height))
 }
 
 /// Rimette l'orb dove l'utente l'aveva lasciato, se quel posto esiste ancora.
@@ -182,13 +235,21 @@ pub fn ripristina(app: &AppHandle) {
             tracing::warn!("l'orb non è comparso: non posso rimetterlo dov'era");
             return;
         };
-        if !visibile(&orb, p) {
-            tracing::warn!(x = p.x, y = p.y, "il posto dell'orb non è più su nessuno schermo");
+        let Some(principale) = rettangolo_principale(&orb) else {
+            tracing::warn!("non so dov'è lo schermo principale: lascio l'orb dov'è nato");
             return;
+        };
+        let s = orb.outer_size().unwrap_or(tauri::PhysicalSize::new(96, 96));
+        let dove = posto_all_avvio(Some(p), principale, s.width, s.height);
+        if dove != p {
+            tracing::warn!(
+                salvato_x = p.x, salvato_y = p.y, x = dove.x, y = dove.y,
+                "il posto salvato non è sullo schermo principale: riporto l'orb nell'angolo"
+            );
         }
-        match orb.set_position(PhysicalPosition::new(p.x, p.y)) {
-            Ok(()) => tracing::info!(x = p.x, y = p.y, "orb rimesso dov'era"),
-            Err(e) => tracing::warn!(errore = %e, "non riesco a rimettere l'orb dov'era"),
+        match orb.set_position(PhysicalPosition::new(dove.x, dove.y)) {
+            Ok(()) => tracing::info!(x = dove.x, y = dove.y, "orb posato"),
+            Err(e) => tracing::warn!(errore = %e, "non riesco a posare l'orb"),
         }
     });
 }
@@ -258,4 +319,71 @@ fn attacca(orb: WebviewWindow) {
             tracing::debug!(x = p.x, y = p.y, "posto dell'orb salvato");
         }
     });
+}
+
+
+#[cfg(test)]
+mod prove {
+    use super::*;
+
+    const PRINCIPALE: Rettangolo = Rettangolo { x: 0, y: 0, larghezza: 2048, altezza: 1152 };
+    // Il secondo schermo di questa macchina: a sinistra, con x negative. E'
+    // quello su cui l'orb e' finito due volte.
+    const SECONDO: Rettangolo = Rettangolo { x: -1920, y: 190, larghezza: 1920, altezza: 1080 };
+
+    fn orb() -> (u32, u32) {
+        (133, 96)
+    }
+
+    #[test]
+    fn un_posto_sul_principale_si_rispetta() {
+        let p = Posto { x: 1800, y: 900 };
+        let (l, a) = orb();
+        assert_eq!(posto_all_avvio(Some(p), PRINCIPALE, l, a), p);
+    }
+
+    #[test]
+    fn un_posto_sullaltro_schermo_torna_nellangolo() {
+        // Il caso vero, misurato: x=-113, y=1119. Windows elencava quel
+        // monitor regolarmente e l'orb era li', invisibile.
+        let p = Posto { x: -113, y: 1119 };
+        let (l, a) = orb();
+        let dove = posto_all_avvio(Some(p), PRINCIPALE, l, a);
+        assert_ne!(dove, p, "l'orb e' rimasto dove non si vede");
+        assert!(dove.x > 0 && dove.y > 0, "{dove:?}");
+        assert_eq!(dove, angolo(PRINCIPALE, l, a));
+    }
+
+    #[test]
+    fn senza_niente_di_salvato_si_va_nellangolo() {
+        let (l, a) = orb();
+        assert_eq!(posto_all_avvio(None, PRINCIPALE, l, a), angolo(PRINCIPALE, l, a));
+    }
+
+    #[test]
+    fn langolo_sta_dentro_lo_schermo() {
+        let (l, a) = orb();
+        let p = angolo(PRINCIPALE, l, a);
+        assert!(p.x >= 0 && p.y >= 0, "{p:?}");
+        assert!(p.x + l as i32 <= PRINCIPALE.larghezza as i32);
+        assert!(p.y + a as i32 <= PRINCIPALE.altezza as i32);
+    }
+
+    #[test]
+    fn un_orb_appoggiato_al_bordo_destro_e_ancora_a_posto() {
+        // Sporge di qualche pixel ed e' messo benissimo: il margine serve a
+        // non rimbalzarlo nell'angolo a ogni avvio.
+        let p = Posto { x: 2040, y: 1100 };
+        let (l, a) = orb();
+        assert_eq!(posto_all_avvio(Some(p), PRINCIPALE, l, a), p);
+    }
+
+    #[test]
+    fn un_posto_appena_fuori_dal_bordo_sinistro_non_conta_come_dentro() {
+        // Sul secondo schermo, attaccato al confine: e' il caso che sembra
+        // «quasi sul principale» e non lo e'.
+        let p = Posto { x: SECONDO.x + SECONDO.larghezza as i32 - 200, y: 800 };
+        let (l, a) = orb();
+        assert_ne!(posto_all_avvio(Some(p), PRINCIPALE, l, a), p);
+    }
 }
