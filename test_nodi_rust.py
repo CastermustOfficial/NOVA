@@ -339,6 +339,80 @@ diverse = [f"{s!r}: {r['testo']!r} vs {_senza_prefisso(s)!r}"
 controlla("e i prefissi si tolgono solo in testa", not diverse,
           " | ".join(diverse[:3]))
 
+print("\n=== Dove vive un nodo: cartella, percorso, e nome libero ===")
+# Qui non si confronta una funzione riscritta a mano nel test: si chiama il
+# Vault vero, su una cartella temporanea, come lo chiama `upsert`. La tabella
+# delle sottocartelle e' un contratto con l'utente prima che col codice — chi
+# apre il vault in Obsidian vede quei nomi nell'albero a sinistra.
+import shutil  # noqa: E402
+import tempfile  # noqa: E402
+
+from nova.kb.store import SOTTOCARTELLE, Vault  # noqa: E402
+
+TIPI_NOTI = list(SOTTOCARTELLE) + ["", "qualcosa-di-nuovo", "PERSONA", "hub "]
+risposte = rust([{"tipo": "cartella", "tipo_nodo": t} for t in TIPI_NOTI])
+diverse = [f"{t!r}: rust {r['testo']!r} vs python "
+           f"{SOTTOCARTELLE.get(t, '06-fatti')!r}"
+           for t, r in zip(TIPI_NOTI, risposte)
+           if r["testo"] != SOTTOCARTELLE.get(t, "06-fatti")]
+controlla("ogni tipo finisce nella stessa cartella", not diverse,
+          " | ".join(diverse[:3]))
+
+tmp = Path(tempfile.mkdtemp(prefix="nova-banco-"))
+try:
+    vault = Vault(tmp)
+    PERCORSI = [("persona", "persona-anna"), ("hub", "indice"),
+                ("nota", "nota-x"), ("mai-visto", "cosa"),
+                ("preferenza", "preferenza-caffe")]
+    risposte = rust([{"tipo": "percorso", "tipo_nodo": t, "slug": sl}
+                     for t, sl in PERCORSI])
+    diverse = []
+    for (t, sl), r in zip(PERCORSI, risposte):
+        atteso = list(vault.percorso_per(Node(slug=sl, title=sl, tipo=t))
+                      .relative_to(vault.root).parts)
+        if r["pezzi"] != atteso:
+            diverse.append(f"({t},{sl}): {r['pezzi']} vs {atteso}")
+    controlla("e il percorso relativo e' fatto degli stessi pezzi", not diverse,
+              " | ".join(diverse[:3]))
+
+    # Il caso che conta davvero: un fatto imparato su Anna deve **confluire**
+    # nella persona Anna, non creare `persona-anna-2`. Se il Rust numerasse,
+    # la memoria si sbriciolerebbe in copie che non si parlano — e nessuno se
+    # ne accorgerebbe subito, perche' il file verrebbe scritto lo stesso.
+    ESISTENTI = {"persona-anna": "persona", "persona-anna-2": "progetto",
+                 "progetto-nova": "progetto", "fatto-caffe": "fatto"}
+    for sl, tp in ESISTENTI.items():
+        vault._nodes[sl] = Node(slug=sl, title=sl, tipo=tp)
+    CASI = [
+        ("fatto", "persona-anna"),   # l'annotazione automatica su Anna
+        ("persona", "anna"),         # la stessa persona, di nuovo
+        ("progetto", "anna"),        # un progetto che si chiama come lei
+        ("nota", "anna"),
+        ("progetto", "nova"),
+        ("", "senza-tipo"),
+        ("persona", "Niccolò"),  # passa dal filtro degli accenti
+        ("persona", "  Anna  "),
+    ]
+    risposte = rust([{"tipo": "slug_libero", "tipo_nodo": t, "slug": sl,
+                      "esistenti": ESISTENTI} for t, sl in CASI])
+    diverse = []
+    for (t, sl), r in zip(CASI, risposte):
+        atteso = vault._slug_libero(Node(slug=sl, title=sl, tipo=t))
+        if r["slug"] != atteso:
+            diverse.append(f"({t},{sl}): {r['slug']!r} vs {atteso!r}")
+    controlla("uno slug occupato si numera solo se il tipo e' incompatibile",
+              not diverse, " | ".join(diverse[:3]))
+
+    # E la domanda sul risultato, non sull'accordo (D51): un fatto su Anna
+    # deve finire *dentro* Anna, non accanto.
+    r = rust([{"tipo": "slug_libero", "tipo_nodo": "fatto",
+               "slug": "persona-anna", "esistenti": ESISTENTI}])[0]
+    controlla("un fatto su Anna non sdoppia Anna",
+              not r["slug"].startswith("persona-anna-"),
+              f"ha dato {r['slug']!r}")
+finally:
+    shutil.rmtree(tmp, ignore_errors=True)
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")

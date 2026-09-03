@@ -809,6 +809,33 @@ in Rust e meta' no, l'utente installa comunque Python e ci sono due
 implementazioni della stessa cosa da tenere allineate. Il guadagno arriva
 tutto insieme, alla fine.
 
+**Il quattordicesimo pezzo: dove vive un nodo.** `nova-nodi::posto` porta
+l'altra meta' di `Vault.upsert` che non tocca il disco: in che cartella va un
+nodo, e sotto che nome.
+
+Le cartelle numerate — `01-profilo`, `02-persone`, `03-progetti` — non sono un
+vezzo. Il vault si apre in Obsidian, e nell'albero a sinistra l'utente le
+vede in quell'ordine: e' l'unica parte di NOVA la cui interfaccia e' un file
+manager. Quella tabella e' un contratto con l'utente prima che col codice.
+
+Lo slug e' la regola che conta. Il nome porta il tipo davanti —
+`persona-anna`, non `anna` — perche' la **persona** Anna e il **progetto**
+Anna sono due nodi diversi, e senza prefisso il secondo scriverebbe sopra il
+primo. Ma se anche col prefisso il posto e' occupato, si numera **solo** se il
+tipo e' incompatibile: un «fatto» e una «persona» convivono benissimo nello
+stesso nodo, e anzi e' proprio quello che deve succedere quando NOVA impara
+qualcosa di nuovo su Anna. Con un `!=` al posto di `tipi_compatibili`, ogni
+annotazione automatica creerebbe `persona-anna-2`, `persona-anna-3`, e la
+memoria si sbriciolerebbe in copie che non si parlano — senza nessun errore,
+perche' il file verrebbe scritto lo stesso.
+
+Percio' il banco non chiede solo «le due meta' sono d'accordo?» ma anche, in
+chiaro, «un fatto su Anna finisce dentro Anna?» (D51). Il percorso torna a
+pezzi e non come stringa: le barre le mette chi conosce il sistema operativo,
+e sono l'unica cosa che cambia fra Windows e il resto.
+
+Trentacinque confronti, zero divergenze.
+
 **Il tredicesimo pezzo: la fusione.** `nova-nodi::fusione` porta la parte di
 `Vault.upsert` che non tocca il disco — cosa succede quando NOVA impara
 qualcosa su un fatto che **sa gia'**. E' il posto dove la memoria si corrompe

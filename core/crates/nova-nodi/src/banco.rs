@@ -1,6 +1,8 @@
 //! Il banco: una riga JSON per domanda, per il confronto col Python.
 
 use nova_nodi::fusione;
+use nova_nodi::posto;
+use std::collections::HashMap;
 use nova_nodi::{come_lista, dividi_frontmatter, slug, Nodo};
 use serde::{Deserialize, Serialize};
 
@@ -41,6 +43,20 @@ enum Domanda {
     Wikilink { corpo: String, vecchio: String, nuovo: String },
     #[serde(rename = "prefisso")]
     Prefisso { testo: String },
+    // Il campo si chiama `tipo_nodo` e non `tipo` perche' `tipo` e' gia'
+    // l'etichetta che sceglie la domanda: due campi con lo stesso nome e
+    // serde legge la domanda sbagliata senza dire niente.
+    #[serde(rename = "cartella")]
+    Cartella { tipo_nodo: String },
+    #[serde(rename = "percorso")]
+    Percorso { tipo_nodo: String, slug: String },
+    #[serde(rename = "slug_libero")]
+    SlugLibero {
+        tipo_nodo: String,
+        slug: String,
+        #[serde(default)]
+        esistenti: HashMap<String, String>,
+    },
 }
 
 #[derive(Deserialize, Serialize, Default, Clone)]
@@ -122,13 +138,15 @@ struct Risposta {
     #[serde(skip_serializing_if = "Option::is_none")]
     testo: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pezzi: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     errore: Option<String>,
 }
 
 fn vuota() -> Risposta {
     Risposta { slug: None, markdown: None, nodo: None, relazioni: None,
                lista: None, frontmatter: None, corpo: None, testo: None,
-               errore: None }
+               pezzi: None, errore: None }
 }
 
 fn main() {
@@ -182,6 +200,18 @@ fn main() {
             },
             Ok(Domanda::Prefisso { testo }) => Risposta {
                 testo: Some(fusione::senza_prefisso(&testo)),
+                ..vuota()
+            },
+            Ok(Domanda::Cartella { tipo_nodo }) => Risposta {
+                testo: Some(posto::sottocartella(&tipo_nodo).to_string()),
+                ..vuota()
+            },
+            Ok(Domanda::Percorso { tipo_nodo, slug }) => Risposta {
+                pezzi: Some(posto::percorso_relativo(&tipo_nodo, &slug)),
+                ..vuota()
+            },
+            Ok(Domanda::SlugLibero { tipo_nodo, slug, esistenti }) => Risposta {
+                slug: Some(posto::slug_libero(&tipo_nodo, &slug, &esistenti)),
                 ..vuota()
             },
         };

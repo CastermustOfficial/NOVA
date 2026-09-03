@@ -28,6 +28,10 @@ pub use slug::slug;
 // memoria si corrompe in silenzio se la regola e' sbagliata.
 pub mod fusione;
 
+// Dove vive un nodo: in che cartella, e sotto che nome. Il disco resta
+// fuori — qui si decide il percorso relativo.
+pub mod posto;
+
 pub const STATUS_ATTIVO: &str = "attivo";
 pub const STATUS_ARCHIVIATO: &str = "archiviato";
 

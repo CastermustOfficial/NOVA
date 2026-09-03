@@ -2883,3 +2883,67 @@ voleva lui, e due commit da ritirare.
 Quando qualcosa non torna, la prima domanda non e' «cosa sara' successo». E'
 **«chi lo ha scritto da qualche parte?»** — e nel dubbio, chiederlo al
 programma prima che a se stessi.
+
+---
+
+## 3 settembre 2026 — Dove vive un nodo, e un file che ho cancellato io
+
+Quattordicesimo pezzo del cantiere: `nova-nodi::posto`. La cartella per tipo,
+il percorso relativo, e lo slug che non calpesta un nodo incompatibile.
+
+### La regola che tiene insieme la memoria
+
+Il nome del file porta il tipo davanti: `persona-anna`, non `anna`. La ragione
+e' che due cose diverse possono chiamarsi uguale — la persona Anna e il
+progetto Anna sono due nodi — e senza prefisso il secondo scriverebbe sopra il
+primo.
+
+Poi c'e' la parte delicata. Se anche col prefisso il posto e' occupato, si
+aggiunge un numero **solo se il tipo e' incompatibile**. Incompatibile, non
+«diverso»: un fatto e una persona convivono nello stesso nodo, e il fatto
+confluisce nella persona. E' esattamente cio' che deve succedere quando NOVA
+impara qualcosa di nuovo su Anna.
+
+Se li' ci fosse un `!=`, ogni annotazione automatica creerebbe
+`persona-anna-2`, `persona-anna-3`, e la memoria si sbriciolerebbe in copie
+che non si parlano. Nessun errore, nessun log: il file viene scritto lo
+stesso. Percio' il banco, oltre a chiedere «le due meta' sono d'accordo?»,
+chiede in chiaro «un fatto su Anna finisce dentro Anna?».
+
+Trentacinque confronti, zero divergenze. Le due meta' vanno d'accordo perche'
+la regola, in Python, era gia' scritta bene.
+
+### L'unico difetto trovato, e stava nel banco
+
+Il banco distingue le domande con un campo chiamato `tipo`. La domanda nuova
+aveva bisogno del **tipo del nodo**, e il nome ovvio era di nuovo `tipo`. Due
+campi con lo stesso nome: serde non protesta, sceglie, e il confronto avviene
+su una domanda diversa da quella che credevo di aver fatto. Adesso si chiama
+`tipo_nodo`, con il commento che dice perche'.
+
+### E poi ho cancellato un file di prova
+
+Volevo aggiungere in coda a `test_nodi_rust.py` la sezione nuova. Ho scritto
+`open(p, "w", newline="\\n")` — con la sequenza sbagliata per l'argomento.
+Python solleva `ValueError: illegal newline value`, e sembra un errore
+innocuo: la scrittura non e' avvenuta.
+
+Non e' innocuo. Il file viene **aperto in scrittura prima** che l'argomento
+venga validato, e aprire in scrittura tronca. L'eccezione e' arrivata a
+sedicimila caratteri gia' persi. Me ne sono accorto solo perche' il passo
+successivo non trovava piu' niente da cercare dentro.
+
+Recuperato da git in dieci secondi, perche' era committato. Se fosse stato il
+lavoro dell'ultima ora, no.
+
+La regola che mi porto via: **si scrive su un file temporaneo e poi si
+sposta**. Un `os.replace` o riesce del tutto o non fa niente; una `open(...,
+"w")` che fallisce puo' aver gia' distrutto il contenuto. Vale ancora di piu'
+per NOVA che per me, perche' NOVA scrive nei file dell'utente — e la stessa
+identica trappola, un giorno, sarebbe una nota di Obsidian invece che un mio
+test.
+
+C'e' anche una seconda lezione, piu' scomoda. Sul disco dell'utente `rm` non
+mi e' permesso, ed e' una protezione che ho sempre trovato giusta. Ma la
+scrittura si', e una scrittura sbagliata cancella lo stesso. Il divieto sulla
+cancellazione non e' una rete: e' un solo filo.
