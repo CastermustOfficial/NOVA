@@ -235,6 +235,26 @@ for nome, frase in (("README.md", "non conosce l'editore"),
     controlla(f"{nome} dice anche che le impronte si controllano",
               "SHA256" in testo)
 
+print("\n12. l'avvio automatico non passa dal ritardo di Windows")
+# Misurato il 3 settembre: PC acceso alle 10:16:10, NOVA comparsa alle
+# 10:17:15. Sessantacinque secondi, e non per lentezza di NOVA - fra «guscio
+# in avvio» e «demone acceso» ne passano 0,65 - ma perche' Windows ritarda
+# apposta i programmi della chiave Run. Per chi guarda, un minuto di niente
+# non e' un ritardo: e' «non e' partita».
+controlla("si registra un'attivita' all'accesso", "/sc onlogon" in INST)
+controlla("e si sovrascrive, se no reinstallare ne crea due", "/f" in INST)
+controlla("togliendo la vecchia voce in Run, per non partire due volte",
+          "Remove-ItemProperty $chiave -Name $RunName" in INST)
+controlla("ma resta un ripiego se l'Utilita' di pianificazione e' spenta",
+          "Set-ItemProperty $chiave -Name $RunName" in INST,
+          "senza ripiego, una policy aziendale lascerebbe NOVA senza avvio")
+controlla("e lo si dice, invece di lasciar credere che sia tutto uguale",
+          "col ritardo che Windows applica" in INST)
+# Il disinstallatore toglie le attivita' che cominciano per NOVA: quella
+# strada era gia' pulita prima di essere presa.
+controlla("il disinstallatore toglie anche l'attivita'",
+          "schtasks /delete" in INST and "^\\\\?NOVA($| |-)" in INST)
+
 print(f"\n{passati}/{passati + len(falliti)} passati")
 for x in falliti:
     print("  FALLITO:", x)
