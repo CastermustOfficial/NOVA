@@ -503,7 +503,12 @@ class Vault:
         pendenti = sum(
             len([r for r in n.tutte_le_relazioni() if r not in presenti])
             for n in self.all())
-        orfani = [n.slug for n in self.all() if not self.vicini(n.slug)]
+        # In ordine alfabetico, e la lista e' tagliata a venti: senza un
+        # ordine dichiarato sarebbe quello di inserimento — cioe' l'ordine in
+        # cui i file sono stati letti o i nodi salvati — e deciderebbe
+        # **quali** orfani si vedono e quali no. La stessa forma di D94, in
+        # piccolo: un ordine incidentale che sceglie cosa mostrare.
+        orfani = sorted(n.slug for n in self.all() if not self.vicini(n.slug))
         return {
             "nodi_attivi": len(self.all()),
             "archiviati": archiviati,
@@ -513,7 +518,9 @@ class Vault:
             "per_origine": per_origine,
             "orfani": orfani[:20],
             # due file che rivendicano lo stesso slug: uno dei due e' invisibile
-            "collisioni": {k: v for k, v in list(self.collisioni.items())[:20]},
+            # Anche qui in ordine, e per la stessa ragione.
+            "collisioni": {k: self.collisioni[k]
+                           for k in sorted(self.collisioni)[:20]},
             "vault": str(self.root),
         }
 

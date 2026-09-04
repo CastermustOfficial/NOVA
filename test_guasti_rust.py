@@ -236,6 +236,97 @@ rimasti += [(t, py.senza_chiavi(t)) for t in TESTI if SOSPETTO.search(py.senza_c
 controlla("dopo il mascheramento non resta niente che somigli a una chiave",
           not rimasti, str(rimasti[:2]))
 
+print("\n6. il guardiano della memoria: cosa non entra nel vault")
+# La domanda giusta non e' «le due meta' sono d'accordo?» — su questo si sono
+# gia' trovate d'accordo nello sbagliare (D51). Le domande sono due:
+#   e' rimasto fuori qualcosa che doveva essere rifiutato?
+#   e' stato rifiutato qualcosa che NOVA doveva poter ricordare?
+# La seconda pesa quanto la prima: un guardiano troppo severo non protegge,
+# cancella la memoria.
+from nova.kb.riservatezza import perche_non_si_salva as py_guardiano  # noqa: E402
+
+DA_RIFIUTARE = [
+    # forme che sono un segreto per come sono fatte
+    ("chiave OpenAI", "la chiave e' sk-abcd1234efgh5678ijklmnop"),
+    ("chiave Groq", "gsk_abcd1234efgh5678ijkl"),
+    ("chiave xAI", "xai-abcd1234efgh5678ijkl"),
+    ("chiave Google", "AIzaAbcd1234efgh5678ijkl"),
+    ("token GitHub", "ghp_abcdefghijklmnopqrstuvwxyz123456"),
+    ("token Slack", "xoxb-1234567890-abcdefghijkl"),
+    ("chiave AWS", "AKIA1234567890ABCDEF"),
+    ("chiave privata", "-----BEGIN RSA PRIVATE KEY-----"),
+    ("jwt", "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.abcdef"),
+    ("credenziali in un indirizzo", "https://utente:segreto@example.com/db"),
+    ("numero di carta", "la carta e' 4111 1111 1111 1111"),
+    # e le forme che si riconoscono solo dall'etichetta
+    ("password detta a voce", "la password del wifi e' Tramonto2026"),
+    ("password con i due punti", "password: Tramonto2026!"),
+    ("il pin, che e' corto per costruzione", "il pin del bancomat e' 4829"),
+    ("bearer dentro un'intestazione",
+     "Authorization: Bearer abcdefghijklmnop1234567890"),
+    ("una seed phrase, che e' fatta di parole comuni",
+     "la seed phrase e' cavallo batteria graffetta corretta"),
+    ("passphrase", "passphrase: montagna azzurra lontana"),
+    ("parola d'ordine dettata senza apostrofo",
+     "la parola d ordine e' Girasole99"),
+    ("chiave api con la precisazione in mezzo",
+     "la api key del fornitore e' abcd1234efgh5678"),
+    ("token con il valore due parole dopo",
+     "il token di accesso e' 9f8e7d6c5b4a3210"),
+]
+
+DA_RICORDARE = [
+    ("una frase sulla password, senza password",
+     "Gio ha cambiato la password del wifi la settimana scorsa"),
+    ("un token scaduto, detto e basta", "il token e' scaduto ieri"),
+    ("una parola lunga che non e' un segreto",
+     "la password e' segretissima secondo lui"),
+    ("un fatto normale", "Gio lavora meglio la mattina presto"),
+    ("un numero che non e' una carta", "il progetto ha 42 nodi"),
+    ("una data", "la riunione e' il 04/09/2026"),
+    ("un indirizzo senza credenziali", "https://example.com/pagina"),
+    ("una parola che comincia come un prefisso", "ask-me di nuovo"),
+    ("un nodo tecnico sul PC", "RTX 4060 Ti da 16 GB, 32 GB di RAM"),
+    ("niente", ""),
+]
+
+TUTTI = [t for _, t in DA_RIFIUTARE] + [t for _, t in DA_RICORDARE]
+giudizi = rust({"da_giudicare": TUTTI})["giudizi"]
+suoi = dict(zip(TUTTI, giudizi))
+
+passati_py, passati_rs = [], []
+for nome, testo in DA_RIFIUTARE:
+    if py_guardiano(testo) is None:
+        passati_py.append(nome)
+    if suoi[testo] is None:
+        passati_rs.append(nome)
+controlla("niente di segreto entra in memoria, dal lato Python",
+          not passati_py, str(passati_py))
+controlla("niente di segreto entra in memoria, dal lato Rust",
+          not passati_rs, str(passati_rs))
+
+rifiutati_py, rifiutati_rs = [], []
+for nome, testo in DA_RICORDARE:
+    if py_guardiano(testo) is not None:
+        rifiutati_py.append((nome, py_guardiano(testo)))
+    if suoi[testo] is not None:
+        rifiutati_rs.append((nome, suoi[testo]))
+controlla("e nessun ricordo legittimo viene buttato, dal lato Python",
+          not rifiutati_py, str(rifiutati_py))
+controlla("e nessun ricordo legittimo viene buttato, dal lato Rust",
+          not rifiutati_rs, str(rifiutati_rs))
+
+diverse = [f"{t[:40]!r}: rust {suoi[t]!r} vs python {py_guardiano(t)!r}"
+           for t in TUTTI if suoi[t] != py_guardiano(t)]
+controlla("e le due meta' danno lo stesso nome alla stessa cosa",
+          not diverse, " | ".join(diverse[:3]))
+
+# Il motivo non deve mai ripetere il valore: finisce in un registro.
+ripetuti = [t[:40] for t in TUTTI
+            if suoi[t] and any(pezzo in suoi[t] for pezzo in t.split() if len(pezzo) > 6)]
+controlla("e il rifiuto non ripete mai quello che ha rifiutato",
+          not ripetuti, str(ripetuti[:2]))
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")

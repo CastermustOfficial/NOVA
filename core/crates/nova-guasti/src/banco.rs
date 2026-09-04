@@ -43,6 +43,10 @@ struct Dentro {
     irraggiungibili: Vec<(String, bool)>,
     #[serde(default)]
     moduli: Vec<String>,
+    /// Testi da sottoporre al guardiano del vault: entrano o no, e col nome
+    /// di cosa ci si e' trovato dentro.
+    #[serde(default)]
+    da_giudicare: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -51,6 +55,7 @@ struct Fuori {
     mascherati: Vec<String>,
     irraggiungibili: Vec<String>,
     pacchetti: Vec<String>,
+    giudizi: Vec<Option<String>>,
 }
 
 fn main() {
@@ -110,6 +115,13 @@ fn main() {
             .moduli
             .iter()
             .map(|m| nova_guasti::pacchetto_di(m).to_string())
+            .collect(),
+        giudizi: d
+            .da_giudicare
+            .iter()
+            .map(|t| {
+                nova_guasti::guardiano::perche_non_si_salva(t).map(|s| s.to_string())
+            })
             .collect(),
     };
 

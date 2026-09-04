@@ -24,6 +24,7 @@ volte con lo stesso risultato, e questo banco fallirebbe a mezzanotte.
 
 Esce 2 se il banco non e' costruito.
 """
+import contextlib
 import json
 import os
 import subprocess
@@ -552,6 +553,48 @@ from nova.kb.schema import ORIGINE_AUTO  # noqa: E402
 OGGI_S = "2020-01-01"
 
 
+OGGI_IT = "01/01/2020"
+
+
+@contextlib.contextmanager
+def data_fissa():
+    """Ferma l'orologio del Python per la durata del confronto.
+
+    `to_markdown` e `archivia` leggono la data, e la data finisce nel file.
+    Senza fermarla il banco fallirebbe a mezzanotte e passerebbe il resto del
+    giorno — il tipo di prova che si scopre rotta il giorno in cui serviva.
+    """
+    import nova.kb.schema as _schema
+    import nova.kb.store as _store
+
+    class _Giorno:
+        # `timespec` arriva dal registro delle azioni, che scrive l'ora
+        # completa: qui la si ignora, perche' al banco interessa solo che la
+        # data non cambi sotto i piedi.
+        @staticmethod
+        def isoformat(timespec=None):
+            return OGGI_S
+
+        def __format__(self, spec):
+            return OGGI_IT if spec == "%d/%m/%Y" else OGGI_S
+
+    class _Fissa:
+        @staticmethod
+        def today():
+            return _Giorno()
+
+        @staticmethod
+        def now():
+            return _Giorno()
+
+    vere = (_schema.date, _store.datetime)
+    _schema.date, _store.datetime = _Fissa, _Fissa
+    try:
+        yield
+    finally:
+        _schema.date, _store.datetime = vere
+
+
 def n_json(slug, titolo, tipo="fatto", corpo="", relazioni=None, tags=None):
     return {"slug": slug, "title": titolo, "tipo": tipo, "body": corpo,
             "relazioni": list(relazioni or []), "tags": list(tags or []),
@@ -617,25 +660,10 @@ for (nome, partenza, nodi), r in zip(SALVATAGGI, risposte):
             f.parent.mkdir(parents=True, exist_ok=True)
             f.write_text(testo, encoding="utf-8")
         vault = Vault(tmp)
-        # `to_markdown` legge l'orologio: qui la data si fissa, o il confronto
-        # fallirebbe a mezzanotte e passerebbe il resto del giorno.
-        import nova.kb.schema as _schema
-        vera_data = _schema.date
-        class _Fissa:
-            @staticmethod
-            def today():
-                class _G:
-                    @staticmethod
-                    def isoformat():
-                        return OGGI_S
-                return _G()
-        _schema.date = _Fissa
-        try:
+        with data_fissa():
             for j in nodi:
                 vault.upsert(Node(**{k: v for k, v in j.items()
                                      if k in Node.__dataclass_fields__}))
-        finally:
-            _schema.date = vera_data
         mio = {}
         for f in sorted(tmp.rglob("*.md")):
             rel = f.relative_to(tmp).as_posix()
@@ -651,6 +679,78 @@ for (nome, partenza, nodi), r in zip(SALVATAGGI, risposte):
                 if suo[k] != mio[k]:
                     diverse.append(f"{k}: rust {suo[k]!r} vs python {mio[k]!r}")
         controlla(f"salva: {nome}", not diverse, " | ".join(diverse[:1])[:400])
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+print("\n=== La vita di un nodo: archiviare, riattivare, contare ===")
+VITE = [
+    ("archiviare toglie dal conto ma non dal disco",
+     [n_json("a", "A", "fatto", "il primo"),
+      n_json("b", "Bi", "fatto", "il secondo")],
+     [["a", "non serve piu'"]], []),
+    ("archiviare due volte non accoda due volte la stessa riga",
+     [n_json("a", "A", "fatto", "il primo")],
+     [["a", "basta"], ["a", "basta"]], []),
+    ("riattivare rimette in circolo",
+     [n_json("a", "A", "fatto", "il primo")],
+     [["a", "per ora no"]], ["a"]),
+    ("archiviare senza motivo non scrive niente nel corpo",
+     [n_json("a", "A", "fatto", "il primo")],
+     [["a", ""]], []),
+    ("archiviare un nodo che non c'e' dice di no",
+     [n_json("a", "A", "fatto", "il primo")],
+     [["mai-visto", "x"]], []),
+    ("un vault con archi, orfani e tipi diversi",
+     [n_json("progetto-nova", "Nova", "progetto", "il progetto"),
+      n_json("gio", "Gio", "persona", "Vedi [[progetto-nova]].", ["progetto-nova"]),
+      n_json("solo", "Solo", "nota", "nessuno mi nomina"),
+      n_json("rotto", "Rotto", "fatto", "punto a [[chi-non-ce]]", ["chi-non-ce"])],
+     [], []),
+    ("un vault vuoto si conta lo stesso", [], [], []),
+]
+
+risposte = rust([{"tipo": "vita", "nodi": nodi, "archivia": arch,
+                  "riattiva": ria, "oggi": OGGI_S,
+                  "oggi_italiano": OGGI_IT}
+                 for _, nodi, arch, ria in VITE])
+
+for (nome, nodi, arch, ria), r in zip(VITE, risposte):
+    tmp = Path(tempfile.mkdtemp(prefix="nova-vita-"))
+    try:
+        vault = Vault(tmp)
+        with data_fissa():
+            for j in nodi:
+                vault.upsert(Node(**{k: v for k, v in j.items()
+                                     if k in Node.__dataclass_fields__}))
+            miei_esiti = [vault.archivia(s, m) for s, m in arch]
+            miei_esiti += [vault.riattiva(s) for s in ria]
+            mio_conto = vault.statistiche()
+            vault.scrivi_indice()
+            mio_indice = (tmp / "_INDICE.md").read_text(encoding="utf-8")
+        diverse = []
+        if r["esiti"] != miei_esiti:
+            diverse.append(f"esiti: {r['esiti']} vs {miei_esiti}")
+        for campo in ("nodi_attivi", "archiviati", "collegamenti",
+                      "collegamenti_pendenti", "per_tipo", "per_origine",
+                      "orfani"):
+            if r["conto"][campo] != mio_conto[campo]:
+                diverse.append(f"{campo}: {r['conto'][campo]} vs {mio_conto[campo]}")
+        if r["indice"] != mio_indice:
+            diverse.append(f"indice: {r['indice'][:90]!r} vs {mio_indice[:90]!r}")
+        # i file dei nodi (l'indice il Rust non lo scrive, lo consegna)
+        mio_disco = {f.relative_to(tmp).as_posix(): f.read_text(encoding="utf-8")
+                     for f in sorted(tmp.rglob("*.md"))
+                     if f.name != "_INDICE.md"}
+        suo_disco = {k: v for k, v in r["disco"]}
+        if suo_disco != mio_disco:
+            solo_suo = sorted(set(suo_disco) - set(mio_disco))
+            solo_mio = sorted(set(mio_disco) - set(suo_disco))
+            if solo_suo or solo_mio:
+                diverse.append(f"file: solo rust {solo_suo}, solo python {solo_mio}")
+            else:
+                k = next(k for k in mio_disco if mio_disco[k] != suo_disco[k])
+                diverse.append(f"{k}: {suo_disco[k]!r} vs {mio_disco[k]!r}")
+        controlla(f"vita: {nome}", not diverse, " | ".join(diverse[:1])[:400])
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

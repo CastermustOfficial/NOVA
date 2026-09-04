@@ -143,8 +143,14 @@ impl Deposito {
         self.nodi.len()
     }
 
-    pub fn prendi(&self, slug: &str) -> Option<&Nodo> {
-        self.nodi.get(slug)
+    /// Un nodo per slug.
+    ///
+    /// Il nome passa dal filtro prima di cercare, come dall'altra parte: chi
+    /// chiede puo' avere in mano «Progetto Nova» invece di «progetto-nova» —
+    /// e' cosi' che lo scrive il modello — e senza il filtro non troverebbe
+    /// niente, senza nemmeno un errore.
+    pub fn prendi(&self, slug_cercato: &str) -> Option<&Nodo> {
+        self.nodi.get(&slug(slug_cercato))
     }
 
     pub fn tutti(&self) -> impl Iterator<Item = &Nodo> {
@@ -351,6 +357,21 @@ pub trait DiscoScrivibile: Disco {
 /// appena rifiutata non ha protetto niente.
 pub trait Guardiano {
     fn perche_non_si_salva(&self, testo: &str) -> Option<String>;
+}
+
+/// Il guardiano vero: quello che sa che aspetto ha un segreto.
+///
+/// Delega a `nova-guasti`, dove la domanda «questa cosa e' un segreto?» si fa
+/// per tutti — chi maschera i messaggi d'errore e chi difende la memoria.
+/// Erano due elenchi separati e sapevano cose diverse: uno conosceva il
+/// `Bearer`, l'altro le chiavi AWS, e ognuno passava le proprie prove mentre
+/// un segreto usciva dalla parte che non lo conosceva.
+pub struct GuardianoDeiSegreti;
+
+impl Guardiano for GuardianoDeiSegreti {
+    fn perche_non_si_salva(&self, testo: &str) -> Option<String> {
+        nova_guasti::guardiano::perche_non_si_salva(testo).map(|s| s.to_string())
+    }
 }
 
 /// Un guardiano che lascia passare tutto. Esiste per le prove e per i casi in
@@ -579,6 +600,234 @@ impl Deposito {
             }
         }
     }
+}
+
+/// Lo stato di un nodo archiviato. Sta qui e non fra le costanti del nodo
+/// perche' e' il vault a deciderlo.
+pub const STATO_ARCHIVIATO: &str = "archiviato";
+pub const STATO_ATTIVO: &str = "attivo";
+
+/// Quanto puo' crescere il registro delle azioni prima che si ricominci.
+pub const MAX_REGISTRO_BYTE: u64 = 2 * 1024 * 1024;
+
+/// Il conto di cosa c'e' nel vault.
+#[derive(Debug, Default, PartialEq)]
+pub struct Statistiche {
+    pub nodi_attivi: usize,
+    pub archiviati: usize,
+    pub collegamenti: usize,
+    pub collegamenti_pendenti: usize,
+    pub per_tipo: BTreeMap<String, usize>,
+    pub per_origine: BTreeMap<String, usize>,
+    pub orfani: Vec<String>,
+    pub collisioni: BTreeMap<String, Vec<String>>,
+}
+
+impl Deposito {
+    /// I nodi vivi. Gli archiviati ci sono ancora — il file non si cancella —
+    /// ma non rispondono a una ricerca ne' contano nelle statistiche.
+    pub fn attivi(&self) -> impl Iterator<Item = &Nodo> {
+        self.nodi.values().filter(|n| n.status != STATO_ARCHIVIATO)
+    }
+
+    /// Un nodo per titolo, e in mancanza per slug.
+    ///
+    /// Il titolo prima dello slug perche' chi parla dice «il progetto Nova»,
+    /// non «progetto-nova»: e' l'unico punto in cui la memoria si lascia
+    /// interrogare come la si nomina a voce.
+    pub fn per_titolo(&self, titolo: &str) -> Option<&Nodo> {
+        let t = titolo.trim().to_lowercase();
+        self.nodi
+            .values()
+            .find(|n| n.title.trim().to_lowercase() == t)
+            .or_else(|| self.nodi.get(&slug(titolo)))
+    }
+
+    /// I nodi collegati, **in tutti e due i versi**: il grafo non e'
+    /// orientato, e un nodo che qualcun altro nomina e' un suo vicino anche
+    /// se lui non lo sa.
+    pub fn vicini(&self, slug_cercato: &str) -> Vec<&Nodo> {
+        let s = slug(slug_cercato);
+        let mut fuori: BTreeMap<String, &Nodo> = BTreeMap::new();
+        if let Some(nodo) = self.nodi.get(&s) {
+            for r in nodo.tutte_le_relazioni() {
+                if let Some(v) = self.nodi.get(&r) {
+                    if v.status != STATO_ARCHIVIATO {
+                        fuori.insert(v.slug.clone(), v);
+                    }
+                }
+            }
+        }
+        for altro in self.nodi.values() {
+            if altro.status == STATO_ARCHIVIATO || altro.slug == s {
+                continue;
+            }
+            if altro.tutte_le_relazioni().contains(&s) {
+                fuori.insert(altro.slug.clone(), altro);
+            }
+        }
+        fuori.into_values().collect()
+    }
+
+    /// Mette un nodo da parte senza cancellarlo.
+    ///
+    /// `oggi_italiano` e' la data come la scrive un italiano — `04/09/2026` —
+    /// e arriva da fuori come tutte le date: una funzione che legge
+    /// l'orologio non si prova due volte con lo stesso risultato.
+    pub fn archivia(
+        &mut self,
+        disco: &dyn DiscoScrivibile,
+        slug_cercato: &str,
+        motivo: &str,
+        oggi: &str,
+        oggi_italiano: &str,
+    ) -> bool {
+        let s = slug(slug_cercato);
+        let Some(nodo) = self.nodi.get_mut(&s) else {
+            return false;
+        };
+        let gia_archiviato = nodo.status == STATO_ARCHIVIATO;
+        nodo.status = STATO_ARCHIVIATO.to_string();
+        // Archiviare due volte non deve accodare due volte la stessa riga.
+        if !motivo.is_empty() && !gia_archiviato {
+            nodo.body
+                .push_str(&format!("\n\n> Archiviato il {oggi_italiano}: {motivo}"));
+        }
+        self.riscrivi(disco, &s, oggi)
+    }
+
+    /// Rimette in circolo un nodo archiviato.
+    pub fn riattiva(&mut self, disco: &dyn DiscoScrivibile, slug_cercato: &str, oggi: &str) -> bool {
+        let s = slug(slug_cercato);
+        let Some(nodo) = self.nodi.get_mut(&s) else {
+            return false;
+        };
+        nodo.status = STATO_ATTIVO.to_string();
+        self.riscrivi(disco, &s, oggi)
+    }
+
+    fn riscrivi(&mut self, disco: &dyn DiscoScrivibile, slug_nodo: &str, oggi: &str) -> bool {
+        let Some(dove) = self.dove(slug_nodo).map(|d| d.to_string()) else {
+            // Un nodo senza file e' un nodo che vive solo in memoria: c'e'
+            // poco da riscrivere, ma la modifica in memoria e' avvenuta.
+            return true;
+        };
+        let Some(nodo) = self.nodi.get(slug_nodo) else {
+            return false;
+        };
+        let testo = nodo.a_markdown(oggi);
+        match disco.scrivi(&dove, &testo) {
+            Ok(impronta) => {
+                self.segna_scritto(&dove, impronta, slug_nodo);
+                true
+            }
+            Err(_) => false,
+        }
+    }
+
+    /// Cosa c'e' nel vault, in numeri.
+    pub fn statistiche(&self) -> Statistiche {
+        let mut per_tipo: BTreeMap<String, usize> = BTreeMap::new();
+        let mut per_origine: BTreeMap<String, usize> = BTreeMap::new();
+        for n in self.attivi() {
+            *per_tipo.entry(n.tipo.clone()).or_insert(0) += 1;
+            *per_origine.entry(n.origine.clone()).or_insert(0) += 1;
+        }
+        let attivi: Vec<&Nodo> = self.attivi().collect();
+        // Solo gli archi che puntano a un nodo che esiste **davvero**:
+        // contare anche quelli pendenti faceva sembrare il grafo piu' ricco
+        // di com'e', e nascondeva proprio i legami rotti che valeva la pena
+        // vedere.
+        let mut collegamenti = 0;
+        let mut pendenti = 0;
+        for n in &attivi {
+            for r in n.tutte_le_relazioni() {
+                if self.nodi.contains_key(&r) {
+                    collegamenti += 1;
+                } else {
+                    pendenti += 1;
+                }
+            }
+        }
+        let orfani: Vec<String> = attivi
+            .iter()
+            .filter(|n| self.vicini(&n.slug).is_empty())
+            .map(|n| n.slug.clone())
+            .take(20)
+            .collect();
+        Statistiche {
+            nodi_attivi: attivi.len(),
+            archiviati: self.nodi.len() - attivi.len(),
+            collegamenti,
+            collegamenti_pendenti: pendenti,
+            per_tipo,
+            per_origine,
+            orfani,
+            collisioni: self.collisioni.iter().take(20).map(|(k, v)| (k.clone(), v.clone())).collect(),
+        }
+    }
+
+    /// Il testo dell'indice: la mappa di tutto quello che NOVA sa.
+    ///
+    /// E' un `hub`, quindi sta in cima al vault e non in una sottocartella —
+    /// e' la prima cosa che si vede aprendo la cartella in Obsidian.
+    pub fn indice(&self, oggi: &str) -> String {
+        let mut righe: Vec<String> = vec![
+            "---".into(),
+            "title: Indice della conoscenza".into(),
+            "tipo: hub".into(),
+            "tags: [indice]".into(),
+            "relazioni: []".into(),
+            "area: Generale".into(),
+            "status: attivo".into(),
+            "origine: scansione".into(),
+            "confidenza: 1.0".into(),
+            "riferimenti: []".into(),
+            format!("creato: {oggi}"),
+            format!("aggiornato: {oggi}"),
+            "---".into(),
+            "".into(),
+            "Mappa di tutto quello che NOVA sa. Generato automaticamente.".into(),
+            "".into(),
+        ];
+        let mut per_tipo: BTreeMap<String, Vec<&Nodo>> = BTreeMap::new();
+        let mut ordinati: Vec<&Nodo> = self.attivi().collect();
+        ordinati.sort_by_key(|n| n.title.to_lowercase());
+        for n in ordinati {
+            per_tipo.entry(n.tipo.clone()).or_default().push(n);
+        }
+        for (tipo, nodi) in per_tipo {
+            righe.push(format!("## {tipo}"));
+            righe.push(String::new());
+            for n in nodi {
+                // Il marchio dice da dove viene: quello che ha detto l'utente
+                // non si distingue da quello che NOVA ha dedotto, se non si
+                // scrive.
+                let marchio = if n.origine == "utente" {
+                    String::new()
+                } else {
+                    format!("  _{}_", n.origine)
+                };
+                righe.push(format!("- [[{}|{}]]{}", n.slug, n.title, marchio));
+            }
+            righe.push(String::new());
+        }
+        righe.join("\n")
+    }
+
+    /// Dove va scritto l'indice.
+    pub fn dove_va_lindice() -> &'static str {
+        "_INDICE.md"
+    }
+}
+
+/// Se il registro delle azioni va ruotato.
+///
+/// Un file solo di storico, poi si ricomincia. Ogni salvataggio e ogni
+/// ricerca scrivono una riga: senza rotazione il file cresce per sempre, e
+/// non c'e' nessuno che lo poti.
+pub fn ora_di_ruotare(quanto_e_grosso: u64) -> bool {
+    quanto_e_grosso >= MAX_REGISTRO_BYTE
 }
 
 #[cfg(test)]
@@ -935,5 +1184,43 @@ mod prove {
         let mut v = Deposito::nuovo(false);
         v.salva(&d, &NessunControllo, nodo("anna", "Anna", "persona", "x"), true, OGGI).unwrap();
         assert_eq!(v.aggiorna(&d), Cambiamenti::default());
+    }
+
+    #[test]
+    fn il_guardiano_vero_e_attaccato_al_vault() {
+        // Non basta che il tratto esista: se nessuno gli attacca il guardiano
+        // vero, la porta e' aperta e sembra chiusa.
+        let d = DiscoFinto::default();
+        let mut v = Deposito::nuovo(false);
+        let esito = v.salva(
+            &d,
+            &GuardianoDeiSegreti,
+            nodo("wifi", "Wifi di casa", "fatto", "la password e' Tramonto2026"),
+            true,
+            OGGI,
+        );
+        assert!(esito.is_err(), "il guardiano vero ha lasciato passare una password");
+        assert!(d.elenca().is_empty());
+
+        // E un ricordo legittimo deve poter entrare: un guardiano che rifiuta
+        // tutto non protegge, cancella la memoria.
+        let ok = v.salva(
+            &d,
+            &GuardianoDeiSegreti,
+            nodo("gio", "Gio", "persona", "Gio lavora meglio la mattina presto."),
+            true,
+            OGGI,
+        );
+        assert!(ok.is_ok(), "{:?}", ok.err());
+    }
+
+    #[test]
+    fn si_cerca_un_nodo_anche_col_nome_come_lo_scrive_il_modello() {
+        let d = DiscoFinto::con(&[("03-progetti/progetto-nova.md", &nota("Nova"))]);
+        let mut v = Deposito::nuovo(false);
+        v.ricarica(&d);
+        assert!(v.prendi("progetto-nova").is_some());
+        assert!(v.prendi("Progetto Nova").is_some(), "il filtro non e' stato applicato");
+        assert!(v.prendi("mai-visto").is_none());
     }
 }
