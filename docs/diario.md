@@ -3840,3 +3840,55 @@ me l'ha detto il Python quando gliel'ho chiesto.
 Un valore atteso che si inventa non prova che il codice e' giusto: prova che
 si credeva di sapere la risposta. Adesso nel commento c'e' scritto da dove
 viene.
+
+### La shell, e un limite che ho scritto invece di tapparlo
+
+Il racconto di un comando: codice di uscita, cio' che ha detto, cio' di cui si
+e' lamentato. Nove esiti confrontati, e uno vale per tutti — «(nessun
+output)», perche' **un comando muto e un comando riuscito non sono la stessa
+cosa** e chi legge deve poterli distinguere.
+
+`run_python` non passa dalla guardia dei comandi. Non l'ho «sistemato»: i
+motivi vietati sono espressioni regolari pensate per il testo di un comando di
+shell, e applicarle a del codice Python darebbe falsi allarmi — «diskpart»
+dentro una stringa — e mancherebbe comunque quelli veri, perche' quel codice
+puo' lanciare qualunque cosa per vie che nessuna regola sul testo intercetta.
+La difesa li' e' il rischio dichiarato: `run_python` e' Pericoloso, e sotto
+autonomia normale si ferma a chiedere.
+
+Un controllo che sembra proteggere e non protegge e' peggio di nessun
+controllo, perche' chi lo vede smette di guardare. Sta scritto in cima al
+modulo.
+
+### I tasti, dove sbagliare non da' errore
+
+`press_keys` traduce «ctrl+shift+esc» nella forma che capisce Windows. E' il
+pezzo piu' pericoloso della famiglia, e non perche' sia difficile: una
+traduzione sbagliata **non fallisce**, preme altri tasti — e li preme nella
+finestra che ha il fuoco, cioe' quella dove l'utente sta lavorando.
+
+Diciassette combinazioni confrontate, e quattro che devono **rifiutarsi**:
+`ctrl`, `ctrl+alt`, la stringa vuota, un `+` da solo. Una combinazione fatta
+di soli modificatori non e' una combinazione, e mandarla vorrebbe dire premere
+qualcosa a caso addosso a chi sta scrivendo.
+
+### Un fuso non e' un numero
+
+Qui il banco ha trovato un difetto di progetto, non di traduzione.
+
+Avevo fatto passare il fuso come **un** intero — una scelta che sembrava
+coerente con tutte le altre («il mondo arriva da fuori»). Il banco ha
+confrontato quattro istanti, e due sono usciti sbagliati di un'ora:
+
+    0:          rust 'giovedi 01/01/1970 02:00:00'
+                python 'giovedi 01/01/1970 01:00:00'
+
+Perche' avevo calcolato il fuso **oggi**, che e' settembre, e l'avevo
+applicato a gennaio. Un fuso cambia due volte l'anno: un file modificato a
+gennaio ed elencato a luglio esce con un'ora sbagliata, e nessuno se ne
+accorge finche' non guarda due volte lo stesso file in due stagioni.
+
+Adesso il fuso e' un **tratto** — `secondi_in(istante)` — e non un numero.
+Non e' pignoleria di tipi: un numero si puo' passare senza pensarci, un
+tratto obbliga chi chiama a rispondere alla domanda «quando?». E' la stessa
+forma della destinazione obbligatoria in `puo_scrivere` (D118).

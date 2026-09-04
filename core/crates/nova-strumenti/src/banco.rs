@@ -8,6 +8,9 @@
 
 use nova_strumenti::file;
 use nova_strumenti::file_disco::{self, SenzaSistema};
+use nova_strumenti::guscio::{self, Risposta};
+use nova_strumenti::data::Fuso;
+use nova_strumenti::sistema;
 use nova_strumenti::guardie::{Autonomia, Guardie};
 use nova_strumenti::{anteprima, schema, Argomenti, Rischio, STRUMENTI};
 use serde::{Deserialize, Serialize};
@@ -54,8 +57,25 @@ struct Dentro {
     operazioni: Vec<Operazione>,
     /// Il fuso, in secondi. Arriva da fuori come tutte le cose che dipendono
     /// dal mondo: cosi' il banco non cambia risposta a marzo e a ottobre.
+    /// Lo spostamento dell'orologio, per **istante**: (da quando, secondi).
+    /// Non un numero solo, perche' un fuso cambia due volte l'anno e un file
+    /// di gennaio elencato a luglio uscirebbe con un'ora sbagliata.
     #[serde(default)]
-    fuso: i64,
+    fusi: Vec<(u64, i64)>,
+    /// (codice, stdout, stderr) da raccontare come farebbe uno strumento di
+    /// shell. Il processo non si avvia: avviarlo proverebbe il sistema
+    /// operativo, non il racconto.
+    #[serde(default)]
+    esiti: Vec<(i32, String, String)>,
+    /// Combinazioni di tasti da tradurre.
+    #[serde(default)]
+    tasti: Vec<String>,
+    /// Livelli di volume da tradurre in passi.
+    #[serde(default)]
+    volumi: Vec<i64>,
+    /// Istanti da dire come data e ora.
+    #[serde(default)]
+    istanti: Vec<u64>,
 }
 
 #[derive(Deserialize)]
@@ -86,6 +106,19 @@ enum Operazione {
     Info { dove: String },
 }
 
+/// Il fuso raccontato dal Python: gli scaglioni con dentro lo spostamento.
+struct Fusi(Vec<(u64, i64)>);
+
+impl Fuso for Fusi {
+    fn secondi_in(&self, istante: u64) -> i64 {
+        // L'ultimo scaglione che comincia prima di questo istante.
+        self.0.iter().filter(|(da, _)| *da <= istante)
+            .last().map(|(_, s)| *s)
+            .or_else(|| self.0.first().map(|(_, s)| *s))
+            .unwrap_or(0)
+    }
+}
+
 fn cento() -> usize { 100 }
 fn sessanta() -> usize { 60 }
 
@@ -110,6 +143,10 @@ struct Fuori {
     /// Per ogni operazione: quello che il modello leggerebbe, con davanti
     /// «ERRORE: » se e' andata storta — come fa `run_tool` dall'altra parte.
     operazioni: Vec<String>,
+    racconti: Vec<String>,
+    tasti: Vec<Option<String>>,
+    volumi: Vec<i64>,
+    istanti: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -227,7 +264,7 @@ fn main() {
             d.operazioni.iter().map(|op| {
                 let esito = match op {
                     Operazione::Elenca { dove, modello, nascosti } =>
-                        file_disco::elenca(dove, modello, *nascosti, d.fuso),
+                        file_disco::elenca(dove, modello, *nascosti, &Fusi(d.fusi.clone())),
                     Operazione::Leggi { dove, offset, limite } =>
                         file_disco::leggi(dove, *offset, *limite),
                     Operazione::Scrivi { dove, testo, in_coda } =>
@@ -244,7 +281,7 @@ fn main() {
                         file_disco::cerca_file(dove, modello, *massimo),
                     Operazione::Setaccia { dove, testo, modello, massimo } =>
                         file_disco::cerca_nei_file(dove, testo, modello, *massimo),
-                    Operazione::Info { dove } => file_disco::informazioni(dove, d.fuso)
+                    Operazione::Info { dove } => file_disco::informazioni(dove, &Fusi(d.fusi.clone()))
                         .map(|v| v.iter().map(|(k, x)| format!("{k}: {x}"))
                              .collect::<Vec<_>>().join("\n")),
                 };
@@ -254,6 +291,14 @@ fn main() {
                 }
             }).collect()
         },
+        racconti: d.esiti.iter()
+            .map(|(c, o, e)| guscio::racconta(&Risposta {
+                codice: *c, uscita: o.clone(), lamenti: e.clone(),
+            }))
+            .collect(),
+        tasti: d.tasti.iter().map(|t| sistema::traduci_tasti(t).ok()).collect(),
+        volumi: d.volumi.iter().map(|v| sistema::passi_di_volume(*v)).collect(),
+        istanti: d.istanti.iter().map(|s| sistema::data_e_ora(*s, &Fusi(d.fusi.clone()))).collect(),
     };
     println!("{}", serde_json::to_string(&fuori).unwrap());
 }

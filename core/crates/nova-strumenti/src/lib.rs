@@ -33,6 +33,12 @@ pub mod data;
 // Gli strumenti sui file, quelli che il disco lo toccano davvero.
 pub mod file_disco;
 
+// Eseguire un comando sul PC, e raccontarne l'esito.
+pub mod guscio;
+
+// Le parti degli strumenti di sistema che non chiedono niente al sistema.
+pub mod sistema;
+
 pub use dichiarazioni::STRUMENTI;
 
 /// Quanto costa sbagliare questa azione.
