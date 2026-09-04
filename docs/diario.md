@@ -3692,3 +3692,38 @@ L'ho riprodotto invece di pulirlo. Un messaggio d'errore e' un contratto
 quanto un formato di file, e due meta' che dicono la stessa cosa con due
 punteggiature diverse sono due voci. Se un giorno si pulisce, si pulisce da
 tutte e due le parti insieme.
+
+### E poi la stessa domanda al contrario
+
+Chiuso il buco del separatore, ne restava uno all'opposto: se il confronto e'
+**solo** sui nomi, un collegamento lo aggira.
+
+Misurato, non immaginato. Una giunzione vera:
+
+    mklink /J scorciatoia protetta
+
+    \protetta\x.txt      -> bloccato
+    \scorciatoia\x.txt   -> PERMESSO   (risolve in \protetta\x.txt)
+
+Quindi le due domande **non sono la stessa**, e per un pelo:
+
+- «se cancello questa cartella sparisce anche questo file?» si risponde sui
+  nomi (D56), perche' chi cancella una cartella cancella i nomi che ci stanno
+  sotto;
+- «questa scrittura sta toccando un posto protetto?» no.
+
+In una guardia si sbaglia verso il no, quindi vale l'**unione**: sta dentro se
+lo dice il nome *o* se lo dice la destinazione. Per i percorsi protetti
+l'unione protegge di piu'. Per le cartelle autorizzate rifiuta di meno — e
+anche quello e' il verso giusto, perche' il caso vero e' l'opposto: sotto un
+pacchetto MSIX `resolve()` porta i file fuori dalla loro stessa cartella, e
+con la sola destinazione NOVA non potrebbe scrivere nemmeno in casa propria.
+
+Dalla parte Rust la destinazione e' un **parametro obbligatorio** di
+`puo_scrivere`, e non per comodita': un parametro che si puo' dimenticare e'
+un parametro che si dimentica. Chi non ha modo di risolvere passa `None` e
+resta la difesa sui nomi, che e' meno, ed e' meglio di una dimenticanza.
+
+La prova Python fa una giunzione vera e la usa. Una prova che se la immagina
+non prova niente — ed e' esattamente il difetto che si scopre quando qualcuno
+ci ha gia' scritto dentro.

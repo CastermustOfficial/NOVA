@@ -26,8 +26,9 @@ struct Dentro {
     #[serde(default)]
     autonomia: String,
     /// I percorsi da sottoporre alla guardia di scrittura.
+    /// (percorso, dove porta) — la destinazione e' opzionale.
     #[serde(default)]
-    scritture: Vec<String>,
+    scritture: Vec<(String, Option<String>)>,
     /// I comandi da sottoporre alla guardia dei comandi.
     #[serde(default)]
     comandi: Vec<String>,
@@ -122,7 +123,7 @@ fn main() {
             let g = Guardie::nuove(&d.protetti, &d.radici, &d.vietati,
                                    Autonomia::dal_nome(&d.autonomia));
             d.scritture.iter()
-                .map(|p| g.puo_scrivere(p).err().map(|e| e.messaggio()))
+                .map(|(p, r)| g.puo_scrivere(p, r.as_deref()).err().map(|e| e.messaggio()))
                 .collect()
         },
         comandi: {

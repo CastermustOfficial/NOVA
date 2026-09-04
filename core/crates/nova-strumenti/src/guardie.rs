@@ -188,16 +188,34 @@ impl Guardie {
     }
 
     /// Se NOVA puo' scrivere qui.
-    pub fn puo_scrivere(&self, percorso: &str) -> Result<(), Divieto> {
+    /// `risolto` e' lo stesso percorso dopo aver seguito i collegamenti, e lo
+    /// passa chi ha il disco — qui dentro non si tocca niente. Non e' un
+    /// parametro comodo: **e' obbligatorio pensarci**, perche' sui soli nomi
+    /// una giunzione aggira la protezione. Misurato il 5 settembre:
+    /// `mklink /J scorciatoia protetta`, e scrivere in `scorciatoia\x.txt`
+    /// risultava permesso mentre finiva dritto dentro la cartella protetta.
+    ///
+    /// Chi non puo' risolvere passa `None`, e resta la sola difesa sui nomi:
+    /// e' meno, ed e' meglio di un parametro dimenticato.
+    ///
+    /// L'unione vale anche per le cartelle autorizzate, e li' vuol dire
+    /// rifiutare **di meno**. E' il verso giusto lo stesso: sotto un
+    /// pacchetto MSIX `resolve()` porta i file fuori dalla loro stessa
+    /// cartella, e con la sola destinazione NOVA non potrebbe scrivere
+    /// nemmeno in casa propria.
+    pub fn puo_scrivere(&self, percorso: &str, risolto: Option<&str>) -> Result<(), Divieto> {
+        let sta_dentro = |cartella: &str| {
+            dentro(percorso, cartella) || risolto.is_some_and(|r| dentro(r, cartella))
+        };
         for prot in &self.protetti {
-            if dentro(percorso, prot) {
+            if sta_dentro(prot) {
                 return Err(Divieto::PercorsoProtetto(percorso.to_string()));
             }
         }
         // Nessuna radice dichiarata vuol dire «tutto il disco tranne i
         // protetti»: e' la configurazione predefinita, e restringerla di
         // nascosto renderebbe NOVA inutile senza dirlo.
-        if !self.radici.is_empty() && !self.radici.iter().any(|r| dentro(percorso, r)) {
+        if !self.radici.is_empty() && !self.radici.iter().any(|r| sta_dentro(r)) {
             let elenco: Vec<String> = self.radici.iter().map(|r| come_repr(r)).collect();
             return Err(Divieto::FuoriDalleCartelle(format!("[{}]", elenco.join(", "))));
         }
@@ -267,10 +285,10 @@ mod prove {
             &[],
             Autonomia::ChiediSeRischioso,
         );
-        assert!(g.puo_scrivere(r"C:\Users\gio\nota.txt").is_ok());
-        assert!(g.puo_scrivere(r"C:\Windows\system32\x.dll").is_err());
+        assert!(g.puo_scrivere(r"C:\Users\gio\nota.txt", None).is_ok());
+        assert!(g.puo_scrivere(r"C:\Windows\system32\x.dll", None).is_err());
         // E `C:\Windows-mio` non e' dentro `C:\Windows`.
-        assert!(g.puo_scrivere(r"C:\Windows-mio\x.txt").is_ok());
+        assert!(g.puo_scrivere(r"C:\Windows-mio\x.txt", None).is_ok());
     }
 
     #[test]
@@ -325,5 +343,28 @@ mod prove {
         assert_eq!(Autonomia::capisci("always_ask"), Some(Autonomia::Chiedi));
         assert_eq!(Autonomia::capisci("ask_risky"), Some(Autonomia::ChiediSeRischioso));
         assert_eq!(Autonomia::capisci("ask_all"), None);
+    }
+
+    #[test]
+    fn una_giunzione_non_aggira_la_protezione() {
+        // Il difetto misurato il 5 settembre: `scorciatoia` e' una giunzione
+        // che porta dentro `protetta`, e sui soli nomi passava.
+        let g = Guardie::nuove(&[r"C:\protetta".into()], &[], &[], Autonomia::Tutto);
+        assert!(g.puo_scrivere(r"C:\scorciatoia\x.txt", None).is_ok(),
+                "senza sapere dove porta, il nome e' tutto quel che c'e'");
+        assert!(g.puo_scrivere(r"C:\scorciatoia\x.txt", Some(r"C:\protetta\x.txt")).is_err(),
+                "sapendo dove porta, deve fermarsi");
+    }
+
+    #[test]
+    fn e_una_cartella_autorizzata_vale_anche_se_il_nome_non_combacia() {
+        // Il caso opposto e altrettanto vero: sotto un pacchetto MSIX i file
+        // risolvono fuori dalla loro stessa cartella. Se contasse solo la
+        // destinazione, NOVA non potrebbe scrivere in casa propria.
+        let g = Guardie::nuove(&[], &[r"C:\dati".into()], &[], Autonomia::Tutto);
+        assert!(g.puo_scrivere(r"C:\dati\x.txt", Some(r"D:\altrove\LocalCache\x.txt")).is_ok());
+        assert!(g.puo_scrivere(r"D:\fuori\x.txt", Some(r"C:\dati\x.txt")).is_ok(),
+                "e vale anche al contrario: se la destinazione e' dentro, va bene");
+        assert!(g.puo_scrivere(r"D:\fuori\x.txt", None).is_err());
     }
 }

@@ -33,7 +33,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-__all__ = ["dentro", "normalizza"]
+__all__ = ["dentro", "dentro_comunque", "normalizza"]
 
 
 def normalizza(p: str | os.PathLike) -> str:
@@ -61,4 +61,34 @@ def dentro(figlio: str | os.PathLike, cartella: str | os.PathLike) -> bool:
     except Exception:                                       # noqa: BLE001
         # Un percorso che non si riesce nemmeno a normalizzare non e' «dentro»:
         # in una guardia di sicurezza, il dubbio si risolve verso il no.
+        return False
+
+
+def dentro_comunque(figlio: str | os.PathLike, cartella: str | os.PathLike) -> bool:
+    r"""Come `dentro`, ma guarda **anche** dove il percorso porta.
+
+    Le due domande non sono la stessa, e per un pelo:
+
+    - «se cancello questa cartella sparisce anche questo file?» si risponde
+      **sui nomi** (D56), perche' chi cancella una cartella cancella i nomi
+      che ci stanno sotto;
+    - «questa scrittura sta toccando un posto protetto?» no. Misurato il 5
+      settembre con una giunzione vera: `mklink /J scorciatoia protetta`, e
+      scrivere in `scorciatoia\x.txt` risultava **permesso** mentre finiva
+      dritto dentro la cartella protetta.
+
+    In una guardia si sbaglia verso il no, quindi vale l'unione: sta dentro se
+    lo dice il nome **o** se lo dice la destinazione. Per l'elenco dei
+    percorsi protetti l'unione vuol dire proteggere di piu', che e' il verso
+    giusto. Per le cartelle autorizzate vuol dire rifiutare di meno — e anche
+    quello e' il verso giusto, perche' il caso vero e' l'opposto: sotto un
+    pacchetto MSIX `resolve()` porta i file **fuori** dalla loro stessa
+    cartella, e con la sola destinazione NOVA non potrebbe piu' scrivere
+    nemmeno in casa propria.
+    """
+    if dentro(figlio, cartella):
+        return True
+    try:
+        return dentro(Path(figlio).resolve(), Path(cartella).resolve())
+    except Exception:                                       # noqa: BLE001
         return False
