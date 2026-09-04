@@ -222,7 +222,9 @@ COMANDI = [
 dentro_g = json.dumps({
     "protetti": PROTETTI, "radici": RADICI, "vietati": VIETATI,
     "autonomia": "ask_risky",
-    "scritture": SCRITTURE, "comandi": COMANDI,
+    # La destinazione la calcola chi ha il disco: qui i percorsi non
+    # esistono, quindi si passa None e resta la difesa sui nomi.
+    "scritture": [[p, None] for p in SCRITTURE], "comandi": COMANDI,
 }, ensure_ascii=False)
 q = subprocess.run([str(BINARIO)], input=dentro_g, capture_output=True,
                    text=True, encoding="utf-8", timeout=120)

@@ -18,7 +18,7 @@ from typing import Callable
 
 from .brains import crea_brain
 from .config import AUTONOMY_ASK_ALL, AUTONOMY_FULL, Config
-from .percorsi import dentro
+from .percorsi import dentro_comunque
 from .tools import REGISTRY, Risk, ToolError, openai_schema, run_tool
 
 
@@ -43,8 +43,11 @@ class SafetyContext:
     def guard_write(self, path: Path) -> None:
         r"""Se NOVA puo' scrivere qui.
 
-        La domanda «sta dentro quella cartella?» si fa con `percorsi.dentro`,
-        che risponde **sui nomi** (D56). Questa guardia la sbagliava in tre
+        La domanda «sta dentro quella cartella?» si fa con
+        `percorsi.dentro_comunque`, che guarda il nome **e** dove porta: sui
+        soli nomi una giunzione aggira la protezione (misurato), e sulla sola
+        destinazione NOVA non puo' scrivere in casa propria sotto un
+        pacchetto MSIX (misurato anche quello). Questa guardia la sbagliava in tre
         modi insieme: confrontava un percorso risolto con dei protetti **non**
         risolti — due spazi diversi, e sotto un punto di reinnesto la
         protezione spariva in silenzio; attaccava una barra rovescia a mano,
@@ -53,12 +56,12 @@ class SafetyContext:
         autorizzava anche `C:\dati-altrui`.
         """
         for prot in self.cfg.safety.protected_paths:
-            if dentro(path, prot):
+            if dentro_comunque(path, prot):
                 raise ToolError(
                     f"percorso protetto: {path}. Modificalo manualmente se necessario."
                 )
         roots = self.cfg.safety.write_roots
-        if roots and not any(dentro(path, r) for r in roots):
+        if roots and not any(dentro_comunque(path, r) for r in roots):
             raise ToolError(
                 f"scrittura non consentita fuori dalle cartelle autorizzate: {roots}"
             )
