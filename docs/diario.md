@@ -3388,3 +3388,78 @@ comunque», e aveva certificato come regola del formato il difetto di una delle
 due meta'. Adesso il titolo di ripiego si chiede al Python, su cinque nomi
 diversi. Una prova che confronta un'implementazione con se stessa non prova
 niente, e in piu' **difende** cio' che dovrebbe scoprire.
+
+---
+
+## 4 settembre 2026, sera — CANT-1: la porta del vault, e una prova che passava per coincidenza
+
+Seconda meta' di CANT-1: scrivere. `Deposito::salva` e' l'unica porta da cui
+si entra in memoria, e fa nell'ordine le stesse cose del Python — chiede al
+guardiano, cerca chi c'e' gia' per slug e poi per somiglianza, rilegge dal
+disco perche' l'utente potrebbe averlo appena corretto in Obsidian, controlla
+i tipi, fonde, e scrive dove il file gia' sta.
+
+Undici scenari, confrontati **file per file, contenuto compreso**, con il
+Python su una cartella vera e il Rust sul disco finto. Zero divergenze.
+
+### Due tratti invece di una funzione
+
+`DiscoScrivibile` esiste separato da `Disco` per una ragione sola: mettere
+nel contratto che **la scrittura non puo' restare a meta'**. Non e' un
+dettaglio di chi implementa, e' la lezione di stamattina scritta dove non si
+puo' dimenticare.
+
+`Guardiano` e' un tratto e non una funzione perche' `salva` deve
+*chiederglielo*. In Python il controllo sui segreti sta dentro `upsert` per lo
+stesso motivo: e' l'unica porta, ci passano l'apprendimento automatico, le
+note a mano e il seeding, e chiudere una porta sola vuol dire chiuderla
+davvero. Se il controllo stesse nel giudizio di chi chiama, basterebbe un
+chiamante distratto.
+
+Il guardiano vero non e' ancora portato — e' un pezzo suo, tutto espressioni
+regolari, e **e' la cosa che meno di tutte va fatta a meta'**: un guardiano
+che si dimentica una forma e' peggio di nessun guardiano, perche' da' l'idea
+di proteggere. Intanto il tratto c'e', e chi chiama deve passargliene uno.
+
+### `dict.fromkeys` non e' `sort`
+
+Rinominando gli archi dopo una fusione avevo scritto `sort()` e `dedup()`. Il
+Python usa `dict.fromkeys`, che toglie i doppioni **conservando l'ordine**.
+
+Sembra la stessa cosa e non lo e': l'ordine delle relazioni e' quello in cui
+sono nate, sta scritto nel frontmatter, e riordinarlo alfabeticamente
+riscriverebbe il file di ogni nodo collegato con una modifica che nessuno ha
+chiesto — che l'utente si vedrebbe comparire in Obsidian come se qualcuno gli
+avesse toccato le note. L'ho corretto leggendo il Python, non aspettando il
+banco.
+
+### La prova che passava per coincidenza
+
+`to_markdown` legge l'orologio, e la data finisce nel frontmatter. Nel banco
+avevo fissato la data a `2026-09-04` e bloccato l'orologio del Python. Tutto
+verde.
+
+Poi mi sono accorto che **oggi e' il 2026-09-04**. Il confronto sarebbe
+passato identico anche se il blocco dell'orologio non avesse funzionato per
+niente, e me ne sarei accorto domani — o mai, se domani avessi guardato altro.
+
+L'ho verificato spostando la data al 2020, ed e' andato bene: il blocco
+funziona. Ma la lezione non e' «funzionava»: e' che per venti minuti ho avuto
+in mano una prova verde che non sapevo cosa stesse provando. La data ora e'
+lontana da oggi apposta, col commento che dice perche'.
+
+E' la stessa forma di D104 — un banco prova solo le strade che il suo corpus
+percorre — con una variante peggiore: qui la strada la percorreva, ma il
+valore atteso e quello reale coincidevano per un motivo che non c'entrava
+niente col codice.
+
+### Il banco discrimina
+
+Verificato rompendo il Rust apposta, col difetto che il commento del Python
+descrive per nome: tolto il controllo sui tipi dal ramo diretto.
+
+    rust:   ['02-persone/marco.md']
+    python: ['02-persone/marco.md', '03-progetti/progetto-marco.md']
+
+La persona Marco e il progetto Marco nello stesso file, con un tipo solo e
+nella cartella sbagliata. Il banco l'ha visto.

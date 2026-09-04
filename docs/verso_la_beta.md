@@ -873,7 +873,17 @@ cartella vera, il Rust sulla finta — per verificare che il finto sia fedele
 (D103). Undici scenari, e il dodicesimo ha trovato un difetto di settimane fa:
 il titolo di ripiego non passava da `capitalize()` (D104, D105).
 
-Scrivere non c'e' ancora. Ma prima di portarla, la scrittura e' stata
+Poi la seconda meta': **scrivere**. `Deposito::salva` e' l'unica porta da cui
+si entra in memoria e fa nell'ordine le stesse cose del Python — chiede al
+guardiano, cerca chi c'e' gia' per slug e poi per somiglianza, rilegge dal
+disco perche' l'utente potrebbe aver appena corretto quel file in Obsidian,
+controlla i tipi, fonde, e scrive dove il file gia' sta. Undici scenari
+confrontati file per file, contenuto compreso: zero divergenze. Il guardiano
+dei segreti sta dietro un tratto che chi scrive **deve** passare, cosi' la
+porta resta una sola anche in Rust; il guardiano vero e' un pezzo suo e resta
+da portare, perche' e' la cosa che meno di tutte va fatta a meta' (D106).
+
+E prima di portarla, la scrittura e' stata
 **aggiustata**: `Vault.upsert` scriveva le note dell'utente con `write_text`,
 cioe' apri-tronca-scrivi, e ci passa `MemoryWriter` da un thread di sfondo
 dopo quasi ogni scambio. Un'interruzione a meta' lasciava una nota vuota, che
