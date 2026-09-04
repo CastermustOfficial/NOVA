@@ -309,6 +309,102 @@ controlla("il Rust dice quale motivo non ha capito",
 controlla("e gli altri divieti continuano a valere",
           fuori["comandi"][0] is not None, str(fuori["comandi"]))
 
+print("\n=== Come si racconta un file al modello ===")
+# Sembra cosmesi e non lo e': questo testo e' cio' su cui il modello decide il
+# passo dopo. Una misura scritta in un altro modo, o un troncamento a un
+# carattere diverso, sono un contesto diverso.
+from nova.tools.files import MAX_READ_CHARS, _fmt  # noqa: E402,F401
+
+# La scala e' larga apposta attorno ai punti in cui si cambia unita' e in cui
+# l'arrotondamento decide: 1,5 KB e 2,5 KB arrotondano al pari da tutte e due
+# le parti, o non lo fanno da nessuna.
+MISURE = ([0, 1, 10, 500, 1023, 1024, 1025, 1535, 1536, 1537, 2048, 2560]
+          + [1024 ** 2 - 1, 1024 ** 2, 3 * 1024 ** 2 // 2]
+          + [1024 ** 3, 1024 ** 3 * 5 // 2, 1024 ** 4, 1024 ** 4 * 3]
+          + [512 * k for k in range(1, 60)])
+
+
+def py_misura(byte: int) -> str:
+    size = byte
+    unit = "B"
+    for u in ("KB", "MB", "GB"):
+        if size >= 1024:
+            size /= 1024
+            unit = u
+        else:
+            break
+    return f"{size:.0f} {unit}"
+
+
+FETTE = [(100, 1, 0), (100, 0, 0), (100, -5, 0), (100, 10, 5), (3, 1, 999),
+         (0, 1, 0), (10, 20, 3), (10, 1, 10)]
+
+
+def py_fetta(quante, offset, limite):
+    start = max(0, (offset or 1) - 1)
+    end = start + limite if limite else quante
+    return [start, end]
+
+
+RICERCHE = ["fattura", "*.pdf", "**/*.pdf", "nota?.txt", "", "sotto/*.txt",
+            "**"]
+
+
+def py_ricerca(pattern):
+    if "*" not in pattern and "?" not in pattern:
+        return f"**/*{pattern}*"
+    if not pattern.startswith("**"):
+        return f"**/{pattern}"
+    return pattern
+
+
+TROVATE = [("a.py", 3, "   ciao   "), ("b.py", 1, "y" * 500),
+           ("c.py", 12, "\tcon una tabulazione\t"), ("d.py", 7, "")]
+DA_ORDINARE = [("zeta.txt", False), ("Alfa", True), ("beta.txt", False),
+               ("Zulu", True), ("alfa.txt", False), ("BETA.TXT", False)]
+
+r = subprocess.run([str(BINARIO)], input=json.dumps({
+    "misure": MISURE, "fette": [list(f) for f in FETTE],
+    "ricerche": RICERCHE, "trovate": [list(t) for t in TROVATE],
+    "da_ordinare": [list(x) for x in DA_ORDINARE],
+}, ensure_ascii=False), capture_output=True, text=True, encoding="utf-8",
+    timeout=120)
+if r.returncode != 0:
+    print("il banco e' uscito male:", r.stderr[:300])
+    sys.exit(1)
+f = json.loads(r.stdout)
+
+diverse = [f"{b}: rust {suo!r} vs python {py_misura(b)!r}"
+           for b, suo in zip(MISURE, f["misure"]) if suo != py_misura(b)]
+controlla(f"le {len(MISURE)} misure si scrivono uguali", not diverse,
+          " | ".join(diverse[:3]))
+
+diverse = [f"{x}: rust {suo} vs python {py_fetta(*x)}"
+           for x, suo in zip(FETTE, f["fette"]) if suo != py_fetta(*x)]
+controlla("le fette di righe combaciano", not diverse, " | ".join(diverse[:2]))
+
+diverse = [f"{x!r}: rust {suo!r} vs python {py_ricerca(x)!r}"
+           for x, suo in zip(RICERCHE, f["ricerche"]) if suo != py_ricerca(x)]
+controlla("i modelli di ricerca si allargano allo stesso modo", not diverse,
+          " | ".join(diverse[:2]))
+
+diverse = []
+for (p_, n, riga), suo in zip(TROVATE, f["trovate"]):
+    mio = f"{p_}:{n}: {riga.strip()[:200]}"
+    if suo != mio:
+        diverse.append(f"rust {suo[:60]!r} vs python {mio[:60]!r}")
+controlla("le righe trovate si potano allo stesso modo", not diverse,
+          " | ".join(diverse[:2]))
+
+mio_ordine = [n for n, _ in sorted(DA_ORDINARE,
+                                   key=lambda x: (not x[1], x[0].lower()))]
+controlla("e l'elenco di una cartella esce nello stesso ordine",
+          f["ordinati"] == mio_ordine,
+          f"rust {f['ordinati']} vs python {mio_ordine}")
+
+controlla("il tetto sui caratteri letti e' lo stesso",
+          MAX_READ_CHARS == 40000)
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")

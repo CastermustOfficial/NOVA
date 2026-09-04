@@ -3727,3 +3727,38 @@ resta la difesa sui nomi, che e' meno, ed e' meglio di una dimenticanza.
 La prova Python fa una giunzione vera e la usa. Una prova che se la immagina
 non prova niente — ed e' esattamente il difetto che si scopre quando qualcuno
 ci ha gia' scritto dentro.
+
+### Il formato, che sembra cosmesi
+
+Ultimo pezzo della giornata: come si racconta un file al modello. L'ordine di
+un elenco, la misura di un file, quante righe entrano in una lettura, come si
+scrive una riga trovata da una ricerca.
+
+Sembra cosmesi. Non lo e': quel testo e' cio' su cui il modello decide il
+passo dopo, e una misura scritta in un altro modo o un troncamento a un
+carattere diverso sono un contesto diverso.
+
+Il punto piu' sottile e' l'arrotondamento. `f"{size:.0f}"` in Python
+arrotonda **al pari**: 2560 byte sono «2 KB», non «3 KB». Non mi sono fidato
+che il formattatore di Rust facesse la stessa cosa per la stessa strada — l'ho
+scritto esplicito — e ho verificato che il banco lo veda, cambiandolo in
+«mezzo sempre in su»:
+
+    2560:       rust '3 KB' vs python '2 KB'
+    2684354560: rust '3 GB' vs python '2 GB'
+
+Settantotto misure, scelte attorno ai punti dove si cambia unita' e dove
+l'arrotondamento decide. Un banco che le avesse provate a caso avrebbe potuto
+non incontrarne nemmeno una: i valori che separano due implementazioni sono
+pochi e stanno tutti sui bordi.
+
+### Dove si ferma CANT-2
+
+Le dichiarazioni, le guardie e il formato sono portati. Restano i **corpi**:
+leggere davvero un file, elencare i processi, catturare lo schermo, chiamare
+un indirizzo.
+
+E' li' che CANT-2 smette di essere una traduzione. Un corpo non si confronta
+col Python su un banco — si confronta col **sistema operativo**, e chiede a
+`nova-platform` di crescere. E' lo stesso genere di punto di CANT-8: non una
+difficolta' tecnica, una decisione. Meglio prenderla da svegli.

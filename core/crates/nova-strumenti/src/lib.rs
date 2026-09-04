@@ -23,6 +23,9 @@ mod dichiarazioni;
 // Cosa NOVA puo' fare senza chiedere, e cosa non puo' fare affatto.
 pub mod guardie;
 
+// Come si racconta un file al modello: l'ordine, la misura, il taglio.
+pub mod file;
+
 pub use dichiarazioni::STRUMENTI;
 
 /// Quanto costa sbagliare questa azione.

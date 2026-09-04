@@ -838,7 +838,7 @@ mole, non di difficolta'.
 | | Pezzo | Righe | Perche' li' nell'ordine |
 |---|---|---|---|
 | ~~CANT-1~~ | ~~**Il vault su disco**~~ — **fatto** | ~660 | Era il seguito diretto di `nova-nodi`, ed e' stato il primo pezzo scritto contro un tratto invece che sopra il filesystem nudo: e' quello che apre la strada a tutti gli altri. Ha ripagato prima di essere finito — la scrittura delle note dell'utente non era atomica (D102) — e ha portato dentro anche il guardiano dei segreti (D109, D110) |
-| CANT-2 | **Gli strumenti** — file, app, shell, web, schermo, tempo, documenti, deleghe | ~2.570 | Sono la meta' di NOVA che tocca il PC, ed e' esattamente quella che in Python costa di piu' in dipendenze. Tanti pezzi piccoli e indipendenti: si porta uno strumento per volta senza fermare niente |
+| CANT-2 | **Gli strumenti** — *dichiarazioni, guardie e formato: fatti; i corpi: da fare* — file, app, shell, web, schermo, tempo, documenti, deleghe | ~2.570 | Sono la meta' di NOVA che tocca il PC, ed e' esattamente quella che in Python costa di piu' in dipendenze. Tanti pezzi piccoli e indipendenti: si porta uno strumento per volta senza fermare niente |
 | CANT-3 | **Il ciclo dell'agente e i cervelli** — `agent.py`, i client dei modelli | ~2.200 | E' il pezzo che davvero libera dal Python, ma va dopo gli strumenti: un ciclo che chiama strumenti Python non ha liberato niente. Dentro c'e' la parte piu' delicata di tutto il progetto — il taglio del contesto a token, che se sbaglia perde pezzi di conversazione senza dirlo |
 | CANT-4 | **Lanciare il modello locale** — `runtime.py` | ~690 | Il calcolo degli strati e' gia' in `nova-modelli`; qui resta avviare llama.cpp, la scala di ripiego e leggere cosa dice. Piccolo e ben delimitato |
 | CANT-5 | **Il server MCP** | ~1.290 | Protocollo, quindi traducibile senza scelte. Ma serve solo a chi collega NOVA a un altro programma: non toglie Python a nessuno finche' c'e' il resto |
@@ -872,6 +872,38 @@ memoria, e il banco gira lo stesso scenario due volte — il Python su una
 cartella vera, il Rust sulla finta — per verificare che il finto sia fedele
 (D103). Undici scenari, e il dodicesimo ha trovato un difetto di settimane fa:
 il titolo di ripiego non passava da `capitalize()` (D104, D105).
+
+**CANT-2, la parte che non tocca il PC.** Uno strumento e' tre cose: la
+dichiarazione, la guardia, e il fare. Le prime due sono portate, e non sono la
+parte facile — sono quella dove sbagliare non si vede.
+
+La **dichiarazione** e' 26.573 caratteri di schema JSON, circa 7.600 token che
+il modello rilegge a ogni richiesta e su cui sceglie quale strumento usare:
+una parola diversa e' un comportamento diverso, e nessun tipo se ne accorge
+(D112). Le sessanta dichiarazioni sono state estratte dal registro Python, non
+ricopiate, da uno script che si verifica da solo — e che ha scoperto di
+prendere a meta' quattro f-string su piu' righe, e poi che la sua stessa
+verifica aveva lo stesso buco che cercava (D114). Il banco confronta lo schema
+carattere per carattere, e ha trovato subito che in Python `items` sta prima
+di `description` (D113).
+
+La **guardia** era sbagliata in tre modi insieme, e tutti e tre erano D56 mai
+arrivato li': percorso risolto contro protetti non risolti; barra rovescia
+scritta a mano; e nessun separatore, cosi' autorizzare `C:\dati` autorizzava
+`C:\dati-altrui` — dimostrato con due cartelle. Chiuso quello ne restava uno
+all'opposto: sui soli nomi una giunzione aggira la protezione, misurato con
+`mklink /J`. Le due domande non sono la stessa, e in una guardia valgono tutte
+e due (D118).
+
+E il **formato** con cui un file si racconta al modello — l'ordine di un
+elenco, la misura, il taglio di una lettura — sembra cosmesi e non lo e':
+quel testo e' cio' su cui il modello decide il passo dopo. Settantotto misure
+confrontate, comprese quelle in cui l'arrotondamento a meta' decide.
+
+Restano i **corpi**: leggere davvero un file, elencare i processi, catturare
+lo schermo. E' li' che CANT-2 smette di essere una traduzione e comincia a
+chiedere a `nova-platform` di crescere — quindi e' un punto in cui vale la
+pena fermarsi e decidere, come per CANT-8.
 
 **CANT-1 e' chiuso.** Il vault, tutto: leggere, accorgersi di cosa e'
 cambiato fuori da NOVA, scrivere, archiviare, riattivare, contare, generare
