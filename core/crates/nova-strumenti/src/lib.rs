@@ -45,6 +45,9 @@ pub mod pagina;
 // Le entita' HTML con un nome, tutte, estratte e non ricopiate.
 mod entita;
 
+// Come si racconta la memoria di NOVA al modello.
+pub mod memoria;
+
 pub use dichiarazioni::STRUMENTI;
 
 /// Quanto costa sbagliare questa azione.

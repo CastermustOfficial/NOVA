@@ -3939,3 +3939,30 @@ saputo che le entita' HTML sono migliaia, l'avrei accettato.
 Con una tabella di sessanta voci, «il nome piu' lungo che combacia» era una
 finezza. Con duemila e' necessaria: `&notin` non e' `&not` seguito da «in», e
 `&sub` non e' l'inizio di `&subseteq`. Il lettore prende sempre il piu' lungo.
+
+### E un numero che non tornava per un centesimo
+
+Ultimo pezzo della giornata: come si racconta un ricordo al modello. Sembra il
+piu' innocuo di tutti, ed e' quello dove un dettaglio taciuto cambia cosa il
+modello **crede**: un nodo senza la confidenza e' un nodo trattato come una
+certezza, e un corpo tagliato senza dirlo fa credere di aver letto tutto.
+
+Sei ricordi confrontati, e uno non tornava:
+
+    confidenza 0.955  ->  python 0.95, rust 0.96
+
+Non e' un arrotondamento diverso: e' che `0.955` in binario e' **poco meno**
+di 0.955 — `0.95499999999999996` — e Python formatta il valore vero, che sta
+sotto la meta'. Io moltiplicavo per cento, e la moltiplicazione porta il
+prodotto esattamente a `95.5`, cioe' proprio sulla meta'.
+
+L'errore non era nell'arrotondamento. Era nella moltiplicazione, che il
+formattatore non fa.
+
+La cosa interessante e' che qui la scelta giusta e' **l'opposta** di quella
+che avevo fatto poche ore prima per la misura di un file, dove il conto a mano
+va benissimo: li' i numeri sono interi divisi per potenze di 1024, che in
+binario sono esatti, e non c'e' nessun errore da introdurre. Le due scelte
+sembrano incoerenti e non lo sono — dipende da che numeri passano di li'. Sta
+scritto in tutti e due i posti, perche' chi legge uno solo dei due penserebbe
+che l'altro e' sbagliato.

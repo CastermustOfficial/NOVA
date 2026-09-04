@@ -838,7 +838,7 @@ mole, non di difficolta'.
 | | Pezzo | Righe | Perche' li' nell'ordine |
 |---|---|---|---|
 | ~~CANT-1~~ | ~~**Il vault su disco**~~ — **fatto** | ~660 | Era il seguito diretto di `nova-nodi`, ed e' stato il primo pezzo scritto contro un tratto invece che sopra il filesystem nudo: e' quello che apre la strada a tutti gli altri. Ha ripagato prima di essere finito — la scrittura delle note dell'utente non era atomica (D102) — e ha portato dentro anche il guardiano dei segreti (D109, D110) |
-| CANT-2 | **Gli strumenti** — *dichiarazioni, guardie e formato: fatti; i corpi: da fare* — file, app, shell, web, schermo, tempo, documenti, deleghe | ~2.570 | Sono la meta' di NOVA che tocca il PC, ed e' esattamente quella che in Python costa di piu' in dipendenze. Tanti pezzi piccoli e indipendenti: si porta uno strumento per volta senza fermare niente |
+| CANT-2 | **Gli strumenti** — *dichiarazioni, guardie, formato, i corpi dei file, la shell, i tasti, le pagine e la memoria: fatti; cio' che chiede la piattaforma: da fare* — file, app, shell, web, schermo, tempo, documenti, deleghe | ~2.570 | Sono la meta' di NOVA che tocca il PC, ed e' esattamente quella che in Python costa di piu' in dipendenze. Tanti pezzi piccoli e indipendenti: si porta uno strumento per volta senza fermare niente |
 | CANT-3 | **Il ciclo dell'agente e i cervelli** — `agent.py`, i client dei modelli | ~2.200 | E' il pezzo che davvero libera dal Python, ma va dopo gli strumenti: un ciclo che chiama strumenti Python non ha liberato niente. Dentro c'e' la parte piu' delicata di tutto il progetto — il taglio del contesto a token, che se sbaglia perde pezzi di conversazione senza dirlo |
 | CANT-4 | **Lanciare il modello locale** — `runtime.py` | ~690 | Il calcolo degli strati e' gia' in `nova-modelli`; qui resta avviare llama.cpp, la scala di ripiego e leggere cosa dice. Piccolo e ben delimitato |
 | CANT-5 | **Il server MCP** | ~1.290 | Protocollo, quindi traducibile senza scelte. Ma serve solo a chi collega NOVA a un altro programma: non toglie Python a nessuno finche' c'e' il resto |
@@ -900,10 +900,20 @@ elenco, la misura, il taglio di una lettura — sembra cosmesi e non lo e':
 quel testo e' cio' su cui il modello decide il passo dopo. Settantotto misure
 confrontate, comprese quelle in cui l'arrotondamento a meta' decide.
 
-Restano i **corpi**: leggere davvero un file, elencare i processi, catturare
-lo schermo. E' li' che CANT-2 smette di essere una traduzione e comincia a
-chiedere a `nova-platform` di crescere — quindi e' un punto in cui vale la
-pena fermarsi e decidere, come per CANT-8.
+**E poi i corpi.** Quelli dei file — tredici strumenti — sono portati, e il
+banco li prova nel modo piu' duro che ci sia: due cartelle identiche fino ai
+byte, trentuno operazioni su ognuna, e alla fine il confronto **del disco**,
+non solo di cio' che i due dicono (D119). Con loro il racconto di un comando
+di shell, la traduzione delle combinazioni di tasti — dove sbagliare non da'
+errore, preme altri tasti nella finestra dove l'utente sta lavorando (D124) —
+la lettura di una pagina web, e come si racconta un ricordo al modello.
+
+Resta cio' che **chiede davvero alla piattaforma**: gli appunti, le
+notifiche, la cattura dello schermo, l'elenco dei processi, l'avvio di
+un'applicazione, le chiamate HTTP. Sono una quindicina di strumenti, e per
+ognuno la domanda non e' «come si traduce» ma «quanto deve crescere
+`nova-platform`»: e' una decisione di quanta superficie di sistema operativo
+tenere in casa, e va presa guardando l'insieme, non uno strumento per volta.
 
 **CANT-1 e' chiuso.** Il vault, tutto: leggere, accorgersi di cosa e'
 cambiato fuori da NOVA, scrivere, archiviare, riattivare, contare, generare

@@ -763,6 +763,64 @@ diverse = [f"{h[:30]!r}: rust {suo!r} vs python {py_titolo(h)!r}"
            for h, suo in zip(PAGINE, pag["titoli"]) if suo != py_titolo(h)]
 controlla("e i titoli pure", not diverse, " | ".join(diverse[:2]))
 
+print("\n=== Come si racconta un ricordo al modello ===")
+# E' l'ultimo pezzo della memoria, e sembra il piu' innocuo. Non lo e': un
+# nodo raccontato senza la confidenza e' un nodo che il modello tratta come
+# una certezza, e un corpo tagliato senza dirlo gli fa credere di aver letto
+# tutto.
+RICORDI = [
+    ("persona-anna", "Anna", "persona", "Anna e' una collega.", 0.7, "fusione",
+     ["progetto-nova"]),
+    ("x", "Ics", "fatto", "riga uno\nriga due", 1.0, "esatto", []),
+    ("y", "Ipsilon", "nota", "x" * 1500, 0.125, "grafo", ["a", "b", "c", "d", "e", "f"]),
+    ("z", "Zeta", "fatto", "   con spazi ai bordi   ", 0.135, "fusione", ["solo-uno"]),
+    ("w", "Doppio", "progetto", "", 0.0, "esatto", []),
+    ("v", "Accenti", "fatto", "perche' citta' e pero'", 0.955, "fusione", ["q"]),
+]
+VICINATI = [
+    ("x", "Ics", [["a", "Alfa", "fatto"], ["b", "Beta", "persona"]]),
+    ("y", "Ipsilon", []),
+]
+
+
+def py_racconta(slug, titolo, tipo, corpo, conf, via, rel):
+    corpo = corpo.strip()
+    if len(corpo) > 1400:
+        corpo = corpo[:1400] + " [...]"
+    corpo = corpo.replace("\n", "\n  ")
+    r = ", ".join(rel[:5]) or "-"
+    return (f"[{slug}] {titolo}  ({tipo}, conf {conf:.2f}, via {via})\n"
+            f"  {corpo}\n  collegato a: {r}")
+
+
+def py_vicini(slug, titolo, vicini):
+    if not vicini:
+        return f"[{slug}] '{titolo}' non ha collegamenti."
+    righe = [f"[{slug}] {titolo} -> {len(vicini)} collegamenti:"]
+    righe += [f"  [{v[0]}] {v[1]} ({v[2]})" for v in vicini]
+    return "\n".join(righe)
+
+
+r = subprocess.run([str(BINARIO)], input=json.dumps({
+    "ricordi": [list(x) for x in RICORDI], "vicinati": [list(x) for x in VICINATI],
+}, ensure_ascii=False), capture_output=True, text=True, encoding="utf-8",
+    timeout=120)
+mem = json.loads(r.stdout)
+
+diverse = [f"{x[0]}: rust {suo[:90]!r} vs python {py_racconta(*x)[:90]!r}"
+           for x, suo in zip(RICORDI, mem["ricordi"]) if suo != py_racconta(*x)]
+controlla(f"i {len(RICORDI)} ricordi si raccontano uguali", not diverse,
+          " | ".join(diverse[:2]))
+
+diverse = [f"{x[0]}: rust {suo!r} vs python {py_vicini(*x)!r}"
+           for x, suo in zip(VICINATI, mem["vicinati"]) if suo != py_vicini(*x)]
+controlla("e i vicinati pure", not diverse, " | ".join(diverse[:2]))
+
+# La domanda sul risultato: un corpo tagliato deve **dirlo**.
+i = [x[0] for x in RICORDI].index("y")
+controlla("un corpo tagliato lo dichiara, invece di far credere di aver letto tutto",
+          "[...]" in mem["ricordi"][i])
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")
