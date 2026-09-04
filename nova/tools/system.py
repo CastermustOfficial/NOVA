@@ -5,11 +5,24 @@ import datetime
 import subprocess
 import time
 
+from .. import binari
+from ..processi import SENZA_FINESTRA
 from .base import Risk, ToolError, tool
 
 
+# PowerShell scrive su stdout con la tabella codici della console, non in
+# UTF-8: noi leggevamo UTF-8, e ogni accento tornava rotto. Misurato il 5
+# settembre su `Get-Clipboard`: «perche' citta' pero' - <<virgolette>> e
+# un'emoji» tornava con i punti interrogativi al posto delle lettere, senza
+# un errore, senza che nessuno se ne accorgesse. Per un utente italiano vuol
+# dire quasi ogni riga. Il rimedio e' dirlo a PowerShell prima del comando:
+# da qui passano quattordici capacita', e questa riga le raddrizza tutte.
+_UTF8 = "[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false); "
+
+
 def _ps(cmd: str, timeout: int = 45) -> str:
-    r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", cmd],
+    r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command",
+                        _UTF8 + cmd],
                        capture_output=True, text=True, timeout=timeout,
                        encoding="utf-8", errors="replace")
     if r.returncode != 0:
@@ -38,8 +51,32 @@ def get_datetime() -> str:
     preview=lambda a: "Legge gli appunti",
 )
 def read_clipboard() -> str:
-    text = _ps("Get-Clipboard -Raw")
+    text = _appunti_rust()
+    if text is None:
+        # Il ripiego resta, e resta **dichiarato**: dove il binario non c'e'
+        # ancora, gli appunti passano ancora da PowerShell.
+        text = _ps("Get-Clipboard -Raw")
     return text or "(appunti vuoti)"
+
+
+def _appunti_rust() -> str | None:
+    """Gli appunti chiamati direttamente, senza shell in mezzo.
+
+    Windows si appoggia a NOVA, non il contrario (D130): gli appunti erano
+    `Get-Clipboard`, cioe' un processo PowerShell da avviare e una shell che
+    interpreta. Misurato il 5 settembre: 173 ms contro 9, e di quei 9 quasi
+    tutti sono l'avvio del processo — la chiamata al sistema e' microsecondi.
+    """
+    b = binari.trova("nova-appunti")
+    if b is None:
+        return None
+    try:
+        r = subprocess.run([str(b)], capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=10,
+                           creationflags=SENZA_FINESTRA)
+        return r.stdout if r.returncode == 0 else None
+    except Exception:                                       # noqa: BLE001
+        return None
 
 
 @tool(
@@ -50,6 +87,19 @@ def read_clipboard() -> str:
     preview=lambda a: f"Copia negli appunti: {str(a.get('text'))[:200]}",
 )
 def write_clipboard(text: str) -> str:
+    b = binari.trova("nova-appunti")
+    if b is not None:
+        try:
+            r = subprocess.run([str(b), "-"], input=text, capture_output=True,
+                               text=True, encoding="utf-8", timeout=10,
+                               creationflags=SENZA_FINESTRA)
+            if r.returncode == 0:
+                return f"Copiati {len(text)} caratteri negli appunti."
+        except Exception:                                   # noqa: BLE001
+            pass
+    # Il ripiego passa da un file temporaneo col percorso incollato dentro una
+    # stringa di PowerShell: e' un guaio di virgolette che aspetta una cartella
+    # con l'apostrofo nel nome. Un motivo in piu' per non passare di li'.
     import tempfile
     from pathlib import Path
     tmp = Path(tempfile.gettempdir()) / "nova_clip.txt"

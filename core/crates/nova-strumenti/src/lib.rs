@@ -48,6 +48,11 @@ mod entita;
 // Come si racconta la memoria di NOVA al modello.
 pub mod memoria;
 
+// Cosa NOVA chiede al sistema operativo, detto con le parole di NOVA. I
+// tratti li dichiara chi ne ha bisogno: e' cosi' che Windows si appoggia a
+// NOVA invece del contrario (D130).
+pub mod capacita;
+
 pub use dichiarazioni::STRUMENTI;
 
 /// Quanto costa sbagliare questa azione.

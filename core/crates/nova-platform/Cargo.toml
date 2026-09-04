@@ -38,6 +38,13 @@ features = [
     # dipendenza dal driver NVIDIA - e' una dipendenza *facoltativa*, che su
     # una Radeon semplicemente non si trova e non cambia niente.
     "Win32_System_LibraryLoader",
+    # Gli appunti chiamati direttamente, senza PowerShell in mezzo: Windows
+    # si appoggia a NOVA, non il contrario (D130). `DataExchange` e' dove
+    # vivono Open/Get/SetClipboardData; la memoria degli appunti si alloca
+    # con GlobalAlloc, che sta in `Memory`.
+    "Win32_System_DataExchange",
+    "Win32_System_Memory",
+    "Win32_System_Ole",
 ]
 
 # Una risposta sola alla domanda «quanta memoria video c'e'»: la usano
@@ -46,3 +53,7 @@ features = [
 [[bin]]
 name = "nova-schede"
 path = "src/bin/nova-schede.rs"
+
+[[bin]]
+name = "nova-appunti"
+path = "src/bin/nova-appunti.rs"

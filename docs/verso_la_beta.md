@@ -822,6 +822,57 @@ veloce», no.
 
 Due conseguenze pratiche.
 
+### Windows si appoggia a NOVA, non il contrario
+
+Deciso da Gio il 5 settembre, e riscrive cosa vuol dire «finire CANT-2».
+
+Il conto di partenza: **quattordici** punti in cui PowerShell non e' uno
+strumento che NOVA usa, ma cio' che la regge. Gli appunti *sono*
+`Get-Clipboard`. Il volume *e'* `SendKeys`. La cattura dello schermo *e'*
+`Add-Type -AssemblyName System.Drawing`. L'elenco delle applicazioni *e'* una
+query WMI incollata dentro una stringa.
+
+Non e' una questione di eleganza. Vuol dire tre cose concrete:
+
+- **tre dipendenze in mezzo** per ogni gesto: un processo da avviare, una
+  shell che interpreta, una stringa da comporre — con il rischio delle
+  virgolette ogni volta che ci finisce dentro un dato dell'utente;
+- quelle capacita' **non esistono** dove PowerShell non c'e', o dove una
+  policy aziendale lo blocca: e non degradano, spariscono;
+- e la forma di NOVA cambia col sistema sotto, che e' il contrario di quello
+  che deve succedere.
+
+**La regola.** Il tratto lo dichiara il modulo che ne ha bisogno — `nova-strumenti`
+dice «mi serve qualcuno che sappia copiare un testo negli appunti» — e la
+piattaforma lo implementa. Mai il contrario: se fosse `nova-platform` a
+dichiarare le sue capacita' e `nova-strumenti` ad adattarsi, sarebbero i verbi
+di Windows a decidere la forma di NOVA.
+
+I verbi sono di NOVA: «copia questo testo», non «chiama `SetClipboardData`».
+Il backend Windows chiama l'API **diretta**, senza shell in mezzo. E ogni
+capacita' ha una risposta anche dove non c'e' Windows, fosse solo «qui non si
+puo', e te lo dico» — perche' una capacita' che sparisce in silenzio e' peggio
+di una che manca (D130).
+
+E' anche la ragione per cui i corpi dei file sono venuti bene: li' non c'era
+niente da chiedere a Windows, solo `std::fs`. Il resto degli strumenti va
+portato con la stessa disciplina, non traducendo le stringhe di PowerShell in
+stringhe di PowerShell scritte in Rust.
+
+**Il primo pezzo, e cosa ha fatto saltare fuori.** Gli appunti: `nova-platform`
+che chiama Win32 diretto — `OpenClipboard`, `GetClipboardData`,
+`SetClipboardData` — un binario `nova-appunti` che gli strumenti preferiscono,
+e il ripiego PowerShell che resta ma **dichiarato**. Misurato: 179 ms contro
+19, e di quei 19 quasi tutti sono l'avvio del processo.
+
+Mettendo le due strade una accanto all'altra e chiedendo se dicessero la stessa
+cosa, si e' scoperto che il ripiego **storpiava gli accenti**: PowerShell
+scrive su stdout con la tabella codici della console e `_ps` leggeva UTF-8, per
+cui «perche' citta' pero'» tornava con i punti interrogativi al posto delle
+lettere. Nessun errore, uscita zero. Da `_ps` passano tutte e quattordici le
+capacita', quindi il guasto era di tutte (D131). Vale la pena dirlo perche' non
+lo stavo cercando: l'ha trovato la disciplina di D130, non un sospetto.
+
 ### La lista del cantiere
 
 Quindici pezzi fatti, e per la prima volta vale la pena scrivere quelli che
