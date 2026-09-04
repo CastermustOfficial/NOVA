@@ -7,6 +7,7 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
+from ..scrittura import scrivi
 from .base import Risk, ToolError, tool
 
 MAX_READ_CHARS = 40000
@@ -119,8 +120,15 @@ def write_file(path: str, content: str, append: bool = False, ctx=None) -> str:
         ctx.guard_write(f)
     f.parent.mkdir(parents=True, exist_ok=True)
     existed = f.exists()
-    with open(f, "a" if append else "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(content)
+    if append:
+        # Accodare non tronca niente: qui il file di prima non e' in pericolo.
+        with open(f, "a", encoding="utf-8", newline="\n") as fh:
+            fh.write(content)
+    else:
+        # Sovrascrivere si'. `scrivi` passa da un temporaneo e rinomina: se
+        # NOVA muore a meta', il file dell'utente e' ancora quello di prima
+        # invece di essere mezzo nuovo e mezzo niente.
+        scrivi(f, content, newline="\n")
     verb = "aggiornato" if existed else "creato"
     return f"File {verb}: {f} ({f.stat().st_size} byte)"
 
@@ -149,7 +157,10 @@ def edit_file(path: str, old_text: str, new_text: str, replace_all: bool = False
         raise ToolError("testo da sostituire non trovato; rileggi il file")
     if n > 1 and not replace_all:
         raise ToolError(f"'old_text' compare {n} volte: rendilo univoco o usa replace_all")
-    f.write_text(text.replace(old_text, new_text, -1 if replace_all else 1), encoding="utf-8")
+    # Una modifica interrotta e' il caso peggiore di tutti: il file di
+    # partenza esiste, l'utente ci lavora, e resterebbe troncato a meta' di
+    # una sostituzione che aveva chiesto lui.
+    scrivi(f, text.replace(old_text, new_text, -1 if replace_all else 1))
     return f"Modificato {f} ({n if replace_all else 1} sostituzioni)"
 
 

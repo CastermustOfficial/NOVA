@@ -32,6 +32,11 @@ pub mod fusione;
 // fuori — qui si decide il percorso relativo.
 pub mod posto;
 
+// Il vault su disco: chi c'e', chi e' cambiato, chi se n'e' andato. Il
+// filesystem sta dietro un tratto, perche' la parte difficile non e' leggere
+// un file — e' la macchina a stati che decide chi ricaricare.
+pub mod deposito;
+
 pub const STATUS_ATTIVO: &str = "attivo";
 pub const STATUS_ARCHIVIATO: &str = "archiviato";
 
@@ -82,6 +87,32 @@ impl Default for Nodo {
         }
     }
 }
+
+
+/// Il titolo di ripiego, quando il file non ne dichiara uno.
+///
+/// E' `slug.replace("-", " ").capitalize()` del Python, e `capitalize` di
+/// Python fa **due** cose: alza la prima lettera e **abbassa tutte le
+/// altre**. «Progetto Nova.md» diventa quindi «Progetto nova», che non e'
+/// bello ed e' giusto lo stesso: il titolo viene riscritto nel frontmatter al
+/// primo salvataggio, e due meta' che lo calcolano in due modi si
+/// riscriverebbero il file a vicenda ogni volta che si alternano.
+///
+/// Trovato dal banco del vault, non da quello dei nodi: li' ogni nodo di
+/// prova aveva gia' un `title:` nel frontmatter, e in questo ramo non
+/// entrava nessuno. E' lo stesso modo in cui il banco dei guasti era verde
+/// mentre le due meta' divergevano su sei forme.
+pub fn come_titolo(nome_del_file: &str) -> String {
+    let con_spazi = nome_del_file.replace('-', " ");
+    let mut caratteri = con_spazi.chars();
+    match caratteri.next() {
+        None => String::new(),
+        Some(prima) => {
+            prima.to_uppercase().collect::<String>() + &caratteri.as_str().to_lowercase()
+        }
+    }
+}
+
 
 impl Nodo {
     /// Il testo su cui lavorano BM25 e l'embedder.
@@ -162,7 +193,7 @@ impl Nodo {
         };
         Nodo {
             slug: slug_del_file.to_string(),
-            title: o("title", &slug_del_file.replace('-', " ")),
+            title: o("title", &come_titolo(slug_del_file)),
             body: corpo.trim().to_string(),
             tipo: o("tipo", "fatto"),
             tags: come_lista(prendi("tags").as_deref()),
@@ -349,5 +380,20 @@ mod prove {
         let t = n.a_markdown("2026-09-03");
         assert!(t.contains("creato: 2026-01-01"), "{t}");
         assert!(t.contains("aggiornato: 2026-09-03"), "{t}");
+    }
+}
+
+#[cfg(test)]
+mod prove_titolo {
+    use super::come_titolo;
+
+    #[test]
+    fn il_titolo_di_ripiego_abbassa_tutto_tranne_la_prima() {
+        // `capitalize` di Python fa due cose, non una. Il Rust ne faceva zero.
+        assert_eq!(come_titolo("Progetto Nova"), "Progetto nova");
+        assert_eq!(come_titolo("persona-anna"), "Persona anna");
+        assert_eq!(come_titolo("TUTTO MAIUSCOLO"), "Tutto maiuscolo");
+        assert_eq!(come_titolo(""), "");
+        assert_eq!(come_titolo("\u{e8}-cos\u{ec}"), "\u{c8} cos\u{ec}");
     }
 }

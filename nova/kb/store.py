@@ -12,6 +12,7 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
+from ..scrittura import scrivi
 from .riservatezza import perche_non_si_salva
 from .schema import (ORIGINE_AUTO, ORIGINE_SCANSIONE, ORIGINE_UTENTE,
                      STATUS_ARCHIVIATO, STATUS_ATTIVO, Node, slugify)
@@ -327,7 +328,7 @@ class Vault:
             else:
                 percorso = self.percorso_per(node)
             percorso.parent.mkdir(parents=True, exist_ok=True)
-            percorso.write_text(node.to_markdown(), encoding="utf-8")
+            scrivi(percorso, node.to_markdown())
             node.path = percorso
             self._nodes[node.slug] = node
             chiave = self._chiave(percorso)
@@ -396,7 +397,7 @@ class Vault:
             # frontmatter lasciava appeso «Vedi [[vecchio-slug]]» per sempre.
             altro.body = _rinomina_wikilink(altro.body, vecchio, nuovo)
             if altro.path and altro.path.exists():
-                altro.path.write_text(altro.to_markdown(), encoding="utf-8")
+                scrivi(altro.path, altro.to_markdown())
                 self._segna_scritto(altro)
 
     def _collega_reciproco(self, node: Node) -> None:
@@ -410,7 +411,7 @@ class Vault:
                 continue
             altro.relazioni.append(node.slug)
             if altro.path and altro.path.exists():
-                altro.path.write_text(altro.to_markdown(), encoding="utf-8")
+                scrivi(altro.path, altro.to_markdown())
                 chiave = self._chiave(altro.path)
                 self._mtimes[chiave] = self._impronta(altro.path)
                 self._proprietario[chiave] = altro.slug
@@ -426,7 +427,7 @@ class Vault:
             if motivo and not gia_archiviato:
                 node.body += f"\n\n> Archiviato il {datetime.now():%d/%m/%Y}: {motivo}"
             if node.path:
-                node.path.write_text(node.to_markdown(), encoding="utf-8")
+                scrivi(node.path, node.to_markdown())
                 self._segna_scritto(node)
             self.audit("archivia", node.slug, {"motivo": motivo})
             return True
@@ -438,7 +439,7 @@ class Vault:
                 return False
             node.status = STATUS_ATTIVO
             if node.path:
-                node.path.write_text(node.to_markdown(), encoding="utf-8")
+                scrivi(node.path, node.to_markdown())
                 self._segna_scritto(node)
             self.audit("riattiva", node.slug, {})
             return True
@@ -535,7 +536,7 @@ class Vault:
                 righe.append(f"- [[{n.slug}|{n.title}]]{marchio}")
             righe.append("")
         p = self.root / "_INDICE.md"
-        p.write_text("\n".join(righe), encoding="utf-8")
+        scrivi(p, "\n".join(righe))
         return p
 
 

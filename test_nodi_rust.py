@@ -213,9 +213,21 @@ controlla("nessun valore del frontmatter va a capo",
           all(":" in r or r == "---" or not r.strip()
               for r in uno.split("\n---\n")[0].splitlines()[1:]),
           "una riga senza «:» viene scartata in silenzio")
-controlla("un nodo senza titolo prende il nome dal file",
-          rust([{"tipo": "leggi", "testo": "corpo", "slug": "il-mio-nodo"}])[0]
-          ["nodo"]["title"] == "il mio nodo")
+# Il titolo di ripiego si chiede al Python, non a una stringa che ho scritto
+# io: la versione precedente di questa riga pretendeva «il mio nodo», che era
+# semplicemente **quello che il Rust faceva**. Il Python fa `capitalize()`, che
+# alza la prima lettera e abbassa tutte le altre, e per un anno la prova ha
+# certificato come regola del formato un difetto di una delle due meta'.
+# Una prova che confronta un'implementazione con se stessa non prova niente.
+NOMI_SENZA_TITOLO = ["il-mio-nodo", "Progetto Nova", "TUTTO", "x-y", "citta'"]
+risposte = rust([{"tipo": "leggi", "testo": "corpo", "slug": n}
+                 for n in NOMI_SENZA_TITOLO])
+diverse = [f"{n!r}: rust {r['nodo']['title']!r} vs python "
+           f"{Node.from_markdown('corpo', n).title!r}"
+           for n, r in zip(NOMI_SENZA_TITOLO, risposte)
+           if r["nodo"]["title"] != Node.from_markdown("corpo", n).title]
+controlla("un nodo senza titolo prende il nome dal file, come lo prende il Python",
+          not diverse, " | ".join(diverse[:3]))
 controlla("e un titolo che diventerebbe vuoto ha comunque un nome",
           rust([{"tipo": "slug", "testo": "..."}])[0]["slug"] == "nodo")
 
@@ -412,6 +424,119 @@ try:
               f"ha dato {r['slug']!r}")
 finally:
     shutil.rmtree(tmp, ignore_errors=True)
+
+print("\n=== Il vault su disco: chi c'e', chi cambia, chi sparisce ===")
+# Il Python gira su una cartella vera, il Rust su una finta. Se i due
+# concordano, il disco finto e' un modello fedele — ed e' quello che permette
+# di provare in un millisecondo casi che su un disco vero costerebbero
+# mezz'ora e non sarebbero ripetibili.
+import shutil  # noqa: E402
+import tempfile  # noqa: E402
+
+from nova.kb.store import Vault  # noqa: E402
+
+
+def _nota(titolo, tipo="fatto", corpo=""):
+    return (f"---\ntitle: {titolo}\ntipo: {tipo}\n---\n\n"
+            f"{corpo or ('Corpo di ' + titolo)}.\n")
+
+
+# Ogni scenario e' una successione di stati del disco. Il primo e' l'apertura
+# del vault, i successivi sono cio' che l'utente ha combinato in Obsidian
+# mentre NOVA era accesa.
+SCENARI = [
+    ("un vault normale", [
+        {"02-persone/persona-anna.md": _nota("Anna", "persona"),
+         "06-fatti/fatto-caffe.md": _nota("Caffe")},
+    ]),
+    ("l'indice e le cartelle di servizio non sono nodi", [
+        {"06-fatti/x.md": _nota("X"),
+         "_INDICE.md": "# indice\n- [[x]]\n",
+         ".nova/audit.jsonl": "{}\n",
+         "06-fatti/_bozza.md": _nota("Bozza"),
+         "06-fatti/appunti.txt": "non sono un nodo"},
+    ]),
+    ("una nota corretta a mano in Obsidian", [
+        {"a.md": _nota("A"), "b.md": _nota("B")},
+        {"a.md": _nota("A"), "b.md": _nota("B corretta", corpo="ho cambiato idea")},
+    ]),
+    ("una nota cancellata", [
+        {"a.md": _nota("A"), "b.md": _nota("B")},
+        {"a.md": _nota("A")},
+    ]),
+    ("una nota nuova comparsa da fuori", [
+        {"a.md": _nota("A")},
+        {"a.md": _nota("A"), "c.md": _nota("C")},
+    ]),
+    ("due file con lo stesso nome in due cartelle", [
+        {"a/doppio.md": _nota("Doppio in A"), "b/doppio.md": _nota("Doppio in B")},
+    ]),
+    ("e poi uno dei due sparisce: il superstite deve tornare visibile", [
+        {"a/doppio.md": _nota("Doppio in A"), "b/doppio.md": _nota("Doppio in B")},
+        {"b/doppio.md": _nota("Doppio in B")},
+    ]),
+    ("un file scritto a mano, senza frontmatter", [
+        {"03-progetti/Progetto Nova.md": "Solo del testo, scritto da me.\n"},
+    ]),
+    ("il vault si svuota del tutto", [
+        {"a.md": _nota("A"), "b.md": _nota("B")},
+        {},
+    ]),
+    ("un nome con accenti e spazi", [
+        {"06-fatti/Perché è così.md": _nota("Perche")},
+    ]),
+    ("una cartella intera sparisce", [
+        {"x/uno.md": _nota("Uno"), "x/due.md": _nota("Due"), "y/tre.md": _nota("Tre")},
+        {"y/tre.md": _nota("Tre")},
+    ]),
+]
+
+risposte = rust([{"tipo": "vault", "passi": [dict(p) for p in passi],
+                  "distingue_maiuscole": False}
+                 for _, passi in SCENARI])
+
+for (nome, passi), r in zip(SCENARI, risposte):
+    tmp = Path(tempfile.mkdtemp(prefix="nova-vault-"))
+    diverse = []
+    try:
+        vault = None
+        for i, mappa in enumerate(passi):
+            # si costruisce la cartella vera com'e' descritta
+            for vecchio in tmp.rglob("*"):
+                if vecchio.is_file():
+                    vecchio.unlink()
+            for dove, testo in mappa.items():
+                f = tmp / dove
+                f.parent.mkdir(parents=True, exist_ok=True)
+                f.write_text(testo, encoding="utf-8")
+            if vault is None:
+                vault = Vault(tmp)
+            else:
+                vault.refresh_if_changed(forza=True)
+            suo = r["passi"][i]
+            mio_slug = sorted(n.slug for n in vault.all())
+            if sorted(suo["slug"]) != mio_slug:
+                diverse.append(f"passo {i}: rust {sorted(suo['slug'])} vs "
+                               f"python {mio_slug}")
+                continue
+            mio_dove = {n.slug: (n.path.relative_to(vault.root).as_posix()
+                                 if n.path else "") for n in vault.all()}
+            suo_dove = {s: d for s, d in suo["dove"]}
+            if suo_dove != mio_dove:
+                diverse.append(f"passo {i}: dove {suo_dove} vs {mio_dove}")
+            mio_tit = {n.slug: n.title for n in vault.all()}
+            suo_tit = {s: t for s, t in suo["titoli"]}
+            if suo_tit != mio_tit:
+                diverse.append(f"passo {i}: titoli {suo_tit} vs {mio_tit}")
+            mie_coll = {s: sorted(Path(x).relative_to(vault.root).as_posix()
+                                  for x in v)
+                        for s, v in vault.collisioni.items()}
+            sue_coll = {s: sorted(v) for s, v in suo["collisioni"]}
+            if sue_coll != mie_coll:
+                diverse.append(f"passo {i}: collisioni {sue_coll} vs {mie_coll}")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    controlla(f"vault: {nome}", not diverse, " | ".join(diverse[:2]))
 
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:

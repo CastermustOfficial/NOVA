@@ -822,10 +822,65 @@ veloce», no.
 
 Due conseguenze pratiche.
 
+### La lista del cantiere
+
+Quindici pezzi fatti, e per la prima volta vale la pena scrivere quelli che
+restano — non come promemoria, ma perche' l'ordine conta e finora l'ho scelto
+un pezzo alla volta. Sceglierlo un pezzo alla volta e' anche il modo in cui ho
+riscritto una cosa che c'era gia' (D99).
+
+Il criterio dell'ordine e' uno solo: **quanto un pezzo avvicina il momento in
+cui sul PC non serve piu' Python**. Non quanto e' bello portarlo.
+
+Sigla `CANT-`. Le righe sono quelle del Python di oggi, e sono una misura di
+mole, non di difficolta'.
+
+| | Pezzo | Righe | Perche' li' nell'ordine |
+|---|---|---|---|
+| CANT-1 | **Il vault su disco** — leggere, scrivere, rileggere se cambiato, indice, statistiche, archivio | ~660 | Seguito diretto di `nova-nodi`: oggi il Rust sa *dove* va un file e *cosa* ci va, e a scriverlo pensa ancora il Python. Ed e' il primo pezzo che si scrive contro il trait di `nova-platform` invece che sopra il filesystem nudo — quindi apre la strada a tutti quelli dopo. Ci vive gia' un difetto pagato: `resolve()` segue i reparse point MSIX (D56) |
+| CANT-2 | **Gli strumenti** — file, app, shell, web, schermo, tempo, documenti, deleghe | ~2.570 | Sono la meta' di NOVA che tocca il PC, ed e' esattamente quella che in Python costa di piu' in dipendenze. Tanti pezzi piccoli e indipendenti: si porta uno strumento per volta senza fermare niente |
+| CANT-3 | **Il ciclo dell'agente e i cervelli** — `agent.py`, i client dei modelli | ~2.200 | E' il pezzo che davvero libera dal Python, ma va dopo gli strumenti: un ciclo che chiama strumenti Python non ha liberato niente. Dentro c'e' la parte piu' delicata di tutto il progetto — il taglio del contesto a token, che se sbaglia perde pezzi di conversazione senza dirlo |
+| CANT-4 | **Lanciare il modello locale** — `runtime.py` | ~690 | Il calcolo degli strati e' gia' in `nova-modelli`; qui resta avviare llama.cpp, la scala di ripiego e leggere cosa dice. Piccolo e ben delimitato |
+| CANT-5 | **Il server MCP** | ~1.290 | Protocollo, quindi traducibile senza scelte. Ma serve solo a chi collega NOVA a un altro programma: non toglie Python a nessuno finche' c'e' il resto |
+| CANT-6 | **Il browser e la ricerca** — CDP | ~760 | Parla con Chrome via WebSocket. Nessuna scelta di interfaccia, ma dipende da una libreria asincrona: e' il primo pezzo che porta `tokio` dentro un crate di logica |
+| CANT-7 | **L'impalcatura** — config, main, dati, componenti | ~1.800 | Non si porta: si **riscrive**, perche' meta' esiste solo per tenere insieme il Python. `nova-core::config` ne ha gia' un pezzo. Va per ultima fra quelle di sostanza, quando si sa cosa deve tenere insieme |
+| CANT-8 | **L'harness dei documenti** | ~2.900 | Il piu' grosso, e l'unico che **non e' una traduzione**: e' una finestra Qt, e in Rust vuol dire deciderne un'altra. E' una decisione di interfaccia travestita da porting, e va presa da sveglio, non a fine lista |
+
+Due cose che la tabella non dice.
+
+**Il cancello.** Finche' resta un solo file Python, l'utente installa Python
+lo stesso: il guadagno non e' proporzionale al lavoro fatto, arriva tutto
+insieme quando esce l'ultimo. Percio' l'ordine non e' «prima i pezzi facili»
+ma «prima quelli che sbloccano gli altri».
+
+**Cosa non e' nella lista.** La voce e' gia' tutta in Rust; il demone, le
+capacita', i segreti e la supervisione anche. Il Python di `nova/voice/` resta
+solo come ripiego per chi non ha i binari, e muore da solo quando muore il
+resto.
+
 **Portare a pezzi non paga finche' resta un solo file Python.** Se meta' sta
 in Rust e meta' no, l'utente installa comunque Python e ci sono due
 implementazioni della stessa cosa da tenere allineate. Il guadagno arriva
 tutto insieme, alla fine.
+
+**CANT-1, prima meta': il vault su disco si legge in Rust.**
+`nova-nodi::deposito` sa aprire un vault, accorgersi di cosa e' cambiato
+fuori da NOVA, dimenticare chi e' sparito, e sciogliere la contesa quando due
+file con lo stesso nome in cartelle diverse rivendicano lo stesso slug. Il
+filesystem sta dietro un tratto: la macchina a stati si prova con un disco in
+memoria, e il banco gira lo stesso scenario due volte — il Python su una
+cartella vera, il Rust sulla finta — per verificare che il finto sia fedele
+(D103). Undici scenari, e il dodicesimo ha trovato un difetto di settimane fa:
+il titolo di ripiego non passava da `capitalize()` (D104, D105).
+
+Scrivere non c'e' ancora. Ma prima di portarla, la scrittura e' stata
+**aggiustata**: `Vault.upsert` scriveva le note dell'utente con `write_text`,
+cioe' apri-tronca-scrivi, e ci passa `MemoryWriter` da un thread di sfondo
+dopo quasi ogni scambio. Un'interruzione a meta' lasciava una nota vuota, che
+alla ricerca dopo c'e' ancora e non dice piu' niente. Adesso c'e'
+`nova/scrittura.py` — temporaneo, `fsync`, rinomina — e ci passano il vault,
+gli strumenti file, l'harness, la configurazione e la pianificazione (D102).
+Si porta una cosa giusta, non una da correggere dall'altra parte.
 
 **Il pezzo che non andava scritto.** Volevo portare il retrieval — BM25,
 fusione RRF, taglio del corpo — e ho scritto un `nova-ricerca` intero, con

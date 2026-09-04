@@ -28,6 +28,7 @@ import subprocess
 import sys
 from pathlib import Path
 from .guasti import spiega
+from .scrittura import scrivi
 
 AGGIORNA_MS = 700
 
@@ -790,9 +791,13 @@ def costruisci(app=None):
                 # La copia di prima resta accanto: N2 dice reversibilita'
                 # prima del permesso, e qui costa un file.
                 if f.exists():
-                    f.with_suffix(f.suffix + ".prima").write_text(
-                        f.read_text(encoding="utf-8"), encoding="utf-8")
-                f.write_text(testo, encoding="utf-8")
+                    scrivi(f.with_suffix(f.suffix + ".prima"),
+                           f.read_text(encoding="utf-8"))
+                # La copia `.prima` protegge dalla modifica sbagliata; questa
+                # scrittura protegge dalla modifica **interrotta**, che e' un
+                # altro guaio e non lo copre nessun backup fatto un istante
+                # prima di troncare l'originale.
+                scrivi(f, testo)
                 self._sporco = False
                 self.salvato.setText("salvato")
                 # Salvare un artifact vuol dire vederne l'effetto: se la
