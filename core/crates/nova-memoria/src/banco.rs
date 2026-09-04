@@ -35,6 +35,9 @@ struct Dentro {
     /// Corpi da tagliare per il contesto, col loro massimo.
     #[serde(default)]
     tagli: Vec<(String, usize)>,
+    /// slug -> data di aggiornamento, per lo spareggio a pari merito.
+    #[serde(default)]
+    freschezza: std::collections::BTreeMap<String, String>,
 }
 
 #[derive(Serialize)]
@@ -48,19 +51,17 @@ struct Fuori {
     tagli: Vec<String>,
 }
 
-fn ordina(m: std::collections::BTreeMap<String, f64>) -> Vec<(String, f64)> {
-    let mut v: Vec<(String, f64)> = m.into_iter().collect();
-    // Punteggio decrescente, poi slug. Questo criterio stava **solo** qui, e
-    // per questo il banco passava: la lotteria dell'ordine restava dentro la
-    // libreria, e il banco la nascondeva riordinando all'uscita. Adesso lo
-    // spareggio e' anche dentro `rrf` e le mappe sono ordinate; questa riga
-    // resta perche' il banco non deve dipendere da cio' che prova.
-    v.sort_by(|a, b| {
-        b.1.partial_cmp(&a.1)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| a.0.cmp(&b.0))
-    });
-    v
+/// Lo stesso ordine della libreria, non uno riscritto qui.
+///
+/// Prima questa funzione riordinava per conto suo, e per questo il banco
+/// passava mentre dentro `rrf` l'ordine dei pari merito era una lotteria: il
+/// riordino in uscita la nascondeva. Adesso chiama `in_ordine`, cosi' se lo
+/// spareggio cambia lo fa da tutte e due le parti o da nessuna.
+fn ordina(
+    m: std::collections::BTreeMap<String, f64>,
+    freschezza: &std::collections::BTreeMap<String, String>,
+) -> Vec<(String, f64)> {
+    nova_memoria::in_ordine(&m, freschezza)
 }
 
 fn main() {
@@ -88,7 +89,7 @@ fn main() {
         bm25: dentro
             .domande
             .iter()
-            .map(|d| (d.clone(), ordina(indice.cerca(d))))
+            .map(|d| (d.clone(), ordina(indice.cerca(d), &dentro.freschezza)))
             .collect(),
         parole: dentro
             .domande
@@ -98,7 +99,7 @@ fn main() {
         fusioni: dentro
             .fusioni
             .iter()
-            .map(|r| ordina(rrf(r, RRF_K)))
+            .map(|r| ordina(rrf(r, RRF_K, &dentro.freschezza), &dentro.freschezza))
             .collect(),
         coseni: dentro.vettori.iter().map(|(a, b)| coseno(a, b)).collect(),
         tagli: dentro
