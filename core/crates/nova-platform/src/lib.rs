@@ -28,6 +28,10 @@ pub mod dischi;
 // rispondeva un programma di NVIDIA.
 pub mod gpu;
 
+// Gli appunti, chiamati direttamente: niente processo, niente shell, niente
+// stringa da comporre. Vedi D130.
+pub mod appunti;
+
 // Se i byte di un file stanno qui o nel cloud. Serve prima di leggere un
 // modello da dodici gigabyte che una cartella sincronizzata puo' aver
 // «liberato» lasciando un segnaposto al suo posto.

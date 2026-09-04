@@ -3966,3 +3966,50 @@ binario sono esatti, e non c'e' nessun errore da introdurre. Le due scelte
 sembrano incoerenti e non lo sono — dipende da che numeri passano di li'. Sta
 scritto in tutti e due i posti, perche' chi legge uno solo dei due penserebbe
 che l'altro e' sbagliato.
+
+### Gli appunti che erano di Windows, e un guasto vecchio venuto a galla
+
+Gio ha corretto la rotta, e la correzione e' architettonica: «più che pezzi di
+windows devono essere pezzi di nova. Deve essere il più indipendente possibile
+da windows, quasi windows gli si deve poggiare sopra». E' D130.
+
+Non e' una questione di stile. Contati, i punti dove PowerShell non e' uno
+strumento che NOVA usa ma cio' che la regge sono **quattordici**: gli appunti
+*sono* `Get-Clipboard`, il volume *e'* `SendKeys`, la cattura dello schermo
+*e'* `Add-Type System.Drawing`. Dove non c'e' PowerShell, quelle capacita' non
+esistono affatto.
+
+Il primo pezzo rifatto sono gli appunti, perche' sono i piu' piccoli e si
+possono provare per davvero: `nova-platform` che chiama Win32 diretto —
+`OpenClipboard`, `GetClipboardData`, `SetClipboardData` — e un binario
+`nova-appunti` che NOVA preferisce, col ripiego PowerShell che resta ma
+**dichiarato**. Costo: 179 ms contro 19, e di quei 19 quasi tutti sono l'avvio
+del processo; la chiamata al sistema e' microsecondi.
+
+Ma la cosa che conta di piu' e' venuta fuori di traverso. Mettendo le due
+strade una accanto all'altra per verificare che scrivessero negli appunti
+*veri* — quelli di sistema, non una copia nostra — la verifica falliva:
+
+    scritto      : "perché città però — «virgolette» e un'emoji 😀"
+    letto diretto: "perché città però — «virgolette» e un'emoji 😀"  uguale: True
+    letto da _ps : "perch? citt? per? - ?virgolette? e un'emoji ??"  uguale: False
+
+Il mio primo sospetto era la mia stessa riga di comando, e infatti la prima
+misura era contaminata: gli accenti si rompevano prima ancora di arrivare agli
+appunti. Ho rifatto la misura da un file, cosi' il trasporto non poteva
+contaminare il risultato. Il guasto e' rimasto.
+
+Non erano gli appunti. Era `_ps`: PowerShell scrive su stdout con la tabella
+codici della console, e noi leggevamo UTF-8. Il guasto e' vecchio quanto la
+funzione — chi non ha costruito il binario passa ancora di li' — e nessuno se
+n'era accorto perche' non solleva niente: nessun errore, uscita zero, solo il
+testo storpiato. Per un utente italiano, quasi ogni riga.
+
+Si ripara con una riga, e la riga va messa **dentro `_ps`** perche' di li'
+passano tutte e quattordici le capacita'. E la prova che lo tiene fermo non
+guarda la strada nuova: guarda quella **vecchia**, perche' e' li' che il
+guasto stava.
+
+Resta il fatto che l'ho trovato per caso, e vale la pena dirlo: l'ho trovato
+perche' D130 mi ha costretto a mettere due implementazioni una accanto
+all'altra e a chiedere se dicessero la stessa cosa. Non stavo cercando questo.
