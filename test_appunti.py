@@ -11,6 +11,16 @@ La prova tocca gli appunti **veri**, perche' sono l'unica cosa che NOVA
 condivide con tutti gli altri programmi del PC e non c'e' modo di provarli
 altrove. Quello che c'era prima viene rimesso a posto alla fine.
 
+**Quindi puo' diventare rossa senza che sia rotto niente**: basta che
+qualcuno copi qualcosa mentre gira — una persona, la cronologia degli
+appunti, un programma qualunque. Non si fa finta di niente e non si mette una
+riprova che la faccia diventare verde comunque: si **dice quale delle due
+cose e' successa**. Se cio' che si rilegge non e' ne' quello che avevamo
+scritto ne' un suo pezzo, gli appunti sono cambiati sotto, e allora e' un
+disturbo; se invece somiglia a quello scritto ma diverso, e' un difetto
+nostro. Una prova rossa che non si sa leggere viene ignorata, e una prova
+ignorata non e' una prova (D133).
+
 Esce 2 se il binario non e' costruito.
 """
 from __future__ import annotations
@@ -91,14 +101,25 @@ try:
         "x" * 5000,
     ]
     storti = []
+    disturbi = []
     for testo in CASI:
         if diretto_scrivi(testo) != 0:
             storti.append((testo[:20], "scrittura fallita"))
             continue
         riletto = diretto_leggi()
-        if riletto != testo:
-            storti.append((testo[:20], repr(riletto[:40])))
-    controlla(f"i {len(CASI)} testi tornano identici", not storti, str(storti[:2]))
+        if riletto == testo:
+            continue
+        # Chi ha cambiato gli appunti: noi o qualcun altro? Se quello che si
+        # rilegge non ha niente a che vedere con quello che abbiamo scritto,
+        # nel mezzo ci e' passato un altro programma.
+        nostro = riletto[:20] in testo or testo[:20] in riletto
+        (storti if nostro else disturbi).append((testo[:20], repr(riletto[:40])))
+    if disturbi and not storti:
+        print("       (gli appunti sono cambiati sotto mentre la prova girava:")
+        print(f"        {disturbi[0][1]} — qualcuno ha copiato qualcosa.")
+        print("        Non e' un difetto di NOVA: ridai la prova da sola.)")
+    controlla(f"i {len(CASI)} testi tornano identici", not storti and not disturbi,
+              str((storti + disturbi)[:2]))
 
     print("\n2. e PowerShell legge la stessa cosa che ha scritto NOVA")
     # Non e' per fidarsi di PowerShell: e' per verificare che il testo finisca

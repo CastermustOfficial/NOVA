@@ -39,6 +39,9 @@ pub mod audio;
 // piu' NOVA.
 pub mod notifiche;
 
+// Com'e' fatto il PC. Era la capacita' piu' cara di tutte: 1.543 ms.
+pub mod sistema;
+
 // Se i byte di un file stanno qui o nel cloud. Serve prima di leggere un
 // modello da dodici gigabyte che una cartella sincronizzata puo' aver
 // «liberato» lasciando un segnaposto al suo posto.

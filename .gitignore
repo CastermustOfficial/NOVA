@@ -53,4 +53,15 @@ banco_modello.json
 _msg.txt
 _probe_*.py
 _suite.txt
+_cargo.txt
+_build.txt
+_nt.txt
+_nte.txt
+_mu.txt
+_mue.txt
+_t.txt
+_te.txt
+_misura*.py
+_conta.py
+_suite.py
 _kv.txt

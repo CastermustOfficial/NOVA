@@ -678,7 +678,7 @@ pub const STRUMENTI: &[Strumento] = &[
     },
     Strumento {
         nome: "system_info",
-        descrizione: "Restituisce informazioni sul PC: CPU, RAM, disco, batteria, rete.",
+        descrizione: "Restituisce informazioni sul PC: sistema, nome, CPU, RAM, dischi, batteria e da quanto e' acceso. Non dice niente della rete.",
         rischio: Rischio::Innocuo,
         categoria: "sistema",
         obbligatori: &[],

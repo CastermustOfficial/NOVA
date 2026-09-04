@@ -4212,3 +4212,58 @@ errore mio: ci avevo messo `list_processes`, che usa `psutil` e non una shell.
 Scritta cinque minuti prima, sbagliata dieci minuti dopo, corretta da una
 prova. E' esattamente il motivo per cui la prova esiste (D46).
 
+### Il pezzo piu' caro, e due difetti che col tempo non c'entravano
+
+`system_info` costava **1.543 ms**: piu' di tutte le altre capacita' messe
+insieme, ed e' quella che il modello chiede per prima quando vuole sapere dove
+si trova. Chiesta alle API invece che a una query WMI dentro una stringa: 41
+ms. Trentotto volte meno.
+
+Ma il tempo e' la parte noiosa. Confrontando le due risposte una accanto
+all'altra sono venuti fuori due difetti che con la velocita' non c'entrano
+niente.
+
+**Il primo.** La descrizione dello strumento diceva «CPU, RAM, disco,
+batteria, rete». La batteria non la dava, la rete nemmeno. E quella riga non
+e' documentazione: e' testo che il modello legge e su cui decide. Un modello
+che vuole sapere se il portatile e' attaccato alla corrente chiamava questo,
+non trovava niente, e non aveva modo di distinguere «la batteria non c'e'» da
+«lo strumento non me l'ha detta». Adesso la batteria c'e' — e su un fisso c'e'
+scritto «nessuna (e' un fisso)», perche' il silenzio direbbe «non lo so». La
+rete continua a non esserci, e la descrizione ha smesso di prometterla.
+
+**Il secondo.** I numeri:
+
+    RAM_GB        : 31,1
+    Dischi        : C: 72.5GB liberi, D: 1248.7GB liberi
+
+Virgola nella prima riga, punto nella terza. Due formattatori diversi di
+PowerShell dentro la stessa risposta, tutti e due nella lingua dell'utente. Chi
+legge e' un modello che ci deve fare un conto, e «31,1» lo puo' leggere come
+311. Adesso passa JSON con interi di byte, e a scriverli per una persona pensa
+`dati.pesa`, che esisteva gia' (D99) e di regole ne ha una sola.
+
+### E la strada nuova diceva una cosa che la vecchia diceva giusta
+
+Questa e' la piu' utile della giornata.
+
+Il primo `nova-sistema` funzionante rispondeva:
+
+    "sistema": "Windows 10 Pro 25H2"
+
+Su una macchina con Windows 11. Leggevo `ProductName` dal registro — la fonte
+diretta, quella che sostituisce la query. E il registro **dice Windows 10**:
+Microsoft ha lasciato fermo quel valore apposta, perche' i programmi che lo
+leggevano per decidere non si rompessero. La query WMI che stavo buttando via
+diceva «Windows 11 Pro», e diceva giusto.
+
+Se avessi misurato solo il tempo — 41 ms contro 1.543 — avrei archiviato la
+sostituzione come un miglioramento puro e messo in mano al modello un dato
+sbagliato su ogni PC con Windows 11. Me ne sono accorto solo perche' avevo la
+risposta vecchia sotto gli occhi mentre guardavo quella nuova.
+
+**Una fonte piu' diretta non e' per forza una fonte piu' vera** (D138). Il dato
+che non mente e' il numero di build: 22000 e' la prima di Windows 11, e la
+correzione sta in una funzione pura con le sue prove, perche' il giorno che
+qualcuno la trova strana e la toglie, le prove glielo dicano.
+
