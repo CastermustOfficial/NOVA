@@ -10,10 +10,10 @@ import getpass
 import json
 import os
 import platform
-import subprocess
 from datetime import date
 from pathlib import Path
 
+from .. import powershell
 from .schema import ORIGINE_SCANSIONE, Node, slugify
 from .store import Vault
 
@@ -23,12 +23,17 @@ IGNORA = {"node_modules", "__pycache__", ".venv", "venv", "dist", "build",
 
 
 def _ps(cmd: str, timeout: int = 60) -> str:
+    """Come sopra, ma qui il silenzio e' voluto: la semina non deve fallire.
+
+    Era la terza copia privata della stessa funzione, e come le altre due
+    leggeva UTF-8 quello che PowerShell scrive nella tabella codici della
+    console. Qui faceva il danno peggiore: i nomi delle cartelle dell'utente
+    finiscono **dentro il vault**, dove restano. Un ricordo storpiato non e'
+    un errore che passa (D131, D135).
+    """
     try:
-        r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", cmd],
-                           capture_output=True, text=True, timeout=timeout,
-                           encoding="utf-8", errors="replace")
-        return (r.stdout or "").strip()
-    except Exception:
+        return powershell.testo(cmd, timeout=timeout)
+    except Exception:                                         # noqa: BLE001
         return ""
 
 

@@ -5,29 +5,23 @@ import datetime
 import subprocess
 import time
 
-from .. import binari
+from .. import binari, powershell
 from ..processi import SENZA_FINESTRA
 from .base import Risk, ToolError, tool
 
 
-# PowerShell scrive su stdout con la tabella codici della console, non in
-# UTF-8: noi leggevamo UTF-8, e ogni accento tornava rotto. Misurato il 5
-# settembre su `Get-Clipboard`: «perche' citta' pero' - <<virgolette>> e
-# un'emoji» tornava con i punti interrogativi al posto delle lettere, senza
-# un errore, senza che nessuno se ne accorgesse. Per un utente italiano vuol
-# dire quasi ogni riga. Il rimedio e' dirlo a PowerShell prima del comando:
-# da qui passano quattordici capacita', e questa riga le raddrizza tutte.
-_UTF8 = "[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false); "
-
-
 def _ps(cmd: str, timeout: int = 45) -> str:
-    r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command",
-                        _UTF8 + cmd],
-                       capture_output=True, text=True, timeout=timeout,
-                       encoding="utf-8", errors="replace")
-    if r.returncode != 0:
-        raise ToolError((r.stderr or r.stdout).strip()[:400] or "comando fallito")
-    return (r.stdout or "").strip()
+    """PowerShell, dal posto solo da cui NOVA lo chiama.
+
+    Il corpo sta in `nova/powershell.py`: la codifica di quello che PowerShell
+    risponde e' una domanda con una risposta sola, e per sei chiamate ne
+    circolavano tre (D131, D135). Qui resta soltanto la traduzione
+    dell'errore nella lingua degli strumenti.
+    """
+    try:
+        return powershell.testo(cmd, timeout=timeout)
+    except powershell.PowerShellFallito as e:
+        raise ToolError(str(e)) from e
 
 
 @tool(
