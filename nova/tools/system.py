@@ -189,6 +189,11 @@ def press_keys(keys: str) -> str:
     ),
 )
 def set_volume(level: int | None = None, mute: bool | None = None) -> str:
+    if level is None and mute is None:
+        raise ToolError("serve 'level' o 'mute'")
+    detto = _volume_rust(level, mute)
+    if detto is not None:
+        return detto
     try:
         from ctypes import cast, POINTER
         from comtypes import CLSCTX_ALL  # type: ignore
@@ -203,10 +208,16 @@ def set_volume(level: int | None = None, mute: bool | None = None) -> str:
         return f"Volume: {round(vol.GetMasterVolumeLevelScalar() * 100)}% (muto={bool(vol.GetMute())})"
     except Exception:
         pass
+    # Ultimo ripiego, e va detto cosa fa **davvero**: il tasto «muto» di
+    # Windows *inverte*, non imposta. Chi ha chiesto `mute: true` con l'audio
+    # gia' silenzioso se lo ritrova acceso. Non si puo' fare meglio a colpi di
+    # tasto — non c'e' modo di leggere lo stato — e proprio per questo la
+    # risposta non promette di aver silenziato: dice che ha invertito.
     if mute is not None:
         _ps("Add-Type -AssemblyName System.Windows.Forms; "
             "[System.Windows.Forms.SendKeys]::SendWait([char]173)")
-        return "Stato muto invertito."
+        return ("Stato muto invertito (senza nova-volume ne' pycaw non si puo' "
+                "impostare: il tasto di Windows inverte e basta).")
     if level is None:
         raise ToolError("serve 'level' o 'mute'")
     steps = round(max(0, min(100, int(level))) / 2)
@@ -214,7 +225,40 @@ def set_volume(level: int | None = None, mute: bool | None = None) -> str:
         "1..50 | ForEach-Object { [System.Windows.Forms.SendKeys]::SendWait([char]174) }; "
         f"1..{steps} | ForEach-Object {{ [System.Windows.Forms.SendKeys]::SendWait([char]175) }}",
         timeout=90)
+    # «Circa» non e' modestia: qui non si e' letto niente. Cinquanta pressioni
+    # per arrivare a zero e poi N per risalire, mezzo volume per pressione, e
+    # se una si perde nessuno se ne accorge.
     return f"Volume impostato a circa {level}%."
+
+
+def _volume_rust(level: int | None, mute: bool | None) -> str | None:
+    """Il volume chiesto a Core Audio, senza shell e senza pacchetti Python.
+
+    Windows si appoggia a NOVA, non il contrario (D130). Dall'altra parte il
+    volume e' `SendKeys`: cinquanta pressioni simulate del tasto «volume giu'»
+    e poi N di «volume su», fino a novanta secondi, e la risposta e' «circa»
+    perche' nessuno ha mai riletto il volume vero. Qui si legge, si scrive e si
+    rilegge; e il muto si **imposta**, invece di invertirlo.
+    """
+    b = binari.trova("nova-volume")
+    if b is None:
+        return None
+    try:
+        # L'ordine e' quello degli argomenti dello strumento: prima il muto,
+        # poi il livello, cosi' «silenzia e mettilo a 20» lascia il volume a 20
+        # e l'audio muto, e non il contrario.
+        for arg in ([("muto" if mute else "suono")] if mute is not None else []) + \
+                   ([str(max(0, min(100, int(level))))] if level is not None else []):
+            r = subprocess.run([str(b), arg], capture_output=True, text=True,
+                               encoding="utf-8", timeout=10,
+                               creationflags=SENZA_FINESTRA)
+            if r.returncode != 0:
+                return None
+        import json
+        stato = json.loads(r.stdout)
+        return f"Volume: {stato['livello']}% (muto={bool(stato['muto'])})"
+    except Exception:                                       # noqa: BLE001
+        return None
 
 
 @tool(

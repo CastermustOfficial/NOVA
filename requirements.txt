@@ -7,6 +7,10 @@ psutil>=5.9
 pywinctl>=0.3
 keyboard>=0.13
 send2trash>=1.8
+# Il volume: con nova-volume non servono piu' — quello parla a Core Audio
+# diretto (D130). Restano finche' c'e' chi non ha costruito i binari, e
+# sono comunque meglio del ripiego a colpi di tasto, che il volume non
+# lo legge e il muto lo inverte invece di impostarlo (D132).
 pycaw>=20240210
 comtypes>=1.2
 

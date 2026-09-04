@@ -4013,3 +4013,59 @@ guasto stava.
 Resta il fatto che l'ho trovato per caso, e vale la pena dirlo: l'ho trovato
 perche' D130 mi ha costretto a mettere due implementazioni una accanto
 all'altra e a chiedere se dicessero la stessa cosa. Non stavo cercando questo.
+
+### Il volume, e un ripiego che rispondeva a un'altra domanda
+
+Secondo pezzo di D130, e il peggiore dei quattordici. Per mettere il volume a
+meta', il ripiego manda cinquanta pressioni simulate del tasto «volume giu'»
+per arrivare a zero, poi venticinque di «volume su» — mezzo volume per
+pressione — con il timeout a novanta secondi. Poi risponde:
+
+    Volume impostato a circa 50%.
+
+«Circa» non e' modestia: e' che non ha letto niente. Non c'e' modo di leggere
+il volume a colpi di tasto, e se una pressione si perde nessuno se ne accorge.
+
+Ma il guasto serio e' il muto. Lo strumento dichiara `mute: true` = silenzia.
+Il ripiego manda il tasto «muto» di Windows, che **inverte**. Chi chiede
+«silenzia» con l'audio gia' silenzioso se lo ritrova acceso — cioe' ottiene
+l'opposto di quello che ha chiesto, e la risposta gli dice che e' andata bene.
+E' la stessa famiglia di `ask_all`/`always_ask`: un ripiego che sembra
+prudente e risponde a un'altra domanda (D132).
+
+Adesso il volume si chiede a Core Audio, che e' chi lo tiene: si legge, si
+imposta, si rilegge. Il muto si **imposta** — chiederlo due volte lo lascia
+muto — e il livello sopravvive al muto, come deve. Il binario si chiama
+`nova-volume` e sono spariti anche `pycaw` e `comtypes`, due pacchetti Python
+che stavano nei requisiti solo per questo. La prova che conta e' la piu'
+stupida: chiedere due volte la stessa cosa e guardare se la seconda torna
+indietro.
+
+E ho chiuso il nodo che D130 aveva lasciato aperto: i tratti erano dichiarati
+e non li implementava nessuno. `nova-core/src/caps_sistema.rs` e' l'unico
+posto in cui e' scritto «su questa macchina, chi sa fare cosa» —
+`nova-strumenti` continua a non conoscere `nova-platform`, e `nova-platform`
+continua a non sapere per chi lavora.
+
+### Una prova rossa a caso, e una lezione che non si era mossa
+
+Facendo girare la suite Rust dopo il volume, una prova e' diventata rossa:
+`cio_che_finisce_in_tempo_non_viene_toccato`, che verifica una cosa banale —
+un lavoro che finisce subito non deve risultare interrotto.
+
+Non era rotto niente. La generazione dell'interruzione e' globale, come deve
+essere: c'e' un solo NOVA e un solo pulsante «ferma». Ma cargo fa girare le
+prove in parallelo, e la prova accanto chiama `ferma()` di proposito: se
+capita mentre questa sta fra il suo `gettone()` e il suo `select!`, si vede
+interrompere un lavoro gia' finito.
+
+La cosa che vale la pena scrivere non e' il rimedio — un lucchetto, quattro
+righe. E' che l'osservazione era **gia' scritta**, dieci righe piu' sotto,
+dentro `l_esito_passa_intatto`: «il contatore e' globale e i test girano in
+parallelo, verificarlo qui produce un test che fallisce a caso». Chi l'aveva
+capito per il contatore non l'aveva riportato sulle altre tre prove dello
+stesso modulo (D72), e il guasto e' venuto fuori settimane dopo, sotto carico,
+per caso.
+
+Una prova rossa a caso viene ignorata. Una prova ignorata non e' una prova.
+
