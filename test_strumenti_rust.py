@@ -405,6 +405,187 @@ controlla("e l'elenco di una cartella esce nello stesso ordine",
 controlla("il tetto sui caratteri letti e' lo stesso",
           MAX_READ_CHARS == 40000)
 
+print("\n=== I corpi degli strumenti sui file, su una cartella vera ===")
+# Qui non si confrontano funzioni: si esegue la stessa sequenza di operazioni
+# su due cartelle identiche, una col Python e una col Rust, e si confronta
+# **quello che il modello leggerebbe**. E' l'unico confronto che conti: il
+# valore di ritorno di uno strumento e' testo, e su quel testo il modello
+# decide il passo dopo.
+import shutil  # noqa: E402
+import tempfile  # noqa: E402
+import time  # noqa: E402
+
+from nova.tools import run_tool  # noqa: E402
+
+
+class GuardiaAperta:
+    """Le guardie le prova la sezione di sopra: qui interessano i corpi."""
+
+    def guard_write(self, path):
+        return None
+
+    def guard_command(self, comando):
+        return None
+
+
+def semina(base: Path) -> None:
+    """La stessa cartella da tutte e due le parti, fino ai byte."""
+    (base / "docs").mkdir(parents=True)
+    (base / "docs" / "sotto").mkdir()
+    (base / "vuota").mkdir()
+    (base / "nota.txt").write_text("prima riga\nseconda riga\nterza riga\n",
+                                   encoding="utf-8", newline="")
+    (base / "docs" / "relazione.md").write_text(
+        "# Titolo\n\nUn corpo con la parola cercata dentro.\n",
+        encoding="utf-8", newline="")
+    (base / "docs" / "sotto" / "appunti.md").write_text(
+        "riga uno\nla parola cercata sta anche qui\n",
+        encoding="utf-8", newline="")
+    (base / "docs" / "dati.csv").write_text("a,b\n1,2\n", encoding="utf-8",
+                                            newline="")
+    (base / ".nascosto").write_text("x", encoding="utf-8", newline="")
+    (base / "grande.txt").write_text("z" * 5000, encoding="utf-8", newline="")
+    # Un file che non e' UTF-8: sui PC italiani ce ne sono, ed e' il ramo che
+    # nessuno prova mai.
+    (base / "vecchio.txt").write_bytes("citt\xe0 perch\xe9\n".encode("cp1252"))
+    # Le date devono coincidere: le fisso tutte, o l'elenco differisce
+    # sull'orario e il confronto diventa inutile.
+    quando = 1788611696
+    for f in sorted(base.rglob("*")):
+        os.utime(f, (quando, quando))
+    os.utime(base, (quando, quando))
+
+
+# Il fuso lo dichiara il Python, e il Rust lo riceve: cosi' il banco non
+# cambia risposta a marzo e a ottobre.
+FUSO = -int(time.timezone if not time.daylight or not time.localtime().tm_isdst
+            else time.altzone)
+
+OPERAZIONI = [
+    ("list_directory", {"path": "{B}"}, {"che": "elenca", "dove": "{B}"}),
+    ("list_directory", {"path": "{B}", "show_hidden": True},
+     {"che": "elenca", "dove": "{B}", "nascosti": True}),
+    ("list_directory", {"path": "{B}", "pattern": "*.txt"},
+     {"che": "elenca", "dove": "{B}", "modello": "*.txt"}),
+    ("list_directory", {"path": "{B}/vuota"}, {"che": "elenca", "dove": "{B}/vuota"}),
+    ("list_directory", {"path": "{B}/mai-vista"},
+     {"che": "elenca", "dove": "{B}/mai-vista"}),
+    ("list_directory", {"path": "{B}/nota.txt"},
+     {"che": "elenca", "dove": "{B}/nota.txt"}),
+    ("read_file", {"path": "{B}/nota.txt"}, {"che": "leggi", "dove": "{B}/nota.txt"}),
+    ("read_file", {"path": "{B}/nota.txt", "offset": 2},
+     {"che": "leggi", "dove": "{B}/nota.txt", "offset": 2}),
+    ("read_file", {"path": "{B}/nota.txt", "offset": 2, "limit": 1},
+     {"che": "leggi", "dove": "{B}/nota.txt", "offset": 2, "limite": 1}),
+    ("read_file", {"path": "{B}/vecchio.txt"},
+     {"che": "leggi", "dove": "{B}/vecchio.txt"}),
+    ("read_file", {"path": "{B}/docs"}, {"che": "leggi", "dove": "{B}/docs"}),
+    ("read_file", {"path": "{B}/mai-visto.txt"},
+     {"che": "leggi", "dove": "{B}/mai-visto.txt"}),
+    ("write_file", {"path": "{B}/nuovo.txt", "content": "ciao\nmondo\n"},
+     {"che": "scrivi", "dove": "{B}/nuovo.txt", "testo": "ciao\nmondo\n"}),
+    ("write_file", {"path": "{B}/nuovo.txt", "content": "in coda\n", "append": True},
+     {"che": "scrivi", "dove": "{B}/nuovo.txt", "testo": "in coda\n", "in_coda": True}),
+    ("read_file", {"path": "{B}/nuovo.txt"}, {"che": "leggi", "dove": "{B}/nuovo.txt"}),
+    ("edit_file", {"path": "{B}/nota.txt", "old_text": "seconda", "new_text": "SECONDA"},
+     {"che": "modifica", "dove": "{B}/nota.txt", "vecchio": "seconda", "nuovo": "SECONDA"}),
+    ("edit_file", {"path": "{B}/nota.txt", "old_text": "riga", "new_text": "RIGA"},
+     {"che": "modifica", "dove": "{B}/nota.txt", "vecchio": "riga", "nuovo": "RIGA"}),
+    ("edit_file", {"path": "{B}/nota.txt", "old_text": "riga", "new_text": "RIGA",
+                   "replace_all": True},
+     {"che": "modifica", "dove": "{B}/nota.txt", "vecchio": "riga", "nuovo": "RIGA",
+      "tutte": True}),
+    ("edit_file", {"path": "{B}/nota.txt", "old_text": "non c'e'", "new_text": "x"},
+     {"che": "modifica", "dove": "{B}/nota.txt", "vecchio": "non c'e'", "nuovo": "x"}),
+    ("create_folder", {"path": "{B}/nuova/dentro"},
+     {"che": "cartella", "dove": "{B}/nuova/dentro"}),
+    ("copy_path", {"source": "{B}/nota.txt", "destination": "{B}/copia.txt"},
+     {"che": "copia", "da": "{B}/nota.txt", "a": "{B}/copia.txt"}),
+    ("move_path", {"source": "{B}/copia.txt", "destination": "{B}/spostata.txt"},
+     {"che": "sposta", "da": "{B}/copia.txt", "a": "{B}/spostata.txt"}),
+    ("move_path", {"source": "{B}/spostata.txt", "destination": "{B}/nota.txt"},
+     {"che": "sposta", "da": "{B}/spostata.txt", "a": "{B}/nota.txt"}),
+    ("delete_path", {"path": "{B}/spostata.txt", "permanent": True},
+     {"che": "cancella", "dove": "{B}/spostata.txt", "per_sempre": True}),
+    ("search_files", {"root": "{B}", "pattern": "*.md"},
+     {"che": "cerca", "dove": "{B}", "modello": "*.md"}),
+    ("search_files", {"root": "{B}", "pattern": "relazione"},
+     {"che": "cerca", "dove": "{B}", "modello": "relazione"}),
+    ("search_files", {"root": "{B}", "pattern": "**/*.csv"},
+     {"che": "cerca", "dove": "{B}", "modello": "**/*.csv"}),
+    ("search_files", {"root": "{B}", "pattern": "*.mai-visto"},
+     {"che": "cerca", "dove": "{B}", "modello": "*.mai-visto"}),
+    ("search_in_files", {"root": "{B}", "query": "cercata"},
+     {"che": "setaccia", "dove": "{B}", "testo": "cercata"}),
+    ("search_in_files", {"root": "{B}", "query": "cercata", "file_pattern": "**/*.md"},
+     {"che": "setaccia", "dove": "{B}", "testo": "cercata", "modello": "**/*.md"}),
+    ("search_in_files", {"root": "{B}", "query": "non-c-e-mai-stato"},
+     {"che": "setaccia", "dove": "{B}", "testo": "non-c-e-mai-stato"}),
+]
+
+py_base = Path(tempfile.mkdtemp(prefix="nova-corpi-py-"))
+rs_base = Path(tempfile.mkdtemp(prefix="nova-corpi-rs-"))
+try:
+    semina(py_base)
+    semina(rs_base)
+
+    def con(base, x):
+        if isinstance(x, str):
+            return x.replace("{B}", str(base).replace("\\", "/"))
+        if isinstance(x, dict):
+            return {k: con(base, v) for k, v in x.items()}
+        return x
+
+    miei = []
+    ctx = GuardiaAperta()
+    for nome, args, _ in OPERAZIONI:
+        miei.append(run_tool(nome, con(py_base, args), ctx))
+
+    r = subprocess.run([str(BINARIO)], input=json.dumps({
+        "fuso": FUSO,
+        "operazioni": [con(rs_base, op) for _, _, op in OPERAZIONI],
+    }, ensure_ascii=False), capture_output=True, text=True, encoding="utf-8",
+        timeout=180)
+    if r.returncode != 0:
+        print("il banco e' uscito male:", r.stderr[:400])
+        sys.exit(1)
+    suoi = json.loads(r.stdout)["operazioni"]
+
+    def spoglia(testo, base):
+        """Toglie il nome della cartella temporanea, che e' diverso apposta."""
+        b = str(base)
+        return (testo.replace(b, "{B}").replace(b.replace("\\", "/"), "{B}")
+                .replace("\\", "/"))
+
+    diverse = []
+    for (nome, args, _), mio, suo in zip(OPERAZIONI, miei, suoi):
+        a = spoglia(mio, py_base)
+        b = spoglia(suo, rs_base)
+        if a != b:
+            diverse.append(f"{nome} {json.dumps(args, ensure_ascii=False)[:50]}:\n"
+                           f"      python {a[:220]!r}\n      rust   {b[:220]!r}")
+    controlla(f"le {len(OPERAZIONI)} operazioni dicono le stesse cose",
+              not diverse, ("\n    " + "\n    ".join(diverse[:2])) if diverse else "")
+
+    # E la domanda sul risultato (D51): il disco deve essere finito uguale.
+    def foto(base):
+        fuori = {}
+        for f in sorted(base.rglob("*")):
+            rel = f.relative_to(base).as_posix()
+            fuori[rel] = "<dir>" if f.is_dir() else f.read_bytes()
+        return fuori
+
+    fa, fb = foto(py_base), foto(rs_base)
+    solo_py = sorted(set(fa) - set(fb))
+    solo_rs = sorted(set(fb) - set(fa))
+    diversi = [k for k in fa if k in fb and fa[k] != fb[k]]
+    controlla("e le due cartelle sono finite identiche",
+              not solo_py and not solo_rs and not diversi,
+              f"solo python {solo_py}, solo rust {solo_rs}, diversi {diversi}")
+finally:
+    shutil.rmtree(py_base, ignore_errors=True)
+    shutil.rmtree(rs_base, ignore_errors=True)
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")

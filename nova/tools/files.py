@@ -286,24 +286,16 @@ def delete_path(path: str, permanent: bool = False, ctx=None) -> str:
     if not t.exists():
         raise ToolError(f"{t} non esiste")
     if not permanent:
-        try:
-            from send2trash import send2trash  # type: ignore
-            send2trash(str(t))
+        # Una copia sola della strada per il Cestino: qui ce n'era una
+        # seconda, scritta inline, che si comportava **diversamente** — questa
+        # ripiegava solo su ImportError, `_nel_cestino` su qualunque errore.
+        # Due copie della stessa cosa nello stesso file, e gia' divergenti.
+        if _nel_cestino(t):
             return f"Spostato nel Cestino: {t}"
-        except ImportError:
-            pass
-        ps = (
-            "Add-Type -AssemblyName Microsoft.VisualBasic; "
-            + ("[Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory("
-               if t.is_dir() else
-               "[Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(")
-            + f"'{t}','OnlyErrorDialogs','SendToRecycleBin')"
+        raise ToolError(
+            "impossibile usare il Cestino. Se serve cancellare davvero, "
+            "chiedimelo con permanent=true: e' un'azione che non si annulla."
         )
-        r = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
-                           capture_output=True, text=True, timeout=60)
-        if r.returncode == 0:
-            return f"Spostato nel Cestino: {t}"
-        raise ToolError(f"impossibile usare il Cestino: {r.stderr.strip()[:300]}")
     shutil.rmtree(t) if t.is_dir() else t.unlink()
     return f"Eliminato definitivamente: {t}"
 
