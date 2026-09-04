@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import shutil
-import subprocess
 from pathlib import Path
 
+from .. import powershell
 from .base import Risk, ToolError, tool
 
 # alias comodi -> comando/eseguibile
@@ -38,10 +38,7 @@ def _start_via_shell(target: str, args: str = "") -> str:
     cmd = f"Start-Process -FilePath '{target}'"
     if args:
         cmd += f" -ArgumentList '{args}'"
-    r = subprocess.run(
-        ["powershell", "-NoProfile", "-NonInteractive", "-Command", cmd],
-        capture_output=True, text=True, timeout=45,
-    )
+    r = powershell.esegui(cmd, timeout=45)
     if r.returncode != 0:
         raise ToolError(f"impossibile avviare '{target}': {(r.stderr or r.stdout).strip()[:400]}")
     return f"Avviato: {target}" + (f" {args}" if args else "")
@@ -77,8 +74,7 @@ def list_installed_apps(filter: str = "") -> str:
         "Get-ItemProperty $k -ErrorAction SilentlyContinue | "
         "Where-Object {$_.DisplayName} | Select-Object -Expand DisplayName | Sort-Object -Unique"
     )
-    r = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
-                       capture_output=True, text=True, timeout=90)
+    r = powershell.esegui(ps, timeout=90)
     names = [n.strip() for n in (r.stdout or "").splitlines() if n.strip()]
     if filter:
         names = [n for n in names if filter.lower() in n.lower()]
@@ -99,8 +95,7 @@ def list_windows(filter: str = "") -> str:
         "Get-Process | Where-Object {$_.MainWindowTitle -ne ''} | "
         "Select-Object Id,ProcessName,MainWindowTitle | ConvertTo-Csv -NoTypeInformation"
     )
-    r = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
-                       capture_output=True, text=True, timeout=45)
+    r = powershell.esegui(ps, timeout=45)
     rows = [l for l in (r.stdout or "").splitlines() if l.strip()]
     if filter:
         rows = rows[:1] + [l for l in rows[1:] if filter.lower() in l.lower()]
@@ -141,8 +136,7 @@ def focus_window(title: str) -> str:
         "$t::SetForegroundWindow($p.MainWindowHandle) | Out-Null; "
         "Write-Output $p.MainWindowTitle } else { Write-Output 'NOTFOUND' }"
     )
-    r = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
-                       capture_output=True, text=True, timeout=45)
+    r = powershell.esegui(ps, timeout=45)
     out = (r.stdout or "").strip()
     if not out or out == "NOTFOUND":
         raise ToolError(f"nessuna finestra corrispondente a '{title}'")
@@ -168,8 +162,7 @@ def close_application(name: str, force: bool = False) -> str:
            "$p | ForEach-Object { $_.CloseMainWindow() | Out-Null }; ")
         + "$p | Select-Object -Expand ProcessName -Unique"
     )
-    r = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
-                       capture_output=True, text=True, timeout=45)
+    r = powershell.esegui(ps, timeout=45)
     out = (r.stdout or "").strip()
     if out == "NOTFOUND" or not out:
         raise ToolError(f"nessun processo corrispondente a '{name}'")

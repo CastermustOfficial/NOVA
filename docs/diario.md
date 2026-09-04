@@ -4109,3 +4109,61 @@ capacita' si misura **cosa costa davvero**. Se il costo e' la shell si toglie
 la shell; se e' un'attesa dovuta si sposta l'attesa; e se non si guarda, si
 riscrive la cosa sbagliata con molta cura (D134).
 
+### Erano sei. Erano dieci. Ed erano tre difetti diversi
+
+Prima di scegliere il quarto pezzo di D130 volevo misurare gli undici che
+restano — e' D134, appena scritto. Cercando le chiamate a PowerShell per
+misurarle, ne sono uscite altre cinque che il mio `grep` non aveva visto.
+
+Il guasto della codifica riparato stamattina in `_ps` era **in dieci posti**,
+in cinque moduli, e non era nemmeno lo stesso guasto:
+
+    system.py   diceva UTF-8, PowerShell scrive nella tabella della console
+                -> «perch? citt? per?»
+    apps.py     non diceva niente, quindi cp1252
+                -> «perchÃ© cittÃ  perÃ²»
+    files.py    idem
+    seed.py     idem del primo, terza copia privata della stessa funzione
+    shell.py    UTF-8 anche su cmd.exe, che scrive in OEM cp850
+                -> «citt? per? ?.txt»
+
+`apps.py` sono `list_windows` e `list_installed_apps`: i **titoli delle
+finestre aperte** e i nomi delle applicazioni installate, cioe' proprio i due
+posti dove gli accenti ci sono per forza. `seed.py` e' peggio: i nomi delle
+cartelle dell'utente finiscono dentro il vault, dove restano. Un ricordo
+storpiato non e' un errore che passa.
+
+E `shell.py` e' il tool con cui l'**utente** fa girare i suoi comandi. Su un
+file chiamato «città però ù.txt»:
+
+    prima:  'citt? per? ?.txt'
+    dopo:   'città però ù.txt'
+
+La cosa che non mi aspettavo: le cure non sono la stessa. A PowerShell la
+codifica si **chiede** — una riga prima del comando. A cmd.exe no: si potrebbe
+mettere `chcp 65001` davanti al comando dell'utente, ma vorrebbe dire cambiare
+l'ambiente in cui gira il *suo* programma, e i programmi vecchi ci si perdono.
+Li' si legge nella tabella che cmd usa davvero — che e' quella OEM, cp850, e
+**non** e' quella che usa Python, cp1252. Due tabelle diverse sulla stessa
+macchina, e chiedere all'una i caratteri dell'altra non da' un errore: da'
+lettere sbagliate. E al Python figlio si dice `PYTHONIOENCODING`, perche'
+senza console ripiega sulla codifica locale.
+
+Tre fatti diversi, non una preferenza fra tre.
+
+Il posto solo e' `nova/powershell.py`, alla decima occorrenza invece che alla
+seconda (D62). Ma la parte che conta della prova non e' quella che verifica la
+funzione: e' quella che **conta i posti** da cui NOVA avvia una shell. Le
+prove che verificano una funzione passavano anche prima, ognuna nel suo
+modulo, mentre nove chiamate su dieci erano rotte. Cio' che tiene ferma una
+riparazione non e' una funzione giusta: e' che non ce ne siano altre.
+
+Una nota su me stesso. La prima versione di quella prova e' morta con
+«carattere di terminazione mancante nella stringa»: avevo scritto
+`Write-Output 'perché ... un'emoji'` e l'apostrofo di «un'emoji» ha chiuso la
+stringa di PowerShell. La prova scritta apposta per parlare del guaio delle
+virgolette ci e' cascata dentro alla prima riga. L'ho lasciato scritto nel
+commento, perche' e' l'argomento migliore che ho per D130: se ci casca chi sta
+guardando proprio quello, comporre comandi incollandoci dentro dei dati non e'
+una tecnica da migliorare — e' una strada da non prendere.
+

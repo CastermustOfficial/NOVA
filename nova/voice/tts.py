@@ -15,6 +15,7 @@ from __future__ import annotations
 import subprocess
 import threading
 
+from .. import powershell
 from .audio import frequenza_da_formato, pcm_in_wav, riproduci_wav
 from .elevenlabs import (FORMATO, MODELLO_TTS, VOCE_PREDEFINITA,
                          ClienteElevenLabs, ErroreVoce, QuotaFinita,
@@ -125,8 +126,7 @@ class TextToSpeech:
               "(New-Object System.Speech.Synthesis.SpeechSynthesizer).GetInstalledVoices() "
               "| ForEach-Object { $_.VoiceInfo.Name }")
         try:
-            r = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
-                               capture_output=True, text=True, timeout=30)
+            r = powershell.esegui(ps, timeout=30)
         except (OSError, subprocess.SubprocessError):
             return []
         return [l.strip() for l in (r.stdout or "").splitlines() if l.strip()]
@@ -150,8 +150,11 @@ class TextToSpeech:
               + f"$s.Speak('{safe}')")
         with self._lock:
             try:
-                subprocess.run(["powershell", "-NoProfile", "-Command", ps],
-                               capture_output=True, timeout=300)
+                # Qui il testo va **verso** PowerShell, non viene da li': la
+                # riga di comando viaggia in UTF-16 e gli accenti arrivano
+                # interi. Passa comunque dal posto solo, perche' un domani
+                # nessuno debba chiedersi se questa e' un'eccezione (D135).
+                powershell.esegui(ps, timeout=300)
             except (OSError, subprocess.SubprocessError) as e:
                 self.on_nota(f"voce di sistema non disponibile: {e}")
 

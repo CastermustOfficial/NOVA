@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import os
 import shutil
-import subprocess
 from datetime import datetime
 from pathlib import Path
 
+from .. import powershell
 from ..scrittura import scrivi
 from .base import Risk, ToolError, tool
 
@@ -202,8 +202,7 @@ def _nel_cestino(t: Path) -> bool:
                "[Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(")
             + f"'{t}','OnlyErrorDialogs','SendToRecycleBin')"
         )
-        r = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
-                           capture_output=True, text=True, timeout=60)
+        r = powershell.esegui(ps, timeout=60)
         return r.returncode == 0
     except Exception:
         return False
