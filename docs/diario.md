@@ -3614,3 +3614,81 @@ e' assurdo. L'ho scritto nel banco come differenza voluta, con il motivo:
 nessuna delle due mente all'utente, e quella del Rust dice qualcosa in piu'.
 Una differenza dichiarata e' una decisione; la stessa differenza trovata fra
 sei mesi sarebbe un difetto.
+
+---
+
+## 5 settembre 2026 — Le guardie, che erano sbagliate in tre modi insieme
+
+Secondo pezzo di CANT-2: non cosa gli strumenti fanno, ma cosa gli e'
+permesso. Tre domande — dove si puo' scrivere, quali comandi non si eseguono
+mai, quando ci si ferma a chiedere.
+
+La prima era sbagliata in tre modi tutti insieme, e tutti e tre erano **la
+stessa lezione che avevo gia' scritto** (D56).
+
+    p = str(Path(path).resolve()).lower()
+    for prot in self.cfg.safety.protected_paths:
+        pl = str(Path(prot)).lower()
+        if p == pl or p.startswith(pl + "\\"):
+
+1. Il percorso passa da `resolve()`, i protetti no: due spazi diversi. Sotto
+   un punto di reinnesto — un pacchetto MSIX, una cartella reindirizzata su
+   OneDrive — la protezione smette di funzionare **in silenzio**.
+2. La barra rovescia e' scritta a mano: fuori da Windows quel confronto non
+   scatta mai.
+3. E per le cartelle autorizzate il confronto e' **senza separatore**.
+
+Il terzo non l'ho dedotto, l'ho dimostrato con due cartelle e cinque righe:
+
+    write_roots = [ .../dati ]
+    dati/mio.txt          -> PERMESSO
+    dati-altrui/tuo.txt   -> PERMESSO
+
+Autorizzare una cartella ne autorizzava un'altra che le somigliava soltanto.
+E' esattamente la frase con cui finisce D56 — «con il separatore in fondo, se
+no `NOVA-vecchio` sta dentro `NOVA`» — scritta il 2 settembre, in un modulo
+diverso, e mai arrivata qui.
+
+La funzione giusta esisteva gia', in `dati.py`, col commento giusto. Adesso
+sta in `nova/percorsi.py` e la usano tutti e due (D72).
+
+### Il ripiego prudente che nascondeva un errore
+
+Portando l'autonomia in Rust ho scritto `"ask_all"`. La costante vera e'
+`"always_ask"`.
+
+Il ripiego, che avevo messo apposta perche' «una configurazione illeggibile
+non deve diventare fai pure», mandava quel nome su
+`ChiediSeRischioso` — cioe' **chi aveva chiesto «conferma sempre» otteneva
+«conferma solo se rischioso»**, senza un errore da nessuna parte.
+
+Un ripiego indulgente maschera un valore sbagliato, e piu' e' ragionevole
+meglio lo maschera. Adesso `capisci()` torna `None` per un nome che non
+conosce, `dal_nome()` ripiega come prima, e c'e' una prova che pretende che i
+tre nomi veri si capiscano **tutti e tre** — cosi' un nome sbagliato non puo'
+piu' passare per una scelta prudente. La prova nel banco prende i nomi dalla
+configurazione invece di riscriverli: riscriverli era proprio l'errore.
+
+### Un divieto che sparisce e' peggio di un divieto che non c'e'
+
+I comandi vietati sono espressioni regolari configurabili. Il Python fa
+`except re.error: continue`: un motivo che non compila svanisce, e chi
+l'aveva scritto crede di essere protetto.
+
+In Rust il motore e' un altro e la sintassi non coincide del tutto — un
+lookahead che Python accetta, `regex` lo rifiuta — quindi il problema qui e'
+piu' probabile, non meno. `Guardie` tiene l'elenco dei motivi che non ha
+capito e lo espone: chi costruisce le guardie puo' dirlo. Un buco dichiarato
+si tappa; un buco silenzioso si scopre dopo.
+
+### Una punteggiatura che e' un contratto
+
+Il messaggio «scrittura non consentita fuori dalle cartelle autorizzate»
+elenca le cartelle col `repr` di Python, che **raddoppia le barre**:
+`'C:\\dati'` invece di `'C:\dati'`. E' un artefatto che trapela in un
+messaggio che leggono il modello e, attraverso lui, l'utente.
+
+L'ho riprodotto invece di pulirlo. Un messaggio d'errore e' un contratto
+quanto un formato di file, e due meta' che dicono la stessa cosa con due
+punteggiature diverse sono due voci. Se un giorno si pulisce, si pulisce da
+tutte e due le parti insieme.

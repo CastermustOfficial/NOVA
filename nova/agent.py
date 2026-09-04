@@ -18,6 +18,7 @@ from typing import Callable
 
 from .brains import crea_brain
 from .config import AUTONOMY_ASK_ALL, AUTONOMY_FULL, Config
+from .percorsi import dentro
 from .tools import REGISTRY, Risk, ToolError, openai_schema, run_tool
 
 
@@ -40,19 +41,27 @@ class SafetyContext:
         self.cfg = cfg
 
     def guard_write(self, path: Path) -> None:
-        p = str(Path(path).resolve()).lower()
+        r"""Se NOVA puo' scrivere qui.
+
+        La domanda «sta dentro quella cartella?» si fa con `percorsi.dentro`,
+        che risponde **sui nomi** (D56). Questa guardia la sbagliava in tre
+        modi insieme: confrontava un percorso risolto con dei protetti **non**
+        risolti — due spazi diversi, e sotto un punto di reinnesto la
+        protezione spariva in silenzio; attaccava una barra rovescia a mano,
+        quindi fuori da Windows non scattava mai; e per le cartelle
+        autorizzate confrontava senza separatore, cosi' autorizzare `C:\dati`
+        autorizzava anche `C:\dati-altrui`.
+        """
         for prot in self.cfg.safety.protected_paths:
-            pl = str(Path(prot)).lower()
-            if p == pl or p.startswith(pl + "\\"):
+            if dentro(path, prot):
                 raise ToolError(
                     f"percorso protetto: {path}. Modificalo manualmente se necessario."
                 )
         roots = self.cfg.safety.write_roots
-        if roots:
-            if not any(p.startswith(str(Path(r).resolve()).lower()) for r in roots):
-                raise ToolError(
-                    f"scrittura non consentita fuori dalle cartelle autorizzate: {roots}"
-                )
+        if roots and not any(dentro(path, r) for r in roots):
+            raise ToolError(
+                f"scrittura non consentita fuori dalle cartelle autorizzate: {roots}"
+            )
 
     def guard_command(self, command: str) -> None:
         for pat in self.cfg.safety.forbidden_command_patterns:

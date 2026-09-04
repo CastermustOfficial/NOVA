@@ -153,31 +153,9 @@ def racconta(solo_esistenti: bool = True) -> str:
     return "\n".join(righe)
 
 
-def _dentro(figlio: Path, cartella: Path) -> bool:
-    r"""Se cancellando `cartella` se ne va anche `figlio`.
-
-    Serve al disinstallatore per dire la verita' invece di una frase
-    rassicurante: `%APPDATA%\\NOVA` si cancella in un colpo, ma il fascicolo
-    sta in Documenti e il vault puo' stare dove l'utente ha deciso. Chiamarli
-    tutti «i tuoi dati» e cancellarne meta' e' il modo migliore per far
-    scoprire il resto sei mesi dopo.
-
-    Il confronto e' **lessicale** — sui nomi, non su dove portano — e non e'
-    pigrizia: `resolve()` segue i punti di reinnesto, e ci sono sistemi dove
-    lo stesso file risponde da due posti. Misurato per sbaglio il 2 settembre:
-    un PowerShell dentro un pacchetto MSIX vede meta' di `%APPDATA%\NOVA`
-    reindirizzata in `...\Packages\<pacchetto>\LocalCache\Roaming\NOVA`,
-    quindi `resolve()` portava dei file **fuori** dalla loro stessa cartella e
-    il rendiconto li dichiarava «lasciati» mentre sarebbero spariti. Chi
-    cancella una cartella cancella i nomi che ci stanno sotto: e' quella la
-    domanda, ed e' quella che si risponde.
-    """
-    try:
-        a = os.path.normcase(os.path.abspath(str(figlio)))
-        b = os.path.normcase(os.path.abspath(str(cartella)))
-        return a == b or a.startswith(b.rstrip("\\/") + os.sep)
-    except Exception:                                       # noqa: BLE001
-        return False
+# La domanda «sta dentro questa cartella?» sta in `nova/percorsi.py`: la
+# facevano tre moduli, e due la sbagliavano in modi diversi. Vedi D56 e D72.
+from .percorsi import dentro as _dentro   # noqa: E402
 
 
 def il_modello() -> Posto | None:

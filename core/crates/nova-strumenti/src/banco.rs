@@ -6,7 +6,8 @@
 //! strumento usare. Una parola diversa in una descrizione e' un
 //! comportamento diverso, e non c'e' nessun tipo che se ne accorga.
 
-use nova_strumenti::{anteprima, schema, Argomenti, STRUMENTI};
+use nova_strumenti::guardie::{Autonomia, Guardie};
+use nova_strumenti::{anteprima, schema, Argomenti, Rischio, STRUMENTI};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -15,6 +16,21 @@ struct Dentro {
     /// (nome dello strumento, argomenti) di cui si vuole l'anteprima.
     #[serde(default)]
     anteprime: Vec<(String, BTreeMap<String, serde_json::Value>)>,
+    /// Le regole con cui provare le guardie.
+    #[serde(default)]
+    protetti: Vec<String>,
+    #[serde(default)]
+    radici: Vec<String>,
+    #[serde(default)]
+    vietati: Vec<String>,
+    #[serde(default)]
+    autonomia: String,
+    /// I percorsi da sottoporre alla guardia di scrittura.
+    #[serde(default)]
+    scritture: Vec<String>,
+    /// I comandi da sottoporre alla guardia dei comandi.
+    #[serde(default)]
+    comandi: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -24,6 +40,12 @@ struct Fuori {
     schemi: Vec<(String, String)>,
     dichiarazioni: Vec<Dichiarazione>,
     anteprime: Vec<String>,
+    /// Per ogni percorso: niente se si puo' scrivere, il messaggio se no.
+    scritture: Vec<Option<String>>,
+    comandi: Vec<Option<String>>,
+    /// Se serve chiedere, per ognuno dei tre rischi.
+    permessi: Vec<bool>,
+    motivi_incomprensibili: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -96,6 +118,29 @@ fn main() {
             .into_iter()
             .map(|(nome, args)| anteprima(&nome, &DaJson(args)))
             .collect(),
+        scritture: {
+            let g = Guardie::nuove(&d.protetti, &d.radici, &d.vietati,
+                                   Autonomia::dal_nome(&d.autonomia));
+            d.scritture.iter()
+                .map(|p| g.puo_scrivere(p).err().map(|e| e.messaggio()))
+                .collect()
+        },
+        comandi: {
+            let g = Guardie::nuove(&d.protetti, &d.radici, &d.vietati,
+                                   Autonomia::dal_nome(&d.autonomia));
+            d.comandi.iter()
+                .map(|c| g.comando_permesso(c).err().map(|e| e.messaggio()))
+                .collect()
+        },
+        permessi: {
+            let g = Guardie::nuove(&d.protetti, &d.radici, &d.vietati,
+                                   Autonomia::dal_nome(&d.autonomia));
+            [Rischio::Innocuo, Rischio::Modifica, Rischio::Pericoloso]
+                .iter().map(|r| g.serve_permesso(*r)).collect()
+        },
+        motivi_incomprensibili: Guardie::nuove(&d.protetti, &d.radici, &d.vietati,
+                                               Autonomia::dal_nome(&d.autonomia))
+            .motivi_incomprensibili,
     };
     println!("{}", serde_json::to_string(&fuori).unwrap());
 }

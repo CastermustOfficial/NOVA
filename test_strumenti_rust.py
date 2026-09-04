@@ -181,6 +181,132 @@ controlla("il Rust dice qualcosa di sensato anche con gli argomenti storti",
 print(f"  (di questi {len(storti)} casi, il Python ripiega sulla riga generica "
       f"{generiche} volte)")
 
+print("\n=== Le guardie: dove si scrive, cosa non si esegue, quando si chiede ===")
+# Non e' catalogazione: e' cosa NOVA puo' fare senza chiedere. In Python questa
+# guardia sbagliava in tre modi insieme, tutti e tre la stessa lezione gia'
+# scritta (D56) — vedi `nova/percorsi.py`.
+from nova.agent import SafetyContext  # noqa: E402
+from nova.config import Config  # noqa: E402
+from nova.tools.base import Risk  # noqa: E402
+
+PROTETTI = [r"C:\Windows", r"C:\Program Files", "/etc"]
+RADICI = [r"C:\dati", r"D:\lavoro"]
+VIETATI = [r"\bformat\s+[a-z]:", r"\bdiskpart\b", r"\bvssadmin\b.*\bdelete\b"]
+
+SCRITTURE = [
+    r"C:\dati\mio.txt",
+    r"C:\dati\sotto\ancora\mio.txt",
+    r"C:\dati-altrui\tuo.txt",      # il buco dimostrato: NON deve passare
+    r"C:\datix\tuo.txt",
+    r"C:\dati",
+    r"D:\lavoro\relazione.docx",
+    r"C:\altrove\x.txt",
+    r"C:\Windows\system32\x.dll",
+    r"C:\Windows-mio\x.txt",        # non e' dentro Windows
+    r"C:\dati\..\fuori.txt",        # il .. si scioglie a nome
+    r"C:\dati\sotto\..\mio.txt",
+    "C:/dati/con-le-barre-normali.txt",
+]
+COMANDI = [
+    "dir /w",
+    "format c:",
+    "FORMAT D:",
+    "diskpart /s script.txt",
+    "spiega la formattazione del disco",
+    "vssadmin delete shadows /all",
+    "vssadmin list shadows",
+    "echo ciao",
+    "",
+]
+
+dentro_g = json.dumps({
+    "protetti": PROTETTI, "radici": RADICI, "vietati": VIETATI,
+    "autonomia": "ask_risky",
+    "scritture": SCRITTURE, "comandi": COMANDI,
+}, ensure_ascii=False)
+q = subprocess.run([str(BINARIO)], input=dentro_g, capture_output=True,
+                   text=True, encoding="utf-8", timeout=120)
+if q.returncode != 0:
+    print("il banco e' uscito male:", q.stderr[:300])
+    sys.exit(1)
+gr = json.loads(q.stdout)
+
+cfg = Config.load()
+cfg.safety.protected_paths = list(PROTETTI)
+cfg.safety.write_roots = list(RADICI)
+cfg.safety.forbidden_command_patterns = list(VIETATI)
+cfg.safety.autonomy = "ask_risky"
+guardia = SafetyContext(cfg)
+
+
+def py_scrittura(p):
+    try:
+        guardia.guard_write(Path(p))
+        return None
+    except Exception as e:                                  # noqa: BLE001
+        return str(e)
+
+
+def py_comando(c):
+    try:
+        guardia.guard_command(c)
+        return None
+    except Exception as e:                                  # noqa: BLE001
+        return str(e)
+
+
+diverse = [f"{p!r}: rust {suo!r} vs python {py_scrittura(p)!r}"
+           for p, suo in zip(SCRITTURE, gr["scritture"])
+           if suo != py_scrittura(p)]
+controlla("la guardia di scrittura dice le stesse cose", not diverse,
+          " | ".join(diverse[:2]))
+
+# E la domanda sul risultato, non sull'accordo (D51): il buco deve essere
+# chiuso da tutte e due le parti, non solo uguale.
+i = SCRITTURE.index(r"C:\dati-altrui\tuo.txt")
+controlla("autorizzare una cartella non ne autorizza un'altra che le somiglia",
+          gr["scritture"][i] is not None and py_scrittura(SCRITTURE[i]) is not None,
+          f"rust {gr['scritture'][i]!r}, python {py_scrittura(SCRITTURE[i])!r}")
+
+diverse = [f"{c!r}: rust {suo!r} vs python {py_comando(c)!r}"
+           for c, suo in zip(COMANDI, gr["comandi"])
+           if suo != py_comando(c)]
+controlla("e la guardia dei comandi pure", not diverse, " | ".join(diverse[:2]))
+
+# I nomi sono quelli veri della configurazione, presi da li': scriverli a mano
+# e' come li avevo scritti in Rust — `ask_all` invece di `always_ask` — e il
+# ripiego prudente lo nascondeva.
+from nova.config import (AUTONOMY_ASK_ALL, AUTONOMY_ASK_RISKY,  # noqa: E402
+                         AUTONOMY_FULL)
+
+for nome, modo, atteso in [("autonoma", AUTONOMY_FULL, [False, False, False]),
+                           ("conferma sempre", AUTONOMY_ASK_ALL, [True, True, True]),
+                           ("conferma se rischioso", AUTONOMY_ASK_RISKY, [False, False, True]),
+                           ("un valore che non si capisce", "boh", [False, False, True])]:
+    r = subprocess.run([str(BINARIO)],
+                       input=json.dumps({"autonomia": modo}), capture_output=True,
+                       text=True, encoding="utf-8", timeout=60)
+    suoi = json.loads(r.stdout)["permessi"]
+    cfg.safety.autonomy = modo
+    miei = [SafetyContext(cfg).needs_approval(x)
+            for x in (Risk.SAFE, Risk.MODERATE, Risk.DANGEROUS)]
+    controlla(f"quando chiedere il permesso: {nome}",
+              suoi == atteso and miei == atteso,
+              f"rust {suoi}, python {miei}, atteso {atteso}")
+
+print("\n=== Un divieto che non si capisce non deve sparire in silenzio ===")
+# Il Python fa `except re.error: continue`: il motivo svanisce e chi l'aveva
+# scritto crede di essere protetto. Il Rust lo dichiara.
+r = subprocess.run([str(BINARIO)], input=json.dumps({
+    "vietati": [r"(?<=x)y", r"\bdiskpart\b"], "comandi": ["diskpart /s x"],
+}), capture_output=True, text=True, encoding="utf-8", timeout=60)
+fuori = json.loads(r.stdout)
+controlla("il Rust dice quale motivo non ha capito",
+          len(fuori["motivi_incomprensibili"]) == 1,
+          str(fuori["motivi_incomprensibili"]))
+controlla("e gli altri divieti continuano a valere",
+          fuori["comandi"][0] is not None, str(fuori["comandi"]))
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")

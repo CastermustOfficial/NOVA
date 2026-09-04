@@ -7,6 +7,10 @@ license.workspace = true
 description = "Le mani di NOVA sul PC: cosa sa fare, quanto costa sbagliarlo, e come si racconta a chi guarda."
 
 [dependencies]
+# I motivi dei comandi vietati sono configurabili dall'utente: sono
+# espressioni regolari vere, e senza un motore vero si potrebbe solo
+# riconoscerne un sottoinsieme — cioe' bloccare meno di quanto promesso.
+regex = "1"
 serde = { workspace = true, features = ["derive"], optional = true }
 serde_json = { workspace = true, optional = true }
 
