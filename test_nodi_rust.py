@@ -538,6 +538,122 @@ for (nome, passi), r in zip(SCENARI, risposte):
         shutil.rmtree(tmp, ignore_errors=True)
     controlla(f"vault: {nome}", not diverse, " | ".join(diverse[:2]))
 
+print("\n=== Scrivere nel vault: l'unica porta ===")
+# La sequenza e' la stessa da tutte e due le parti; alla fine si confrontano i
+# **file su disco**, contenuto compreso. E' il confronto piu' duro che si possa
+# fare qui: il formato del file e' un contratto con Obsidian, e una differenza
+# di un carattere e' un file che l'altra meta' rileggerebbe diverso.
+from nova.kb.schema import ORIGINE_AUTO  # noqa: E402
+
+# **Apposta non oggi.** `to_markdown` legge l'orologio, e la data finisce nel
+# frontmatter: con la data di oggi il confronto passerebbe anche se il blocco
+# dell'orologio non funzionasse, e nessuno lo saprebbe fino al giorno dopo. Con
+# una data lontana, se il blocco salta il confronto fallisce subito.
+OGGI_S = "2020-01-01"
+
+
+def n_json(slug, titolo, tipo="fatto", corpo="", relazioni=None, tags=None):
+    return {"slug": slug, "title": titolo, "tipo": tipo, "body": corpo,
+            "relazioni": list(relazioni or []), "tags": list(tags or []),
+            "area": "Generale", "status": "attivo", "origine": ORIGINE_AUTO,
+            "confidenza": 0.7, "riferimenti": [], "creato": "", "aggiornato": ""}
+
+
+SALVATAGGI = [
+    ("un nodo nuovo va nella cartella del suo tipo", {}, [
+        n_json("anna", "Anna", "persona", "Anna e' una collega."),
+    ]),
+    ("un fatto su Anna confluisce in Anna invece di sdoppiarla", {}, [
+        n_json("anna", "Anna", "persona", "Anna e' una collega."),
+        n_json("anna", "Anna", "fatto", "Anna beve caffe'."),
+    ]),
+    ("una persona e un progetto con lo stesso nome restano due nodi", {}, [
+        n_json("marco", "Marco", "persona", "un collega"),
+        n_json("marco", "Marco", "progetto", "un lavoro"),
+    ]),
+    ("lo stesso nodo sotto un altro slug non ne crea un secondo", {}, [
+        n_json("progetto-knowledge-lab", "Knowledge Lab", "progetto", "il primo"),
+        n_json("knowledge-lab", "Knowledge Lab", "progetto", "una nota nuova"),
+    ]),
+    ("un file gia' su disco non viene cancellato alla cieca", {
+        "02-persone/anna.md":
+            "---\ntitle: Anna\ntipo: persona\n---\n\nCosa importante scritta prima.\n",
+    }, [
+        n_json("anna", "Anna", "persona", "Un fatto nuovo."),
+    ]),
+    ("gli archi seguono il nodo che cambia slug", {}, [
+        n_json("progetto-nova", "Nova", "progetto", "il progetto"),
+        n_json("gio", "Gio", "persona", "Vedi [[nova]] per il resto.", ["nova"]),
+        n_json("nova", "Nova", "progetto", "una nota nuova"),
+    ]),
+    ("se A dice di essere collegato a B, B lo scrive nel suo file", {}, [
+        n_json("b", "Bi", "fatto", "il secondo"),
+        n_json("a", "A", "fatto", "il primo", ["b"]),
+    ]),
+    ("un nodo che si dichiara collegato a se stesso non si sporca", {}, [
+        n_json("solo", "Solo", "fatto", "Vedi [[solo]].", ["solo"]),
+    ]),
+    ("un hub sta in cima, fuori dalle cartelle", {}, [
+        n_json("indice", "Indice", "hub", "la porta del vault"),
+    ]),
+    ("un tipo che non conosce nessuno finisce fra i fatti", {}, [
+        n_json("boh", "Boh", "cosa-mai-vista", "x"),
+    ]),
+    ("salvare due volte lo stesso nodo non lo raddoppia", {}, [
+        n_json("anna", "Anna", "persona", "Anna e' una collega."),
+        n_json("anna", "Anna", "persona", "Anna e' una collega."),
+    ]),
+]
+
+risposte = rust([{"tipo": "salva", "partenza": part,
+                  "nodi": nodi, "oggi": OGGI_S}
+                 for _, part, nodi in SALVATAGGI])
+
+for (nome, partenza, nodi), r in zip(SALVATAGGI, risposte):
+    tmp = Path(tempfile.mkdtemp(prefix="nova-salva-"))
+    try:
+        for dove, testo in partenza.items():
+            f = tmp / dove
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(testo, encoding="utf-8")
+        vault = Vault(tmp)
+        # `to_markdown` legge l'orologio: qui la data si fissa, o il confronto
+        # fallirebbe a mezzanotte e passerebbe il resto del giorno.
+        import nova.kb.schema as _schema
+        vera_data = _schema.date
+        class _Fissa:
+            @staticmethod
+            def today():
+                class _G:
+                    @staticmethod
+                    def isoformat():
+                        return OGGI_S
+                return _G()
+        _schema.date = _Fissa
+        try:
+            for j in nodi:
+                vault.upsert(Node(**{k: v for k, v in j.items()
+                                     if k in Node.__dataclass_fields__}))
+        finally:
+            _schema.date = vera_data
+        mio = {}
+        for f in sorted(tmp.rglob("*.md")):
+            rel = f.relative_to(tmp).as_posix()
+            if rel.startswith("."):
+                continue
+            mio[rel] = f.read_text(encoding="utf-8")
+        suo = {k: v for k, v in r["disco"]}
+        diverse = []
+        if sorted(suo) != sorted(mio):
+            diverse.append(f"file: rust {sorted(suo)} vs python {sorted(mio)}")
+        else:
+            for k in sorted(mio):
+                if suo[k] != mio[k]:
+                    diverse.append(f"{k}: rust {suo[k]!r} vs python {mio[k]!r}")
+        controlla(f"salva: {nome}", not diverse, " | ".join(diverse[:1])[:400])
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")

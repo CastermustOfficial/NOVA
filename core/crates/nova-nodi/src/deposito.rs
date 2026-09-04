@@ -18,6 +18,7 @@
 
 use std::collections::BTreeMap;
 
+use crate::posto;
 use crate::{slug, Nodo};
 
 /// Quanto si aspetta prima di riguardare il disco, in secondi.
@@ -297,6 +298,9 @@ impl Deposito {
         let k = chiave(dove, self.distingue_maiuscole);
         self.casa.insert(slug.to_string(), k.clone());
         self.proprietario.insert(k.clone(), slug.to_string());
+        // Anche il nome come si scrive: `dove()` legge di qui, e dimenticarlo
+        // faceva risultare senza casa un nodo appena scritto.
+        self.originale.insert(k.clone(), dove.to_string());
         self.impronte.insert(k, impronta);
     }
 
@@ -313,6 +317,267 @@ pub fn nome_senza_estensione(percorso: &str) -> String {
     match ultimo.rfind('.') {
         Some(i) if i > 0 => ultimo[..i].to_string(),
         _ => ultimo.to_string(),
+    }
+}
+
+/// Un disco su cui si puo' anche scrivere.
+///
+/// **Il contratto e' che la scrittura non possa restare a meta'**: di fianco
+/// e poi si rinomina. Non e' un dettaglio di chi implementa, e' scritto qui
+/// perche' e' la ragione per cui questo tratto esiste separato da `Disco`.
+///
+/// Il difetto che lo motiva e' stato pagato: il Python scriveva le note con
+/// una `write_text`, cioe' apri-tronca-scrivi, e ci passa il thread che
+/// impara dopo quasi ogni scambio. Un'interruzione fra il tronca e lo scrivi
+/// lascia una nota **vuota** — che alla ricerca dopo c'e' ancora e non dice
+/// piu' niente, senza un errore da nessuna parte.
+pub trait DiscoScrivibile: Disco {
+    /// Scrive il testo e torna l'impronta di quel che e' finito su disco.
+    /// L'impronta serve subito: senza, il giro dopo il file risulterebbe
+    /// «cambiato da fuori» e verrebbe riletto per niente.
+    fn scrivi(&self, dove: &str, testo: &str) -> Result<Impronta, String>;
+}
+
+/// Chi decide se un testo puo' entrare in memoria.
+///
+/// Sta dietro un tratto e non dentro una funzione perche' `salva` **deve**
+/// chiederglielo: e' l'unica porta da cui si scrive nel vault, ci passano
+/// l'apprendimento automatico, le note scritte a mano e il seeding, e
+/// chiudere una porta sola vuol dire chiuderla davvero. Se il controllo
+/// stesse nel giudizio di chi chiama, basterebbe un chiamante distratto.
+///
+/// Torna il **nome** di cio' che ha trovato, mai il valore: un messaggio di
+/// rifiuto finisce nei registri, e un registro che ripete la credenziale
+/// appena rifiutata non ha protetto niente.
+pub trait Guardiano {
+    fn perche_non_si_salva(&self, testo: &str) -> Option<String>;
+}
+
+/// Un guardiano che lascia passare tutto. Esiste per le prove e per i casi in
+/// cui il testo e' gia' stato controllato a monte; non e' il predefinito
+/// apposta, perche' scriverlo deve costare una riga visibile.
+pub struct NessunControllo;
+
+impl Guardiano for NessunControllo {
+    fn perche_non_si_salva(&self, _testo: &str) -> Option<String> {
+        None
+    }
+}
+
+impl Deposito {
+    /// Riconosce un nodo gia' presente sotto un altro slug.
+    ///
+    /// Il modello scrive «knowledge-lab», la scansione aveva scritto
+    /// «progetto-knowledge-lab»: senza questo controllo la memoria si sdoppia
+    /// e le due meta' non si parlano piu'.
+    ///
+    /// Il controllo sui tipi non e' un di piu': senza, la persona «Marco» e
+    /// il progetto «Marco» finivano nello stesso file, con un tipo solo e
+    /// nella cartella sbagliata.
+    pub fn stesso_nodo(&self, nodo: &Nodo) -> Option<String> {
+        let titolo = nodo.title.trim().to_lowercase();
+        let nudo = crate::fusione::senza_prefisso(&nodo.slug);
+        for altro in self.nodi.values() {
+            if altro.slug == nodo.slug {
+                continue;
+            }
+            if !crate::fusione::tipi_compatibili(&nodo.tipo, &altro.tipo) {
+                continue;
+            }
+            if !titolo.is_empty() && altro.title.trim().to_lowercase() == titolo {
+                return Some(altro.slug.clone());
+            }
+            if !nudo.is_empty() && crate::fusione::senza_prefisso(&altro.slug) == nudo {
+                return Some(altro.slug.clone());
+            }
+        }
+        None
+    }
+
+    /// I tipi di tutti i nodi, per chi deve chiedere uno slug libero.
+    fn tipi(&self) -> std::collections::HashMap<String, String> {
+        self.nodi
+            .iter()
+            .map(|(s, n)| (s.clone(), n.tipo.clone()))
+            .collect()
+    }
+
+    /// Scrive un nodo nel vault: l'unica porta.
+    ///
+    /// Nell'ordine: si chiede al guardiano; si cerca chi c'e' gia' (per slug,
+    /// poi per somiglianza); lo si rilegge dal disco perche' potrebbe averlo
+    /// appena corretto l'utente in Obsidian; si controllano i tipi; si fonde;
+    /// si scrive dove il file gia' sta, o dove il tipo dice che deve stare.
+    pub fn salva(
+        &mut self,
+        disco: &dyn DiscoScrivibile,
+        guardiano: &dyn Guardiano,
+        mut nodo: Nodo,
+        unisci: bool,
+        oggi: &str,
+    ) -> Result<Nodo, String> {
+        if let Some(motivo) = guardiano.perche_non_si_salva(&format!(
+            "{}\n{}",
+            nodo.title, nodo.body
+        )) {
+            // Il rifiuto dice cosa ha trovato, non cosa ha letto.
+            return Err(format!(
+                "non salvo questo nodo: contiene {motivo}. Quello che entra nel \
+                 vault viene riletto in ogni conversazione futura, comprese quelle \
+                 in cui leggo testo scritto da altri — una credenziale li' dentro \
+                 e' esposta per sempre. Se serve usarla, chiedila al momento."
+            ));
+        }
+        nodo.slug = slug(if nodo.slug.is_empty() { &nodo.title } else { &nodo.slug });
+
+        let mut chi_cera = if self.nodi.contains_key(&nodo.slug) {
+            Some(nodo.slug.clone())
+        } else {
+            self.stesso_nodo(&nodo)
+        };
+
+        // Il file puo' esistere su disco senza essere ancora nell'indice: chi
+        // impara scrive da un thread di sfondo e il seeding fa una raffica di
+        // salvataggi, entrambi senza passare da un giro di aggiornamento.
+        // Scriverci sopra in blocco cancellerebbe quel che c'e' gia'.
+        if chi_cera.is_none() {
+            let atteso = posto::percorso_relativo(&nodo.tipo, &nodo.slug).join("/");
+            if disco.impronta(&atteso).is_some() {
+                self.carica(disco, &atteso);
+                if self.nodi.contains_key(&nodo.slug) {
+                    chi_cera = Some(nodo.slug.clone());
+                }
+            }
+        }
+
+        // Il controllo sui tipi vale anche sul ramo diretto: chi estrae genera
+        // slug dal titolo, quindi la persona «Marco» e il progetto «Marco»
+        // hanno lo stesso slug e si fonderebbero senza passare dal ramo per
+        // somiglianza.
+        if let Some(slug_altro) = &chi_cera {
+            let compatibili = self
+                .nodi
+                .get(slug_altro)
+                .map(|a| crate::fusione::tipi_compatibili(&nodo.tipo, &a.tipo))
+                .unwrap_or(false);
+            if !compatibili {
+                chi_cera = None;
+                nodo.slug = posto::slug_libero(&nodo.tipo, &nodo.slug, &self.tipi());
+            }
+        }
+
+        let slug_richiesto = nodo.slug.clone();
+        let mut rinominato: Option<(String, String)> = None;
+        if let Some(slug_altro) = &chi_cera {
+            nodo.slug = slug_altro.clone();
+            if slug_richiesto != nodo.slug {
+                rinominato = Some((slug_richiesto, nodo.slug.clone()));
+            }
+        }
+
+        if unisci {
+            if let Some(vecchio) = chi_cera.as_ref().and_then(|s| self.nodi.get(s)) {
+                nodo = crate::fusione::fondi(vecchio, &nodo);
+            }
+        }
+
+        // Dove va: se il file c'e' gia' resta dov'e' — spostarlo vorrebbe
+        // dire che chi l'aveva aperto in Obsidian se lo vede sparire.
+        let dove = match chi_cera.as_ref().and_then(|s| self.dove(s)) {
+            Some(d) => d.to_string(),
+            None => posto::percorso_relativo(&nodo.tipo, &nodo.slug).join("/"),
+        };
+        let impronta = disco.scrivi(&dove, &nodo.a_markdown(oggi))?;
+        let slug_finale = nodo.slug.clone();
+        self.segna_scritto(&dove, impronta, &slug_finale);
+        self.nodi.insert(slug_finale.clone(), nodo.clone());
+        if let Some((vecchio, nuovo)) = rinominato {
+            self.rinomina_relazioni(disco, &vecchio, &nuovo, oggi);
+        }
+        self.collega_reciproco(disco, &nodo, oggi);
+        Ok(nodo)
+    }
+
+    /// Se A dice di essere collegato a B, B deve saperlo: il grafo si
+    /// naviga in tutte e due i versi o non si naviga.
+    ///
+    /// Si accoda senza riordinare, come dall'altra parte: l'ordine delle
+    /// relazioni e' quello in cui sono nate, e riordinarlo riscriverebbe il
+    /// file di tutti i nodi collegati con una modifica che nessuno ha
+    /// chiesto.
+    fn collega_reciproco(&mut self, disco: &dyn DiscoScrivibile, nodo: &Nodo, oggi: &str) {
+        for slug_altro in nodo.tutte_le_relazioni() {
+            let Some(altro) = self.nodi.get(&slug_altro) else {
+                continue;
+            };
+            if altro.tutte_le_relazioni().contains(&nodo.slug) {
+                continue;
+            }
+            let Some(dove) = self.dove(&slug_altro).map(|d| d.to_string()) else {
+                continue;
+            };
+            let Some(altro) = self.nodi.get_mut(&slug_altro) else {
+                continue;
+            };
+            altro.relazioni.push(nodo.slug.clone());
+            let testo = altro.a_markdown(oggi);
+            if let Ok(impronta) = disco.scrivi(&dove, &testo) {
+                self.segna_scritto(&dove, impronta, &slug_altro);
+            }
+        }
+    }
+
+    /// Dopo una fusione, gli archi che puntavano al vecchio slug vanno
+    /// spostati. Prima restavano appesi: chi navigava il grafo li scartava
+    /// senza dire niente, e il grafo perdeva un arco a ogni deduplicazione
+    /// mentre le statistiche continuavano a contarli.
+    fn rinomina_relazioni(
+        &mut self,
+        disco: &dyn DiscoScrivibile,
+        vecchio: &str,
+        nuovo: &str,
+        oggi: &str,
+    ) {
+        if vecchio.is_empty() || vecchio == nuovo {
+            return;
+        }
+        let da_toccare: Vec<String> = self
+            .nodi
+            .values()
+            .filter(|n| n.tutte_le_relazioni().iter().any(|r| r == vecchio))
+            .map(|n| n.slug.clone())
+            .collect();
+        for slug_altro in da_toccare {
+            let Some(altro) = self.nodi.get_mut(&slug_altro) else {
+                continue;
+            };
+            // `dict.fromkeys` del Python: toglie i doppioni **conservando
+            // l'ordine**. Ordinare alfabeticamente sarebbe piu' comodo e
+            // riscriverebbe il file di tutti i nodi collegati, con una
+            // modifica che l'utente non ha chiesto e che vedrebbe comparire
+            // in Obsidian. Si scartano anche gli archi verso se stessi: dopo
+            // una fusione «vecchio» puo' essere diventato proprio questo
+            // nodo.
+            let mut viste: Vec<String> = Vec::new();
+            for r in &altro.relazioni {
+                let r = if r == vecchio { nuovo.to_string() } else { r.clone() };
+                if r != slug_altro && !viste.contains(&r) {
+                    viste.push(r);
+                }
+            }
+            altro.relazioni = viste;
+            // I wikilink nel corpo contano quanto le relazioni dichiarate:
+            // rinominare solo il frontmatter lascia «Vedi [[vecchio]]» appeso
+            // per sempre.
+            altro.body = crate::fusione::rinomina_wikilink(&altro.body, vecchio, nuovo);
+            let testo = altro.a_markdown(oggi);
+            let Some(dove) = self.dove(&slug_altro).map(|d| d.to_string()) else {
+                continue;
+            };
+            if let Ok(impronta) = disco.scrivi(&dove, &testo) {
+                self.segna_scritto(&dove, impronta, &slug_altro);
+            }
+        }
     }
 }
 
@@ -499,5 +764,176 @@ mod prove {
         assert_eq!(nome_senza_estensione("a\\b\\Nota Lunga.md"), "Nota Lunga");
         assert_eq!(nome_senza_estensione("senza-estensione"), "senza-estensione");
         assert_eq!(nome_senza_estensione(".nascosto"), ".nascosto");
+    }
+
+    // -- il disco finto, versione che sa anche scrivere -----------------
+    impl DiscoScrivibile for DiscoFinto {
+        fn scrivi(&self, dove: &str, testo: &str) -> Result<Impronta, String> {
+            // Il disco finto e' atomico per costruzione: o la voce c'e' con
+            // il contenuto nuovo, o c'e' con quello vecchio. E' il contratto
+            // che il disco vero mantiene scrivendo di fianco e rinominando.
+            self.metti(dove, testo, 9.0);
+            self.impronta(dove).ok_or_else(|| "sparito".to_string())
+        }
+    }
+
+    /// Un guardiano che rifiuta cio' che ha una cifra attaccata a «password».
+    /// Non e' quello vero — quello e' un pezzo suo — ma basta a provare che
+    /// `salva` **chiede** prima di scrivere.
+    struct GuardianoFinto;
+
+    impl Guardiano for GuardianoFinto {
+        fn perche_non_si_salva(&self, testo: &str) -> Option<String> {
+            if testo.to_lowercase().contains("password: tramonto2026") {
+                Some("una credenziale in chiaro".into())
+            } else {
+                None
+            }
+        }
+    }
+
+    fn nodo(slug: &str, titolo: &str, tipo: &str, corpo: &str) -> Nodo {
+        Nodo {
+            slug: slug.into(),
+            title: titolo.into(),
+            body: corpo.into(),
+            tipo: tipo.into(),
+            ..Default::default()
+        }
+    }
+
+    const OGGI: &str = "2026-09-04";
+
+    #[test]
+    fn un_nodo_nuovo_finisce_nella_cartella_del_suo_tipo() {
+        let d = DiscoFinto::default();
+        let mut v = Deposito::nuovo(false);
+        let n = v
+            .salva(&d, &NessunControllo, nodo("anna", "Anna", "persona", "x"), true, OGGI)
+            .unwrap();
+        assert_eq!(n.slug, "anna");
+        assert_eq!(v.dove("anna"), Some("02-persone/anna.md"));
+        assert!(d.leggi("02-persone/anna.md").unwrap().contains("title: Anna"));
+    }
+
+    #[test]
+    fn il_guardiano_viene_chiesto_e_il_rifiuto_non_ripete_il_segreto() {
+        let d = DiscoFinto::default();
+        let mut v = Deposito::nuovo(false);
+        let esito = v.salva(
+            &d,
+            &GuardianoFinto,
+            nodo("wifi", "Wifi", "fatto", "password: Tramonto2026"),
+            true,
+            OGGI,
+        );
+        let motivo = esito.unwrap_err();
+        assert!(motivo.contains("una credenziale in chiaro"), "{motivo}");
+        assert!(
+            !motivo.contains("Tramonto2026"),
+            "il rifiuto ha ripetuto la credenziale che stava rifiutando: {motivo}"
+        );
+        assert_eq!(v.quanti(), 0, "l'ha salvato lo stesso");
+        assert!(d.elenca().is_empty(), "ha scritto un file rifiutato");
+    }
+
+    #[test]
+    fn un_fatto_su_anna_confluisce_in_anna_invece_di_sdoppiarla() {
+        // Il caso che tiene insieme la memoria. Se qui nascesse un secondo
+        // file, ogni annotazione automatica ne creerebbe un altro e i ricordi
+        // su Anna smetterebbero di parlarsi.
+        let d = DiscoFinto::default();
+        let mut v = Deposito::nuovo(false);
+        v.salva(&d, &NessunControllo, nodo("anna", "Anna", "persona", "Anna e' una collega."), true, OGGI)
+            .unwrap();
+        let n = v
+            .salva(&d, &NessunControllo, nodo("anna", "Anna", "fatto", "Anna beve caffe'."), true, OGGI)
+            .unwrap();
+        assert_eq!(v.quanti(), 1, "la memoria si e' sdoppiata");
+        assert_eq!(n.tipo, "persona", "il fatto ha declassato la persona");
+        assert!(n.body.contains("collega") && n.body.contains("caffe"), "{}", n.body);
+        assert_eq!(d.elenca().len(), 1, "due file per lo stesso nodo");
+    }
+
+    #[test]
+    fn una_persona_e_un_progetto_con_lo_stesso_nome_restano_due_nodi() {
+        // Chi estrae genera lo slug dal titolo: la persona «Marco» e il
+        // progetto «Marco» arrivano tutti e due come slug «marco», e senza il
+        // controllo sui tipi finirebbero nello stesso file, con un tipo solo
+        // e nella cartella sbagliata.
+        let d = DiscoFinto::default();
+        let mut v = Deposito::nuovo(false);
+        v.salva(&d, &NessunControllo, nodo("marco", "Marco", "persona", "un collega"), true, OGGI)
+            .unwrap();
+        let p = v
+            .salva(&d, &NessunControllo, nodo("marco", "Marco", "progetto", "un lavoro"), true, OGGI)
+            .unwrap();
+        assert_eq!(v.quanti(), 2, "si sono fusi");
+        assert_ne!(p.slug, "marco");
+        assert!(v.dove(&p.slug).unwrap().starts_with("03-progetti/"), "{:?}", v.dove(&p.slug));
+    }
+
+    #[test]
+    fn un_nodo_riconosciuto_sotto_un_altro_slug_non_ne_crea_un_secondo() {
+        // Il modello scrive «knowledge-lab», la scansione aveva scritto
+        // «progetto-knowledge-lab».
+        let d = DiscoFinto::default();
+        let mut v = Deposito::nuovo(false);
+        v.salva(&d, &NessunControllo,
+                nodo("progetto-knowledge-lab", "Knowledge Lab", "progetto", "il primo"),
+                true, OGGI).unwrap();
+        let n = v.salva(&d, &NessunControllo,
+                        nodo("knowledge-lab", "Knowledge Lab", "progetto", "una nota nuova"),
+                        true, OGGI).unwrap();
+        assert_eq!(n.slug, "progetto-knowledge-lab");
+        assert_eq!(v.quanti(), 1);
+        assert_eq!(d.elenca().len(), 1);
+    }
+
+    #[test]
+    fn un_file_gia_su_disco_non_viene_cancellato_da_un_salvataggio_alla_cieca() {
+        // Chi impara scrive da un thread di sfondo, senza passare da un giro
+        // di aggiornamento: il file c'e' ma l'indice non lo sa ancora.
+        // Scriverci sopra in blocco butterebbe via quel che c'era.
+        let d = DiscoFinto::default();
+        d.metti("02-persone/anna.md",
+                "---\ntitle: Anna\ntipo: persona\n---\n\nCosa importante scritta prima.\n", 1.0);
+        let mut v = Deposito::nuovo(false);
+        let n = v.salva(&d, &NessunControllo,
+                        nodo("anna", "Anna", "persona", "Un fatto nuovo."), true, OGGI).unwrap();
+        assert!(n.body.contains("Cosa importante scritta prima"),
+                "il corpo di prima e' sparito: {}", n.body);
+        assert!(n.body.contains("Un fatto nuovo"), "{}", n.body);
+    }
+
+    #[test]
+    fn un_nodo_che_cambia_slug_si_porta_dietro_gli_archi_che_lo_puntavano() {
+        // Prima gli archi restavano appesi: chi navigava il grafo li scartava
+        // in silenzio, e il grafo perdeva un arco a ogni deduplicazione.
+        let d = DiscoFinto::default();
+        let mut v = Deposito::nuovo(false);
+        v.salva(&d, &NessunControllo,
+                nodo("progetto-nova", "Nova", "progetto", "il progetto"), true, OGGI).unwrap();
+        let mut chi_punta = nodo("gio", "Gio", "persona", "Vedi [[nova]] per il resto.");
+        chi_punta.relazioni = vec!["nova".into()];
+        v.salva(&d, &NessunControllo, chi_punta, true, OGGI).unwrap();
+        // «nova» ora viene riconosciuto come «progetto-nova»
+        v.salva(&d, &NessunControllo,
+                nodo("nova", "Nova", "progetto", "una nota nuova"), true, OGGI).unwrap();
+        let gio = v.prendi("gio").unwrap();
+        assert!(gio.relazioni.contains(&"progetto-nova".to_string()),
+                "l'arco e' rimasto appeso: {:?}", gio.relazioni);
+        assert!(gio.body.contains("[[progetto-nova]]"),
+                "il wikilink nel corpo e' rimasto appeso: {}", gio.body);
+    }
+
+    #[test]
+    fn quel_che_si_e_appena_scritto_non_risulta_cambiato_da_fuori() {
+        // Senza segnare l'impronta, il giro dopo NOVA rileggerebbe da disco
+        // ogni file che ha appena scritto lei.
+        let d = DiscoFinto::default();
+        let mut v = Deposito::nuovo(false);
+        v.salva(&d, &NessunControllo, nodo("anna", "Anna", "persona", "x"), true, OGGI).unwrap();
+        assert_eq!(v.aggiorna(&d), Cambiamenti::default());
     }
 }

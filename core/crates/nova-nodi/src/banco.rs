@@ -1,7 +1,7 @@
 //! Il banco: una riga JSON per domanda, per il confronto col Python.
 
 use nova_nodi::fusione;
-use nova_nodi::deposito::{Deposito, Disco, Impronta};
+use nova_nodi::deposito::{Deposito, Disco, DiscoScrivibile, Impronta, NessunControllo};
 use nova_nodi::posto;
 use std::collections::{BTreeMap, HashMap};
 use nova_nodi::{come_lista, dividi_frontmatter, slug, Nodo};
@@ -59,6 +59,16 @@ enum Domanda {
         passi: Vec<BTreeMap<String, String>>,
         #[serde(default)]
         distingue_maiuscole: bool,
+    },
+    /// Una sequenza di salvataggi su un vault che parte da un certo stato.
+    /// Alla fine si guarda cosa c'e' su disco, file per file.
+    #[serde(rename = "salva")]
+    Salva {
+        #[serde(default)]
+        partenza: BTreeMap<String, String>,
+        #[serde(default)]
+        nodi: Vec<NodoJson>,
+        oggi: String,
     },
     #[serde(rename = "slug_libero")]
     SlugLibero {
@@ -152,6 +162,10 @@ struct Risposta {
     #[serde(skip_serializing_if = "Option::is_none")]
     passi: Option<Vec<StatoVault>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    disco: Option<Vec<(String, String)>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    rifiuti: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     errore: Option<String>,
 }
 
@@ -167,21 +181,28 @@ struct StatoVault {
 /// lunghezza del testo piu' il testo stesso, cosi' due contenuti diversi
 /// hanno impronte diverse senza bisogno di un orologio.
 struct DiscoFinto {
-    file: BTreeMap<String, String>,
+    file: std::cell::RefCell<BTreeMap<String, String>>,
 }
 
 impl Disco for DiscoFinto {
     fn elenca(&self) -> Vec<String> {
-        self.file.keys().cloned().collect()
+        self.file.borrow().keys().cloned().collect()
     }
     fn impronta(&self, dove: &str) -> Option<Impronta> {
-        self.file.get(dove).map(|t| Impronta {
+        self.file.borrow().get(dove).map(|t| Impronta {
             quando: impronta_del_testo(t),
             quanto: t.len() as i64,
         })
     }
     fn leggi(&self, dove: &str) -> Option<String> {
-        self.file.get(dove).cloned()
+        self.file.borrow().get(dove).cloned()
+    }
+}
+
+impl DiscoScrivibile for DiscoFinto {
+    fn scrivi(&self, dove: &str, testo: &str) -> Result<Impronta, String> {
+        self.file.borrow_mut().insert(dove.to_string(), testo.to_string());
+        self.impronta(dove).ok_or_else(|| "sparito".to_string())
     }
 }
 
@@ -197,7 +218,8 @@ fn impronta_del_testo(t: &str) -> f64 {
 fn vuota() -> Risposta {
     Risposta { slug: None, markdown: None, nodo: None, relazioni: None,
                lista: None, frontmatter: None, corpo: None, testo: None,
-               pezzi: None, passi: None, errore: None }
+               pezzi: None, passi: None, disco: None, rifiuti: None,
+               errore: None }
 }
 
 fn main() {
@@ -265,7 +287,7 @@ fn main() {
                 let mut v = Deposito::nuovo(distingue_maiuscole);
                 let mut fuori = Vec::new();
                 for (i, mappa) in passi.iter().enumerate() {
-                    let disco = DiscoFinto { file: mappa.clone() };
+                    let disco = DiscoFinto { file: std::cell::RefCell::new(mappa.clone()) };
                     // Il primo passo e' un'apertura del vault, i successivi
                     // sono cio' che l'utente ha combinato in Obsidian mentre
                     // NOVA era accesa.
@@ -288,6 +310,21 @@ fn main() {
                     });
                 }
                 Risposta { passi: Some(fuori), ..vuota() }
+            }
+            Ok(Domanda::Salva { partenza, nodi, oggi }) => {
+                let disco = DiscoFinto { file: std::cell::RefCell::new(partenza) };
+                let mut v = Deposito::nuovo(false);
+                v.ricarica(&disco);
+                let mut rifiuti = Vec::new();
+                for j in nodi {
+                    let n: Nodo = j.into();
+                    if let Err(motivo) = v.salva(&disco, &NessunControllo, n, true, &oggi) {
+                        rifiuti.push(motivo);
+                    }
+                }
+                let fuori: Vec<(String, String)> =
+                    disco.file.borrow().iter().map(|(k, t)| (k.clone(), t.clone())).collect();
+                Risposta { disco: Some(fuori), rifiuti: Some(rifiuti), ..vuota() }
             }
             Ok(Domanda::SlugLibero { tipo_nodo, slug, esistenti }) => Risposta {
                 slug: Some(posto::slug_libero(&tipo_nodo, &slug, &esistenti)),
