@@ -2504,6 +2504,7 @@ dependencies = [
  "async-trait",
  "nova-platform",
  "nova-proto",
+ "nova-strumenti",
  "nova-voce",
  "serde",
  "serde_json",

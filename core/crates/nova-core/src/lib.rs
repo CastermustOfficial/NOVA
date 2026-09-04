@@ -13,6 +13,7 @@
 //! (ETW / EndpointSecurity / eBPF) e gli snapshot (VSS / APFS / overlayfs).
 
 pub mod caps_segreti;
+pub mod caps_sistema;
 pub mod segreti;
 pub mod bus;
 pub mod capability;

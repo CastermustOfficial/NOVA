@@ -8,6 +8,10 @@ description = "Il motore di NOVA: bus di eventi, registro di capacita', supervis
 [dependencies]
 nova-proto = { path = "../nova-proto" }
 nova-platform = { path = "../nova-platform" }
+# I tratti che NOVA dichiara — «copia questo testo negli appunti» — stanno
+# qui dentro. nova-core e' l'unico che conosce tutti e due i lati: chi
+# chiede e chi sa fare (D130).
+nova-strumenti = { path = "../nova-strumenti" }
 nova-voce = { path = "../nova-voce" }
 tokio.workspace = true
 serde.workspace = true

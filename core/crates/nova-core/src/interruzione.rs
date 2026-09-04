@@ -142,14 +142,41 @@ mod prove {
         crate::bus::Bus::new()
     }
 
+    /// Le prove di questo modulo si mettono in fila.
+    ///
+    /// La generazione e' globale — c'e' un solo NOVA e un solo pulsante
+    /// «ferma» — e cargo fa girare le prove in parallelo, ognuna col suo
+    /// runtime su un thread suo. Chi chiama `ferma()` alza la generazione per
+    /// **tutti**: se lo fa mentre un'altra prova sta fra il suo `gettone()` e
+    /// il suo `select!`, quell'altra si vede interrompere un lavoro che era
+    /// gia' finito, e fallisce senza che nulla sia rotto.
+    ///
+    /// Non e' un difetto del meccanismo: in NOVA vera, se si preme «ferma»
+    /// mentre un'azione sta partendo, interromperla e' la cosa giusta. E'
+    /// un difetto della prova, ed e' il peggiore che una prova possa avere —
+    /// rossa a caso, quindi ignorata, quindi inutile.
+    ///
+    /// Il fatto interessante e' che il problema era gia' scritto qui sotto,
+    /// in `l_esito_passa_intatto`, per il contatore «in corso»: la stessa
+    /// domanda, lo stesso stato globale, e nessuno l'aveva riportata sulle
+    /// altre prove (D72). Il guasto e' venuto fuori settimane dopo, e a caso.
+    fn in_fila() -> std::sync::MutexGuard<'static, ()> {
+        static SERIALE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        // Una prova che fallisce avvelena il lucchetto: le altre devono
+        // comunque poter girare, altrimenti un rosso ne produce cinque.
+        SERIALE.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
     #[tokio::test]
     async fn cio_che_finisce_in_tempo_non_viene_toccato() {
+        let _fila = in_fila();
         let esito = interrompibile(async { Ok::<_, anyhow::Error>(7) }).await;
         assert_eq!(esito.unwrap(), 7);
     }
 
     #[tokio::test]
     async fn un_lavoro_lungo_si_ferma() {
+        let _fila = in_fila();
         let bus = bus_finto();
         let b = bus.clone();
         tokio::spawn(async move {
@@ -166,6 +193,7 @@ mod prove {
 
     #[tokio::test]
     async fn chi_parte_dopo_non_eredita_l_interruzione() {
+        let _fila = in_fila();
         let bus = bus_finto();
         ferma(&bus);
         // Questa nasce dopo: la generazione e' gia' quella nuova.
@@ -179,6 +207,7 @@ mod prove {
 
     #[tokio::test]
     async fn l_esito_passa_intatto() {
+        let _fila = in_fila();
         // Il contatore «in corso» e' globale — c'e' un solo NOVA e un solo
         // pulsante «ferma» — e i test girano in parallelo: fra il «prima» e il
         // «dopo» un'altra prova puo' cominciare o finire. Verificarlo qui

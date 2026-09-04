@@ -45,6 +45,15 @@ features = [
     "Win32_System_DataExchange",
     "Win32_System_Memory",
     "Win32_System_Ole",
+    # Core Audio: chi il volume lo tiene davvero. Dall'altra parte il volume
+    # e' cinquanta pressioni simulate del tasto «volume giu'» e poi N di
+    # «volume su», e nessuno che lo rilegga. Vedi D130.
+    "Win32_Media_Audio",
+    "Win32_Media_Audio_Endpoints",
+    # `IMMDevice::Activate` e' generico e prende una PROPVARIANT: senza
+    # questa feature il metodo non esiste affatto, e l'errore dice solo
+    # «no method named Activate».
+    "Win32_System_Com_StructuredStorage",
 ]
 
 # Una risposta sola alla domanda «quanta memoria video c'e'»: la usano
@@ -57,3 +66,7 @@ path = "src/bin/nova-schede.rs"
 [[bin]]
 name = "nova-appunti"
 path = "src/bin/nova-appunti.rs"
+
+[[bin]]
+name = "nova-volume"
+path = "src/bin/nova-volume.rs"

@@ -32,6 +32,9 @@ pub mod gpu;
 // stringa da comporre. Vedi D130.
 pub mod appunti;
 
+// Il volume, chiesto a Core Audio invece che simulato a colpi di tasto.
+pub mod audio;
+
 // Se i byte di un file stanno qui o nel cloud. Serve prima di leggere un
 // modello da dodici gigabyte che una cartella sincronizzata puo' aver
 // «liberato» lasciando un segnaposto al suo posto.
