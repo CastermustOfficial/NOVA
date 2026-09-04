@@ -20,6 +20,9 @@
 
 mod dichiarazioni;
 
+// Cosa NOVA puo' fare senza chiedere, e cosa non puo' fare affatto.
+pub mod guardie;
+
 pub use dichiarazioni::STRUMENTI;
 
 /// Quanto costa sbagliare questa azione.
