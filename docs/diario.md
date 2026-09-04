@@ -3463,3 +3463,81 @@ descrive per nome: tolto il controllo sui tipi dal ramo diretto.
 
 La persona Marco e il progetto Marco nello stesso file, con un tipo solo e
 nella cartella sbagliata. Il banco l'ha visto.
+
+---
+
+## 4 settembre 2026, notte — CANT-1 chiuso
+
+Il vault, tutto: leggere, accorgersi dei cambiamenti, scrivere, archiviare,
+riattivare, contare, generare l'indice, tenere il registro. Il disco vero
+dietro il tratto, e il guardiano dei segreti attaccato.
+
+Quattro cose che valeva la pena fare in un modo invece che in un altro.
+
+### Il guardiano: una lista sola, due mani diverse
+
+Il pezzo che avevo lasciato per ultimo apposta, perche' e' quello che meno di
+tutti va fatto a meta'.
+
+`chiavi` maschera i segreti nei messaggi d'errore, il guardiano impedisce che
+entrino in memoria. Sembra la stessa domanda, e **le forme sono le stesse** —
+per questo stanno in un elenco solo, che e' tutta la lezione di D73. Ma il
+costo dello sbaglio no:
+
+- coprire di troppo in un registro costa una parola illeggibile;
+- rifiutare di troppo costa **un ricordo che NOVA non avra' mai**, e l'utente
+  non capisce nemmeno perche'.
+
+Quindi la stessa tabella porta due soglie: si maschera con la mano larga —
+otto caratteri dopo il prefisso, per tutti — e si rifiuta con la mano ferma,
+la soglia vera del fornitore: sedici per una chiave OpenAI, venti per un token
+GitHub, dieci per uno Slack. Prima era un numero solo per tutti e due gli usi,
+e andava bene solo perche' nessuno lo usava per rifiutare.
+
+Il banco non chiede «siete d'accordo?» — su questo le due meta' si erano gia'
+trovate d'accordo nello sbagliare (D51). Chiede due cose:
+
+    e' rimasto fuori qualcosa che doveva essere rifiutato?
+    e' stato rifiutato qualcosa che NOVA doveva poter ricordare?
+
+Venti forme che devono essere fermate, dieci ricordi legittimi che devono
+passare, da tutte e due le parti. E una terza domanda: che il rifiuto non
+ripeta mai cio' che ha rifiutato, perche' finisce in un registro.
+
+Verificato rompendo il Rust: tolta la scansione «chiave poi valore», sei casi
+su venti passano — password, pin, bearer, parola d'ordine. Il banco l'ha
+visto.
+
+### Il guardiano attaccato, non solo disponibile
+
+`Guardiano` e' un tratto perche' `salva` deve chiederglielo. Ma un tratto con
+nessuna implementazione vera e' una promessa: c'e' una prova che verifica che
+il guardiano **vero** sia attaccato al vault — rifiuta una password e lascia
+passare «Gio lavora meglio la mattina presto». Senza quella, la porta poteva
+restare aperta sembrando chiusa.
+
+### Gli orfani in ordine
+
+`statistiche()` elenca i nodi che nessuno nomina, tagliati a venti. Il Python
+li dava in ordine di inserimento — cioe' l'ordine in cui i file erano stati
+letti o i nodi salvati — e siccome la lista e' tagliata, quell'ordine
+incidentale **decideva quali orfani si vedono**. Stessa forma di D94, in
+piccolo. Adesso in ordine alfabetico da tutte e due le parti.
+
+### Quello che il disco vero rifiuta
+
+`Cartella::scrivi` rifiuta ogni percorso con un `..` dentro. Non e' paranoia
+astratta: un percorso arriva da uno slug, uno slug arriva da un titolo, e un
+titolo puo' arrivare da un testo che NOVA ha letto da qualche parte. Non c'e'
+nessun caso legittimo in cui un nodo debba scrivere fuori dalla cartella
+dell'utente.
+
+E l'elenco non segue i collegamenti simbolici: seguirli vorrebbe dire leggere
+come nodo un file che sta fuori dal vault, e poi **riscriverlo li'**.
+
+### Cosa non e' portato, e si vede
+
+Il registro accoda una riga; a comporla e' chi chiama, perche' cosa vada in un
+registro non lo decide chi tiene i file. E `nova-nodi` adesso dipende da
+`nova-guasti` — una direzione sola, perche' `nova-guasti` non deve sapere che
+esiste un vault.

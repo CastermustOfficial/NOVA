@@ -2540,6 +2540,7 @@ dependencies = [
 name = "nova-nodi"
 version = "0.1.0"
 dependencies = [
+ "nova-guasti",
  "serde",
  "serde_json",
 ]

@@ -837,7 +837,7 @@ mole, non di difficolta'.
 
 | | Pezzo | Righe | Perche' li' nell'ordine |
 |---|---|---|---|
-| CANT-1 | **Il vault su disco** — leggere, scrivere, rileggere se cambiato, indice, statistiche, archivio | ~660 | Seguito diretto di `nova-nodi`: oggi il Rust sa *dove* va un file e *cosa* ci va, e a scriverlo pensa ancora il Python. Ed e' il primo pezzo che si scrive contro il trait di `nova-platform` invece che sopra il filesystem nudo — quindi apre la strada a tutti quelli dopo. Ci vive gia' un difetto pagato: `resolve()` segue i reparse point MSIX (D56) |
+| ~~CANT-1~~ | ~~**Il vault su disco**~~ — **fatto** | ~660 | Era il seguito diretto di `nova-nodi`, ed e' stato il primo pezzo scritto contro un tratto invece che sopra il filesystem nudo: e' quello che apre la strada a tutti gli altri. Ha ripagato prima di essere finito — la scrittura delle note dell'utente non era atomica (D102) — e ha portato dentro anche il guardiano dei segreti (D109, D110) |
 | CANT-2 | **Gli strumenti** — file, app, shell, web, schermo, tempo, documenti, deleghe | ~2.570 | Sono la meta' di NOVA che tocca il PC, ed e' esattamente quella che in Python costa di piu' in dipendenze. Tanti pezzi piccoli e indipendenti: si porta uno strumento per volta senza fermare niente |
 | CANT-3 | **Il ciclo dell'agente e i cervelli** — `agent.py`, i client dei modelli | ~2.200 | E' il pezzo che davvero libera dal Python, ma va dopo gli strumenti: un ciclo che chiama strumenti Python non ha liberato niente. Dentro c'e' la parte piu' delicata di tutto il progetto — il taglio del contesto a token, che se sbaglia perde pezzi di conversazione senza dirlo |
 | CANT-4 | **Lanciare il modello locale** — `runtime.py` | ~690 | Il calcolo degli strati e' gia' in `nova-modelli`; qui resta avviare llama.cpp, la scala di ripiego e leggere cosa dice. Piccolo e ben delimitato |
@@ -872,6 +872,25 @@ memoria, e il banco gira lo stesso scenario due volte — il Python su una
 cartella vera, il Rust sulla finta — per verificare che il finto sia fedele
 (D103). Undici scenari, e il dodicesimo ha trovato un difetto di settimane fa:
 il titolo di ripiego non passava da `capitalize()` (D104, D105).
+
+**CANT-1 e' chiuso.** Il vault, tutto: leggere, accorgersi di cosa e'
+cambiato fuori da NOVA, scrivere, archiviare, riattivare, contare, generare
+l'indice, tenere il registro con la sua rotazione. Il disco vero
+(`disco_vero::Cartella`) sta dietro il tratto e mantiene il contratto della
+scrittura atomica; rifiuta i percorsi con `..` e non segue i collegamenti
+simbolici (D111). Il guardiano dei segreti e' attaccato per davvero, con una
+prova che verifica proprio l'attacco (D110).
+
+Il guardiano e' l'ultima cosa che ho portato, apposta: e' quella che meno di
+tutte va fatta a meta'. Vive in `nova-guasti`, accanto a chi maschera i
+messaggi d'errore, perche' **le forme sono le stesse** e due elenchi separati
+sanno sempre cose diverse (D73). Ma le soglie no: si maschera con la mano
+larga e si rifiuta con la mano ferma, perche' coprire di troppo costa una
+parola illeggibile in un registro mentre rifiutare di troppo costa un ricordo
+che NOVA non avra' mai (D109). Il banco chiede «e' rimasto fuori qualcosa che
+doveva essere rifiutato?» **e** «e' stato rifiutato qualcosa che si doveva
+poter ricordare?»: venti forme e dieci ricordi legittimi, da tutte e due le
+parti.
 
 Poi la seconda meta': **scrivere**. `Deposito::salva` e' l'unica porta da cui
 si entra in memoria e fa nell'ordine le stesse cose del Python — chiede al

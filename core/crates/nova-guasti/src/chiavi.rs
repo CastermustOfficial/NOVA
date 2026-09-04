@@ -22,16 +22,50 @@
 /// dei guasti: le chiavi AWS, i token GitHub e Slack. Due elenchi separati
 /// sanno sempre cose diverse — vedi `nova/forme_riservate.py`, che dalla
 /// parte Python li ha uniti in uno solo.
-pub const PREFISSI: &[&str] = &[
-    "sk-", "pk-", "rk-", "sk_", "pk_", "rk_",
-    "gsk_", "xai-", "AIza",
-    "ghp_", "gho_", "ghu_", "ghs_", "ghr_",
-    "xoxb-", "xoxa-", "xoxp-", "xoxr-", "xoxs-",
-    "AKIA", "ASIA",
+pub const PREFISSI: &[Prefisso] = &[
+    Prefisso { inizio: "sk-", nome: "una chiave di servizio", minimo: 16 },
+    Prefisso { inizio: "pk-", nome: "una chiave di servizio", minimo: 16 },
+    Prefisso { inizio: "rk-", nome: "una chiave di servizio", minimo: 16 },
+    Prefisso { inizio: "sk_", nome: "una chiave di servizio", minimo: 16 },
+    Prefisso { inizio: "pk_", nome: "una chiave di servizio", minimo: 16 },
+    Prefisso { inizio: "rk_", nome: "una chiave di servizio", minimo: 16 },
+    Prefisso { inizio: "gsk_", nome: "una chiave Groq", minimo: 8 },
+    Prefisso { inizio: "xai-", nome: "una chiave xAI", minimo: 8 },
+    Prefisso { inizio: "AIza", nome: "una chiave Google", minimo: 8 },
+    Prefisso { inizio: "ghp_", nome: "un token GitHub", minimo: 20 },
+    Prefisso { inizio: "gho_", nome: "un token GitHub", minimo: 20 },
+    Prefisso { inizio: "ghu_", nome: "un token GitHub", minimo: 20 },
+    Prefisso { inizio: "ghs_", nome: "un token GitHub", minimo: 20 },
+    Prefisso { inizio: "ghr_", nome: "un token GitHub", minimo: 20 },
+    Prefisso { inizio: "xoxb-", nome: "un token Slack", minimo: 10 },
+    Prefisso { inizio: "xoxa-", nome: "un token Slack", minimo: 10 },
+    Prefisso { inizio: "xoxp-", nome: "un token Slack", minimo: 10 },
+    Prefisso { inizio: "xoxr-", nome: "un token Slack", minimo: 10 },
+    Prefisso { inizio: "xoxs-", nome: "un token Slack", minimo: 10 },
+    Prefisso { inizio: "AKIA", nome: "una chiave AWS", minimo: 16 },
+    Prefisso { inizio: "ASIA", nome: "una chiave AWS", minimo: 16 },
 ];
 
-/// Quanto deve essere lunga la parte dopo il prefisso perche' sia una chiave
-/// e non una parola che comincia per caso allo stesso modo.
+/// Un prefisso, come si chiama, e quanto deve essere lungo cio' che segue.
+///
+/// Il nome serve a chi **rifiuta** — il guardiano del vault dice cosa ha
+/// trovato — e non a chi maschera, che copre e basta.
+///
+/// Il minimo e' due numeri diversi per una ragione, non per distrazione:
+/// **mascherare e rifiutare non hanno lo stesso costo di errore.** Coprire di
+/// troppo in un messaggio d'errore costa una parola illeggibile in un
+/// registro; rifiutare di troppo costa un **ricordo che NOVA non avra' mai**,
+/// e senza che l'utente capisca perche'. Quindi si maschera con la mano
+/// larga (`MINIMO_DOPO_PREFISSO`, otto per tutti) e si rifiuta con la mano
+/// ferma (il minimo dichiarato qui, che e' quello del fornitore).
+pub struct Prefisso {
+    pub inizio: &'static str,
+    pub nome: &'static str,
+    pub minimo: usize,
+}
+
+/// Quanto deve essere lunga la parte dopo il prefisso perche' **si copra**.
+/// Vedi `Prefisso::minimo` per la soglia con cui invece si rifiuta.
 pub const MINIMO_DOPO_PREFISSO: usize = 8;
 
 /// Le parole che, seguite da un separatore e da un valore lungo, dicono che
@@ -60,7 +94,7 @@ pub const MINIMO_DOPO_SPIA: usize = 16;
 /// Cosa si scrive al posto di quello che si copre.
 pub const COPERTA: &str = "[chiave]";
 
-fn di_chiave(c: char) -> bool {
+pub(crate) fn di_chiave(c: char) -> bool {
     c.is_ascii_alphanumeric() || c == '_' || c == '-'
 }
 
@@ -129,7 +163,7 @@ fn da_forma(b: &[char], i: usize) -> Option<usize> {
 /// finire in chiaro nel giornale dei guasti. Trovato confrontando le due
 /// implementazioni su un corpus che chiedeva «e' sopravvissuto qualcosa?»
 /// invece di «siete d'accordo?».
-fn numero_di_carta(b: &[char], i: usize) -> Option<usize> {
+pub(crate) fn numero_di_carta(b: &[char], i: usize) -> Option<usize> {
     if i > 0 && (b[i - 1].is_ascii_alphanumeric() || b[i - 1] == '_') {
         return None;
     }
@@ -164,7 +198,7 @@ fn numero_di_carta(b: &[char], i: usize) -> Option<usize> {
 }
 
 /// `-----BEGIN RSA PRIVATE KEY-----` e parenti.
-fn blocco_di_chiave(b: &[char], i: usize) -> Option<usize> {
+pub(crate) fn blocco_di_chiave(b: &[char], i: usize) -> Option<usize> {
     if b[i] != '-' {
         return None;
     }
@@ -199,7 +233,7 @@ fn blocco_di_chiave(b: &[char], i: usize) -> Option<usize> {
 }
 
 /// `schema://utente:parola@host`: si copre fino alla chiocciola compresa.
-fn credenziali_in_indirizzo(b: &[char], i: usize) -> Option<usize> {
+pub(crate) fn credenziali_in_indirizzo(b: &[char], i: usize) -> Option<usize> {
     if i > 0 && di_chiave(b[i - 1]) {
         return None;
     }
@@ -237,7 +271,7 @@ fn credenziali_in_indirizzo(b: &[char], i: usize) -> Option<usize> {
 }
 
 /// `eyJ....` con due punti: intestazione, contenuto e firma.
-fn jwt(b: &[char], i: usize) -> Option<usize> {
+pub(crate) fn jwt(b: &[char], i: usize) -> Option<usize> {
     if i > 0 && di_chiave(b[i - 1]) {
         return None;
     }
@@ -267,8 +301,19 @@ fn da_prefisso(b: &[char], i: usize) -> Option<usize> {
     if i > 0 && di_chiave(b[i - 1]) {
         return None;
     }
+    prefisso_qui(b, i, false).map(|(_, fine)| fine)
+}
+
+/// Il prefisso che comincia qui, se c'e': come si chiama e dove finisce.
+///
+/// `severo` sceglie la soglia: falso per mascherare (mano larga), vero per
+/// rifiutare (la soglia del fornitore).
+pub(crate) fn prefisso_qui(b: &[char], i: usize, severo: bool) -> Option<(&'static str, usize)> {
+    if i > 0 && di_chiave(b[i - 1]) {
+        return None;
+    }
     for p in PREFISSI {
-        let pc: Vec<char> = p.chars().collect();
+        let pc: Vec<char> = p.inizio.chars().collect();
         if i + pc.len() > b.len() || b[i..i + pc.len()] != pc[..] {
             continue;
         }
@@ -276,8 +321,10 @@ fn da_prefisso(b: &[char], i: usize) -> Option<usize> {
         while fine < b.len() && di_chiave(b[fine]) {
             fine += 1;
         }
-        if fine - (i + pc.len()) >= MINIMO_DOPO_PREFISSO {
-            return Some(fine);
+        let quanto = fine - (i + pc.len());
+        let minimo = if severo { p.minimo } else { MINIMO_DOPO_PREFISSO };
+        if quanto >= minimo {
+            return Some((p.nome, fine));
         }
     }
     None

@@ -70,6 +70,19 @@ enum Domanda {
         nodi: Vec<NodoJson>,
         oggi: String,
     },
+    /// Un vault costruito con dei salvataggi, poi archiviazioni e
+    /// riattivazioni, e alla fine il conto di cosa c'e' e l'indice.
+    #[serde(rename = "vita")]
+    Vita {
+        #[serde(default)]
+        nodi: Vec<NodoJson>,
+        #[serde(default)]
+        archivia: Vec<(String, String)>,
+        #[serde(default)]
+        riattiva: Vec<String>,
+        oggi: String,
+        oggi_italiano: String,
+    },
     #[serde(rename = "slug_libero")]
     SlugLibero {
         tipo_nodo: String,
@@ -166,6 +179,12 @@ struct Risposta {
     #[serde(skip_serializing_if = "Option::is_none")]
     rifiuti: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    conto: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    indice: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    esiti: Option<Vec<bool>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     errore: Option<String>,
 }
 
@@ -219,7 +238,7 @@ fn vuota() -> Risposta {
     Risposta { slug: None, markdown: None, nodo: None, relazioni: None,
                lista: None, frontmatter: None, corpo: None, testo: None,
                pezzi: None, passi: None, disco: None, rifiuti: None,
-               errore: None }
+               conto: None, indice: None, esiti: None, errore: None }
 }
 
 fn main() {
@@ -325,6 +344,40 @@ fn main() {
                 let fuori: Vec<(String, String)> =
                     disco.file.borrow().iter().map(|(k, t)| (k.clone(), t.clone())).collect();
                 Risposta { disco: Some(fuori), rifiuti: Some(rifiuti), ..vuota() }
+            }
+            Ok(Domanda::Vita { nodi, archivia, riattiva, oggi, oggi_italiano }) => {
+                let disco = DiscoFinto { file: std::cell::RefCell::new(BTreeMap::new()) };
+                let mut v = Deposito::nuovo(false);
+                for j in nodi {
+                    let n: Nodo = j.into();
+                    let _ = v.salva(&disco, &NessunControllo, n, true, &oggi);
+                }
+                let mut esiti = Vec::new();
+                for (slug, motivo) in &archivia {
+                    esiti.push(v.archivia(&disco, slug, motivo, &oggi, &oggi_italiano));
+                }
+                for slug in &riattiva {
+                    esiti.push(v.riattiva(&disco, slug, &oggi));
+                }
+                let st = v.statistiche();
+                let conto = serde_json::json!({
+                    "nodi_attivi": st.nodi_attivi,
+                    "archiviati": st.archiviati,
+                    "collegamenti": st.collegamenti,
+                    "collegamenti_pendenti": st.collegamenti_pendenti,
+                    "per_tipo": st.per_tipo,
+                    "per_origine": st.per_origine,
+                    "orfani": st.orfani,
+                });
+                let fuori: Vec<(String, String)> =
+                    disco.file.borrow().iter().map(|(k, t)| (k.clone(), t.clone())).collect();
+                Risposta {
+                    conto: Some(conto),
+                    indice: Some(v.indice(&oggi)),
+                    esiti: Some(esiti),
+                    disco: Some(fuori),
+                    ..vuota()
+                }
             }
             Ok(Domanda::SlugLibero { tipo_nodo, slug, esistenti }) => Risposta {
                 slug: Some(posto::slug_libero(&tipo_nodo, &slug, &esistenti)),

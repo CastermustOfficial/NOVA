@@ -17,6 +17,10 @@
 //! proprio errore, e da li' finiva in chat e nel registro.
 
 pub mod chiavi;
+
+// Cosa non entra in memoria. Domanda diversa da «cosa non finisce nei log»,
+// e con un costo dello sbaglio diverso: le forme sono le stesse, la mano no.
+pub mod guardiano;
 pub use chiavi::senza_chiavi;
 
 /// Cosa e' andato storto, nei termini in cui lo sa il chiamante.

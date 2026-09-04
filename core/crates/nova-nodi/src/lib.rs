@@ -37,6 +37,11 @@ pub mod posto;
 // un file — e' la macchina a stati che decide chi ricaricare.
 pub mod deposito;
 
+// Il disco vero dietro il tratto. L'unico file del crate che parla col
+// sistema operativo, ed e' apposta: tutto il resto si prova senza toccare
+// niente.
+pub mod disco_vero;
+
 pub const STATUS_ATTIVO: &str = "attivo";
 pub const STATUS_ARCHIVIATO: &str = "archiviato";
 

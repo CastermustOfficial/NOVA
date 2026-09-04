@@ -7,6 +7,12 @@ license.workspace = true
 description = "Il nodo della memoria e la sua forma su disco: markdown piu' frontmatter."
 
 [dependencies]
+# Il guardiano dei segreti vive li': cosa **e'** un segreto si decide in un
+# posto solo, o i due elenchi si disallineano e una chiave AWS finisce in
+# chiaro nel giornale mentre il vault la rifiuta (D73). La dipendenza va in
+# questa direzione e non nell'altra: `nova-guasti` non deve sapere che esiste
+# un vault.
+nova-guasti = { path = "../nova-guasti" }
 serde = { workspace = true, features = ["derive"], optional = true }
 serde_json = { workspace = true, optional = true }
 
