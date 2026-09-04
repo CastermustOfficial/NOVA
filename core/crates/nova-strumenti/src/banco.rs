@@ -6,6 +6,7 @@
 //! strumento usare. Una parola diversa in una descrizione e' un
 //! comportamento diverso, e non c'e' nessun tipo che se ne accorga.
 
+use nova_strumenti::file;
 use nova_strumenti::guardie::{Autonomia, Guardie};
 use nova_strumenti::{anteprima, schema, Argomenti, Rischio, STRUMENTI};
 use serde::{Deserialize, Serialize};
@@ -32,6 +33,21 @@ struct Dentro {
     /// I comandi da sottoporre alla guardia dei comandi.
     #[serde(default)]
     comandi: Vec<String>,
+    /// Misure di file da scrivere come le legge una persona.
+    #[serde(default)]
+    misure: Vec<u64>,
+    /// (quante righe, offset, limite) per la fetta di una lettura.
+    #[serde(default)]
+    fette: Vec<(usize, i64, i64)>,
+    /// Modelli di ricerca da allargare.
+    #[serde(default)]
+    ricerche: Vec<String>,
+    /// (percorso, numero, riga) per una riga trovata.
+    #[serde(default)]
+    trovate: Vec<(String, usize, String)>,
+    /// (nome, e_cartella) da ordinare.
+    #[serde(default)]
+    da_ordinare: Vec<(String, bool)>,
 }
 
 #[derive(Serialize)]
@@ -47,6 +63,11 @@ struct Fuori {
     /// Se serve chiedere, per ognuno dei tre rischi.
     permessi: Vec<bool>,
     motivi_incomprensibili: Vec<String>,
+    misure: Vec<String>,
+    fette: Vec<(usize, usize)>,
+    ricerche: Vec<String>,
+    trovate: Vec<String>,
+    ordinati: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -142,6 +163,21 @@ fn main() {
         motivi_incomprensibili: Guardie::nuove(&d.protetti, &d.radici, &d.vietati,
                                                Autonomia::dal_nome(&d.autonomia))
             .motivi_incomprensibili,
+        misure: d.misure.iter().map(|b| file::misura(*b)).collect(),
+        fette: d.fette.iter().map(|(q, o, l)| file::fetta(*q, *o, *l)).collect(),
+        ricerche: d.ricerche.iter().map(|r| file::modello_di_ricerca(r)).collect(),
+        trovate: d.trovate.iter()
+            .map(|(p, n, r)| file::riga_trovata(p, *n, r)).collect(),
+        ordinati: {
+            let mut v: Vec<(String, bool, String)> = d.da_ordinare.iter()
+                .map(|(n, c)| {
+                    let k = file::chiave_ordine(n, *c);
+                    (n.clone(), k.0, k.1)
+                })
+                .collect();
+            v.sort_by(|a, b| (a.1, &a.2).cmp(&(b.1, &b.2)));
+            v.into_iter().map(|(n, _, _)| n).collect()
+        },
     };
     println!("{}", serde_json::to_string(&fuori).unwrap());
 }
