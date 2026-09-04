@@ -10,6 +10,7 @@ use nova_strumenti::file;
 use nova_strumenti::file_disco::{self, SenzaSistema};
 use nova_strumenti::guscio::{self, Risposta};
 use nova_strumenti::data::Fuso;
+use nova_strumenti::memoria;
 use nova_strumenti::pagina;
 use nova_strumenti::sistema;
 use nova_strumenti::guardie::{Autonomia, Guardie};
@@ -80,6 +81,12 @@ struct Dentro {
     /// Pagine HTML da ridurre a testo.
     #[serde(default)]
     pagine: Vec<String>,
+    /// (slug, titolo, tipo, corpo, confidenza, via, relazioni)
+    #[serde(default)]
+    ricordi: Vec<(String, String, String, String, f64, String, Vec<String>)>,
+    /// (slug, titolo, vicini) per l'elenco dei collegamenti.
+    #[serde(default)]
+    vicinati: Vec<(String, String, Vec<(String, String, String)>)>,
 }
 
 #[derive(Deserialize)]
@@ -153,6 +160,8 @@ struct Fuori {
     istanti: Vec<String>,
     pagine: Vec<String>,
     titoli: Vec<String>,
+    ricordi: Vec<String>,
+    vicinati: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -307,6 +316,15 @@ fn main() {
         istanti: d.istanti.iter().map(|s| sistema::data_e_ora(*s, &Fusi(d.fusi.clone()))).collect(),
         pagine: d.pagine.iter().map(|h| pagina::a_testo(h)).collect(),
         titoli: d.pagine.iter().map(|h| pagina::titolo_di(h, 120)).collect(),
+        ricordi: d.ricordi.iter()
+            .map(|(s, t, tp, c, conf, v, r)| memoria::racconta(&memoria::Trovato {
+                slug: s, titolo: t, tipo: tp, corpo: c,
+                confidenza: *conf, via: v, relazioni: r.clone(),
+            }))
+            .collect(),
+        vicinati: d.vicinati.iter()
+            .map(|(s, t, v)| memoria::racconta_vicini(s, t, v))
+            .collect(),
     };
     println!("{}", serde_json::to_string(&fuori).unwrap());
 }
