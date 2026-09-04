@@ -156,19 +156,13 @@ def cerca(domanda: str, quanti: int = 8, porta: int = PORTA,
             _chiudi(sid, porta)
 
 
-_VIA = re.compile(r"(?is)<(script|style|noscript|template)[^>]*>.*?</\1>")
+# «Cosa dice questa pagina» si chiede in un posto solo: `nova/html_a_testo.py`.
+# Qui c'era una funzione, e in `tools/web.py` un'altra, e sapevano cose
+# diverse — una toglieva lo `<svg>`, l'altra il `<template>`, e solo una
+# schiacciava lo spazio unificatore. Vedi D73.
+from .html_a_testo import a_testo as _testo, titolo_di   # noqa: E402
+
 _TAG = re.compile(r"(?s)<[^>]+>")
-_SPAZI = re.compile(r"[ \t\r\f\v]+")
-_VUOTE = re.compile(r"\n{3,}")
-
-
-def _testo(grezzo: str) -> str:
-    t = _VIA.sub(" ", grezzo)
-    t = re.sub(r"(?i)<(br|/p|/div|/li|/h[1-6]|/tr)[^>]*>", "\n", t)
-    t = _TAG.sub(" ", t)
-    t = html.unescape(t)
-    t = _SPAZI.sub(" ", t)
-    return _VUOTE.sub("\n\n", "\n".join(r.strip() for r in t.splitlines())).strip()
 
 
 def prendi(url: str, caratteri: int = 6000, timeout: float = 20) -> dict:
@@ -195,10 +189,7 @@ def prendi(url: str, caratteri: int = 6000, timeout: float = 20) -> dict:
                 "motivo": f"non e' testo ({tipo or 'tipo ignoto'}): "
                           "se e' un file da consegnare a una pagina, scaricalo "
                           "su disco e usa web_carica"}
-    titolo = ""
-    m = re.search(r"(?is)<title[^>]*>(.*?)</title>", r.text)
-    if m:
-        titolo = html.unescape(_TAG.sub("", m.group(1))).strip()[:120]
+    titolo = titolo_di(r.text)
     return {"ok": True, "url": r.url, "titolo": titolo,
             "testo": testo[:caratteri], "tagliato": len(testo) > caratteri,
             "caratteri": len(testo)}

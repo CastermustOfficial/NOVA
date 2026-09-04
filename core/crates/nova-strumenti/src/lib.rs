@@ -39,6 +39,12 @@ pub mod guscio;
 // Le parti degli strumenti di sistema che non chiedono niente al sistema.
 pub mod sistema;
 
+// Cosa dice una pagina, in un posto solo.
+pub mod pagina;
+
+// Le entita' HTML con un nome, tutte, estratte e non ricopiate.
+mod entita;
+
 pub use dichiarazioni::STRUMENTI;
 
 /// Quanto costa sbagliare questa azione.

@@ -3892,3 +3892,50 @@ Adesso il fuso e' un **tratto** — `secondi_in(istante)` — e non un numero.
 Non e' pignoleria di tipi: un numero si puo' passare senza pensarci, un
 tratto obbliga chi chiama a rispondere alla domanda «quando?». E' la stessa
 forma della destinazione obbligatoria in `puo_scrivere` (D118).
+
+### «Cosa dice questa pagina» lo chiedevano in due
+
+`cerca._testo` per le pagine lette col browser, `tools/web._clean` per quelle
+scaricate. Due funzioni per la stessa domanda, e — come tutti gli elenchi
+separati — sapevano cose diverse:
+
+- una toglieva `<svg>` e `<head>`, l'altra `<template>`;
+- solo una schiacciava lo **spazio unificatore**, quindi l'altra lasciava nel
+  contesto del modello un carattere che sembra uno spazio e non lo e';
+- e si spartivano le righe vuote con due regole diverse.
+
+Nessuna delle differenze era voluta: erano due funzioni scritte in due
+momenti. Adesso c'e' `nova/html_a_testo.py`, che e' l'unione — ogni regola che
+una delle due aveva serviva a qualcosa.
+
+### Il corpus con dentro la trappola
+
+Nel banco ho messo otto entita' — `&oelig;`, `&thorn;`, `&notin;`, `&brvbar;`
+e altre — **sapendo** che la mia tabella scritta a mano non le conosceva.
+
+Non e' un dispetto: e' l'unico modo di sapere dove finisce una tabella. Il
+banco ha risposto:
+
+    python 'oe y th d ... non in'
+    rust   '&oelig; &yuml; &thorn; &eth; &curren; &brvbar; &not; &notin;'
+
+Ventisette pagine su ventotto identiche, e la ventottesima era quella che
+avevo messo per farla fallire. **Vedere dove finisce una tabella e' meglio che
+scoprirlo** — scoprirlo vuol dire che un giorno il modello legge `&copy;` in
+mezzo a una frase e non sa cosa farne.
+
+Quindi ho smesso di scriverla a mano: duemilacentoventicinque entita',
+estratte dal dizionario di Python come le dichiarazioni degli strumenti
+(D112).
+
+E anche l'estrazione ha avuto il suo inciampo. La prima versione ne prendeva
+**106**, perche' scartavo i nomi che finiscono col punto e virgola — e nel
+dizionario di Python quasi tutti stanno solo in quella forma. Centosei e' un
+numero abbastanza plausibile da non far sospettare niente: se non avessi
+saputo che le entita' HTML sono migliaia, l'avrei accettato.
+
+### La regola che con duemila nomi comincia a contare
+
+Con una tabella di sessanta voci, «il nome piu' lungo che combacia» era una
+finezza. Con duemila e' necessaria: `&notin` non e' `&not` seguito da «in», e
+`&sub` non e' l'inizio di `&subseteq`. Il lettore prende sempre il piu' lungo.
