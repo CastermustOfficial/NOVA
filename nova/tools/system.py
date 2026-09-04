@@ -257,12 +257,21 @@ def _volume_rust(level: int | None, mute: bool | None) -> str | None:
 
 @tool(
     "system_info",
-    "Restituisce informazioni sul PC: CPU, RAM, disco, batteria, rete.",
+    # La descrizione prometteva anche «rete», e la rete non l'ha mai data.
+    # Non e' un dettaglio di stile: questa riga la legge il modello e ci
+    # decide sopra. Uno che vuole sapere se il PC e' online chiamava questo,
+    # non trovava niente, e non poteva capire se la rete non c'era o se lo
+    # strumento non gliel'aveva detta (D137).
+    "Restituisce informazioni sul PC: sistema, nome, CPU, RAM, dischi, "
+    "batteria e da quanto e' acceso. Non dice niente della rete.",
     {},
     Risk.SAFE, required=[], category="sistema",
     preview=lambda a: "Legge le informazioni di sistema",
 )
 def system_info() -> str:
+    detto = _sistema_rust()
+    if detto is not None:
+        return detto
     ps = (
         "$os=Get-CimInstance Win32_OperatingSystem; "
         "$cs=Get-CimInstance Win32_ComputerSystem; "
@@ -275,6 +284,66 @@ def system_info() -> str:
         "Dischi=($d | ForEach-Object {\"$($_.Name): $($_.FreeGB)GB liberi\"}) -join ', '} | Format-List"
     )
     return _ps(ps, timeout=60)
+
+
+def _sistema_rust() -> str | None:
+    """Com'e' fatto il PC, chiesto al sistema invece che a una query WMI.
+
+    Era la capacita' piu' cara di tutte: 1.543 ms misurati, piu' di tutte le
+    altre messe insieme, ed e' quella che il modello chiede piu' spesso
+    all'inizio di una conversazione, quando vuole sapere dove si trova.
+
+    I numeri arrivano **come numeri** e la formattazione la fa qui. Prima
+    arrivavano gia' scritti, e nella lingua dell'utente: «RAM_GB: 31,1» con la
+    virgola e, tre righe piu' sotto, «72.5GB liberi» con il punto, perche' i
+    due pezzi passavano da due formattatori diversi di PowerShell. Chi legge
+    quella riga e' un modello che ci deve fare un conto (D137).
+    """
+    b = binari.trova("nova-sistema")
+    if b is None:
+        return None
+    try:
+        r = subprocess.run([str(b)], capture_output=True, text=True,
+                           encoding="utf-8", timeout=15,
+                           creationflags=SENZA_FINESTRA)
+        if r.returncode != 0:
+            return None
+        import json
+        d = json.loads(r.stdout)
+    except Exception:                                       # noqa: BLE001
+        return None
+    return _racconta_sistema(d)
+
+
+def _racconta_sistema(d: dict) -> str:
+    """Da numeri a una risposta leggibile. Separata per poterla provare."""
+    from ..dati import pesa
+
+    righe = [
+        f"Sistema       : {d['sistema']} (build {d['build']})",
+        f"PC            : {d['pc']}",
+        f"CPU           : {d['cpu']} ({d['processori']} processori logici)",
+        f"RAM           : {pesa(d['ram_libera_byte'])} liberi su "
+        f"{pesa(d['ram_totale_byte'])}",
+    ]
+    for disco in d["dischi"]:
+        righe.append(f"Disco {disco['radice']:<9}: {pesa(disco['liberi_byte'])} liberi su "
+                     f"{pesa(disco['totale_byte'])}")
+    b = d.get("batteria")
+    if b is None:
+        # Il silenzio direbbe «non lo so»; qui si sa, ed e' «non ce n'e' una».
+        righe.append("Batteria      : nessuna (e' un fisso)")
+    else:
+        pezzi = []
+        if b.get("percentuale") is not None:
+            pezzi.append(f"{b['percentuale']}%")
+        pezzi.append("alla corrente" if b["alla_corrente"] else "a batteria")
+        if b.get("minuti_rimasti") is not None:
+            pezzi.append(f"~{b['minuti_rimasti']} minuti")
+        righe.append("Batteria      : " + ", ".join(pezzi))
+    ore, resto = divmod(int(d["acceso_da_secondi"]), 3600)
+    righe.append(f"Acceso da     : {ore}h {resto // 60}m")
+    return "\n".join(righe)
 
 
 @tool(

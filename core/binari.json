@@ -29,6 +29,7 @@
     { "nome": "nova-schede", "che_fa": "quanta memoria video c'e': serve alla stima dei layer, e senza di lui si ripiega su nvidia-smi, che su AMD e Intel non esiste" },
     { "nome": "nova-appunti", "che_fa": "legge e scrive gli appunti chiamando Win32 diretto: senza di lui si ripiega su PowerShell, che costa nove volte tanto e va avviato ogni volta" },
     { "nome": "nova-volume", "che_fa": "legge e imposta il volume parlando a Core Audio: senza di lui si ripiega su cinquanta pressioni simulate del tasto «volume giu'», e il muto si inverte invece di impostarsi" },
-    { "nome": "nova-notifica", "che_fa": "mostra una notifica e resta lui ad aspettare che il fumetto finisca: senza di lui ad aspettare quei nove secondi e' NOVA" }
+    { "nome": "nova-notifica", "che_fa": "mostra una notifica e resta lui ad aspettare che il fumetto finisca: senza di lui ad aspettare quei nove secondi e' NOVA" },
+    { "nome": "nova-sistema", "che_fa": "com'e' fatto il PC — sistema, CPU, RAM, dischi, batteria — chiesto alle API invece che a una query WMI: 41 ms contro 1.543" }
   ]
 }

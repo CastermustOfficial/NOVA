@@ -71,10 +71,18 @@ pub fn traduci_tasti(tasti: &str) -> Result<String, String> {
 
 /// Quanti passi di volume servono per arrivare a questo livello.
 ///
-/// La strada di ripiego alza e abbassa il volume a colpi di tasto: prima lo
-/// azzera con cinquanta colpi in giu' — piu' dei venticinque che bastano, per
-/// essere sicuri di partire da zero qualunque fosse il livello — e poi risale.
-/// Ogni colpo vale due punti su cento.
+/// **Questa non e' la strada con cui NOVA cambia il volume.** Il volume si
+/// chiede a Core Audio: si legge, si scrive e si rilegge (vedi il tratto
+/// `Audio` in `capacita.rs`). Qui c'e' la traduzione fedele del *ripiego*,
+/// quello che resta dove il binario non c'e': azzera con cinquanta colpi di
+/// tasto in giu' — piu' dei venticinque che bastano, per partire da zero
+/// qualunque fosse il livello — e poi risale, due punti per colpo.
+///
+/// Resta perche' il ripiego resta, e perche' finche' esiste dev'essere
+/// identico a quello del Python: due strade che fanno «quasi» la stessa cosa
+/// sono peggio di una sola. Ma chi legge questo file deve sapere che il
+/// numero che esce di qui non e' un volume — e' un conto di pressioni, e il
+/// volume vero nessuno l'ha letto (D132).
 pub fn passi_di_volume(livello: i64) -> i64 {
     let livello = livello.clamp(0, 100);
     // `round` di Python a meta' va al pari: 25 passi e mezzo diventano 26,

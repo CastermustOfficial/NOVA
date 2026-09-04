@@ -58,6 +58,13 @@ features = [
     # passa. Dall'altra parte la notifica e' un processo PowerShell che resta
     # in piedi nove secondi, e a farlo e' NOVA (D134).
     "Win32_UI_Shell",
+    # Com'e' fatto il PC, chiesto al sistema invece che a una query WMI dentro
+    # una stringa: memoria, processori, tempo acceso (SystemInformation), la
+    # batteria (Power) e il nome commerciale del sistema e della CPU, che
+    # vivono nel registro e non hanno un'altra casa.
+    "Win32_System_SystemInformation",
+    "Win32_System_Power",
+    "Win32_System_Registry",
 ]
 
 # Una risposta sola alla domanda «quanta memoria video c'e'»: la usano
@@ -78,3 +85,7 @@ path = "src/bin/nova-volume.rs"
 [[bin]]
 name = "nova-notifica"
 path = "src/bin/nova-notifica.rs"
+
+[[bin]]
+name = "nova-sistema"
+path = "src/bin/nova-sistema.rs"

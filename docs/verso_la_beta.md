@@ -898,7 +898,7 @@ ci dipendono davvero.
 | `write_clipboard` | idem | 19 ms |
 | `set_volume` | Core Audio; `SendKeys` solo se manca tutto | letto davvero |
 | `notify` | processo suo che aspetta al posto di NOVA | 5 ms (era 9.300) |
-| `system_info` | una query WMI dentro una stringa | **1.543 ms** |
+| `system_info` | API dirette; la query WMI solo se manca il binario | 41 ms (era 1.543) |
 | `list_installed_apps` | tre rami di registro letti da PowerShell | 594 ms |
 | `list_windows` | `Get-Process` + `ConvertTo-Csv` | 275 ms |
 | `focus_window` | `Add-Type` + `SetForegroundWindow` | — |
@@ -919,9 +919,21 @@ restare fuori dalla tabella, e nessuno puo' restarci dopo essere stato portato.
 E' l'unico modo perche' un elenco scritto a mano non racconti un'altra storia
 sei mesi dopo (D46, D136).
 
-L'ordine lo decide la misura: `system_info` costa quasi un secondo e mezzo,
-piu' di tutte le altre messe insieme, ed e' anche quella che il modello chiede
-piu' spesso all'inizio di una conversazione.
+L'ordine l'ha deciso la misura: `system_info` costava quasi un secondo e
+mezzo, piu' di tutte le altre messe insieme, ed e' anche quella che il modello
+chiede per prima quando vuole sapere dove si trova. E' stata la successiva, e
+il tempo si e' rivelato la parte meno interessante: confrontando le due
+risposte sono usciti due difetti che con la velocita' non c'entravano — una
+descrizione che prometteva batteria e rete senza darle (D137) e i numeri
+scritti nella lingua dell'utente, con due separatori decimali diversi nella
+stessa risposta. Piu' un terzo, nella strada **nuova**: il registro dice
+«Windows 10 Pro» su una macchina con Windows 11, e la query WMI che stavo
+buttando via diceva giusto (D138).
+
+Le prossime, per costo misurato: `list_installed_apps` (594 ms),
+`list_windows` (275 ms). Le altre non sono state cronometrate perche'
+cambiano lo stato del PC — si aprono finestre, si preme la tastiera — e una
+misura non deve fare danni per sapere quanto costa.
 
 ### La lista del cantiere
 
@@ -963,6 +975,55 @@ resto.
 in Rust e meta' no, l'utente installa comunque Python e ci sono due
 implementazioni della stessa cosa da tenere allineate. Il guadagno arriva
 tutto insieme, alla fine.
+
+### Da dove si riprende
+
+Scritto qui e non in una chat, perche' una chat finisce e questo file no.
+
+**Fatti, dentro CANT-2, sotto D130** — ognuno con la sua prova e la sua misura:
+
+| | Era | E' | Cosa e' saltato fuori |
+|---|---|---|---|
+| appunti | `Get-Clipboard`, 179 ms | Win32 diretto, 19 ms | il ripiego storpiava gli accenti da sempre (D131) |
+| volume | 50+N pressioni simulate, fino a 90 s | Core Audio, letto davvero | il muto *invertiva* invece di impostare (D132) |
+| notifiche | 9.300 ms | 5 ms | il costo era `Start-Sleep 9`, non la shell (D134) |
+| `system_info` | query WMI, 1.543 ms | API dirette, 19 ms | descrizione che prometteva rete e batteria senza darle; numeri nella lingua dell'utente; e il registro che dice «Windows 10» su Windows 11 (D137, D138) |
+
+Piu' `nova/powershell.py`, il posto solo da cui si chiama una shell: le
+chiamate erano dieci in cinque moduli, con tre difetti di codifica diversi
+(D135).
+
+**Il prossimo, per costo misurato:**
+
+1. `list_installed_apps` — 594 ms. Tre rami di registro letti da PowerShell.
+   In Rust e' `RegEnumKeyExW` sugli stessi tre rami: nessuna scelta da fare,
+   e `nova-sistema` sa gia' leggere il registro.
+2. `list_windows` — 275 ms. `EnumWindows` + `GetWindowTextW`. Attenzione: NOVA
+   ha **gia'** un albero UIA in `nova-platform` che sa elencare le finestre
+   (`UiTree::windows`) — prima di scrivere, guardare se basta quello (D99).
+3. `focus_window`, `close_application`, `open_application` — non misurati
+   perche' cambiano lo stato del PC, e una misura non deve fare danni per
+   sapere quanto costa. Sono `SetForegroundWindow`, `TerminateProcess` e
+   `ShellExecuteExW`.
+4. `type_text` e `press_keys` — `SendInput`. Da fare con calma: sono gli unici
+   due strumenti marcati «ultima spiaggia», e sbagliarli vuol dire scrivere
+   nella finestra sbagliata mentre l'utente lavora.
+5. `create_reminder` — `schtasks` con dentro un comando PowerShell. Il
+   promemoria dovrebbe diventare una notifica di `nova-notifica`, non un
+   processo PowerShell che dorme venticinque secondi.
+6. La **semina del vault** (`nova/kb/seed.py`): sei funzioni interne che
+   chiedono a PowerShell i nomi delle cartelle dell'utente e li scrivono nei
+   ricordi. Non e' uno strumento, ma e' dove un guasto resta.
+
+**Due cose in sospeso, che non decido io:**
+
+- `bin\novad.exe` e `bin\nova-shell.exe` sono del 2 e 3 settembre. `build.ps1`
+  si rifiuta di ricostruire mentre NOVA e' aperta, e fa bene: con NOVA chiusa,
+  un `.\build.ps1` porta dentro anche le modifiche a `nova-core`.
+- `bin\SHA256SUMS.txt` descrive tre binari che nel frattempo sono stati
+  sostituiti da build locali: le impronte non corrispondono piu'. Innocuo
+  finche' non si installa da uno zip, ma e' il genere di file che un giorno
+  produce la diagnosi sbagliata (D58).
 
 **CANT-1, prima meta': il vault su disco si legge in Rust.**
 `nova-nodi::deposito` sa aprire un vault, accorgersi di cosa e' cambiato
