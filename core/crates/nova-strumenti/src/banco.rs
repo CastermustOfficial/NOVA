@@ -10,6 +10,7 @@ use nova_strumenti::file;
 use nova_strumenti::file_disco::{self, SenzaSistema};
 use nova_strumenti::guscio::{self, Risposta};
 use nova_strumenti::data::Fuso;
+use nova_strumenti::pagina;
 use nova_strumenti::sistema;
 use nova_strumenti::guardie::{Autonomia, Guardie};
 use nova_strumenti::{anteprima, schema, Argomenti, Rischio, STRUMENTI};
@@ -76,6 +77,9 @@ struct Dentro {
     /// Istanti da dire come data e ora.
     #[serde(default)]
     istanti: Vec<u64>,
+    /// Pagine HTML da ridurre a testo.
+    #[serde(default)]
+    pagine: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -147,6 +151,8 @@ struct Fuori {
     tasti: Vec<Option<String>>,
     volumi: Vec<i64>,
     istanti: Vec<String>,
+    pagine: Vec<String>,
+    titoli: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -299,6 +305,8 @@ fn main() {
         tasti: d.tasti.iter().map(|t| sistema::traduci_tasti(t).ok()).collect(),
         volumi: d.volumi.iter().map(|v| sistema::passi_di_volume(*v)).collect(),
         istanti: d.istanti.iter().map(|s| sistema::data_e_ora(*s, &Fusi(d.fusi.clone()))).collect(),
+        pagine: d.pagine.iter().map(|h| pagina::a_testo(h)).collect(),
+        titoli: d.pagine.iter().map(|h| pagina::titolo_di(h, 120)).collect(),
     };
     println!("{}", serde_json::to_string(&fuori).unwrap());
 }

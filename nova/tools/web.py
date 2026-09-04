@@ -30,15 +30,9 @@ UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
 TIMEOUT = 25
 
 
-def _clean(text: str) -> str:
-    text = re.sub(r"(?is)<(script|style|noscript|svg|head)[^>]*>.*?</\1>", " ", text)
-    text = re.sub(r"(?i)<br\s*/?>", "\n", text)
-    text = re.sub(r"(?i)</(p|div|li|tr|h[1-6])>", "\n", text)
-    text = re.sub(r"<[^>]+>", " ", text)
-    text = html.unescape(text)
-    text = re.sub(r"[ \t\xa0]+", " ", text)
-    text = re.sub(r"\n\s*\n\s*\n+", "\n\n", text)
-    return text.strip()
+# «Cosa dice questa pagina» si chiede in un posto solo (D73): questa funzione
+# e `cerca._testo` erano due, e sapevano cose diverse.
+from ..html_a_testo import a_testo as _clean   # noqa: E402
 
 
 def _ddg_html(query: str, max_results: int) -> list[dict]:

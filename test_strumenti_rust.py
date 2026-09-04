@@ -706,6 +706,63 @@ for s_, suo in zip(ISTANTI, sis["istanti"]):
 controlla("data e ora si dicono con lo stesso giorno e lo stesso formato",
           not diverse, " | ".join(diverse[:2]))
 
+print("\n=== Cosa dice una pagina ===")
+# Questo testo e' quello che il modello legge di una pagina web: non c'e'
+# niente di piu' vicino a «cosa ha capito». Il corpus e' largo sulle entita'
+# apposta — quali il Rust non conosce si deve **vedere**, non scoprire.
+from nova.html_a_testo import a_testo as py_testo, titolo_di as py_titolo  # noqa: E402
+
+PAGINE = [
+    "<html><head><title>Prova &amp; C.</title><style>p{color:red}</style></head>"
+    "<body><script>var x = 1 < 2;</script><h1>Titolo</h1>"
+    "<p>Prima riga</p><p>Seconda &egrave; qui</p></body></html>",
+    "<ul><li>uno</li><li>due</li><li>tre</li></ul>",
+    "<p>a</p><p></p><p></p><p></p><p>b</p>",
+    "a&nbsp;&nbsp;b",
+    "Tizio & Caio",
+    "1 &lt; 2 &amp;&amp; 3 &gt; 2",
+    "&#233; e &#x2014; e &#8364;",
+    "<svg><path d='M0 0'/></svg>visibile",
+    "<template><p>nascosto</p></template>visibile",
+    "<noscript>senza javascript</noscript>con",
+    "<div>a<br>b<br/>c</div>",
+    "<table><tr><td>x</td></tr><tr><td>y</td></tr></table>",
+    "  spazi   in   mezzo  ",
+    "",
+    "<p>&copy; 2026 &mdash; tutti i diritti &hellip;</p>",
+    "&laquo;citazione&raquo; e &rsquo;apostrofo",
+    "&pound;10 &euro;20 &deg;C &frac12; &sup2;",
+    "&alpha; &beta; &pi; &infin; &ne; &le; &ge;",
+    "&agrave;&egrave;&eacute;&igrave;&ograve;&ugrave;&ccedil;&ntilde;&uuml;",
+    "&szlig; &times; &divide; &plusmn; &micro; &sect; &para;",
+    "&larr; &rarr; &harr; &dagger; &permil; &bull; &middot;",
+    "&trade; &reg; &ldquo;virgolette&rdquo; &lsquo;singole&rsquo;",
+    # Entita' che quasi certamente il Rust non conosce: si deve vedere.
+    "&oelig; &yuml; &thorn; &eth; &curren; &brvbar; &not; &notin;",
+    "<a href='x'>collegamento</a> e testo",
+    "<p>riga1\nriga2</p>",
+    "<HTML><BODY><P>maiuscolo</P></BODY></HTML>",
+    "<p>tag mai chiuso",
+    "<script>non chiuso mai",
+]
+
+r = subprocess.run([str(BINARIO)], input=json.dumps(
+    {"pagine": PAGINE}, ensure_ascii=False),
+    capture_output=True, text=True, encoding="utf-8", timeout=120)
+pag = json.loads(r.stdout)
+
+diverse = []
+for h, suo in zip(PAGINE, pag["pagine"]):
+    mio = py_testo(h)
+    if suo != mio:
+        diverse.append(f"{h[:40]!r}:\n      python {mio[:120]!r}\n      rust   {suo[:120]!r}")
+controlla(f"le {len(PAGINE)} pagine si leggono uguali", not diverse,
+          ("\n    " + "\n    ".join(diverse[:3])) if diverse else "")
+
+diverse = [f"{h[:30]!r}: rust {suo!r} vs python {py_titolo(h)!r}"
+           for h, suo in zip(PAGINE, pag["titoli"]) if suo != py_titolo(h)]
+controlla("e i titoli pure", not diverse, " | ".join(diverse[:2]))
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")
