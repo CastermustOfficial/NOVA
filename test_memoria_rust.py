@@ -57,8 +57,9 @@ def controlla(nome, condizione, dettaglio=""):
         print(f"  [NO ] {nome}  {dettaglio}")
 
 
-from nova.kb.retrieval import (BM25, MAX_CORPO_NEL_CONTESTO,        # noqa: E402
-                               _testa_e_coda, coseno, rrf, tokenizza)
+from nova.kb.retrieval import (BM25, MAX_CORPO_NEL_CONTESTO, RRF_K,  # noqa: E402
+                               _testa_e_coda, coseno, in_ordine, rrf,
+                               tokenizza)
 from nova.kb.schema import Node                                     # noqa: E402
 
 NODI = [
@@ -99,7 +100,20 @@ FUSIONI = [
     [[["a", 3.0], ["b", 2.0], ["c", 1.0]]],
     [[["a", 1.0], ["b", 1.0]], [["b", 5.0], ["a", 5.0]]],
     [[]],
+    # pari merito con date diverse: deve vincere `b`, del 2026
+    [[["a", 1.0], ["b", 1.0]]],
+    # pari merito e stesso giorno: decide lo slug, `alfa` prima di `beta`
+    [[["beta", 1.0], ["alfa", 1.0]]],
+    # uno senza data: vale come il piu' vecchio
+    [[["senza-data", 1.0], ["b", 1.0]]],
 ]
+# Lo spareggio a pari merito: a parita' esatta vince il nodo piu' fresco, e a
+# parita' di giorno decide lo slug. Le date coprono i tre casi: piu' fresco,
+# piu' vecchio, e nessuna data.
+FRESCHEZZA = {
+    "a": "2020-01-01", "b": "2026-09-03", "x": "2026-09-03", "y": "2020-01-01",
+    "alfa": "2026-09-03", "beta": "2026-09-03",
+}
 VETTORI = [
     [[1.0, 0.0, 0.0], [1.0, 0.0, 0.0]],
     [[1.0, 0.0], [0.0, 1.0]],
@@ -121,6 +135,7 @@ TAGLI = [
 
 dentro = json.dumps({"nodi": NODI, "domande": DOMANDE,
                      "fusioni": FUSIONI, "vettori": VETTORI,
+                     "freschezza": FRESCHEZZA,
                      "tagli": [[c, MAX_CORPO_NEL_CONTESTO]
                                for _, c in TAGLI]}, ensure_ascii=False)
 try:
@@ -135,9 +150,9 @@ if esito.returncode != 0:
 rust = json.loads(esito.stdout)
 
 
-def ordina(d: dict) -> list:
-    """Punteggio decrescente, poi slug: lo stesso criterio del banco."""
-    return sorted(d.items(), key=lambda kv: (-kv[1], kv[0]))
+def ordina(d: dict, freschezza: dict | None = None) -> list:
+    """Lo stesso criterio del banco, che e' quello della libreria."""
+    return in_ordine(d, freschezza)
 
 
 def uguali(a: list, b: list) -> bool:
@@ -167,7 +182,8 @@ for d in DOMANDE:
 
 print("\n3. la fusione mette in fila allo stesso modo")
 for i, gruppo in enumerate(FUSIONI):
-    mio = ordina(rrf([dict(r) for r in gruppo]))
+    mio = ordina(rrf([dict(r) for r in gruppo], RRF_K, FRESCHEZZA),
+                 FRESCHEZZA)
     suo = [tuple(x) for x in rust["fusioni"][i]]
     controlla(f"fusione {i + 1}", uguali(mio, suo), f"python {mio} vs rust {suo}")
 

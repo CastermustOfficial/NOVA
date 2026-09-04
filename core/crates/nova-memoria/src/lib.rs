@@ -181,30 +181,60 @@ impl Bm25 {
     }
 }
 
+/// Punteggio decrescente, poi **freschezza**, poi slug.
+///
+/// E' l'unico posto dove si decide chi viene prima, e la stessa domanda
+/// ricorre tre volte nel recupero. Prima lo spareggio era implicito — un
+/// ordinamento stabile, cioe' «vince chi e' arrivato prima» — e riprodurre
+/// fedelmente quel comportamento dal Python voleva dire riprodurre un
+/// difetto: la', l'ordine di arrivo risaliva a due insiemi di stringhe e
+/// quindi al seme dell'hash del processo; qui sarebbe risalito all'ordine in
+/// cui il chiamante passa i ranking. In tutti e due i casi la risposta a «chi
+/// viene prima?» era «dipende», e il taglio finale la trasformava in «questo
+/// ricordo lo tengo, quest'altro no».
+///
+/// **A parita' esatta vince il nodo aggiornato piu' di recente.** I nodi
+/// crescono per accodamento: uno toccato ieri e' quasi sempre piu' vivo di
+/// uno fermo da mesi. La data e' `aggiornato` in forma `AAAA-MM-GG`, quindi
+/// l'ordine alfabetico **e'** l'ordine cronologico, e la granularita' e' il
+/// giorno: nello stesso giorno il pareggio resta e decide lo slug —
+/// arbitrario, ma stabile e leggibile nell'audit.
+pub fn in_ordine(
+    punteggi: &BTreeMap<String, f64>,
+    freschezza: &BTreeMap<String, String>,
+) -> Vec<(String, f64)> {
+    let mut voci: Vec<(String, f64)> = punteggi.iter().map(|(s, p)| (s.clone(), *p)).collect();
+    let vuota = String::new();
+    voci.sort_by(|a, b| {
+        b.1.partial_cmp(&a.1)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| {
+                let (fa, fb) = (
+                    freschezza.get(&a.0).unwrap_or(&vuota),
+                    freschezza.get(&b.0).unwrap_or(&vuota),
+                );
+                fb.cmp(fa)
+            })
+            .then_with(|| a.0.cmp(&b.0))
+    });
+    voci
+}
+
 /// Reciprocal Rank Fusion: unisce ranking eterogenei senza normalizzarli.
 ///
-/// **A parita' di punteggio decide lo slug.** Prima questa funzione
-/// riproduceva fedelmente il Python — `sorted(..., reverse=True)` stabile,
-/// cioe' «vince chi e' stato inserito prima» — e riprodurre fedelmente un
-/// difetto resta un difetto. La', l'ordine di inserimento risaliva a due
-/// insiemi di stringhe e quindi al seme dell'hash del processo; qui sarebbe
-/// risalito all'ordine in cui il chiamante passa i ranking. In tutti e due i
-/// casi la risposta alla domanda «chi viene prima?» era «dipende», e il
-/// taglio a `top_k` la trasformava in «questo ricordo lo tengo, quest'altro
-/// no».
-///
-/// Lo slug e' arbitrario, ma e' stabile e si legge nell'audit: chi guarda
-/// capisce perche' quel nodo e' entrato.
-pub fn rrf(ranking: &[Vec<(String, f64)>], k: usize) -> BTreeMap<String, f64> {
+/// Lo spareggio va **qui dentro** e non solo sull'ordine finale: l'RRF
+/// trasforma la posizione in punteggio, quindi due nodi a pari merito escono
+/// di qui con punteggi gia' diversi, e un criterio applicato piu' a valle non
+/// troverebbe piu' nessun pareggio da sciogliere.
+pub fn rrf(
+    ranking: &[Vec<(String, f64)>],
+    k: usize,
+    freschezza: &BTreeMap<String, String>,
+) -> BTreeMap<String, f64> {
     let mut fusi: BTreeMap<String, f64> = BTreeMap::new();
     for punteggi in ranking {
-        let mut ordinati: Vec<&(String, f64)> = punteggi.iter().collect();
-        ordinati.sort_by(|a, b| {
-            b.1.partial_cmp(&a.1)
-                .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| a.0.cmp(&b.0))
-        });
-        for (posizione, (slug, _)) in ordinati.iter().enumerate() {
+        let come_mappa: BTreeMap<String, f64> = punteggi.iter().cloned().collect();
+        for (posizione, (slug, _)) in in_ordine(&come_mappa, freschezza).iter().enumerate() {
             *fusi.entry(slug.clone()).or_insert(0.0) += 1.0 / (k + posizione + 1) as f64;
         }
     }
@@ -294,7 +324,7 @@ mod prove {
         // Un ranking con un punteggio enorme non deve travolgere l'altro.
         let a = vec![("x".to_string(), 1000.0), ("y".to_string(), 1.0)];
         let b = vec![("y".to_string(), 0.9), ("x".to_string(), 0.8)];
-        let f = rrf(&[a, b], RRF_K);
+        let f = rrf(&[a, b], RRF_K, &BTreeMap::new());
         assert!((f["x"] - f["y"]).abs() < 1e-9, "{f:?}");
     }
 
@@ -306,12 +336,13 @@ mod prove {
                           ("c".to_string(), 1.0)];
         let mut indietro = avanti.clone();
         indietro.reverse();
-        assert_eq!(rrf(&[avanti], RRF_K), rrf(&[indietro], RRF_K));
+        assert_eq!(rrf(&[avanti], RRF_K, &BTreeMap::new()), rrf(&[indietro], RRF_K, &BTreeMap::new()));
     }
 
     #[test]
     fn a_parita_esatta_vince_lo_slug_e_non_il_caso() {
-        let f = rrf(&[vec![("zeta".to_string(), 1.0), ("alfa".to_string(), 1.0)]], RRF_K);
+        let f = rrf(&[vec![("zeta".to_string(), 1.0), ("alfa".to_string(), 1.0)]], RRF_K,
+                &BTreeMap::new());
         assert!(f["alfa"] > f["zeta"], "{f:?}");
     }
 
@@ -348,5 +379,45 @@ mod prove {
         let t = testa_e_coda(&corpo, 500);
         assert!(t.contains("[...]"));
         assert!(t.chars().all(|c| c == 'è' || "[.]\n".contains(c)), "{t}");
+    }
+
+    #[test]
+    fn a_parita_esatta_vince_il_piu_fresco() {
+        // Il criterio che conta davvero: fra due ricordi ugualmente
+        // pertinenti, quello toccato piu' di recente.
+        let mut date = BTreeMap::new();
+        date.insert("alfa".to_string(), "2026-01-01".to_string());
+        date.insert("zeta".to_string(), "2026-09-03".to_string());
+        let pari = vec![("alfa".to_string(), 1.0), ("zeta".to_string(), 1.0)];
+        let f = rrf(&[pari], RRF_K, &date);
+        assert!(f["zeta"] > f["alfa"], "il vecchio ha battuto il fresco: {f:?}");
+    }
+
+    #[test]
+    fn ma_la_freschezza_non_scavalca_il_punteggio() {
+        // Un nodo aggiornato ieri e poco pertinente non deve passare davanti a
+        // uno pertinente e vecchio: lo spareggio scioglie i pari merito, non
+        // riscrive la classifica.
+        let mut date = BTreeMap::new();
+        date.insert("vecchio".to_string(), "2020-01-01".to_string());
+        date.insert("fresco".to_string(), "2026-09-03".to_string());
+        let r = vec![("vecchio".to_string(), 10.0), ("fresco".to_string(), 1.0)];
+        let f = rrf(&[r], RRF_K, &date);
+        assert!(f["vecchio"] > f["fresco"], "{f:?}");
+    }
+
+    #[test]
+    fn senza_data_si_finisce_in_fondo_ma_in_ordine() {
+        // Un nodo senza `aggiornato` non deve far saltare l'ordinamento: vale
+        // come il piu' vecchio possibile, e fra due senza data decide lo slug.
+        let mut date = BTreeMap::new();
+        date.insert("con".to_string(), "2026-09-03".to_string());
+        let pari: BTreeMap<String, f64> =
+            [("con", 1.0), ("senza", 1.0), ("altro", 1.0)]
+                .into_iter()
+                .map(|(s, p)| (s.to_string(), p))
+                .collect();
+        let ordine: Vec<String> = in_ordine(&pari, &date).into_iter().map(|(s, _)| s).collect();
+        assert_eq!(ordine, vec!["con", "altro", "senza"], "{ordine:?}");
     }
 }

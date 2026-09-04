@@ -220,29 +220,51 @@ def coseno(a: list[float], b: list[float]) -> float:
 
 
 # ------------------------------------------------------------------ RRF
-def rrf(ranking: list[dict[str, float]], k: int = RRF_K) -> dict[str, float]:
+def in_ordine(punteggi: dict[str, float],
+              freschezza: dict[str, str] | None = None) -> list[tuple[str, float]]:
+    """Punteggio decrescente, poi **freschezza**, poi slug.
+
+    L'ordine di spareggio e' l'unica cosa che questa funzione decide, e la
+    decide in un posto solo perche' la stessa domanda ricorre tre volte nel
+    recupero: dentro l'RRF, sui candidati e sugli hit finali. Prima era
+    implicito — `sorted(..., reverse=True)` e' stabile, quindi vinceva chi era
+    arrivato prima nel dizionario — e l'ordine di arrivo risaliva a
+    `set(tokenizza(query))` e a `postings[t]`, cioe' a due insiemi di stringhe.
+    Python randomizza l'hash delle stringhe a ogni processo: la stessa domanda
+    sulla stessa memoria dava due ricordi diversi a riavvii diversi. Misurato
+    sul vault vero, 444 domande: undici con un ordine diverso fra due
+    processi, tre in cui cambiava quale nodo veniva ricordato.
+
+    **A parita' esatta vince il nodo aggiornato piu' di recente.** I nodi
+    crescono per accodamento: uno toccato ieri e' quasi sempre piu' vivo di
+    uno fermo da mesi, e fra due ricordi ugualmente pertinenti quello e'
+    l'unico criterio che significhi qualcosa. La data e' `aggiornato`, che ha
+    la **granularita' del giorno**: nello stesso giorno il pareggio resta, e
+    li' decide lo slug — arbitrario, ma stabile e leggibile nell'audit.
+
+    Si ordina in tre passate stabili, dalla chiave meno importante alla piu'
+    importante: e' l'unico modo pulito di mettere in discesa una stringa senza
+    inventarsi un valore negativo per una data.
+    """
+    fresco = freschezza or {}
+    voci = sorted(punteggi.items(), key=lambda kv: kv[0])
+    voci.sort(key=lambda kv: fresco.get(kv[0], ""), reverse=True)
+    voci.sort(key=lambda kv: kv[1], reverse=True)
+    return voci
+
+
+def rrf(ranking: list[dict[str, float]], k: int = RRF_K,
+        freschezza: dict[str, str] | None = None) -> dict[str, float]:
     """Reciprocal Rank Fusion: unisce ranking eterogenei senza normalizzare.
 
-    **A parita' di punteggio decide lo slug**, e non e' pignoleria. Prima
-    l'ordine era quello di inserimento nel dizionario, che risale a
-    `set(tokenizza(query))` e a `postings[t]`, cioe' a due insiemi di stringhe:
-    Python randomizza l'hash delle stringhe a ogni processo, quindi i pari
-    merito venivano ordinati in modo diverso a ogni avvio. L'RRF trasforma la
-    posizione in punteggio, il taglio a `top_k` butta via l'ultimo, e la stessa
-    domanda sulla stessa memoria dava due ricordi diversi.
-
-    Misurato sul vault vero, 444 domande: undici davano un ordine diverso fra
-    due processi, tre cambiavano proprio **quale nodo veniva ricordato**. Fra
-    queste la domanda «progetto», che e' la piu' naturale che si possa fare a
-    questa memoria.
-
-    Lo slug e' un criterio arbitrario ma **stabile e leggibile**: a parita'
-    esatta qualcuno deve vincere, e chi legge l'audit puo' capire perche'.
+    Lo spareggio deve stare **qui dentro** e non solo sull'ordine finale: l'RRF
+    trasforma la posizione in punteggio, quindi due nodi a pari merito escono
+    di qui con punteggi gia' *diversi*, e un criterio applicato piu' a valle
+    non troverebbe piu' nessun pareggio da sciogliere.
     """
     fusi: dict[str, float] = {}
     for punteggi in ranking:
-        ordinati = sorted(punteggi.items(), key=lambda kv: (-kv[1], kv[0]))
-        for posizione, (slug, _s) in enumerate(ordinati, start=1):
+        for posizione, (slug, _s) in enumerate(in_ordine(punteggi, freschezza), start=1):
             fusi[slug] = fusi.get(slug, 0.0) + 1.0 / (k + posizione)
     return fusi
 
@@ -405,7 +427,11 @@ class KBEngine:
             self.errore_embedding_query = spiega(e)
 
         # 3. fusione
-        fusi = rrf([sparse, dense])
+        # Le date servono allo spareggio: a pari merito vince il nodo toccato
+        # piu' di recente. Si prendono da qui perche' l'RRF non conosce i
+        # nodi, e non deve — riceve un ordine, non una memoria.
+        freschezza = {slug: (n.aggiornato or "") for slug, n in nodi.items()}
+        fusi = rrf([sparse, dense], RRF_K, freschezza)
         for slug, boost in esatti.items():
             fusi[slug] = fusi.get(slug, 0.0) + boost
         for slug, bonus in bonus_tag.items():
@@ -427,9 +453,9 @@ class KBEngine:
                 scartati.append(slug)
                 continue
             candidati.append((slug, score))
-        # Stesso motivo dell'RRF: a parita' di punteggio decide lo slug, non
-        # l'ordine in cui il dizionario e' stato riempito.
-        candidati.sort(key=lambda kv: (-kv[1], kv[0]))
+        # Stesso spareggio dell'RRF, nello stesso posto: punteggio, poi
+        # freschezza, poi slug.
+        candidati = in_ordine(dict(candidati), freschezza)
 
         hits: list[Hit] = []
         for slug, score in candidati[:top_k]:
@@ -469,7 +495,9 @@ class KBEngine:
         # 6. riordino e taglio finale: i vicini entrano in coda con un
         # punteggio ridotto, ma senza riordinare l'ordine mostrato non
         # rispecchiava i punteggi finiti nell'audit
-        hits.sort(key=lambda h: (-h.score, h.node.slug))
+        ordine_finale = in_ordine({h.node.slug: h.score for h in hits}, freschezza)
+        posto = {slug: i for i, (slug, _) in enumerate(ordine_finale)}
+        hits.sort(key=lambda h: posto[h.node.slug])
         hits = hits[: top_k + massimo_grafo]
 
         # 7. audit

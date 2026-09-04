@@ -3226,3 +3226,53 @@ e sarei andato a cercare il guasto nel codice.
 La regola: un binario ricostruito che si comporta come prima non e' un
 mistero, e' un binario che non e' stato ricostruito. Guardare la riga di
 cargo prima di guardare il proprio codice.
+
+---
+
+## 4 settembre 2026 — A parita' vince la freschezza
+
+Gio ha deciso la domanda che avevo lasciato aperta: a parita' esatta di
+punteggio, ricorda il nodo **piu' fresco**.
+
+E' la scelta giusta e vale la pena scrivere perche'. I nodi di questa memoria
+crescono per accodamento: NOVA impara qualcosa su Anna e lo aggiunge al nodo
+di Anna. Un nodo toccato ieri e' quindi quasi sempre piu' vivo di uno fermo da
+mesi — non piu' importante, piu' **attuale**. E fra due ricordi ugualmente
+pertinenti, l'attualita' e' l'unica cosa che li distingua davvero. Lo slug era
+stabile e leggibile, ma non voleva dire niente.
+
+### Dove va messo, che non e' dove sembra
+
+Non nell'ordinamento finale. L'RRF trasforma la **posizione** in punteggio:
+due nodi a pari merito escono di li' con punteggi gia' diversi, e un criterio
+applicato piu' a valle non troverebbe piu' nessun pareggio da sciogliere.
+Sarebbe stata una regola scritta, ricordata nella documentazione, e mai
+eseguita.
+
+Percio' lo spareggio sta in una funzione sola — `in_ordine` — che decide
+punteggio, poi data, poi slug, e che viene chiamata in tutti e tre i punti in
+cui il recupero mette qualcosa in fila. Prima erano tre `sort` scritti a mano
+in tre posti, ed e' esattamente cosi' che una regola si applica in due punti
+su tre senza che nessuno se ne accorga (D72).
+
+### Un limite che e' meglio dire
+
+`aggiornato` ha la granularita' del **giorno**, non dell'ora. Nello stesso
+giorno il pareggio resta intatto, e li' decide ancora lo slug. Con
+quarantacinque nodi seminati tutti il 21 agosto, vuol dire che fra loro la
+freschezza non dirime niente. Non l'ho cambiato: mettere l'ora dentro
+`aggiornato` vuol dire cambiare il frontmatter di ogni file del vault, che e'
+un contratto con i file che ci stanno adesso — la stessa ragione per cui non
+ho allargato l'insieme delle lettere accentate (D96).
+
+### Misurato, non dedotto
+
+Sul vault vero cambia in tre domande su quattro di quelle che erano instabili
+ieri:
+
+    'progetto'  slug: ... progetto-chess-ai, progetto-passaporti
+                data: ... progetto-passaporti, progetto-chess-ai
+
+`progetto-passaporti` e' stato toccato piu' di recente, ed e' quello che entra
+nel contesto. Prima ci entrava chi veniva prima in ordine alfabetico; prima
+ancora, chi capitava.
