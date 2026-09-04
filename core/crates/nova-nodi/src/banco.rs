@@ -1,8 +1,9 @@
 //! Il banco: una riga JSON per domanda, per il confronto col Python.
 
 use nova_nodi::fusione;
+use nova_nodi::deposito::{Deposito, Disco, Impronta};
 use nova_nodi::posto;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use nova_nodi::{come_lista, dividi_frontmatter, slug, Nodo};
 use serde::{Deserialize, Serialize};
 
@@ -50,6 +51,15 @@ enum Domanda {
     Cartella { tipo_nodo: String },
     #[serde(rename = "percorso")]
     Percorso { tipo_nodo: String, slug: String },
+    /// Un vault raccontato passo per passo: a ogni passo il disco e' quello
+    /// che dice la mappa, e si guarda cosa ne pensa il deposito.
+    #[serde(rename = "vault")]
+    Vault {
+        #[serde(default)]
+        passi: Vec<BTreeMap<String, String>>,
+        #[serde(default)]
+        distingue_maiuscole: bool,
+    },
     #[serde(rename = "slug_libero")]
     SlugLibero {
         tipo_nodo: String,
@@ -140,13 +150,54 @@ struct Risposta {
     #[serde(skip_serializing_if = "Option::is_none")]
     pezzi: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    passi: Option<Vec<StatoVault>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     errore: Option<String>,
+}
+
+#[derive(Serialize)]
+struct StatoVault {
+    slug: Vec<String>,
+    dove: Vec<(String, String)>,
+    titoli: Vec<(String, String)>,
+    collisioni: Vec<(String, Vec<String>)>,
+}
+
+/// Il disco del banco: una cartella descritta in JSON. L'impronta e' la
+/// lunghezza del testo piu' il testo stesso, cosi' due contenuti diversi
+/// hanno impronte diverse senza bisogno di un orologio.
+struct DiscoFinto {
+    file: BTreeMap<String, String>,
+}
+
+impl Disco for DiscoFinto {
+    fn elenca(&self) -> Vec<String> {
+        self.file.keys().cloned().collect()
+    }
+    fn impronta(&self, dove: &str) -> Option<Impronta> {
+        self.file.get(dove).map(|t| Impronta {
+            quando: impronta_del_testo(t),
+            quanto: t.len() as i64,
+        })
+    }
+    fn leggi(&self, dove: &str) -> Option<String> {
+        self.file.get(dove).cloned()
+    }
+}
+
+fn impronta_del_testo(t: &str) -> f64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for b in t.as_bytes() {
+        h ^= *b as u64;
+        h = h.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    (h % 1_000_000) as f64
 }
 
 fn vuota() -> Risposta {
     Risposta { slug: None, markdown: None, nodo: None, relazioni: None,
                lista: None, frontmatter: None, corpo: None, testo: None,
-               pezzi: None, errore: None }
+               pezzi: None, passi: None, errore: None }
 }
 
 fn main() {
@@ -210,6 +261,34 @@ fn main() {
                 pezzi: Some(posto::percorso_relativo(&tipo_nodo, &slug)),
                 ..vuota()
             },
+            Ok(Domanda::Vault { passi, distingue_maiuscole }) => {
+                let mut v = Deposito::nuovo(distingue_maiuscole);
+                let mut fuori = Vec::new();
+                for (i, mappa) in passi.iter().enumerate() {
+                    let disco = DiscoFinto { file: mappa.clone() };
+                    // Il primo passo e' un'apertura del vault, i successivi
+                    // sono cio' che l'utente ha combinato in Obsidian mentre
+                    // NOVA era accesa.
+                    if i == 0 {
+                        v.ricarica(&disco);
+                    } else {
+                        v.aggiorna(&disco);
+                    }
+                    fuori.push(StatoVault {
+                        slug: v.tutti().map(|n| n.slug.clone()).collect(),
+                        dove: v
+                            .tutti()
+                            .map(|n| (n.slug.clone(), v.dove(&n.slug).unwrap_or("").to_string()))
+                            .collect(),
+                        titoli: v
+                            .tutti()
+                            .map(|n| (n.slug.clone(), n.title.clone()))
+                            .collect(),
+                        collisioni: v.collisioni.clone().into_iter().collect(),
+                    });
+                }
+                Risposta { passi: Some(fuori), ..vuota() }
+            }
             Ok(Domanda::SlugLibero { tipo_nodo, slug, esistenti }) => Risposta {
                 slug: Some(posto::slug_libero(&tipo_nodo, &slug, &esistenti)),
                 ..vuota()

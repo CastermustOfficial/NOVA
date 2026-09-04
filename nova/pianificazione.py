@@ -38,6 +38,7 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from .guasti import spiega
+from .scrittura import scrivi
 
 NOME_ATTIVITA = "NOVA - pianificazione"
 OGNI_MINUTI = 5
@@ -127,8 +128,11 @@ def _carica() -> list[dict]:
 def _salva(voci: list[dict]) -> None:
     f = percorso()
     f.parent.mkdir(parents=True, exist_ok=True)
-    f.write_text(json.dumps(voci, ensure_ascii=False, indent=1) + "\n",
-                 encoding="utf-8", newline="\n")
+    # Come `ricette.salva`, e per la stessa ragione: qui dentro ci sono
+    # **tutti** i promemoria in un file solo, e un JSON troncato non e' un
+    # promemoria perso, sono tutti.
+    scrivi(f, json.dumps(voci, ensure_ascii=False, indent=1) + "\n",
+           newline="\n")
 
 
 def elenco() -> list[dict]:

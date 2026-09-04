@@ -3276,3 +3276,115 @@ ieri:
 `progetto-passaporti` e' stato toccato piu' di recente, ed e' quello che entra
 nel contesto. Prima ci entrava chi veniva prima in ordine alfabetico; prima
 ancora, chi capitava.
+
+---
+
+## 4 settembre 2026 — CANT-1, e una lezione mia trovata addosso all'utente
+
+Fatta la lista del cantiere — otto pezzi, sigla `CANT-`, ordinati per quanto
+ciascuno avvicina il momento in cui sul PC non serve piu' Python — e aperto il
+primo: il vault su disco.
+
+Non ho scritto una riga di Rust per le prime due ore, e sono state le due ore
+piu' utili.
+
+### La lezione di stamattina, addosso alle note di Gio
+
+Leggendo `Vault.upsert` per capire cosa dovevo portare, ho trovato questo:
+
+    percorso.write_text(node.to_markdown(), encoding="utf-8")
+
+E' **esattamente** il difetto che stamattina mi ero fatto addosso da solo
+(D90): aprire in scrittura tronca, e fra il tronca e lo scrivi c'e' una
+finestra in cui il file esiste ed e' vuoto. Io ci avevo perso sedicimila
+caratteri di un mio file di prova, ripresi da git in dieci secondi.
+
+Qui non e' un mio file di prova. E' **la memoria di chi usa NOVA**, e ci passa
+`MemoryWriter` da un thread di sfondo dopo quasi ogni scambio. Una chiusura a
+meta', un errore, il PC spento nel momento sbagliato, e resta una nota vuota —
+che alla ricerca dopo c'e' ancora, ma non dice piu' niente. Nessun errore da
+nessuna parte. E se qualcuno se ne accorgesse, penserebbe di aver perso la
+nota chissa' quando.
+
+Stamattina avevo scritto nel diario che «il divieto sulla cancellazione non e'
+una rete: e' un solo filo», perche' sul disco dell'utente `rm` non mi e'
+permesso ma la scrittura si'. L'avevo scritto come una riflessione. Era una
+segnalazione, e non l'ho seguita fino in fondo lo stesso giorno.
+
+### Il giro dei posti (D72), che stavolta era lungo
+
+`ricette.salva` scriveva **gia'** di fianco e poi rinominava, col commento
+giusto:
+
+> un'interruzione a meta' lascerebbe un JSON troncato, cioe' tutte le
+> procedure perse insieme.
+
+Lo faceva solo lui. `pianificazione._salva` salva la stessa forma di archivio
+— tutti i promemoria in un file solo — e scriveva dritto. E cosi' il vault,
+gli strumenti file, l'harness, la configurazione (che puo' contenere una
+chiave API).
+
+Adesso c'e' `nova/scrittura.py`, e chi scrive un file che conta chiama quello:
+temporaneo di fianco, `fsync`, `os.replace`. Il temporaneo finisce per
+`.parte-<pid>`, quindi non e' un `.md` e chi legge il vault non lo vede
+nemmeno mentre esiste — una regola che c'era gia' e che non ho dovuto
+aggiungere.
+
+La prova non immagina l'interruzione: **la esegue**. Fallisce apposta a meta'
+del versamento e guarda cosa e' rimasto sul disco. E nello stesso file
+dimostra che il modo vecchio la nota la perdeva davvero — ventuno caratteri
+rimasti su sessantasei. Una prova che non ho visto fallire non e' una prova.
+
+### Poi il Rust: il disco dietro un tratto
+
+`nova-nodi::deposito`. La parte difficile non e' leggere un file: e' la
+macchina a stati che decide chi ricaricare, chi dimenticare, e cosa fare
+quando due file con lo stesso nome in due cartelle si contendono uno slug.
+
+Quella macchina si prova con un **disco finto**, in memoria: undici casi in un
+millisecondo, ripetibili. Con un disco vero se ne proverebbero tre e si
+spererebbe. E il banco fa la cosa che rende onesto il disco finto: gira lo
+stesso scenario due volte, il Python su una cartella vera e il Rust sulla
+finta, e pretende che dicano la stessa cosa.
+
+Il caso che tengo piu' caro e' questo: due `doppio.md` in due cartelle, poi
+uno sparisce. Il superstite deve **tornare visibile** — altrimenti chi aveva
+perso la contesa resta invisibile pur essendo rimasto l'unico, ed e' di nuovo
+un nodo che sparisce senza che nessuno lo dica.
+
+E l'identita' di un file, qui, e' il percorso relativo normalizzato: niente
+`resolve()`. Il Python lo chiama ancora, ed e' proprio cio' che D56 dice di
+non fare — la domanda e' «e' questo file, dentro questa cartella?», e a quella
+si risponde coi nomi.
+
+### Il banco ha trovato un difetto di settimane fa
+
+Undici scenari su dodici combaciavano. Il dodicesimo, un file scritto a mano
+senza frontmatter:
+
+    rust:   'Progetto Nova'
+    python: 'Progetto nova'
+
+`capitalize()` di Python fa **due** cose — alza la prima lettera e abbassa
+tutte le altre — e il Rust non ne faceva nessuna. Il difetto stava li' da
+settimane, in `da_markdown`, che e' il dodicesimo pezzo del cantiere.
+
+Perche' il banco dei nodi non l'aveva visto: ogni nodo del suo corpus aveva
+gia' un `title:` nel frontmatter, e in quel ramo non entrava nessuno. E' la
+terza volta che incontro questa forma — il banco dei guasti verde mentre le
+due meta' divergevano su sei forme, il banco della memoria che nascondeva il
+disordine riordinando in uscita, e adesso questo. **Un banco prova solo le
+strade che il suo corpus percorre**, e le strade che non percorre non sono
+«coperte per simmetria»: sono scoperte.
+
+E c'era di peggio. Una prova diceva:
+
+    controlla("un nodo senza titolo prende il nome dal file",
+              ... ["title"] == "il mio nodo")
+
+Quella stringa non l'aveva detta il Python: era **quello che il Rust faceva**.
+L'avevo scritta io, in una sezione intitolata «le cose che devono essere vere
+comunque», e aveva certificato come regola del formato il difetto di una delle
+due meta'. Adesso il titolo di ripiego si chiede al Python, su cinque nomi
+diversi. Una prova che confronta un'implementazione con se stessa non prova
+niente, e in piu' **difende** cio' che dovrebbe scoprire.

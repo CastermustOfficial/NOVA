@@ -40,6 +40,7 @@ from pathlib import Path
 from . import harness
 from . import registro
 from .guasti import spiega
+from .scrittura import scrivi
 
 AZIONI_TESTO = {"sostituisci", "prima", "dopo", "elimina"}
 AZIONI_PDF = {"evidenzia", "nota"}
@@ -350,7 +351,7 @@ def _applica_testo(f: Path, modifiche: list[dict]) -> int:
     testo = "\n".join(righe)
     if not testo.endswith("\n"):
         testo += "\n"
-    f.write_text(testo, encoding="utf-8")
+    scrivi(f, testo)
     return fatte
 
 

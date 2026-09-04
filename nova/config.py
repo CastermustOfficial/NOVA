@@ -6,6 +6,7 @@ import os
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any
+from .scrittura import scrivi
 
 APP_DIR = Path(os.environ.get("APPDATA", Path.home())) / "NOVA"
 CONFIG_PATH = APP_DIR / "config.json"
@@ -663,8 +664,11 @@ class Config:
         dati = asdict(self)
         dati.pop("errore_caricamento", None)
         # newline esplicito e nessun BOM: il file lo rileggono anche altri
-        path.write_text(json.dumps(dati, indent=2, ensure_ascii=False) + "\n",
-                        encoding="utf-8", newline="\n")
+        # Di fianco e poi rinomina: qui dentro puo' esserci una chiave API, e
+        # una configurazione troncata vuol dire NOVA che riparte come appena
+        # installata — con la chiave persa e nessun errore da nessuna parte.
+        scrivi(path, json.dumps(dati, indent=2, ensure_ascii=False) + "\n",
+               newline="\n")
         _traccia_config("scritto", path, self.brains.claude_max_turns)
         return path
 
