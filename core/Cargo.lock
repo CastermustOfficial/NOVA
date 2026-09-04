@@ -2626,6 +2626,8 @@ dependencies = [
 name = "nova-strumenti"
 version = "0.1.0"
 dependencies = [
+ "glob",
+ "nova-calendario",
  "regex",
  "serde",
  "serde_json",

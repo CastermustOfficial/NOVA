@@ -58,6 +58,49 @@ pub fn giorni_dal_1970(anno: i32, mese: u32, giorno: u32) -> i64 {
     era as i64 * 146097 + giorno_di_era - 719468
 }
 
+/// L'inverso di `giorni_dal_1970`: da un numero di giorni alla data civile.
+///
+/// Sta qui e non altrove perche' l'aritmetica del calendario si fa in un
+/// posto solo: una seconda implementazione, anche corretta, e' una seconda
+/// implementazione da tenere allineata — ed e' cosi' che nascono le
+/// differenze che si vedono solo il 29 febbraio.
+pub fn dal_1970_ai_giorni(giorni: i64) -> (i32, u32, u32) {
+    let z = giorni + 719468;
+    let era = if z >= 0 { z } else { z - 146096 } / 146097;
+    let giorno_di_era = z - era * 146097; // 0..=146096
+    let anno_di_era = (giorno_di_era - giorno_di_era / 1460 + giorno_di_era / 36524
+        - giorno_di_era / 146096)
+        / 365; // 0..=399
+    let anno = anno_di_era + era * 400;
+    let giorno_di_anno =
+        giorno_di_era - (365 * anno_di_era + anno_di_era / 4 - anno_di_era / 100);
+    let mp = (5 * giorno_di_anno + 2) / 153; // 0..=11
+    let giorno = (giorno_di_anno - (153 * mp + 2) / 5 + 1) as u32;
+    let mese = (mp + if mp < 10 { 3 } else { -9 }) as u32;
+    ((anno + if mese <= 2 { 1 } else { 0 }) as i32, mese, giorno)
+}
+
+/// Da un istante — secondi dal 1970 — alla data e ora **locali**.
+///
+/// Il fuso arriva da fuori, in secondi, come tutte le cose che dipendono dal
+/// mondo: una funzione che se lo va a prendere da sola non si prova due volte
+/// con lo stesso risultato, e cambierebbe risposta a marzo e a ottobre senza
+/// che nessuna prova se ne accorga.
+pub fn da_istante(secondi: i64, fuso_secondi: i64) -> DataOra {
+    let locale = secondi + fuso_secondi;
+    let giorni = locale.div_euclid(86_400);
+    let resto = locale.rem_euclid(86_400);
+    let (anno, mese, giorno) = dal_1970_ai_giorni(giorni);
+    DataOra::nuova(
+        anno,
+        mese,
+        giorno,
+        (resto / 3600) as u32,
+        ((resto % 3600) / 60) as u32,
+        (resto % 60) as u32,
+    )
+}
+
 /// Il giorno della settimana, con **lunedi' = 0**.
 ///
 /// Lunedi' zero e non domenica zero perche' e' cio' che usa Python
@@ -247,5 +290,25 @@ mod prove {
             Some(DataOra::nuova(2026, 9, 2, 8, 5, 0))
         );
         assert_eq!(DataOra::da_iso("non una data"), None);
+    }
+
+    #[test]
+    fn dai_giorni_alla_data_e_ritorno() {
+        // Il giro completo su un secolo: se le due direzioni non combaciano,
+        // combaciano quasi sempre e sbagliano il 29 febbraio.
+        for g in -30000..30000 {
+            let (a, m, d) = dal_1970_ai_giorni(g);
+            assert_eq!(giorni_dal_1970(a, m, d), g, "{a}-{m}-{d}");
+        }
+    }
+
+    #[test]
+    fn un_istante_diventa_la_data_e_ora_locali() {
+        // 2026-09-05T12:34:56Z, col fuso di Roma d'estate (+2).
+        let d = da_istante(1_788_611_696, 2 * 3600);
+        assert_eq!(d.iso(), "2026-09-05T14:34:56");
+        // E a mezzanotte in punto, con fuso negativo, si torna al giorno prima.
+        let d = da_istante(0, -3600);
+        assert_eq!(d.iso(), "1969-12-31T23:00:00");
     }
 }

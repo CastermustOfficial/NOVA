@@ -26,6 +26,13 @@ pub mod guardie;
 // Come si racconta un file al modello: l'ordine, la misura, il taglio.
 pub mod file;
 
+// La data di un file. Il fuso arriva da fuori, come tutte le cose che
+// dipendono dal mondo.
+pub mod data;
+
+// Gli strumenti sui file, quelli che il disco lo toccano davvero.
+pub mod file_disco;
+
 pub use dichiarazioni::STRUMENTI;
 
 /// Quanto costa sbagliare questa azione.

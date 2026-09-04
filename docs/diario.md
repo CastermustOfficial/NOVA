@@ -3762,3 +3762,81 @@ E' li' che CANT-2 smette di essere una traduzione. Un corpo non si confronta
 col Python su un banco — si confronta col **sistema operativo**, e chiede a
 `nova-platform` di crescere. E' lo stesso genere di punto di CANT-8: non una
 difficolta' tecnica, una decisione. Meglio prenderla da svegli.
+
+---
+
+## 5 settembre 2026, sera — I corpi: trentuno operazioni su una cartella vera
+
+Preso il punto che avevo lasciato aperto: i **corpi** degli strumenti, quelli
+che il disco lo toccano davvero. Tredici, la famiglia dei file.
+
+Il banco qui non confronta funzioni. Costruisce **due cartelle identiche fino
+ai byte**, esegue la stessa sequenza di trentuno operazioni — elenca, leggi,
+scrivi, accoda, modifica, crea, copia, sposta, cancella, cerca, setaccia — una
+col Python e una col Rust, e confronta due cose:
+
+- quello che il modello leggerebbe, riga per riga;
+- e alla fine, **le due cartelle**, file per file, byte per byte.
+
+La seconda e' quella che conta davvero (D51): due implementazioni possono
+raccontare la stessa cosa e lasciare due dischi diversi.
+
+Una sola divergenza su trentuno, e la parola l'avevo inventata io: «Cartella
+pronta» invece di «Cartella creata». Sembra niente. Non lo e': quella riga la
+legge il modello, e «pronta» e «creata» non rispondono alla stessa domanda —
+una dice che c'era gia', l'altra che l'ha fatta adesso.
+
+### Tre cose che ho deciso invece di tradurre
+
+**Le guardie sono il primo argomento di ogni corpo che scrive.** Non un
+parametro opzionale, non un controllo dentro: un permesso che si puo'
+dimenticare si dimentica, e in questo modulo non si puo' scrivere uno
+strumento che scrive senza aver chiesto.
+
+**Il fuso arriva da fuori.** La data di un file compare in ogni elenco, e una
+funzione che si legge il fuso da sola cambierebbe risposta a marzo e a ottobre
+senza che nessuna prova se ne accorga. E' la stessa scelta di `oggi` nel
+vault. La conversione da istante a data l'ho messa in `nova-calendario`, dove
+c'era gia' la direzione inversa: una seconda aritmetica del calendario, anche
+corretta, e' una seconda da tenere allineata.
+
+**Il Cestino e l'apertura stanno dietro un tratto**, e chi non li ha lo dice
+invece di fallire in silenzio. Sono le uniche due cose di tutto il modulo che
+cambiano da sistema a sistema — il resto e' `std::fs`.
+
+### Il ramo che nessuno prova mai
+
+`read_file` in Python ripiega su cp1252 quando un file non e' UTF-8. Sui PC
+italiani quei file ci sono — un `.txt` salvato dal Blocco note dieci anni fa —
+e senza quel ripiego NOVA direbbe «non e' un file di testo» di un file di
+testo.
+
+L'ho portato, tabella di conversione compresa, coi cinque byte che in cp1252
+**non esistono**: un file che li contiene non e' cp1252, e leggerlo comunque
+vorrebbe dire inventare dei caratteri.
+
+Verificato che il banco lo veda, togliendolo:
+
+    python '{B}/vecchio.txt (righe 1-1 di 1):\ncitta' perche''
+    rust   "{B}/vecchio.txt non e' un file di testo (13 byte)."
+
+Il corpus ha un file cp1252 dentro apposta. Senza, il ramo sarebbe stato
+verde e vuoto — D104 di nuovo.
+
+### E un difetto trovato leggendo
+
+`delete_path` aveva **due copie** della strada per il Cestino: una in
+`_nel_cestino`, con tanto di commento sul perche', e una scritta inline dentro
+la funzione. Gia' divergenti: quella inline ripiegava solo su `ImportError`,
+l'altra su qualunque errore. Due copie della stessa cosa nello stesso file,
+scritte a venti righe di distanza.
+
+### Una prova che avevo scritto a occhio
+
+Nel provare la conversione delle date avevo scritto i valori attesi a mente:
+`2026-09-05 22:10`. Erano sbagliati di un'ora e venti. Il vero era 23:30, e
+me l'ha detto il Python quando gliel'ho chiesto.
+
+Un valore atteso che si inventa non prova che il codice e' giusto: prova che
+si credeva di sapere la risposta. Adesso nel commento c'e' scritto da dove
+viene.
