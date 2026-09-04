@@ -18,7 +18,7 @@
 //! «su questa macchina chi sa fare cosa» e' scritta.
 //!
 //! Cosa c'e' e cosa no, oggi: gli appunti, il volume, le notifiche. La
-//! cattura dello schermo e il resto dei quattordici passano ancora da
+//! cattura dello schermo e il resto di quelli che restano passano ancora da
 //! PowerShell nel Python, e finche' e' cosi' e' meglio che qui **non ci
 //! siano** — un tratto implementato a meta' e' peggio di uno che manca,
 //! perche' chi lo chiama non sa quale meta' ha preso.

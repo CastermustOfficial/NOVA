@@ -2,7 +2,7 @@
 """Il volume chiesto a chi lo tiene, invece che premuto a colpi di tasto.
 
 Windows si appoggia a NOVA, non il contrario (D130). Il ripiego di prima e'
-il caso peggiore dei quattordici: per mettere il volume a meta' manda
+il caso peggiore di tutti: per mettere il volume a meta' manda
 cinquanta pressioni simulate di «volume giu'» e poi venticinque di «volume
 su» — mezzo volume per pressione, fino a novanta secondi di timeout — e poi
 risponde «impostato a circa 50%» **senza aver mai letto** il volume vero.

@@ -6,13 +6,15 @@
 //! decidere la forma di NOVA. Qui c'e' scritto «copia questo testo negli
 //! appunti», non «chiama `SetClipboardData`» — e chi sa farlo si fa avanti.
 //!
-//! **Perche' non una shell.** Oggi, dall'altra parte, gli appunti *sono*
-//! `Get-Clipboard`, il volume *e'* `SendKeys`, la cattura dello schermo *e'*
-//! `Add-Type -AssemblyName System.Drawing`. Quattordici punti in tutto. Vuol
-//! dire un processo da avviare, una shell che interpreta e una stringa da
-//! comporre per ogni gesto — e vuol dire che quelle capacita' **non esistono**
-//! dove PowerShell manca o e' bloccato da una policy. Non degradano:
-//! spariscono. Vedi D130.
+//! **Perche' non una shell.** Dall'altra parte gli appunti *erano*
+//! `Get-Clipboard`, il volume *era* `SendKeys`, e l'elenco delle finestre
+//! aperte *e'* ancora `Get-Process` con un `ConvertTo-Csv` in coda. Contate
+//! con un analizzatore di sintassi — non a memoria, vedi D136 — le funzioni
+//! che passano da una shell sono ventiquattro, di cui tredici strumenti
+//! esposti al modello. Vuol dire un processo da avviare, una shell che
+//! interpreta e una stringa da comporre per ogni gesto — e vuol dire che
+//! quelle capacita' **non esistono** dove PowerShell manca o e' bloccato da
+//! una policy. Non degradano: spariscono. Vedi D130.
 //!
 //! Ogni tratto ha un'implementazione che non sa fare niente e **lo dice**: una
 //! capacita' che manca in silenzio e' peggio di una che manca.

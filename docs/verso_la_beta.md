@@ -826,7 +826,7 @@ Due conseguenze pratiche.
 
 Deciso da Gio il 5 settembre, e riscrive cosa vuol dire «finire CANT-2».
 
-Il conto di partenza: **quattordici** punti in cui PowerShell non e' uno
+Il conto di partenza — a memoria, e per questo sbagliato, vedi D136: «quattordici» punti in cui PowerShell non e' uno
 strumento che NOVA usa, ma cio' che la regge. Gli appunti *sono*
 `Get-Clipboard`. Il volume *e'* `SendKeys`. La cattura dello schermo *e'*
 `Add-Type -AssemblyName System.Drawing`. L'elenco delle applicazioni *e'* una
@@ -869,9 +869,59 @@ Mettendo le due strade una accanto all'altra e chiedendo se dicessero la stessa
 cosa, si e' scoperto che il ripiego **storpiava gli accenti**: PowerShell
 scrive su stdout con la tabella codici della console e `_ps` leggeva UTF-8, per
 cui «perche' citta' pero'» tornava con i punti interrogativi al posto delle
-lettere. Nessun errore, uscita zero. Da `_ps` passano tutte e quattordici le
-capacita', quindi il guasto era di tutte (D131). Vale la pena dirlo perche' non
+lettere. Nessun errore, uscita zero. Da `_ps` passano molte capacita', quindi il
+guasto era di tutte — e cercando le altre chiamate sono saltate fuori dieci
+chiamate a una shell in cinque moduli, con tre difetti diversi (D131, D135). Vale la pena dirlo perche' non
 lo stavo cercando: l'ha trovato la disciplina di D130, non un sospetto.
+
+
+**E poi ho contato.** «Quattordici» me l'ero ricordato, non misurato, e
+l'avevo scritto in D130, nel diario, nei commenti del codice e in tre messaggi
+di commit. Contate con un analizzatore di sintassi, le funzioni che passano da
+una shell sono **24**, di cui **13 strumenti** esposti al modello. E fra i
+tre esempi che avevo dato, uno era falso: la cattura dello schermo non passa
+da PowerShell affatto — usa `mss` e `PIL`. Quel `System.Drawing` che
+ricordavo e' delle notifiche, cioe' proprio il pezzo che avevo appena
+riscritto.
+
+Il numero sbagliato e' innocuo. L'esempio falso no: avrebbe mandato a
+riscrivere una cosa che quel problema non ce l'ha (ne ha un altro — due
+pacchetti Python — che e' un'altra decisione). Vedi D136.
+
+**Il conto vero, oggi.** Tredici strumenti toccano ancora una shell. Quattro
+hanno gia' la strada diretta e la tengono solo come ripiego dichiarato; nove
+ci dipendono davvero.
+
+| Strumento | Cosa usa oggi | Misurato |
+|---|---|---|
+| `read_clipboard` | Win32 diretto; PowerShell solo se manca il binario | 19 ms (era 179) |
+| `write_clipboard` | idem | 19 ms |
+| `set_volume` | Core Audio; `SendKeys` solo se manca tutto | letto davvero |
+| `notify` | processo suo che aspetta al posto di NOVA | 5 ms (era 9.300) |
+| `system_info` | una query WMI dentro una stringa | **1.543 ms** |
+| `list_installed_apps` | tre rami di registro letti da PowerShell | 594 ms |
+| `list_windows` | `Get-Process` + `ConvertTo-Csv` | 275 ms |
+| `focus_window` | `Add-Type` + `SetForegroundWindow` | — |
+| `close_application` | `Stop-Process` | — |
+| `open_application` | `Start-Process` | — |
+| `type_text` | `keyboard`, e `SendKeys` se manca | — |
+| `press_keys` | idem | — |
+| `create_reminder` | `schtasks` con dentro un comando PowerShell | — |
+
+Piu' undici funzioni interne, di cui sei sono la **semina del vault**: e'
+quella che scrive i nomi delle cartelle dell'utente dentro i ricordi.
+
+`list_processes` **non** e' in questo elenco, e la prima versione della tabella
+ce l'aveva messo: usa `psutil`, e ripiega su `list_windows` solo se manca. Se
+ne e' accorta `test_conto_shell.py` — che confronta questa tabella con cio' che
+il codice fa davvero, in tutti e due i versi: nessuno che chiami una shell puo'
+restare fuori dalla tabella, e nessuno puo' restarci dopo essere stato portato.
+E' l'unico modo perche' un elenco scritto a mano non racconti un'altra storia
+sei mesi dopo (D46, D136).
+
+L'ordine lo decide la misura: `system_info` costa quasi un secondo e mezzo,
+piu' di tutte le altre messe insieme, ed e' anche quella che il modello chiede
+piu' spesso all'inizio di una conversazione.
 
 ### La lista del cantiere
 

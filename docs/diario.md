@@ -4167,3 +4167,48 @@ commento, perche' e' l'argomento migliore che ho per D130: se ci casca chi sta
 guardando proprio quello, comporre comandi incollandoci dentro dei dati non e'
 una tecnica da migliorare — e' una strada da non prendere.
 
+### «Quattordici», e un esempio che non avevo mai guardato
+
+Prima di scegliere il quarto pezzo volevo fare quello che avevo appena scritto
+in D134: misurare cosa costa davvero ognuno di quelli che restano. Ho misurato:
+
+    system_info          1.543 ms
+    list_processes         645 ms
+    list_installed_apps    594 ms
+    list_windows           275 ms
+    get_datetime             0 ms
+
+`system_info` costa quasi un secondo e mezzo, piu' di tutte le altre messe
+insieme, ed e' anche quella che il modello chiede piu' spesso all'inizio di
+una conversazione. L'ordine se l'e' scelto da solo.
+
+Ma poi ho contato, e la parte utile e' qui.
+
+«Quattordici punti in cui PowerShell regge NOVA» me l'ero **ricordato**, non
+misurato, e nel frattempo l'avevo scritto in D130, nel diario, in due commenti
+di codice Rust e in tre messaggi di commit. Contate con un analizzatore di
+sintassi: ventiquattro funzioni, di cui tredici strumenti esposti al modello.
+
+Il numero sbagliato non fa danno. L'esempio si'. Fra i tre che avevo dato —
+«gli appunti *sono* Get-Clipboard, il volume *e'* SendKeys, la cattura dello
+schermo *e'* Add-Type System.Drawing» — il terzo e' **falso**. La cattura dello
+schermo non passa da PowerShell affatto: usa `mss` e `PIL`. Quel
+`System.Drawing` che ricordavo e' delle notifiche, cioe' proprio il pezzo che
+avevo appena finito di riscrivere.
+
+Se avessi seguito il mio stesso documento, sarei andato a riscrivere una cosa
+che quel problema non ce l'ha. (Ne ha un altro — due pacchetti Python — che e'
+una decisione diversa e va presa a parte.)
+
+La cosa che voglio ricordare: **un numero preso a memoria porta con se' la
+stessa sicurezza di uno contato, e nessuno dei due segnala su di se' quale dei
+due e'.** «Quattordici» suonava misurato. Non lo era (D136).
+
+E siccome un elenco scritto a mano invecchia — in avanti quando si porta un
+pezzo e ci si dimentica di toglierlo, all'indietro quando se ne aggiunge uno e
+non si scrive — la tabella in `verso_la_beta.md` adesso ha una prova che la
+lega al codice nei due versi. Alla prima esecuzione ha trovato subito un
+errore mio: ci avevo messo `list_processes`, che usa `psutil` e non una shell.
+Scritta cinque minuti prima, sbagliata dieci minuti dopo, corretta da una
+prova. E' esattamente il motivo per cui la prova esiste (D46).
+
