@@ -3541,3 +3541,76 @@ Il registro accoda una riga; a comporla e' chi chiama, perche' cosa vada in un
 registro non lo decide chi tiene i file. E `nova-nodi` adesso dipende da
 `nova-guasti` — una direzione sola, perche' `nova-guasti` non deve sapere che
 esiste un vault.
+
+---
+
+## 4 settembre 2026, tarda notte — CANT-2 comincia dalle parole, non dalle mani
+
+Sessanta strumenti in quindici file: le mani di NOVA sul PC. Ma il primo pezzo
+da portare non e' quello che **fanno** — e' quello che **sono**.
+
+Uno strumento e' tre cose. La dichiarazione (nome, descrizione, parametri,
+rischio), la guardia (posso farlo senza chiedere?), e il fare. La
+dichiarazione e' quella che pesa di piu' e sembra la piu' innocua: sono 26.573
+caratteri di schema JSON — circa 7.600 token, il 42% del contesto in certe
+configurazioni — che il modello rilegge a ogni richiesta, e su cui **sceglie
+quale strumento usare**.
+
+Quindi una parola diversa in una descrizione e' un comportamento diverso, e
+non c'e' nessun tipo che se ne accorga. Lo so per averlo gia' fatto: avevo
+«rafforzato» il testo di `kb_note` e l'avevo peggiorato da 3 su 4 a 1 su 6.
+
+### Estratte, non ricopiate
+
+Sessanta descrizioni trascritte a mano sarebbero sessanta occasioni di
+cambiare un carattere che il modello legge. Le ho **estratte dal registro
+vivo** con uno script, che sta nel repository perche' il metodo vale quanto il
+risultato.
+
+Ma un estrattore che lavora con espressioni regolari sul codice sorgente di
+sessanta lambda e' comodo e inaffidabile. Percio' si verifica da solo: rende
+ogni modello di anteprima con piu' insiemi di argomenti e lo confronta con
+l'anteprima vera. Cosi' ha scoperto da solo che quattro f-string su piu' righe
+le stava prendendo a meta' — e il risultato era un'anteprima piu' corta,
+plausibile, e sbagliata.
+
+### E la verifica aveva lo stesso buco che cercava
+
+`automazione_crea` e' passata lo stesso. La sua anteprima continua su una
+seconda riga, il modello estratto si fermava alla prima, e la verifica non se
+n'e' accorta perche' costruiva gli argomenti di prova **dai campi che il
+modello nominava** — cioe' da cio' che stava provando. Un modello a cui manca
+un campo non puo' essere smentito da un corpus ricavato dal modello stesso.
+
+E' D104 in miniatura, dentro lo strumento scritto per evitare D104. Adesso i
+campi si prendono dai parametri dichiarati dello strumento, e
+`automazione_crea` viene scartata come deve.
+
+Quarantasei modelli verificati, quattordici anteprime scritte a mano — quelle
+con un «se» vero dentro. Il linguaggio dei modelli ha quattro forme e si
+ferma li': uno che cresce a forza di casi speciali smette di essere una
+semplificazione e diventa un secondo linguaggio da imparare.
+
+### Il banco, e cosa ha trovato
+
+Confronto carattere per carattere sullo schema. Ha trovato subito una
+divergenza che nessuna prova sui tipi avrebbe visto: in Python `items` sta
+**prima** di `description`, perche' e' l'ordine in cui e' scritta la
+dichiarazione; io lo mettevo dopo. Stesso JSON per un parser, due prompt
+diversi per un modello.
+
+Verificato che il banco morda cambiando **una parola** in una descrizione
+Rust: rosso al carattere 136.
+
+### Una differenza dichiarata invece che scoperta
+
+Se il modello manda un booleano dove serve una stringa, il Python inciampa
+dentro l'anteprima e `describe_call` ripiega sulla riga generica; il Rust non
+ha niente che possa fallire e la riga la scrive lo stesso. Su cinquanta casi
+storti il Python ripiega tre volte.
+
+Riprodurre l'inciampo vorrebbe dire simulare gli errori di tipo di Python, che
+e' assurdo. L'ho scritto nel banco come differenza voluta, con il motivo:
+nessuna delle due mente all'utente, e quella del Rust dice qualcosa in piu'.
+Una differenza dichiarata e' una decisione; la stessa differenza trovata fra
+sei mesi sarebbe un difetto.

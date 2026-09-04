@@ -1,0 +1,19 @@
+[package]
+name = "nova-strumenti"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Le mani di NOVA sul PC: cosa sa fare, quanto costa sbagliarlo, e come si racconta a chi guarda."
+
+[dependencies]
+serde = { workspace = true, features = ["derive"], optional = true }
+serde_json = { workspace = true, optional = true }
+
+[features]
+banco = ["dep:serde", "dep:serde_json"]
+
+[[bin]]
+name = "banco-strumenti"
+path = "src/banco.rs"
+required-features = ["banco"]
