@@ -54,6 +54,10 @@ features = [
     # questa feature il metodo non esiste affatto, e l'errore dice solo
     # «no method named Activate».
     "Win32_System_Com_StructuredStorage",
+    # L'area di notifica: `Shell_NotifyIconW` e la NOTIFYICONDATAW che le si
+    # passa. Dall'altra parte la notifica e' un processo PowerShell che resta
+    # in piedi nove secondi, e a farlo e' NOVA (D134).
+    "Win32_UI_Shell",
 ]
 
 # Una risposta sola alla domanda «quanta memoria video c'e'»: la usano
@@ -70,3 +74,7 @@ path = "src/bin/nova-appunti.rs"
 [[bin]]
 name = "nova-volume"
 path = "src/bin/nova-volume.rs"
+
+[[bin]]
+name = "nova-notifica"
+path = "src/bin/nova-notifica.rs"

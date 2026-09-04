@@ -27,6 +27,17 @@ pub trait Appunti {
 
 /// Le notifiche che compaiono in un angolo dello schermo.
 pub trait Notifiche {
+    /// Consegna la notifica e torna: **non** aspetta che sparisca.
+    ///
+    /// La distinzione e' il difetto che questo tratto esiste per non
+    /// ripetere. Il fumetto dell'area di notifica muore insieme a chi possiede
+    /// l'icona, quindi qualcuno deve restare li' per tutta la sua durata — e
+    /// nel Python quel qualcuno era NOVA, ferma nove secondi (misurati) a
+    /// guardare un fumetto che sta gia' guardando l'utente. Chi implementa
+    /// questo metodo si organizza da solo per aspettare altrove.
+    ///
+    /// `Ok` vuol dire «consegnata», non «vista»: l'unico giudice di «e'
+    /// comparsa?» e' la persona davanti allo schermo, e non ha un'API.
     fn mostra(&self, titolo: &str, messaggio: &str) -> Result<(), String>;
 }
 

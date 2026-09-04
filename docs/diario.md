@@ -4069,3 +4069,43 @@ per caso.
 
 Una prova rossa a caso viene ignorata. Una prova ignorata non e' una prova.
 
+### Le notifiche, dove il costo non era dove me lo aspettavo
+
+Terzo pezzo di D130, e mi ha corretto il metodo.
+
+Ero partito convinto: la notifica passa da PowerShell, quindi il costo e' il
+processo PowerShell, quindi la riscrivo in Rust e il costo sparisce. Ho
+misurato prima di scrivere, ed era falso:
+
+    una notifica: 9.300 ms
+
+Novemila e trecento. Il processo PowerShell ne spiega trecento. Gli altri
+novemila sono una riga: `Start-Sleep 9`. E non e' sciatteria di chi l'ha
+scritta — il fumetto dell'area di notifica muore insieme a chi possiede
+l'icona, quindi qualcuno **deve** restare li' per tutta la sua durata.
+Riscrivere la chiamata in Rust avrebbe tolto il tre per cento e lasciato NOVA
+ferma nove secondi lo stesso.
+
+Il difetto non era la shell. Era **chi aspetta**: novemila millisecondi in cui
+NOVA non fa nient'altro, spesi a guardare un fumetto che sta gia' guardando
+l'utente.
+
+Quindi non ho tolto l'attesa — non si puo' — ho cambiato chi la paga.
+`nova-notifica` nasce, mostra, aspetta e muore da solo; NOVA lo lancia e se ne
+va. Misurato dopo: **5 ms**. Il fumetto e' identico e dura uguale.
+
+Due code oneste. La prima: `Ok` adesso vuol dire «consegnata», non «vista» —
+non si aspetta l'esito, quindi non si puo' sapere se il fumetto e' comparso.
+Per una notifica va bene, perche' l'unico giudice di «e' comparsa?» e' la
+persona davanti allo schermo e non ha un'API; ma va scritto nel tratto, e c'e'
+scritto. La seconda: mi aspettavo di trovare anche un guasto di virgolette —
+il ripiego incolla il messaggio dentro una stringa di PowerShell — e ho
+provato apostrofi, virgolette doppie, `$(Get-Date)`, backtick, a capo, pipe.
+Passano tutti. Non ogni sospetto e' un difetto, e vale la pena scriverlo tanto
+quanto i difetti veri.
+
+La lezione la porto sugli undici pezzi che restano: prima di riscrivere una
+capacita' si misura **cosa costa davvero**. Se il costo e' la shell si toglie
+la shell; se e' un'attesa dovuta si sposta l'attesa; e se non si guarda, si
+riscrive la cosa sbagliata con molta cura (D134).
+

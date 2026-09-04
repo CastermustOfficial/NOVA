@@ -336,6 +336,11 @@ def create_reminder(message: str, when: str) -> str:
     preview=lambda a: f"Mostra la notifica: {a.get('message')}",
 )
 def notify(message: str, title: str = "NOVA") -> str:
+    if _notifica_rust(title, message):
+        return "Notifica mostrata."
+    # Il ripiego, e va detto quanto costa: `Start-Sleep 9` non e' prudenza, e'
+    # che il fumetto muore insieme a chi possiede l'icona. Misurato: 9.300 ms
+    # per notifica, tutti spesi da NOVA (D134).
     safe_t, safe_m = title.replace("'", "''"), message.replace("'", "''")
     _ps("Add-Type -AssemblyName System.Windows.Forms,System.Drawing; "
         "$n=New-Object System.Windows.Forms.NotifyIcon; "
@@ -343,3 +348,31 @@ def notify(message: str, title: str = "NOVA") -> str:
         f"$n.ShowBalloonTip(8000,'{safe_t}','{safe_m}','Info'); Start-Sleep 9; $n.Dispose()",
         timeout=20)
     return "Notifica mostrata."
+
+
+def _notifica_rust(titolo: str, messaggio: str) -> bool:
+    """La notifica lanciata e lasciata andare.
+
+    Il difetto non era la shell: era **l'attesa**. Il fumetto dell'area di
+    notifica muore insieme a chi possiede l'icona, quindi qualcuno deve restare
+    li' per tutta la durata — e finora quel qualcuno era NOVA, ferma nove
+    secondi a guardare un fumetto che sta gia' guardando l'utente. Adesso
+    aspetta un processo suo, e NOVA torna subito.
+
+    Non si aspetta l'esito, quindi non si puo' sapere se il fumetto e'
+    comparso: si sa solo che il processo e' partito. E' il patto — e per una
+    notifica va bene, perche' l'unico giudice di «e' comparsa?» e' l'utente
+    che la guarda.
+    """
+    b = binari.trova("nova-notifica")
+    if b is None:
+        return False
+    try:
+        subprocess.Popen([str(b), titolo, messaggio],  # noqa: S603
+                         creationflags=SENZA_FINESTRA,
+                         stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL)
+        return True
+    except Exception:                                       # noqa: BLE001
+        return False
