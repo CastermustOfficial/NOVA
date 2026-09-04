@@ -413,7 +413,7 @@ print("\n=== I corpi degli strumenti sui file, su una cartella vera ===")
 # decide il passo dopo.
 import shutil  # noqa: E402
 import tempfile  # noqa: E402
-import time  # noqa: E402
+import datetime as _dt  # noqa: E402
 
 from nova.tools import run_tool  # noqa: E402
 
@@ -456,10 +456,14 @@ def semina(base: Path) -> None:
     os.utime(base, (quando, quando))
 
 
-# Il fuso lo dichiara il Python, e il Rust lo riceve: cosi' il banco non
-# cambia risposta a marzo e a ottobre.
-FUSO = -int(time.timezone if not time.daylight or not time.localtime().tm_isdst
-            else time.altzone)
+# Il fuso lo dichiara il Python, e non come **un** numero: un fuso cambia due
+# volte l'anno, e con un offset solo un file di gennaio elencato a luglio
+# uscirebbe con un'ora sbagliata. Il banco l'ha trovato da solo, su due date
+# invernali. Si passa quindi lo spostamento per ogni istante che serve.
+def fuso_in(istante: int) -> int:
+    n = _dt.datetime.fromtimestamp(istante)
+    u = _dt.datetime.utcfromtimestamp(istante)
+    return int(round((n - u).total_seconds()))
 
 OPERAZIONI = [
     ("list_directory", {"path": "{B}"}, {"che": "elenca", "dove": "{B}"}),
@@ -542,7 +546,9 @@ try:
         miei.append(run_tool(nome, con(py_base, args), ctx))
 
     r = subprocess.run([str(BINARIO)], input=json.dumps({
-        "fuso": FUSO,
+        # Un solo istante serve qui: tutti i file del corpus hanno la stessa
+        # data, fissata apposta.
+        "fusi": [[0, fuso_in(1788611696)]],
         "operazioni": [con(rs_base, op) for _, _, op in OPERAZIONI],
     }, ensure_ascii=False), capture_output=True, text=True, encoding="utf-8",
         timeout=180)
@@ -585,6 +591,120 @@ try:
 finally:
     shutil.rmtree(py_base, ignore_errors=True)
     shutil.rmtree(rs_base, ignore_errors=True)
+
+print("\n=== Il racconto di un comando ===")
+# Il modello non vede il processo: vede tre righe di testo, e su quelle decide
+# se ha funzionato. Il processo non si avvia da nessuna delle due parti —
+# avviarlo proverebbe il sistema operativo, non il racconto.
+from nova.tools.shell import MAX_OUTPUT  # noqa: E402
+
+ESITI = [
+    (0, "ciao", ""),
+    (1, "", "rotto"),
+    (2, "a", "b"),
+    (0, "   \n  ", ""),
+    (0, "", ""),
+    (0, "x" * (MAX_OUTPUT + 100), "y" * 6000),
+    (-1, "con accenti: perché città", "anche qui: però"),
+    (0, "\nspazi in testa e in coda   \n", "  \t "),
+    (127, "riga1\nriga2\nriga3", "err1\nerr2"),
+]
+
+
+def py_racconta(codice, out, err):
+    out, err = (out or "").strip(), (err or "").strip()
+    parts = [f"exit code: {codice}"]
+    if out:
+        parts.append("--- stdout ---\n" + out[:MAX_OUTPUT])
+    if err:
+        parts.append("--- stderr ---\n" + err[:5000])
+    if not out and not err:
+        parts.append("(nessun output)")
+    return "\n".join(parts)
+
+
+r = subprocess.run([str(BINARIO)], input=json.dumps(
+    {"esiti": [list(e) for e in ESITI]}, ensure_ascii=False),
+    capture_output=True, text=True, encoding="utf-8", timeout=120)
+racconti = json.loads(r.stdout)["racconti"]
+diverse = [f"{e[0]}: rust {suo[:70]!r} vs python {py_racconta(*e)[:70]!r}"
+           for e, suo in zip(ESITI, racconti) if suo != py_racconta(*e)]
+controlla(f"i {len(ESITI)} racconti dicono le stesse parole", not diverse,
+          " | ".join(diverse[:2]))
+
+# La domanda sul risultato: un comando muto e uno riuscito non si leggono
+# uguali, o il modello non puo' distinguerli.
+i = ESITI.index((0, "", ""))
+controlla("un comando muto lo dice, invece di sembrare riuscito e basta",
+          "(nessun output)" in racconti[i], racconti[i])
+
+print("\n=== I tasti, dove sbagliare non da' errore ===")
+# Una combinazione tradotta male non fallisce: **preme altri tasti**, e li
+# preme nella finestra che ha il fuoco, cioe' quella dove l'utente sta
+# lavorando in quel momento.
+TASTI = ["ctrl+s", "ctrl+shift+esc", "alt+tab", "f5", "a", "CTRL+S",
+         " ctrl + s ", "enter", "ctrl+alt+delete", "shift+home",
+         "ctrl", "ctrl+alt", "", "+", "win", "ctrl+space", "alt+f4"]
+
+
+def py_tasti(keys: str):
+    mapping = {"ctrl": "^", "control": "^", "alt": "%", "shift": "+"}
+    parts = [p.strip().lower() for p in keys.split("+")]
+    mods = "".join(mapping[p] for p in parts if p in mapping)
+    rest = [p for p in parts if p not in mapping]
+    if not rest:
+        return None
+    key = rest[-1]
+    if not key:
+        return None
+    special = {"enter": "{ENTER}", "esc": "{ESC}", "escape": "{ESC}", "tab": "{TAB}",
+               "space": " ", "backspace": "{BACKSPACE}", "delete": "{DELETE}",
+               "up": "{UP}", "down": "{DOWN}", "left": "{LEFT}", "right": "{RIGHT}",
+               "home": "{HOME}", "end": "{END}"}
+    send = special.get(key, key if len(key) == 1 else "{" + key.upper() + "}")
+    return f"{mods}{send}"
+
+
+VOLUMI = [0, 1, 49, 50, 51, 99, 100, -10, 500, 25, 75]
+ISTANTI = [0, 1788611696, 1788651000, 946684800]
+
+r = subprocess.run([str(BINARIO)], input=json.dumps({
+    "tasti": TASTI, "volumi": VOLUMI, "istanti": ISTANTI,
+    # Uno scaglione per ogni istante che si chiede, con lo spostamento vero
+    # di **quel** momento: e' il modo in cui un fuso si racconta davvero.
+    "fusi": sorted((s_, fuso_in(s_)) for s_ in ISTANTI),
+}, ensure_ascii=False), capture_output=True, text=True, encoding="utf-8",
+    timeout=120)
+sis = json.loads(r.stdout)
+
+diverse = [f"{t!r}: rust {suo!r} vs python {py_tasti(t)!r}"
+           for t, suo in zip(TASTI, sis["tasti"]) if suo != py_tasti(t)]
+controlla(f"le {len(TASTI)} combinazioni si traducono uguali", not diverse,
+          " | ".join(diverse[:3]))
+
+# La domanda sul risultato: una combinazione di soli modificatori non deve
+# premere niente.
+for solo in ("ctrl", "ctrl+alt", "", "+"):
+    i = TASTI.index(solo)
+    controlla(f"«{solo}» non preme niente a caso", sis["tasti"][i] is None,
+              repr(sis["tasti"][i]))
+
+diverse = [f"{v}: rust {suo} vs python {round(max(0, min(100, v)) / 2)}"
+           for v, suo in zip(VOLUMI, sis["volumi"])
+           if suo != round(max(0, min(100, v)) / 2)]
+controlla("i passi di volume combaciano, arrotondamento compreso", not diverse,
+          " | ".join(diverse[:2]))
+
+GIORNI_PY = ["lunedi", "martedi", "mercoledi", "giovedi", "venerdi", "sabato",
+             "domenica"]
+diverse = []
+for s_, suo in zip(ISTANTI, sis["istanti"]):
+    n = _dt.datetime.fromtimestamp(s_)
+    mio = f"{GIORNI_PY[n.weekday()]} {n.strftime('%d/%m/%Y %H:%M:%S')}"
+    if suo != mio:
+        diverse.append(f"{s_}: rust {suo!r} vs python {mio!r}")
+controlla("data e ora si dicono con lo stesso giorno e lo stesso formato",
+          not diverse, " | ".join(diverse[:2]))
 
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:

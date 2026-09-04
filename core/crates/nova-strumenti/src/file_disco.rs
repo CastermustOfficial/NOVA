@@ -153,19 +153,20 @@ fn pulisci_prefisso(p: PathBuf) -> PathBuf {
     }
 }
 
-fn quando(m: &std::fs::Metadata, fuso: i64) -> String {
+fn quando(m: &std::fs::Metadata, fuso: &dyn crate::data::Fuso) -> String {
     let secondi = m
         .modified()
         .ok()
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| d.as_secs())
         .unwrap_or(0);
-    crate::data::locale(secondi, fuso)
+    crate::data::locale_con(secondi, fuso)
 }
 
 // ---------------------------------------------------------------- elencare
 /// Elenca file e sottocartelle: la cosa che si fa per orientarsi.
-pub fn elenca(cartella: &str, modello: &str, anche_nascosti: bool, fuso: i64) -> Esito {
+pub fn elenca(cartella: &str, modello: &str, anche_nascosti: bool,
+              fuso: &dyn crate::data::Fuso) -> Esito {
     let d = Percorso::nuovo(cartella)?;
     let dove = &d.scritto;
     if !dove.exists() {
@@ -211,7 +212,7 @@ pub fn elenca(cartella: &str, modello: &str, anche_nascosti: bool, fuso: i64) ->
     Ok(righe.join("\n"))
 }
 
-fn descrivi(percorso: &Path, nome: &str, fuso: i64) -> String {
+fn descrivi(percorso: &Path, nome: &str, fuso: &dyn crate::data::Fuso) -> String {
     match std::fs::metadata(percorso) {
         Err(e) => riga_illeggibile(nome, &e.to_string()),
         Ok(m) if m.is_dir() => riga_cartella(nome, &quando(&m, fuso)),
@@ -572,7 +573,8 @@ fn setaccia(
 }
 
 /// Cosa si sa di un percorso, senza aprirlo.
-pub fn informazioni(percorso: &str, fuso: i64) -> Result<Vec<(String, String)>, String> {
+pub fn informazioni(percorso: &str, fuso: &dyn crate::data::Fuso)
+    -> Result<Vec<(String, String)>, String> {
     let p = Percorso::nuovo(percorso)?;
     let mut fuori = vec![("percorso".to_string(), p.testo())];
     let Ok(m) = std::fs::metadata(&p.scritto) else {

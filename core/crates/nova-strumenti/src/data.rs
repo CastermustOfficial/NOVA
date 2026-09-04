@@ -16,6 +16,34 @@ pub fn locale(secondi: u64, fuso_secondi: i64) -> String {
     )
 }
 
+/// Quanto e' spostato l'orologio locale **in un dato istante**.
+///
+/// E' un tratto e non un numero, e la ragione l'ha trovata il banco: con un
+/// offset solo, un file modificato a gennaio ed elencato a luglio esce con
+/// un'ora sbagliata. Un fuso non e' una costante — cambia due volte l'anno —
+/// e passarlo come numero e' un difetto che aspetta ottobre.
+///
+/// Chi ha il sistema operativo sa rispondere; chi non ce l'ha usa
+/// `FusoFisso`, che e' onesto: dichiara di non sapere dell'ora legale.
+pub trait Fuso {
+    fn secondi_in(&self, istante: u64) -> i64;
+}
+
+/// Un fuso che non cambia mai. Va bene per UTC, per le prove, e per i posti
+/// dove l'ora legale non esiste.
+pub struct FusoFisso(pub i64);
+
+impl Fuso for FusoFisso {
+    fn secondi_in(&self, _istante: u64) -> i64 {
+        self.0
+    }
+}
+
+/// Come `locale`, ma chiedendo lo spostamento per quell'istante.
+pub fn locale_con(secondi: u64, fuso: &dyn Fuso) -> String {
+    locale(secondi, fuso.secondi_in(secondi))
+}
+
 #[cfg(test)]
 mod prove {
     use super::*;
@@ -37,5 +65,20 @@ mod prove {
         // sapeva gia' la risposta.
         assert_eq!(locale(1_788_651_000, 0), "2026-09-05 23:30");
         assert_eq!(locale(1_788_651_000, 2 * 3600), "2026-09-06 01:30");
+    }
+
+    #[test]
+    fn un_fuso_e_di_un_istante_non_di_un_anno() {
+        // Il difetto che il banco ha trovato: con un offset solo, un file di
+        // gennaio elencato a luglio esce con un'ora sbagliata.
+        struct Italia;
+        impl Fuso for Italia {
+            fn secondi_in(&self, istante: u64) -> i64 {
+                // Grossolano apposta: qui interessa che **cambi**.
+                if (1_774_000_000..1_793_000_000).contains(&istante) { 7200 } else { 3600 }
+            }
+        }
+        assert_eq!(locale_con(0, &Italia), "1970-01-01 01:00");
+        assert_eq!(locale_con(1_788_611_696, &Italia), "2026-09-05 14:34");
     }
 }
