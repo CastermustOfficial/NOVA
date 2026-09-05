@@ -93,24 +93,45 @@ def blocco(percorso: Path) -> dict | None:
     }
 
 
-def messaggio_con_immagini(percorsi: list[Path], quante_al_massimo: int = 2) -> dict | None:
-    """Un messaggio utente che porta le immagini al modello.
+def nota_troppe(quante: int) -> str:
+    """Quando ne sono state nominate troppe: si dice quante, e non si allega.
+
+    Misurato: `search_files` restituisce percorsi assoluti, uno per riga.
+    «Trova le foto del matrimonio» produceva un risultato che ne nomina venti,
+    e le prime due venivano convertite in base64 e allegate — quindi, con un
+    cervello a pagamento, **uscivano dal PC** al giro dopo. Sotto una riga che
+    diceva «questa e' la figura prodotta dallo strumento», che non era nemmeno
+    vero: nessuno strumento le aveva prodotte, una ricerca le aveva nominate.
+
+    La differenza fra i due casi non e' la cartella — un utente puo'
+    legittimamente dire «guarda questa foto sul desktop» — ma il **numero**:
+    uno strumento che produce un'immagine ne produce una, un elenco ne nomina
+    tante.
+    """
+    return (f"[NOVA] Il risultato nomina {quante} immagini. Non te le allego: "
+            "allegarne alcune a caso vorrebbe dire mandare fuori dal PC dei "
+            "file che nessuno ha chiesto di guardare. Se te ne serve una, "
+            "chiedila per nome e te la faccio vedere.")
+
+
+def messaggio_con_immagini(percorsi: list[Path]) -> dict | None:
+    """Un messaggio utente che porta **una** immagine al modello.
 
     Le figure non possono viaggiare nel messaggio di ruolo «tool»: il formato
     non lo prevede. Si consegnano subito dopo, come se fosse l'utente a
     mostrarle — che e' anche cio' che succede davvero.
+
+    Una sola, e solo se il risultato ne nominava una sola: il perche' sta in
+    `nota_troppe`.
     """
-    blocchi = []
-    nomi = []
-    for p in percorsi[:quante_al_massimo]:
-        b = blocco(p)
-        if b:
-            blocchi.append(b)
-            nomi.append(p.name)
-    if not blocchi:
+    if len(percorsi) != 1:
+        return None
+    b = blocco(percorsi[0])
+    if not b:
         return None
     testo = (
-        f"[immagine: {', '.join(nomi)}] Questa e' la figura prodotta dallo strumento. "
-        "Guardala e usa quello che ci vedi: e' la tua vista sullo schermo."
+        f"[immagine: {percorsi[0].name}] Questa e' l'immagine che lo strumento "
+        "ha nominato. Guardala e usa quello che ci vedi: e' la tua vista sullo "
+        "schermo."
     )
-    return {"role": "user", "content": [{"type": "text", "text": testo}] + blocchi}
+    return {"role": "user", "content": [{"type": "text", "text": testo}, b]}

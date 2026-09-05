@@ -1021,6 +1021,15 @@ class Agent:
                         "o ui.find, che leggono l'interfaccia come testo."),
                 })
                 return
+            if len(percorsi) > 1:
+                # Non si allega niente e si dice quante ce n'erano: allegarne
+                # alcune a caso vorrebbe dire far uscire dal PC dei file che
+                # nessuno ha chiesto di guardare. Misurato con `search_files`,
+                # che restituisce percorsi assoluti uno per riga.
+                from .immagini import nota_troppe
+                self.messages.append({"role": "user",
+                                      "content": nota_troppe(len(percorsi))})
+                return
             msg = messaggio_con_immagini(percorsi)
             if msg:
                 self.messages.append(msg)
