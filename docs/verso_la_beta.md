@@ -906,13 +906,13 @@ ci dipendono davvero.
 | `open_application` | `ShellExecuteExW` diretto | via il guaio delle virgolette |
 | `type_text` | `SendInput` Unicode, **col fuoco verificato** | e la risposta nomina la finestra (D143) |
 | `press_keys` | `SendInput`, e i simboli si rifiutano | dipendono dalla disposizione della tastiera |
-| `create_reminder` | `schtasks` con dentro un comando PowerShell | — |
 | `list_processes` | `psutil`, e ripiega su `list_windows` se manca | 645 ms |
 | `delete_path` | `send2trash`, e il Cestino via PowerShell se manca | — |
 | `move_path` | idem, quando lo spostamento passa dal Cestino | — |
 
-Piu' undici funzioni interne, di cui sei sono la **semina del vault**: e'
-quella che scrive i nomi delle cartelle dell'utente dentro i ricordi.
+`create_reminder` non e' piu' in tabella: chiama `schtasks` con un elenco di
+argomenti, come si chiama un programma. Non e' una shell — la differenza non
+e' nominale, e' che non c'e' niente da comporre e quindi niente da rompere.
 
 Questa tabella e' tenuta ferma da `test_conto_shell.py`, che la confronta con
 cio' che il codice fa davvero **in tutti e due i versi**: nessuno che chiami
@@ -1035,9 +1035,11 @@ chiamate erano dieci in cinque moduli, con tre difetti di codifica diversi
    NOVA: non si sovrappone a cio' che fa l'utente, lavora separatamente. Da
    qui in poi ogni cosa che tocca l'interfaccia va misurata anche su questo,
    non solo su «ha funzionato».
-6. `create_reminder` — `schtasks` con dentro un comando PowerShell. Il
-   promemoria dovrebbe diventare una notifica di `nova-notifica`, non un
-   processo PowerShell che dorme venticinque secondi.
+6. ~~`create_reminder`~~ — **fatto**, e non era «da migliorare»: non aveva
+   **mai** funzionato. Tre livelli di virgolette annidate, e `schtasks`
+   rifiutava tutti e otto i messaggi di prova compreso «chiamare il dentista».
+   Adesso e' un XML, il testo dell'utente sta in un file, e il promemoria
+   scatta davvero — provato aspettando che suonasse (D146).
 7. ~~La **semina del vault**~~ — **fatta**: i comandi git non passano piu' da
    una shell, e CPU, RAM e applicazioni installate le chiede ai binari invece
    di rifare le stesse query (D144).

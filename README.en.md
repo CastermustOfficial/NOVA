@@ -656,6 +656,9 @@ appears in either: its name does, and the fact that the store exists.
   and that can't be reconstructed six months later.
 - [Towards beta](docs/verso_la_beta.md) — what's missing, in three lists, and
   the five sentences that must be true before the word «alpha» comes off.
+- [Where I got it wrong](docs/dove_ho_sbagliato.md) — the mistakes of whoever
+  writes the code, kept on purpose to be re-read. Not the project's bugs: the
+  times I believed something false, and how I found out. *(in Italian)*
 - [How to contribute](CONTRIBUTING.md)
 
 ## For developers

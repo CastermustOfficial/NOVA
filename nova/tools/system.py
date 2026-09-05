@@ -3,10 +3,13 @@ from __future__ import annotations
 
 import datetime
 import subprocess
+import tempfile
 import time
+from pathlib import Path
 
 from .. import binari, powershell
 from ..processi import SENZA_FINESTRA
+from ..scrittura import scrivi, scrivi_byte
 from .base import Risk, ToolError, tool
 
 
@@ -471,23 +474,117 @@ def create_reminder(message: str, when: str) -> str:
             dt = datetime.datetime.fromisoformat(when.replace("T", " "))
     except ValueError:
         raise ToolError("formato ora non valido, usa 'YYYY-MM-DD HH:MM' oppure 'HH:MM'")
-    name = "NOVA_Promemoria_" + dt.strftime("%Y%m%d%H%M%S")
-    safe = message.replace("'", "''")
-    action = (
-        "powershell -NoProfile -WindowStyle Hidden -Command \\\""
-        "Add-Type -AssemblyName System.Windows.Forms,System.Drawing; "
-        "$n=New-Object System.Windows.Forms.NotifyIcon; "
-        "$n.Icon=[System.Drawing.SystemIcons]::Information; $n.Visible=$true; "
-        f"$n.ShowBalloonTip(20000,'NOVA','{safe}','Info'); Start-Sleep 25\\\""
-    )
-    cmd = (
-        f"schtasks /Create /SC ONCE /TN \"{name}\" /TR \"{action}\" "
-        f"/ST {dt.strftime('%H:%M')} /SD {dt.strftime('%d/%m/%Y')} /F"
-    )
-    r = subprocess.run(["cmd", "/c", cmd], capture_output=True, text=True, timeout=45)
+    if dt <= datetime.datetime.now():
+        raise ToolError(f"«{when}» e' gia' passato: un promemoria per il passato "
+                        "non suonerebbe mai")
+    return _promemoria(dt, message)
+
+
+def _promemoria(dt: datetime.datetime, message: str) -> str:
+    """Un promemoria nell'Utilita' di pianificazione, senza righe di comando.
+
+    **La versione di prima non funzionava.** Non «con i messaggi difficili»:
+    con nessun messaggio. Componeva un comando PowerShell dentro una stringa,
+    quella stringa dentro l'argomento `/TR` di `schtasks`, e il tutto dentro
+    un `cmd /c` — tre livelli di virgolette annidate — e `schtasks` rispondeva
+    «Opzione o argomento non valido: '-NoProfile'» anche per «chiamare il
+    dentista». Misurato l'8 settembre: otto messaggi su otto, tutti falliti
+    (D146).
+
+    Adesso l'attivita' si descrive in XML, dove il programma e i suoi
+    argomenti sono due campi distinti e non c'e' niente da annidare. E il
+    messaggio dell'utente **non entra nella riga di comando affatto**: sta in
+    un file, e nell'XML finisce solo il percorso di quel file, che lo scrive
+    NOVA. Un dato dell'utente non entra in un linguaggio, nemmeno in quello
+    delle righe di comando (D141).
+
+    In piu' l'orario nell'XML e' ISO 8601. `schtasks /SD` vuole la data nel
+    formato della lingua del sistema: `03/09` e' il 3 settembre in Italia e il
+    9 marzo negli Stati Uniti, e nessuno dei due modi si accorge dell'altro.
+    """
+    b = binari.trova("nova-notifica")
+    if b is None:
+        raise ToolError(
+            "il promemoria ha bisogno di nova-notifica, che non e' costruito. "
+            "Da core/: cargo build --release -p nova-platform --bin nova-notifica")
+
+    nome = "NOVA_Promemoria_" + dt.strftime("%Y%m%d%H%M%S")
+    cartella = Path(tempfile.gettempdir()) / "nova-promemoria"
+    cartella.mkdir(parents=True, exist_ok=True)
+    testo = cartella / f"{nome}.txt"
+    # Prima riga il titolo, il resto il messaggio: cosi' un messaggio su piu'
+    # righe resta su piu' righe.
+    scrivi(testo, "NOVA\n" + message)
+
+    xml = _xml_promemoria(dt, str(b), str(testo), message)
+    percorso_xml = cartella / f"{nome}.xml"
+    # `schtasks /XML` vuole UTF-16: con UTF-8 senza firma legge caratteri a
+    # caso e si lamenta di un XML malformato, che e' una diagnosi che porta
+    # lontano dalla causa.
+    scrivi_byte(percorso_xml, xml.encode("utf-16"))
+    try:
+        r = subprocess.run(["schtasks", "/Create", "/TN", nome, "/XML",
+                            str(percorso_xml), "/F"],
+                           capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=45,
+                           creationflags=SENZA_FINESTRA)
+    finally:
+        try:
+            percorso_xml.unlink()
+        except OSError:
+            pass
     if r.returncode != 0:
         raise ToolError((r.stderr or r.stdout).strip()[:400])
     return f"Promemoria creato per {dt.strftime('%d/%m/%Y %H:%M')}: {message}"
+
+
+def _xml_promemoria(dt: datetime.datetime, programma: str, file_testo: str,
+                    descrizione: str) -> str:
+    """L'attivita' descritta come dato, non come riga di comando.
+
+    Separata per poterla guardare senza creare niente: una prova puo'
+    leggerla, e chi la legge vede che il messaggio dell'utente non compare
+    fra gli argomenti.
+    """
+    from xml.sax.saxutils import escape
+    fine = (dt + datetime.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S")
+    return f"""<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>{escape(descrizione[:200])}</Description>
+    <Author>NOVA</Author>
+  </RegistrationInfo>
+  <Triggers>
+    <TimeTrigger>
+      <StartBoundary>{dt.strftime('%Y-%m-%dT%H:%M:%S')}</StartBoundary>
+      <EndBoundary>{fine}</EndBoundary>
+      <Enabled>true</Enabled>
+    </TimeTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <ExecutionTimeLimit>PT5M</ExecutionTimeLimit>
+    <DeleteExpiredTaskAfter>PT1M</DeleteExpiredTaskAfter>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>{escape(programma)}</Command>
+      <Arguments>--da-file "{escape(file_testo)}"</Arguments>
+    </Exec>
+  </Actions>
+</Task>
+"""
 
 
 @tool(

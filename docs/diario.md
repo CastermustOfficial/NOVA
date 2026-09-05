@@ -4600,3 +4600,42 @@ leggendo il campo **prima** di scriverci: c'era gia'. E' della Mappa
 caratteri. Toglierlo nella prova e' giusto, toglierlo dentro NOVA sarebbe
 correggere il campo di qualcun altro.
 
+### Un posto dove rileggere i propri errori
+
+Gio, oggi: *«ricordati sempre di scriverti dove sbagli, cosi' quando vuoi te
+lo rileggi»*.
+
+Gli errori miei erano gia' scritti — sono sparsi in questo diario, dentro le
+voci dei pezzi in cui li ho fatti. Ma sparsi non si rileggono: si rilegge una
+giornata, non una forma. Quindi adesso stanno anche raccolti in
+[dove_ho_sbagliato.md](dove_ho_sbagliato.md), uno per voce, con tre cose
+ciascuno: cosa credevo, cosa era vero, e **come me ne sono accorto** — che e'
+l'unica delle tre che si puo' riusare.
+
+Messi in fila, gli otto di oggi sono quattro forme sole:
+
+1. ho **ricordato** invece di misurare (il numero quattordici, `0x70`, la data
+   di un banco);
+2. ho dato per scontata una **premessa** (che il fuoco fosse dove me l'ero
+   messo; che gli argomenti fossero nella forma che credevo);
+3. ho scritto una prova che **non poteva fallire**;
+4. ho letto un **sintomo** come una causa.
+
+La terza e' la peggiore, e vale la pena averla scritta: le altre tre le trova
+qualcun altro — una prova, il compilatore, un errore. Una prova che non prova
+niente non la trova nessuno. Passa.
+
+E il promemoria, l'ultimo pezzo con dentro PowerShell: la versione di prima
+**non funzionava affatto**. Tre livelli di virgolette annidate — un comando
+PowerShell dentro una stringa, dentro `/TR` di `schtasks`, dentro un `cmd /c` —
+e `schtasks` rispondeva «Opzione o argomento non valido: '-NoProfile'» anche
+per «chiamare il dentista». Otto messaggi su otto. Nessuna prova lo guardava,
+quindi nessuno lo sapeva: uno strumento dichiarato, promesso al modello nella
+sua descrizione, e mai funzionante (D146).
+
+Adesso l'attivita' e' un XML — programma e argomenti sono due campi distinti,
+niente da annidare — e il messaggio dell'utente non entra nella riga di
+comando affatto: sta in un file, e negli argomenti c'e' solo un percorso
+scritto da NOVA. Provato per davvero: creato un promemoria per settanta
+secondi dopo, aspettato, e Windows l'ha eseguito.
+
