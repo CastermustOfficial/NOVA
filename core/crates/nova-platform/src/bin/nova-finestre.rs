@@ -4,6 +4,7 @@
 //! nova-finestre                 tutte
 //! nova-finestre chrome          solo quelle col titolo o il processo che contiene «chrome»
 //! nova-finestre --avanti 1234   porta davanti la finestra con quell'handle
+//! nova-finestre --davanti       chi ha il fuoco adesso (o «null»)
 //! ```
 //!
 //! Non passa da UI Automation: chi vuole solo sapere cosa e' aperto non deve
@@ -23,6 +24,20 @@ fn main() {
             // distinguere le due cose per dire all'utente quale delle due e'.
             Ok(true) => {}
             Ok(false) => std::process::exit(3),
+            Err(e) => {
+                eprintln!("{e}");
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
+    if argomenti.first().map(String::as_str) == Some("--davanti") {
+        match nova_platform::finestre::davanti() {
+            Ok(Some(f)) => println!("{}", serde_json::to_string(&f).unwrap_or_default()),
+            // `null` e non un errore: «in questo istante il fuoco non ce l'ha
+            // nessuno» e' una risposta vera, e chi sta per premere un tasto
+            // deve poterla distinguere da «non sono riuscito a chiedere».
+            Ok(None) => println!("null"),
             Err(e) => {
                 eprintln!("{e}");
                 std::process::exit(1);

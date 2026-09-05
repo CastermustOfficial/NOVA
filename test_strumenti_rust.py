@@ -100,7 +100,17 @@ def argomenti_per(t) -> list[dict]:
 # Quindi qui si confronta il Rust con la **forma degradata** del Python —
 # quella che resta quando il sistema non si puo' interrogare — e si verifica a
 # parte che quella vera dica di piu'. L'eccezione e' una sola, e sta scritta.
-SENZA_SISTEMA = {"close_application": apps._anteprima_chiusura_semplice}
+from nova.tools import system as sistema_tools  # noqa: E402
+
+SENZA_SISTEMA = {
+    "close_application": apps._anteprima_chiusura_semplice,
+    # `type_text` e `press_keys` chiedono chi ha il fuoco, per la stessa
+    # ragione: una funzione pura degli argomenti puo' dire «nella finestra
+    # attiva», che e' vero e non dice **quale** — ed e' esattamente
+    # l'informazione senza cui non si puo' approvare (D143).
+    "type_text": sistema_tools._digita_semplice,
+    "press_keys": sistema_tools._tasti_semplice,
+}
 
 DOMANDE = []
 ATTESE = []

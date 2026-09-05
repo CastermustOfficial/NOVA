@@ -904,8 +904,8 @@ ci dipendono davvero.
 | `focus_window` | `SetForegroundWindow` diretto, **con verifica** | e dice se Windows ha detto no (D142) |
 | `close_application` | elenca, mostra, chiude **un pid** | via il modello di ricerca (D141) |
 | `open_application` | `ShellExecuteExW` diretto | via il guaio delle virgolette |
-| `type_text` | `keyboard`, e `SendKeys` se manca | — |
-| `press_keys` | idem | — |
+| `type_text` | `SendInput` Unicode, **col fuoco verificato** | e la risposta nomina la finestra (D143) |
+| `press_keys` | `SendInput`, e i simboli si rifiutano | dipendono dalla disposizione della tastiera |
 | `create_reminder` | `schtasks` con dentro un comando PowerShell | — |
 | `list_processes` | `psutil`, e ripiega su `list_windows` se manca | 645 ms |
 | `delete_path` | `send2trash`, e il Cestino via PowerShell se manca | — |
@@ -1019,9 +1019,14 @@ chiamate erano dieci in cinque moduli, con tre difetti di codifica diversi
    un `-like` di PowerShell, e `*` selezionava 292 processi su 292 (D141).
    `focus_window` non guardava se `SetForegroundWindow` aveva detto di no
    (D142).
-4. `type_text` e `press_keys` — `SendInput`. Da fare con calma: sono gli unici
-   due strumenti marcati «ultima spiaggia», e sbagliarli vuol dire scrivere
-   nella finestra sbagliata mentre l'utente lavora.
+4. ~~`type_text` e `press_keys`~~ — **fatti**, e il difetto non era la shell:
+   nessuno guardava dove andava a finire il testo. Adesso il fuoco si verifica
+   prima, si ricontrolla al momento di premere, e la risposta nomina la
+   finestra (D143). **Resta una cosa da chiudere**: la parte che consegna i
+   tasti non e' ancora verificata — in una prova il binario ha detto di aver
+   scritto, col fuoco controllato a ogni blocco, e alla finestra non e'
+   arrivato niente. Serve una macchina dove il fuoco si possa tenere; la prova
+   esce 2 finche' non lo si e' visto, invece di scrivere alla cieca.
 5. `create_reminder` — `schtasks` con dentro un comando PowerShell. Il
    promemoria dovrebbe diventare una notifica di `nova-notifica`, non un
    processo PowerShell che dorme venticinque secondi.

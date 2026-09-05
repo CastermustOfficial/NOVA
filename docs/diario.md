@@ -4426,3 +4426,73 @@ Anche il binario le distingue nel codice di uscita — 0, 3, 1 — perche' un
 rifiuto e un guasto non sono la stessa cosa e chi chiama deve poterlo dire
 all'utente (D142).
 
+### La tastiera, e una riga finita nella finestra sbagliata
+
+Gli ultimi due strumenti marcati «ultima spiaggia». Volevo misurare cosa
+arriva davvero scrivendo con le due strade di oggi — la libreria `keyboard` e
+il ripiego `SendKeys` — quindi ho costruito una finestrella mia, apposta per
+non toccare quelle dell'utente, e le ho scritto dentro.
+
+Non le ho scritto dentro. Il risultato e' tornato vuoto in tutti e quattro i
+casi, il che vuol dire che quel testo e' finito in **qualunque finestra avesse
+il fuoco in quel momento**. Avevo dato per scontato che il fuoco fosse dove me
+l'ero messo, e non l'avevo verificato. Poco dopo, chiedendo chi c'era davanti,
+la risposta era: un gioco a schermo intero.
+
+E' esattamente l'incidente contro cui la descrizione di quello strumento mette
+in guardia, e l'ho fatto io mentre lo stavo studiando.
+
+**Il difetto pero' non era il mio script.** Era che in tutta quella strada
+nessuno guarda dove sta andando il testo. `SendInput`, `SendKeys` e `keyboard`
+non hanno un bersaglio: mandano al sistema, che consegna a chi ha il fuoco in
+quel millisecondo. E `type_text` rispondeva:
+
+    Digitati 42 caratteri nella finestra attiva.
+
+Vero, e inutile. Non dice quale, quindi nessuno — ne' il modello che ci
+costruisce sopra il passo successivo, ne' la persona che legge — puo'
+accorgersi che il testo e' andato altrove.
+
+Adesso: il fuoco si legge **prima**, il suo handle si passa al binario, e il
+binario **ricontrolla** e rifiuta se nel frattempo e' cambiato. Non e' un
+doppione: fra il momento in cui una persona approva e il momento in cui i
+tasti partono passa del tempo, e in quel tempo il fuoco si sposta. E
+l'anteprima che quella persona legge adesso e':
+
+    Digita nella finestra che ha il fuoco: ciao mondo
+      La finestra e': «League of Legends (TM) Client» (League of Legends.exe)
+
+La stessa forma di D141: il potere resta tutto, cambia che si veda dove va a
+finire (D143).
+
+Un guadagno di traverso: `SendKeys` e' un piccolo linguaggio — `{`, `}`, `+`,
+`^`, `%`, `~`, `(`, `)` hanno un significato — e il Python li proteggeva con
+un elenco di sostituzioni scritto a mano. `KEYEVENTF_UNICODE` non interpreta
+niente, quindi non c'e' niente da proteggere, e passano accenti, virgolette
+basse ed emoji che `SendKeys` non sa mandare.
+
+E le combinazioni: i simboli come `ctrl+;` adesso si **rifiutano**, perche' il
+tasto che fa «;» cambia con la disposizione della tastiera e premerlo alla
+cieca su una tastiera italiana scriverebbe un altro carattere, in silenzio.
+Rifiutare costa niente; premere il tasto sbagliato costa quanto vale la
+finestra che lo riceve.
+
+Ultima nota, sulla prova. La parte che scrive davvero non e' verificabile
+mentre un gioco a schermo intero tiene il fuoco: `SetForegroundWindow` non
+riesce a strapparglielo, ed e' giusto cosi'. La prova **non scrive alla
+cieca**: dice che quella parte non e' provabile adesso ed esce con 2. Verde
+per assenza sarebbe stato peggio di rosso (D53).
+
+**Una cosa che resta aperta, e la scrivo invece di lasciarla nel non detto.**
+In una delle prove il binario ha riferito di aver scritto — con il fuoco
+verificato a ogni blocco di trentadue caratteri — e alla finestra non e'
+arrivato niente. Puo' essere il gioco a schermo intero che si riprende il
+primo piano fra un controllo e l'invio, oppure un difetto nel modo in cui
+mando gli eventi. Non lo so, e non ho potuto guardarlo perche' su questa
+macchina il fuoco e' occupato.
+
+Quindi: la parte che verifica il fuoco e rifiuta di scrivere e' provata e
+funziona; la parte che consegna i tasti **non e' verificata**, e la prova esce
+2 invece di dichiararsi verde. Un verde che non so spiegare varrebbe meno di
+un «non lo so» scritto (D53).
+
