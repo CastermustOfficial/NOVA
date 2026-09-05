@@ -5305,3 +5305,47 @@ provato per campioni si accorge di uno strumento aggiunto da una parte sola
 solo se per caso quel caso c'era: e' la stessa lezione delle sessanta
 dichiarazioni (D113). Mutazione di prova con `screenshot` tolto dal Rust: due
 verifiche rosse, di cui una dice esattamente quale manca.
+
+## 8 settembre 2026, sera — I cervelli, e un dominio che si chiama quasi come casa
+
+Nono pezzo di CANT-3, e stavolta non e' `agent.py`: sono i **cervelli**. Non
+il loro giro di rete, che resta dov'e', ma le decisioni che prendono guardando
+del testo — e sono tre, tutte con una conseguenza che si vede.
+
+**«Questo indirizzo e' in casa?»** E' la frase su cui NOVA sta in piedi
+ridotta a una domanda sola. Un server locale — Ollama, LM Studio, llama.cpp —
+non chiede nessuna chiave, e pretenderne una vorrebbe dire rifiutarsi di
+parlare con un cervello che e' li', acceso e gratuito. Ma la risposta si
+decide sull'**host**, non sul testo dell'indirizzo: un confronto per
+sottostringa chiamerebbe «casa» anche `https://localhost.evil.example.com`.
+
+L'ho scritto a mano, senza dipendenze, e la ragione e' che questo e' il pezzo
+che decide **cosa esce dal PC**: li' si vuole meno codice di qualcun altro,
+non di piu'. Scrivendolo e' saltata fuori una regola di `urlsplit` che a
+occhio non si indovina: **l'autorita' esiste solo dopo `//`**. Quindi
+`localhost:8080` senza schema non ha host — `localhost` viene letto come
+*schema* — e per NOVA quell'indirizzo non e' in casa. Sembra sbagliato e non
+lo e': quella stringa non e' un URL, e indovinare cosa intendesse chi l'ha
+scritta e' il genere di gentilezza che qui non si fa (D171).
+
+Ventisei indirizzi confrontati con `urlparse` vero, quello di Windows.
+Mutazione per sottostringa: tre rossi, fra cui il dominio che si chiama quasi
+come casa.
+
+**Il ragionamento separato dalla risposta.** I modelli lo scrivono dentro
+`<think>...</think>`, o in un campo a parte. Tenerli separati non e'
+formattazione: l'utente legge la **risposta**, e un ragionamento che ci
+finisce dentro e' il modello che si contraddice a voce alta davanti a chi ha
+chiesto qualcosa. Il caso che si vede di piu' e' quello in cui il modello si
+interrompe a meta' del ragionamento: senza il secondo taglio quel troncone
+arriverebbe intero, e si nota perche' non finisce nemmeno con una frase
+compiuta (D172).
+
+**E «Claude Code:» seguito dal nulla.** Quando il CLI torna con `is_error`,
+prima si scriveva `f"Claude Code: {testo[:600]}"` dove `testo` veniva da
+`result` — un campo che in caso di errore **spesso non esiste affatto**. Il
+risultato era la riga «Claude Code:» e poi niente: un guasto che dice di
+essersi rotto e non dice altro, cioe' la morte silenziosa che N8 vieta. La
+causa vera stava in `subtype`, che c'era gia' e nessuno leggeva. Adesso sta in
+`nova-guasti::cervelli` insieme ai riconoscitori di limite d'uso e alle due
+reti sotto — il flag non documentato e la riga di comando troppo lunga.

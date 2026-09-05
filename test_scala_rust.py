@@ -303,6 +303,59 @@ controlla("durata della pausa, cifra per cifra",
           [max(60, s) for s in CHIESTE] == rs["durate"],
           f"\n    py={[max(60, s) for s in CHIESTE]}\n    rs={rs['durate']}")
 
+# --------------------------------------------------------------------------
+# «In casa» o «su internet»: la frase su cui NOVA sta in piedi, ridotta a una
+# domanda sola. Un server locale non chiede nessuna chiave, e pretenderne una
+# vorrebbe dire rifiutarsi di parlare con un cervello che e' li', acceso e
+# gratuito. Ma sbagliare dall'altra parte vuol dire chiamare «casa» qualcosa
+# che casa non e'.
+from urllib.parse import urlparse                              # noqa: E402
+from nova.brains.openai_compat import _e_in_casa                # noqa: E402
+
+INDIRIZZI = [
+    "http://localhost:8080/v1",
+    "http://127.0.0.1:11434",
+    "https://LOCALHOST/v1",
+    "http://[::1]:8080/v1",
+    "http://0.0.0.0:5000",
+    "http://host.docker.internal:1234/v1",
+    "https://api.openai.com/v1",
+    "https://openrouter.ai/api/v1",
+    "",
+    "localhost:8080",
+    "//localhost:8080/v1",
+    "https://localhost.evil.example.com/v1",
+    "https://notlocalhost/v1",
+    "http://utente:parola@127.0.0.1:11434/x",
+    "HTTP://LocalHost/v1",
+    "http://",
+    "http:///v1",
+    "http:localhost:8080",
+    "ftp://localhost/x",
+    "http://[::1]",
+    "http://user@[::1]:99/",
+    "   http://localhost/  ",
+    "http://localhost:abc/",
+    "http://esempio.it?a=1",
+    "http://esempio.it#frammento",
+    "http://LOCALHOST./v1",
+]
+
+suo = rust({"indirizzi": INDIRIZZI})
+diverse = [f"{u!r}: rust {ru!r} vs python {(urlparse(u).hostname or '').lower()!r}"
+           for u, ru in zip(INDIRIZZI, suo["host"])
+           if ru != (urlparse(u).hostname or "").lower()]
+controlla(f"i {len(INDIRIZZI)} host si estraggono come li estrae urlparse",
+          not diverse, " | ".join(diverse[:3]))
+
+diverse = [f"{u!r}: rust {ru} vs python {_e_in_casa(u)}"
+           for u, ru in zip(INDIRIZZI, suo["in_casa"]) if ru != _e_in_casa(u)]
+controlla("e il giudizio «in casa» pure", not diverse, " | ".join(diverse[:3]))
+
+controlla("il banco ha un dominio che contiene «localhost» senza esserlo",
+          any("localhost." in u for u in INDIRIZZI),
+          "senza, un confronto per sottostringa passerebbe uguale")
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")
