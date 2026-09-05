@@ -23,13 +23,15 @@ Se non riesce a prendersi il fuoco — capita, per esempio con un gioco a
 schermo intero davanti — **non prova e lo dice**, invece di scrivere alla
 cieca.
 
-**Una domanda ancora aperta**, scritta qui perche' non si perda: in una delle
-prove il binario ha detto di aver scritto — fuoco verificato a ogni blocco — e
-alla finestra non e' arrivato niente. Puo' essere il gioco a schermo intero
-che si riprende il primo piano fra un controllo e l'altro, o un difetto nel
-modo in cui mando gli eventi. Finche' non lo si vede su una macchina dove il
-fuoco si puo' tenere, la consegna dei tasti **non e' verificata**, e questa
-prova esce 2 invece di far finta.
+**Una domanda che era aperta, e si e' chiusa.** Per un po' il binario diceva
+di aver scritto — fuoco verificato a ogni blocco — e alla finestra non
+arrivava niente. Non era un difetto dell'invio: era un gioco a schermo intero
+che si riprendeva il primo piano fra un controllo e l'altro. Con lo schermo
+libero, il testo arriva identico, graffe ed emoji comprese. Vale la pena
+ricordarlo: per un'ora ho avuto sotto gli occhi un sintomo che sembrava un
+guasto del codice ed era una condizione della macchina, e l'unica cosa che mi
+ha impedito di «riparare» il codice sano e' stata la prova che si rifiutava di
+diventare verde per assenza.
 
 Esce 2 se i binari non ci sono o se non si riesce a prendere il fuoco.
 """

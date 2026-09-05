@@ -1022,27 +1022,33 @@ chiamate erano dieci in cinque moduli, con tre difetti di codifica diversi
 4. ~~`type_text` e `press_keys`~~ — **fatti**, e il difetto non era la shell:
    nessuno guardava dove andava a finire il testo. Adesso il fuoco si verifica
    prima, si ricontrolla al momento di premere, e la risposta nomina la
-   finestra (D143). **Resta una cosa da chiudere**: la parte che consegna i
-   tasti non e' ancora verificata — in una prova il binario ha detto di aver
-   scritto, col fuoco controllato a ogni blocco, e alla finestra non e'
-   arrivato niente. Serve una macchina dove il fuoco si possa tenere; la prova
-   esce 2 finche' non lo si e' visto, invece di scrivere alla cieca.
-5. `create_reminder` — `schtasks` con dentro un comando PowerShell. Il
+   finestra (D143). La consegna dei tasti e' verificata: il testo arriva
+   identico, graffe ed emoji comprese. Per un po' non lo era, e il sintomo
+   sembrava un difetto del codice: era un gioco a schermo intero che si
+   riprendeva il primo piano. La prova si rifiutava di diventare verde per
+   assenza, ed e' l'unica ragione per cui non sono andato a riparare codice
+   sano.
+5. **La strada separata, che e' quella giusta.** `ui.set_text` e `ui.click`
+   parlano all'applicazione invece che a tastiera e mouse: non hanno bisogno
+   del fuoco, e adesso non se lo prendono nemmeno — se una scrittura porta
+   avanti una finestra, il primo piano torna dov'era (D145). E' la regola di
+   NOVA: non si sovrappone a cio' che fa l'utente, lavora separatamente. Da
+   qui in poi ogni cosa che tocca l'interfaccia va misurata anche su questo,
+   non solo su «ha funzionato».
+6. `create_reminder` — `schtasks` con dentro un comando PowerShell. Il
    promemoria dovrebbe diventare una notifica di `nova-notifica`, non un
    processo PowerShell che dorme venticinque secondi.
-6. La **semina del vault** (`nova/kb/seed.py`): sei funzioni interne che
-   chiedono a PowerShell i nomi delle cartelle dell'utente e li scrivono nei
-   ricordi. Non e' uno strumento, ma e' dove un guasto resta.
+7. ~~La **semina del vault**~~ — **fatta**: i comandi git non passano piu' da
+   una shell, e CPU, RAM e applicazioni installate le chiede ai binari invece
+   di rifare le stesse query (D144).
 
-**Due cose in sospeso, che non decido io:**
+**Rimasto in sospeso:**
 
-- `bin\novad.exe` e `bin\nova-shell.exe` sono del 2 e 3 settembre. `build.ps1`
-  si rifiuta di ricostruire mentre NOVA e' aperta, e fa bene: con NOVA chiusa,
-  un `.\build.ps1` porta dentro anche le modifiche a `nova-core`.
 - `bin\SHA256SUMS.txt` descrive tre binari che nel frattempo sono stati
   sostituiti da build locali: le impronte non corrispondono piu'. Innocuo
   finche' non si installa da uno zip, ma e' il genere di file che un giorno
-  produce la diagnosi sbagliata (D58).
+  produce la diagnosi sbagliata (D58). Non lo tocco: e' una decisione di chi
+  pubblica le release, non di chi compila.
 
 **CANT-1, prima meta': il vault su disco si legge in Rust.**
 `nova-nodi::deposito` sa aprire un vault, accorgersi di cosa e' cambiato
