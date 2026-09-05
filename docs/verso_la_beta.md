@@ -1473,6 +1473,21 @@ Rust (D157). E' il punto 2 del cancello — nessun traceback raggiunge
 l'utente — trovato dove nessuna delle tre liste lo cercava.
 
 
+**CANT-3, quarto pezzo: i blocchi che si attaccano in coda.** La memoria e le
+procedure aggiungono roba **alla domanda**, non al prompt di sistema, e la
+ragione e' la stessa aritmetica del fondo nel taglio dei messaggi: non cambia
+cosa il modello legge, cambia quanto spesso si butta via la cache del
+prefisso. La regola di composizione sta in `nova-contesto`; il testo delle
+procedure sta in `nova-ricette`, accanto al suo dato (D160).
+
+Qui il banco ha trovato un errore mio al primo giro: arrotondavo il punteggio
+di somiglianza dentro la funzione che lo scrive, mentre nel Python arrotonda
+`proponi` — cioe' due volte. Un carattere di differenza su un caso a 0,125.
+Separate le due cose, e l'arrotondamento fatto come lo fa Python invece che
+con `(x * 100).round() / 100`: quella moltiplicazione diverge su 0,125, 0,615
+e 2,675, misurato (D161).
+
+
 ## Il cancello della beta
 
 Non e' una data, sono cinque frasi che devono essere vere insieme:

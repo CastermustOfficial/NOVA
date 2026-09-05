@@ -261,7 +261,9 @@ controlla("un messaggio piu' grande di tutto lo spazio si accorcia e lo dice",
 # da migliorare: sono cio' su cui decide come comportarsi, e una parola
 # diversa e' un comportamento diverso che nessun tipo intercetta (D112).
 from nova.agent import componi_prompt                          # noqa: E402
-from nova.config import DEFAULT_SYSTEM_PROMPT, INIZIO_REGOLE, REGOLE_OPERATIVE  # noqa: E402
+from nova.config import (  # noqa: E402
+    DEFAULT_SYSTEM_PROMPT, INIZIO_REGOLE, PROMEMORIA, REGOLE_OPERATIVE,
+)
 from nova import lingue as _lingue                             # noqa: E402
 
 PROMPT = [
@@ -294,12 +296,21 @@ PROMPT = [
 LINGUE_PROVATE = ["it", "en", "en-US", "EN", "english", "  FR_ca ", "italiano",
                   "Nihongo", "klingon", "", "ru", "zh"]
 
-fuori2 = rust({"prompt": PROMPT, "lingue": LINGUE_PROVATE})
+MEMORIE = [
+    "",
+    "gio usa Rust",
+    "- gio lavora a NOVA\n- il vault sta in C:/Users/gio/vault\n",
+    "con accenti: perché, città, però",
+    "<memoria> annidata, che non deve confondere niente </memoria>",
+]
+
+fuori2 = rust({"prompt": PROMPT, "lingue": LINGUE_PROVATE, "memorie": MEMORIE})
 
 print("\n-- i testi estratti, carattere per carattere --")
 py_testi = {"INIZIO_REGOLE": INIZIO_REGOLE,
             "PROMPT_PREDEFINITO": DEFAULT_SYSTEM_PROMPT,
-            "REGOLE_OPERATIVE": REGOLE_OPERATIVE}
+            "REGOLE_OPERATIVE": REGOLE_OPERATIVE,
+            "PROMEMORIA": PROMEMORIA}
 for nome, ru in fuori2["testi"]:
     py = py_testi[nome]
     primo = next((i for i, (a, b) in enumerate(zip(ru, py)) if a != b),
@@ -367,6 +378,58 @@ for codice, ru in zip(LINGUE_PROVATE, fuori2["lingue"]):
     py = {"codice": _lingue.normalizza(codice), "nome": _lingue.nome(codice),
           "endonimo": _lingue.endonimo(codice), "clausola": _lingue.clausola(codice)}
     controlla(f"lingua {codice!r}", py == ru, f"rust {ru} vs python {py}")
+
+
+print("\n-- cio' che si attacca in coda alla domanda --")
+# In coda e non nel prompt di sistema, e la ragione e' doppia: i cervelli
+# agentici il prompt di sistema lo ricevono solo all'apertura della sessione
+# (quindi il contesto veniva calcolato e buttato), e il messaggio di sistema
+# e' la regione su cui i fornitori tengono la cache — cambiarlo a ogni turno
+# rielabora l'intera conversazione.
+
+
+class BrainNormale:
+    agentico = False
+
+
+class BrainAgentico:
+    agentico = True
+    kb_context = None
+
+
+def py_memoria(contesto, agentico=False):
+    a = Agent.__new__(Agent)
+    a.brain = BrainAgentico() if agentico else BrainNormale()
+    a._contesto_kb = lambda _t: contesto                       # noqa: E731
+    return a._blocco_memoria("una domanda qualunque")
+
+
+for contesto, ru in zip(MEMORIE, fuori2["memorie"]):
+    py = py_memoria(contesto)
+    controlla(f"memoria {contesto[:28]!r}", py == ru, f"rust {ru!r} vs python {py!r}")
+
+# Il ramo agentico non produce testo: se lo attacca il cervello per conto suo.
+# Non e' una differenza di formato, e' una consegna diversa, e va provata qui
+# perche' in Rust quella consegna la fa chi chiama.
+b = BrainAgentico()
+a = Agent.__new__(Agent)
+a.brain = b
+a._contesto_kb = lambda _t: "gio usa Rust"                     # noqa: E731
+controlla("a un cervello agentico il blocco non si attacca: si consegna",
+          a._blocco_memoria("x") == "" and b.kb_context == "gio usa Rust",
+          f"testo {a._blocco_memoria('x')!r}, consegnato {b.kb_context!r}")
+
+
+def py_identita(agentico):
+    a = Agent.__new__(Agent)
+    a.brain = BrainAgentico() if agentico else BrainNormale()
+    return a._promemoria_identita()
+
+
+for agentico, ru in zip([False, True], fuori2["identita"]):
+    py = py_identita(agentico)
+    controlla(f"promemoria d'identita' (agentico={agentico})", py == ru,
+              f"rust {len(ru)}c vs python {len(py)}c")
 
 print()
 print(f"{passati} verifiche passate, {len(falliti)} fallite")

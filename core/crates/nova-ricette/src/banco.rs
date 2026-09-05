@@ -12,6 +12,7 @@
 
 use std::io::Read;
 
+use nova_ricette::blocco::{blocco, Proposta};
 use nova_ricette::{proponi, Ricetta};
 use serde::{Deserialize, Serialize};
 
@@ -28,11 +29,36 @@ struct RicettaIn {
 }
 
 #[derive(Deserialize)]
+struct PropostaIn {
+    #[serde(default)]
+    titolo: String,
+    #[serde(default)]
+    procedura: String,
+    #[serde(default)]
+    usata: i64,
+    #[serde(default)]
+    somiglianza: f64,
+    #[serde(default)]
+    ha_automazione: bool,
+}
+
+#[derive(Deserialize)]
 struct Dentro {
+    #[serde(default)]
     ricette: Vec<RicettaIn>,
+    #[serde(default)]
     domande: Vec<String>,
     #[serde(default = "quattro")]
     quante: usize,
+    /// Gruppi di procedure gia' scelte, di cui si vuole il testo.
+    #[serde(default)]
+    blocchi: Vec<Vec<PropostaIn>>,
+    /// Numeri da scrivere come li scriverebbe Python.
+    #[serde(default)]
+    numeri: Vec<f64>,
+    /// Numeri da arrotondare come li arrotonderebbe Python.
+    #[serde(default)]
+    da_arrotondare: Vec<f64>,
 }
 
 fn quattro() -> usize {
@@ -44,6 +70,16 @@ struct Esito {
     domanda: String,
     /// Indice nell'archivio e punteggio, nell'ordine in cui si propongono.
     scelte: Vec<(usize, f64)>,
+}
+
+#[derive(Serialize)]
+struct Fuori {
+    /// La forma storica dell'uscita, tenuta com'era: il banco delle domande
+    /// c'era prima e non ha ragione di cambiare.
+    proposte: Vec<Esito>,
+    blocchi: Vec<String>,
+    numeri: Vec<String>,
+    arrotondati: Vec<f64>,
 }
 
 fn main() {
@@ -70,14 +106,39 @@ fn main() {
             usata: r.usata,
         })
         .collect();
-    let fuori: Vec<Esito> = dentro
-        .domande
-        .into_iter()
-        .map(|d| Esito {
-            scelte: proponi(&elenco, &d, dentro.quante),
-            domanda: d,
-        })
-        .collect();
+    let fuori = Fuori {
+        proposte: dentro
+            .domande
+            .into_iter()
+            .map(|d| Esito {
+                scelte: proponi(&elenco, &d, dentro.quante),
+                domanda: d,
+            })
+            .collect(),
+        blocchi: dentro
+            .blocchi
+            .iter()
+            .map(|gruppo| {
+                let proposte: Vec<Proposta> = gruppo
+                    .iter()
+                    .map(|p| Proposta {
+                        titolo: p.titolo.clone(),
+                        procedura: p.procedura.clone(),
+                        usata: p.usata,
+                        somiglianza: p.somiglianza,
+                        ha_automazione: p.ha_automazione,
+                    })
+                    .collect();
+                blocco(&proposte)
+            })
+            .collect(),
+        numeri: dentro.numeri.iter().map(|x| nova_ricette::blocco::numero(*x)).collect(),
+        arrotondati: dentro
+            .da_arrotondare
+            .iter()
+            .map(|x| nova_ricette::blocco::arrotonda2(*x))
+            .collect(),
+    };
     match serde_json::to_string(&fuori) {
         Ok(s) => println!("{s}"),
         Err(e) => {
