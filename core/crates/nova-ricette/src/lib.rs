@@ -245,6 +245,10 @@ pub fn proponi(elenco: &[Ricetta], domanda: &str, quante: usize) -> Vec<(usize, 
 // dato, perche' un testo lontano dal dato si aggiorna a meta' (D72).
 pub mod blocco;
 
+// Come si impara una procedura: cosa si chiede al modello, quando non vale la
+// pena chiederglielo, e come si legge quello che risponde.
+pub mod imparare;
+
 #[cfg(test)]
 mod prove {
     use super::*;

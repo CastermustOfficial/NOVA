@@ -5216,3 +5216,53 @@ prendeva tutta la riga e Python solo il primo pezzo.
 **Questa la lascio decisa ma non chiusa**: e' una scelta di prodotto, e la
 regola del numero potrebbe essere troppo stretta (un elenco con dentro una
 sola foto la manda comunque) o troppo larga. Gio dira'.
+
+## 7 settembre 2026, notte — Come NOVA impara, e un a capo che Rust non conosce
+
+Settimo pezzo di CANT-3: `nova-ricette::imparare`. Tre cose che decidono
+**cosa NOVA impara** e che in Python stavano dentro un metodo di novanta righe
+insieme alla rete e al filo: il testo che si manda al modello, la decisione se
+valga la pena mandarlo, e la lettura di cio' che risponde.
+
+**Il prompt non l'ho ricopiato.** Millesettecento caratteri, e una parola
+diversa in un prompt e' un comportamento diverso che nessun tipo intercetta
+(D112). Spostarli da dentro un metodo a un modello con tre segnaposto e'
+esattamente il genere di cosa che si fa «senza cambiare niente». Quindi:
+prima ho **catturato** il testo esatto che il codice di allora produceva per
+tre gruppi di argomenti, poi ho rifattorizzato, poi ho verificato che il nuovo
+producesse gli stessi 1010, 2123 e 978 caratteri (D169). I tre file sono
+rimasti, come `_estrai_strumenti.py`: il metodo vale quanto il risultato.
+
+**E poi l'a capo.** `str.splitlines()` di Python non taglia solo su `\n`:
+taglia anche su `\r`, `\v`, `\f`, i separatori `\x1c`-`\x1e`, `\x85`, e su
+U+2028 e U+2029. `str::lines()` di Rust taglia **solo** su `\n`.
+
+Sembra pedanteria finche' non si guarda chi ha scritto il testo che si sta
+leggendo: qui e' un modello, e un modello scrive quello che gli pare.
+Misurato, con una mutazione che usa `lines()`:
+
+    "Titolo  1. passo con a capo strano abbastanza lungo"
+      Python: due righe   -> procedura letta, archiviata
+      Rust:   una riga    -> «risposta troppo corta», niente archiviata
+
+Cioe' NOVA non impara la procedura, e nel registro resta scritto che il
+modello ha risposto male. Un difetto che non rompe niente e fa perdere una
+cosa per volta (D168).
+
+L'altra mutazione: `arrotonda_al_pari` che diventa `round()`. Nel motivo
+scritto nel registro — «saltata: 2s sotto la soglia di 8» — Python usa
+`f"{x:.0f}"`, che a mezzo arrotonda al **pari**. Con `round()` di Rust, 2,5
+diventa 3 e 0,5 diventa 1. Due verifiche rosse, e sono i due casi che avevo
+messo apposta perche' stanno esattamente a meta'.
+
+Una cosa sui motivi. In Python ogni rifiuto porta dentro un `repr` del testo
+incriminato, che e' logica di **registro** e non di decisione. Il banco
+confronta il tipo del rifiuto e il pezzo di testo, non come Python lo scrive
+fra virgolette: la forma della riga di log resta a chi la scrive. Confondere
+le due cose avrebbe voluto dire portare in Rust il `repr` di Python, che e'
+un pezzo di Python e non un pezzo di NOVA.
+
+Diciannove risposte finte confrontate, e quasi tutte storte apposta: vuote,
+di soli spazi, «NIENTE», un titolo solo, passi troppo corti, «ALTRE PAROLE»
+senza i due punti, alias vuoti fra le virgole, accenti nei passi, e i quattro
+tipi di a capo.

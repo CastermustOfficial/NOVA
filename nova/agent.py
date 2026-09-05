@@ -1187,77 +1187,33 @@ class Agent:
         niente. Chiederglielo funziona sempre, e costa una chiamata al
         modello veloce.
         """
-        if not getattr(self.cfg.kb, "procedure", True):
-            return
-        soglia = int(getattr(self.cfg.kb, "procedure_da_secondi", 8))
-        if secondi < soglia:
-            self._annota_procedura(f"saltata: {secondi:.0f}s sotto la soglia di {soglia}")
-            return
-        agentico = getattr(self.brain, "agentico", False)
-        if not agentico and not self.strumenti_del_turno:
-            # Nessuno strumento: era una conversazione, non una procedura.
-            self._annota_procedura("saltata: nessuno strumento usato")
+        from . import ricette
+        va, motivo = ricette.si_registra(
+            attive=bool(getattr(self.cfg.kb, "procedure", True)),
+            secondi=secondi,
+            soglia=int(getattr(self.cfg.kb, "procedure_da_secondi", 8)),
+            agentico=bool(getattr(self.brain, "agentico", False)),
+            strumenti=self.strumenti_del_turno,
+        )
+        if not va:
+            if motivo != "saltata: le procedure sono spente":
+                self._annota_procedura(motivo)
             return
         strumenti = sorted(self.strumenti_del_turno)
 
         def lavora() -> None:
             try:
                 from . import ricette
-                # `semplice()` e' una chiamata ISOLATA: nessuna sessione,
-                # nessuna memoria del turno appena finito. Chiedergli «cosa
-                # hai fatto?» era chiedere a chi non c'era: rispondeva
-                # NIENTE, ogni volta, e l'archivio restava vuoto senza che
-                # nessun errore lo dicesse. Il materiale glielo si passa.
                 testo = self.brain.semplice(
-                    "Ecco uno scambio appena avvenuto fra un utente e un "
-                    "assistente che ha le mani sul suo PC.\n\n"
-                    f"RICHIESTA: \"{domanda[:300]}\"\n\n"
-                    f"RISPOSTA DATA: \"{(risposta_data or '')[:900]}\"\n\n"
-                    + (f"STRUMENTI USATI: {', '.join(strumenti)}\n\n"
-                       if strumenti else "")
-                    + "Ricostruisci da questo la procedura, perche' la "
-                    "prossima volta si possa rifare senza cercare.\n"
-                    "- prima riga: un titolo di tre o quattro parole;\n"
-                    "- poi al massimo sei righe numerate, concrete: quali "
-                    "strumenti, quali comandi, quali percorsi, in che ordine;\n"
-                    "- NON scrivere i risultati (numeri, nomi, contenuti "
-                    "trovati): quelli cambiano. Solo i passi.\n"
-                    "- ultima riga, che comincia con «ALTRE PAROLE:»: sei o "
-                    "sette modi DIVERSI in cui la stessa cosa si sarebbe "
-                    "potuta chiedere, separati da virgola. Sinonimi veri, "
-                    "anche in inglese e anche gergali - per «controlla la "
-                    "posta»: inbox, email, messaggi, mail, casella, "
-                    "corrispondenza. Servono a ritrovare questa procedura "
-                    "quando la richiesta sara' scritta con altre parole.\n"
-                    "Se dallo scambio non si capisce nessuna procedura ripetibile, "
-                    "rispondi soltanto: NIENTE",
+                    ricette.richiesta(domanda, risposta_data, strumenti),
                     max_tokens=400)
-                testo = (testo or "").strip()
-                if not testo:
-                    self._annota_procedura("il modello non ha risposto niente")
+                letta, motivo = ricette.leggi(testo)
+                if letta is None:
+                    self._annota_procedura(motivo)
                     return
-                if testo.upper().startswith("NIENTE"):
-                    self._annota_procedura("il modello dice che non c'e' una procedura")
-                    return
-                righe = [r for r in testo.splitlines() if r.strip()]
-                if len(righe) < 2:
-                    self._annota_procedura(f"risposta troppo corta: {testo[:80]!r}")
-                    return
-                titolo = righe[0].strip(" #*-").strip()[:60]
-                alias: list[str] = []
-                for i, r in enumerate(righe):
-                    if r.strip().upper().startswith("ALTRE PAROLE"):
-                        alias = [x.strip() for x in
-                                 r.split(":", 1)[-1].split(",") if x.strip()]
-                        righe = righe[:i]
-                        break
-                procedura = "\n".join(righe[1:]).strip()
-                if len(procedura) < 20:
-                    self._annota_procedura(f"passi troppo scarni: {procedura[:80]!r}")
-                    return
-                ricette.registra(domanda, titolo, procedura, strumenti, secondi,
-                                 alias=alias)
-                self._annota_procedura(f"archiviata: {titolo}")
+                ricette.registra(domanda, letta["titolo"], letta["procedura"],
+                                 strumenti, secondi, alias=letta["alias"])
+                self._annota_procedura(f"archiviata: {letta['titolo']}")
             except Exception as e:
                 # Imparare e' un di piu': se fallisce, la risposta e' gia'
                 # stata data e l'utente non deve accorgersene. Ma noi si': un
