@@ -270,6 +270,15 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="nova", description="Assistente digitale locale")
     ap.add_argument("--cli", action="store_true", help="modalita' testuale invece della GUI")
     ap.add_argument("--ask", metavar="TESTO", help="esegue una singola richiesta e termina")
+    # La domanda da un file, invece che dalla riga di comando.
+    #
+    # Serve alle attivita' pianificate. Li' l'istruzione dell'utente passa da
+    # Windows, che la ricostruisce all'orario giusto: ogni passaggio e' un
+    # posto dove un apostrofo puo' diventare una virgoletta — misurato,
+    # «controlla l'agenda» diventava «controlla l"agenda» (D149). Con un file,
+    # nella riga di comando finisce solo un percorso scritto da NOVA.
+    ap.add_argument("--ask-file", metavar="PERCORSO", dest="ask_file",
+                    help="come --ask, ma la richiesta sta in un file UTF-8")
     ap.add_argument("--voce", action="store_true",
                     help="la domanda arriva dal microfono: risposta parlata e "
                          "marcatori di chiusura")
@@ -419,8 +428,19 @@ def main(argv: list[str] | None = None) -> int:
     if cfg.brains.active != "locale":
         cfg.server.autostart_model = False
 
-    if args.cli or args.ask:
-        return run_cli(cfg, once=args.ask,
+    domanda = args.ask
+    if not domanda and getattr(args, "ask_file", None):
+        try:
+            domanda = Path(args.ask_file).read_text(encoding="utf-8").strip()
+        except OSError as e:
+            print(f"non riesco a leggere «{args.ask_file}»: {e}")
+            return 2
+        if not domanda:
+            print(f"«{args.ask_file}» e' vuoto: non c'e' niente da chiedere")
+            return 2
+
+    if args.cli or domanda:
+        return run_cli(cfg, once=domanda,
                        no_server=args.no_server or cfg.brains.active != "locale",
                        dalla_voce=args.voce)
     return avvia_orb()

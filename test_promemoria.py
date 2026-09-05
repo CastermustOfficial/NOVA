@@ -42,7 +42,8 @@ if binari.trova("nova-notifica") is None:
     sys.exit(2)
 
 from nova.tools.base import ToolError  # noqa: E402
-from nova.tools.system import _xml_promemoria, create_reminder  # noqa: E402
+from nova import attivita  # noqa: E402
+from nova.tools.system import create_reminder  # noqa: E402
 
 passati = 0
 falliti: list[str] = []
@@ -96,9 +97,9 @@ try:
     print("\n2. e il testo dell'utente non entra nella riga di comando")
     # E' la ragione per cui non si rompono. Si guarda l'XML, non l'esito:
     # «ha funzionato» e «non puo' rompersi» sono due cose diverse (D141).
-    xml = _xml_promemoria(datetime.datetime(2027, 1, 15, 9, 0),
-                          "C:\\bin\\nova-notifica.exe", "C:\\tmp\\x.txt",
-                          'un messaggio con "virgolette" e | pipe')
+    xml = attivita.xml(datetime.datetime(2027, 1, 15, 9, 0),
+                       "C:\\bin\\nova-notifica.exe", '--da-file "C:\\tmp\\x.txt"',
+                       'un messaggio con "virgolette" e | pipe')
     fra_argomenti = xml.split("<Arguments>")[1].split("</Arguments>")[0]
     controlla("negli argomenti c'e' solo un percorso",
               "virgolette" not in fra_argomenti and "pipe" not in fra_argomenti,

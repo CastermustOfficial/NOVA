@@ -4722,3 +4722,39 @@ somigliera' piu' (D148).
 Cinque scenari, e in tutti e cinque stessi nodi, stesso ordine, stesso
 perche'.
 
+### Il fratello del promemoria
+
+Riparato `create_reminder`, sono andato a cercare chi altro creasse attivita'
+pianificate. Uno: `pianifica`, cioe' il modo in cui NOVA si da' appuntamento
+con se stessa. Stessa idea, stesso periodo, stessi difetti — perche' quando si
+ripara una cosa in un posto la lezione non si sposta da sola (D72).
+
+Ne aveva tre, e uno era vivo:
+
+    «controlla l'agenda»  ->  registrata come  «controlla l"agenda»
+
+Un apostrofo diventato virgoletta. NOVA si sarebbe posta una domanda diversa
+da quella chiesta, all'ora giusta, senza che niente lo segnalasse. Gli altri
+due: le virgolette doppie nell'istruzione erano **vietate** — una limitazione
+scritta nel codice e dichiarata all'utente pur di non affrontare l'escaping,
+quindi «cerca "casa in affitto"» non si poteva programmare — e la data usava
+il formato della lingua del sistema.
+
+Tutti e tre spariscono con lo stesso rimedio: l'attivita' descritta in XML,
+programma e argomenti in due campi distinti, l'istruzione in un file e nella
+riga di comando solo il suo percorso. Adesso il rimedio sta in
+`nova/attivita.py`, perche' i posti che creano attivita' erano due e alla
+seconda occorrenza la cosa condivisa si mette in comune (D62) — e qui le due
+copie non condividevano solo il codice: condividevano i difetti, perche'
+erano nate dalla stessa idea sbagliata.
+
+Ho aggiunto `--ask-file` a `nova`, che era l'unico pezzo mancante.
+
+E una cosa su di me, la seconda volta oggi. Nella prima misura gli accenti
+sembravano rotti: «perch? citt?». Stavo leggendo con `schtasks /Query`, che
+stampa nella tabella codici della console. Rifatta la misura con
+`Get-ScheduledTask`, gli accenti erano intatti. **Il difetto vero era uno
+solo, e per un minuto ne ho creduti due** — di nuovo per il modo in cui
+leggevo, non per il dato (D131). Nella prova finale il campo si chiede in un
+modo che non dipende dalla lingua, e c'e' scritto perche'.
+

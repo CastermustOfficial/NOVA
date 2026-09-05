@@ -14,8 +14,11 @@ from __future__ import annotations
 import datetime
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
+from .. import attivita
+from ..scrittura import scrivi
 from .base import Risk, ToolError, tool
 
 PREFISSO = "NOVA_Compito_"
@@ -40,10 +43,9 @@ def _quando(when: str) -> datetime.datetime:
         raise ToolError("l'ora va scritta come 'HH:MM' oppure 'YYYY-MM-DD HH:MM'")
 
 
-GIORNI = {
-    "lunedi": "MON", "martedi": "TUE", "mercoledi": "WED", "giovedi": "THU",
-    "venerdi": "FRI", "sabato": "SAT", "domenica": "SUN",
-}
+# I giorni della settimana stanno in `nova/attivita.py`, insieme al resto di
+# cio' che sa parlare con l'Utilita' di pianificazione: qui c'erano le sigle a
+# tre lettere di `schtasks /D`, che con l'XML non servono piu'.
 
 
 @tool(
@@ -70,10 +72,6 @@ def pianifica(istruzione: str, quando: str, ripeti: str = "", nome: str = "") ->
     istruzione = (istruzione or "").strip()
     if not istruzione:
         raise ToolError("serve l'istruzione: cosa deve fare NOVA")
-    if '"' in istruzione:
-        # Le virgolette dentro schtasks aprono una voragine di escaping; e'
-        # piu' onesto rifiutare che programmare qualcosa di storto.
-        raise ToolError("l'istruzione non puo' contenere virgolette doppie: riscrivila senza")
 
     dt = _quando(quando)
     etichetta = (nome or istruzione)[:40].strip()
@@ -81,36 +79,55 @@ def pianifica(istruzione: str, quando: str, ripeti: str = "", nome: str = "") ->
     task = PREFISSO + (pulita or dt.strftime("%Y%m%d%H%M%S"))
 
     r = (ripeti or "").strip().lower()
+    giorno = ""
     if not r:
-        pianificazione = ["/SC", "ONCE", "/ST", dt.strftime("%H:%M"),
-                          "/SD", dt.strftime("%d/%m/%Y")]
+        ogni = ""
     elif r in ("ogni giorno", "giornaliero", "ogni giorni"):
-        pianificazione = ["/SC", "DAILY", "/ST", dt.strftime("%H:%M")]
+        ogni = "giorno"
     elif r in ("ogni settimana", "settimanale"):
-        pianificazione = ["/SC", "WEEKLY", "/ST", dt.strftime("%H:%M")]
+        ogni = "settimana"
     elif r in ("ogni mese", "mensile"):
-        pianificazione = ["/SC", "MONTHLY", "/ST", dt.strftime("%H:%M")]
-    elif r.startswith("ogni ") and r[5:].replace("'", "").strip() in GIORNI:
-        giorno = GIORNI[r[5:].replace("'", "").strip()]
-        pianificazione = ["/SC", "WEEKLY", "/D", giorno, "/ST", dt.strftime("%H:%M")]
+        ogni = "mese"
+    elif r.startswith("ogni ") and r[5:].replace("'", "").strip() in attivita.GIORNI_XML:
+        ogni, giorno = "settimana", r[5:].replace("'", "").strip()
     else:
         raise ToolError(
             f"non capisco «{ripeti}». Usa: vuoto, 'ogni giorno', 'ogni settimana', "
             "'ogni mese' oppure 'ogni lunedi' (o un altro giorno)."
         )
 
+    # L'istruzione va in un file, e nella riga di comando finisce solo il suo
+    # percorso.
+    #
+    # Prima ci finiva dentro, fra virgolette doppie — al punto che le
+    # virgolette nell'istruzione erano **vietate**, e chi voleva far dire a
+    # NOVA «cerca "casa in affitto"» non poteva. E non bastava: misurato l'8
+    # settembre, «controlla l'agenda» veniva registrata come «controlla
+    # l"agenda». Un apostrofo diventato virgoletta, e NOVA che si sarebbe
+    # posta una domanda diversa da quella chiesta senza che niente lo
+    # segnalasse (D149).
+    cartella = Path(tempfile.gettempdir()) / "nova-compiti"
+    cartella.mkdir(parents=True, exist_ok=True)
+    file_domanda = cartella / f"{task}.txt"
+    scrivi(file_domanda, istruzione)
+
     # pythonw: senza finestra nera che compare all'improvviso mentre si lavora.
     exe = sys.executable.replace("python.exe", "pythonw.exe")
     if not Path(exe).exists():
         exe = sys.executable
-    azione = f'{exe} -m nova --ask "{istruzione}"'
 
-    cmd = ["schtasks", "/Create", "/TN", task, "/TR", azione, "/F"] + pianificazione
-    res = subprocess.run(cmd, capture_output=True, text=True, timeout=45)
-    if res.returncode != 0:
-        raise ToolError((res.stderr or res.stdout).strip()[:400])
+    try:
+        attivita.crea(
+            task, dt, exe, f'-m nova --ask-file "{file_domanda}"',
+            descrizione=istruzione, ripeti=ogni, giorno=giorno,
+            # Una richiesta a NOVA puo' voler dire chiamare un modello: mezz'ora
+            # e' quanto ci si puo' mettere prima che valga la pena fermarsi.
+            durata_massima="PT30M")
+    except attivita.AttivitaFallita as e:
+        raise ToolError(str(e)) from e
 
-    quando_umano = dt.strftime("%d/%m/%Y alle %H:%M") if not r else f"{ripeti}, alle {dt.strftime('%H:%M')}"
+    quando_umano = (dt.strftime("%d/%m/%Y alle %H:%M") if not r
+                    else f"{ripeti}, alle {dt.strftime('%H:%M')}")
     return (f"Programmato «{task}»: {quando_umano}.\n"
             f"NOVA fara': {istruzione}\n"
             f"Per toglierlo: pianifica_togli con nome={task}")
