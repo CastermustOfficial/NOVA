@@ -157,13 +157,16 @@ def discover_runtimes(extra_dirs: Iterable[Path] = ()) -> list[RuntimeCandidate]
 
 
 def _schede_binario() -> Path | None:
-    """Il lettore DXGI, se e' stato costruito."""
-    nome = "nova-schede.exe" if os.name == "nt" else "nova-schede"
-    for p in (PROJECT_ROOT / "bin" / nome,
-              PROJECT_ROOT / "core" / "target" / "release" / nome):
-        if p.is_file():
-            return p
-    return None
+    """Il lettore DXGI, se e' stato costruito.
+
+    Il corpo sta in `nova/binari.py`, che esiste apposta: questa era la
+    quarta copia della stessa ricerca, e `binari.py` era nato proprio perche'
+    la terza non diventasse la prima di dieci (D85). Non se n'era accorto
+    nessuno perche' funzionava — due copie che fanno la stessa cosa non danno
+    fastidio finche' non divergono, e allora divergono in silenzio (D62).
+    """
+    from . import binari
+    return binari.trova("nova-schede")
 
 
 # Quanto ci si puo' credere al numero della VRAM. Sono le stesse tre parole

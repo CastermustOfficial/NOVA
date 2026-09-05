@@ -10,10 +10,13 @@ import getpass
 import json
 import os
 import platform
+import subprocess
 from datetime import date
 from pathlib import Path
 
-from .. import powershell
+from .. import macchina
+from ..dati import pesa
+from ..processi import SENZA_FINESTRA
 from .schema import ORIGINE_SCANSIONE, Node, slugify
 from .store import Vault
 
@@ -22,18 +25,25 @@ IGNORA = {"node_modules", "__pycache__", ".venv", "venv", "dist", "build",
           ".git", "AppData", "OneDrive"}
 
 
-def _ps(cmd: str, timeout: int = 60) -> str:
-    """Come sopra, ma qui il silenzio e' voluto: la semina non deve fallire.
+def _git(*argomenti: str, timeout: int = 30) -> str:
+    """Chiede a git, **senza una shell in mezzo**.
 
-    Era la terza copia privata della stessa funzione, e come le altre due
-    leggeva UTF-8 quello che PowerShell scrive nella tabella codici della
-    console. Qui faceva il danno peggiore: i nomi delle cartelle dell'utente
-    finiscono **dentro il vault**, dove restano. Un ricordo storpiato non e'
-    un errore che passa (D131, D135).
+    Prima passava da PowerShell: `git -C "{cartella}" log ...` con il percorso
+    incollato dentro una stringa. Una cartella con un apostrofo nel nome — e
+    ce ne sono — rompeva il comando, e la semina perdeva quel progetto senza
+    dirlo a nessuno. Git e' un programma: si chiama, non si scrive dentro una
+    frase (D130).
+
+    Il silenzio e' voluto: qui non c'e' niente di indispensabile, e una
+    semina che si ferma perche' git non e' installato sarebbe un guasto
+    peggiore del dato mancante.
     """
     try:
-        return powershell.testo(cmd, timeout=timeout)
-    except Exception:                                         # noqa: BLE001
+        r = subprocess.run(["git", *argomenti], capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=timeout,
+                           creationflags=SENZA_FINESTRA)
+        return (r.stdout or "").strip() if r.returncode == 0 else ""
+    except Exception:                                       # noqa: BLE001
         return ""
 
 
@@ -43,8 +53,8 @@ def nodo_profilo() -> Node:
         utente = getpass.getuser()
     except Exception:
         utente = "utente"
-    nome_git = _ps("git config --global user.name")
-    mail_git = _ps("git config --global user.email")
+    nome_git = _git("config", "--global", "user.name")
+    mail_git = _git("config", "--global", "user.email")
     corpo = [
         f"- **Utente Windows**: `{utente}` su `{platform.node()}`",
         f"- **Cartella home**: `{Path.home()}`",
@@ -102,7 +112,7 @@ def trova_progetti(max_progetti: int = 40) -> list[dict]:
                 continue
             remote = ""
             if git_dir.exists():
-                remote = _ps(f'git -C "{figlio}" remote get-url origin', timeout=20)
+                remote = _git("-C", str(figlio), "remote", "get-url", "origin", timeout=20)
             trovati[str(figlio).lower()] = {
                 "path": str(figlio),
                 "nome": figlio.name,
@@ -174,15 +184,23 @@ def nodo_progetto(p: dict) -> Node:
 
 # -------------------------------------------------------- 3. app e ambiente
 def nodo_ambiente(cfg_modello: str = "", cfg_runtime: str = "") -> Node:
-    gpu = _ps("(Get-CimInstance Win32_VideoController | Select-Object -First 1).Name", 30)
-    cpu = _ps("(Get-CimInstance Win32_Processor | Select-Object -First 1).Name", 30)
-    ram = _ps("[math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB,1)", 30)
+    # Tre query WMI dentro tre stringhe di PowerShell: le stesse risposte le
+    # danno gia' `nova-sistema` e `nova-schede`, che le leggono dalle API. Un
+    # dato che si sa gia' non si chiede una seconda volta a una fonte diversa,
+    # se non altro perche' le due possono divergere (D62, D99).
+    info = macchina.informazioni() or {}
+    scheda = macchina.scheda_principale() or {}
+    cpu = info.get("cpu", "")
+    gpu = scheda.get("nome", "")
+    ram_byte = info.get("ram_totale_byte")
     corpo = [
         f"- **CPU**: {cpu or 'n/d'}",
         f"- **GPU**: {gpu or 'n/d'}",
-        f"- **RAM**: {ram or '?'} GB",
+        f"- **RAM**: {pesa(ram_byte) if ram_byte else '?'}",
         f"- **Python**: {platform.python_version()}",
     ]
+    if info.get("sistema"):
+        corpo.insert(0, f"- **Sistema**: {info['sistema']} (build {info.get('build', '?')})")
     if cfg_modello:
         corpo.append(f"- **Modello locale**: `{cfg_modello}`")
     if cfg_runtime:
@@ -199,18 +217,30 @@ def nodo_ambiente(cfg_modello: str = "", cfg_runtime: str = "") -> Node:
     )
 
 
+def _segnaposto(nome: str) -> bool:
+    """Un nome che l'installatore non ha mai riempito.
+
+    Sul PC di prova il registro conteneva davvero una voce chiamata
+    `${{arpDisplayName}}`: un modello di stringa che qualcuno ha scritto nel
+    registro senza sostituirci dentro il nome vero. Non e' un'applicazione, e
+    finiva nei ricordi come se lo fosse. Un ricordo sbagliato non e' un
+    errore che passa: resta li' e il modello ci crede.
+    """
+    return "${" in nome or "{{" in nome or nome.startswith("@{")
+
+
 def nodi_app(limite: int = 25) -> list[Node]:
     """Solo le app che contano per l'automazione, non tutti i redistributable."""
-    grezzo = _ps(
-        "$k='HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*',"
-        "'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*',"
-        "'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*';"
-        "Get-ItemProperty $k -ErrorAction SilentlyContinue | Where-Object {$_.DisplayName} | "
-        "Select-Object -Expand DisplayName | Sort-Object -Unique", 90)
+    # La stessa domanda dello strumento `list_installed_apps`, e quindi la
+    # stessa risposta: erano due copie della medesima query di registro, e due
+    # copie divergono (D62).
+    installate = macchina.applicazioni()
+    if installate is None:
+        return []
     rumore = ("redistributable", "runtime", "update for", "driver", "sdk",
               "microsoft visual c++", "hotfix", "language pack")
-    nomi = [n.strip() for n in grezzo.splitlines()
-            if n.strip() and not any(r in n.lower() for r in rumore)]
+    nomi = [n for n in installate
+            if not any(r in n.lower() for r in rumore) and not _segnaposto(n)]
     if not nomi:
         return []
     corpo = ["Applicazioni installate rilevanti (rilevate dal registro):", ""]
@@ -231,11 +261,11 @@ def nodi_app(limite: int = 25) -> list[Node]:
 def nodi_persone(progetti: list[dict]) -> list[Node]:
     """Deduce le persone dai co-autori git dei progetti trovati."""
     conteggio: dict[str, dict] = {}
-    io = _ps("git config --global user.email").strip().lower()
+    io = _git("config", "--global", "user.email").strip().lower()
     for p in progetti:
         if not p.get("git"):
             continue
-        out = _ps(f'git -C "{p["path"]}" log --pretty=format:"%an|%ae" -n 200', 30)
+        out = _git("-C", p["path"], "log", "--pretty=format:%an|%ae", "-n", "200")
         for riga in out.splitlines():
             if "|" not in riga:
                 continue

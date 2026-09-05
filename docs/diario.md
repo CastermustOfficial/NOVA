@@ -4496,3 +4496,44 @@ funziona; la parte che consegna i tasti **non e' verificata**, e la prova esce
 2 invece di dichiararsi verde. Un verde che non so spiegare varrebbe meno di
 un «non lo so» scritto (D53).
 
+### La semina del vault, e tre copie che funzionavano
+
+L'ultimo pezzo con dentro PowerShell che non fosse uno strumento: la semina
+del vault, cioe' cio' che scrive i primi ricordi di NOVA su chi sei e su
+com'e' fatto il tuo PC. E' il posto dove un guasto non passa — un ricordo
+sbagliato resta li', e il modello ci crede.
+
+Dieci chiamate, e quasi nessuna aveva bisogno di una shell.
+
+**Quattro erano `git`.** `git config --global user.name`, `git -C "{cartella}"
+log ...`. Git e' un programma: si chiama. Passare da PowerShell aggiungeva
+soltanto una stringa da comporre — e quella stringa si rompe su una cartella
+con l'apostrofo nel nome. Quando si rompeva, la semina perdeva quel progetto e
+non lo diceva a nessuno.
+
+**Tre erano cose che NOVA sapeva gia'.** CPU e RAM chieste a WMI mentre
+`nova-sistema` le legge dalle API. E le applicazioni installate con **la
+stessa identica query di registro** di `list_installed_apps` — due copie della
+stessa domanda, scritte in due momenti, che nessuno confronta mai.
+
+Nessuna delle due dava fastidio: funzionavano. E' esattamente il motivo per
+cui erano ancora li'. Una copia che funziona non si fa notare finche' non
+diverge, e quando diverge lo fa in silenzio (D144).
+
+Nella stessa passata ne e' saltata fuori una terza, che non c'entrava niente
+con la semina: `runtime.py` aveva ancora la **quarta** copia di «dove sta
+questo binario». `nova/binari.py` era nato mesi fa proprio perche' la terza
+non diventasse la prima di dieci, e quel file non l'aveva mai usato.
+
+Adesso `nova/macchina.py` e' l'unico posto da cui si chiede a questo PC com'e'
+fatto.
+
+E una cosa piccola che mi ha fatto sorridere. Fra le applicazioni installate,
+il registro di questa macchina contiene davvero una voce chiamata:
+
+    ${{arpDisplayName}}
+
+Un modello di stringa che un installatore ha scritto nel registro senza
+sostituirci dentro il nome vero. Non e' un'applicazione, e finiva nei ricordi
+come se lo fosse.
+

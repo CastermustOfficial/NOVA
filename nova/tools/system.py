@@ -410,18 +410,9 @@ def _sistema_rust() -> str | None:
     due pezzi passavano da due formattatori diversi di PowerShell. Chi legge
     quella riga e' un modello che ci deve fare un conto (D137).
     """
-    b = binari.trova("nova-sistema")
-    if b is None:
-        return None
-    try:
-        r = subprocess.run([str(b)], capture_output=True, text=True,
-                           encoding="utf-8", timeout=15,
-                           creationflags=SENZA_FINESTRA)
-        if r.returncode != 0:
-            return None
-        import json
-        d = json.loads(r.stdout)
-    except Exception:                                       # noqa: BLE001
+    from .. import macchina
+    d = macchina.informazioni()
+    if d is None:
         return None
     return _racconta_sistema(d)
 
