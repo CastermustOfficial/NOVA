@@ -4301,3 +4301,47 @@ piu' del massimo, quindi non controllava niente e passava — verde **per
 assenza**, che e' il modo peggiore di essere verdi. Adesso abbassa il massimo
 a cinque e guarda cosa succede davvero.
 
+### Le finestre: la funzione c'era gia', ma nel posto sbagliato
+
+Prima di scrivere `EnumWindows` sono andato a guardare se c'era gia' — e
+c'era. `elenca_finestre()` viveva dentro `windows_uia.rs`, il backend di UI
+Automation, e faceva esattamente questo: `EnumWindows`, `GetWindowTextW`, il
+nome del processo, il pid.
+
+Ma non usava UI Automation. Nemmeno una riga. Stava li' per come e' cresciuto
+il file, e la conseguenza era che chi voleva solo sapere che finestre sono
+aperte doveva far partire un thread COM e un'intera automazione per una
+domanda che non ne ha bisogno. L'ho spostata in `finestre.rs`, dove vivono
+gia' le altre cose che governano la scena senza passare da UIA. Spostata, non
+riscritta (D99).
+
+**E la strada vecchia rispondeva a un'altra domanda.** Questa e' la parte che
+conta:
+
+    Get-Process | Where MainWindowTitle   ->  quali processi hanno una
+                                              finestra principale
+    EnumWindows                           ->  quali finestre esistono
+
+Sono due domande diverse, e lo strumento dichiarava la seconda. Un browser con
+tre finestre ne mostrava una. NOVA non vedeva la **propria** seconda finestra:
+`io.nova.assistente-siw` c'e', e nel vecchio elenco non compariva.
+
+Quindi qui, al contrario del pezzo precedente, le due risposte **non devono**
+combaciare — e una prova che pretendesse che combacino sarebbe una prova che
+difende il difetto. Nove finestre contro undici, e le due in piu' sono vere.
+
+Nel mezzo si e' recuperata anche una cosa buttata via: `EnumWindows`
+restituisce le finestre in ordine di **pila**, dalla piu' in primo piano alla
+piu' in fondo. `Get-Process` le ordinava per nome del processo, e chi chiede
+«cosa ho aperto» quasi sempre intende quella davanti (D140).
+
+Una sola esclusione, e scritta: `Progman` e `WorkerW`, cioe' lo sfondo del
+desktop. Sono finestre visibili con un titolo — «Program Manager» — e
+passerebbero ogni filtro, ma nessuno che chieda «che finestre ho aperte»
+intende quelle. Un'esclusione taciuta e' un elenco che mente.
+
+E una nota sulla prova: la verifica «vede piu' di una finestra per programma»
+puo' non avere niente da guardare, se in quel momento nessun programma ne ha
+due. In quel caso non passa e non fallisce: **lo dice**. Una prova che diventa
+verde perche' non ha trovato niente da provare e' peggio di una che manca.
+

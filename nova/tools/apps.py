@@ -125,12 +125,31 @@ def _app_rust() -> list[str] | None:
 
 @tool(
     "list_windows",
-    "Elenca le finestre aperte con titolo e processo. E' il modo per 'vedere' cosa e' aperto senza schermate.",
-    {"filter": {"type": "string", "description": "Filtra per testo nel titolo, opzionale"}},
+    # «Ogni finestra», non «ogni programma»: la strada di prima chiedeva a
+    # `Get-Process` la finestra **principale** di ogni processo, quindi un
+    # browser con tre finestre ne mostrava una e NOVA non vedeva nemmeno la
+    # propria seconda finestra. Detto qui perche' la descrizione e' cio' su
+    # cui il modello decide (D137).
+    "Elenca le finestre aperte, con titolo e processo, dalla piu' in primo "
+    "piano alla piu' in fondo. E' il modo per 'vedere' cosa e' aperto senza "
+    "schermate.",
+    {"filter": {"type": "string", "description": "Filtra per testo nel titolo o nel processo, opzionale"}},
     Risk.SAFE, required=[], category="app",
     preview=lambda a: "Elenca le finestre aperte",
 )
 def list_windows(filter: str = "") -> str:
+    finestre = _finestre_rust()
+    if finestre is not None:
+        if filter:
+            f = filter.lower()
+            finestre = [w for w in finestre
+                        if f in w["title"].lower() or f in w["process"].lower()]
+        if not finestre:
+            return "Nessuna finestra visibile trovata."
+        righe = ["    PID  PROCESSO                      TITOLO"]
+        for w in finestre:
+            righe.append(f"{w['pid']:>7}  {w['process']:<28}  {w['title']}")
+        return "\n".join(righe)
     ps = (
         "Get-Process | Where-Object {$_.MainWindowTitle -ne ''} | "
         "Select-Object Id,ProcessName,MainWindowTitle | ConvertTo-Csv -NoTypeInformation"
@@ -142,6 +161,35 @@ def list_windows(filter: str = "") -> str:
     if len(rows) <= 1:
         return "Nessuna finestra visibile trovata."
     return "\n".join(rows)
+
+
+def _finestre_rust() -> list[dict] | None:
+    """Le finestre chieste a `EnumWindows`, senza shell e senza UI Automation.
+
+    Non e' solo piu' veloce (275 ms contro 46): e' una **domanda diversa**, e
+    quella giusta. `Get-Process` risponde «quali processi hanno una finestra
+    principale», cioe' una finestra per programma: un browser con tre finestre
+    ne mostrava una, e NOVA non vedeva la propria seconda finestra. Qui si
+    chiede «quali finestre esistono», che e' cio' che lo strumento dice di
+    fare.
+
+    E l'ordine e' quello della pila, dalla piu' in primo piano alla piu' in
+    fondo. La strada di prima ordinava per nome del processo e buttava via
+    quell'informazione, che e' quasi sempre quella che serve.
+    """
+    b = binari.trova("nova-finestre")
+    if b is None:
+        return None
+    try:
+        r = subprocess.run([str(b)], capture_output=True, text=True,
+                           encoding="utf-8", timeout=20,
+                           creationflags=SENZA_FINESTRA)
+        if r.returncode != 0:
+            return None
+        import json
+        return json.loads(r.stdout)
+    except Exception:                                       # noqa: BLE001
+        return None
 
 
 @tool(

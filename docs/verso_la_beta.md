@@ -900,7 +900,7 @@ ci dipendono davvero.
 | `notify` | processo suo che aspetta al posto di NOVA | 5 ms (era 9.300) |
 | `system_info` | API dirette; la query WMI solo se manca il binario | 41 ms (era 1.543) |
 | `list_installed_apps` | registro diretto; PowerShell solo se manca il binario | 55 ms (era 594) |
-| `list_windows` | `Get-Process` + `ConvertTo-Csv` | 275 ms |
+| `list_windows` | `EnumWindows` diretto; PowerShell solo se manca il binario | 23 ms (era 275) |
 | `focus_window` | `Add-Type` + `SetForegroundWindow` | — |
 | `close_application` | `Stop-Process` | — |
 | `open_application` | `Start-Process` | — |
@@ -998,9 +998,10 @@ chiamate erano dieci in cinque moduli, con tre difetti di codifica diversi
 1. ~~`list_installed_apps`~~ — **fatto**: 594 ms → 55, 229 righe identiche in
    ordine identico. Si e' portato dietro un taglio silenzioso a 250 che adesso
    si dichiara (D129, D139).
-2. `list_windows` — 275 ms. `EnumWindows` + `GetWindowTextW`. Attenzione: NOVA
-   ha **gia'** un albero UIA in `nova-platform` che sa elencare le finestre
-   (`UiTree::windows`) — prima di scrivere, guardare se basta quello (D99).
+2. ~~`list_windows`~~ — **fatto**: 275 ms → 23. La funzione c'era gia', dentro
+   il backend UIA che non le serviva: spostata, non riscritta (D99). E la
+   strada vecchia rispondeva a un'altra domanda — una finestra per programma
+   invece di ogni finestra (D140).
 3. `focus_window`, `close_application`, `open_application` — non misurati
    perche' cambiano lo stato del PC, e una misura non deve fare danni per
    sapere quanto costa. Sono `SetForegroundWindow`, `TerminateProcess` e
