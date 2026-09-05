@@ -177,6 +177,23 @@ lui. → D156
 > guardandola e la seconda no.
 
 
+### Ho riparato un'istanza invece della classe, e la stessa cosa mi ha ripreso due ore dopo
+
+**Credevo** di aver chiuso la faccenda delle prove che leggono il sorgente
+quando ho riscritto il controllo sull'orologio in `test_prefisso.py` e ne ho
+fatto una decisione (D159). **Era vero** che nello stesso file ce n'erano
+altre due, tre righe piu' su, scritte allo stesso modo — cercavano
+`"content": user_text + ...` — e sono diventate rosse alla prima occasione,
+per un difetto che non c'era. **Me ne sono accorto** rimisurando la suite, non
+rileggendo il file: avevo aggiustato la riga che si era rotta e chiuso il
+problema li'.
+
+> D72 dice che una lezione imparata in un posto non si sposta da sola. Vale
+> anche a due ore di distanza e a tre righe di distanza, dentro lo stesso
+> file. Adesso quelle prove chiedono all'albero sintattico dove finisce il
+> valore, non al testo come e' scritto.
+
+
 ---
 
 ## Le forme che si ripetono

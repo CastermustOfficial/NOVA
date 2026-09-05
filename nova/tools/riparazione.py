@@ -50,7 +50,11 @@ def ripara_apri(motivo: str) -> str:
     righe = [
         f"banco {s['id']} aperto in {s['cartella']}",
         f"partenza: {len(p['verdi'])} prove verdi"
-        + (f", rosse gia' adesso: {', '.join(p['rosse'])}" if p["rosse"] else ""),
+        + (f", rosse gia' adesso: {', '.join(p['rosse'])}" if p["rosse"] else "")
+        # Si dicono sempre: un banco che tace su cio' che non ha potuto
+        # provare fa credere provato tutto (D129).
+        + (f", non provabili qui: {', '.join(p.get('non_provabili', []))}"
+           if p.get("non_provabili") else ""),
         "Lavora sui file dentro quella cartella, poi chiama ripara_verifica.",
     ]
     return "\n".join(righe)
@@ -83,6 +87,12 @@ def ripara_verifica(banco: str) -> str:
         righe.append("riparate: " + ", ".join(v["riparate"]))
     if v["sparite"]:
         righe.append("prove sparite (non vale): " + ", ".join(v["sparite"]))
+    if v.get("non_provabili"):
+        # Non sono rosse e non sono verdi: hanno dichiarato di non poter
+        # rispondere su questa macchina, adesso. Dirlo e' obbligatorio -
+        # tacerlo farebbe credere provato quello che nessuno ha provato.
+        righe.append("non provabili qui (non contano ne' da una parte ne' "
+                     "dall'altra): " + ", ".join(v["non_provabili"]))
     if v["fuori_perimetro"]:
         righe.append("fuori perimetro: " + ", ".join(v["fuori_perimetro"]))
     if v["regge"] and v["file_toccati"]:

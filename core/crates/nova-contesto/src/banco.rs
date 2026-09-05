@@ -80,6 +80,9 @@ struct Dentro {
     /// Contesti di memoria da incorniciare.
     #[serde(default)]
     memorie: Vec<String>,
+    /// (testo, memoria, procedure, identita, postilla) da comporre.
+    #[serde(default)]
+    domande: Vec<(String, String, String, String, String)>,
 }
 
 #[derive(Serialize)]
@@ -123,6 +126,7 @@ struct Fuori {
     testi: Vec<(String, String)>,
     memorie: Vec<String>,
     identita: Vec<String>,
+    domande: Vec<String>,
 }
 
 fn main() {
@@ -214,6 +218,11 @@ fn main() {
             blocchi::identita(false).to_string(),
             blocchi::identita(true).to_string(),
         ],
+        domande: d
+            .domande
+            .iter()
+            .map(|(t, m, p, i, po)| blocchi::domanda(t, m, p, i, po))
+            .collect(),
     };
 
     match serde_json::to_string(&fuori) {

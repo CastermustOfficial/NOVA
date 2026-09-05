@@ -1488,6 +1488,43 @@ con `(x * 100).round() / 100`: quella moltiplicazione diverge su 0,125, 0,615
 e 2,675, misurato (D161).
 
 
+**CANT-3, quinto pezzo: un codice HTTP detto in italiano.** Non e' dentro
+`agent.py`: e' la faccia che i fornitori mostrano quando qualcosa non va, e
+sta in `nova-guasti` perche' la stessa risposta la ricevono tutti i cervelli a
+pagamento (D162). Dentro ci sono i due rami che non si indovinano leggendo la
+specifica: llama.cpp usa **400** per il contesto sfondato invece di 413, e
+risponde **500** quando gli arriva un'immagine e lui e' partito senza
+proiettore.
+
+E la parte che non e' cortesia: quando la chiave e' sbagliata il fornitore la
+rimanda indietro **dentro il proprio messaggio d'errore**, e da li' finirebbe
+in chat e nel registro. Ottantacinque spiegazioni e diciannove corpi
+confrontati, uno con una chiave vera dentro — e una verifica che si arrabbia
+se quel corpo non c'e', perche' senza, il controllo sarebbe verde per assenza
+(D163). Questo e' il punto 7 della lista dell'attrito, chiuso in Rust.
+
+
+**E una cosa che tocca il punto 1 del cancello, trovata per caso.** Il banco
+aveva due colonne, verde e rossa, e guardava solo `returncode == 0`. Ma alcune
+prove escono con codice **2** per dire «questa macchina non ha come provarmi»:
+`test_tastiera.py` quando non riesce a prendere il fuoco — e non scrive alla
+cieca — e `test_scala_rust.py` quando il banco Rust non e' costruito su questo
+sistema. Finivano fra le rosse.
+
+Qui non si era mai visto, perche' i banchi erano costruiti e il fuoco libero.
+Si e' visto la sera in cui davanti c'era una partita a schermo intero. Ma il
+punto 1 e' «qualcuno che non e' l'autore l'ha installato»: su quella macchina
+meta' della suite avrebbe detto «rossa» parlando **di se' e non del codice**,
+e il primo che la installa avrebbe cercato difetti che non esistono. Adesso le
+colonne sono tre, e le non provabili si dicono sempre (D164).
+
+Il confine e' la parte delicata: «non provabile» si dichiara solo su una
+premessa che si e' **verificata** mancante. Se la scrittura vera fallisce, da
+li' non si puo' sapere se sia NOVA o l'applicazione cavia, e chiamarla non
+provabile sarebbe scegliere l'ipotesi comoda — che e' il modo esatto in cui
+una prova diventa verde per assenza. Resta rossa, ma senza traceback (D165).
+
+
 ## Il cancello della beta
 
 Non e' una data, sono cinque frasi che devono essere vere insieme:

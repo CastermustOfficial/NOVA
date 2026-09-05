@@ -21,6 +21,11 @@ pub mod chiavi;
 // Cosa non entra in memoria. Domanda diversa da «cosa non finisce nei log»,
 // e con un costo dello sbaglio diverso: le forme sono le stesse, la mano no.
 pub mod guardiano;
+// Un codice HTTP detto in italiano. Sta qui e non nel client del modello
+// perche' la stessa risposta la ricevono tutti i cervelli a pagamento, e una
+// spiegazione per fornitore vorrebbe dire cinque spiegazioni che divergono.
+pub mod http;
+
 pub use chiavi::senza_chiavi;
 
 /// Cosa e' andato storto, nei termini in cui lo sa il chiamante.

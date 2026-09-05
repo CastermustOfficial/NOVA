@@ -5047,3 +5047,106 @@ Poi le solite mutazioni per non fidarsi del verde: «PROPOSTE» che diventa
 modello decide se quei passi sono un ordine o un appunto.
 
 116 verifiche in `test_contesto_rust.py`, 35 in `test_ricette_rust.py`.
+
+## 6 settembre 2026, notte — Un codice HTTP detto in italiano
+
+Quinto pezzo di CANT-3, e non e' dentro `agent.py`: e' la faccia che i
+fornitori mostrano quando qualcosa non va. `nova-guasti::http`.
+
+Sta in un posto solo perche' la stessa risposta la ricevono tutti i cervelli a
+pagamento, e una spiegazione per fornitore vorrebbe dire cinque spiegazioni
+che divergono (D162). Dentro ci sono i due rami che non si indovinano
+leggendo la specifica HTTP, e che sono li' perche' qualcuno li ha misurati:
+
+- **llama.cpp usa 400 per il contesto sfondato**, non 413, e nel corpo scrive
+  «exceeds the available context size». Senza quel ramo all'utente arrivava il
+  JSON in inglese.
+- **risponde 500 quando gli arriva un'immagine** e lui e' partito senza
+  proiettore visivo. E' un errore di configurazione travestito da guasto del
+  server, e dirgli «di solito passa da solo» lo manda ad aspettare una cosa
+  che non succedera' mai.
+
+**E la parte che non e' cortesia.** Il corpo della risposta non si incolla mai
+com'e': quando la chiave e' sbagliata il fornitore **la rimanda indietro
+dentro il proprio messaggio d'errore**. Il motivo utile e' sepolto nel JSON,
+quindi si scende — per al massimo quattro livelli, perche' un JSON che si
+annida all'infinito e' un JSON ostile e qui si sta leggendo la risposta di
+qualcun altro — poi si maschera e si taglia a duecento caratteri (D163).
+
+Il banco confronta ottantacinque spiegazioni e diciannove corpi, uno dei quali
+ha dentro una chiave vera. E ha una verifica che si arrabbia **se quel corpo
+non c'e'**: senza, il controllo «la chiave non compare in nessuna frase»
+sarebbe verde per assenza, che e' il tipo di verde che non prova niente.
+Mutazione di prova con la maschera tolta: tre verifiche rosse e la chiave in
+chiaro. Seconda mutazione, quattro livelli che diventano cinque: una rossa,
+proprio sul corpo annidato messo apposta.
+
+Un doppione scoperto per strada: avevo riscritto `spiega_irraggiungibile`, che
+in `nova-guasti` c'era gia'. Cancellato — due copie della stessa frase sono
+due frasi che un giorno diranno cose diverse (D72).
+
+E l'ordine con cui la domanda si compone — prima cio' che hai chiesto, poi
+cio' che NOVA sa, poi cio' che ha gia' fatto, poi come deve rispondere — adesso
+e' una funzione sola invece di una somma scritta a mano dentro il turno.
+L'istruzione resta l'ultima cosa letta, che e' il posto in cui i modelli la
+seguono di piu'.
+
+## 7 settembre 2026 — Il banco aveva due colonne e ne servivano tre
+
+Rimisurando dopo il pezzo sugli errori HTTP, quattro rosse. Nessuna delle
+quattro era un difetto del codice, e la ragione di ognuna vale la pena di
+scriverla.
+
+**Una era mia, ed e' la stessa di ieri.** `test_prefisso.py` cerca nel
+sorgente di `send` la scrittura `"content": user_text + ...` per verificare
+che il contesto della memoria finisca in coda alla domanda e non nel prompt di
+sistema. Ieri avevo riscritto, nello stesso file, il controllo sull'orologio
+per la stessa ragione — cercava una scrittura invece di una proprieta' — e ne
+avevo fatto una decisione (D159). Poi ho spostato quella somma dentro una
+funzione, e le due righe accanto sono diventate rosse per un difetto che non
+c'era.
+
+Avevo riparato l'istanza, non la classe. Tre righe piu' su, nello stesso file,
+due ore dopo aver scritto la regola. Adesso quelle prove chiedono all'**albero
+sintattico** dove finisce il valore: quali variabili nascono da
+`self._blocco_*()`, e se quei nomi compaiono nel contenuto del messaggio con
+ruolo `user`. Provata con una mutazione che toglie la memoria dalla
+composizione: rossa, e dice quali nomi ha trovato al suo posto.
+
+**Una era un binario vecchio**: avevo rimesso a posto il Rust dopo una
+mutazione ma non ricostruito il banco, quindi la suite confrontava il Python
+con una versione mutata. Il tipo di errore che si ripara in dieci secondi e
+costa mezz'ora di dubbi.
+
+**E due non erano rosse affatto.** `test_tastiera.py` e
+`test_scrittura_senza_tastiera.py` girano su finestre vere, e in quel momento
+davanti c'era «League of Legends (TM) Client» a schermo intero. La prima ha
+fatto la cosa giusta: non ha preso il fuoco, **non ha scritto alla cieca**, e
+si e' fermata dicendo «questa parte non e' provabile adesso» — uscendo con
+codice 2, che nel progetto vuol dire esattamente questo.
+
+Solo che il banco guardava `returncode == 0` e basta. Codice 2 finiva fra le
+rosse.
+
+Su questa macchina non si era mai visto, perche' i banchi Rust erano costruiti
+e il fuoco era libero. Ma il punto 1 del cancello della beta e' «qualcuno che
+non e' l'autore l'ha installato»: su quella macchina, senza i banchi Rust
+costruiti, meta' della suite avrebbe detto «rossa» parlando **di se' e non del
+codice**, e il primo che la installa avrebbe cercato difetti che non
+esistono.
+
+Adesso il banco ha tre colonne. «Non provabile» non e' un modo gentile di dire
+rossa, e non e' nemmeno verde: contarla verde vorrebbe dire credere provata
+una cosa che nessuno ha provato. Non conta nella regola del banco — una prova
+che oggi non si puo' provare non e' una regressione di chi ha toccato il
+codice — ma si **dice sempre**, anche quando non cambia il verdetto (D164).
+
+**E il confine, che e' la parte delicata.** La prova che scrive senza tastiera
+puo' fallire in due punti. Se non riesce a mandare il fuoco altrove, la
+premessa non c'e': quello e' «non provabile», e si verifica guardando chi sta
+davanti. Se invece fallisce la scrittura vera — ed e' quello che e' successo,
+con un `0x80040201` dalla Mappa caratteri — da li' non si puo' sapere se sia
+NOVA o la cavia. Chiamarla non provabile sarebbe scegliere l'ipotesi comoda,
+ed e' il modo esatto in cui una prova diventa verde per assenza. Resta rossa,
+ma senza traceback: adesso dice cosa e' successo e cosa provare prima di
+cercare il difetto nel codice (D165).

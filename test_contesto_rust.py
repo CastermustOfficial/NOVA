@@ -260,7 +260,7 @@ controlla("un messaggio piu' grande di tutto lo spazio si accorcia e lo dice",
 # Ventimila caratteri che il modello rilegge a ogni richiesta. Non sono prosa
 # da migliorare: sono cio' su cui decide come comportarsi, e una parola
 # diversa e' un comportamento diverso che nessun tipo intercetta (D112).
-from nova.agent import componi_prompt                          # noqa: E402
+from nova.agent import componi_domanda, componi_prompt         # noqa: E402
 from nova.config import (  # noqa: E402
     DEFAULT_SYSTEM_PROMPT, INIZIO_REGOLE, PROMEMORIA, REGOLE_OPERATIVE,
 )
@@ -304,7 +304,16 @@ MEMORIE = [
     "<memoria> annidata, che non deve confondere niente </memoria>",
 ]
 
-fuori2 = rust({"prompt": PROMPT, "lingue": LINGUE_PROVATE, "memorie": MEMORIE})
+DOMANDE = [
+    ("che ore sono", "", "", "", ""),
+    ("apri il vault", "\n\n<memoria>\nsai questo\n</memoria>", "", "", ""),
+    ("apri il vault", "<mem>", "<gia_fatto>", "<sei_nova>", " [voce] parla breve"),
+    ("", "", "", "", ""),
+    ("con accenti perché", "<mem è>", "", "<sei_nova>", ""),
+]
+
+fuori2 = rust({"prompt": PROMPT, "lingue": LINGUE_PROVATE, "memorie": MEMORIE,
+               "domande": [list(x) for x in DOMANDE]})
 
 print("\n-- i testi estratti, carattere per carattere --")
 py_testi = {"INIZIO_REGOLE": INIZIO_REGOLE,
@@ -425,6 +434,13 @@ def py_identita(agentico):
     a.brain = BrainAgentico() if agentico else BrainNormale()
     return a._promemoria_identita()
 
+
+diverse = [f"{d[0][:20]!r}: rust {r!r} vs python {componi_domanda(*d)!r}"
+           for d, r in zip(DOMANDE, fuori2["domande"]) if r != componi_domanda(*d)]
+controlla(f"le {len(DOMANDE)} domande si compongono nello stesso ordine",
+          not diverse, " | ".join(diverse[:2]))
+controlla("e senza niente attorno resta esattamente la domanda",
+          fuori2["domande"][0] == "che ore sono")
 
 for agentico, ru in zip([False, True], fuori2["identita"]):
     py = py_identita(agentico)

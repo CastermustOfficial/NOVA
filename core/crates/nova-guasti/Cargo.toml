@@ -7,11 +7,15 @@ license.workspace = true
 description = "Un guasto detto in italiano, e le chiavi che non escono dai messaggi d'errore."
 
 [dependencies]
+# Non piu' opzionale da quando il pacchetto sa leggere il corpo di un errore
+# HTTP: il fornitore il motivo utile lo seppellisce nel JSON, e riconoscerne a
+# mano un sottoinsieme vorrebbe dire perdere proprio i corpi strani, che sono
+# quelli che capitano quando le cose vanno male.
+serde_json = { workspace = true }
 serde = { workspace = true, features = ["derive"], optional = true }
-serde_json = { workspace = true, optional = true }
 
 [features]
-banco = ["dep:serde", "dep:serde_json"]
+banco = ["dep:serde"]
 
 [[bin]]
 name = "banco-guasti"

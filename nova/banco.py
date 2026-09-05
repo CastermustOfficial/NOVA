@@ -182,8 +182,40 @@ def _prove(cartella: Path) -> list[Path]:
     return sorted(cartella.glob("test_*.py"))
 
 
+#: Il codice con cui una prova dice «qui non si puo' provare».
+#:
+#: Non e' una gentilezza: e' la differenza fra «il codice e' rotto» e «questa
+#: macchina non ha come provarlo». `test_tastiera.py` scrive in una finestra e
+#: prima deve prenderne il fuoco — se davanti c'e' una partita a schermo
+#: intero non lo prende, e **non scrive alla cieca**: si ferma e lo dice
+#: (D145). `test_scala_rust.py` esce 2 se il banco Rust non e' costruito su
+#: questo sistema.
+#:
+#: Il banco pero' guardava solo `returncode == 0`, quindi tutte queste
+#: uscivano nella colonna «rosse». Su questa macchina non si vedeva perche' i
+#: banchi erano costruiti e il fuoco era libero; sulla macchina di qualcun
+#: altro — cioe' esattamente al punto 1 del cancello — meta' della suite
+#: avrebbe detto «rossa» parlando di se' e non del codice.
+NON_PROVABILE = 2
+
+
+def _esito(codice: int) -> str:
+    if codice == 0:
+        return "verde"
+    if codice == NON_PROVABILE:
+        return "non provabile"
+    return "rossa"
+
+
 def verifica_grezza(cartella: Path) -> dict:
-    """Le prove, senza confronti: cosa passa e cosa no, qui e ora."""
+    """Le prove, senza confronti: cosa passa e cosa no, qui e ora.
+
+    Tre colonne e non due. «Non provabile» non e' un modo gentile di dire
+    rossa: e' la prova che dichiara di non poter rispondere qui, e contarla
+    fra le rosse vuol dire cercare un difetto che non c'e'. Contarla fra le
+    verdi sarebbe peggio: vorrebbe dire credere provata una cosa che nessuno
+    ha provato.
+    """
     cartella = Path(cartella)
     esiti: list[dict] = []
 
@@ -194,6 +226,7 @@ def verifica_grezza(cartella: Path) -> dict:
                        capture_output=True, text=True, encoding="utf-8", errors="replace")
     esiti.append({
         "nome": "sintassi",
+        "esito": "verde" if r.returncode == 0 else "rossa",
         "ok": r.returncode == 0,
         "secondi": 0.0,
         "coda": ((r.stdout or "") + (r.stderr or "")).strip()[-400:],
@@ -210,18 +243,28 @@ def verifica_grezza(cartella: Path) -> dict:
                 env={**os.environ, "PYTHONIOENCODING": "utf-8"},
             )
             uscita = ((p.stdout or "") + (p.stderr or "")).strip()
-            esiti.append({"nome": prova.name, "ok": p.returncode == 0,
+            esito = _esito(p.returncode)
+            esiti.append({"nome": prova.name, "esito": esito,
+                          # `ok` vuol dire «non rossa», ed e' quello che serve
+                          # alla regola del banco: una prova che oggi non si
+                          # puo' provare non e' una regressione di chi ha
+                          # toccato il codice.
+                          "ok": esito != "rossa",
                           "secondi": round(time.time() - inizio, 1),
                           "coda": uscita[-400:]})
         except subprocess.TimeoutExpired:
-            esiti.append({"nome": prova.name, "ok": False,
+            # Appesa e' rossa: una prova che non finisce non ha detto niente,
+            # e a differenza di «non provabile» non l'ha nemmeno dichiarato.
+            esiti.append({"nome": prova.name, "esito": "rossa", "ok": False,
                           "secondi": float(concesso),
                           "coda": f"appesa: non e' finita entro {concesso}s"})
 
     return {
         "prove": esiti,
-        "verdi": [e["nome"] for e in esiti if e["ok"]],
-        "rosse": [e["nome"] for e in esiti if not e["ok"]],
+        "verdi": [e["nome"] for e in esiti if e.get("esito") == "verde"],
+        "rosse": [e["nome"] for e in esiti if e.get("esito") == "rossa"],
+        "non_provabili": [e["nome"] for e in esiti
+                          if e.get("esito") == "non provabile"],
     }
 
 
@@ -258,6 +301,9 @@ def verifica(ident: str) -> dict:
         "regressioni": regressioni,
         "riparate": riparate,
         "sparite": sparite,
+        # Si dicono sempre, anche quando non cambiano niente: un banco che
+        # tace su cio' che non ha potuto provare fa credere provato tutto.
+        "non_provabili": arrivo.get("non_provabili", []),
         "fuori_perimetro": fuori,
         "file_toccati": cambiamenti,
     }
