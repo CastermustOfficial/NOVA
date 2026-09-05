@@ -4999,3 +4999,51 @@ letto dentro `system_prompt` — una — e controlla che nessun altro pezzo del
 turno lo rilegga. Stessa domanda, posta a cio' che il codice fa invece che a
 come e' scritto (D159). Verificata con una mutazione che legge l'ora due
 volte: rossa.
+
+## 6 settembre 2026, sera — Quello che si attacca in coda, e un numero scritto due volte
+
+Quarto pezzo di CANT-3: i blocchi. La memoria e le procedure fanno la stessa
+cosa — aggiungono roba **alla domanda** invece che al prompt di sistema — e la
+ragione e' doppia, funzionale e di costo.
+
+Funzionale: i cervelli agentici il prompt di sistema lo ricevono solo
+all'apertura della sessione, quindi dal secondo turno in poi il contesto della
+memoria veniva calcolato e buttato. NOVA faceva la ricerca sul grafo e non la
+leggeva. Di costo: il messaggio di sistema e' la prima regione di token su cui
+un fornitore tiene la cache, e cambiarlo a ogni turno — cambiava, perche' il
+contesto dipende dalla domanda — invalida tutto il prefisso.
+
+E' la stessa aritmetica del fondo nel taglio dei messaggi: non cambia cosa il
+modello legge, cambia quanto spesso si butta via la cache. Percio' la regola
+di composizione sta in `nova-contesto`. Il **testo** delle procedure invece
+sta in `nova-ricette`, accanto al suo dato: un testo lontano dal dato si
+aggiorna a meta' (D72, D160).
+
+**Il numero scritto due volte.** Il punteggio di somiglianza finisce dentro il
+testo che il modello legge, e la prima stesura lo arrotondava dentro la
+funzione che scrive. Ma nel Python arrotonda `proponi`, e chi scrive scrive
+quello che riceve: arrotondavo due volte. Il banco l'ha detto al primo giro,
+con un caso a 0,125 — un carattere di differenza, e senza quel caso sarebbe
+passato.
+
+Separate le due cose, ognuna con la sua trappola. **Scrivere**:
+`format!("{}", 1.0)` in Rust da' `1`, `str(1.0)` in Python da' `1.0`.
+**Arrotondare**: non `(x * 100).round() / 100`, perche' quella
+moltiplicazione introduce un errore che puo' far attraversare la mezza cifra
+al numero sbagliato. Misurato con una mutazione apposta:
+
+    0.125  ->  rust 0.13  vs  python 0.12
+    0.615  ->  rust 0.62  vs  python 0.61
+    2.675  ->  rust 2.68  vs  python 2.67
+
+Tre casi su quindici, e sono i tre che avevo messo apposta perche' stanno
+esattamente a meta'. Con quindici valori qualunque il banco sarebbe rimasto
+verde. La versione buona fa quello che fa Python: scrive il valore binario
+esatto con due decimali correttamente arrotondati, e lo rilegge (D161).
+
+Poi le solite mutazioni per non fidarsi del verde: «PROPOSTE» che diventa
+«Procedure» accende quattro blocchi, «kb_note o kb_forget» che diventa
+«kb_note oppure kb_forget» ne accende quattro. Sono le parole su cui il
+modello decide se quei passi sono un ordine o un appunto.
+
+116 verifiche in `test_contesto_rust.py`, 35 in `test_ricette_rust.py`.

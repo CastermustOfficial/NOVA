@@ -241,6 +241,10 @@ pub fn proponi(elenco: &[Ricetta], domanda: &str, quante: usize) -> Vec<(usize, 
     punteggi
 }
 
+// Il testo che le procedure mettono in bocca al modello: sta accanto al suo
+// dato, perche' un testo lontano dal dato si aggiorna a meta' (D72).
+pub mod blocco;
+
 #[cfg(test)]
 mod prove {
     use super::*;

@@ -25,7 +25,9 @@ from pathlib import Path
 RADICE = Path(__file__).resolve().parent
 sys.path.insert(0, str(RADICE))
 
-from nova.config import DEFAULT_SYSTEM_PROMPT, INIZIO_REGOLE, REGOLE_OPERATIVE  # noqa: E402
+from nova.config import (  # noqa: E402
+    DEFAULT_SYSTEM_PROMPT, INIZIO_REGOLE, PROMEMORIA, REGOLE_OPERATIVE,
+)
 
 DESTINAZIONE = RADICE / "core" / "crates" / "nova-contesto" / "src" / "testi.rs"
 
@@ -80,12 +82,23 @@ pub const PROMPT_PREDEFINITO: &str = {prompt};
 /// Le regole operative: si aggiungono sempre, anche a un prompt
 /// personalizzato, perche' sono il minimo perche' NOVA sappia cosa puo' fare.
 pub const REGOLE_OPERATIVE: &str = {regole};
+
+/// Il richiamo all'identita', per i soli cervelli agentici.
+///
+/// Costa un centinaio di token a turno e vale la spesa: senza, dopo qualche
+/// ora di conversazione NOVA comincia a rispondere come il programma che la
+/// fa ragionare invece che come se stessa — «autorizza il connettore», «in
+/// questa sessione non ho» — e rifiuta cose che sa fare benissimo. E'
+/// successo davvero, e la prova e' che in una sessione nuova, con lo stesso
+/// identico prompt, elencava correttamente la strada giusta.
+pub const PROMEMORIA: &str = {promemoria};
 '''
 
 fuori = TESTA.format(
     inizio=letterale(INIZIO_REGOLE),
     prompt=letterale(DEFAULT_SYSTEM_PROMPT),
     regole=letterale(REGOLE_OPERATIVE),
+    promemoria=letterale(PROMEMORIA),
 )
 DESTINAZIONE.write_text(fuori, encoding="utf-8", newline="\n")
 
@@ -94,7 +107,8 @@ riletto = DESTINAZIONE.read_text(encoding="utf-8")
 guai = []
 for nome, atteso in [("INIZIO_REGOLE", INIZIO_REGOLE),
                      ("PROMPT_PREDEFINITO", DEFAULT_SYSTEM_PROMPT),
-                     ("REGOLE_OPERATIVE", REGOLE_OPERATIVE)]:
+                     ("REGOLE_OPERATIVE", REGOLE_OPERATIVE),
+                     ("PROMEMORIA", PROMEMORIA)]:
     avuto = sfila(riletto, nome)
     if avuto != atteso:
         primo = next((i for i, (a, b) in enumerate(zip(avuto, atteso)) if a != b),
@@ -112,5 +126,6 @@ if guai:
 print(f"scritto {DESTINAZIONE}")
 for nome, t in [("INIZIO_REGOLE", INIZIO_REGOLE),
                 ("PROMPT_PREDEFINITO", DEFAULT_SYSTEM_PROMPT),
-                ("REGOLE_OPERATIVE", REGOLE_OPERATIVE)]:
+                ("REGOLE_OPERATIVE", REGOLE_OPERATIVE),
+                ("PROMEMORIA", PROMEMORIA)]:
     print(f"  {nome}: {len(t)} caratteri, riletti identici")

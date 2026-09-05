@@ -8,6 +8,7 @@
 
 use std::io::Read;
 
+use nova_contesto::blocchi;
 use nova_contesto::sistema;
 use nova_contesto::testi;
 use nova_contesto::{spazio_per_la_conversazione, stima_token, taglia, token_dei, Messaggio};
@@ -76,6 +77,9 @@ struct Dentro {
     prompt: Vec<CasoPrompt>,
     #[serde(default)]
     lingue: Vec<String>,
+    /// Contesti di memoria da incorniciare.
+    #[serde(default)]
+    memorie: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -117,6 +121,8 @@ struct Fuori {
     /// confrontano carattere per carattere con il Python: senza, il banco
     /// confronterebbe il Rust con se stesso.
     testi: Vec<(String, String)>,
+    memorie: Vec<String>,
+    identita: Vec<String>,
 }
 
 fn main() {
@@ -201,6 +207,12 @@ fn main() {
             ("INIZIO_REGOLE".into(), testi::INIZIO_REGOLE.into()),
             ("PROMPT_PREDEFINITO".into(), testi::PROMPT_PREDEFINITO.into()),
             ("REGOLE_OPERATIVE".into(), testi::REGOLE_OPERATIVE.into()),
+            ("PROMEMORIA".into(), testi::PROMEMORIA.into()),
+        ],
+        memorie: d.memorie.iter().map(|c| blocchi::memoria(c)).collect(),
+        identita: vec![
+            blocchi::identita(false).to_string(),
+            blocchi::identita(true).to_string(),
         ],
     };
 

@@ -114,8 +114,9 @@ except OSError as e:
 if esito.returncode != 0:
     print(f"  il banco Rust si e' fermato: {esito.stderr.strip()[:300]}")
     sys.exit(1)
+_uscita = json.loads(esito.stdout)
 dal_rust = {e["domanda"]: [(i, s) for i, s in e["scelte"]]
-            for e in json.loads(esito.stdout)}
+            for e in _uscita["proposte"]}
 
 # Il Python legge l'archivio da disco: qui gli si passa il nostro.
 ricette.carica = lambda: ARCHIVIO                               # noqa: E731
@@ -156,6 +157,97 @@ for testo, atteso in [("Guarda però la Posta!", ["guarda", "pero", "posta"]),
                       ("E-mail: mario@esempio.it", ["mail", "mario", "esempio"])]:
     controlla(f"«{testo[:30]}»", ricette._parole(testo) == atteso,
               str(ricette._parole(testo)))
+
+print("\n4. e il testo che ne esce e' lo stesso, carattere per carattere")
+# Il punteggio giusto non basta: quello che il modello **legge** e' questo
+# testo, e il tono e' la parte che conta piu' dei numeri — sono proposte
+# pescate per somiglianza, non passi da eseguire a scatola chiusa. Un
+# «PROPOSTE» che diventa «Procedure» cambia comportamento e nessun tipo se ne
+# accorge.
+GRUPPI = [
+    [],
+    [{"titolo": "aprire il vault", "procedura": "  1. apri Obsidian\n2. cerca  ",
+      "usata": 1, "somiglianza": 0.4, "ha_automazione": False}],
+    [{"titolo": "", "procedura": "senza titolo, apposta",
+      "usata": 1, "somiglianza": 1.0, "ha_automazione": False}],
+    [{"titolo": "backup", "procedura": "copia la cartella",
+      "usata": 3, "somiglianza": 0.55, "ha_automazione": False}],
+    [{"titolo": "backup", "procedura": "copia la cartella",
+      "usata": 9, "somiglianza": 0.5, "ha_automazione": True}],
+    [{"titolo": "uno", "procedura": "a", "usata": 3, "somiglianza": 0.42,
+      "ha_automazione": False},
+     {"titolo": "due", "procedura": "b", "usata": 5, "somiglianza": 0.33,
+      "ha_automazione": False}],
+    [{"titolo": "con accenti perché città", "procedura": "però così",
+      "usata": 2, "somiglianza": 0.12, "ha_automazione": False}],
+    [{"titolo": "primo con automazione", "procedura": "a", "usata": 4,
+      "somiglianza": 0.6, "ha_automazione": True},
+     {"titolo": "secondo senza", "procedura": "b", "usata": 4,
+      "somiglianza": 0.5, "ha_automazione": False}],
+]
+NUMERI = [0.0, 1.0, 0.5, 0.4, 0.42, 0.125, 0.335, 0.999, 0.01, 0.3333333333]
+# I pareggi esatti sono il punto: 0.125 e 0.375 stanno **esattamente** a meta'
+# fra due centesimi, e li' Python arrotonda al pari. Se Rust arrotondasse per
+# eccesso, la divergenza si vedrebbe solo su questi e su nient'altro.
+DA_ARROTONDARE = [0.0, 1.0, 0.125, 0.135, 0.375, 0.145, 0.285, 0.615, 1.005,
+                  2.675, 0.4266, 0.3333333333, 0.999, 0.005, 0.015]
+
+esito2 = subprocess.run([str(BINARIO)], input=json.dumps(
+    {"blocchi": GRUPPI, "numeri": NUMERI, "da_arrotondare": DA_ARROTONDARE},
+    ensure_ascii=False),
+    capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+if esito2.returncode != 0:
+    print(f"  il banco Rust si e' fermato: {esito2.stderr.strip()[:300]}")
+    sys.exit(1)
+u2 = json.loads(esito2.stdout)
+
+# `numero` **non** arrotonda: nel Python il numero arriva al testo gia'
+# arrotondato da `proponi`, e chi scrive scrive quello che riceve. La prima
+# stesura arrotondava anche qui, cioe' due volte, e il banco l'ha detto
+# subito con un caso a 0,125.
+diverse = [f"{x!r}: rust {r!r} vs python {str(x)!r}"
+           for x, r in zip(NUMERI, u2["numeri"]) if r != str(x)]
+controlla(f"i {len(NUMERI)} punteggi si scrivono come li scrive Python",
+          not diverse, " | ".join(diverse[:3]))
+
+diverse = [f"{x!r}: rust {r!r} vs python {round(x, 2)!r}"
+           for x, r in zip(DA_ARROTONDARE, u2["arrotondati"]) if r != round(x, 2)]
+controlla(f"e i {len(DA_ARROTONDARE)} arrotondamenti sono quelli di Python, "
+          "pareggi esatti compresi", not diverse, " | ".join(diverse[:3]))
+
+
+def py_blocco(gruppo):
+    """Il `blocco` del Python, con l'archivio e le automazioni messi a mano.
+
+    `blocco` chiama `proponi`, che legge da disco, e `_ha_automazione`, che
+    apre un altro archivio. Qui interessa il **testo**: i due si sostituiscono
+    con quello che il caso dichiara, cosi' si confronta la composizione e non
+    il disco.
+    """
+    trovate = [dict(g, id=g["titolo"] or "vuoto") for g in gruppo]
+    con_auto = {g["titolo"] or "vuoto" for g in gruppo if g["ha_automazione"]}
+    vecchio_proponi, vecchio_auto = ricette.proponi, ricette._ha_automazione
+    try:
+        ricette.proponi = lambda _d: trovate                    # noqa: E731
+        ricette._ha_automazione = lambda i: i in con_auto       # noqa: E731
+        return ricette.blocco("qualunque domanda")
+    finally:
+        ricette.proponi, ricette._ha_automazione = vecchio_proponi, vecchio_auto
+
+
+for i, (gruppo, ru) in enumerate(zip(GRUPPI, u2["blocchi"])):
+    py = py_blocco(gruppo)
+    primo = next((k for k, (a, b) in enumerate(zip(ru, py)) if a != b),
+                 min(len(ru), len(py)))
+    controlla(f"blocco {i} ({len(gruppo)} procedure)", ru == py,
+              f"rust {len(ru)}c vs python {len(py)}c, primo diverso a {primo}: "
+              f"{ru[primo:primo+50]!r} vs {py[primo:primo+50]!r}")
+
+controlla("il banco ha almeno un caso in cui il suggerimento scatta",
+          any("automazione_crea" in b for b in u2["blocchi"]),
+          "senza, la parte che propone l'automazione non e' provata")
+controlla("e almeno uno in cui non deve scattare",
+          any(b and "automazione_crea" not in b for b in u2["blocchi"]))
 
 print(f"\n{passati}/{passati + len(falliti)} passati")
 for x in falliti:

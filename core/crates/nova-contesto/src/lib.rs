@@ -52,6 +52,10 @@ pub mod testi;
 // si dice al modello di rispondere.
 pub mod sistema;
 
+// Cio' che si attacca in coda alla domanda invece che nel prompt di sistema,
+// per non buttare via la cache del prefisso a ogni turno.
+pub mod blocchi;
+
 /// Quanti caratteri vale un token, per stima.
 pub const CARATTERI_PER_TOKEN: f64 = 3.5;
 
