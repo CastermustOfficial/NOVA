@@ -336,9 +336,28 @@ FIGURE = [
 MISURE = [(800, 600), (3840, 2160), (1568, 1568), (1569, 1), (1, 20000),
           (0, 0), (2000, 1000), (100, 100)]
 
+# Un messaggio ricco, come lo si consegna a un modello che vede: `None` sta
+# per un blocco immagine, una stringa per un blocco di testo. Sfilarle serve
+# quando il cervello attivo cambia e quello nuovo non ha il proiettore: il
+# testo resta e l'immagine se ne va, cosi' il modello sa che una figura c'era
+# e non crede di averla guardata.
+SFILATURE = [
+    [],
+    ["solo testo"],
+    ["ecco la schermata", None],
+    [None],
+    [None, None],
+    ["primo", None, "secondo", None],
+    ["  con spazi intorno  ", None],
+    ["", None],
+    ["accenti perché città", None],
+]
+QUANTE_SFILATE = [0, 1, 2, 7]
+
 fuori2 = rust({"prompt": PROMPT, "lingue": LINGUE_PROVATE, "memorie": MEMORIE,
                "domande": [list(x) for x in DOMANDE],
-               "figure": FIGURE, "misure": [list(x) for x in MISURE]})
+               "figure": FIGURE, "misure": [list(x) for x in MISURE],
+               "sfilature": SFILATURE, "quante_sfilate": QUANTE_SFILATE})
 
 print("\n-- i testi estratti, carattere per carattere --")
 py_testi = {"INIZIO_REGOLE": INIZIO_REGOLE,
@@ -431,6 +450,55 @@ diverse = [f"{m}: rust {r} vs python {py_misura(*m)}"
            for m, r in zip(MISURE, fuori2["misure"]) if list(r) != py_misura(*m)]
 controlla(f"i {len(MISURE)} ridimensionamenti sono identici", not diverse,
           " | ".join(diverse[:2]))
+
+print("\n-- le figure sfilate a chi non vede --")
+
+
+class ErroreSenzaVista(Exception):
+    def __str__(self):
+        return ("HTTP 500: image input is not supported - hint: you may need "
+                "to provide the mmproj")
+
+
+def py_sfila(blocchi):
+    """Il Python vero, con un messaggio ricco messo a mano."""
+    contenuto = [{"type": "text", "text": b} if b is not None
+                 else {"type": "image_url", "image_url": {"url": "data:..."}}
+                 for b in blocchi]
+    a = Agent.__new__(Agent)
+    a.messages = [{"role": "user", "content": contenuto}]
+    cambiato = a._sfila_le_immagini(ErroreSenzaVista())
+    return a.messages[0]["content"] if cambiato else None
+
+
+for blocchi, ru in zip(SFILATURE, fuori2["sfilature"]):
+    py = py_sfila(blocchi)
+    controlla(f"sfila {blocchi}", py == ru, f"rust {ru!r} vs python {py!r}")
+
+def py_sfila_con(errore):
+    """Lo stesso, ma con un errore qualunque: deve non toccare niente."""
+    a = Agent.__new__(Agent)
+    a.messages = [{"role": "user",
+                   "content": [{"type": "text", "text": "ecco"},
+                               {"type": "image_url", "image_url": {"url": "x"}}]}]
+    cambiato = a._sfila_le_immagini(errore)
+    return cambiato, a.messages[0]["content"]
+
+
+cambiato, contenuto = py_sfila_con(Exception("la quota e' finita"))
+controlla("un errore che parla d'altro non tocca niente",
+          cambiato is False and isinstance(contenuto, list) and len(contenuto) == 2,
+          f"cambiato={cambiato}, contenuto={contenuto}")
+controlla("e chi ha chiamato lo sa, cosi' non rilancia la stessa cosa",
+          cambiato is False)
+
+diverse = []
+for n, ru in zip(QUANTE_SFILATE, fuori2["quante_sfilate"]):
+    py = (f"il cervello attivo non vede: ho sfilato {n} "
+          + "figur" + ("a" if n == 1 else "e") + " dalla conversazione")
+    if py != ru:
+        diverse.append(f"{n}: rust {ru!r} vs python {py!r}")
+controlla("e il plurale e' quello di Python", not diverse, " | ".join(diverse[:2]))
 
 print("\n-- la lingua, che si dice e non si traduce --")
 for codice, ru in zip(LINGUE_PROVATE, fuori2["lingue"]):

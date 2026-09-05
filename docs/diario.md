@@ -5266,3 +5266,42 @@ Diciannove risposte finte confrontate, e quasi tutte storte apposta: vuote,
 di soli spazi, «NIENTE», un titolo solo, passi troppo corti, «ALTRE PAROLE»
 senza i due punti, alias vuoti fra le virgole, accenti nei passi, e i quattro
 tipi di a capo.
+
+## 8 settembre 2026 — Il titolo di una finestra e' una stringa qualunque
+
+Ottavo pezzo di CANT-3, e sono due cose piccole che stavano in mezzo al ciclo.
+
+**Le figure sfilate a chi non vede.** Quando si cambia cervello e quello nuovo
+non ha il proiettore visivo, le immagini gia' in conversazione vanno tolte — se
+no llama-server risponde 500 e quel messaggio resta li' a far fallire anche
+tutti i turni dopo. Ma non si butta il messaggio: **il testo resta e
+l'immagine se ne va**, cosi' il modello continua a sapere che una figura
+c'era e non crede di averla guardata. Un messaggio sparito e un messaggio
+senza figura sono due cose diverse: la prima gli fa dimenticare che ha chiesto
+qualcosa. Adesso sta in `nova-contesto::figure`, insieme al plurale giusto per
+il registro — «una figura», «due figure» — che e' il genere di dettaglio che
+si sbaglia una volta e resta per anni.
+
+E la funzione torna `false` quando non c'era niente da togliere, che non e'
+cortesia: chi ha chiamato deve saperlo, perche' rilanciare la stessa richiesta
+identica e' il modo piu' rapido di trasformare un errore in un ciclo.
+
+**E poi la cosa che conta.** `GUARDANO_LO_SCHERMO` e' l'elenco degli strumenti
+che mostrano *cosa c'e' aperto adesso* invece di *com'e' fatto il PC*: le
+finestre, l'albero dell'interfaccia, la cattura dello schermo. Se un turno ne
+ha usato uno, quel turno si ricorda **coperto**.
+
+L'ho messo accanto al guardiano dei segreti, in `nova-guasti`, e la ragione e'
+che e' la stessa domanda — cosa non entra in memoria — posta pero' alla
+**provenienza** invece che alla forma. Il guardiano legge il testo e riconosce
+una chiave, un numero di carta, una password. Ma il titolo di una finestra e'
+una stringa qualunque: non c'e' niente da riconoscere, e proprio per questo
+passerebbe. Ricordarlo in chiaro scriverebbe nel vault i titoli delle schede
+aperte e dei documenti su cui si sta lavorando — e un vault e' una cartella
+che la gente sincronizza (D170).
+
+Il banco confronta **l'elenco intero**, non un campione di casi. Un elenco
+provato per campioni si accorge di uno strumento aggiunto da una parte sola
+solo se per caso quel caso c'era: e' la stessa lezione delle sessanta
+dichiarazioni (D113). Mutazione di prova con `screenshot` tolto dal Rust: due
+verifiche rosse, di cui una dice esattamente quale manca.

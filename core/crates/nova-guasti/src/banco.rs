@@ -57,6 +57,9 @@ struct Dentro {
     corpi: Vec<String>,
     #[serde(default)]
     numeri: Vec<i64>,
+    /// Elenchi di strumenti usati in un turno: il turno va ricordato coperto?
+    #[serde(default)]
+    provenienze: Vec<Vec<String>>,
 }
 
 #[derive(Serialize)]
@@ -72,6 +75,11 @@ struct Fuori {
     contesto_sfondato: Vec<bool>,
     misure: Vec<(i64, i64)>,
     migliaia: Vec<String>,
+    riservati: Vec<bool>,
+    /// L'elenco stesso, non un campione: se qualcuno aggiunge uno strumento
+    /// da una parte sola, un banco che prova solo dei casi se ne accorge solo
+    /// se per caso quel caso c'era (D113).
+    guardano_lo_schermo: Vec<String>,
 }
 
 fn main() {
@@ -149,6 +157,15 @@ fn main() {
         contesto_sfondato: d.corpi.iter().map(|c| http::contesto_sfondato(c)).collect(),
         misure: d.corpi.iter().map(|c| http::misure_del_contesto(c)).collect(),
         migliaia: d.numeri.iter().map(|n| http::migliaia(*n)).collect(),
+        riservati: d
+            .provenienze
+            .iter()
+            .map(|s| nova_guasti::guardiano::riservato_per_provenienza(s))
+            .collect(),
+        guardano_lo_schermo: nova_guasti::guardiano::GUARDANO_LO_SCHERMO
+            .iter()
+            .map(|s| s.to_string())
+            .collect(),
     };
 
     match serde_json::to_string(&fuori) {

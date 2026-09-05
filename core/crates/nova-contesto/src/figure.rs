@@ -195,6 +195,48 @@ pub fn nuova_misura(larghezza: u32, altezza: u32, lato_massimo: u32) -> (u32, u3
     )
 }
 
+/// Un pezzo di un messaggio ricco: o testo, o un'immagine.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Blocco {
+    Testo(String),
+    Immagine,
+}
+
+/// La riga che prende il posto delle figure sfilate.
+pub const SFILATA: &str =
+    "\n[NOVA] La figura non e' allegata: questo cervello non sa guardare le immagini.";
+
+/// Toglie da un messaggio le figure che il modello non puo' vedere.
+///
+/// Torna `None` se non c'era niente da togliere: chi ha chiamato deve saperlo,
+/// perche' rilanciare la stessa richiesta identica e' il modo piu' rapido di
+/// trasformare un errore in un ciclo.
+///
+/// **Il testo resta e l'immagine se ne va.** Non si butta il messaggio
+/// intero: il modello continua a sapere che una figura c'era, e non crede di
+/// averla guardata. Un messaggio sparito e un messaggio senza figura sono due
+/// cose diverse — la prima gli fa dimenticare che ha chiesto qualcosa.
+pub fn sfila(blocchi: &[Blocco]) -> Option<String> {
+    let quante = blocchi.iter().filter(|b| **b == Blocco::Immagine).count();
+    if quante == 0 {
+        return None;
+    }
+    let testi: Vec<&str> = blocchi
+        .iter()
+        .filter_map(|b| match b {
+            Blocco::Testo(t) => Some(t.as_str()),
+            Blocco::Immagine => None,
+        })
+        .collect();
+    Some(format!("{}{SFILATA}", testi.join("\n").trim()).trim().to_string())
+}
+
+/// Come si racconta a chi guarda il registro quante ne sono state sfilate.
+pub fn quante_sfilate(tolte: usize) -> String {
+    let parola = if tolte == 1 { "figura" } else { "figure" };
+    format!("il cervello attivo non vede: ho sfilato {tolte} {parola} dalla conversazione")
+}
+
 #[cfg(test)]
 mod prove {
     use super::*;
@@ -250,6 +292,34 @@ mod prove {
         let t = testo_di_consegna("x.png");
         assert!(t.contains("ha nominato"));
         assert!(!t.contains("prodotta"));
+    }
+
+    #[test]
+    fn sfilare_lascia_il_testo_e_lo_dice() {
+        let m = vec![Blocco::Testo("ecco la schermata".into()), Blocco::Immagine];
+        let fuori = sfila(&m).unwrap();
+        assert!(fuori.starts_with("ecco la schermata"));
+        assert!(fuori.contains("non sa guardare le immagini"));
+    }
+
+    #[test]
+    fn senza_figure_non_si_tocca_niente() {
+        assert_eq!(sfila(&[Blocco::Testo("solo testo".into())]), None);
+        assert_eq!(sfila(&[]), None);
+    }
+
+    #[test]
+    fn una_figura_da_sola_lascia_la_sola_riga() {
+        let fuori = sfila(&[Blocco::Immagine]).unwrap();
+        assert!(fuori.starts_with("[NOVA]"), "{fuori:?}");
+        assert!(!fuori.starts_with('\n'));
+    }
+
+    #[test]
+    fn il_plurale_e_giusto() {
+        assert!(quante_sfilate(1).contains("1 figura "));
+        assert!(quante_sfilate(2).contains("2 figure "));
+        assert!(quante_sfilate(0).contains("0 figure "));
     }
 
     #[test]
