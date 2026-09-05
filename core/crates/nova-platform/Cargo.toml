@@ -62,6 +62,9 @@ features = [
     # (ProcessStatus) e il permesso di fermarne uno (Threading).
     "Win32_System_Diagnostics_ToolHelp",
     "Win32_System_ProcessStatus",
+    # SendInput: premere i tasti senza passare da SendKeys, che e' un piccolo
+    # linguaggio con dentro caratteri da proteggere a mano.
+    "Win32_UI_Input_KeyboardAndMouse",
     # Com'e' fatto il PC, chiesto al sistema invece che a una query WMI dentro
     # una stringa: memoria, processori, tempo acceso (SystemInformation), la
     # batteria (Power) e il nome commerciale del sistema e della CPU, che
@@ -105,3 +108,7 @@ path = "src/bin/nova-finestre.rs"
 [[bin]]
 name = "nova-processi"
 path = "src/bin/nova-processi.rs"
+
+[[bin]]
+name = "nova-tastiera"
+path = "src/bin/nova-tastiera.rs"

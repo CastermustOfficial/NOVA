@@ -205,6 +205,23 @@ mod imp {
         Ok(elenco)
     }
 
+    /// Chi ha il fuoco adesso.
+    ///
+    /// Serve prima di premere un tasto. `SendInput` non sceglie un bersaglio:
+    /// manda al sistema, e il sistema consegna a **chi ha il fuoco in quel
+    /// millisecondo**. Chi scrive senza aver guardato non sta sbagliando
+    /// raramente: sta sbagliando quando capita, che e' peggio.
+    pub fn davanti() -> Result<Option<WindowInfo>> {
+        let h = unsafe { GetForegroundWindow() };
+        if h.0.is_null() {
+            // Capita: fra un cambio di finestra e l'altro il fuoco non ce
+            // l'ha nessuno. Non e' un errore, ed e' un ottimo momento per
+            // **non** premere niente.
+            return Ok(None);
+        }
+        Ok(elenca()?.into_iter().find(|f| f.handle == h.0 as i64))
+    }
+
     /// Porta una finestra davanti, e **verifica** che ci sia andata.
     ///
     /// Windows non lascia che un programma qualunque rubi il primo piano:
@@ -282,6 +299,10 @@ mod imp {
         Ok(Vec::new())
     }
 
+    pub fn davanti() -> Result<Option<crate::WindowInfo>> {
+        Ok(None)
+    }
+
     pub fn porta_avanti(_handle: i64) -> Result<bool> {
         Ok(false)
     }
@@ -302,6 +323,11 @@ pub fn schermi() -> Result<Vec<Schermo>> {
 /// e' aperto chiede qui, e non paga un thread COM per farlo.
 pub fn elenca() -> Result<Vec<crate::WindowInfo>> {
     imp::elenca()
+}
+
+/// Chi ha il fuoco adesso, o `None` se in questo istante non ce l'ha nessuno.
+pub fn davanti() -> Result<Option<crate::WindowInfo>> {
+    imp::davanti()
 }
 
 /// Porta una finestra davanti. Torna `false` se Windows non l'ha permesso:

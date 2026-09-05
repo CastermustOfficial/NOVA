@@ -443,7 +443,7 @@ pub const STRUMENTI: &[Strumento] = &[
         rischio: Rischio::Pericoloso,
         categoria: "sistema",
         obbligatori: &["keys"],
-        anteprima: Some("Preme i tasti {keys}"),
+        anteprima: Some("Preme i tasti {keys} nella finestra che ha il fuoco"),
         parametri: &[
         Parametro { nome: "keys", tipo: "string", descrizione: "Combinazione, es. ctrl+shift+esc", elementi: None }
         ],
@@ -693,7 +693,7 @@ pub const STRUMENTI: &[Strumento] = &[
         rischio: Rischio::Pericoloso,
         categoria: "sistema",
         obbligatori: &["text"],
-        anteprima: Some("Digita nella finestra attiva: {text:200}"),
+        anteprima: Some("Digita nella finestra che ha il fuoco: {text:200}"),
         parametri: &[
         Parametro { nome: "text", tipo: "string", descrizione: "Testo da digitare", elementi: None },
         Parametro { nome: "delay_seconds", tipo: "number", descrizione: "Attesa prima di digitare (default 0.5)", elementi: None }

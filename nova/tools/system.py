@@ -102,6 +102,111 @@ def write_clipboard(text: str) -> str:
     return f"Copiati {len(text)} caratteri negli appunti."
 
 
+def finestra_davanti() -> dict | None:
+    """Chi ha il fuoco adesso, o None se non si sa."""
+    b = binari.trova("nova-finestre")
+    if b is None:
+        return None
+    try:
+        r = subprocess.run([str(b), "--davanti"], capture_output=True, text=True,
+                           encoding="utf-8", timeout=10,
+                           creationflags=SENZA_FINESTRA)
+        if r.returncode != 0:
+            return None
+        import json
+        return json.loads(r.stdout or "null")
+    except Exception:                                       # noqa: BLE001
+        return None
+
+
+def _digita_semplice(a: dict) -> str:
+    """Cio' che si puo' dire di `type_text` **senza chiedere niente al sistema**.
+
+    E' la forma che `nova-strumenti` puo' produrre: dichiara i tratti e non
+    conosce la piattaforma (D130), quindi non sa chi ha il fuoco su questa
+    macchina in questo istante. Resta la forma degradata — e resta il motivo
+    per cui non basta: «nella finestra che ha il fuoco» e' vero e non dice
+    **quale**.
+
+    Una funzione per strumento, e non una sola per tutti e due: la prima
+    versione sceglieva il testo guardando se fra gli argomenti c'era `text`, e
+    con `type_text` chiamato senza argomenti rispondeva descrivendo
+    `press_keys`. Gli argomenti non dicono di che strumento sono.
+    """
+    return f"Digita nella finestra che ha il fuoco: {str(a.get('text'))[:200]}"
+
+
+def _tasti_semplice(a: dict) -> str:
+    """Come sopra, per `press_keys`."""
+    return f"Preme i tasti {a.get('keys')} nella finestra che ha il fuoco"
+
+
+def _con_la_finestra(testa: str) -> str:
+    """Aggiunge **quale** finestra, che e' l'unica cosa con cui si puo' decidere."""
+    w = finestra_davanti()
+    if w is None:
+        return testa + " — non riesco a dire quale sia"
+    return f"{testa}\n  La finestra e': «{w['title']}» ({w['process']})"
+
+
+def anteprima_digita(a: dict) -> str:
+    """L'anteprima di `type_text`: **dove** va a finire.
+
+    Prima diceva «Digita nella finestra attiva: ciao». «La finestra attiva» e'
+    esattamente cio' che chi approva non sa: se in quel momento davanti c'e'
+    il documento su cui stava lavorando, la frase e' identica e il risultato
+    e' un'altra cosa. Adesso la finestra si chiama per nome (D143).
+    """
+    return _con_la_finestra(_digita_semplice(a))
+
+
+def anteprima_tasti(a: dict) -> str:
+    """Come sopra, per `press_keys`."""
+    return _con_la_finestra(_tasti_semplice(a))
+
+
+def _tastiera_rust(argomenti: list[str], dentro: str | None, fatto: str) -> str | None:
+    """Preme i tasti, **dopo** aver guardato dove vanno a finire.
+
+    `SendInput` non ha un bersaglio: manda al sistema, e il sistema consegna a
+    chi ha il fuoco in quel millisecondo. Qui si guarda prima chi c'e' davanti
+    e si passa il suo handle al binario, che ricontrolla e **rifiuta** se nel
+    frattempo e' cambiato (uscita 4). Fra l'approvazione di una persona e il
+    momento in cui i tasti partono passa del tempo, e in quel tempo il fuoco
+    puo' spostarsi (D143).
+
+    E la risposta nomina la finestra. «Digitati 42 caratteri nella finestra
+    attiva» e' vero e inutile: non dice quale, quindi non permette a nessuno —
+    ne' al modello ne' all'utente — di accorgersi che il testo e' andato
+    altrove.
+    """
+    b = binari.trova("nova-tastiera")
+    if b is None:
+        return None
+    w = finestra_davanti()
+    if w is None:
+        raise ToolError(
+            "in questo momento nessuna finestra ha il fuoco: non premo niente, "
+            "perche' non saprei dove andrebbe a finire. Porta davanti la "
+            "finestra giusta con «focus_window» e riprova.")
+    cmd = [str(b), *argomenti, "--dove", str(w["handle"])]
+    try:
+        r = subprocess.run(cmd, input=dentro, capture_output=True, text=True,
+                           encoding="utf-8", timeout=60,
+                           creationflags=SENZA_FINESTRA)
+    except Exception:                                       # noqa: BLE001
+        return None
+    if r.returncode == 0:
+        return f"{fatto} in «{w['title']}» ({w['process']})."
+    if r.returncode == 4:
+        raise ToolError(
+            f"non ho premuto niente: il fuoco si e' spostato mentre stavo per "
+            f"scrivere. {r.stderr.strip()[:160]}")
+    if r.returncode == 2:
+        raise ToolError(r.stderr.strip()[:300] or "combinazione non valida")
+    return None
+
+
 @tool(
     "type_text",
     "ULTIMA SPIAGGIA. Digita come se premessi tu i tasti, quindi il testo "
@@ -115,10 +220,13 @@ def write_clipboard(text: str) -> str:
         "delay_seconds": {"type": "number", "description": "Attesa prima di digitare (default 0.5)"},
     },
     Risk.DANGEROUS, required=["text"], category="sistema",
-    preview=lambda a: f"Digita nella finestra attiva: {str(a.get('text'))[:200]}",
+    preview=anteprima_digita,
 )
 def type_text(text: str, delay_seconds: float = 0.5) -> str:
     time.sleep(max(0.0, float(delay_seconds or 0)))
+    detto = _tastiera_rust(["--scrivi", "-"], text, f"Digitati {len(text)} caratteri")
+    if detto is not None:
+        return detto
     try:
         import keyboard  # type: ignore
         keyboard.write(text, delay=0.005)
@@ -144,9 +252,12 @@ def type_text(text: str, delay_seconds: float = 0.5) -> str:
     "voce di menu raggiungibile).",
     {"keys": {"type": "string", "description": "Combinazione, es. ctrl+shift+esc"}},
     Risk.DANGEROUS, category="sistema",
-    preview=lambda a: f"Preme i tasti {a.get('keys')}",
+    preview=anteprima_tasti,
 )
 def press_keys(keys: str) -> str:
+    detto = _tastiera_rust(["--premi", keys], None, f"Inviata la combinazione: {keys}")
+    if detto is not None:
+        return detto
     try:
         import keyboard  # type: ignore
         keyboard.send(keys)

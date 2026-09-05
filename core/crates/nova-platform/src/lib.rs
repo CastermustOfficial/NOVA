@@ -55,6 +55,10 @@ pub mod applicazioni;
 // (D141).
 pub mod processi;
 
+// La tastiera. Qui la regola non e' tecnica: non si preme un tasto senza aver
+// prima guardato chi ha il fuoco, e la risposta nomina la finestra.
+pub mod tastiera;
+
 // Se i byte di un file stanno qui o nel cloud. Serve prima di leggere un
 // modello da dodici gigabyte che una cartella sincronizzata puo' aver
 // «liberato» lasciando un segnaposto al suo posto.
