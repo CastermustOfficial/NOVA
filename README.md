@@ -646,6 +646,9 @@ compare il nome, e il fatto che l'archivio esiste.
   un messaggio di commit non dice, e che dopo sei mesi non si ricostruiscono.
 - [Verso la beta](docs/verso_la_beta.md) — cosa manca, in tre liste, e le
   cinque frasi che devono essere vere per togliere la parola «alpha».
+- [Dove ho sbagliato](docs/dove_ho_sbagliato.md) — gli errori di chi scrive il
+  codice, tenuti apposta per essere riletti. Non i bug del progetto: le volte
+  in cui ho creduto una cosa falsa, e come me ne sono accorto.
 - [Come contribuire](CONTRIBUTING.md)
 
 ## Per chi sviluppa
