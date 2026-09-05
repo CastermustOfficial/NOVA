@@ -264,6 +264,127 @@ else:
             controlla("stessi punteggi sul vault vero", not fuori_numero,
                       " | ".join(fuori_numero[:2]))
 
+# ---------------------------------------------------------------- la scelta
+#
+# Fin qui il banco confronta l'**aritmetica**: chi pesa quanto. Questa parte
+# confronta la **politica**: chi entra nel contesto del modello, in che ordine,
+# e cosa resta fuori. E' la meta' dove sbagliare non lascia traccia — un nodo
+# pesato male sta nel posto sbagliato dell'elenco e si vede; un nodo escluso
+# no, il modello risponde come se non esistesse.
+#
+# Il confronto e' contro il `KBEngine` **vero**, non contro una sua copia:
+# si costruisce un vault temporaneo, gli si chiede `cerca`, e poi si passano
+# al Rust gli stessi punteggi che il Python ha usato per decidere. Cosi' se le
+# due meta' divergono, divergono sulla scelta e non sull'aritmetica — che e'
+# gia' verificata sopra.
+print("\n=== Chi entra nel contesto, e in che ordine ===")
+import tempfile  # noqa: E402
+from nova.kb.retrieval import KBEngine, coseno  # noqa: E402
+from nova.kb.schema import ORIGINE_AUTO, Node  # noqa: E402
+from nova.kb.store import Vault as VaultVero  # noqa: E402
+
+
+def scenario(nodi_py, domanda, top_k=5, espandi=True, confidenza_minima=0.25):
+    """Fa decidere al Python, e prepara per il Rust gli stessi ingredienti."""
+    v = VaultVero(tempfile.mkdtemp(prefix="nova-scelta-"))
+    for n in nodi_py:
+        v.upsert(n)
+    e = KBEngine(v, confidenza_minima=confidenza_minima)
+    ris = e.cerca(domanda, top_k=top_k, espandi_grafo=espandi)
+    # Gli stessi punteggi che `cerca` ha usato: si rifanno dopo, sullo stesso
+    # stato, con le stesse funzioni. Non e' una copia della logica — sono due
+    # chiamate alle funzioni che `cerca` ha appena chiamato.
+    sparsi = e.bm25.cerca(domanda)
+    densi = {}
+    try:
+        qv = e.embedder.embed(domanda)
+        for slug, vec in e._vettori.items():
+            punteggio = coseno(qv, vec)
+            if punteggio > 0.05:
+                densi[slug] = punteggio
+    except Exception:                                       # noqa: BLE001
+        pass
+    tutti = {n.slug: n for n in v.all()}
+    dentro = {
+        "domanda": domanda,
+        "nodi": [{"slug": n.slug, "titolo": n.title, "tag": n.tags,
+                  "tipo": n.tipo, "confidenza": n.confidenza,
+                  "aggiornato": n.aggiornato or ""} for n in tutti.values()],
+        "sparsi": sparsi,
+        "densi": densi,
+        "vicini": {s: [x.slug for x in v.vicini(s)] for s in tutti},
+        "quanti": top_k,
+        "confidenza_minima": confidenza_minima,
+        "espandi_grafo": espandi,
+    }
+    atteso = [(h.node.slug, h.via) for h in ris.hits]
+    return dentro, atteso, ris
+
+
+def nodo_py(slug, titolo, corpo="", tipo="fatto", tags=None, relazioni=None,
+            confidenza=0.7):
+    return Node(slug=slug, title=titolo, body=corpo, tipo=tipo,
+                tags=list(tags or []), relazioni=list(relazioni or []),
+                confidenza=confidenza, origine=ORIGINE_AUTO)
+
+
+SCENARI = [
+    # nominato per nome: deve arrivare primo e saltare il filtro
+    ([nodo_py("anna", "Anna", "collega", tipo="persona", confidenza=0.9),
+      nodo_py("riunioni", "Riunioni", "anna anna anna riunione", confidenza=0.9),
+      nodo_py("vago", "Vago", "anna", confidenza=0.1)],
+     "anna", 5, False),
+    # tag che compaiono nella domanda
+    ([nodo_py("caffe", "Caffe", "bevanda", tags=["cucina", "mattina"], confidenza=0.9),
+      nodo_py("sveglia", "Sveglia", "orario", tags=["mattina"], confidenza=0.9),
+      nodo_py("altro", "Altro", "niente", confidenza=0.9)],
+     "cosa faccio di mattina", 3, False),
+    # espansione del grafo, con due sorgenti
+    ([nodo_py("centro-a", "Centro A", "alfa alfa alfa", confidenza=0.9),
+      nodo_py("centro-b", "Centro B", "alfa alfa", confidenza=0.9),
+      nodo_py("vicino-a1", "Vicino A1", "roba", relazioni=["centro-a"], confidenza=0.9),
+      nodo_py("vicino-a2", "Vicino A2", "roba", relazioni=["centro-a"], confidenza=0.9),
+      nodo_py("vicino-b1", "Vicino B1", "roba", relazioni=["centro-b"], confidenza=0.9)],
+     "alfa", 4, True),
+    # un hub non e' un ricordo, e i poco confidenti si scartano
+    ([nodo_py("indice", "Indice", "beta beta beta", tipo="hub", confidenza=0.9),
+      nodo_py("timido", "Timido", "beta beta", confidenza=0.05),
+      nodo_py("buono", "Buono", "beta", confidenza=0.9)],
+     "beta", 5, False),
+    # una domanda che non trova niente
+    ([nodo_py("solo", "Solo", "una cosa", confidenza=0.9)],
+     "zzzz-non-esiste", 5, True),
+]
+
+dentro_scelte, attesi = [], []
+for nodi_py, domanda, k, espandi in SCENARI:
+    d, atteso, _ris = scenario(nodi_py, domanda, top_k=k, espandi=espandi)
+    dentro_scelte.append(d)
+    attesi.append(atteso)
+
+e3 = subprocess.run([str(BINARIO)],
+                    input=json.dumps({"nodi": [], "domande": [],
+                                      "scelte": dentro_scelte}, ensure_ascii=False),
+                    capture_output=True, text=True, encoding="utf-8",
+                    errors="replace", timeout=120)
+if e3.returncode != 0:
+    controlla("il banco regge gli scenari di scelta", False, e3.stderr.strip()[:250])
+else:
+    r3 = json.loads(e3.stdout)["scelte"]
+    controlla("gli scenari tornano tutti", len(r3) == len(SCENARI),
+              f"{len(r3)} su {len(SCENARI)}")
+    diverse = []
+    for i, (suo, mio) in enumerate(zip(r3, attesi)):
+        suoi = [(s, via) for s, _p, via in suo["scelti"]]
+        if suoi != mio:
+            diverse.append(f"scenario {i} ({SCENARI[i][1]!r}): rust {suoi} vs python {mio}")
+    # L'ordine **e** il perche'. Due nodi giusti nell'ordine sbagliato
+    # cambiano cosa il modello legge per primo; e un nodo entrato «da grafo»
+    # invece che «esatto» vuol dire che la ricerca ha fatto una strada diversa
+    # per arrivarci, anche se il risultato somiglia.
+    controlla("stessi nodi, stesso ordine, stesso perche'", not diverse,
+              " | ".join(diverse[:2]))
+
 print(f"\n{passati}/{passati + len(falliti)} passati")
 for x in falliti:
     print("  FALLITO:", x)

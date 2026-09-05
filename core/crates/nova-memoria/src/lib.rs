@@ -38,6 +38,11 @@ pub const STOPWORDS: &[&str] = &[
     "the", "of", "to", "and", "is", "in", "it", "for",
 ];
 
+// La politica: chi entra nel contesto del modello e chi resta fuori. Sta in
+// un modulo suo perche' e' una cosa diversa dal pesare — e' quella dove cio'
+// che si sbaglia non lascia traccia, perche' un nodo escluso non si vede.
+pub mod scelta;
+
 /// Un nodo della memoria, ridotto a cio' che serve per pesarlo.
 #[derive(Debug, Clone, Default)]
 pub struct Nodo {
