@@ -140,6 +140,24 @@ minuto ne ho creduti due. → D131, D149
 > Aver scritto una lezione non impedisce di ripeterla. Aiuta solo a
 > riconoscerla piu' in fretta.
 
+### Ho dedotto il lavoro rimasto dai nomi dei file rimasti
+
+**Credevo** che dentro CANT-2 restassero i corpi di cinque strumenti —
+`automazioni.py`, `documenti.py`, `riparazione.py`, `web.py`, `deleghe.py` —
+e l'ho scritto a Gio come programma della giornata successiva: «continuo di
+li'». **Era vero** che nessuno dei cinque e' CANT-2: `documenti.py` e
+`schermo.py` chiedono di scegliere librerie Rust per PDF, DOCX, XLSX e cattura
+schermo (CANT-8), `deleghe.py` e `kb.py` sono fili verso pezzi Rust che
+esistono gia' (CANT-3), `web.py` e' CANT-6, `riparazione.py` pilota il banco,
+e `automazioni.py` esegue Python **per disegno**. **Me ne sono accorto** con
+un `grep` sugli import prima di cominciare, invece che dopo: cinque minuti.
+→ D150
+
+> Avevo guardato la cartella e non i file. Un nome di file dice di cosa parla
+> il codice, mai a quale lavoro appartiene — e le due cose coincidono solo
+> finche' il progetto e' piccolo.
+
+
 ---
 
 ## Le forme che si ripetono
@@ -150,7 +168,8 @@ Rileggendole di fila, sono quasi tutte una di queste quattro:
    di un banco, l'aspettativa di una funzione. Ogni volta la cosa ricordata
    sembrava esattamente sicura quanto una misurata.
 2. **Ho dato per scontata una premessa.** Che il fuoco fosse dove me l'ero
-   messo. Che gli argomenti fossero nella forma che credevo.
+   messo. Che gli argomenti fossero nella forma che credevo. Che i file
+   rimasti in una cartella fossero il lavoro rimasto in un cantiere.
 3. **Ho scritto una prova che non poteva fallire.** Perche' il caso non
    capitava su questa macchina, o perche' chiedeva una cosa piu' debole di
    quella che serviva — e tre volte su tre la domanda che l'ha smascherata e'
