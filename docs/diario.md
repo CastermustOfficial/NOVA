@@ -4496,6 +4496,16 @@ funziona; la parte che consegna i tasti **non e' verificata**, e la prova esce
 2 invece di dichiararsi verde. Un verde che non so spiegare varrebbe meno di
 un «non lo so» scritto (D53).
 
+**Chiusa poco dopo.** Gio ha ridotto a icona il gioco, e con lo schermo libero
+il testo arriva identico — graffe, accenti ed emoji comprese. Non era un
+difetto dell'invio: era il gioco che si riprendeva il primo piano fra un
+controllo e l'altro. Per un'ora ho avuto sotto gli occhi un sintomo che
+sembrava un guasto del codice ed era una condizione della macchina. L'unica
+cosa che mi ha impedito di andare a «riparare» codice sano e' stata la prova
+che si rifiutava di diventare verde per assenza: se avesse detto «ok, non ho
+potuto provarlo», avrei creduto che il problema fosse altrove e l'avrei
+cercato li'.
+
 ### La semina del vault, e tre copie che funzionavano
 
 L'ultimo pezzo con dentro PowerShell che non fosse uno strumento: la semina
@@ -4536,4 +4546,57 @@ il registro di questa macchina contiene davvero una voce chiamata:
 Un modello di stringa che un installatore ha scritto nel registro senza
 sostituirci dentro il nome vero. Non e' un'applicazione, e finiva nei ricordi
 come se lo fosse.
+
+### «Non si sovrappone a cio' che fa l'utente, lavora separatamente»
+
+Gio mi ha fermato mentre perfezionavo la cosa sbagliata, e la correzione vale
+piu' del pezzo che stavo scrivendo.
+
+Stavo rendendo onesto `type_text`: verifica il fuoco, ricontrollalo ogni
+trentadue caratteri, di' in che finestra hai scritto. Tutto giusto, e tutto
+inutile rispetto alla domanda vera — perche' `SendInput` **prende la
+tastiera**. Manda al sistema, il sistema consegna a chi ha il fuoco, e
+chiunque sia li' in quel momento se lo ritrova addosso. Si puo' rendere
+onesta; non si puo' rendere separata, perche' prendere la tastiera e' il suo
+modo di funzionare.
+
+La strada separata c'era gia', ed e' `ui.set_text`: parla all'**applicazione**
+invece che alla tastiera. Non ha bisogno del fuoco, e mentre NOVA scrive li'
+l'utente puo' continuare a scrivere altrove.
+
+Quindi ho smesso di lavorare su quella sbagliata e sono andato a provare
+quella giusta — che, ho scoperto, nessuna prova guardava. E aveva un difetto,
+proprio contro la regola:
+
+    scritto in un campo della Mappa caratteri, con il fuoco su un'altra
+    finestra
+    -> alla fine, davanti c'era la Mappa caratteri
+
+**Non aver bisogno del fuoco non vuol dire non prenderlo.** Non lo prende
+NOVA: lo prende il fornitore di accessibilita' di Windows, che per i controlli
+classici implementa la scrittura con un `SetFocus` seguito da un messaggio. Ma
+da dove sta la persona che stava scrivendo altrove, la differenza fra «l'ha
+fatto NOVA» e «l'ha fatto Windows per conto di NOVA» non esiste.
+
+Adesso `ui.set_text` e `ui.click` guardano chi c'e' davanti prima, fanno la
+cosa, e rimettono a posto il primo piano se se lo sono preso. Se Windows non
+lo permette non insistono: una lotta per il primo piano e' peggio di un primo
+piano spostato (D145).
+
+E la descrizione dello strumento diceva «non dipende da quale finestra ha il
+fuoco» — vero per l'ingresso, falso per l'effetto. Adesso dice anche che il
+primo piano resta dov'era, che e' la parte che all'utente interessa.
+
+Due note su di me, in questa mezz'ora.
+
+La prima: la mia prima chiamata a `ui.find` passava il filtro annidato
+(`query: {role: ...}`) invece che piatto, e il demone ha risposto con tutto
+l'albero. Per un minuto ho creduto di aver trovato un filtro che non filtra.
+Era una chiamata scritta male da me — e visti dal chiamante, un filtro rotto e
+un filtro mai arrivato si somigliano moltissimo.
+
+La seconda: il `\r` in coda al testo riletto sembrava nostro. L'ho verificato
+leggendo il campo **prima** di scriverci: c'era gia'. E' della Mappa
+caratteri. Toglierlo nella prova e' giusto, toglierlo dentro NOVA sarebbe
+correggere il campo di qualcun altro.
 

@@ -444,6 +444,57 @@ impl Capability for SpostaCap {
     }
 }
 
+// ------------------------------------------------- non rubare il fuoco
+
+/// Fa una cosa sull'interfaccia di un'applicazione **rimettendo a posto il
+/// primo piano** se quella cosa se l'e' preso.
+///
+/// La regola di NOVA, detta da Gio: *non si sovrappone a cio' che fa
+/// l'utente, lavora separatamente.* `ui.set_text` e `ui.click` esistono
+/// proprio per questo — parlano all'applicazione invece che alla tastiera e
+/// al mouse, quindi non hanno bisogno del fuoco.
+///
+/// Non averne bisogno pero' non vuol dire non prenderlo. Misurato il 5
+/// settembre: scrivendo in un campo di una finestra **non** in primo piano,
+/// il primo piano passava a quella finestra. Non lo fa NOVA — lo fa il
+/// fornitore di accessibilita' di Windows, che per i controlli classici
+/// implementa la scrittura con un `SetFocus` seguito da un messaggio. Ma chi
+/// stava scrivendo altrove se lo ritrova lo stesso, e la differenza fra «l'ha
+/// fatto NOVA» e «l'ha fatto Windows per conto di NOVA» dal suo punto di
+/// vista non esiste.
+///
+/// Quindi: si guarda chi c'e' davanti prima, si fa la cosa, e se davanti c'e'
+/// finito qualcun altro si rimette quello di prima. Il rimettere puo'
+/// fallire — Windows non sempre lo permette — e in quel caso non si insiste:
+/// meglio un primo piano spostato che una lotta per il primo piano.
+async fn senza_rubare_il_fuoco<F, T>(lavoro: F) -> Result<T>
+where
+    F: std::future::Future<Output = Result<T>>,
+{
+    let prima = tokio::task::spawn_blocking(nova_platform::finestre::davanti)
+        .await
+        .ok()
+        .and_then(|r| r.ok())
+        .flatten();
+    let esito = lavoro.await;
+    if let Some(w) = prima {
+        let handle = w.handle;
+        let dopo = tokio::task::spawn_blocking(nova_platform::finestre::davanti)
+            .await
+            .ok()
+            .and_then(|r| r.ok())
+            .flatten();
+        if dopo.map(|d| d.handle) != Some(handle) {
+            let _ = tokio::task::spawn_blocking(move || {
+                nova_platform::finestre::porta_avanti(handle)
+            })
+            .await;
+            tracing::debug!(finestra = %w.title, "rimesso il primo piano dov'era");
+        }
+    }
+    esito
+}
+
 // -------------------------------------------------------------- azione
 
 struct UiClickCap;
@@ -467,7 +518,11 @@ impl Capability for UiClickCap {
         let ui = albero(ctx)?;
         let target = ElementRef { window: finestra(&args)?, path: percorso(&args) };
         let descrizione = format!("{:?}", target.path);
-        tokio::task::spawn_blocking(move || ui.invoke(&target)).await??;
+        senza_rubare_il_fuoco(async move {
+            tokio::task::spawn_blocking(move || ui.invoke(&target)).await??;
+            Ok(())
+        })
+        .await?;
         ctx.bus.emit("ui.clicked", json!({ "path": descrizione }));
         Ok(json!({ "clicked": true }))
     }
@@ -481,8 +536,9 @@ impl Capability for UiSetTextCap {
         CapabilityInfo {
             name: "ui.set_text".into(),
             description: "Scrive dentro un campo di testo di un'applicazione, senza \
-                          simulare la tastiera: il testo arriva intero e non dipende \
-                          da quale finestra ha il fuoco. Per una password usa \
+                          simulare la tastiera: il testo arriva intero, non dipende \
+                          da quale finestra ha il fuoco, e il primo piano resta dov'era \
+                          — chi sta usando il PC non viene interrotto. Per una password usa \
                           «segreto» invece di «text»: il valore va dall'archivio al \
                           campo senza passare da te, quindi non finisce nella \
                           conversazione e non puo' essere estratto da nessuno."
@@ -517,7 +573,11 @@ impl Capability for UiSetTextCap {
         };
         let target = ElementRef { window: finestra(&args)?, path: percorso(&args) };
         let quanti = testo.chars().count();
-        tokio::task::spawn_blocking(move || ui.set_value(&target, &testo)).await??;
+        senza_rubare_il_fuoco(async move {
+            tokio::task::spawn_blocking(move || ui.set_value(&target, &testo)).await??;
+            Ok(())
+        })
+        .await?;
         ctx.bus.emit(
             "ui.text_set",
             json!({ "chars": quanti, "segreto": da_archivio }),
