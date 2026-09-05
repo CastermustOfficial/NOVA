@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import os
 import shutil
+import subprocess
 from datetime import datetime
 from pathlib import Path
 
-from .. import powershell
+from .. import binari, powershell
+from ..processi import SENZA_FINESTRA
 from ..scrittura import scrivi
 from .base import Risk, ToolError, tool
 
@@ -187,7 +189,29 @@ def _nel_cestino(t: Path) -> bool:
     Serve perche' il Cestino e' l'annullamento che Windows regala gia': un file
     che ci finisce si recupera con due clic, uno cancellato davvero no. Vale la
     premessa N2 del progetto — prima la reversibilita', poi il permesso.
+
+    Tre strade, in ordine: `nova-file`, che chiama `IFileOperation` — quello
+    che usa Esplora risorse quando premi Canc — e prende il percorso come
+    **oggetto**, non come pezzo di una stringa; poi `send2trash`, un pacchetto
+    Python; poi PowerShell.
+
+    L'ordine non e' per velocita'. Il ripiego PowerShell incolla il percorso
+    dentro una stringa fra apici, e misurato l'8 settembre: su quattro nomi di
+    file, i due che contenevano un apostrofo **non finivano nel Cestino**.
+    «L'anno scorso» e' un nome di cartella normale. La funzione tornava «non ci
+    sono riuscito» e chi la chiamava si fermava — meglio fermarsi che
+    distruggere, ma il motivo era una virgoletta (D130, D147).
     """
+    b = binari.trova("nova-file")
+    if b is not None:
+        try:
+            r = subprocess.run([str(b), "--cestino", str(t)], capture_output=True,
+                               text=True, encoding="utf-8", timeout=60,
+                               creationflags=SENZA_FINESTRA)
+            if r.returncode == 0:
+                return True
+        except Exception:                                   # noqa: BLE001
+            pass
     try:
         from send2trash import send2trash  # type: ignore
         send2trash(str(t))
@@ -195,12 +219,17 @@ def _nel_cestino(t: Path) -> bool:
     except Exception:
         pass
     try:
+        # L'apostrofo si raddoppia: dentro una stringa fra apici singoli di
+        # PowerShell e' cosi' che si scrive un apostrofo. Una riga, e i due
+        # nomi su quattro che sparivano dal Cestino ci tornano — ma resta un
+        # ripiego, perche' la riga giusta e' quella che non compone niente.
+        percorso = str(t).replace("'", "''")
         ps = (
             "Add-Type -AssemblyName Microsoft.VisualBasic; "
             + ("[Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory("
                if t.is_dir() else
                "[Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(")
-            + f"'{t}','OnlyErrorDialogs','SendToRecycleBin')"
+            + f"'{percorso}','OnlyErrorDialogs','SendToRecycleBin')"
         )
         r = powershell.esegui(ps, timeout=60)
         return r.returncode == 0

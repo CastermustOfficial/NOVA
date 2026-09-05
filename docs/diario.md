@@ -4639,3 +4639,41 @@ comando affatto: sta in un file, e negli argomenti c'e' solo un percorso
 scritto da NOVA. Provato per davvero: creato un promemoria per settanta
 secondi dopo, aspettato, e Windows l'ha eseguito.
 
+### Il Cestino, che e' la rete di sicurezza e si rompeva su un apostrofo
+
+L'ultima cosa di CANT-2 che passava da una shell, e la piu' delicata di tutte,
+perche' non e' una comodita': e' la premessa N2 del progetto — prima la
+reversibilita', poi il permesso. Un file nel Cestino si recupera con due clic;
+uno cancellato davvero no, e nessuna quantita' di conferme rimette a posto un
+file che non c'e' piu'.
+
+Passava da un comando PowerShell con il percorso incollato fra apici. Misurato
+su quattro nomi:
+
+    normale.txt                buttato
+    L'anno scorso.txt          RIMASTO
+    citta' pero'.txt           buttato
+    con 'apici' dentro.txt     RIMASTO
+
+Due su quattro. «L'anno scorso» e' un nome di cartella normale.
+
+La cosa che mi ha fatto pensare: **il codice si comportava bene**. Tornava
+«non ci sono riuscito», e chi lo chiamava si fermava invece di distruggere —
+esattamente come deve. Ma il risultato, per chi lo usava, era che certi file
+non si potevano cancellare, e il motivo era una virgoletta. La rete di
+sicurezza c'era ed era la parte piu' fragile del sistema (D147).
+
+Adesso passa da `IFileOperation`, quello che usa Esplora risorse quando premi
+Canc: prende il percorso come oggetto. Cinque nomi su cinque, apostrofi,
+accenti, emoji, punti e virgola e «e commerciali» compresi. Il ripiego
+PowerShell resta e adesso raddoppia l'apostrofo — una riga, e funziona anche
+lui — ma resta ripiego, perche' la riga giusta e' quella che non compone
+niente.
+
+Una nota sulla prova, che vale piu' del pezzo. La prima versione verificava
+che il file non ci fosse piu'. **Sarebbe passata identica se il codice avesse
+chiamato `unlink`** — cioe' se avesse distrutto invece di cestinare, che e'
+l'unico difetto che qui conta davvero. Adesso va a cercare il file **dentro il
+Cestino di Windows**, con `Shell.Application`. Cancellato e cestinato si
+somigliano solo da fuori.
+

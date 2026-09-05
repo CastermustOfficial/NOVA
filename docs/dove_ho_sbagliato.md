@@ -112,6 +112,19 @@ di trattarlo come «diverso da zero, quindi male».
 
 > Un codice che significa «aspetta» non e' un esito.
 
+### La prova sul Cestino sarebbe passata anche se avessi distrutto i file
+
+**Credevo** di star verificando che i file finissero nel Cestino. **Era vero**
+che verificavo solo che non ci fossero piu': la stessa prova sarebbe passata
+identica se il codice avesse chiamato `unlink` — cioe' se avesse distrutto
+invece di cestinare, che e' l'unico difetto che li' conta davvero. **Me ne sono
+accorto** rileggendo la prova e chiedendomi *cosa succederebbe se il codice
+fosse rotto nel modo peggiore*.
+
+Adesso va a cercare il file dentro il Cestino di Windows. → D147
+
+> Cancellato e cestinato si somigliano solo da fuori.
+
 ---
 
 ## Le forme che si ripetono
@@ -125,7 +138,8 @@ Rileggendole di fila, sono quasi tutte una di queste quattro:
    messo. Che gli argomenti fossero nella forma che credevo.
 3. **Ho scritto una prova che non poteva fallire.** Perche' il caso non
    capitava su questa macchina, o perche' chiedeva una cosa piu' debole di
-   quella che serviva.
+   quella che serviva — e tre volte su tre la domanda che l'ha smascherata e'
+   la stessa: *cosa succederebbe se il codice fosse rotto nel modo peggiore?*
 4. **Ho letto un sintomo come una causa.** «Non arriva niente» sembrava un
    difetto del codice ed era una condizione della macchina; «il filtro non
    filtra» sembrava il demone ed ero io.
