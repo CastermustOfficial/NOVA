@@ -4758,3 +4758,36 @@ solo, e per un minuto ne ho creduti due** — di nuovo per il modo in cui
 leggevo, non per il dato (D131). Nella prova finale il campo si chiede in un
 modo che non dipende dalla lingua, e c'e' scritto perche'.
 
+
+## 5 settembre 2026, notte — CANT-2 si chiude, e non dove pensavo
+
+Ieri sera, chiuso il Cestino, ho scritto a Gio il programma di oggi: «dentro
+CANT-2 restano i corpi degli altri strumenti — `automazioni.py`,
+`documenti.py`, `riparazione.py`, `web.py`, `deleghe.py`. Continuo di li'».
+
+Stamattina, prima di cominciare, ho fatto la cosa che avrei dovuto fare ieri:
+ho guardato **gli import**, non i nomi. Cinque minuti.
+
+`documenti.py` importa `pypdf`, `docx`, `openpyxl`. `schermo.py` importa `mss`
+e `PIL`. Nessuno dei due e' una traduzione: sono la scelta di quattro librerie
+Rust, e quella scelta appartiene a CANT-8, l'harness dei documenti, che se la
+porta dietro tutta insieme. `deleghe.py` e `kb.py` non contengono logica: sono
+il router e il vault **visti da uno strumento**, e router e vault in Rust
+esistono gia' — manca il filo, e il filo e' CANT-3. `web.py` e' CANT-6.
+`riparazione.py` pilota il banco, che e' CANT-8. E `automazioni.py` esegue
+corpi Python **per disegno**: e' il posto dove NOVA si scrive strumenti nuovi
+mentre gira, quindi non e' codice da tradurre ma una decisione da prendere
+quando si sapra' cosa resta di Python.
+
+Cioe': **CANT-2 era finito ieri sera e non me n'ero accorto**, e il programma
+che avevo annunciato avrebbe scelto tre librerie di documenti dentro il
+cantiere sbagliato — senza la domanda che quel cantiere si porta dietro.
+
+Un elenco di file rimasti non e' un elenco di lavoro rimasto (D150). E' D99
+girato verso il proprio piano invece che verso il codice: prima di chiedersi
+cosa manca, guardare cosa c'e'. L'ho scritto anche in
+[dove_ho_sbagliato.md](dove_ho_sbagliato.md), perche' e' un errore di quelli
+che si ripetono: avevo guardato la cartella, non i file.
+
+Quindi CANT-2 e' chiuso, con la sua tabella di ragioni file per file in
+[verso_la_beta.md](verso_la_beta.md), e si apre CANT-3.

@@ -963,7 +963,7 @@ mole, non di difficolta'.
 | | Pezzo | Righe | Perche' li' nell'ordine |
 |---|---|---|---|
 | ~~CANT-1~~ | ~~**Il vault su disco**~~ — **fatto** | ~660 | Era il seguito diretto di `nova-nodi`, ed e' stato il primo pezzo scritto contro un tratto invece che sopra il filesystem nudo: e' quello che apre la strada a tutti gli altri. Ha ripagato prima di essere finito — la scrittura delle note dell'utente non era atomica (D102) — e ha portato dentro anche il guardiano dei segreti (D109, D110) |
-| CANT-2 | **Gli strumenti** — *dichiarazioni, guardie, formato, i corpi dei file, la shell, i tasti, le pagine, cio' che chiede la piattaforma e la **scelta** di cosa ricordare: fatti; il «fare» della maggior parte degli strumenti: da fare* — file, app, shell, web, schermo, tempo, documenti, deleghe | ~2.570 | Sono la meta' di NOVA che tocca il PC, ed e' esattamente quella che in Python costa di piu' in dipendenze. Tanti pezzi piccoli e indipendenti: si porta uno strumento per volta senza fermare niente |
+| ~~CANT-2~~ | ~~**Gli strumenti**~~ — **fatto**, per la parte traducibile: dichiarazioni, guardie, formato, i corpi dei file, la shell, i tasti, le pagine, la **scelta** di cosa ricordare, e i quindici strumenti che chiedono davvero alla piattaforma. Quel che resta in `nova/tools/` appartiene ad altri cantieri, file per file (D150) | ~2.570 | Sono la meta' di NOVA che tocca il PC, ed e' esattamente quella che in Python costa di piu' in dipendenze. Tanti pezzi piccoli e indipendenti: si e' portato uno strumento per volta senza fermare niente |
 | CANT-3 | **Il ciclo dell'agente e i cervelli** — `agent.py`, i client dei modelli | ~2.200 | E' il pezzo che davvero libera dal Python, ma va dopo gli strumenti: un ciclo che chiama strumenti Python non ha liberato niente. Dentro c'e' la parte piu' delicata di tutto il progetto — il taglio del contesto a token, che se sbaglia perde pezzi di conversazione senza dirlo |
 | CANT-4 | **Lanciare il modello locale** — `runtime.py` | ~690 | Il calcolo degli strati e' gia' in `nova-modelli`; qui resta avviare llama.cpp, la scala di ripiego e leggere cosa dice. Piccolo e ben delimitato |
 | CANT-5 | **Il server MCP** | ~1.290 | Protocollo, quindi traducibile senza scelte. Ma serve solo a chi collega NOVA a un altro programma: non toglie Python a nessuno finche' c'e' il resto |
@@ -1371,6 +1371,37 @@ anche quando l'unico backend implementato e' quello Windows: e' la
 differenza fra avere macOS e Linux a una implementazione di distanza e
 doverli riscrivere da capo. Il punto 13 della lista compatibilita' smette di
 essere una decisione da prendere e diventa un ordine di lavoro.
+
+
+**CANT-2 e' chiuso, e non perche' sia finito tutto.** La parte traducibile e'
+finita: la dichiarazione, la guardia, il formato, i corpi dei file, la shell,
+i tasti, le pagine, la scelta di cosa ricordare, e i quindici strumenti che
+chiedono davvero alla piattaforma - appunti, volume, notifiche, informazioni
+di sistema, applicazioni installate, finestre, processi, tastiera, Cestino,
+promemoria. Quello che resta in `nova/tools/` non e' traduzione rimasta
+indietro: e' lavoro che appartiene a un altro cantiere, e l'ho verificato
+file per file invece di supporlo.
+
+| File | Righe | Perche' non e' CANT-2 |
+|---|---|---|
+| `documenti.py` | 170 | Importa `pypdf`, `docx`, `openpyxl`. Non e' una traduzione, e' la scelta di tre librerie Rust per PDF, DOCX e XLSX: e' CANT-8, l'harness dei documenti |
+| `schermo.py` | 89 | Importa `mss` e `PIL`, e per la regione di una finestra chiama gia' il core. Stessa domanda: quale libreria, e quanta ne tiene `nova-platform` |
+| `deleghe.py` | 164 | E' il router visto da uno strumento. Il router e' `nova-scala`, e il collegamento e' CANT-3 |
+| `kb.py` | 178 | E' il vault e il motore visti da uno strumento. Entrambi sono gia' in Rust: manca il filo, e il filo e' CANT-3 |
+| `web.py` | 205 | Ricerca e lettura di pagine: CANT-6, insieme al browser via CDP |
+| `riparazione.py` | 176 | Sei strumenti che pilotano il banco. Il banco e' CANT-8 |
+| `automazioni.py` | 214 | Esegue corpi Python **per disegno**: e' il posto dove NOVA scrive strumenti nuovi mentre gira. Non e' codice da tradurre, e' una decisione da prendere - e va presa quando si sa cosa resta di Python |
+| `procedure.py`, `tempo.py` | 255 | Gia' portati sotto: `nova-registro`, `nova-pianificazione`, `attivita.py` |
+
+**Dove ho sbagliato, qui.** Chiudendo il Cestino ho scritto a Gio che «dentro
+CANT-2 restano i corpi degli altri strumenti: `automazioni.py`,
+`documenti.py`, `riparazione.py`, `web.py`, `deleghe.py`. Continuo di li'».
+Non era vero, e non l'avevo verificato: avevo letto i nomi dei file rimasti e
+avevo dedotto il lavoro dal nome. Cinque minuti di `grep` sugli import hanno
+detto che nessuno dei cinque e' CANT-2. Se avessi «continuato di li'» avrei
+scelto tre librerie Rust per i documenti dentro il cantiere sbagliato, senza
+la domanda che quel cantiere si porta dietro. **Un elenco di file rimasti non
+e' un elenco di lavoro rimasto** (D150).
 
 
 ## Il cancello della beta
