@@ -780,6 +780,7 @@ core/crates/
   nova-memoria/       BM25, fusione e coseno in Rust, con il loro banco
   nova-registro/      cercare e raccontare il registro, in Rust
   nova-scala/         chi risponde a cosa: gradini, salite obbligate, ripieghi
+  nova-contesto/      quanto della conversazione ci sta, e cosa si butta quando no
   nova-guasti/        un guasto detto in italiano, e le chiavi che non escono
   nova-modelli/       trovare i GGUF e llama-server sul disco, e i conti sulla VRAM
   nova-voce/          audio, Kokoro, whisper, Scribe: niente Python

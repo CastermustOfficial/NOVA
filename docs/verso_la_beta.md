@@ -1404,6 +1404,41 @@ la domanda che quel cantiere si porta dietro. **Un elenco di file rimasti non
 e' un elenco di lavoro rimasto** (D150).
 
 
+**CANT-3, primo pezzo: il taglio del contesto.** Duecento righe di Python che
+decidono cosa il modello legge e cosa no, e sono il posto piu' pericoloso di
+tutto il progetto per la stessa asimmetria di D148: un ordinamento sbagliato
+si vede, un messaggio buttato no. Adesso stanno in `nova-contesto`, e fuori
+restano di proposito il tokenizzatore vero — sta nel modello, cambia col
+modello, e chiederglielo costerebbe un giro di rete per messaggio a ogni turno
+solo per decidere se tagliare — e la configurazione: chi chiama sa quanto vale
+il contesto, e zero vuol dire «non lo so», cioe' non si tocca niente.
+
+Il banco confronta ventisette scenari contro l'`Agent` vero, e non solo
+l'elenco finale: anche **quanti** messaggi sono stati tolti e **per quale**
+ragione (D151). Settantatre verifiche, verdi al primo colpo — e un verde al
+primo colpo su un pezzo cosi' non vale finche' non si e' visto diventare
+rosso. Tre mutazioni fatte apposta:
+
+| Mutazione nel Rust | Verifiche accese |
+|---|---|
+| stima a byte invece che a caratteri | 7, **tutte e sole quelle con testo accentato** |
+| obiettivo del taglio a 0,80 invece di 0,75 | 4 |
+| scarto delle risposte di tool orfane tolto | 5 |
+
+La prima e' la piu' istruttiva: con soli scenari in inglese il banco sarebbe
+rimasto verde per sempre, e il difetto — tagliare **prima** del dovuto, in
+silenzio, nelle conversazioni in italiano — sarebbe uscito sul PC di qualcuno
+(D152).
+
+E due cose scoperte scrivendo le prove, portate **uguali** e non aggiustate
+(D153): il taglio a numero non ha la rete che ha il taglio a token, quindi una
+coda tutta di risposte di tool orfane lascia il solo messaggio di sistema e la
+conversazione sparisce senza dirlo; e la funzione che accorcia il messaggio
+piu' grosso oggi ne riceve sempre **uno solo**, perche' dal giro normale non
+ci si arriva mai con piu' di uno. Sono da discutere con Gio, non da correggere
+di nascosto: prima le due parti devono essere uguali.
+
+
 ## Il cancello della beta
 
 Non e' una data, sono cinque frasi che devono essere vere insieme:

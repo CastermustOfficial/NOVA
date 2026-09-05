@@ -1,0 +1,19 @@
+[package]
+name = "nova-contesto"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "La finestra di conversazione: quanto ci sta, cosa si butta, cosa si accorcia e perche'."
+
+[dependencies]
+serde = { workspace = true, features = ["derive"], optional = true }
+serde_json = { workspace = true, optional = true }
+
+[features]
+banco = ["dep:serde", "dep:serde_json"]
+
+[[bin]]
+name = "banco-contesto"
+path = "src/banco.rs"
+required-features = ["banco"]
