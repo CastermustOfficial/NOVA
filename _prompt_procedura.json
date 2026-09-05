@@ -1,0 +1,31 @@
+[
+ {
+  "caso": {
+   "domanda": "controlla la posta",
+   "risposta_data": "Ho trovato 3 messaggi.",
+   "strumenti": [
+    "list_windows",
+    "run_powershell"
+   ]
+  },
+  "prompt": "Ecco uno scambio appena avvenuto fra un utente e un assistente che ha le mani sul suo PC.\n\nRICHIESTA: \"controlla la posta\"\n\nRISPOSTA DATA: \"Ho trovato 3 messaggi.\"\n\nSTRUMENTI USATI: list_windows, run_powershell\n\nRicostruisci da questo la procedura, perche' la prossima volta si possa rifare senza cercare.\n- prima riga: un titolo di tre o quattro parole;\n- poi al massimo sei righe numerate, concrete: quali strumenti, quali comandi, quali percorsi, in che ordine;\n- NON scrivere i risultati (numeri, nomi, contenuti trovati): quelli cambiano. Solo i passi.\n- ultima riga, che comincia con «ALTRE PAROLE:»: sei o sette modi DIVERSI in cui la stessa cosa si sarebbe potuta chiedere, separati da virgola. Sinonimi veri, anche in inglese e anche gergali - per «controlla la posta»: inbox, email, messaggi, mail, casella, corrispondenza. Servono a ritrovare questa procedura quando la richiesta sara' scritta con altre parole.\nSe dallo scambio non si capisce nessuna procedura ripetibile, rispondi soltanto: NIENTE"
+ },
+ {
+  "caso": {
+   "domanda": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+   "risposta_data": "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+   "strumenti": []
+  },
+  "prompt": "Ecco uno scambio appena avvenuto fra un utente e un assistente che ha le mani sul suo PC.\n\nRICHIESTA: \"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\"\n\nRISPOSTA DATA: \"rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr\"\n\nRicostruisci da questo la procedura, perche' la prossima volta si possa rifare senza cercare.\n- prima riga: un titolo di tre o quattro parole;\n- poi al massimo sei righe numerate, concrete: quali strumenti, quali comandi, quali percorsi, in che ordine;\n- NON scrivere i risultati (numeri, nomi, contenuti trovati): quelli cambiano. Solo i passi.\n- ultima riga, che comincia con «ALTRE PAROLE:»: sei o sette modi DIVERSI in cui la stessa cosa si sarebbe potuta chiedere, separati da virgola. Sinonimi veri, anche in inglese e anche gergali - per «controlla la posta»: inbox, email, messaggi, mail, casella, corrispondenza. Servono a ritrovare questa procedura quando la richiesta sara' scritta con altre parole.\nSe dallo scambio non si capisce nessuna procedura ripetibile, rispondi soltanto: NIENTE"
+ },
+ {
+  "caso": {
+   "domanda": "perché la città è così?",
+   "risposta_data": "però",
+   "strumenti": [
+    "kb_search"
+   ]
+  },
+  "prompt": "Ecco uno scambio appena avvenuto fra un utente e un assistente che ha le mani sul suo PC.\n\nRICHIESTA: \"perché la città è così?\"\n\nRISPOSTA DATA: \"però\"\n\nSTRUMENTI USATI: kb_search\n\nRicostruisci da questo la procedura, perche' la prossima volta si possa rifare senza cercare.\n- prima riga: un titolo di tre o quattro parole;\n- poi al massimo sei righe numerate, concrete: quali strumenti, quali comandi, quali percorsi, in che ordine;\n- NON scrivere i risultati (numeri, nomi, contenuti trovati): quelli cambiano. Solo i passi.\n- ultima riga, che comincia con «ALTRE PAROLE:»: sei o sette modi DIVERSI in cui la stessa cosa si sarebbe potuta chiedere, separati da virgola. Sinonimi veri, anche in inglese e anche gergali - per «controlla la posta»: inbox, email, messaggi, mail, casella, corrispondenza. Servono a ritrovare questa procedura quando la richiesta sara' scritta con altre parole.\nSe dallo scambio non si capisce nessuna procedura ripetibile, rispondi soltanto: NIENTE"
+ }
+]

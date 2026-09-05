@@ -13,6 +13,7 @@
 use std::io::Read;
 
 use nova_ricette::blocco::{blocco, Proposta};
+use nova_ricette::imparare;
 use nova_ricette::{proponi, Ricetta};
 use serde::{Deserialize, Serialize};
 
@@ -59,6 +60,15 @@ struct Dentro {
     /// Numeri da arrotondare come li arrotonderebbe Python.
     #[serde(default)]
     da_arrotondare: Vec<f64>,
+    /// (domanda, risposta, strumenti) di cui si vuole il prompt.
+    #[serde(default)]
+    richieste: Vec<(String, String, Vec<String>)>,
+    /// (attive, secondi, soglia, agentico, quanti strumenti).
+    #[serde(default)]
+    decisioni: Vec<(bool, f64, i64, bool, usize)>,
+    /// Risposte finte del modello, da leggere come procedura.
+    #[serde(default)]
+    risposte: Vec<String>,
 }
 
 fn quattro() -> usize {
@@ -80,6 +90,12 @@ struct Fuori {
     blocchi: Vec<String>,
     numeri: Vec<String>,
     arrotondati: Vec<f64>,
+    richieste: Vec<String>,
+    /// "" se si registra, altrimenti il motivo nella stessa forma del Python.
+    decisioni: Vec<String>,
+    /// null se non si e' letta niente, con a fianco il motivo.
+    lette: Vec<(Option<(String, String, Vec<String>)>, String)>,
+    righe: Vec<Vec<String>>,
 }
 
 fn main() {
@@ -138,6 +154,40 @@ fn main() {
             .iter()
             .map(|x| nova_ricette::blocco::arrotonda2(*x))
             .collect(),
+        richieste: dentro
+            .richieste
+            .iter()
+            .map(|(dm, r, s)| imparare::richiesta(dm, r, s))
+            .collect(),
+        decisioni: dentro
+            .decisioni
+            .iter()
+            .map(|(a, sec, so, ag, n)| match imparare::si_registra(*a, *sec, *so, *ag, *n) {
+                Ok(()) => String::new(),
+                Err(imparare::NonSiRegistra::Spente) =>
+                    "saltata: le procedure sono spente".to_string(),
+                Err(imparare::NonSiRegistra::SottoLaSoglia { secondi, soglia }) =>
+                    format!("saltata: {secondi}s sotto la soglia di {soglia}"),
+                Err(imparare::NonSiRegistra::NessunoStrumento) =>
+                    "saltata: nessuno strumento usato".to_string(),
+            })
+            .collect(),
+        lette: dentro
+            .risposte
+            .iter()
+            .map(|r| match imparare::leggi(r) {
+                Ok(l) => (Some((l.titolo, l.procedura, l.alias)), String::new()),
+                Err(imparare::NonSiLegge::NienteRisposta) =>
+                    (None, "niente risposta".to_string()),
+                Err(imparare::NonSiLegge::DiceNiente) =>
+                    (None, "dice niente".to_string()),
+                Err(imparare::NonSiLegge::TroppoCorta { testo }) =>
+                    (None, format!("troppo corta|{testo}")),
+                Err(imparare::NonSiLegge::PassiScarni { passi }) =>
+                    (None, format!("passi scarni|{passi}")),
+            })
+            .collect(),
+        righe: dentro.risposte.iter().map(|r| imparare::righe(r)).collect(),
     };
     match serde_json::to_string(&fuori) {
         Ok(s) => println!("{s}"),

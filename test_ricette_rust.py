@@ -249,6 +249,132 @@ controlla("il banco ha almeno un caso in cui il suggerimento scatta",
 controlla("e almeno uno in cui non deve scattare",
           any(b and "automazione_crea" not in b for b in u2["blocchi"]))
 
+print("\n5. e come si impara una procedura")
+# Tre cose che decidono **cosa NOVA impara**: il testo che si manda al
+# modello, la decisione se valga la pena mandarlo, e la lettura di cio' che
+# risponde. Un modello puo' rispondere qualunque cosa, quindi gli scenari
+# storti contano piu' di quelli buoni.
+RICHIESTE = [
+    ("controlla la posta", "Ho trovato 3 messaggi.", ["list_windows", "run_powershell"]),
+    ("d" * 400, "r" * 1000, []),
+    ("perché la città è così?", "però", ["kb_search"]),
+    ("", "", []),
+    ("à" * 500, "è" * 1200, ["uno"]),
+    ('con "virgolette" dentro', "e {graffe} pure", ["a", "b", "c"]),
+]
+
+DECISIONI = [
+    (True, 100.0, 8, True, 3),
+    (False, 100.0, 8, True, 3),
+    (True, 3.0, 8, True, 3),
+    (True, 3.4, 8, True, 3),
+    (True, 3.5, 8, True, 3),
+    (True, 2.5, 8, True, 3),
+    (True, 0.5, 8, True, 3),
+    (True, 8.0, 8, True, 3),
+    (True, 100.0, 8, False, 0),
+    (True, 100.0, 8, True, 0),
+    (True, 100.0, 0, False, 0),
+]
+
+RISPOSTE = [
+    "",
+    "   \n  \t ",
+    "NIENTE",
+    "niente di ripetibile qui",
+    "Niente",
+    "solo un titolo",
+    "Titolo\n1. x",
+    "Aprire il vault\n1. apri Obsidian\n2. cerca la nota\nALTRE PAROLE: vault, note, obsidian",
+    "## **Titolo con i fronzoli** --\n1. un passo abbastanza lungo\n2. un altro",
+    "t" * 200 + "\n1. un passo abbastanza lungo da bastare",
+    "Titolo\n\n\n1. un passo abbastanza lungo da bastare\n\n\nALTRE PAROLE: a, , b,,c ,",
+    "Titolo\n1. passo lungo abbastanza\nALTRE PAROLE senza i due punti ma lungo",
+    "Titolo\u2028 1. passo con a capo strano abbastanza lungo",
+    "Titolo\r\n1. passo con ritorno a capo di Windows\r\nALTRE PAROLE: x",
+    "Titolo\r1. passo con solo ritorno carrello abbastanza lungo",
+    "Titolo\u000b1. passo con tabulazione verticale abbastanza lungo",
+    "perché\n1. accenti nei passi: città, però, così, più",
+    "Titolo\n1. passo\nALTRE PAROLE:",
+    "  \n Titolo con spazi \n 1. passo abbastanza lungo da bastare \n",
+]
+
+esito3 = subprocess.run([str(BINARIO)], input=json.dumps({
+    "richieste": [list(x) for x in RICHIESTE],
+    "decisioni": [list(x) for x in DECISIONI],
+    "risposte": RISPOSTE,
+}, ensure_ascii=False), capture_output=True, text=True, encoding="utf-8",
+    errors="replace", timeout=60)
+if esito3.returncode != 0:
+    print(f"  il banco Rust si e' fermato: {esito3.stderr.strip()[:300]}")
+    sys.exit(1)
+u3 = json.loads(esito3.stdout)
+
+diverse = []
+for (dm, r, s), ru in zip(RICHIESTE, u3["richieste"]):
+    py = ricette.richiesta(dm, r, s)
+    if py != ru:
+        i = next((k for k, (a, b) in enumerate(zip(ru, py)) if a != b),
+                 min(len(ru), len(py)))
+        diverse.append(f"{dm[:20]!r} a {i}: {ru[i:i+40]!r} vs {py[i:i+40]!r}")
+controlla(f"i {len(RICHIESTE)} prompt sono identici carattere per carattere",
+          not diverse, " | ".join(diverse[:2]))
+
+
+def py_decisione(attive, secondi, soglia, agentico, quanti):
+    va, motivo = ricette.si_registra(attive, secondi, soglia, agentico,
+                                     ["x"] * quanti)
+    return "" if va else motivo
+
+
+diverse = [f"{d}: rust {ru!r} vs python {py_decisione(*d)!r}"
+           for d, ru in zip(DECISIONI, u3["decisioni"])
+           if ru != py_decisione(*d)]
+controlla(f"le {len(DECISIONI)} decisioni, motivo compreso, sono identiche",
+          not diverse, " | ".join(diverse[:2]))
+controlla("il banco ha un caso a mezzo secondo esatto",
+          any(abs(d[1] - round(d[1])) == 0.5 for d in DECISIONI),
+          "senza, «arrotonda al pari» e «arrotonda per eccesso» danno lo stesso")
+
+# Il motivo in Python porta dentro un `repr`, che e' logica di **registro** e
+# non di decisione: il banco confronta il tipo del rifiuto e il pezzo di testo
+# che lo accompagna, non come Python lo scrive fra virgolette. La forma della
+# riga di log resta al Python, che e' chi la scrive.
+COME_LO_DICE_PYTHON = {
+    "niente risposta": ("il modello non ha risposto niente", None),
+    "dice niente": ("il modello dice che non c'e' una procedura", None),
+    "troppo corta": ("risposta troppo corta: ", "testo"),
+    "passi scarni": ("passi troppo scarni: ", "passi"),
+}
+
+diverse = []
+for testo, (letta, motivo) in zip(RISPOSTE, u3["lette"]):
+    py_letta, py_motivo = ricette.leggi(testo)
+    if letta is None:
+        tipo, _, pezzo = motivo.partition("|")
+        inizio, con_pezzo = COME_LO_DICE_PYTHON[tipo]
+        va = (py_letta is None
+              and (py_motivo == inizio if con_pezzo is None
+                   else py_motivo == f"{inizio}{pezzo!r}"))
+        if not va:
+            diverse.append(f"{testo[:25]!r}: rust {motivo!r} vs python "
+                           f"{py_motivo!r} (letta={py_letta is not None})")
+    else:
+        titolo, procedura, alias = letta
+        if py_letta is None or (py_letta["titolo"], py_letta["procedura"],
+                                py_letta["alias"]) != (titolo, procedura, alias):
+            diverse.append(f"{testo[:25]!r}: rust {letta} vs python {py_letta}")
+controlla(f"le {len(RISPOSTE)} letture della risposta del modello coincidono",
+          not diverse, " | ".join(diverse[:2]))
+
+diverse = [f"{t[:25]!r}: rust {ru} vs python {t.splitlines()}"
+           for t, ru in zip(RISPOSTE, u3["righe"]) if ru != t.splitlines()]
+controlla("e le righe si contano come le conta Python, U+2028 compreso",
+          not diverse, " | ".join(diverse[:2]))
+controlla("il banco ha un caso con un a capo che Rust non conosce",
+          any("\u2028" in t or "\u000b" in t for t in RISPOSTE),
+          "senza, splitlines e lines() sembrano la stessa cosa")
+
 print(f"\n{passati}/{passati + len(falliti)} passati")
 for x in falliti:
     print("  FALLITO:", x)

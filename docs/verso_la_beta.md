@@ -1542,6 +1542,21 @@ regola del numero manda comunque una foto se la ricerca ne trova esattamente
 una.
 
 
+**CANT-3, settimo pezzo: come NOVA impara una procedura.** Il testo che si
+manda al modello, la decisione se valga la pena mandarlo, la lettura di cio'
+che risponde. Il prompt — millesettecento caratteri che decidono cosa NOVA
+impara — non e' stato ricopiato: catturato prima, rifattorizzato, e
+verificato che producesse gli stessi caratteri di prima (D169).
+
+E una trappola che vale la pena ricordare oltre questo pezzo:
+`str.splitlines()` di Python taglia anche su `\r`, `\v`, `\f` e su U+2028;
+`str::lines()` di Rust taglia solo su `\n`. Qui il testo lo scrive un
+**modello**, e con `lines()` una risposta perfettamente buona separata da
+U+2028 diventa «risposta troppo corta»: NOVA non impara, e nel registro c'e'
+scritto che il modello ha risposto male (D168). Ovunque si legga testo altrui,
+questa e' la domanda da farsi.
+
+
 ## Il cancello della beta
 
 Non e' una data, sono cinque frasi che devono essere vere insieme:

@@ -382,6 +382,116 @@ def _ha_automazione(id_procedura: str) -> bool:
         return False
 
 
+# ------------------------------------------------------- imparare una procedura
+
+#: Quanto della richiesta e della risposta si passa al modello. Sono
+#: **caratteri**, non byte: in italiano non e' la stessa cosa.
+QUANTA_DOMANDA = 300
+QUANTA_RISPOSTA = 900
+
+#: Il testo con cui si chiede al modello di ricostruire la procedura.
+#:
+#: E' un prompt, quindi e' codice: una parola diversa e' un comportamento
+#: diverso, e qui il comportamento e' **cosa NOVA impara**. I tre segnaposto
+#: si sostituiscono uno per uno, senza `str.format`, per la stessa ragione del
+#: prompt di sistema: un testo pieno di virgolette e di trattini non deve
+#: poter far saltare niente se un giorno ci finisce dentro una graffa (D157).
+RICHIESTA = (
+    "Ecco uno scambio appena avvenuto fra un utente e un "
+    "assistente che ha le mani sul suo PC.\n\n"
+    "RICHIESTA: \"{domanda}\"\n\n"
+    "RISPOSTA DATA: \"{risposta}\"\n\n"
+    "{strumenti}"
+    "Ricostruisci da questo la procedura, perche' la "
+    "prossima volta si possa rifare senza cercare.\n"
+    "- prima riga: un titolo di tre o quattro parole;\n"
+    "- poi al massimo sei righe numerate, concrete: quali "
+    "strumenti, quali comandi, quali percorsi, in che ordine;\n"
+    "- NON scrivere i risultati (numeri, nomi, contenuti "
+    "trovati): quelli cambiano. Solo i passi.\n"
+    "- ultima riga, che comincia con «ALTRE PAROLE:»: sei o "
+    "sette modi DIVERSI in cui la stessa cosa si sarebbe "
+    "potuta chiedere, separati da virgola. Sinonimi veri, "
+    "anche in inglese e anche gergali - per «controlla la "
+    "posta»: inbox, email, messaggi, mail, casella, "
+    "corrispondenza. Servono a ritrovare questa procedura "
+    "quando la richiesta sara' scritta con altre parole.\n"
+    "Se dallo scambio non si capisce nessuna procedura ripetibile, "
+    "rispondi soltanto: NIENTE"
+)
+
+
+def richiesta(domanda: str, risposta: str, strumenti: list[str] | None = None) -> str:
+    """Il prompt, con dentro lo scambio appena avvenuto.
+
+    Si passa il materiale invece di chiedere «cosa hai fatto?»: `semplice()`
+    e' una chiamata **isolata**, senza sessione e senza memoria del turno
+    appena finito. Chiederglielo era chiedere a chi non c'era: rispondeva
+    NIENTE ogni volta, e l'archivio restava vuoto senza che nessun errore lo
+    dicesse.
+    """
+    quali = ", ".join(strumenti or [])
+    return (RICHIESTA
+            .replace("{domanda}", (domanda or "")[:QUANTA_DOMANDA])
+            .replace("{risposta}", (risposta or "")[:QUANTA_RISPOSTA])
+            .replace("{strumenti}",
+                     f"STRUMENTI USATI: {quali}\n\n" if quali else ""))
+
+
+def si_registra(attive: bool, secondi: float, soglia: int, agentico: bool,
+                strumenti) -> tuple[bool, str]:
+    """Se questo turno vale la pena di essere imparato, e se no perche'.
+
+    Il motivo non e' decorazione: finisce in `procedure.log`, ed esiste
+    perche' «l'archivio e' vuoto» aveva tre cause diverse con lo stesso
+    identico sintomo — il filo non partito, il modello che diceva NIENTE, e
+    qualcosa che esplodeva in silenzio.
+    """
+    if not attive:
+        return False, "saltata: le procedure sono spente"
+    if secondi < soglia:
+        return False, f"saltata: {secondi:.0f}s sotto la soglia di {soglia}"
+    if not agentico and not strumenti:
+        # Nessuno strumento: era una conversazione, non una procedura.
+        return False, "saltata: nessuno strumento usato"
+    return True, ""
+
+
+#: Sotto questa lunghezza i passi non sono passi.
+MINIMO_PASSI = 20
+#: E il titolo si taglia qui.
+MASSIMO_TITOLO = 60
+
+
+def leggi(testo: str) -> tuple[dict | None, str]:
+    """Quello che il modello ha risposto, letto come procedura.
+
+    Torna `(procedura, "")` se si e' capito qualcosa, `(None, motivo)` se no.
+    Ogni rifiuto ha un motivo diverso apposta: sono i punti in cui NOVA
+    smette di imparare, e senza un nome non si distinguono l'uno dall'altro.
+    """
+    testo = (testo or "").strip()
+    if not testo:
+        return None, "il modello non ha risposto niente"
+    if testo.upper().startswith("NIENTE"):
+        return None, "il modello dice che non c'e' una procedura"
+    righe = [r for r in testo.splitlines() if r.strip()]
+    if len(righe) < 2:
+        return None, f"risposta troppo corta: {testo[:80]!r}"
+    titolo = righe[0].strip(" #*-").strip()[:MASSIMO_TITOLO]
+    alias: list[str] = []
+    for i, r in enumerate(righe):
+        if r.strip().upper().startswith("ALTRE PAROLE"):
+            alias = [x.strip() for x in
+                     r.split(":", 1)[-1].split(",") if x.strip()]
+            righe = righe[:i]
+            break
+    procedura = "\n".join(righe[1:]).strip()
+    if len(procedura) < MINIMO_PASSI:
+        return None, f"passi troppo scarni: {procedura[:80]!r}"
+    return {"titolo": titolo, "procedura": procedura, "alias": alias}, ""
+
+
 def blocco(domanda: str) -> str:
     """Il testo da mettere in coda alla domanda, se c'e' qualcosa da dire.
 
