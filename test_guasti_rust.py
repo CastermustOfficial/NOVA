@@ -411,6 +411,54 @@ controlla("il banco ha davvero un corpo con la chiave dentro",
           any(CHIAVE in c for c in CORPI),
           "senza, la verifica qui sopra non prova niente")
 
+# --------------------------------------------------------------------------
+# Cosa non entra in memoria, chiesto alla **provenienza** invece che alla
+# forma.
+#
+# Il guardiano qui sopra guarda il testo e riconosce una chiave, un numero di
+# carta, una password. Ma il titolo di una finestra e' una stringa qualunque:
+# non c'e' niente da riconoscere, e proprio per questo passerebbe. Se un turno
+# ha guardato lo schermo, ricordarlo in chiaro scriverebbe nel vault i titoli
+# delle schede aperte e dei documenti su cui si sta lavorando — e un vault e'
+# una cartella che la gente sincronizza.
+from nova.agent import Agent as _Agent                          # noqa: E402
+
+PROVENIENZE = [
+    [],
+    ["read_file"],
+    ["ui.windows"],
+    ["screenshot"],
+    ["read_file", "run_powershell"],
+    ["read_file", "ui.find", "kb_note"],
+    ["albero_finestra"],
+    ["ui.tree", "ui.windows"],
+    ["finestre"],
+    ["Screenshot"],
+    ["ui.windows_", "screenshotx"],
+]
+
+suo2 = rust({"provenienze": PROVENIENZE})
+diverse = []
+for strumenti, ru in zip(PROVENIENZE, suo2["riservati"]):
+    py = bool(set(strumenti) & _Agent.GUARDANO_LO_SCHERMO)
+    if py != ru:
+        diverse.append(f"{strumenti}: rust {ru} vs python {py}")
+controlla(f"le {len(PROVENIENZE)} provenienze danno lo stesso giudizio",
+          not diverse, " | ".join(diverse[:2]))
+controlla("e i due elenchi sono lo stesso elenco, non due che si somigliano",
+          sorted(suo2["guardano_lo_schermo"]) == sorted(_Agent.GUARDANO_LO_SCHERMO),
+          f"rust {sorted(suo2['guardano_lo_schermo'])} vs "
+          f"python {sorted(_Agent.GUARDANO_LO_SCHERMO)}")
+controlla("il banco ha un caso in cui uno solo su tre basta",
+          any(len(s) > 2 and bool(set(s) & _Agent.GUARDANO_LO_SCHERMO)
+              for s in PROVENIENZE),
+          "senza, «basta uno» non e' provato")
+controlla("e uno che somiglia ma non e' quello",
+          any(s and not bool(set(s) & _Agent.GUARDANO_LO_SCHERMO)
+              and any("screenshot" in x.lower() or "ui.windows" in x
+                      for x in s) for s in PROVENIENZE),
+          "senza, un confronto per prefisso passerebbe uguale")
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")

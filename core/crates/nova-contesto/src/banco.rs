@@ -90,6 +90,13 @@ struct Dentro {
     /// (larghezza, altezza) da ridimensionare.
     #[serde(default)]
     misure: Vec<(u32, u32)>,
+    /// Messaggi ricchi da sfilare: ogni blocco e' `null` per un'immagine o
+    /// una stringa per il testo.
+    #[serde(default)]
+    sfilature: Vec<Vec<Option<String>>>,
+    /// Quante figure sfilate, da raccontare.
+    #[serde(default)]
+    quante_sfilate: Vec<usize>,
 }
 
 #[derive(Serialize)]
@@ -136,6 +143,8 @@ struct Fuori {
     domande: Vec<String>,
     figure: Vec<Vec<String>>,
     misure: Vec<(u32, u32)>,
+    sfilature: Vec<Option<String>>,
+    quante_sfilate: Vec<String>,
 }
 
 fn main() {
@@ -237,6 +246,25 @@ fn main() {
             .misure
             .iter()
             .map(|(w, h)| figure::nuova_misura(*w, *h, figure::LATO_MASSIMO))
+            .collect(),
+        sfilature: d
+            .sfilature
+            .iter()
+            .map(|blocchi| {
+                let b: Vec<figure::Blocco> = blocchi
+                    .iter()
+                    .map(|x| match x {
+                        Some(t) => figure::Blocco::Testo(t.clone()),
+                        None => figure::Blocco::Immagine,
+                    })
+                    .collect();
+                figure::sfila(&b)
+            })
+            .collect(),
+        quante_sfilate: d
+            .quante_sfilate
+            .iter()
+            .map(|n| figure::quante_sfilate(*n))
             .collect(),
     };
 

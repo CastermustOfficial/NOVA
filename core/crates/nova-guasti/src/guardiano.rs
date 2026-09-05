@@ -228,6 +228,35 @@ pub fn perche_non_si_salva(testo: &str) -> Option<&'static str> {
     None
 }
 
+/// Gli strumenti che mostrano **cosa c'e' aperto adesso**, non **com'e' fatto
+/// il PC**.
+///
+/// E' la stessa domanda del resto di questo modulo — cosa non entra in
+/// memoria — posta pero' sulla **provenienza** invece che sulla forma. Il
+/// guardiano guarda il testo e riconosce una chiave, un numero di carta, una
+/// password; qui non c'e' niente da riconoscere: il titolo di una finestra e'
+/// una stringa qualunque, e proprio per questo passerebbe.
+///
+/// Leggerli serve ad agire. **Ricordarli** scriverebbe nel vault i titoli
+/// delle schede aperte e dei documenti su cui si sta lavorando, in chiaro e
+/// per sempre — e un vault e' una cartella che la gente sincronizza.
+pub const GUARDANO_LO_SCHERMO: [&str; 6] = [
+    "ui.windows",
+    "ui.tree",
+    "ui.find",
+    "finestre",
+    "albero_finestra",
+    "screenshot",
+];
+
+/// Se un turno che ha usato questi strumenti va ricordato **coperto**.
+///
+/// Basta uno: se in mezzo a dieci chiamate una sola ha guardato lo schermo,
+/// il turno porta dentro cio' che c'era sullo schermo.
+pub fn riservato_per_provenienza(strumenti: &[String]) -> bool {
+    strumenti.iter().any(|s| GUARDANO_LO_SCHERMO.contains(&s.as_str()))
+}
+
 /// Se questo testo contiene qualcosa che non deve essere ricordato.
 pub fn e_riservato(testo: &str) -> bool {
     perche_non_si_salva(testo).is_some()
