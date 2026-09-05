@@ -4677,3 +4677,48 @@ l'unico difetto che qui conta davvero. Adesso va a cercare il file **dentro il
 Cestino di Windows**, con `Shell.Application`. Cancellato e cestinato si
 somigliano solo da fuori.
 
+### Cosa NOVA si ricorda: la meta' dove sbagliare non lascia traccia
+
+Chiuso il Cestino, CANT-2 non aveva piu' niente che passasse da una shell. Ma
+CANT-2 non e' «togliere PowerShell»: e' portare gli strumenti, e il **fare**
+della maggior parte di loro e' ancora Python. Il pezzo che vale di piu' e' la
+memoria, perche' e' quella da cui dipende CANT-3.
+
+`nova-memoria` sapeva gia' **pesare**: BM25, la fusione dei ranking, lo
+spareggio sulla freschezza. Mancava la parte che con quei pesi **decide**: chi
+entra nel contesto del modello e chi resta fuori.
+
+E' asimmetrica, ed e' per questo che l'ho voluta fare con attenzione. Un nodo
+pesato male sta nel posto sbagliato dell'elenco: si vede. Un nodo **scartato**
+no — il modello risponde come se non esistesse, e nessuno, ne' lui ne'
+l'utente, ha modo di accorgersene. Il difetto piu' grave della memoria e'
+invisibile per costruzione.
+
+I sei passi sono quelli del Python, nello stesso ordine e con le stesse
+costanti. Le tre regole che portano una cicatrice ciascuna, e che ho tenuto
+identiche:
+
+- **chi e' nominato per nome salta il filtro sulla confidenza.** Chiedere
+  «parlami di X» e ricevere zero risultati perche' X e' poco confidente non e'
+  un filtro: e' una bugia;
+- **il grafo prende a turno da ogni sorgente.** Prima il primo risultato si
+  mangiava tutta la quota e il secondo e il terzo non contribuivano mai;
+- **un vicino non puo' valere quanto una richiesta esplicita.** Senza il
+  tetto, il vicino di un nodo nominato per nome valeva 350 e spingeva fuori
+  dal contesto tutto quello che la ricerca aveva trovato.
+
+Il banco pero' e' la parte di cui sono piu' contento. Non confronta i
+punteggi — quelli erano gia' confrontati. Confronta **l'elenco scelto, il suo
+ordine e la via con cui ogni nodo e' entrato**, contro il `KBEngine` vero e
+non contro una sua copia: si costruisce un vault temporaneo, gli si chiede
+`cerca`, e al Rust si passano gli stessi punteggi che il Python ha usato per
+decidere. Cosi' se le due meta' divergono, divergono sulla **scelta**.
+
+Perche' anche la via conta: un nodo entrato «da grafo» invece che «esatto»
+vuol dire che la ricerca ci e' arrivata per un'altra strada. Il risultato
+somiglia, e la strada e' un'altra — e la prossima volta, con altri dati, non
+somigliera' piu' (D148).
+
+Cinque scenari, e in tutti e cinque stessi nodi, stesso ordine, stesso
+perche'.
+

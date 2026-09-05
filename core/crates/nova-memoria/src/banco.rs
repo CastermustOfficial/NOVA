@@ -8,6 +8,7 @@
 
 use std::io::Read;
 
+use nova_memoria::scelta::{scegli, Candidato, Via};
 use nova_memoria::{coseno, rrf, tokenizza, Bm25, Nodo, RRF_K};
 use serde::{Deserialize, Serialize};
 
@@ -38,6 +39,56 @@ struct Dentro {
     /// slug -> data di aggiornamento, per lo spareggio a pari merito.
     #[serde(default)]
     freschezza: std::collections::BTreeMap<String, String>,
+    /// Gli scenari di **scelta**: chi entra nel contesto e in che ordine.
+    ///
+    /// Sono separati dal resto perche' chiedono piu' cose — la confidenza dei
+    /// nodi, il tipo, i vicini — che al solo punteggio non servono. Il Python
+    /// li prepara e manda anche i punteggi gia' calcolati: cosi' il confronto
+    /// e' sulla **politica**, non sull'aritmetica che il banco verifica gia'
+    /// altrove.
+    #[serde(default)]
+    scelte: Vec<ScenarioScelta>,
+}
+
+#[derive(Deserialize)]
+struct ScenarioScelta {
+    domanda: String,
+    nodi: Vec<NodoScelta>,
+    #[serde(default)]
+    sparsi: std::collections::BTreeMap<String, f64>,
+    #[serde(default)]
+    densi: std::collections::BTreeMap<String, f64>,
+    /// slug -> i suoi vicini, nell'ordine in cui il vault li restituisce.
+    #[serde(default)]
+    vicini: std::collections::BTreeMap<String, Vec<String>>,
+    quanti: usize,
+    confidenza_minima: f64,
+    #[serde(default)]
+    espandi_grafo: bool,
+}
+
+#[derive(Deserialize)]
+struct NodoScelta {
+    slug: String,
+    #[serde(default)]
+    titolo: String,
+    #[serde(default)]
+    tag: Vec<String>,
+    #[serde(default)]
+    tipo: String,
+    confidenza: f64,
+    #[serde(default)]
+    aggiornato: String,
+}
+
+#[derive(Serialize)]
+struct EsitoScelta {
+    /// slug, punteggio e **perche'** e' entrato: le tre cose su cui le due
+    /// meta' devono essere d'accordo.
+    scelti: Vec<(String, f64, String)>,
+    scartati_confidenza: usize,
+    scartati_esempio: Vec<String>,
+    espansi_da_grafo: usize,
 }
 
 #[derive(Serialize)]
@@ -49,6 +100,7 @@ struct Fuori {
     fusioni: Vec<Vec<(String, f64)>>,
     coseni: Vec<f64>,
     tagli: Vec<String>,
+    scelte: Vec<EsitoScelta>,
 }
 
 /// Lo stesso ordine della libreria, non uno riscritto qui.
@@ -106,6 +158,58 @@ fn main() {
             .tagli
             .iter()
             .map(|(c, m)| nova_memoria::testa_e_coda(c, *m))
+            .collect(),
+        scelte: dentro
+            .scelte
+            .iter()
+            .map(|s| {
+                let nodi: std::collections::BTreeMap<String, Candidato> = s
+                    .nodi
+                    .iter()
+                    .map(|n| {
+                        (
+                            n.slug.clone(),
+                            Candidato {
+                                slug: n.slug.clone(),
+                                titolo: n.titolo.clone(),
+                                tag: n.tag.clone(),
+                                tipo: n.tipo.clone(),
+                                confidenza: n.confidenza,
+                                aggiornato: n.aggiornato.clone(),
+                            },
+                        )
+                    })
+                    .collect();
+                let vicini = |slug: &str| -> Vec<String> {
+                    s.vicini.get(slug).cloned().unwrap_or_default()
+                };
+                let (scelti, r) = scegli(
+                    &s.domanda,
+                    &nodi,
+                    &s.sparsi,
+                    &s.densi,
+                    &vicini,
+                    s.quanti,
+                    s.confidenza_minima,
+                    s.espandi_grafo,
+                );
+                EsitoScelta {
+                    scelti: scelti
+                        .into_iter()
+                        .map(|x| {
+                            let via = match x.via {
+                                Via::Esatto => "esatto",
+                                Via::Fusione => "fusione",
+                                Via::Grafo => "grafo",
+                            };
+                            (x.slug, x.punteggio, via.to_string())
+                        })
+                        .collect(),
+                    scartati_confidenza: r.scartati_confidenza,
+                    scartati_esempio: r.scartati_esempio,
+                    espansi_da_grafo: r.espansi_da_grafo,
+                }
+            })
             .collect(),
     };
     match serde_json::to_string(&fuori) {
