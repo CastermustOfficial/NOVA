@@ -1557,6 +1557,23 @@ scritto che il modello ha risposto male (D168). Ovunque si legga testo altrui,
 questa e' la domanda da farsi.
 
 
+**CANT-3, ottavo e nono pezzo: la provenienza, e i cervelli.**
+
+`GUARDANO_LO_SCHERMO` — l'elenco degli strumenti che mostrano *cosa c'e'
+aperto adesso* — sta adesso accanto al guardiano dei segreti, perche' e' la
+stessa domanda posta alla **provenienza** invece che alla forma: il guardiano
+riconosce una chiave dentro un testo, ma il titolo di una finestra e' una
+stringa qualunque e proprio per questo passerebbe. Il banco confronta
+l'elenco **intero**, non un campione (D170).
+
+E dai cervelli: «questo indirizzo e' in casa?», che e' la frase su cui NOVA
+sta in piedi ridotta a una domanda sola. Si decide sull'host, estratto a mano
+come lo estrae `urlparse` — ventisei indirizzi confrontati, e una mutazione
+per sottostringa che chiama «casa» `localhost.evil.example.com` (D171). Con
+il ragionamento separato dalla risposta anche quando il `<think>` non e'
+chiuso (D172), e «Claude Code:» che non e' piu' seguito dal nulla.
+
+
 ## Il cancello della beta
 
 Non e' una data, sono cinque frasi che devono essere vere insieme:

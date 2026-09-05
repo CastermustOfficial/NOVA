@@ -9,8 +9,8 @@
 use std::io::Read;
 
 use nova_scala::{
-    durata_pausa, gradino_minimo, indice, parola_presente, ripieghi, scala, successivo,
-    utilizzabile, Categoria, Configurazione, Gradino, Pause,
+    durata_pausa, e_in_casa, gradino_minimo, host_di, indice, parola_presente, ripieghi,
+    scala, successivo, utilizzabile, Categoria, Configurazione, Gradino, Pause,
 };
 use serde::{Deserialize, Serialize};
 
@@ -60,6 +60,7 @@ struct CasoUtile {
 
 #[derive(Deserialize)]
 struct Dentro {
+    #[serde(default)]
     tiers: Vec<GradinoIn>,
     #[serde(default)]
     scala: Vec<String>,
@@ -91,6 +92,9 @@ struct Dentro {
     parole: Vec<(String, String)>,
     #[serde(default)]
     pause_chieste: Vec<i64>,
+    /// Indirizzi di cui si vuole sapere se sono in casa.
+    #[serde(default)]
+    indirizzi: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -103,6 +107,8 @@ struct Fuori {
     utilizzabili: Vec<bool>,
     parole: Vec<bool>,
     durate: Vec<i64>,
+    host: Vec<String>,
+    in_casa: Vec<bool>,
 }
 
 fn main() {
@@ -181,6 +187,8 @@ fn main() {
             .map(|(p, t)| parola_presente(&p.to_lowercase(), &t.to_lowercase()))
             .collect(),
         durate: d.pause_chieste.iter().map(|s| durata_pausa(*s)).collect(),
+        host: d.indirizzi.iter().map(|u| host_di(u)).collect(),
+        in_casa: d.indirizzi.iter().map(|u| e_in_casa(u)).collect(),
     };
 
     match serde_json::to_string(&fuori) {

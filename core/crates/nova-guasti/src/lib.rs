@@ -26,6 +26,10 @@ pub mod guardiano;
 // spiegazione per fornitore vorrebbe dire cinque spiegazioni che divergono.
 pub mod http;
 
+// Cosa dice NOVA quando un cervello a riga di comando torna con un guasto:
+// prima diceva «Claude Code:» e poi niente.
+pub mod cervelli;
+
 pub use chiavi::senza_chiavi;
 
 /// Cosa e' andato storto, nei termini in cui lo sa il chiamante.

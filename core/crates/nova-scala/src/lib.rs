@@ -243,6 +243,90 @@ pub fn durata_pausa(secondi_chiesti: i64) -> i64 {
     secondi_chiesti.max(PAUSA_MINIMA_S)
 }
 
+/// Un server che sta **sulla stessa macchina**.
+///
+/// Sta qui perche' e' la frase su cui NOVA sta in piedi ridotta a una
+/// domanda sola: niente esce dal PC finche' qualcuno non delega davvero.
+/// Ollama, LM Studio, llama.cpp, KoboldCpp non chiedono nessuna chiave, e
+/// pretenderne una vorrebbe dire rifiutarsi di parlare con un cervello che
+/// e' li', acceso e gratuito.
+///
+/// Si guarda **solo l'host**, che e' l'unica cosa che distingue «in casa» da
+/// «su internet» — dove invece la chiave serve davvero. Non la porta, non lo
+/// schema: un `https://` verso `localhost` e' comunque in casa, e un `http://`
+/// verso un dominio non lo e'.
+pub fn e_in_casa(base_url: &str) -> bool {
+    const IN_CASA: [&str; 5] = [
+        "localhost",
+        "127.0.0.1",
+        "::1",
+        "0.0.0.0",
+        "host.docker.internal",
+    ];
+    IN_CASA.contains(&host_di(base_url).as_str())
+}
+
+/// L'host di un URL, in minuscolo, come lo estrae `urlparse().hostname`.
+///
+/// Scritto a mano: portarsi dietro un analizzatore di URL per una domanda
+/// sola vorrebbe dire aggiungere una dipendenza al pezzo del progetto che
+/// decide **cosa esce dal PC**, ed e' il posto dove si vuole meno codice di
+/// qualcun altro, non di piu'.
+///
+/// La regola non e' «quello che sta prima della prima barra». E' quella di
+/// `urlsplit`, che ha una conseguenza che a occhio non si indovina:
+/// **l'autorita' esiste solo dopo `//`**. `localhost:8080` senza schema non
+/// ha host — `localhost` viene letto come **schema** — quindi non e' «in
+/// casa», e la chiave verrebbe chiesta. Sembra sbagliato e non lo e': una
+/// stringa cosi' non e' un URL, e indovinare cosa intendesse chi l'ha scritta
+/// e' il genere di gentilezza che qui non si fa.
+pub fn host_di(url: &str) -> String {
+    // Python toglie prima gli spazi ai bordi e i caratteri di controllo
+    // ovunque (tab e a capo), perche' un URL con dentro un a capo e' un modo
+    // noto di far leggere due cose diverse a due programmi diversi.
+    let pulito: String = url
+        .trim_matches(|c: char| c.is_whitespace() || (c as u32) <= 0x20)
+        .chars()
+        .filter(|c| *c != '\t' && *c != '\n' && *c != '\r')
+        .collect();
+
+    // Lo schema c'e' solo se prima dei due punti c'e' un nome di schema
+    // valido: comincia con una lettera, poi lettere, cifre, `+`, `-`, `.`.
+    let resto = match pulito.find(':') {
+        Some(i) if i > 0 => {
+            let prefisso = &pulito[..i];
+            let valido = prefisso.starts_with(|c: char| c.is_ascii_alphabetic())
+                && prefisso.chars().all(|c| {
+                    c.is_ascii_alphanumeric() || c == '+' || c == '-' || c == '.'
+                });
+            if valido { &pulito[i + 1..] } else { &pulito[..] }
+        }
+        _ => &pulito[..],
+    };
+
+    // L'autorita' esiste **solo** dopo `//`.
+    let Some(dopo) = resto.strip_prefix("//") else {
+        return String::new();
+    };
+    let autorita = dopo.split(['/', '?', '#']).next().unwrap_or("");
+
+    // Le credenziali stanno prima dell'ultima chiocciola.
+    let senza_credenziali = match autorita.rfind('@') {
+        Some(i) => &autorita[i + 1..],
+        None => autorita,
+    };
+
+    // Un indirizzo IPv6 sta fra parentesi quadre, e dentro ha i due punti.
+    if let Some(r) = senza_credenziali.strip_prefix('[') {
+        return match r.find(']') {
+            Some(i) => r[..i].to_lowercase(),
+            None => r.to_lowercase(),
+        };
+    }
+    // Altrimenti i due punti separano la porta.
+    senza_credenziali.split(':').next().unwrap_or("").to_lowercase()
+}
+
 #[cfg(test)]
 mod prove {
     use super::*;
@@ -408,5 +492,37 @@ mod prove {
         // sbatterci contro in un ciclo stretto.
         assert_eq!(durata_pausa(3), 60);
         assert_eq!(durata_pausa(3600), 3600);
+    }
+
+    #[test]
+    fn in_casa_e_su_internet() {
+        assert!(e_in_casa("http://localhost:8080/v1"));
+        assert!(e_in_casa("http://127.0.0.1:11434"));
+        assert!(e_in_casa("https://LOCALHOST/v1"));
+        assert!(e_in_casa("http://[::1]:8080/v1"));
+        assert!(e_in_casa("http://0.0.0.0:5000"));
+        assert!(e_in_casa("http://host.docker.internal:1234/v1"));
+        assert!(!e_in_casa("https://api.openai.com/v1"));
+        assert!(!e_in_casa("https://openrouter.ai/api/v1"));
+        assert!(!e_in_casa(""));
+        // Il caso che un confronto per sottostringa sbaglierebbe: un dominio
+        // che **contiene** «localhost» non e' localhost.
+        assert!(!e_in_casa("https://localhost.evil.example.com/v1"));
+        assert!(!e_in_casa("https://notlocalhost/v1"));
+    }
+
+    #[test]
+    fn lhost_si_estrae_come_lo_estrae_python() {
+        assert_eq!(host_di("http://localhost:8080/v1"), "localhost");
+        assert_eq!(host_di("https://API.OpenAI.com/v1"), "api.openai.com");
+        assert_eq!(host_di("http://utente:parola@127.0.0.1:11434/x"), "127.0.0.1");
+        assert_eq!(host_di("http://[::1]:8080/v1"), "::1");
+        // Senza le due barre non c'e' autorita': «localhost» e' letto
+        // come schema, e l'host resta vuoto.
+        assert_eq!(host_di("localhost:8080"), "");
+        assert_eq!(host_di("//localhost:8080/v1"), "localhost");
+        assert_eq!(host_di(""), "");
+        assert_eq!(host_di("http://esempio.it?a=1"), "esempio.it");
+        assert_eq!(host_di("http://esempio.it#frammento"), "esempio.it");
     }
 }

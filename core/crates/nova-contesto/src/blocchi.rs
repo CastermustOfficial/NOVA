@@ -20,6 +20,8 @@
 //! E' la stessa aritmetica del fondo nel taglio dei messaggi: non cambia cosa
 //! il modello legge, cambia quanto spesso si butta via la cache.
 
+use crate::Messaggio;
+
 /// Cio' che la memoria ha trovato, da mettere in coda alla domanda.
 ///
 /// Il testo attorno non e' decorazione: dice al modello **come** leggerlo —
@@ -77,6 +79,107 @@ pub fn domanda(
     format!("{testo}{memoria}{procedure}{identita}{postilla}")
 }
 
+/// Separa il ragionamento dalla risposta.
+///
+/// Molti modelli il ragionamento lo scrivono dentro `<think>...</think>` nel
+/// testo, altri in un campo a parte. Le due cose vanno tenute separate perche'
+/// l'utente legge la risposta: un ragionamento che finisce nel contenuto e' il
+/// modello che si contraddice a voce alta davanti a chi ha chiesto qualcosa.
+///
+/// **Anche un `<think>` mai chiuso.** Se il modello si interrompe a meta' del
+/// ragionamento, senza il secondo taglio quel troncone finirebbe intero nella
+/// risposta — ed e' il caso in cui si vede di piu', perche' non finisce con
+/// una frase compiuta.
+///
+/// Ritorna `(contenuto, ragionamento)`, tutti e due ripuliti ai bordi.
+pub fn separa_ragionamento(contenuto: &str, ragionamento_a_parte: &str) -> (String, String) {
+    let (pulito, trovati) = togli_think(contenuto);
+    let mut ragionamento = ragionamento_a_parte.to_string();
+    if !trovati.is_empty() {
+        ragionamento = format!("{ragionamento}\n{}", trovati.join("\n"))
+            .trim()
+            .to_string();
+    }
+    let pulito = togli_think_aperto(&pulito);
+    (pulito.trim().to_string(), ragionamento.trim().to_string())
+}
+
+/// I `<think>...</think>` chiusi: cosa resta, e cosa c'era dentro.
+///
+/// Scritto a mano invece che con un'espressione regolare, come le chiamate nel
+/// testo (D154): la regola e' che il tag si riconosce **senza guardare le
+/// maiuscole** e che il punto prende anche gli a capo, e scriverla costringe a
+/// dirlo.
+fn togli_think(testo: &str) -> (String, Vec<String>) {
+    const APRE: &str = "<think>";
+    const CHIUDE: &str = "</think>";
+    let minuscolo = testo.to_lowercase();
+    let caratteri: Vec<char> = testo.chars().collect();
+    let piccoli: Vec<char> = minuscolo.chars().collect();
+    let apre: Vec<char> = APRE.chars().collect();
+    let chiude: Vec<char> = CHIUDE.chars().collect();
+    let mut fuori = String::new();
+    let mut dentro: Vec<String> = Vec::new();
+    let mut i = 0usize;
+    while i < caratteri.len() {
+        if piccoli[i..].starts_with(&apre) {
+            if let Some(fine) = trova(&piccoli, &chiude, i + apre.len()) {
+                dentro.push(caratteri[i + apre.len()..fine].iter().collect());
+                i = fine + chiude.len();
+                continue;
+            }
+        }
+        fuori.push(caratteri[i]);
+        i += 1;
+    }
+    (fuori, dentro)
+}
+
+/// Un `<think>` mai chiuso porta via tutto quello che viene dopo.
+fn togli_think_aperto(testo: &str) -> String {
+    let minuscolo = testo.to_lowercase();
+    match minuscolo.find("<think>") {
+        Some(i) => testo.chars().take(minuscolo[..i].chars().count()).collect(),
+        None => testo.to_string(),
+    }
+}
+
+fn trova(dove: &[char], cosa: &[char], da: usize) -> Option<usize> {
+    if cosa.is_empty() || dove.len() < cosa.len() || da > dove.len() - cosa.len() {
+        return None;
+    }
+    (da..=dove.len() - cosa.len()).find(|&i| &dove[i..i + cosa.len()] == cosa)
+}
+
+/// Un solo messaggio di sistema, in testa.
+///
+/// Molti template di chat ne pretendono uno solo: mandarne due vuol dire che
+/// il secondo viene ignorato, o peggio che il template si rompe e il modello
+/// riceve una conversazione senza istruzioni.
+pub fn un_solo_sistema(messaggi: &[Messaggio]) -> Vec<Messaggio> {
+    let sistema: Vec<&Messaggio> = messaggi.iter().filter(|m| m.ruolo == "system").collect();
+    let resto: Vec<Messaggio> = messaggi
+        .iter()
+        .filter(|m| m.ruolo != "system")
+        .cloned()
+        .collect();
+    if sistema.is_empty() {
+        return resto;
+    }
+    let testa = Messaggio::nuovo(
+        "system",
+        sistema
+            .iter()
+            .map(|m| m.contenuto.as_str())
+            .collect::<Vec<&str>>()
+            .join("\n\n")
+            .trim(),
+    );
+    let mut fuori = vec![testa];
+    fuori.extend(resto);
+    fuori
+}
+
 #[cfg(test)]
 mod prove {
     use super::*;
@@ -93,6 +196,63 @@ mod prove {
         assert!(b.ends_with("\n</memoria>"));
         assert!(b.contains("gio usa Rust"));
         assert!(b.contains("kb_forget"), "manca il permesso di correggere");
+    }
+
+    #[test]
+    fn il_ragionamento_non_finisce_nella_risposta() {
+        let (c, r) = separa_ragionamento("<think>ci penso</think>Ecco la risposta.", "");
+        assert_eq!(c, "Ecco la risposta.");
+        assert_eq!(r, "ci penso");
+    }
+
+    #[test]
+    fn il_tag_si_riconosce_anche_in_maiuscolo_e_su_piu_righe() {
+        let (c, r) = separa_ragionamento("<THINK>a\ncapo</Think> risposta", "");
+        assert_eq!(c, "risposta");
+        assert_eq!(r, "a\ncapo");
+    }
+
+    #[test]
+    fn un_think_mai_chiuso_porta_via_tutto_quello_che_segue() {
+        // E' il caso che si vede di piu': il modello si interrompe a meta'
+        // del ragionamento e senza questo taglio il troncone finirebbe nella
+        // risposta, senza nemmeno una frase compiuta in fondo.
+        let (c, r) = separa_ragionamento("Ecco. <think>sto ancora pensando e poi", "");
+        assert_eq!(c, "Ecco.");
+        assert_eq!(r, "");
+    }
+
+    #[test]
+    fn il_campo_a_parte_e_i_tag_si_sommano() {
+        let (_, r) = separa_ragionamento("<think>due</think>x", "uno");
+        assert_eq!(r, "uno\ndue");
+    }
+
+    #[test]
+    fn senza_ragionamento_non_si_tocca_niente() {
+        let (c, r) = separa_ragionamento("  risposta secca  ", "");
+        assert_eq!(c, "risposta secca");
+        assert_eq!(r, "");
+    }
+
+    #[test]
+    fn i_messaggi_di_sistema_diventano_uno() {
+        let m = vec![
+            Messaggio::nuovo("system", "primo"),
+            Messaggio::nuovo("user", "ciao"),
+            Messaggio::nuovo("system", "secondo"),
+        ];
+        let f = un_solo_sistema(&m);
+        assert_eq!(f.len(), 2);
+        assert_eq!(f[0].ruolo, "system");
+        assert_eq!(f[0].contenuto, "primo\n\nsecondo");
+        assert_eq!(f[1].ruolo, "user");
+    }
+
+    #[test]
+    fn senza_sistema_resta_tutto_com_era() {
+        let m = vec![Messaggio::nuovo("user", "ciao")];
+        assert_eq!(un_solo_sistema(&m), m);
     }
 
     #[test]
