@@ -89,3 +89,7 @@ path = "src/bin/nova-notifica.rs"
 [[bin]]
 name = "nova-sistema"
 path = "src/bin/nova-sistema.rs"
+
+[[bin]]
+name = "nova-app"
+path = "src/bin/nova-app.rs"

@@ -899,7 +899,7 @@ ci dipendono davvero.
 | `set_volume` | Core Audio; `SendKeys` solo se manca tutto | letto davvero |
 | `notify` | processo suo che aspetta al posto di NOVA | 5 ms (era 9.300) |
 | `system_info` | API dirette; la query WMI solo se manca il binario | 41 ms (era 1.543) |
-| `list_installed_apps` | tre rami di registro letti da PowerShell | 594 ms |
+| `list_installed_apps` | registro diretto; PowerShell solo se manca il binario | 55 ms (era 594) |
 | `list_windows` | `Get-Process` + `ConvertTo-Csv` | 275 ms |
 | `focus_window` | `Add-Type` + `SetForegroundWindow` | — |
 | `close_application` | `Stop-Process` | — |
@@ -995,9 +995,9 @@ chiamate erano dieci in cinque moduli, con tre difetti di codifica diversi
 
 **Il prossimo, per costo misurato:**
 
-1. `list_installed_apps` — 594 ms. Tre rami di registro letti da PowerShell.
-   In Rust e' `RegEnumKeyExW` sugli stessi tre rami: nessuna scelta da fare,
-   e `nova-sistema` sa gia' leggere il registro.
+1. ~~`list_installed_apps`~~ — **fatto**: 594 ms → 55, 229 righe identiche in
+   ordine identico. Si e' portato dietro un taglio silenzioso a 250 che adesso
+   si dichiara (D129, D139).
 2. `list_windows` — 275 ms. `EnumWindows` + `GetWindowTextW`. Attenzione: NOVA
    ha **gia'** un albero UIA in `nova-platform` che sa elencare le finestre
    (`UiTree::windows`) — prima di scrivere, guardare se basta quello (D99).

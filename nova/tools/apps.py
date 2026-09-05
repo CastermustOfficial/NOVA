@@ -2,10 +2,17 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 from pathlib import Path
 
-from .. import powershell
+from .. import binari, powershell
+from ..processi import SENZA_FINESTRA
 from .base import Risk, ToolError, tool
+
+# Quante applicazioni si mostrano al massimo. Non e' un limite tecnico: e'
+# quanto contesto vale la pena spendere in un elenco. Cio' che avanza si
+# **dichiara**, non si taglia in silenzio (D129).
+MASSIMO_APP = 250
 
 # alias comodi -> comando/eseguibile
 APP_ALIASES = {
@@ -67,20 +74,53 @@ def open_application(name: str, arguments: str = "") -> str:
     preview=lambda a: f"Elenca le app installate contenenti '{a.get('filter') or ''}'",
 )
 def list_installed_apps(filter: str = "") -> str:
-    ps = (
-        "$k='HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*',"
-        "'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*',"
-        "'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*';"
-        "Get-ItemProperty $k -ErrorAction SilentlyContinue | "
-        "Where-Object {$_.DisplayName} | Select-Object -Expand DisplayName | Sort-Object -Unique"
-    )
-    r = powershell.esegui(ps, timeout=90)
-    names = [n.strip() for n in (r.stdout or "").splitlines() if n.strip()]
+    names = _app_rust()
+    if names is None:
+        ps = (
+            "$k='HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*',"
+            "'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*',"
+            "'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*';"
+            "Get-ItemProperty $k -ErrorAction SilentlyContinue | "
+            "Where-Object {$_.DisplayName} | Select-Object -Expand DisplayName | Sort-Object -Unique"
+        )
+        r = powershell.esegui(ps, timeout=90)
+        names = [n.strip() for n in (r.stdout or "").splitlines() if n.strip()]
     if filter:
         names = [n for n in names if filter.lower() in n.lower()]
     if not names:
         return "Nessuna applicazione trovata."
-    return "\n".join(names[:250])
+    # Il taglio si dichiara. Prima erano `names[:250]` e basta: su una
+    # macchina con trecento applicazioni il modello ne riceveva 250 e non
+    # aveva **nessun modo** di sapere che ne mancavano cinquanta — cercava un
+    # nome, non lo trovava, e concludeva che non e' installato (D129).
+    if len(names) > MASSIMO_APP:
+        quante = len(names)
+        righe = names[:MASSIMO_APP]
+        righe.append(f"[... e altre {quante - MASSIMO_APP} su {quante}: "
+                     f"restringi con «filter» per vederle]")
+        return "\n".join(righe)
+    return "\n".join(names)
+
+
+def _app_rust() -> list[str] | None:
+    """L'elenco chiesto al registro, senza shell in mezzo.
+
+    Sono le stesse tre chiavi che leggeva PowerShell, lette direttamente.
+    Misurato: 594 ms contro 55, e le 229 righe tornano **identiche e nello
+    stesso ordine** — confrontate riga per riga, non a occhio (D138).
+    """
+    b = binari.trova("nova-app")
+    if b is None:
+        return None
+    try:
+        r = subprocess.run([str(b)], capture_output=True, text=True,
+                           encoding="utf-8", timeout=30,
+                           creationflags=SENZA_FINESTRA)
+        if r.returncode != 0:
+            return None
+    except Exception:                                       # noqa: BLE001
+        return None
+    return [n.strip() for n in r.stdout.splitlines() if n.strip()]
 
 
 @tool(
