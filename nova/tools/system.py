@@ -7,7 +7,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from .. import binari, powershell
+from .. import attivita, binari, powershell
 from ..processi import SENZA_FINESTRA
 from ..scrittura import scrivi, scrivi_byte
 from .base import Risk, ToolError, tool
@@ -488,19 +488,12 @@ def _promemoria(dt: datetime.datetime, message: str) -> str:
     quella stringa dentro l'argomento `/TR` di `schtasks`, e il tutto dentro
     un `cmd /c` — tre livelli di virgolette annidate — e `schtasks` rispondeva
     «Opzione o argomento non valido: '-NoProfile'» anche per «chiamare il
-    dentista». Misurato l'8 settembre: otto messaggi su otto, tutti falliti
-    (D146).
+    dentista». Otto messaggi su otto (D146).
 
-    Adesso l'attivita' si descrive in XML, dove il programma e i suoi
-    argomenti sono due campi distinti e non c'e' niente da annidare. E il
-    messaggio dell'utente **non entra nella riga di comando affatto**: sta in
-    un file, e nell'XML finisce solo il percorso di quel file, che lo scrive
-    NOVA. Un dato dell'utente non entra in un linguaggio, nemmeno in quello
-    delle righe di comando (D141).
-
-    In piu' l'orario nell'XML e' ISO 8601. `schtasks /SD` vuole la data nel
-    formato della lingua del sistema: `03/09` e' il 3 settembre in Italia e il
-    9 marzo negli Stati Uniti, e nessuno dei due modi si accorge dell'altro.
+    Il come si crea un'attivita' sta in `nova/attivita.py`: era scritto qui e
+    anche in `pianifica`, e le due copie avevano gli stessi difetti perche'
+    erano nate dalla stessa idea sbagliata (D62, D72). Qui resta solo cio' che
+    e' del promemoria: il testo in un file, e `nova-notifica` a mostrarlo.
     """
     b = binari.trova("nova-notifica")
     if b is None:
@@ -516,75 +509,15 @@ def _promemoria(dt: datetime.datetime, message: str) -> str:
     # righe resta su piu' righe.
     scrivi(testo, "NOVA\n" + message)
 
-    xml = _xml_promemoria(dt, str(b), str(testo), message)
-    percorso_xml = cartella / f"{nome}.xml"
-    # `schtasks /XML` vuole UTF-16: con UTF-8 senza firma legge caratteri a
-    # caso e si lamenta di un XML malformato, che e' una diagnosi che porta
-    # lontano dalla causa.
-    scrivi_byte(percorso_xml, xml.encode("utf-16"))
     try:
-        r = subprocess.run(["schtasks", "/Create", "/TN", nome, "/XML",
-                            str(percorso_xml), "/F"],
-                           capture_output=True, text=True, encoding="utf-8",
-                           errors="replace", timeout=45,
-                           creationflags=SENZA_FINESTRA)
-    finally:
-        try:
-            percorso_xml.unlink()
-        except OSError:
-            pass
-    if r.returncode != 0:
-        raise ToolError((r.stderr or r.stdout).strip()[:400])
+        attivita.crea(nome, dt, str(b), f'--da-file "{testo}"',
+                      descrizione=message,
+                      # Il fumetto dura venti secondi: cinque minuti sono un
+                      # tetto largo, non un'attesa.
+                      durata_massima="PT5M")
+    except attivita.AttivitaFallita as e:
+        raise ToolError(str(e)) from e
     return f"Promemoria creato per {dt.strftime('%d/%m/%Y %H:%M')}: {message}"
-
-
-def _xml_promemoria(dt: datetime.datetime, programma: str, file_testo: str,
-                    descrizione: str) -> str:
-    """L'attivita' descritta come dato, non come riga di comando.
-
-    Separata per poterla guardare senza creare niente: una prova puo'
-    leggerla, e chi la legge vede che il messaggio dell'utente non compare
-    fra gli argomenti.
-    """
-    from xml.sax.saxutils import escape
-    fine = (dt + datetime.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S")
-    return f"""<?xml version="1.0" encoding="UTF-16"?>
-<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-  <RegistrationInfo>
-    <Description>{escape(descrizione[:200])}</Description>
-    <Author>NOVA</Author>
-  </RegistrationInfo>
-  <Triggers>
-    <TimeTrigger>
-      <StartBoundary>{dt.strftime('%Y-%m-%dT%H:%M:%S')}</StartBoundary>
-      <EndBoundary>{fine}</EndBoundary>
-      <Enabled>true</Enabled>
-    </TimeTrigger>
-  </Triggers>
-  <Principals>
-    <Principal id="Author">
-      <LogonType>InteractiveToken</LogonType>
-      <RunLevel>LeastPrivilege</RunLevel>
-    </Principal>
-  </Principals>
-  <Settings>
-    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
-    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
-    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
-    <StartWhenAvailable>true</StartWhenAvailable>
-    <Enabled>true</Enabled>
-    <Hidden>false</Hidden>
-    <ExecutionTimeLimit>PT5M</ExecutionTimeLimit>
-    <DeleteExpiredTaskAfter>PT1M</DeleteExpiredTaskAfter>
-  </Settings>
-  <Actions Context="Author">
-    <Exec>
-      <Command>{escape(programma)}</Command>
-      <Arguments>--da-file "{escape(file_testo)}"</Arguments>
-    </Exec>
-  </Actions>
-</Task>
-"""
 
 
 @tool(

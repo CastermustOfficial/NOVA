@@ -125,6 +125,21 @@ Adesso va a cercare il file dentro il Cestino di Windows. → D147
 
 > Cancellato e cestinato si somigliano solo da fuori.
 
+### Ho creduto rotti degli accenti che stavo solo leggendo male — di nuovo
+
+**Credevo** che `pianifica` storpiasse gli accenti: nell'attivita' registrata
+leggevo «perch? citt?». **Era vero** che li leggevo con `schtasks /Query`, che
+stampa nella tabella codici della console — lo stesso identico inciampo di
+poche ore prima con `_ps`. Rifatta la misura con `Get-ScheduledTask`, gli
+accenti erano intatti. **Me ne sono accorto** perche' il sospetto mi e' venuto
+familiare: l'avevo appena documentato.
+
+Il difetto vero era uno solo — l'apostrofo che diventava virgoletta — e per un
+minuto ne ho creduti due. → D131, D149
+
+> Aver scritto una lezione non impedisce di ripeterla. Aiuta solo a
+> riconoscerla piu' in fretta.
+
 ---
 
 ## Le forme che si ripetono
@@ -142,7 +157,8 @@ Rileggendole di fila, sono quasi tutte una di queste quattro:
    la stessa: *cosa succederebbe se il codice fosse rotto nel modo peggiore?*
 4. **Ho letto un sintomo come una causa.** «Non arriva niente» sembrava un
    difetto del codice ed era una condizione della macchina; «il filtro non
-   filtra» sembrava il demone ed ero io.
+   filtra» sembrava il demone ed ero io; e due volte gli accenti sembravano
+   rotti nel dato mentre erano rotti nel modo in cui li leggevo.
 
 La terza e' la piu' pericolosa, perche' le altre tre le trova qualcun altro —
 una prova, un compilatore, un errore. Una prova che non prova niente non la
