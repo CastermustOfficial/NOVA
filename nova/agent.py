@@ -25,6 +25,54 @@ from .tools import REGISTRY, Risk, ToolError, openai_schema, run_tool
 from .brains.base import LimiteUso
 
 
+#: I tre segnaposto che il prompt di sistema conosce.
+SEGNAPOSTO = ("{user}", "{now}", "{home}")
+
+
+def sostituisci_segnaposto(modello: str, utente: str, adesso: str, casa: str) -> str:
+    """I tre segnaposto, e nient'altro.
+
+    Prima si usava `str.format`, e `str.format` non guarda i tre segnaposto:
+    guarda **tutte** le graffe. Un prompt di sistema personalizzato che
+    contenga un esempio JSON — `{"a": 1}` — o una graffa vuota faceva saltare
+    la composizione con un `KeyError` grezzo, e la composizione avviene dentro
+    `Agent.__init__`: NOVA non partiva, e quello che si leggeva era
+    `KeyError: '"a"'`. Misurato con quattro prompt, non immaginato.
+
+    Chi scrive un prompt di sistema ci mette esempi, e gli esempi hanno le
+    graffe. Quindi non si formatta: si sostituisce, e tutto il resto resta
+    scritto com'e'.
+    """
+    return (modello
+            .replace("{user}", utente)
+            .replace("{now}", adesso)
+            .replace("{home}", casa))
+
+
+def componi_prompt(modello: str, utente: str, adesso: str, casa: str,
+                   lingua: str = "it") -> str:
+    """Il messaggio di sistema completo.
+
+    Le regole operative si aggiungono **sempre**, anche a un prompt
+    personalizzato: sono il minimo perche' NOVA sappia cosa puo' fare. Non si
+    ripetono solo se il prompt le contiene davvero, e per saperlo si cerca una
+    marca che vive dentro le regole stesse. Prima si cercava una frase del
+    prompt predefinito, che nel frattempo si e' separata dalle regole: chi
+    installava NOVA da zero si ritrovava senza quattordicimila caratteri di
+    istruzioni, e non lo diceva nessuno.
+
+    La lingua non si traduce: si **dice**. Tradurre il prompt vorrebbe dire
+    mantenere undici copie di un testo che cambia a ogni funzione nuova, e
+    vederle divergere.
+    """
+    from .config import INIZIO_REGOLE, REGOLE_OPERATIVE
+    from .lingue import clausola
+    base = sostituisci_segnaposto(modello, utente, adesso, casa)
+    if INIZIO_REGOLE not in base:
+        base += REGOLE_OPERATIVE
+    return base + clausola(lingua)
+
+
 class Denied(Exception):
     """L'utente ha rifiutato l'azione."""
 
@@ -175,28 +223,13 @@ class Agent:
             user = getpass.getuser()
         except Exception:
             user = "utente"
-        from .config import INIZIO_REGOLE, REGOLE_OPERATIVE
-        from .lingue import clausola
-        base = self.cfg.system_prompt.format(
-            user=user,
-            now=datetime.now().strftime("%A %d/%m/%Y %H:%M"),
-            home=str(Path.home()),
+        return componi_prompt(
+            self.cfg.system_prompt,
+            utente=user,
+            adesso=datetime.now().strftime("%A %d/%m/%Y %H:%M"),
+            casa=str(Path.home()),
+            lingua=getattr(self.cfg.ui, "lingua", "it"),
         )
-        # Il prompt non si traduce: si dice al modello in che lingua parlare.
-        # Tradurlo vorrebbe dire mantenere N copie di un testo che cambia a
-        # ogni funzione nuova, e vederle divergere.
-        # Le regole operative si aggiungono sempre, anche a un prompt
-        # personalizzato: sono il minimo perche' NOVA sappia cosa puo' fare.
-        # Non si ripetono solo se il prompt le contiene davvero, e per saperlo
-        # si cerca una marca che vive dentro le regole stesse. Prima si
-        # cercava una frase del prompt predefinito, che nel frattempo si e'
-        # separata dalle regole: chi installava NOVA da zero si ritrovava
-        # senza quattordicimila caratteri di istruzioni, e non lo diceva
-        # nessuno. Qui funzionava per il motivo sbagliato - la configurazione
-        # su questa macchina era vecchia e quella frase non ce l'aveva.
-        if INIZIO_REGOLE not in base:
-            base += REGOLE_OPERATIVE
-        return base + clausola(getattr(self.cfg.ui, "lingua", "it"))
 
     def reset(self, nuova_conversazione: bool = True) -> None:
         """Ripulisce la trascrizione in memoria.

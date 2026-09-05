@@ -4934,3 +4934,68 @@ volta sola. L'ho messo in `dove_ho_sbagliato.md` accanto alle tre prove che
 non provavano niente, con la differenza che le separa: quelle erano verdi
 **sempre** e per il motivo sbagliato — si smascherano guardandole — questa e'
 verde **a volte**, e guardarla non basta. Bisogna rimisurare.
+
+## 6 settembre 2026 — Il messaggio numero zero, e NOVA che non partiva
+
+Terzo pezzo di CANT-3: il prompt di sistema. Ventimila caratteri — 4.804 di
+prompt predefinito e 15.239 di regole operative — che il modello rilegge a
+ogni richiesta e che da soli valgono circa 5.200 token: un terzo del contesto
+prima che l'utente abbia detto qualcosa. Sta in `nova-contesto` perche' e' il
+messaggio numero zero della finestra, e la finestra sa gia' pesarlo.
+
+I testi non li ho ricopiati. Ventimila caratteri a mano sono ventimila
+occasioni di cambiare una parola, e una parola diversa e' un comportamento
+diverso che nessun tipo intercetta — la stessa ragione delle sessanta
+dichiarazioni (D112). `_estrai_prompt.py` li scrive, e poi fa la cosa che nel
+metodo conta piu' dello scrivere: **rilegge il file appena scritto**, sfila il
+letterale grezzo e lo confronta con la stringa Python. «Ho scritto il file»
+non e' una verifica; un delimitatore sbagliato darebbe un file plausibile e
+mutilato, e da li' in poi il banco confronterebbe il Rust con se stesso
+(D158). Poi il banco ripete il confronto a ogni esecuzione: una mutazione di
+**una** lettera dentro i quindicimila caratteri ha acceso nove verifiche, e
+ha detto a quale carattere.
+
+**E poi il difetto.** Il prompt si componeva con `str.format`:
+
+    base = self.cfg.system_prompt.format(user=..., now=..., home=...)
+
+`str.format` non guarda i tre segnaposto. Guarda **tutte** le graffe. Un
+`system_prompt` personalizzato in `config.json` che contenga un esempio JSON —
+e chi scrive un prompt di sistema ci mette esempi — salta con un `KeyError`
+grezzo. Misurato:
+
+    'Sei NOVA per {user}. Esempio JSON: {"a": 1}'  ->  KeyError '"a"'
+    'Sei NOVA per {user}. Le graffe {} cosi'      ->  IndexError
+    'Sei NOVA per {utente}'                        ->  KeyError 'utente'
+
+E la composizione avviene dentro `Agent.__init__`. Quindi non e' un turno
+andato male: **NOVA non parte**, e quello che l'utente legge e' un
+`KeyError`. E' il punto 2 del cancello della beta — nessun traceback
+raggiunge l'utente — trovato dove nessuna delle tre liste lo stava cercando,
+perche' su questa macchina il prompt e' quello predefinito e il predefinito ha
+esattamente le tre graffe giuste.
+
+La correzione e' smettere di formattare: si sostituiscono i tre segnaposto
+conosciuti e tutto il resto resta scritto com'e' (D157). Corretta da **tutte e
+due le parti insieme**, Python e Rust, perche' aggiustare solo il Rust
+vorrebbe dire che il banco non confronta piu' niente e che il difetto resta
+dove gira il codice (D153). Il banco confronta dieci prompt, compresi i
+quattro che prima esplodevano, e tre verifiche in piu' passano dalla porta da
+cui ci passa l'utente: `Agent.system_prompt` con quei prompt, e NOVA parte.
+
+Centosette verifiche.
+
+E una coda alla giornata: rimisurando, `test_prefisso.py` e' diventata rossa.
+Non per il difetto — per il nome. Quella prova verifica una cosa che da fuori
+non si vede, cioe' che nel prompt di sistema non ci sia niente che cambi da
+solo (un contatore, un'ora ricalcolata: basta quello per buttare via
+diecimila token di cache a ogni turno), e per farlo legge il **sorgente**.
+Cercava la stringa `now=datetime.now()`. Cambiata la composizione, quel nome
+non c'era piu'.
+
+Rosso a costo zero di informazione, e del tipo peggiore: quello che insegna a
+non guardare i rossi. Adesso la prova conta **quante volte** l'orologio viene
+letto dentro `system_prompt` — una — e controlla che nessun altro pezzo del
+turno lo rilegga. Stessa domanda, posta a cio' che il codice fa invece che a
+come e' scritto (D159). Verificata con una mutazione che legge l'ora due
+volte: rossa.

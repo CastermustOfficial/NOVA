@@ -45,6 +45,13 @@
 //! l'ultimo. Con due messaggi lunghi uguali le due parti accorcerebbero
 //! messaggi diversi, e la divergenza si vedrebbe solo su quel caso.
 
+// I testi che il modello rilegge a ogni richiesta, estratti dal Python.
+pub mod testi;
+
+// Il messaggio numero zero della finestra: come si compone, e in che lingua
+// si dice al modello di rispondere.
+pub mod sistema;
+
 /// Quanti caratteri vale un token, per stima.
 pub const CARATTERI_PER_TOKEN: f64 = 3.5;
 
