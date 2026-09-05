@@ -5150,3 +5150,69 @@ NOVA o la cavia. Chiamarla non provabile sarebbe scegliere l'ipotesi comoda,
 ed e' il modo esatto in cui una prova diventa verde per assenza. Resta rossa,
 ma senza traceback: adesso dice cosa e' successo e cosa provare prima di
 cercare il difetto nel codice (D165).
+
+## 7 settembre 2026, sera — Due foto che uscivano dal PC senza che nessuno lo dicesse
+
+Sesto pezzo di CANT-3: le immagini che entrano nella conversazione. Doveva
+essere una funzione di comodo, ed e' venuta fuori una domanda di privacy.
+
+La regola era: **se il risultato di uno strumento nomina un'immagine che sta
+su disco, quella si guarda**. Scritta cosi' vale anche per gli strumenti che
+verranno, ed e' esattamente il motivo per cui era stata scritta cosi'. E' una
+buona regola per `screenshot`, che di immagini ne produce una.
+
+Ma `search_files` restituisce **percorsi assoluti, uno per riga**. Ho
+misurato, con tre file finti in una cartella temporanea:
+
+    uscita finta di search_files:
+    C:\...\matrimonio-01.jpg
+    C:\...\matrimonio-02.jpg
+    C:\...\documento.png
+
+    percorsi riconosciuti: 3
+    messaggi aggiunti: 1
+      testo: [immagine: matrimonio-01.jpg, matrimonio-02.jpg] Questa e' la
+             figura prodotta dallo strumento...
+      blocco immagine, base64
+      blocco immagine, base64
+
+Quindi: «NOVA, trovami le foto del matrimonio» → due fotografie convertite in
+base64 e allegate alla conversazione → con un cervello a pagamento attivo,
+**fuori dal PC** al giro successivo. Nessuno lo dice, e non c'e' niente di
+rotto: lo strumento ha fatto il suo lavoro, la consegna ha fatto il suo.
+
+E sotto una riga che diceva «questa e' la figura **prodotta** dallo
+strumento», che non era nemmeno vero: nessuno strumento le aveva prodotte, una
+ricerca le aveva nominate. Non e' una sfumatura di stile — quella riga e'
+l'unica cosa che il modello legge per sapere da dove viene cio' che sta
+guardando (D167).
+
+**Dove passa il confine.** Non nella cartella: un utente puo' benissimo dire
+«guarda questa foto sul desktop», e restringere alle cartelle di NOVA
+romperebbe il caso legittimo. Non nella freschezza del file, per la stessa
+ragione. Passa nel **numero**: uno strumento che produce un'immagine ne
+produce una, un elenco ne nomina tante. Quindi una sola si consegna, molte si
+dichiarano e non si allegano — il modello sa che ci sono, sa quante sono, e
+puo' chiederne una per nome (D166).
+
+Il rifiuto sta in due posti — nella consegna e nella funzione che costruisce
+il messaggio — e l'ho verificato mutandoli uno per volta: togliendo il primo
+si accende una verifica, togliendo anche il secondo se ne accendono tre.
+
+**E il riconoscimento dei percorsi.** Scritto a mano invece che con
+l'espressione regolare, per la stessa ragione delle chiamate dentro il testo:
+scriverla a mano costringe a dire la regola ad alta voce. Qui la regola e' che
+si parte da `C:\` **o da una barra qualunque**, si prende il meno possibile e
+ci si ferma alla prima estensione di immagine. Il che vuol dire che
+`relativo/senza/attacco.png` da' `/senza/attacco.png` e `http://x.it/a/b.png`
+da' `//x.it/a/b.png`: non e' un difetto di questa scrittura, e' cosa fa la
+regola, e adesso c'e' una prova che lo dice invece di lasciarlo scoprire. Il
+filtro vero e' l'esistenza del file, non la forma del percorso.
+
+Sedici testi confrontati con il Python carattere per carattere. Mutazione di
+prova, il `+?` che diventa goloso: rossa su `C:\a.png\b.png`, dove il Rust
+prendeva tutta la riga e Python solo il primo pezzo.
+
+**Questa la lascio decisa ma non chiusa**: e' una scelta di prodotto, e la
+regola del numero potrebbe essere troppo stretta (un elenco con dentro una
+sola foto la manda comunque) o troppo larga. Gio dira'.

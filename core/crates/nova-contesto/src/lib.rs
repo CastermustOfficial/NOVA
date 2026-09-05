@@ -56,6 +56,9 @@ pub mod sistema;
 // per non buttare via la cache del prefisso a ogni turno.
 pub mod blocchi;
 
+// Le immagini che entrano nella conversazione, e quante.
+pub mod figure;
+
 /// Quanti caratteri vale un token, per stima.
 pub const CARATTERI_PER_TOKEN: f64 = 3.5;
 

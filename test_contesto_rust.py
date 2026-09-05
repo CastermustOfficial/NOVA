@@ -312,8 +312,33 @@ DOMANDE = [
     ("con accenti perché", "<mem è>", "", "<sei_nova>", ""),
 ]
 
+# I percorsi di immagine nominati in un testo: la regola decide **quali file
+# possono uscire dal PC**, quindi un percorso in piu' o in meno non e' un
+# dettaglio di riconoscimento.
+FIGURE = [
+    "",
+    "nessun percorso qui, solo parole",
+    "testo.png senza attacco",
+    r"Schermata salvata in C:\Users\gio\NOVA\schermate\20260907-x.png",
+    "vedi /home/gio/foto.JPEG",
+    r"C:\a.png\b.png",
+    r"C:\solo\una\cartella",
+    "relativo/senza/attacco.png",
+    "http://x.it/a/b.png",
+    "C:\\f\\a.jpg\nC:\\f\\b.jpg\nC:\\f\\c.png",
+    r"C:\f\con accento perché.png",
+    r'fra virgolette "C:\f\x.png" e dopo',
+    r"C:\f\MAIUSCOLO.PNG e C:\f\misto.JpEg",
+    r"C:\f\x.pngx e C:\f\y.bmp",
+    r"maiuscola D:\f\z.WEBP",
+    "due /a/b.gif e /c/d.gif",
+]
+MISURE = [(800, 600), (3840, 2160), (1568, 1568), (1569, 1), (1, 20000),
+          (0, 0), (2000, 1000), (100, 100)]
+
 fuori2 = rust({"prompt": PROMPT, "lingue": LINGUE_PROVATE, "memorie": MEMORIE,
-               "domande": [list(x) for x in DOMANDE]})
+               "domande": [list(x) for x in DOMANDE],
+               "figure": FIGURE, "misure": [list(x) for x in MISURE]})
 
 print("\n-- i testi estratti, carattere per carattere --")
 py_testi = {"INIZIO_REGOLE": INIZIO_REGOLE,
@@ -381,6 +406,31 @@ for prompt in ['Sei NOVA per {user}. Esempio: {"a": 1}',
     except Exception as e:                                     # noqa: BLE001
         esito, dettaglio = False, f"{type(e).__name__}: {e}"
     controlla(f"NOVA parte con il prompt {prompt[:30]!r}", esito, dettaglio)
+
+print("\n-- i percorsi di immagine, che decidono cosa puo' uscire dal PC --")
+from nova.immagini import _PERCORSO                             # noqa: E402
+
+for testo, ru in zip(FIGURE, fuori2["figure"]):
+    py = _PERCORSO.findall(testo)
+    controlla(f"figure in {testo[:34]!r}", py == ru, f"rust {ru} vs python {py}")
+
+controlla("il banco ha un caso in cui ne trova piu' di una",
+          any(len(x) > 1 for x in fuori2["figure"]),
+          "senza, la differenza fra «una» e «tante» non e' provata")
+
+
+def py_misura(w, h, lato_massimo=1568):
+    lato = max(w, h)
+    if lato <= lato_massimo or lato == 0:
+        return [w, h]
+    fattore = lato_massimo / lato
+    return [max(1, int(w * fattore)), max(1, int(h * fattore))]
+
+
+diverse = [f"{m}: rust {r} vs python {py_misura(*m)}"
+           for m, r in zip(MISURE, fuori2["misure"]) if list(r) != py_misura(*m)]
+controlla(f"i {len(MISURE)} ridimensionamenti sono identici", not diverse,
+          " | ".join(diverse[:2]))
 
 print("\n-- la lingua, che si dice e non si traduce --")
 for codice, ru in zip(LINGUE_PROVATE, fuori2["lingue"]):

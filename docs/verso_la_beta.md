@@ -1525,6 +1525,23 @@ provabile sarebbe scegliere l'ipotesi comoda — che e' il modo esatto in cui
 una prova diventa verde per assenza. Resta rossa, ma senza traceback (D165).
 
 
+**CANT-3, sesto pezzo: le immagini — e una domanda di privacy dentro una
+funzione di comodo.** La regola «se il risultato di uno strumento nomina
+un'immagine che sta su disco, quella si guarda» era stata scritta per
+`screenshot`, che di immagini ne produce una. Ma `search_files` restituisce
+percorsi assoluti uno per riga: «trova le foto del matrimonio» faceva
+convertire in base64 le **prime due** e allegarle alla conversazione — quindi,
+con un cervello a pagamento, uscivano dal PC al giro dopo, sotto una riga che
+diceva «questa e' la figura prodotta dallo strumento» e non era vero.
+Misurato con tre file finti.
+
+Il confine non e' la cartella — «guarda questa foto sul desktop» e' legittimo
+— ma il **numero**: una sola si consegna, molte si dichiarano e non si
+allegano (D166, D167). E' una scelta di prodotto, e resta da confermare: la
+regola del numero manda comunque una foto se la ricerca ne trova esattamente
+una.
+
+
 ## Il cancello della beta
 
 Non e' una data, sono cinque frasi che devono essere vere insieme:

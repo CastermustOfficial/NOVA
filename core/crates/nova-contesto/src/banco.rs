@@ -9,6 +9,7 @@
 use std::io::Read;
 
 use nova_contesto::blocchi;
+use nova_contesto::figure;
 use nova_contesto::sistema;
 use nova_contesto::testi;
 use nova_contesto::{spazio_per_la_conversazione, stima_token, taglia, token_dei, Messaggio};
@@ -83,6 +84,12 @@ struct Dentro {
     /// (testo, memoria, procedure, identita, postilla) da comporre.
     #[serde(default)]
     domande: Vec<(String, String, String, String, String)>,
+    /// Testi in cui cercare i percorsi di immagine.
+    #[serde(default)]
+    figure: Vec<String>,
+    /// (larghezza, altezza) da ridimensionare.
+    #[serde(default)]
+    misure: Vec<(u32, u32)>,
 }
 
 #[derive(Serialize)]
@@ -127,6 +134,8 @@ struct Fuori {
     memorie: Vec<String>,
     identita: Vec<String>,
     domande: Vec<String>,
+    figure: Vec<Vec<String>>,
+    misure: Vec<(u32, u32)>,
 }
 
 fn main() {
@@ -222,6 +231,12 @@ fn main() {
             .domande
             .iter()
             .map(|(t, m, p, i, po)| blocchi::domanda(t, m, p, i, po))
+            .collect(),
+        figure: d.figure.iter().map(|t| figure::nominate(t)).collect(),
+        misure: d
+            .misure
+            .iter()
+            .map(|(w, h)| figure::nuova_misura(*w, *h, figure::LATO_MASSIMO))
             .collect(),
     };
 
