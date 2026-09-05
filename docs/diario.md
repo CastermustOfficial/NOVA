@@ -4791,3 +4791,72 @@ che si ripetono: avevo guardato la cartella, non i file.
 
 Quindi CANT-2 e' chiuso, con la sua tabella di ragioni file per file in
 [verso_la_beta.md](verso_la_beta.md), e si apre CANT-3.
+
+## 5 settembre 2026, notte — CANT-3 comincia dal pezzo che se sbaglia non lo dice
+
+Aperto CANT-3 dalla parte piu' delicata di tutto il progetto, che e' anche la
+piu' piccola: **il taglio del contesto**. Duecento righe di Python che
+decidono cosa il modello legge e cosa no.
+
+La ragione per cominciare di li' e' la stessa che ha guidato la memoria
+(D148), e vale la pena scriverla di nuovo perche' e' un'asimmetria e non un
+giudizio. Un ordinamento sbagliato **si vede**: la risposta e' storta, e chi
+legge se ne accorge. Un messaggio **buttato** no: il modello risponde come se
+non fosse mai stato detto, con la stessa sicurezza di sempre, e nessuno dei
+due lati della conversazione ha modo di sapere che manca un pezzo. E' l'unico
+posto del progetto dove un difetto puo' restare invisibile per sempre.
+
+Il pezzo nuovo e' `nova-contesto`. Fuori restano di proposito due cose: il
+tokenizzatore vero — sta nel modello, cambia con il modello, e chiederglielo
+costerebbe un giro di rete per messaggio a ogni turno solo per decidere se
+tagliare — e la configurazione. Chi chiama sa quanto vale il contesto; zero
+vuol dire «non lo so», e allora non si tocca niente.
+
+**La trappola che il Rust si porta dietro da solo.** In Python `len(testo)`
+conta caratteri e `testo[:meta]` taglia caratteri. In Rust la stessa scrittura
+su `&str` conta **byte**. In italiano non e' la stessa cosa: «perché la città
+è così» pesa piu' byte che caratteri, quindi una stima a byte direbbe che il
+messaggio e' piu' grosso del vero e taglierebbe **prima** — in silenzio, e
+proprio nelle conversazioni in italiano, cioe' tutte. E il taglio a byte
+dentro una lettera accentata non e' un errore di stima: e' un panico, che
+arriva all'utente. Tutto il modulo lavora su `char` (D152).
+
+Poi la cosa che non avrei visto senza scrivere la prova: `max(range(n),
+key=...)` in Python restituisce il **primo** massimo, `max_by_key` in Rust
+l'**ultimo**. Con due messaggi lunghi uguali le due parti accorcerebbero
+messaggi diversi.
+
+**Il banco.** Ventisette scenari, confrontati contro l'`Agent` vero costruito
+con `__new__` — perche' il taglio non guarda ne' il modello ne' gli strumenti,
+e costruire l'agente per davvero vorrebbe dire accendere un modello per
+provare dell'aritmetica. Non si confronta solo l'elenco finale: si confrontano
+anche **quanti** messaggi sono stati tolti e **per quale ragione**, perche'
+due implementazioni possono arrivare allo stesso elenco per strade diverse e
+divergere al primo caso che le separa (D51). Settantatre verifiche.
+
+Sono passate tutte al primo colpo, e un verde al primo colpo su un pezzo cosi'
+non e' una buona notizia finche' non si e' visto diventare rosso (D53). Tre
+mutazioni fatte apposta nel Rust:
+
+    stima a byte invece che a caratteri   ->  7 verifiche rosse
+    obiettivo a 0,80 invece di 0,75       ->  4 verifiche rosse
+    scarto degli orfani tolto             ->  5 verifiche rosse
+
+La prima e' quella che conta di piu': ha acceso **solo** gli scenari con testo
+accentato. Se il banco avesse avuto solo scenari in inglese sarebbe rimasto
+verde per sempre, e il difetto sarebbe uscito sul PC di qualcuno.
+
+**Due cose scoperte, e nessuna delle due aggiustata.** Il taglio a numero non
+ha la rete che ha il taglio a token: se la coda finisce tutta in risposte di
+tool orfane, resta il solo messaggio di sistema e la conversazione sparisce
+senza che niente lo dica, mentre il taglio a token in quel caso ripesca
+l'ultimo messaggio. E la funzione che accorcia il messaggio piu' grosso oggi
+riceve **sempre un solo messaggio**, perche' chi la chiama ci arriva solo dopo
+che il ciclo di svuotamento ha lasciato la coda vuota: il codice che sceglie
+fra piu' messaggi non e' morto, e' dormiente.
+
+Le ho portate uguali tutte e due, con una prova che descrive il comportamento
+**vero** invece di quello desiderato, e le ho scritte qui (D153). Aggiustare in
+Rust cio' che il Python fa diversamente vuol dire due cose insieme: che il
+banco non confronta piu' niente, e che il difetto resta comunque in
+produzione, dove il codice gira ancora oggi. Prima uguali, poi si discute.
