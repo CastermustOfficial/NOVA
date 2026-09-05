@@ -907,8 +907,8 @@ ci dipendono davvero.
 | `type_text` | `SendInput` Unicode, **col fuoco verificato** | e la risposta nomina la finestra (D143) |
 | `press_keys` | `SendInput`, e i simboli si rifiutano | dipendono dalla disposizione della tastiera |
 | `list_processes` | `psutil`, e ripiega su `list_windows` se manca | 645 ms |
-| `delete_path` | `send2trash`, e il Cestino via PowerShell se manca | — |
-| `move_path` | idem, quando lo spostamento passa dal Cestino | — |
+| `delete_path` | `IFileOperation`; le altre due strade solo se manca | si rompeva su un apostrofo (D147) |
+| `move_path` | idem, quando lo spostamento passa dal Cestino | idem |
 
 `create_reminder` non e' piu' in tabella: chiama `schtasks` con un elenco di
 argomenti, come si chiama un programma. Non e' una shell — la differenza non

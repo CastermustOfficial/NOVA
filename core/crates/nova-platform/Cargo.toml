@@ -112,3 +112,7 @@ path = "src/bin/nova-processi.rs"
 [[bin]]
 name = "nova-tastiera"
 path = "src/bin/nova-tastiera.rs"
+
+[[bin]]
+name = "nova-file"
+path = "src/bin/nova-file.rs"

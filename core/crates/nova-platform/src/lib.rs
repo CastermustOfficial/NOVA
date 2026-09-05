@@ -59,6 +59,10 @@ pub mod processi;
 // prima guardato chi ha il fuoco, e la risposta nomina la finestra.
 pub mod tastiera;
 
+// Il Cestino: cancellare in un modo che si puo' disfare. Premessa N2 —
+// prima la reversibilita', poi il permesso.
+pub mod cestino;
+
 // Se i byte di un file stanno qui o nel cloud. Serve prima di leggere un
 // modello da dodici gigabyte che una cartella sincronizzata puo' aver
 // «liberato» lasciando un segnaposto al suo posto.
