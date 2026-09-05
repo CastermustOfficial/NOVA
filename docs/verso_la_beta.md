@@ -901,23 +901,35 @@ ci dipendono davvero.
 | `system_info` | API dirette; la query WMI solo se manca il binario | 41 ms (era 1.543) |
 | `list_installed_apps` | registro diretto; PowerShell solo se manca il binario | 55 ms (era 594) |
 | `list_windows` | `EnumWindows` diretto; PowerShell solo se manca il binario | 23 ms (era 275) |
-| `focus_window` | `Add-Type` + `SetForegroundWindow` | — |
-| `close_application` | `Stop-Process` | — |
-| `open_application` | `Start-Process` | — |
+| `focus_window` | `SetForegroundWindow` diretto, **con verifica** | e dice se Windows ha detto no (D142) |
+| `close_application` | elenca, mostra, chiude **un pid** | via il modello di ricerca (D141) |
+| `open_application` | `ShellExecuteExW` diretto | via il guaio delle virgolette |
 | `type_text` | `keyboard`, e `SendKeys` se manca | — |
 | `press_keys` | idem | — |
 | `create_reminder` | `schtasks` con dentro un comando PowerShell | — |
+| `list_processes` | `psutil`, e ripiega su `list_windows` se manca | 645 ms |
+| `delete_path` | `send2trash`, e il Cestino via PowerShell se manca | — |
+| `move_path` | idem, quando lo spostamento passa dal Cestino | — |
 
 Piu' undici funzioni interne, di cui sei sono la **semina del vault**: e'
 quella che scrive i nomi delle cartelle dell'utente dentro i ricordi.
 
-`list_processes` **non** e' in questo elenco, e la prima versione della tabella
-ce l'aveva messo: usa `psutil`, e ripiega su `list_windows` solo se manca. Se
-ne e' accorta `test_conto_shell.py` — che confronta questa tabella con cio' che
-il codice fa davvero, in tutti e due i versi: nessuno che chiami una shell puo'
-restare fuori dalla tabella, e nessuno puo' restarci dopo essere stato portato.
-E' l'unico modo perche' un elenco scritto a mano non racconti un'altra storia
-sei mesi dopo (D46, D136).
+Questa tabella e' tenuta ferma da `test_conto_shell.py`, che la confronta con
+cio' che il codice fa davvero **in tutti e due i versi**: nessuno che chiami
+una shell puo' restare fuori, e nessuno puo' restarci dopo essere stato
+portato. E' l'unico modo perche' un elenco scritto a mano non racconti
+un'altra storia sei mesi dopo (D46, D136).
+
+Ha gia' corretto la tabella due volte. La prima: ci avevo messo
+`list_processes` fra quelli che dipendono da una shell, e non ci dipende
+direttamente — usa `psutil`. La seconda e' piu' istruttiva. Quando
+`close_application` ha spostato il suo ripiego dentro una funzione
+d'appoggio, la prova ha smesso di vederlo: guardava solo il corpo dello
+strumento, e **un conteggio che si azzera spostando tre righe in un'altra
+funzione non e' un conteggio**. Ora segue un livello di chiamata — e appena
+l'ha fatto ha trovato tre strumenti che la tabella non aveva mai nominato:
+`list_processes` (per il ripiego su `list_windows`), `delete_path` e
+`move_path` (per il Cestino, che senza `send2trash` passa da PowerShell).
 
 L'ordine l'ha deciso la misura: `system_info` costava quasi un secondo e
 mezzo, piu' di tutte le altre messe insieme, ed e' anche quella che il modello
@@ -1002,10 +1014,11 @@ chiamate erano dieci in cinque moduli, con tre difetti di codifica diversi
    il backend UIA che non le serviva: spostata, non riscritta (D99). E la
    strada vecchia rispondeva a un'altra domanda — una finestra per programma
    invece di ogni finestra (D140).
-3. `focus_window`, `close_application`, `open_application` — non misurati
-   perche' cambiano lo stato del PC, e una misura non deve fare danni per
-   sapere quanto costa. Sono `SetForegroundWindow`, `TerminateProcess` e
-   `ShellExecuteExW`.
+3. ~~`focus_window`, `close_application`, `open_application`~~ — **fatti**, e
+   qui non contava la velocita': `close_application` incollava il nome dentro
+   un `-like` di PowerShell, e `*` selezionava 292 processi su 292 (D141).
+   `focus_window` non guardava se `SetForegroundWindow` aveva detto di no
+   (D142).
 4. `type_text` e `press_keys` — `SendInput`. Da fare con calma: sono gli unici
    due strumenti marcati «ultima spiaggia», e sbagliarli vuol dire scrivere
    nella finestra sbagliata mentre l'utente lavora.

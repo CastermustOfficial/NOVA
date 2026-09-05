@@ -50,6 +50,11 @@ pub mod registro;
 // leggeva PowerShell, letti direttamente.
 pub mod applicazioni;
 
+// I processi. Qui la selezione e l'azione sono separate di proposito: si
+// elenca, si guarda, e si chiude **un pid** — non un modello di ricerca
+// (D141).
+pub mod processi;
+
 // Se i byte di un file stanno qui o nel cloud. Serve prima di leggere un
 // modello da dodici gigabyte che una cartella sincronizzata puo' aver
 // «liberato» lasciando un segnaposto al suo posto.

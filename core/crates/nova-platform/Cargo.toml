@@ -58,6 +58,10 @@ features = [
     # passa. Dall'altra parte la notifica e' un processo PowerShell che resta
     # in piedi nove secondi, e a farlo e' NOVA (D134).
     "Win32_UI_Shell",
+    # I processi: la fotografia di chi c'e' (ToolHelp), quanta memoria usa
+    # (ProcessStatus) e il permesso di fermarne uno (Threading).
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_ProcessStatus",
     # Com'e' fatto il PC, chiesto al sistema invece che a una query WMI dentro
     # una stringa: memoria, processori, tempo acceso (SystemInformation), la
     # batteria (Power) e il nome commerciale del sistema e della CPU, che
@@ -97,3 +101,7 @@ path = "src/bin/nova-app.rs"
 [[bin]]
 name = "nova-finestre"
 path = "src/bin/nova-finestre.rs"
+
+[[bin]]
+name = "nova-processi"
+path = "src/bin/nova-processi.rs"

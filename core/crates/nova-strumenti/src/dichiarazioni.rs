@@ -67,14 +67,14 @@ pub const STRUMENTI: &[Strumento] = &[
     },
     Strumento {
         nome: "close_application",
-        descrizione: "Chiude un'applicazione per nome processo o titolo finestra.",
+        descrizione: "Chiude uno o piu' processi il cui nome, o il titolo di una cui finestra, contiene il testo dato. La corrispondenza e' per sottostringa: non ci sono caratteri jolly, e un testo vuoto non chiude niente.",
         rischio: Rischio::Pericoloso,
         categoria: "app",
         obbligatori: &["name"],
         anteprima: None,
         parametri: &[
-        Parametro { nome: "name", tipo: "string", descrizione: "Nome del processo (es. notepad) o titolo finestra", elementi: None },
-        Parametro { nome: "force", tipo: "boolean", descrizione: "Termina forzatamente senza salvare", elementi: None }
+        Parametro { nome: "name", tipo: "string", descrizione: "Testo contenuto nel nome del processo (es. notepad) o nel titolo di una sua finestra", elementi: None },
+        Parametro { nome: "force", tipo: "boolean", descrizione: "Termina subito, senza dare al programma la possibilita' di chiedere se salvare", elementi: None }
         ],
     },
     Strumento {

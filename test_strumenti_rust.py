@@ -37,6 +37,7 @@ if not BINARIO.is_file():
     sys.exit(2)
 
 from nova import tools  # noqa: E402
+from nova.tools import apps  # noqa: E402
 
 passati = 0
 falliti: list[str] = []
@@ -87,13 +88,28 @@ def argomenti_per(t) -> list[dict]:
     return fuori
 
 
+# Un'anteprima che **deve** interrogare il sistema, e perche' e' un'eccezione.
+#
+# La regola generale e' che l'anteprima sia una funzione pura degli argomenti:
+# cosi' il Rust puo' produrla identica, e questo banco puo' confrontarle. Per
+# `close_application` quella regola non si puo' rispettare, e non per pigrizia:
+# una funzione pura degli argomenti **non e' in grado** di dire a una persona
+# cosa sta approvando. «Termina FORZATAMENTE 'notepad'» e' pura, ed e' proprio
+# la riga che non diceva che dentro c'era una nota non salvata (D141).
+#
+# Quindi qui si confronta il Rust con la **forma degradata** del Python —
+# quella che resta quando il sistema non si puo' interrogare — e si verifica a
+# parte che quella vera dica di piu'. L'eccezione e' una sola, e sta scritta.
+SENZA_SISTEMA = {"close_application": apps._anteprima_chiusura_semplice}
+
 DOMANDE = []
 ATTESE = []
 for nome in sorted(tools.REGISTRY):
     t = tools.REGISTRY[nome]
     for args in argomenti_per(t):
         DOMANDE.append([nome, args])
-        ATTESE.append(t.describe_call(args))
+        semplice = SENZA_SISTEMA.get(nome)
+        ATTESE.append(semplice(args) if semplice else t.describe_call(args))
 
 dentro = json.dumps({"anteprime": DOMANDE}, ensure_ascii=False)
 p = subprocess.run([str(BINARIO)], input=dentro, capture_output=True,
@@ -262,6 +278,17 @@ diverse = [f"{p!r}: rust {suo!r} vs python {py_scrittura(p)!r}"
            if suo != py_scrittura(p)]
 controlla("la guardia di scrittura dice le stesse cose", not diverse,
           " | ".join(diverse[:2]))
+
+# E l'eccezione va guardata, non solo esentata: l'anteprima vera di
+# `close_application` deve dire **di piu'** di quella degradata, altrimenti
+# l'esenzione starebbe coprendo una funzione che non fa il suo lavoro.
+argomenti = {"name": "svchost", "force": True}
+semplice = apps._anteprima_chiusura_semplice(argomenti)
+vera = apps._anteprima_chiusura(argomenti)
+controlla("l'anteprima di close_application dice piu' della sua forma degradata",
+          vera != semplice and len(vera) > len(semplice), f"{vera!r} vs {semplice!r}")
+controlla("e nomina i processi, non solo il testo cercato",
+          "pid" in vera or "nessun processo" in vera, vera[:140])
 
 # E la domanda sul risultato, non sull'accordo (D51): il buco deve essere
 # chiuso da tutte e due le parti, non solo uguale.

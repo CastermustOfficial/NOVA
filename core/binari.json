@@ -32,6 +32,7 @@
     { "nome": "nova-notifica", "che_fa": "mostra una notifica e resta lui ad aspettare che il fumetto finisca: senza di lui ad aspettare quei nove secondi e' NOVA" },
     { "nome": "nova-sistema", "che_fa": "com'e' fatto il PC — sistema, CPU, RAM, dischi, batteria — chiesto alle API invece che a una query WMI: 41 ms contro 1.543" },
     { "nome": "nova-app", "che_fa": "che applicazioni sono installate: gli stessi tre rami di registro che leggeva PowerShell, letti direttamente — 55 ms contro 594" },
-    { "nome": "nova-finestre", "che_fa": "che finestre sono aperte, in ordine di pila: EnumWindows senza shell e senza UI Automation — e vede ogni finestra, non una per programma" }
+    { "nome": "nova-finestre", "che_fa": "che finestre sono aperte, in ordine di pila: EnumWindows senza shell e senza UI Automation — e vede ogni finestra, non una per programma" },
+    { "nome": "nova-processi", "che_fa": "elenca i processi, ne chiude UNO per pid, e avvia un programma: la selezione e l'azione sono separate perche' un modello di ricerca con dentro un asterisco chiudeva tutto" }
   ]
 }
