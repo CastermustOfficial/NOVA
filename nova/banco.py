@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 import os
 import shutil
 import subprocess
@@ -54,6 +55,38 @@ RIPARAZIONI = RADICE / "runtime" / "riparazioni"
 # che si pianta non e' «non ancora finita»: e' rossa. Aspettarla per sempre
 # vorrebbe dire un banco che non si chiude mai.
 ATTESA_PROVA_S = 90
+
+# Ma qualche prova aspetta il mondo, non il codice: `test_promemoria.py`
+# chiede a Windows di eseguire un'attivita' a un'ora, e poi sta li' finche'
+# quell'ora non arriva. Puo' dichiararlo scrivendo nelle prime righe
+#
+#     # banco: attesa 240
+#
+# e il banco le concede quel tempo invece dei novanta secondi. Non e' un
+# permesso di essere lente: e' la differenza fra «e' piantata» e «sta
+# aspettando l'orologio», che senza dichiarazione il banco non puo' sapere —
+# e che finora decideva **il secondo in cui la prova era partita**.
+#
+# Il tetto resta, perche' una dichiarazione sbagliata non deve poter
+# bloccare il banco per sempre.
+ATTESA_MASSIMA_S = 300
+_ATTESA_DICHIARATA = re.compile(r"^#\s*banco:\s*attesa\s+(\d+)\s*$", re.M)
+
+
+def attesa_di(prova: Path) -> int:
+    """Quanto tempo concedere a questa prova.
+
+    Si legge dal file senza importarlo: importare una prova per sapere quanto
+    dura vorrebbe dire eseguirla.
+    """
+    try:
+        testa = prova.read_text(encoding="utf-8", errors="replace")[:4000]
+    except OSError:
+        return ATTESA_PROVA_S
+    trovato = _ATTESA_DICHIARATA.search(testa)
+    if not trovato:
+        return ATTESA_PROVA_S
+    return max(ATTESA_PROVA_S, min(ATTESA_MASSIMA_S, int(trovato.group(1))))
 
 # Cosa non si tocca mai, nemmeno con tutte le prove verdi.
 #
@@ -168,11 +201,12 @@ def verifica_grezza(cartella: Path) -> dict:
 
     for prova in _prove(cartella):
         inizio = time.time()
+        concesso = attesa_di(prova)
         try:
             p = subprocess.run(
                 [sys.executable, prova.name], cwd=str(cartella),
                 capture_output=True, text=True, encoding="utf-8", errors="replace",
-                timeout=ATTESA_PROVA_S,
+                timeout=concesso,
                 env={**os.environ, "PYTHONIOENCODING": "utf-8"},
             )
             uscita = ((p.stdout or "") + (p.stderr or "")).strip()
@@ -181,8 +215,8 @@ def verifica_grezza(cartella: Path) -> dict:
                           "coda": uscita[-400:]})
         except subprocess.TimeoutExpired:
             esiti.append({"nome": prova.name, "ok": False,
-                          "secondi": float(ATTESA_PROVA_S),
-                          "coda": f"appesa: non e' finita entro {ATTESA_PROVA_S}s"})
+                          "secondi": float(concesso),
+                          "coda": f"appesa: non e' finita entro {concesso}s"})
 
     return {
         "prove": esiti,

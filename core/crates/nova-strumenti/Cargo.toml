@@ -18,11 +18,15 @@ glob = "0.3"
 # scrive lui.
 nova-calendario = { path = "../nova-calendario" }
 regex = "1"
+# Non piu' opzionale da quando il pacchetto sa leggere le chiamate che certi
+# modelli scrivono **dentro il testo** invece che nel canale dei tool: quel
+# testo e' JSON, e riconoscerne un sottoinsieme scritto a mano vorrebbe dire
+# eseguire cose diverse da quelle chieste.
+serde_json = { workspace = true }
 serde = { workspace = true, features = ["derive"], optional = true }
-serde_json = { workspace = true, optional = true }
 
 [features]
-banco = ["dep:serde", "dep:serde_json"]
+banco = ["dep:serde"]
 
 [[bin]]
 name = "banco-strumenti"

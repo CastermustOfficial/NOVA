@@ -1439,6 +1439,22 @@ ci si arriva mai con piu' di uno. Sono da discutere con Gio, non da correggere
 di nascosto: prima le due parti devono essere uguali.
 
 
+**CANT-3, secondo pezzo: i due punti in cui il testo tocca il mondo.** Non e'
+ancora il ciclo. Sono le chiamate che certi modelli scrivono **dentro il
+discorso** invece che nel canale apposito — il punto in cui della prosa
+diventa un'azione — e il ritorno: un risultato troppo lungo che va su file,
+lasciando testa, coda e il percorso per rileggerlo. Stanno in
+`nova-strumenti`, dove c'era gia' tutto il resto di una chiamata: la
+dichiarazione, la guardia, il racconto (D99).
+
+Il lettore delle chiamate e' scritto a mano e non ricopiato dall'espressione
+regolare, perche' scriverlo a mano costringe a dire la regola ad alta voce:
+la graffa dev'essere la prima cosa non bianca dopo l'apertura, e
+`<tool_call> ecco: {...}` non e' una chiamata (D154). E gli argomenti si
+rendono **come li rende Python**, separatori compresi, perche' quella stringa
+non e' una rappresentazione: e' cio' che lo strumento riceve (D155).
+
+
 ## Il cancello della beta
 
 Non e' una data, sono cinque frasi che devono essere vere insieme:

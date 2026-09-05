@@ -158,6 +158,25 @@ un `grep` sugli import prima di cominciare, invece che dopo: cinque minuti.
 > finche' il progetto e' piccolo.
 
 
+### Ho riferito un verde che era una monetina
+
+**Credevo** di aver misurato la suite quando ho scritto «ottanta prove verdi,
+zero rosse», e l'ho messo in un messaggio di commit. **Era vero** che una di
+quelle ottanta — `test_promemoria.py` — dura fra i 35 e i 95 secondi a seconda
+del **secondo in cui parte**, contro i novanta che il banco concede: era verde
+per caso. Mezz'ora dopo, sulla stessa identica riga di codice, e' uscita
+«appesa». **Me ne sono accorto** solo perche' ho rimisurato: se avessi
+misurato una volta sola avrei chiuso la giornata con un numero falso, e il
+prossimo a vederla rossa avrebbe cercato il difetto in cio' che aveva toccato
+lui. → D156
+
+> Un verde non e' un fatto, e' una misura, e una misura fatta una volta sola
+> non dice se e' ripetibile. E questo non e' come le tre prove che non
+> provavano niente: quella era verde **sempre** e per il motivo sbagliato,
+> questa e' verde **a volte** — che e' peggio, perche' la prima si smaschera
+> guardandola e la seconda no.
+
+
 ---
 
 ## Le forme che si ripetono
@@ -174,6 +193,8 @@ Rileggendole di fila, sono quasi tutte una di queste quattro:
    capitava su questa macchina, o perche' chiedeva una cosa piu' debole di
    quella che serviva — e tre volte su tre la domanda che l'ha smascherata e'
    la stessa: *cosa succederebbe se il codice fosse rotto nel modo peggiore?*
+   La variante peggiore di questa e' la prova che fallisce **a volte**: quella
+   non la smaschera nemmeno guardarla, solo rimisurarla.
 4. **Ho letto un sintomo come una causa.** «Non arriva niente» sembrava un
    difetto del codice ed era una condizione della macchina; «il filtro non
    filtra» sembrava il demone ed ero io; e due volte gli accenti sembravano
