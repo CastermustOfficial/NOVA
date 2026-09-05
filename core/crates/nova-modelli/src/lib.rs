@@ -28,6 +28,10 @@ pub mod motore;
 pub mod strati;
 pub mod trova;
 
+// Come si accende il modello locale: la riga di comando, la scala dei layer,
+// e l'unico errore che vale la pena riprovare.
+pub mod avvio;
+
 pub use gguf::{e_gguf, forma, metadati, Forma, Valore};
 pub use motore::{acceleratore_di, motori, Acceleratore, Motore};
 pub use strati::{peso_kv, strati_su_gpu, PESO_KV, RISERVA_MB};
