@@ -8,6 +8,8 @@
 
 use std::io::Read;
 
+use nova_contesto::sistema;
+use nova_contesto::testi;
 use nova_contesto::{spazio_per_la_conversazione, stima_token, taglia, token_dei, Messaggio};
 use serde::{Deserialize, Serialize};
 
@@ -49,6 +51,20 @@ struct CasoSpazio {
 }
 
 #[derive(Deserialize)]
+struct CasoPrompt {
+    #[serde(default)]
+    modello: String,
+    #[serde(default)]
+    utente: String,
+    #[serde(default)]
+    adesso: String,
+    #[serde(default)]
+    casa: String,
+    #[serde(default)]
+    lingua: String,
+}
+
+#[derive(Deserialize)]
 struct Dentro {
     #[serde(default)]
     testi: Vec<String>,
@@ -56,6 +72,10 @@ struct Dentro {
     spazi: Vec<CasoSpazio>,
     #[serde(default)]
     tagli: Vec<CasoTaglio>,
+    #[serde(default)]
+    prompt: Vec<CasoPrompt>,
+    #[serde(default)]
+    lingue: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -79,10 +99,24 @@ struct EsitoTaglio {
 }
 
 #[derive(Serialize)]
+struct EsitoLingua {
+    codice: String,
+    nome: String,
+    endonimo: String,
+    clausola: String,
+}
+
+#[derive(Serialize)]
 struct Fuori {
     token: Vec<u32>,
     spazi: Vec<u32>,
     tagli: Vec<EsitoTaglio>,
+    prompt: Vec<String>,
+    lingue: Vec<EsitoLingua>,
+    /// I tre testi estratti, cosi' come li vede il compilatore. Si
+    /// confrontano carattere per carattere con il Python: senza, il banco
+    /// confronterebbe il Rust con se stesso.
+    testi: Vec<(String, String)>,
 }
 
 fn main() {
@@ -146,6 +180,28 @@ fn main() {
             })
             .collect(),
         tagli,
+        prompt: d
+            .prompt
+            .iter()
+            .map(|c| {
+                sistema::componi(&c.modello, &c.utente, &c.adesso, &c.casa, &c.lingua)
+            })
+            .collect(),
+        lingue: d
+            .lingue
+            .iter()
+            .map(|c| EsitoLingua {
+                codice: sistema::normalizza(c).to_string(),
+                nome: sistema::nome(c).to_string(),
+                endonimo: sistema::endonimo(c).to_string(),
+                clausola: sistema::clausola(c),
+            })
+            .collect(),
+        testi: vec![
+            ("INIZIO_REGOLE".into(), testi::INIZIO_REGOLE.into()),
+            ("PROMPT_PREDEFINITO".into(), testi::PROMPT_PREDEFINITO.into()),
+            ("REGOLE_OPERATIVE".into(), testi::REGOLE_OPERATIVE.into()),
+        ],
     };
 
     match serde_json::to_string(&fuori) {

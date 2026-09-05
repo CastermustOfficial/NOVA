@@ -1455,6 +1455,24 @@ rendono **come li rende Python**, separatori compresi, perche' quella stringa
 non e' una rappresentazione: e' cio' che lo strumento riceve (D155).
 
 
+**CANT-3, terzo pezzo: il messaggio numero zero.** Il prompt di sistema —
+ventimila caratteri fra il prompt predefinito e le regole operative — che il
+modello rilegge a ogni richiesta e che da solo vale circa 5.200 token, un
+terzo del contesto prima che l'utente abbia detto qualcosa. Sta in
+`nova-contesto` perche' e' il primo messaggio della finestra, e i testi sono
+**estratti** dal Python da uno script che si rilegge da solo (D158).
+
+E qui il porting ha trovato un difetto vero, non una differenza di
+traduzione. Il prompt si componeva con `str.format`, che non guarda i tre
+segnaposto ma **tutte** le graffe: un `system_prompt` personalizzato con
+dentro un esempio JSON, o una graffa vuota, faceva saltare
+`Agent.__init__` — cioe' **NOVA non partiva**, e quello che si leggeva era
+`KeyError: '"a"'`. Chi scrive un prompt di sistema ci mette esempi, e gli
+esempi hanno le graffe. Corretto da tutte e due le parti insieme, non solo nel
+Rust (D157). E' il punto 2 del cancello — nessun traceback raggiunge
+l'utente — trovato dove nessuna delle tre liste lo cercava.
+
+
 ## Il cancello della beta
 
 Non e' una data, sono cinque frasi che devono essere vere insieme:

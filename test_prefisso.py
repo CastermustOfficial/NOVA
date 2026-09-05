@@ -78,8 +78,17 @@ print("\n3. dentro non c'e' niente che cambi da solo")
 # modello e si paga la rielaborazione di diecimila token a ogni messaggio.
 # Qui e' calcolata una volta sola, a reset(), quindi va bene - ma se qualcuno
 # la ricalcolasse per turno non se ne accorgerebbe nessuno.
-controlla("l'ora entra nel prompt (utile) ma una volta sola",
-          "now=datetime.now()" in sorgente_sistema and quante == 1)
+# Non si cerca piu' una scrittura precisa: cercare `now=datetime.now()` ha
+# smesso di funzionare il giorno in cui la composizione e' passata da
+# `str.format` a una sostituzione, e la prova e' diventata rossa per il nome
+# di un argomento invece che per un difetto. Si guarda la **proprieta'**:
+# l'orologio si legge una volta sola, e in quel punto solo.
+quante_ore = sorgente_sistema.count("datetime.now()")
+controlla("l'ora entra nel prompt (utile) ma si legge una volta sola",
+          quante_ore == 1 and quante == 1,
+          f"{quante_ore} letture dell'orologio, {quante} chiamate a system_prompt()")
+controlla("e nessun altro pezzo del turno rilegge l'orologio per il prompt",
+          "datetime.now()" not in inspect.getsource(Agent.reset))
 # Un contatore, un identificatore casuale, una lunghezza: tutte cose che
 # cambiano da sole e non si notano.
 for sospetto in ["uuid", "random", "time.time()", "len(self.messages)",

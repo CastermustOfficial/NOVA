@@ -255,6 +255,119 @@ controlla("un messaggio piu' grande di tutto lo spazio si accorcia e lo dice",
           any("[...tagliati " in m["contenuto"] for m in uno_grosso["messaggi"]),
           "nessuna scritta di taglio")
 
+
+# ------------------------------------------------- il messaggio numero zero
+# Ventimila caratteri che il modello rilegge a ogni richiesta. Non sono prosa
+# da migliorare: sono cio' su cui decide come comportarsi, e una parola
+# diversa e' un comportamento diverso che nessun tipo intercetta (D112).
+from nova.agent import componi_prompt                          # noqa: E402
+from nova.config import DEFAULT_SYSTEM_PROMPT, INIZIO_REGOLE, REGOLE_OPERATIVE  # noqa: E402
+from nova import lingue as _lingue                             # noqa: E402
+
+PROMPT = [
+    # Il predefinito, con i tre segnaposto.
+    {"modello": DEFAULT_SYSTEM_PROMPT, "utente": "gio",
+     "adesso": "lunedi 05/09/2026 15:00", "casa": r"C:\Users\gio", "lingua": "it"},
+    {"modello": DEFAULT_SYSTEM_PROMPT, "utente": "gio",
+     "adesso": "lunedi 05/09/2026 15:00", "casa": r"C:\Users\gio", "lingua": "ja"},
+    # Un prompt personalizzato: le regole si aggiungono lo stesso.
+    {"modello": "Sei NOVA, e basta.", "utente": "u", "adesso": "o", "casa": "c",
+     "lingua": "en"},
+    # Uno che le contiene gia': non si ripetono.
+    {"modello": "Sei NOVA." + REGOLE_OPERATIVE, "utente": "u", "adesso": "o",
+     "casa": "c", "lingua": "it"},
+    # E i quattro casi che prima facevano saltare tutto.
+    {"modello": 'Sei NOVA per {user}. Rispondi cosi\': {"ok": true}',
+     "utente": "gio", "adesso": "o", "casa": "c", "lingua": "it"},
+    {"modello": "Sei NOVA per {user}. Le graffe {} cosi'", "utente": "gio",
+     "adesso": "o", "casa": "c", "lingua": "it"},
+    {"modello": "Sei NOVA per {utente}", "utente": "gio", "adesso": "o",
+     "casa": "c", "lingua": "it"},
+    {"modello": "{user} {now} {home} {user}", "utente": "gio",
+     "adesso": "ora", "casa": "casa", "lingua": "it"},
+    # Un nome utente che contiene un segnaposto: non si sostituisce due volte.
+    {"modello": "ciao {user}, casa {home}", "utente": "{home}", "adesso": "o",
+     "casa": "C:/x", "lingua": "it"},
+    {"modello": "", "utente": "u", "adesso": "o", "casa": "c", "lingua": "zz"},
+]
+
+LINGUE_PROVATE = ["it", "en", "en-US", "EN", "english", "  FR_ca ", "italiano",
+                  "Nihongo", "klingon", "", "ru", "zh"]
+
+fuori2 = rust({"prompt": PROMPT, "lingue": LINGUE_PROVATE})
+
+print("\n-- i testi estratti, carattere per carattere --")
+py_testi = {"INIZIO_REGOLE": INIZIO_REGOLE,
+            "PROMPT_PREDEFINITO": DEFAULT_SYSTEM_PROMPT,
+            "REGOLE_OPERATIVE": REGOLE_OPERATIVE}
+for nome, ru in fuori2["testi"]:
+    py = py_testi[nome]
+    primo = next((i for i, (a, b) in enumerate(zip(ru, py)) if a != b),
+                 min(len(ru), len(py)))
+    controlla(f"{nome} ({len(py)} caratteri) e' identico",
+              ru == py,
+              f"rust {len(ru)}c vs python {len(py)}c, primo diverso a {primo}: "
+              f"{ru[primo:primo+40]!r} vs {py[primo:primo+40]!r}")
+
+controlla("la marca vive dentro le regole, non fuori",
+          INIZIO_REGOLE in REGOLE_OPERATIVE,
+          "se si separano, chi installa da zero resta senza istruzioni e "
+          "nessuno glielo dice")
+
+print("\n-- il prompt composto --")
+for caso, ru in zip(PROMPT, fuori2["prompt"]):
+    py = componi_prompt(caso["modello"], caso["utente"], caso["adesso"],
+                        caso["casa"], caso["lingua"])
+    primo = next((i for i, (a, b) in enumerate(zip(ru, py)) if a != b),
+                 min(len(ru), len(py)))
+    controlla(f"prompt {caso['modello'][:32]!r} ({caso['lingua']})", ru == py,
+              f"rust {len(ru)}c vs python {len(py)}c, primo diverso a {primo}: "
+              f"{ru[primo:primo+40]!r} vs {py[primo:primo+40]!r}")
+
+controlla("un esempio JSON nel prompt non fa piu' saltare niente",
+          '{"ok": true}' in fuori2["prompt"][4],
+          "il segnaposto sconosciuto e' sparito invece di restare")
+controlla("e nemmeno una graffa vuota", "{}" in fuori2["prompt"][5])
+controlla("un segnaposto sconosciuto resta scritto com'e'",
+          "{utente}" in fuori2["prompt"][6])
+controlla("le regole ci sono anche in un prompt personalizzato",
+          INIZIO_REGOLE in fuori2["prompt"][2])
+controlla("e non si ripetono se ci sono gia'",
+          fuori2["prompt"][3].count(INIZIO_REGOLE) == 1,
+          f"{fuori2['prompt'][3].count(INIZIO_REGOLE)} volte")
+
+# E la stessa cosa dalla porta da cui ci passa l'utente: `Agent.system_prompt`
+# viene chiamato dentro `__init__`, quindi un prompt personalizzato con una
+# graffa non faceva partire NOVA — e quello che si leggeva era `KeyError`.
+class FintaUi:
+    lingua = "it"
+
+
+class CfgPrompt:
+    def __init__(self, prompt):
+        self.system_prompt = prompt
+        self.ui = FintaUi()
+
+
+for prompt in ['Sei NOVA per {user}. Esempio: {"a": 1}',
+               "Graffe vuote {} e {user}",
+               "Segnaposto sconosciuto {utente}"]:
+    a = Agent.__new__(Agent)
+    a.cfg = CfgPrompt(prompt)
+    try:
+        testo = a.system_prompt()
+        esito = INIZIO_REGOLE in testo
+        dettaglio = ""
+    except Exception as e:                                     # noqa: BLE001
+        esito, dettaglio = False, f"{type(e).__name__}: {e}"
+    controlla(f"NOVA parte con il prompt {prompt[:30]!r}", esito, dettaglio)
+
+print("\n-- la lingua, che si dice e non si traduce --")
+for codice, ru in zip(LINGUE_PROVATE, fuori2["lingue"]):
+    py = {"codice": _lingue.normalizza(codice), "nome": _lingue.nome(codice),
+          "endonimo": _lingue.endonimo(codice), "clausola": _lingue.clausola(codice)}
+    controlla(f"lingua {codice!r}", py == ru, f"rust {ru} vs python {py}")
+
 print()
 print(f"{passati} verifiche passate, {len(falliti)} fallite")
 if falliti:
