@@ -6,6 +6,7 @@
 //! strumento usare. Una parola diversa in una descrizione e' un
 //! comportamento diverso, e non c'e' nessun tipo che se ne accorga.
 
+use nova_strumenti::chiamate;
 use nova_strumenti::file;
 use nova_strumenti::file_disco::{self, SenzaSistema};
 use nova_strumenti::guscio::{self, Risposta};
@@ -69,6 +70,18 @@ struct Dentro {
     /// operativo, non il racconto.
     #[serde(default)]
     esiti: Vec<(i32, String, String)>,
+    /// Testi in cui cercare le chiamate scritte dentro il discorso.
+    #[serde(default)]
+    inline: Vec<String>,
+    /// (testo, percorso del file dove e' stato versato) da sostituire.
+    #[serde(default)]
+    versati: Vec<(String, String)>,
+    /// (testo, limite) da troncare senza versare.
+    #[serde(default)]
+    troncati: Vec<(String, usize)>,
+    /// (quando, nome dello strumento, id della chiamata) per il nome del file.
+    #[serde(default)]
+    nomi_versati: Vec<(String, String, String)>,
     /// Combinazioni di tasti da tradurre.
     #[serde(default)]
     tasti: Vec<String>,
@@ -162,6 +175,12 @@ struct Fuori {
     titoli: Vec<String>,
     ricordi: Vec<String>,
     vicinati: Vec<String>,
+    /// Per ogni testo, le chiamate trovate nella forma esatta che il Python
+    /// consegna al ciclo: id, tipo, nome e argomenti gia' resi in stringa.
+    inline: Vec<serde_json::Value>,
+    versati: Vec<String>,
+    troncati: Vec<String>,
+    nomi_versati: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -316,6 +335,41 @@ fn main() {
         istanti: d.istanti.iter().map(|s| sistema::data_e_ora(*s, &Fusi(d.fusi.clone()))).collect(),
         pagine: d.pagine.iter().map(|h| pagina::a_testo(h)).collect(),
         titoli: d.pagine.iter().map(|h| pagina::titolo_di(h, 120)).collect(),
+        inline: d
+            .inline
+            .iter()
+            .map(|testo| {
+                serde_json::Value::Array(
+                    chiamate::inline(testo)
+                        .into_iter()
+                        .map(|c| {
+                            serde_json::json!({
+                                "id": c.id,
+                                "type": c.tipo,
+                                "function": {"name": c.nome, "arguments": c.argomenti},
+                            })
+                        })
+                        .collect(),
+                )
+            })
+            .collect(),
+        versati: d
+            .versati
+            .iter()
+            .map(|(testo, percorso)| {
+                chiamate::versa(testo, percorso, chiamate::LIMITE_RISULTATO)
+            })
+            .collect(),
+        troncati: d
+            .troncati
+            .iter()
+            .map(|(testo, limite)| chiamate::troncato(testo, *limite))
+            .collect(),
+        nomi_versati: d
+            .nomi_versati
+            .iter()
+            .map(|(quando, nome, id)| chiamate::nome_del_file(quando, nome, id))
+            .collect(),
         ricordi: d.ricordi.iter()
             .map(|(s, t, tp, c, conf, v, r)| memoria::racconta(&memoria::Trovato {
                 slug: s, titolo: t, tipo: tp, corpo: c,

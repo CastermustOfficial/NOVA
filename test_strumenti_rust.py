@@ -19,6 +19,7 @@ quindi vale la stessa regola per un motivo diverso.
 Esce 2 se il banco non e' costruito.
 """
 import json
+import re
 import os
 import subprocess
 import sys
@@ -857,6 +858,115 @@ controlla("e i vicinati pure", not diverse, " | ".join(diverse[:2]))
 i = [x[0] for x in RICORDI].index("y")
 controlla("un corpo tagliato lo dichiara, invece di far credere di aver letto tutto",
           "[...]" in mem["ricordi"][i])
+
+
+# --------------------------------------------------------------------------
+# Cosa arriva dal modello, e cosa gli torna indietro.
+#
+# Le chiamate scritte dentro il testo sono il punto in cui della **prosa
+# diventa un'azione**: leggerne una in piu' vuol dire eseguire qualcosa che
+# non era stato chiesto, una in meno vuol dire ignorare una richiesta. E il
+# rendere gli argomenti non e' cosmesi: quella stringa e' cio' che lo
+# strumento riceve, e `json.dumps` scrive `{"a": 1}` dove `serde_json`
+# scriverebbe `{"a":1}`.
+from nova.agent import Agent                                  # noqa: E402
+
+TESTI_INLINE = [
+    "",
+    "niente da vedere qui",
+    '<tool_call>{"name": "read_file", "arguments": {"path": "a.txt"}}</tool_call>',
+    'prima <tool_call>{"name":"a"}</tool_call> in mezzo <tool_call>{"name":"b"}</tool_call> dopo',
+    '<tool_call>\n  {"name":"x","arguments":{"z":1,"a":2,"lista":[1,2,{"q":"perché"}]}}\n</tool_call>',
+    '<tool_call>{"tool":"y","parameters":{"k":"città"}}</tool_call>',
+    '<tool_call>{"name":"x","arguments":"","parameters":{"a":1}}</tool_call>',
+    '<tool_call>{"name":"x","arguments":{}}</tool_call>',
+    '<tool_call>{"name":"x","arguments":"gia\' una stringa"}</tool_call>',
+    '<tool_call>{"arguments":{"a":1}}</tool_call>',
+    '<tool_call>{"name":""}</tool_call>',
+    '<tool_call>{rotto}</tool_call><tool_call>{"name":"x"}</tool_call>',
+    '<tool_call> ecco: {"name":"x"}</tool_call>',
+    '<tool_call>{"name":"x"}',
+    '<tool_call>{"name":"annidato","arguments":{"a":{"b":{"c":[]}}}}</tool_call>',
+    '<tool_call>{"name":"veroefalso","arguments":{"si":true,"no":false,"niente":null}}</tool_call>',
+    '<tool_call>{"name":"numeri","arguments":{"i":1,"f":1.5,"neg":-3}}</tool_call>',
+    '<tool_call>{"name":"virgolette","arguments":{"t":"lui ha detto \\"ciao\\" e a capo\\n"}}</tool_call>',
+    '<tool_call>{"name":"a"}</tool_call><tool_call>{"name":"b"}</tool_call><tool_call>{"name":"c"}</tool_call>',
+]
+
+LUNGO = "riga di risultato numero {}\n" * 1
+TESTO_ENORME = "".join(f"riga {i}: perché la città è così\n" for i in range(4000))
+VERSATI = [
+    (TESTO_ENORME, r"C:\Users\x\NOVA\runtime\versati\20260905-152233-read-1.txt"),
+    ("x" * 200000, r"C:\r\v\a.txt"),
+    ("x" * 30000, "C:\\" + "cartellona\\" * 3000 + "a.txt"),
+    ("corto", r"C:\r\v\a.txt"),
+]
+TRONCATI = [(TESTO_ENORME, 24000), ("perché " * 5000, 1001), ("corto", 24000)]
+NOMI_VERSATI = [
+    ("20260905-152233", "run_powershell", "call/1:2\\3"),
+    ("q", "a" * 200, "b"),
+    ("20260905-152233", "read_file", "call_abc"),
+    ("20260905-152233", "città perché", "id con spazi"),
+]
+
+r = subprocess.run([str(BINARIO)], input=json.dumps({
+    "inline": TESTI_INLINE,
+    "versati": [list(x) for x in VERSATI],
+    "troncati": [list(x) for x in TRONCATI],
+    "nomi_versati": [list(x) for x in NOMI_VERSATI],
+}, ensure_ascii=False), capture_output=True, text=True, encoding="utf-8",
+    timeout=120)
+cia = json.loads(r.stdout)
+
+diverse = []
+for testo, suo in zip(TESTI_INLINE, cia["inline"]):
+    py = Agent._parse_inline_tool_calls(testo)
+    if py != suo:
+        diverse.append(f"{testo[:40]!r}: rust {suo} vs python {py}")
+controlla(f"le {len(TESTI_INLINE)} letture di chiamate nel testo sono uguali",
+          not diverse, " | ".join(diverse[:2]))
+
+# La domanda che smaschera una prova compiacente: se nessuno scenario avesse
+# due chiavi, `{"a":1}` e `{"a": 1}` uscirebbero identici e il confronto sui
+# separatori non proverebbe niente.
+_argomenti = [c["function"]["arguments"] for lista in cia["inline"] for c in lista]
+controlla("il banco distingue davvero i separatori di Python",
+          any(", " in a and ": " in a for a in _argomenti),
+          f"nessuno scenario con piu' di una chiave fra {len(_argomenti)}: "
+          "la prova non prova niente")
+
+py_versa = []
+for testo, percorso in VERSATI:
+    def avviso_per(omessi, _p=percorso):
+        return (f"\n\n[Omessi {omessi} caratteri nel mezzo. Il risultato completo "
+                f"e' in {_p}. Leggilo con read_file, che accetta un "
+                f"intervallo di righe, oppure cercaci dentro con search_in_files.]\n\n")
+    spazio = Agent.LIMITE_RISULTATO - len(avviso_per(len(testo)))
+    if spazio <= 200:
+        py_versa.append(avviso_per(len(testo)).strip())
+    else:
+        testa = spazio * 2 // 3
+        coda = spazio - testa
+        py_versa.append(testo[:testa] + avviso_per(len(testo) - testa - coda) + testo[-coda:]
+                        if len(testo) > testa + coda else testo)
+
+diverse = [f"{i}: rust {len(suo)}c vs python {len(py)}c"
+           for i, (suo, py) in enumerate(zip(cia["versati"], py_versa)) if suo != py]
+controlla(f"i {len(VERSATI)} risultati versati si sostituiscono uguali",
+          not diverse, " | ".join(diverse[:2]))
+
+py_tronca = [(testo[:limite] + "\n... [risultato troncato]") if len(testo) > limite else testo
+             for testo, limite in TRONCATI]
+diverse = [f"{i}" for i, (suo, py) in enumerate(zip(cia["troncati"], py_tronca)) if suo != py]
+controlla(f"i {len(TRONCATI)} tagli dichiarati sono uguali", not diverse,
+          " | ".join(diverse[:2]))
+
+py_nomi = [f"{q}-{re.sub(r'[^A-Za-z0-9_.-]', '_', f'{n}-{i}')[:60]}.txt"
+           for q, n, i in NOMI_VERSATI]
+diverse = [f"rust {suo!r} vs python {py!r}"
+           for suo, py in zip(cia["nomi_versati"], py_nomi) if suo != py]
+controlla(f"i {len(NOMI_VERSATI)} nomi di file versati sono uguali", not diverse,
+          " | ".join(diverse[:2]))
 
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:

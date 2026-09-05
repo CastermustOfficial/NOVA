@@ -53,6 +53,11 @@ pub mod memoria;
 // NOVA invece del contrario (D130).
 pub mod capacita;
 
+// I due punti in cui il testo del modello e il mondo si toccano: le chiamate
+// che certi modelli scrivono nel testo invece che nel canale apposito, e i
+// risultati troppo lunghi per entrare nel discorso.
+pub mod chiamate;
+
 pub use dichiarazioni::STRUMENTI;
 
 /// Quanto costa sbagliare questa azione.

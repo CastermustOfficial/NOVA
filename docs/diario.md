@@ -4860,3 +4860,77 @@ Le ho portate uguali tutte e due, con una prova che descrive il comportamento
 Rust cio' che il Python fa diversamente vuol dire due cose insieme: che il
 banco non confronta piu' niente, e che il difetto resta comunque in
 produzione, dove il codice gira ancora oggi. Prima uguali, poi si discute.
+
+## 5 settembre 2026, tarda notte — Dove la prosa diventa un'azione
+
+Secondo pezzo di CANT-3, e non e' il ciclo: sono i **due punti in cui il testo
+del modello e il mondo si toccano**.
+
+Da lui verso il PC: certi modelli le chiamate agli strumenti non le mettono
+nel canale apposito, le **scrivono nel discorso**, dentro `<tool_call>`. NOVA
+le legge, ed e' un ripiego che vale la pena chiamare col suo nome — e' il
+punto in cui della prosa diventa un'azione.
+
+Ho scritto il lettore a mano invece di ricopiare l'espressione regolare, e
+non per gusto. `<tool_call>\s*(\{.*?\})\s*</tool_call>` dice due cose precise
+che a leggerla in fretta si perdono: la graffa dev'essere la **prima cosa non
+bianca** dopo l'apertura, e la chiusura buona e' la prima preceduta — a meno
+di spazi — da una graffa. Scriverlo a mano costringe a dirle ad alta voce, e
+a decidere cosa fare di `<tool_call> ecco: {...}`: non e' una chiamata, e
+adesso c'e' una prova che lo dice (D154).
+
+Dal PC verso di lui: un risultato troppo lungo non entra nel discorso. Prima
+si tagliava a ventiquattromila caratteri con «risultato troncato» e il resto
+spariva — il modello non sapeva *cosa* aveva perso, solo che mancava
+qualcosa. Adesso il testo intero va su file e al suo posto restano testa,
+coda e il percorso per andarselo a leggere: non e' spazio risparmiato, e' una
+perdita silenziosa diventata un rinvio. Il disco e l'orologio restano fuori:
+il percorso e la data arrivano da chi chiama.
+
+**Il dettaglio che sembra cosmesi e non lo e'.** Gli argomenti resi in
+stringa: `json.dumps` scrive `{"a": 1}`, `serde_json` scrive `{"a":1}`. Quella
+stringa non e' una rappresentazione — e' cio' che lo **strumento riceve**. Ho
+scritto un piccolo serializzatore che rende come rende Python, e nel banco una
+verifica che si arrabbia se **nessuno scenario ha due chiavi**: senza, i due
+separatori sarebbero indistinguibili e il confronto non proverebbe niente. Poi
+la mutazione di prova — separatori compatti — ha acceso due verifiche, quella
+sul confronto e quella che controlla il confronto (D155).
+
+E una cosa che si vede solo leggendo il Python con attenzione: la scelta del
+campo si fa con `or`, quindi `"arguments": ""` non e' una stringa vuota da
+passare avanti, e' un campo che **non conta**, e si guarda `parameters`. Con
+un semplice «c'e' / non c'e'» si passerebbe una stringa vuota dove il Python
+passa `{}` — e lo strumento riceverebbe argomenti diversi da quelli scritti.
+
+## 5 settembre 2026, dopo mezzanotte — Un verde che era una monetina
+
+Rimisurata la suite dopo il secondo pezzo, e' uscita rossa dove tre ore prima
+era verde: `test_promemoria.py`, «appesa: non e' finita entro 90s». Non avevo
+toccato niente di quel codice.
+
+La prova chiede a Windows di eseguire un'attivita' al **prossimo minuto
+tondo**, poi aspetta e va a vedere com'e' andata. Quanto duri dipende quindi
+dal secondo in cui e' partita: fra i 35 e i 95 secondi, piu' il tempo che
+Windows si prende per rispondere. Il banco ne concede novanta, uguali per
+tutte. Era una monetina.
+
+E' il modo peggiore di essere rossa. Una prova rossa sempre la si ripara; una
+prova rossa **a volte** la si crede verde per meta' delle volte, e quando esce
+rossa il prossimo cerca il difetto in cio' che ha toccato lui — che e'
+esattamente quello che stavo per fare io.
+
+Adesso una prova puo' dichiarare il suo tempo: `# banco: attesa 240` nelle
+prime righe. Il banco lo legge dal file **senza importarlo**, perche'
+importare una prova per sapere quanto dura vorrebbe dire eseguirla; non
+concede mai meno del minimo — dichiarare cinque secondi sarebbe un modo di
+rendersi verdi — ne' piu' di un tetto, perche' una dichiarazione sbagliata non
+deve poter bloccare il banco per sempre (D156). Sei verifiche nuove in
+`test_harness.py`, compresa quella che una riga uguale ma dentro una stringa
+non conta.
+
+**E la parte che riguarda me.** Tre ore fa ho scritto «80 prove verdi, zero
+rosse» in un messaggio di commit, e ci ho creduto. Era una misura fatta una
+volta sola. L'ho messo in `dove_ho_sbagliato.md` accanto alle tre prove che
+non provavano niente, con la differenza che le separa: quelle erano verdi
+**sempre** e per il motivo sbagliato — si smascherano guardandole — questa e'
+verde **a volte**, e guardarla non basta. Bisogna rimisurare.

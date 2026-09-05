@@ -1,4 +1,14 @@
 # -*- coding: utf-8 -*-
+# banco: attesa 240
+#
+# Questa prova aspetta il **mondo**, non il codice: chiede a Windows di
+# eseguire un'attivita' a un'ora e poi sta li' finche' quell'ora non arriva.
+# L'ora e' il prossimo minuto tondo, quindi quanto si aspetta dipende dal
+# secondo in cui la prova e' partita: fra i 35 e i 95 secondi, piu' il tempo
+# che Windows si prende per dire com'e' andata. Con i novanta secondi del
+# banco era una monetina — verde se partiva a meta' minuto, «appesa» se
+# partiva all'inizio — e una monetina che esce verde e' peggio di una rossa,
+# perche' la si crede.
 """Un promemoria che parte davvero, e senza righe di comando annidate.
 
 **La versione di prima non funzionava.** Non «con i messaggi difficili»: con

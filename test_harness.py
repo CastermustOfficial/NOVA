@@ -104,6 +104,41 @@ for _ in range(9):
 controlla("il promemoria e' un testo, non un blocco",
           isinstance(a._promemoria_ripetizione("x", {}), str))
 
+# --------------------------------------------------------------------------
+# Quanto tempo il banco concede a una prova.
+#
+# Non e' un dettaglio di comodo: `test_promemoria.py` aspetta che Windows
+# esegua un'attivita' al minuto tondo, quindi quanto dura dipende dal secondo
+# in cui e' partita. Con un solo numero per tutte era una monetina, e una
+# monetina che esce verde e' peggio di una rossa perche' la si crede.
+from pathlib import Path as _P                                # noqa: E402
+import tempfile as _tmp                                       # noqa: E402
+from nova import banco as _banco                              # noqa: E402
+
+with _tmp.TemporaryDirectory() as _d:
+    _c = _P(_d)
+    (_c / "muta.py").write_text("print(1)\n", encoding="utf-8")
+    (_c / "dice.py").write_text("# banco: attesa 240\nprint(1)\n", encoding="utf-8")
+    (_c / "esagera.py").write_text("# banco: attesa 99999\n", encoding="utf-8")
+    (_c / "chiede_meno.py").write_text("# banco: attesa 5\n", encoding="utf-8")
+    (_c / "finta.py").write_text("x = '# banco: attesa 240'\n", encoding="utf-8")
+    controlla("chi non dichiara niente ha i secondi di sempre",
+              _banco.attesa_di(_c / "muta.py") == _banco.ATTESA_PROVA_S)
+    controlla("chi dichiara il suo tempo lo ottiene",
+              _banco.attesa_di(_c / "dice.py") == 240)
+    controlla("una dichiarazione assurda non blocca il banco per sempre",
+              _banco.attesa_di(_c / "esagera.py") == _banco.ATTESA_MASSIMA_S)
+    controlla("e non si puo' chiedere meno del minimo, che sarebbe un modo "
+              "di rendersi verdi",
+              _banco.attesa_di(_c / "chiede_meno.py") == _banco.ATTESA_PROVA_S)
+    controlla("la riga dev'essere un commento, non una stringa qualunque",
+              _banco.attesa_di(_c / "finta.py") == _banco.ATTESA_PROVA_S)
+    controlla("un file che non si legge non fa cadere il banco",
+              _banco.attesa_di(_c / "non_esiste.py") == _banco.ATTESA_PROVA_S)
+
+controlla("e la prova che aspetta Windows lo dichiara davvero",
+          _banco.attesa_di(_P(__file__).parent / "test_promemoria.py") > _banco.ATTESA_PROVA_S)
+
 print("\n" + ("tutto a posto" if all(c for _, c in esiti)
               else "ATTENZIONE: qualcosa non torna"))
 raise SystemExit(0 if all(c for _, c in esiti) else 1)
