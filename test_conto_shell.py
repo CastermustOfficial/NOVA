@@ -51,7 +51,21 @@ ESCLUSI = {"powershell.py", "shell.py"}
 
 
 def strumenti_con_shell() -> dict[str, str]:
-    """Nome dello strumento -> file, per ogni @tool che finisce in una shell."""
+    """Nome dello strumento -> file, per ogni @tool che finisce in una shell.
+
+    **Segue una funzione d'appoggio.** La prima versione guardava solo il
+    corpo dello strumento, e ha detto il falso appena `close_application` ha
+    spostato il suo ripiego dentro `_close_application_powershell`: lo
+    strumento passa ancora da una shell, ma non lo diceva piu' nessuno. Un
+    conteggio che si puo' azzerare spostando tre righe in un'altra funzione
+    non e' un conteggio.
+
+    Un livello e non di piu': serve a non farsi ingannare da un ripiego messo
+    accanto, non a inseguire una catena di chiamate. Se un giorno servisse il
+    secondo livello, vorra' dire che il codice si e' fatto piu' profondo di
+    quanto questa prova sappia guardare, e allora e' questa a doversi
+    aggiornare — non il conteggio a doversi credere.
+    """
     trovati: dict[str, str] = {}
     for f in sorted(RADICE.glob("nova/**/*.py")):
         if f.name in ESCLUSI:
@@ -61,17 +75,24 @@ def strumenti_con_shell() -> dict[str, str]:
             albero = ast.parse(sorgente)
         except SyntaxError:
             continue
+        # Prima si segna quali funzioni di questo file toccano una shell.
+        con_shell = set()
+        funzioni = {}
         for n in ast.walk(albero):
-            if not isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            pezzo = ast.get_source_segment(sorgente, n) or ""
-            if not any(s in pezzo for s in SEGNI):
-                continue
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                pezzo = ast.get_source_segment(sorgente, n) or ""
+                funzioni[n.name] = (n, pezzo)
+                if any(s in pezzo for s in SEGNI):
+                    con_shell.add(n.name)
+        for nome, (n, pezzo) in funzioni.items():
             # Solo gli strumenti veri: quelli che il modello puo' chiamare.
             if not any(isinstance(d, ast.Call) and getattr(d.func, "id", "") == "tool"
                        for d in n.decorator_list):
                 continue
-            trovati[n.name] = f.relative_to(RADICE).as_posix()
+            diretta = nome in con_shell
+            appoggio = any(f"{altra}(" in pezzo for altra in con_shell if altra != nome)
+            if diretta or appoggio:
+                trovati[nome] = f.relative_to(RADICE).as_posix()
     return trovati
 
 

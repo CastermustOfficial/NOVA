@@ -41,7 +41,28 @@ def _resolve_command(name: str) -> str:
 
 
 def _start_via_shell(target: str, args: str = "") -> str:
-    """Usa 'Start-Process' che risolve PATH, App Paths del registro e URI."""
+    """Avvia un programma come lo avvierebbe il menu Start.
+
+    La strada nuova chiama `ShellExecuteExW`, che e' cio' su cui
+    `Start-Process` e' costruito: risolve le «App Paths» del registro
+    («chrome» senza percorso), le associazioni dei file e gli URI di sistema
+    come `ms-settings:`. Senza shell in mezzo sparisce anche il guaio delle
+    virgolette: `-FilePath '{target}'` si rompe su un percorso che contiene un
+    apostrofo, e i percorsi con l'apostrofo esistono (D130).
+    """
+    b = binari.trova("nova-processi")
+    if b is not None:
+        try:
+            r = subprocess.run([str(b), "--avvia", target, args],
+                               capture_output=True, text=True, encoding="utf-8",
+                               timeout=30, creationflags=SENZA_FINESTRA)
+            if r.returncode == 0:
+                return f"Avviato: {target}" + (f" {args}" if args else "")
+            raise ToolError(f"impossibile avviare '{target}': {r.stderr.strip()[:400]}")
+        except ToolError:
+            raise
+        except Exception:                                   # noqa: BLE001
+            pass
     cmd = f"Start-Process -FilePath '{target}'"
     if args:
         cmd += f" -ArgumentList '{args}'"
@@ -200,6 +221,9 @@ def _finestre_rust() -> list[dict] | None:
     preview=lambda a: f"Porta in primo piano la finestra '{a.get('title')}'",
 )
 def focus_window(title: str) -> str:
+    detto = _avanti_rust(title)
+    if detto is not None:
+        return detto
     try:
         import pywinctl  # type: ignore
         matches = [w for w in pywinctl.getAllWindows()
@@ -231,17 +255,215 @@ def focus_window(title: str) -> str:
     return f"Finestra in primo piano: {out}"
 
 
+def _avanti_rust(title: str) -> str | None:
+    """Porta davanti una finestra, e dice se ci e' riuscita davvero.
+
+    Due cose diverse dalla strada di prima.
+
+    La prima: si cerca fra **tutte** le finestre, non fra le principali dei
+    processi. Un browser con tre finestre ne aveva una sola raggiungibile.
+
+    La seconda, ed e' quella che conta: Windows non lascia che un programma
+    qualunque rubi il primo piano. `SetForegroundWindow` puo' rifiutare — e
+    quando rifiuta non solleva niente, fa lampeggiare l'icona nella barra e
+    torna «falso». Nessuno guardava quel valore, e la risposta era «Finestra
+    in primo piano: ...» comunque. Adesso si guarda chi e' davvero davanti
+    dopo il tentativo (D142).
+    """
+    b = binari.trova("nova-finestre")
+    if b is None:
+        return None
+    finestre = _finestre_rust()
+    if finestre is None:
+        return None
+    t = (title or "").strip().lower()
+    if not t:
+        raise ToolError("serve un titolo: un testo vuoto corrisponderebbe a tutto")
+    scelte = [w for w in finestre
+              if t in w["title"].lower() or t in w["process"].lower()]
+    if not scelte:
+        raise ToolError(f"nessuna finestra corrispondente a '{title}'. "
+                        "Aperte: " + ", ".join(w["title"][:40] for w in finestre[:8]))
+    w = scelte[0]
+    try:
+        r = subprocess.run([str(b), "--avanti", str(w["handle"])],
+                           capture_output=True, text=True, encoding="utf-8",
+                           timeout=15, creationflags=SENZA_FINESTRA)
+    except Exception:                                       # noqa: BLE001
+        return None
+    if r.returncode == 0:
+        return f"Finestra in primo piano: {w['title']}"
+    if r.returncode == 3:
+        # Non e' un fallimento da nascondere: e' una regola di Windows, e
+        # l'utente vede l'icona lampeggiare. Dirlo gli spiega cosa sta
+        # guardando; dire «fatto» lo lascia a chiedersi perche' non e' successo
+        # niente.
+        return (f"Windows non ha permesso di portare davanti «{w['title']}»: "
+                "succede quando il primo piano appartiene a un altro programma "
+                "e l'utente non ha appena interagito. L'icona nella barra sta "
+                "lampeggiando: un clic la porta avanti.")
+    return None
+
+
+def _processi_rust() -> list[dict] | None:
+    """La fotografia dei processi, senza shell."""
+    b = binari.trova("nova-processi")
+    if b is None:
+        return None
+    try:
+        r = subprocess.run([str(b)], capture_output=True, text=True,
+                           encoding="utf-8", timeout=30,
+                           creationflags=SENZA_FINESTRA)
+        if r.returncode != 0:
+            return None
+        import json
+        return json.loads(r.stdout)
+    except Exception:                                       # noqa: BLE001
+        return None
+
+
+def bersagli(name: str) -> list[dict]:
+    """Quali processi risponderebbero a questo nome, **come sottostringa**.
+
+    Non e' un modello di ricerca, ed e' il punto. La strada di prima incollava
+    il nome dentro un `-like` di PowerShell: misurato su una macchina vera,
+    `*`, `?` e `[a-z]` selezionavano tutti e 292 i processi. Con «force» vuol
+    dire fermare il sistema intero da un argomento di un carattere (D141).
+
+    Qui `*` viene cercato **alla lettera**. Non vuol dire «non trova niente»:
+    sulla stessa macchina ha trovato un processo, perche' una finestra del
+    Blocco note si chiamava «*napoli difesa» — l'asterisco che i programmi
+    mettono davanti a un file non salvato. Uno invece di 292, ed e' la
+    risposta giusta: quel titolo l'asterisco ce l'ha per davvero.
+
+    Ogni bersaglio porta con se' i titoli delle sue finestre, perche' e'
+    quello che chi approva deve vedere: «Blocco note» non dice niente,
+    «*napoli difesa» dice che c'e' del lavoro non salvato.
+    """
+    testo = (name or "").strip().lower()
+    if not testo:
+        return []
+    processi = _processi_rust() or []
+    finestre = _finestre_rust() or []
+    per_pid: dict[int, list[str]] = {}
+    for f in finestre:
+        per_pid.setdefault(f["pid"], []).append(f["title"])
+    fuori = []
+    for p in processi:
+        titoli = per_pid.get(p["pid"], [])
+        if testo in p["nome"].lower() or any(testo in t.lower() for t in titoli):
+            fuori.append({"pid": p["pid"], "nome": p["nome"], "finestre": titoli})
+    return fuori
+
+
+def _anteprima_chiusura_semplice(a: dict) -> str:
+    """Cio' che si puo' dire **senza chiedere niente al sistema**.
+
+    E' la forma che il Rust puo' produrre: `nova-strumenti` dichiara i tratti
+    e non conosce la piattaforma (D130), quindi non sa quali processi ci siano
+    su questa macchina in questo istante. Resta la forma degradata — e resta
+    il motivo per cui non basta: «Termina FORZATAMENTE 'notepad'» non dice a
+    nessuno che dentro c'e' una nota non salvata.
+    """
+    return ("Termina FORZATAMENTE " if a.get("force") else "Chiude ") + f"'{a.get('name')}'"
+
+
+def _anteprima_chiusura(a: dict) -> str:
+    """Cosa legge chi deve approvare.
+
+    Prima leggeva «Termina FORZATAMENTE 'notepad'» e basta: un nome, senza
+    nessuna idea di quanti processi fossero ne' di cosa ci fosse dentro. Ora
+    legge i nomi, i pid e i **titoli delle finestre** — e l'asterisco davanti
+    a un titolo, che in mezzo mondo di programmi vuol dire «non salvato»,
+    arriva sotto gli occhi di chi decide invece di restare nascosto.
+    """
+    nome = str(a.get("name") or "")
+    verbo = "Termina FORZATAMENTE" if a.get("force") else "Chiude"
+    try:
+        trovati = bersagli(nome)
+    except Exception:                                       # noqa: BLE001
+        return _anteprima_chiusura_semplice(a)
+    if not trovati:
+        return _anteprima_chiusura_semplice(a) + " — al momento non corrisponde nessun processo"
+    pezzi = []
+    for t in trovati[:6]:
+        riga = f"{t['nome']} (pid {t['pid']})"
+        if t["finestre"]:
+            riga += ": " + ", ".join(f"«{x}»" for x in t["finestre"][:3])
+        pezzi.append(riga)
+    quanti = len(trovati)
+    testa = f"{verbo} {quanti} {'processo' if quanti == 1 else 'processi'}"
+    coda = "" if len(trovati) <= 6 else f" e altri {len(trovati) - 6}"
+    avviso = ""
+    if any(x.startswith("*") for t in trovati for x in t["finestre"]):
+        avviso = ("\n  ATTENZIONE: un titolo comincia per «*», che in molti programmi "
+                  "vuol dire lavoro NON SALVATO.")
+    return testa + ": " + "; ".join(pezzi) + coda + avviso
+
+
 @tool(
     "close_application",
-    "Chiude un'applicazione per nome processo o titolo finestra.",
+    # «Uno o piu'», e non «un'applicazione»: il nome puo' corrispondere a piu'
+    # processi, e la descrizione lo deve dire perche' il modello ci decide
+    # sopra (D137).
+    "Chiude uno o piu' processi il cui nome, o il titolo di una cui finestra, "
+    "contiene il testo dato. La corrispondenza e' per sottostringa: non ci "
+    "sono caratteri jolly, e un testo vuoto non chiude niente.",
     {
-        "name": {"type": "string", "description": "Nome del processo (es. notepad) o titolo finestra"},
-        "force": {"type": "boolean", "description": "Termina forzatamente senza salvare"},
+        "name": {"type": "string", "description": "Testo contenuto nel nome del processo (es. notepad) o nel titolo di una sua finestra"},
+        "force": {"type": "boolean", "description": "Termina subito, senza dare al programma la possibilita' di chiedere se salvare"},
     },
     Risk.DANGEROUS, required=["name"], category="app",
-    preview=lambda a: ("Termina FORZATAMENTE " if a.get("force") else "Chiude ") + f"'{a.get('name')}'",
+    preview=_anteprima_chiusura,
 )
 def close_application(name: str, force: bool = False) -> str:
+    if not (name or "").strip():
+        # Con la ricerca per sottostringa, il testo vuoto sarebbe contenuto in
+        # ogni nome: e' l'aritmetica delle sottostringhe, non un difetto, e va
+        # fermata **qui**, prima di arrivare a chiudere qualcosa.
+        raise ToolError("serve un nome: un testo vuoto corrisponderebbe a tutto")
+    b = binari.trova("nova-processi")
+    if b is None:
+        return _close_application_powershell(name, force)
+    trovati = bersagli(name)
+    if not trovati:
+        raise ToolError(f"nessun processo corrispondente a '{name}'")
+    chiusi, falliti = [], []
+    for t in trovati:
+        cmd = [str(b), "--chiudi", str(t["pid"])] + (["--forza"] if force else [])
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True,
+                               encoding="utf-8", timeout=20,
+                               creationflags=SENZA_FINESTRA)
+        except Exception as e:                              # noqa: BLE001
+            falliti.append(f"{t['nome']} (pid {t['pid']}): {e}")
+            continue
+        if r.returncode == 0:
+            chiusi.append(f"{t['nome']} (pid {t['pid']})")
+        else:
+            falliti.append(f"{t['nome']} (pid {t['pid']}): {r.stderr.strip()[:120]}")
+    if not chiusi:
+        raise ToolError("non sono riuscito a chiudere niente. " + "; ".join(falliti[:4]))
+    # Si dice anche cosa **non** e' andato: chiudere meta' di quello che si e'
+    # chiesto e rispondere «fatto» e' peggio che fallire (D129).
+    detto = ("Terminati: " if force else "Chiesto di chiudersi a: ") + ", ".join(chiusi)
+    if falliti:
+        detto += f"\nNon riusciti: {'; '.join(falliti[:4])}"
+    return detto
+
+
+def _close_application_powershell(name: str, force: bool) -> str:
+    """Il ripiego, e resta **dichiarato**: e' quello col modello di ricerca.
+
+    Chi non ha costruito i binari passa ancora di qui, e qui `*` seleziona
+    tutto. L'unica cosa che si puo' fare senza riscriverlo e' non lasciare che
+    ci arrivi un carattere jolly.
+    """
+    if any(c in name for c in "*?["):
+        raise ToolError(
+            "senza nova-processi la ricerca passa da un modello di PowerShell, "
+            "dove «*», «?» e «[» corrispondono a tutto: rifiuto un nome che li "
+            "contiene. Costruisci i binari, oppure passa il nome esatto.")
     ps = (
         f"$p = Get-Process | Where-Object {{$_.ProcessName -like '*{name}*' -or "
         f"$_.MainWindowTitle -like '*{name}*'}}; "

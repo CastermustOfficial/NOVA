@@ -4345,3 +4345,84 @@ puo' non avere niente da guardare, se in quel momento nessun programma ne ha
 due. In quel caso non passa e non fallisce: **lo dice**. Una prova che diventa
 verde perche' non ha trovato niente da provare e' peggio di una che manca.
 
+### Il pezzo dove non contava la velocita'
+
+Stavo per portare `focus_window`, `close_application` e `open_application`
+perche' erano i prossimi nella lista. Prima di scrivere, ho misurato cosa
+selezionava `close_application` — e mi sono fermato li' per il resto del
+pomeriggio.
+
+Il nome che l'utente passa finisce dentro un `-like` di PowerShell, cioe'
+dentro un linguaggio di modelli:
+
+    name='*'       ->  292 processi
+    name='?'       ->  292 processi
+    name='[a-z]'   ->  292 processi
+
+Duecentonovantadue su duecentonovantadue. Con `force` acceso e' `Stop-Process
+-Force` su tutto il sistema, servizi compresi, da un argomento di **un
+carattere**.
+
+Lo strumento e' marcato pericoloso, quindi una persona approva. Ma l'anteprima
+che quella persona legge diceva:
+
+    Termina FORZATAMENTE '*'
+
+In quella riga non c'e' niente che dica «292 processi». L'approvazione c'era e
+non serviva a niente, perche' chi approvava non poteva sapere cosa stava
+approvando.
+
+E il caso concreto non era ipotetico. Sulla macchina di prova, in quel
+momento, erano aperte due finestre del Blocco note:
+
+    Senza titolo - Blocco note
+    *napoli difesa - Blocco note
+
+L'asterisco davanti al titolo e' quello che i programmi mettono quando c'e'
+del lavoro non salvato. `close_application("notepad", force=true)` le prendeva
+tutte e due, senza dialogo, senza «vuoi salvare». E l'anteprima diceva
+soltanto «Termina FORZATAMENTE 'notepad'».
+
+**Il rimedio non e' un modello piu' prudente.** Un modello piu' prudente e'
+ancora un modello, e la prossima volta il carattere strano sara' un altro. Si
+toglie: la ricerca e' per sottostringa, e `*` si cerca alla lettera.
+
+E si separa la selezione dall'azione. Si elenca, si guarda cosa combacia, e si
+chiude **un pid alla volta**. Un numero non ha caratteri jolly. Il binario non
+ha nemmeno un modo di chiudere per nome: se non hai un pid, non hai scelto.
+
+Poi l'anteprima. Adesso legge:
+
+    Termina FORZATAMENTE 2 processi: Notepad.exe (pid 15432): «Senza titolo -
+    Blocco note», «*napoli difesa - Blocco note»; Notepad.exe (pid 6300)
+      ATTENZIONE: un titolo comincia per «*», che in molti programmi vuol dire
+      lavoro NON SALVATO.
+
+Il potere e' esattamente lo stesso di prima: se chiedi di chiudere, si chiude.
+Cambia che tu lo veda (D141).
+
+Una cosa che ho imparato di traverso. Avevo scritto, in tre posti, che con la
+ricerca per sottostringa `*` «non trova niente». Falso: sulla macchina vera ha
+trovato **un** processo, perche' quel titolo l'asterisco ce l'ha per davvero.
+Uno invece di 292 e' la risposta giusta; zero sarebbe stata un'altra bugia,
+piu' piccola. Corretto in tutti e tre.
+
+### E una chiamata che puo' dire di no
+
+Nello stesso pezzo, `focus_window`. Windows non lascia che un programma
+qualunque rubi il primo piano: `SetForegroundWindow` riesce solo a certe
+condizioni, e quando non riesce **non solleva niente** — fa lampeggiare
+l'icona nella barra delle applicazioni e torna `false`.
+
+Nessuno guardava quel valore. La risposta era «Finestra in primo piano: ...»
+anche quando la finestra era rimasta esattamente dov'era, e il modello ci
+costruiva sopra il passo successivo — clicca qui, scrivi la' — su una finestra
+che non aveva il fuoco.
+
+Adesso si chiede a `GetForegroundWindow` chi c'e' davvero davanti dopo il
+tentativo, e le risposte sono tre invece di due: fatto; «Windows non l'ha
+permesso, l'icona sta lampeggiando, un clic la porta avanti»; e l'errore vero.
+Anche il binario le distingue nel codice di uscita — 0, 3, 1 — perche' un
+rifiuto e un guasto non sono la stessa cosa e chi chiama deve poterlo dire
+all'utente (D142).
+

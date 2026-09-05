@@ -53,10 +53,10 @@ mod imp {
         EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITORINFO,
     };
     use windows::Win32::UI::WindowsAndMessaging::{
-        EnumWindows, GetClassNameW, GetWindowTextLengthW, GetWindowTextW,
-        GetWindowThreadProcessId, IsWindow,
-        IsWindowVisible, SetWindowPos, HWND_BOTTOM, MONITORINFOF_PRIMARY, SWP_NOACTIVATE,
-        SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
+        EnumWindows, GetClassNameW, GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW,
+        GetWindowThreadProcessId, IsIconic, IsWindow,
+        IsWindowVisible, SetForegroundWindow, SetWindowPos, ShowWindow, HWND_BOTTOM,
+        MONITORINFOF_PRIMARY, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SW_RESTORE,
     };
     use windows::Win32::Foundation::MAX_PATH;
     use windows::Win32::System::Threading::{
@@ -205,6 +205,35 @@ mod imp {
         Ok(elenco)
     }
 
+    /// Porta una finestra davanti, e **verifica** che ci sia andata.
+    ///
+    /// Windows non lascia che un programma qualunque rubi il primo piano:
+    /// `SetForegroundWindow` riesce solo a certe condizioni — chi chiama e'
+    /// gia' in primo piano, o l'utente ha appena interagito. Quando non
+    /// riesce, non solleva un errore: **lampeggia l'icona nella barra** e
+    /// torna «falso». La strada di prima non guardava il valore di ritorno e
+    /// rispondeva «Finestra in primo piano: ...» comunque.
+    ///
+    /// Qui si guarda chi e' davvero davanti dopo il tentativo, e si dice
+    /// com'e' andata. Un «non ci sono riuscito, l'ho fatta lampeggiare» e'
+    /// una risposta utile; un «fatto» falso no.
+    pub fn porta_avanti(handle: i64) -> Result<bool> {
+        let h = HWND(handle as *mut std::ffi::c_void);
+        unsafe {
+            if !IsWindow(Some(h)).as_bool() {
+                return Err(anyhow!("la finestra {handle} non esiste piu'"));
+            }
+            // Se e' ridotta a icona va prima ripristinata: portare davanti una
+            // finestra minimizzata la lascia minimizzata, e per chi guarda lo
+            // schermo non e' successo niente.
+            if IsIconic(h).as_bool() {
+                let _ = ShowWindow(h, SW_RESTORE);
+            }
+            let _ = SetForegroundWindow(h);
+            Ok(GetForegroundWindow() == h)
+        }
+    }
+
     /// Sposta e ridimensiona senza dare il fuoco.
     pub fn sposta(handle: i64, posa: &Posa) -> Result<()> {
         let h = HWND(handle as *mut std::ffi::c_void);
@@ -253,6 +282,10 @@ mod imp {
         Ok(Vec::new())
     }
 
+    pub fn porta_avanti(_handle: i64) -> Result<bool> {
+        Ok(false)
+    }
+
     pub fn sposta(_handle: i64, _posa: &Posa) -> Result<()> {
         bail!("spostamento finestre non ancora implementato per {}", std::env::consts::OS)
     }
@@ -269,6 +302,12 @@ pub fn schermi() -> Result<Vec<Schermo>> {
 /// e' aperto chiede qui, e non paga un thread COM per farlo.
 pub fn elenca() -> Result<Vec<crate::WindowInfo>> {
     imp::elenca()
+}
+
+/// Porta una finestra davanti. Torna `false` se Windows non l'ha permesso:
+/// non e' un errore, e' un rifiuto, e va detto invece che nascosto.
+pub fn porta_avanti(handle: i64) -> Result<bool> {
+    imp::porta_avanti(handle)
 }
 
 pub fn sposta(handle: i64, posa: &Posa) -> Result<()> {
