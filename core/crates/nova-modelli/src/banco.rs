@@ -13,6 +13,7 @@
 use std::io::Read;
 use std::path::PathBuf;
 
+use nova_modelli::avvio;
 use nova_modelli::gguf;
 use nova_modelli::motore::{motori, Motore};
 use nova_modelli::strati::strati_su_gpu;
@@ -68,6 +69,18 @@ struct Dentro {
     locale: String,
     #[serde(default)]
     progetto: String,
+    /// (binario, impostazioni, ngl, proiettore) di cui si vuole la riga.
+    #[serde(default)]
+    righe: Vec<CasoRiga>,
+    /// (base, auto, stimato) di cui si vuole la scala dei layer.
+    #[serde(default)]
+    scale: Vec<(i64, bool, i64)>,
+    /// Pezzi di registro da giudicare: e' finita la memoria?
+    #[serde(default)]
+    registri: Vec<String>,
+    /// Elenchi di nomi di file in cui cercare il proiettore.
+    #[serde(default)]
+    cartelle: Vec<Vec<String>>,
 }
 
 fn quattro() -> usize {
@@ -141,6 +154,36 @@ struct Fuori {
     motori: Vec<MotoreFuori>,
     misure: Vec<MisuraFuori>,
     note: Vec<String>,
+    righe: Vec<Vec<String>>,
+    scale: Vec<Vec<i64>>,
+    memoria_finita: Vec<bool>,
+    proiettori: Vec<Option<String>>,
+}
+
+#[derive(Deserialize)]
+struct CasoRiga {
+    #[serde(default)]
+    binario: String,
+    #[serde(default)]
+    percorso_modello: String,
+    #[serde(default)]
+    host: String,
+    #[serde(default)]
+    porta: u16,
+    #[serde(default)]
+    contesto: i64,
+    #[serde(default)]
+    paralleli: i64,
+    #[serde(default)]
+    fili: i64,
+    #[serde(default)]
+    tipo_kv: String,
+    #[serde(default)]
+    argomenti_extra: Vec<String>,
+    #[serde(default)]
+    ngl: i64,
+    #[serde(default)]
+    proiettore: String,
 }
 
 fn main() {
@@ -281,6 +324,40 @@ fn main() {
             })
             .collect(),
         note: Vec::new(),
+        righe: dentro
+            .righe
+            .iter()
+            .map(|c| {
+                let s = avvio::Impostazioni {
+                    percorso_modello: c.percorso_modello.clone(),
+                    host: c.host.clone(),
+                    porta: c.porta,
+                    contesto: c.contesto,
+                    paralleli: c.paralleli,
+                    fili: c.fili,
+                    tipo_kv: c.tipo_kv.clone(),
+                    argomenti_extra: c.argomenti_extra.clone(),
+                };
+                let pro = if c.proiettore.is_empty() {
+                    None
+                } else {
+                    Some(std::path::PathBuf::from(&c.proiettore))
+                };
+                avvio::argomenti(
+                    std::path::Path::new(&c.binario),
+                    &s,
+                    c.ngl,
+                    pro.as_deref(),
+                )
+            })
+            .collect(),
+        scale: dentro
+            .scale
+            .iter()
+            .map(|(b, a, st)| avvio::scala_dei_layer(*b, *a, *st))
+            .collect(),
+        memoria_finita: dentro.registri.iter().map(|r| avvio::e_memoria_finita(r)).collect(),
+        proiettori: dentro.cartelle.iter().map(|n| avvio::proiettore(n)).collect(),
     };
 
     match serde_json::to_string(&fuori) {

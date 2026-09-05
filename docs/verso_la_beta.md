@@ -965,7 +965,7 @@ mole, non di difficolta'.
 | ~~CANT-1~~ | ~~**Il vault su disco**~~ — **fatto** | ~660 | Era il seguito diretto di `nova-nodi`, ed e' stato il primo pezzo scritto contro un tratto invece che sopra il filesystem nudo: e' quello che apre la strada a tutti gli altri. Ha ripagato prima di essere finito — la scrittura delle note dell'utente non era atomica (D102) — e ha portato dentro anche il guardiano dei segreti (D109, D110) |
 | ~~CANT-2~~ | ~~**Gli strumenti**~~ — **fatto**, per la parte traducibile: dichiarazioni, guardie, formato, i corpi dei file, la shell, i tasti, le pagine, la **scelta** di cosa ricordare, e i quindici strumenti che chiedono davvero alla piattaforma. Quel che resta in `nova/tools/` appartiene ad altri cantieri, file per file (D150) | ~2.570 | Sono la meta' di NOVA che tocca il PC, ed e' esattamente quella che in Python costa di piu' in dipendenze. Tanti pezzi piccoli e indipendenti: si e' portato uno strumento per volta senza fermare niente |
 | CANT-3 | **Il ciclo dell'agente e i cervelli** — `agent.py`, i client dei modelli | ~2.200 | E' il pezzo che davvero libera dal Python, ma va dopo gli strumenti: un ciclo che chiama strumenti Python non ha liberato niente. Dentro c'e' la parte piu' delicata di tutto il progetto — il taglio del contesto a token, che se sbaglia perde pezzi di conversazione senza dirlo |
-| CANT-4 | **Lanciare il modello locale** — `runtime.py` | ~690 | Il calcolo degli strati e' gia' in `nova-modelli`; qui resta avviare llama.cpp, la scala di ripiego e leggere cosa dice. Piccolo e ben delimitato |
+| CANT-4 | **Lanciare il modello locale** — *le decisioni: fatte; avviare il processo e leggere cosa dice: da fare* | ~690 | Il calcolo degli strati era gia' in `nova-modelli`; restava il pezzo dove le decisioni si vedono poco e costano molto — la riga di comando, la scala dei layer, l'unico errore che vale la pena riprovare (D173) |
 | CANT-5 | **Il server MCP** | ~1.290 | Protocollo, quindi traducibile senza scelte. Ma serve solo a chi collega NOVA a un altro programma: non toglie Python a nessuno finche' c'e' il resto |
 | CANT-6 | **Il browser e la ricerca** — CDP | ~760 | Parla con Chrome via WebSocket. Nessuna scelta di interfaccia, ma dipende da una libreria asincrona: e' il primo pezzo che porta `tokio` dentro un crate di logica |
 | CANT-7 | **L'impalcatura** — config, main, dati, componenti | ~1.800 | Non si porta: si **riscrive**, perche' meta' esiste solo per tenere insieme il Python. `nova-core::config` ne ha gia' un pezzo. Va per ultima fra quelle di sostanza, quando si sa cosa deve tenere insieme |
@@ -1572,6 +1572,52 @@ come lo estrae `urlparse` — ventisei indirizzi confrontati, e una mutazione
 per sottostringa che chiama «casa» `localhost.evil.example.com` (D171). Con
 il ragionamento separato dalla risposta anche quando il `<think>` non e'
 chiuso (D172), e «Claude Code:» che non e' piu' seguito dal nulla.
+
+
+**CANT-3: il conto di cosa resta, guardato invece che dedotto.** Chiudendo
+CANT-2 avevo annunciato cinque file da portare scegliendoli dai **nomi** nella
+cartella, e nessuno dei cinque era CANT-2 (D150). Quindi stavolta non si
+guarda come si chiamano le funzioni: si guarda cosa **toccano**. Uno script
+(`_conto_cant3.py`) legge l'albero sintattico di `agent.py` e dei quattro
+cervelli e marca ogni funzione con cio' che il suo corpo nomina — la rete, il
+disco, i processi, i fili, il registro degli strumenti, i cervelli,
+l'orologio. Quello che non tocca niente si puo' portare adesso; il resto no.
+
+| | Righe |
+|---|---|
+| funzioni che non toccano niente | 930 |
+| di cui **gia' portate** | ~455 |
+| di cui restano, e sono adattatori sottili sui cervelli | ~180 |
+| il resto: costanti, `__init__`, metodi astratti | ~295 |
+| funzioni che toccano il mondo | 1.039 |
+
+Le quattro grosse che toccano tutto — `_giro` (110 righe), `_sali_di_gradino`
+(68), `_execute_call` (61), `send` (39) — sono **il ciclo**, e nominano
+insieme il cervello, gli strumenti e l'orologio. Non e' una traduzione
+rimandata per pigrizia: un ciclo in Rust che chiama strumenti Python e
+cervelli Python non ha liberato niente, ed e' scritto nel cantiere fin
+dall'inizio. Va dopo, e «dopo» vuol dire dopo CANT-4 (il modello locale) e
+CANT-7 (l'impalcatura).
+
+Quindi CANT-3 resta aperto con dentro **il ciclo e il collegamento dei
+cervelli**, e si passa a CANT-4.
+
+
+**CANT-4, primo pezzo: le decisioni, non l'avvio.** Prima di scrivere una riga
+si e' chiesto *cosa c'e' gia'* (D99), e la risposta e' che il grosso di
+`runtime.py` stava in `nova-modelli` da settimane: i GGUF, i motori, i conti
+sulla VRAM, gli strati. Restava la **riga di comando** di llama-server, la
+**scala dei layer** e il riconoscimento dell'errore di memoria — il pezzo dove
+un flag in meno e' meta' della memoria sprecata e un numero sbagliato e' un
+modello che gira dieci volte piu' piano senza dire niente (D173).
+
+E portandolo sono saltate fuori due forme di «memoria finita» che **oggi non
+si riconoscono**: `VK_ERROR_OUT_OF_DEVICE_MEMORY` con i trattini bassi, e il
+messaggio di ggml quando l'allocazione fallisce senza usare nessuna delle sei
+parole. Sono i due casi in cui NOVA non riprova con meno layer e si arrende.
+Portate uguali e **dichiarate** in una prova che si chiama
+`e_due_forme_che_oggi_NON_si_riconoscono` (D174): allargare la rete e' una
+decisione, e chi la prende deve sapere cosa sta decidendo.
 
 
 ## Il cancello della beta

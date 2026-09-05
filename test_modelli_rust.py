@@ -492,6 +492,153 @@ with tempfile.TemporaryDirectory(prefix="nova-casa-") as tmp:
               note["modelli"] == [] and not note["troncato"])
 
 # =======================================================================
+print("\n=== Come si accende il modello locale ===")
+# La riga di comando di llama-server, la scala dei layer, e l'unico errore che
+# vale la pena riprovare. Sono decisioni che si vedono poco e costano molto:
+# un flag in meno e' meta' della memoria sprecata, un numero di layer sbagliato
+# e' un modello che gira dieci volte piu' piano senza dire niente.
+
+
+class FintoServer:
+    def __init__(self, **kw):
+        self.model_path = kw.get("percorso_modello", "")
+        self.host = kw.get("host", "127.0.0.1")
+        self.port = kw.get("porta", 8080)
+        self.ctx_size = kw.get("contesto", 16384)
+        self.n_parallel = kw.get("paralleli", 1)
+        self.threads = kw.get("fili", 0)
+        self.kv_cache_type = kw.get("tipo_kv", "f16")
+        self.extra_args = kw.get("argomenti_extra", [])
+        self.n_gpu_layers = 99
+        self.auto_tune_gpu_layers = True
+
+
+class FintoCfg:
+    def __init__(self, **kw):
+        self.server = FintoServer(**kw)
+
+
+def py_riga(caso, proiettore):
+    """`_build_args` vero, con il proiettore messo a mano.
+
+    La ricerca del proiettore tocca il disco: qui interessa la **riga**, e il
+    disco lo si sostituisce con la risposta che si vuole provare.
+    """
+    s = LlamaServer.__new__(LlamaServer)
+    s.cfg = FintoCfg(**caso)
+    s.binary = Path(caso["binario"])
+    vecchia = pyrt.proiettore_accanto
+    try:
+        pyrt.proiettore_accanto = lambda _p: (Path(proiettore) if proiettore else None)
+        return s._build_args(caso["ngl"])
+    finally:
+        pyrt.proiettore_accanto = vecchia
+
+
+from nova.runtime import LlamaServer                          # noqa: E402
+
+RIGHE = [
+    {"binario": "llama-server.exe", "percorso_modello": r"C:\m\modello.gguf",
+     "host": "127.0.0.1", "porta": 8080, "contesto": 16384, "paralleli": 1,
+     "fili": 0, "tipo_kv": "f16", "argomenti_extra": [], "ngl": 33,
+     "proiettore": ""},
+    {"binario": "llama-server.exe", "percorso_modello": r"C:\m\modello.gguf",
+     "host": "0.0.0.0", "porta": 9999, "contesto": 4096, "paralleli": 4,
+     "fili": 8, "tipo_kv": "q8_0", "argomenti_extra": ["--flash-attn"],
+     "ngl": 0, "proiettore": r"C:\m\mmproj-F16.gguf"},
+    {"binario": "llama-server", "percorso_modello": "/m/modello con spazi.gguf",
+     "host": "localhost", "porta": 1, "contesto": 1, "paralleli": 1,
+     "fili": 1, "tipo_kv": "  ", "argomenti_extra": ["-a", "b"], "ngl": 99,
+     "proiettore": ""},
+    {"binario": "x", "percorso_modello": "m.gguf", "host": "h", "porta": 2,
+     "contesto": 2, "paralleli": 2, "fili": 0, "tipo_kv": "q4_0",
+     "argomenti_extra": [], "ngl": 1, "proiettore": "p.gguf"},
+]
+
+SCALE = [(99, True, 33), (99, True, 6), (99, True, 0), (99, True, 1),
+         (20, False, 33), (12, True, 33), (99, False, 33), (0, True, 0),
+         (99, True, 64), (98, True, 33)]
+
+REGISTRI = [
+    "modello caricato, tutto bene",
+    "ggml_backend_cuda_buffer_type_alloc: cudaMalloc failed",
+    "vk::Result::eErrorOutOfDeviceMemory",
+    "llama_init: unable to allocate backend buffer",
+    "Insufficient Memory",
+    "CUDA error: out of memory",
+    "VK_ERROR_OUT_OF_DEVICE_MEMORY",
+    "ggml_vulkan: Device memory allocation of 123 bytes failed",
+    "",
+    "OUT OF MEMORY",
+]
+
+CARTELLE = [
+    [],
+    ["modello.gguf"],
+    ["modello.gguf", "mmproj-F16.gguf"],
+    ["modello.gguf", "MMPROJ-F16.GGUF", "note.txt"],
+    ["mmproj-Q8.gguf", "mmproj-F16.gguf"],
+    ["mmproj.txt"],
+]
+
+suo = rust({"righe": RIGHE, "scale": [list(x) for x in SCALE],
+            "registri": REGISTRI, "cartelle": CARTELLE})
+
+diverse = [f"{i}: rust {ru} vs python {py_riga(c, c['proiettore'])}"
+           for i, (c, ru) in enumerate(zip(RIGHE, suo["righe"]))
+           if ru != py_riga(c, c["proiettore"])]
+controlla(f"le {len(RIGHE)} righe di comando sono identiche", not diverse,
+          " | ".join(diverse[:2]))
+controlla("il banco ha una riga con la cache a 8 bit e una senza",
+          any("-ctk" in r for r in suo["righe"])
+          and any("-ctk" not in r for r in suo["righe"]),
+          "senza, il flag che si passa solo quando serve non e' provato")
+
+
+def py_scala(base, auto, stimato):
+    s = LlamaServer.__new__(LlamaServer)
+    s.cfg = FintoCfg()
+    s.cfg.server.n_gpu_layers = base
+    s.cfg.server.auto_tune_gpu_layers = auto
+    s._log = lambda _m: None                                   # noqa: E731
+    vecchia_stima, vecchia_vram = pyrt.estimate_gpu_layers, pyrt.vram_utilizzabile
+    try:
+        pyrt.estimate_gpu_layers = lambda *a, **k: stimato
+        pyrt.vram_utilizzabile = lambda perche=None: (8192, pyrt.MISURATA)
+        return s._gpu_layer_ladder()
+    finally:
+        pyrt.estimate_gpu_layers = vecchia_stima
+        pyrt.vram_utilizzabile = vecchia_vram
+
+
+diverse = [f"{c}: rust {ru} vs python {py_scala(*c)}"
+           for c, ru in zip(SCALE, suo["scale"]) if ru != py_scala(*c)]
+controlla(f"le {len(SCALE)} scale dei layer sono identiche", not diverse,
+          " | ".join(diverse[:2]))
+
+diverse = [f"{r[:40]!r}: rust {ru} vs python {bool(pyrt._OOM_PATTERNS.search(r))}"
+           for r, ru in zip(REGISTRI, suo["memoria_finita"])
+           if ru != bool(pyrt._OOM_PATTERNS.search(r))]
+controlla(f"i {len(REGISTRI)} giudizi «memoria finita» sono identici",
+          not diverse, " | ".join(diverse[:2]))
+controlla("il banco ha un registro che NON viene riconosciuto",
+          any(not x for x in suo["memoria_finita"][1:]),
+          "senza, un riconoscitore che dice sempre si' passerebbe")
+
+import tempfile                                                # noqa: E402
+
+diverse = []
+for nomi, ru in zip(CARTELLE, suo["proiettori"]):
+    with tempfile.TemporaryDirectory() as d:
+        for n in nomi:
+            (Path(d) / n).write_text("x", encoding="utf-8")
+        p = pyrt.proiettore_accanto(str(Path(d) / "modello.gguf"))
+        py = p.name if p else None
+        if py != ru:
+            diverse.append(f"{nomi}: rust {ru!r} vs python {py!r}")
+controlla(f"i {len(CARTELLE)} proiettori si scelgono allo stesso modo",
+          not diverse, " | ".join(diverse[:2]))
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")

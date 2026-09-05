@@ -5349,3 +5349,60 @@ essersi rotto e non dice altro, cioe' la morte silenziosa che N8 vieta. La
 causa vera stava in `subtype`, che c'era gia' e nessuno leggeva. Adesso sta in
 `nova-guasti::cervelli` insieme ai riconoscitori di limite d'uso e alle due
 reti sotto — il flag non documentato e la riga di comando troppo lunga.
+
+## 8 settembre 2026, notte — Il conto di CANT-3, e CANT-4 che comincia
+
+**Prima il conto, e stavolta guardato invece che dedotto.** Chiudendo CANT-2
+avevo annunciato cinque file scegliendoli dai nomi nella cartella, e nessuno
+dei cinque era CANT-2 (D150). Quindi ho scritto `_conto_cant3.py`, che legge
+l'albero sintattico di `agent.py` e dei quattro cervelli e marca ogni funzione
+con cio' che il suo corpo **nomina**: la rete, il disco, i processi, i fili,
+il registro degli strumenti, i cervelli, l'orologio.
+
+    funzioni che non toccano niente ........... 930 righe
+      di cui gia' portate ..................... ~455
+      di cui restano, adattatori sui cervelli .. ~180
+      il resto: costanti, __init__, astratti ... ~295
+    funzioni che toccano il mondo ........... 1.039 righe
+
+Le quattro grosse che toccano tutto — `_giro` (110), `_sali_di_gradino` (68),
+`_execute_call` (61), `send` (39) — sono **il ciclo**, e nominano insieme il
+cervello, gli strumenti e l'orologio. Non e' una traduzione rimandata per
+pigrizia: un ciclo in Rust che chiama strumenti Python e cervelli Python non
+ha liberato niente, ed e' scritto nel cantiere fin dall'inizio. CANT-3 resta
+aperto con dentro quello.
+
+**E poi CANT-4.** Prima di scrivere una riga ho fatto la domanda di D99:
+*cosa c'e' gia'?* La risposta e' che il grosso di `runtime.py` era in
+`nova-modelli` da settimane — i GGUF, i motori, i conti sulla VRAM, gli
+strati. Chiederselo ha risparmiato di riportare quattrocento righe.
+
+Quello che restava e' il pezzo dove le decisioni si vedono poco e costano
+molto (D173): la **riga di comando** di llama-server, la **scala dei layer**,
+e il riconoscimento dell'unico errore che vale la pena riprovare. Il processo
+non si avvia li': li' si decide cosa gli si dice.
+
+Due cose che sembrano dettagli. La cache KV a 8 bit non si passa quando e'
+`f16`, che e' gia' il valore di fabbrica — un flag in meno e' una cosa in meno
+che puo' non piacere a un binario vecchio; e il proiettore visivo arriva **da
+fuori**, perche' la stessa domanda («questo modello vede?») la fa anche chi
+decide se allegare una figura, e se rispondessero in due posti diversi prima o
+poi risponderebbero diverso.
+
+**E una cosa trovata portando.** Le sei parole con cui llama.cpp dice «non ci
+sta in memoria» vengono da posti diversi. Portandole ne sono saltate fuori due
+che **non** si riconoscono:
+
+    VK_ERROR_OUT_OF_DEVICE_MEMORY                      -> non riconosciuto
+    ggml_vulkan: Device memory allocation ... failed   -> non riconosciuto
+    vk::Result::eErrorOutOfDeviceMemory                -> riconosciuto
+
+Sono i due casi in cui NOVA non riprova con meno layer e si arrende. Portate
+uguali, e scritte in una prova che si chiama
+`e_due_forme_che_oggi_NON_si_riconoscono` — dichiarare il buco invece di
+nasconderlo, cosi' chi decide se allargare la rete sa cosa sta decidendo
+(D153, D174).
+
+Mutazioni: il gradino da sei a otto accende la scala dei layer; il flag `-ctk`
+passato sempre accende due verifiche, di cui una e' quella che controlla che
+il banco abbia davvero un caso con e uno senza.
