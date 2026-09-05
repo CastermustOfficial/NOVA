@@ -386,7 +386,7 @@ New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
 # stato aggiunto alla CI e non a questo elenco, quindi l'installatore non si
 # sarebbe accorto che mancava. Se il file non c'e' si ripiega sui tre storici,
 # perche' un installatore che si ferma per un elenco mancante e' peggio.
-$binari = @('novad.exe', 'nova-shell.exe', 'nova.exe', 'nova-catalogo.exe', 'nova-cartelle.exe', 'nova-schede.exe', 'nova-appunti.exe', 'nova-volume.exe', 'nova-notifica.exe', 'nova-sistema.exe')
+$binari = @('novad.exe', 'nova-shell.exe', 'nova.exe', 'nova-catalogo.exe', 'nova-cartelle.exe', 'nova-schede.exe', 'nova-appunti.exe', 'nova-volume.exe', 'nova-notifica.exe', 'nova-sistema.exe', 'nova-app.exe')
 $fileBinari = Join-Path $Root 'core\binari.json'
 if (Test-Path $fileBinari) {
     try {

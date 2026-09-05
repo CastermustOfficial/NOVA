@@ -95,9 +95,7 @@ mod imp {
     use windows::Win32::Foundation::MAX_PATH;
     use windows::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
     use windows::Win32::System::Power::{GetSystemPowerStatus, SYSTEM_POWER_STATUS};
-    use windows::Win32::System::Registry::{
-        RegGetValueW, HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ,
-    };
+    use windows::Win32::System::Registry::HKEY_LOCAL_MACHINE;
     use windows::Win32::System::SystemInformation::{
         ComputerNamePhysicalDnsHostname, GetComputerNameExW, GetNativeSystemInfo,
         GetTickCount64, GlobalMemoryStatusEx, MEMORYSTATUSEX, SYSTEM_INFO,
@@ -107,29 +105,16 @@ mod imp {
         s.encode_utf16().chain(std::iter::once(0)).collect()
     }
 
-    /// Una stringa dal registro. Torna vuota invece di fallire: il nome
+    /// Una stringa dal registro, o vuota.
+    ///
+    /// Il corpo sta in `registro.rs`: era una funzione privata di questo
+    /// modulo finche' non e' servita anche all'elenco delle applicazioni
+    /// installate, e alla seconda occorrenza la cosa condivisa si mette in
+    /// comune (D62). Qui resta la scelta di **non fallire**: il nome
     /// commerciale del sistema e' una comodita', non un dato su cui NOVA
-    /// decide, e una chiave assente non deve far fallire tutta la risposta.
+    /// decide, e una chiave assente non deve far cadere tutta la risposta.
     fn dal_registro(chiave: &str, valore: &str) -> String {
-        let k = larga(chiave);
-        let v = larga(valore);
-        let mut quanti: u32 = 0;
-        unsafe {
-            if RegGetValueW(HKEY_LOCAL_MACHINE, PCWSTR(k.as_ptr()), PCWSTR(v.as_ptr()),
-                            RRF_RT_REG_SZ, None, None, Some(&mut quanti)).is_err()
-            {
-                return String::new();
-            }
-            let mut buf = vec![0u16; (quanti as usize / 2) + 1];
-            if RegGetValueW(HKEY_LOCAL_MACHINE, PCWSTR(k.as_ptr()), PCWSTR(v.as_ptr()),
-                            RRF_RT_REG_SZ, None,
-                            Some(buf.as_mut_ptr() as *mut _), Some(&mut quanti)).is_err()
-            {
-                return String::new();
-            }
-            let fine = buf.iter().position(|&c| c == 0).unwrap_or(buf.len());
-            String::from_utf16_lossy(&buf[..fine]).trim().to_string()
-        }
+        crate::registro::stringa(HKEY_LOCAL_MACHINE, chiave, valore).unwrap_or_default()
     }
 
     const WINDOWS_NT: &str = r"SOFTWARE\Microsoft\Windows NT\CurrentVersion";

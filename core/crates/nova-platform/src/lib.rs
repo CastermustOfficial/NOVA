@@ -42,6 +42,14 @@ pub mod notifiche;
 // Com'e' fatto il PC. Era la capacita' piu' cara di tutte: 1.543 ms.
 pub mod sistema;
 
+// Il registro, letto in un posto solo: `sistema` ne aveva gia' una copia
+// privata, e alla seconda occorrenza si mette in comune (D62).
+pub mod registro;
+
+// Che applicazioni sono installate: gli stessi tre rami di registro che
+// leggeva PowerShell, letti direttamente.
+pub mod applicazioni;
+
 // Se i byte di un file stanno qui o nel cloud. Serve prima di leggere un
 // modello da dodici gigabyte che una cartella sincronizzata puo' aver
 // «liberato» lasciando un segnaposto al suo posto.

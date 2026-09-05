@@ -4267,3 +4267,37 @@ che non mente e' il numero di build: 22000 e' la prima di Windows 11, e la
 correzione sta in una funzione pura con le sue prove, perche' il giorno che
 qualcuno la trova strana e la toglie, le prove glielo dicano.
 
+### L'elenco delle applicazioni, e un taglio che nessuno dichiarava
+
+594 ms contro 55, e questa volta il porting e' filato: stesse tre chiavi di
+registro, lette direttamente invece che con `Get-ItemProperty`. Le 229
+applicazioni tornano identiche.
+
+«Identiche» pero' ha voluto dire due domande, non una. La prima verifica che
+avevo scritto diceva «gli elementi sono gli stessi» e passava. Ma un elenco
+non e' un insieme: chi lo legge lo legge **dall'alto**, e il modello sulle
+prime righe ci decide. `Sort-Object` di PowerShell ordina secondo la lingua
+del sistema; un ordinamento per punto di codice avrebbe messo «Zoom» prima di
+«Ärger» su una macchina tedesca — stessi elementi, elenco diverso, e la mia
+prova sarebbe rimasta verde. Adesso il confronto e' in posizione, riga per
+riga (D139).
+
+E l'ordinamento in Rust ha un secondo criterio che sembra pignoleria e non lo
+e': a parita' di lettere, il nome com'e' scritto. Senza, quale fra «Steam» e
+«STEAM» sopravvive alla deduplicazione lo deciderebbe l'ordine in cui il
+registro risponde — cioe' niente — e due esecuzioni della stessa domanda
+potrebbero dare due risposte.
+
+**Il difetto vero pero' non c'entrava col porting.** L'elenco finiva con
+`names[:250]`. Un taglio, in silenzio. Su questa macchina le applicazioni sono
+229 e non scatta mai; su una con trecento, il modello ne riceve 250, cerca un
+nome che sta nelle ultime cinquanta, non lo trova e conclude che non e'
+installato. Adesso il taglio si dichiara: quante ne mancano, quante sono in
+tutto, e come vederle (D129).
+
+Una nota sulla prova di quel taglio. La prima versione diceva: «se ce ne sono
+piu' del massimo, controlla che lo dica». Su questa macchina non ce ne sono
+piu' del massimo, quindi non controllava niente e passava — verde **per
+assenza**, che e' il modo peggiore di essere verdi. Adesso abbassa il massimo
+a cinque e guarda cosa succede davvero.
+
