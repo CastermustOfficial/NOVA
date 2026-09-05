@@ -11,24 +11,18 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use anyhow::{anyhow, bail, Result};
-use windows::core::{Interface, BOOL, BSTR};
-use windows::Win32::Foundation::{HWND, LPARAM, MAX_PATH, RECT};
+use windows::core::{Interface, BSTR};
+use windows::Win32::Foundation::{HWND, RECT};
 use windows::Win32::System::Com::{
     CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED,
 };
 use windows::Win32::System::Variant::VARIANT;
-use windows::Win32::System::Threading::{
-    OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_FORMAT, PROCESS_QUERY_LIMITED_INFORMATION,
-};
 use windows::Win32::UI::Accessibility::{
     CUIAutomation, IUIAutomation, IUIAutomationElement, IUIAutomationInvokePattern,
     IUIAutomationLegacyIAccessiblePattern, IUIAutomationSelectionItemPattern,
     IUIAutomationTogglePattern, IUIAutomationValuePattern, TreeScope_Children,
     UIA_InvokePatternId, UIA_LegacyIAccessiblePatternId, UIA_SelectionItemPatternId,
     TreeScope_Subtree, UIA_ControlTypePropertyId, UIA_TogglePatternId, UIA_ValuePatternId,
-};
-use windows::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsWindowVisible,
 };
 
 use crate::{ElementRef, UiNode, UiQuery, UiTree, WindowInfo, WindowSel};
@@ -252,68 +246,14 @@ unsafe fn servi(automation: &IUIAutomation, rx: std::sync::mpsc::Receiver<Cmd>) 
 
 // ------------------------------------------------------------- finestre
 
-unsafe extern "system" fn raccogli(hwnd: HWND, lparam: LPARAM) -> BOOL {
-    let elenco = &mut *(lparam.0 as *mut Vec<HWND>);
-    if IsWindowVisible(hwnd).as_bool() && GetWindowTextLengthW(hwnd) > 0 {
-        elenco.push(hwnd);
-    }
-    BOOL(1)
-}
-
-unsafe fn elenca_finestre() -> Result<Vec<WindowInfo>> {
-    let mut handles: Vec<HWND> = Vec::new();
-    EnumWindows(
-        Some(raccogli),
-        LPARAM(&mut handles as *mut Vec<HWND> as isize),
-    )
-    .map_err(|e| anyhow!("EnumWindows fallita: {e}"))?;
-
-    let mut fuori = Vec::with_capacity(handles.len());
-    for h in handles {
-        let mut buf = [0u16; 512];
-        let n = GetWindowTextW(h, &mut buf);
-        let titolo = String::from_utf16_lossy(&buf[..n.max(0) as usize]);
-        if titolo.trim().is_empty() {
-            continue;
-        }
-        let mut pid = 0u32;
-        GetWindowThreadProcessId(h, Some(&mut pid));
-        fuori.push(WindowInfo {
-            handle: h.0 as i64,
-            title: titolo,
-            process: nome_processo(pid),
-            pid,
-        });
-    }
-    Ok(fuori)
-}
-
-unsafe fn nome_processo(pid: u32) -> String {
-    if pid == 0 {
-        return String::new();
-    }
-    let Ok(handle) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) else {
-        return String::new();
-    };
-    let mut buf = [0u16; MAX_PATH as usize];
-    let mut n = buf.len() as u32;
-    let esito = QueryFullProcessImageNameW(
-        handle,
-        PROCESS_NAME_FORMAT(0),
-        windows::core::PWSTR(buf.as_mut_ptr()),
-        &mut n,
-    );
-    let _ = windows::Win32::Foundation::CloseHandle(handle);
-    if esito.is_err() {
-        return String::new();
-    }
-    let intero = String::from_utf16_lossy(&buf[..n as usize]);
-    intero
-        .rsplit(['\\', '/'])
-        .next()
-        .unwrap_or(&intero)
-        .to_string()
-}
+/// L'elenco delle finestre sta in `finestre.rs`.
+///
+/// Stava qui, e non era il suo posto: `EnumWindows` piu' `GetWindowTextW` non
+/// toccano UI Automation, e tenerla dentro questo backend costringeva chi
+/// voleva solo sapere cosa e' aperto ad avviare un thread COM e un'intera
+/// automazione. Spostata, non riscritta (D99). Qui resta la riga che la
+/// chiama, perche' cercare una finestra per titolo serve anche a UIA.
+use crate::finestre::elenca as elenca_finestre;
 
 // -------------------------------------------------------------- elementi
 

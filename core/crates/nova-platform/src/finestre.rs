@@ -4,6 +4,12 @@
 //! bisogno dell'apartment COM del thread dedicato. Stanno qui e non nel trait
 //! `UiTree` perche' non sono «leggere l'albero»: sono governare la scena.
 //!
+//! Qui sta anche **l'elenco delle finestre aperte**. Stava dentro il backend
+//! di UI Automation, e non era il suo posto: `EnumWindows` piu'
+//! `GetWindowTextW` non toccano UIA, e chi voleva sapere che finestre ci sono
+//! doveva far partire un thread COM e un'intera automazione per una domanda
+//! che non ne ha bisogno. Non l'ho riscritta: l'ho spostata (D99).
+//!
 //! La regola che conta e' una sola, ed e' `SWP_NOACTIVATE`: si sposta e si
 //! ridimensiona una finestra **senza darle il fuoco**. E' cio' che permette a
 //! NOVA di sistemarsi la propria finestra mentre l'operatore sta scrivendo
@@ -47,9 +53,114 @@ mod imp {
         EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITORINFO,
     };
     use windows::Win32::UI::WindowsAndMessaging::{
-        IsWindow, SetWindowPos, HWND_BOTTOM, MONITORINFOF_PRIMARY, SWP_NOACTIVATE, SWP_NOMOVE,
-        SWP_NOSIZE, SWP_NOZORDER,
+        EnumWindows, GetClassNameW, GetWindowTextLengthW, GetWindowTextW,
+        GetWindowThreadProcessId, IsWindow,
+        IsWindowVisible, SetWindowPos, HWND_BOTTOM, MONITORINFOF_PRIMARY, SWP_NOACTIVATE,
+        SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
     };
+    use windows::Win32::Foundation::MAX_PATH;
+    use windows::Win32::System::Threading::{
+        OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_FORMAT,
+        PROCESS_QUERY_LIMITED_INFORMATION,
+    };
+    use crate::WindowInfo;
+
+    /// Le due classi di finestra che sono **lo sfondo del desktop**.
+    ///
+    /// `Progman` e' la finestra di Esplora risorse che disegna le icone del
+    /// desktop, e ha per titolo «Program Manager»; `WorkerW` e' la sua gemella
+    /// che compare quando lo sfondo e' animato. Sono visibili e hanno un
+    /// titolo, quindi passano ogni altro filtro — ma nessuno che dica «che
+    /// finestre ho aperte» intende quelle. Toglierle e' l'unica esclusione
+    /// che questo elenco si permette, e sta scritta qui perche' un'esclusione
+    /// taciuta e' un elenco che mente (D129).
+    const SFONDO: [&str; 2] = ["Progman", "WorkerW"];
+
+    /// Raccoglie gli handle delle finestre che una persona vedrebbe.
+    ///
+    /// Il filtro e' visibile **e** con un titolo, come prima, meno lo sfondo
+    /// del desktop.
+    unsafe extern "system" fn raccogli_finestre(hwnd: HWND, lparam: LPARAM) -> BOOL {
+        let elenco = &mut *(lparam.0 as *mut Vec<HWND>);
+        if IsWindowVisible(hwnd).as_bool() && GetWindowTextLengthW(hwnd) > 0 {
+            let mut classe = [0u16; 64];
+            let n = GetClassNameW(hwnd, &mut classe);
+            let nome = String::from_utf16_lossy(&classe[..n.max(0) as usize]);
+            if !SFONDO.contains(&nome.as_str()) {
+                elenco.push(hwnd);
+            }
+        }
+        BOOL(1)
+    }
+
+    /// Il nome dell'eseguibile di un processo, senza il percorso.
+    ///
+    /// `PROCESS_QUERY_LIMITED_INFORMATION` e non `QUERY_INFORMATION`: il
+    /// primo funziona anche sui processi di un altro livello di integrita',
+    /// il secondo no. Con quello sbagliato l'elenco perderebbe in silenzio i
+    /// nomi dei processi elevati.
+    unsafe fn nome_processo(pid: u32) -> String {
+        if pid == 0 {
+            return String::new();
+        }
+        let Ok(handle) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) else {
+            return String::new();
+        };
+        let mut buf = [0u16; MAX_PATH as usize];
+        let mut n = buf.len() as u32;
+        let esito = QueryFullProcessImageNameW(
+            handle,
+            PROCESS_NAME_FORMAT(0),
+            windows::core::PWSTR(buf.as_mut_ptr()),
+            &mut n,
+        );
+        let _ = windows::Win32::Foundation::CloseHandle(handle);
+        if esito.is_err() {
+            return String::new();
+        }
+        let intero = String::from_utf16_lossy(&buf[..n as usize]);
+        intero.rsplit(['\\', '/']).next().unwrap_or(&intero).to_string()
+    }
+
+    /// Le finestre di primo livello visibili, con titolo e processo.
+    ///
+    /// **L'ordine e' quello della pila**, dalla piu' in alto alla piu' in
+    /// fondo: e' cosi' che `EnumWindows` le restituisce, ed e' un dato, non
+    /// un caso. La strada di prima le ordinava per nome del processo e
+    /// buttava via quell'informazione; chi chiede «che finestre ho aperte»
+    /// quasi sempre intende quella davanti.
+    pub fn elenca() -> Result<Vec<WindowInfo>> {
+        unsafe {
+            let mut handles: Vec<HWND> = Vec::new();
+            EnumWindows(
+                Some(raccogli_finestre),
+                LPARAM(&mut handles as *mut Vec<HWND> as isize),
+            )
+            .map_err(|e| anyhow!("EnumWindows fallita: {e}"))?;
+
+            let mut fuori = Vec::with_capacity(handles.len());
+            for h in handles {
+                // 512 e' quanto sta in un titolo che valga la pena leggere.
+                // `GetWindowTextW` tronca da se' e non e' un problema: un
+                // titolo piu' lungo di cosi' nessuno lo legge intero.
+                let mut buf = [0u16; 512];
+                let n = GetWindowTextW(h, &mut buf);
+                let titolo = String::from_utf16_lossy(&buf[..n.max(0) as usize]);
+                if titolo.trim().is_empty() {
+                    continue;
+                }
+                let mut pid = 0u32;
+                GetWindowThreadProcessId(h, Some(&mut pid));
+                fuori.push(WindowInfo {
+                    handle: h.0 as i64,
+                    title: titolo,
+                    process: nome_processo(pid),
+                    pid,
+                });
+            }
+            Ok(fuori)
+        }
+    }
 
     unsafe extern "system" fn raccogli(
         h: HMONITOR,
@@ -94,6 +205,7 @@ mod imp {
         Ok(elenco)
     }
 
+    /// Sposta e ridimensiona senza dare il fuoco.
     pub fn sposta(handle: i64, posa: &Posa) -> Result<()> {
         let h = HWND(handle as *mut std::ffi::c_void);
         unsafe {
@@ -137,6 +249,10 @@ mod imp {
         bail!("elenco degli schermi non ancora implementato per {}", std::env::consts::OS)
     }
 
+    pub fn elenca() -> Result<Vec<crate::WindowInfo>> {
+        Ok(Vec::new())
+    }
+
     pub fn sposta(_handle: i64, _posa: &Posa) -> Result<()> {
         bail!("spostamento finestre non ancora implementato per {}", std::env::consts::OS)
     }
@@ -144,6 +260,15 @@ mod imp {
 
 pub fn schermi() -> Result<Vec<Schermo>> {
     imp::schermi()
+}
+
+/// Le finestre di primo livello visibili, con titolo, processo e pid.
+///
+/// Non passa da UI Automation: e' `EnumWindows` e basta. Chi vuole *guardare
+/// dentro* una finestra chiede al trait `UiTree`; chi vuole solo sapere cosa
+/// e' aperto chiede qui, e non paga un thread COM per farlo.
+pub fn elenca() -> Result<Vec<crate::WindowInfo>> {
+    imp::elenca()
 }
 
 pub fn sposta(handle: i64, posa: &Posa) -> Result<()> {

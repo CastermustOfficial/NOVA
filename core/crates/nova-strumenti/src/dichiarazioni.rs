@@ -310,13 +310,13 @@ pub const STRUMENTI: &[Strumento] = &[
     },
     Strumento {
         nome: "list_windows",
-        descrizione: "Elenca le finestre aperte con titolo e processo. E' il modo per 'vedere' cosa e' aperto senza schermate.",
+        descrizione: "Elenca le finestre aperte, con titolo e processo, dalla piu' in primo piano alla piu' in fondo. E' il modo per 'vedere' cosa e' aperto senza schermate.",
         rischio: Rischio::Innocuo,
         categoria: "app",
         obbligatori: &[],
         anteprima: Some("Elenca le finestre aperte"),
         parametri: &[
-        Parametro { nome: "filter", tipo: "string", descrizione: "Filtra per testo nel titolo, opzionale", elementi: None }
+        Parametro { nome: "filter", tipo: "string", descrizione: "Filtra per testo nel titolo o nel processo, opzionale", elementi: None }
         ],
     },
     Strumento {
