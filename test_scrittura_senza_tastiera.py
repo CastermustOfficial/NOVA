@@ -153,8 +153,25 @@ try:
                   f"davanti c'e' «{davanti.get('title')}»")
 
         TESTO = "perché città però 😀"
-        c.call("ui.set_text", {"window": w["handle"], "path": campo["path"],
-                               "text": TESTO})
+        # Se la scrittura non riesce, la prova e' **rossa**, non «non
+        # provabile»: da qui non si puo' distinguere «NOVA non ci riesce» da
+        # «la cavia in questo momento non risponde», e chiamarla non provabile
+        # sarebbe scegliere l'ipotesi comoda. Quello che si puo' fare e' non
+        # far uscire un traceback: chi legge il banco deve capire cosa e'
+        # successo senza aprire il codice (ATT-1).
+        try:
+            c.call("ui.set_text", {"window": w["handle"], "path": campo["path"],
+                                   "text": TESTO})
+            scritto = True
+        except Exception as e:                                  # noqa: BLE001
+            scritto = False
+            controlla("si scrive nella finestra senza toccare la tastiera",
+                      False,
+                      f"la cavia ha rifiutato la scrittura: {e}. "
+                      "Se davanti c'e' un gioco a schermo intero o la Mappa "
+                      "caratteri e' stata chiusa a mano, rilancia la prova "
+                      "con la scrivania libera prima di cercare il difetto "
+                      "nel codice.")
         time.sleep(0.4)
 
         print("\n3. e il testo c'e' davvero, riletto dall'applicazione")
@@ -166,7 +183,8 @@ try:
         # un `\r` da solo. Toglierlo qui e' giusto; toglierlo dentro NOVA
         # sarebbe correggere il campo di qualcun altro.
         controlla("il campo contiene quello che gli e' stato scritto",
-                  (valore or "").rstrip("\r\n") == TESTO, repr(valore))
+                  scritto and (valore or "").rstrip("\r\n") == TESTO,
+                  repr(valore) if scritto else "non e' stato scritto niente")
 
         print("\n4. e il fuoco non si e' mosso")
         # E' la regola: NOVA lavora separatamente. Se scrivendo si fosse

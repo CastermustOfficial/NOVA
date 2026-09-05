@@ -49,6 +49,18 @@ def sostituisci_segnaposto(modello: str, utente: str, adesso: str, casa: str) ->
             .replace("{home}", casa))
 
 
+def componi_domanda(testo: str, memoria: str = "", procedure: str = "",
+                    identita: str = "", postilla: str = "") -> str:
+    """Il messaggio dell'utente con attaccato tutto il resto.
+
+    **L'ordine conta**, ed e' l'unica cosa che questa funzione decide: prima
+    cio' che hai chiesto, poi cio' che NOVA sa, poi cio' che ha gia' fatto,
+    poi come deve rispondere. L'istruzione resta l'ultima cosa letta, che e'
+    il posto in cui i modelli la seguono di piu'.
+    """
+    return testo + memoria + procedure + identita + postilla
+
+
 def componi_prompt(modello: str, utente: str, adesso: str, casa: str,
                    lingua: str = "it") -> str:
     """Il messaggio di sistema completo.
@@ -552,12 +564,10 @@ class Agent:
         memoria = self._blocco_memoria(user_text)
         procedure = self._blocco_procedure(user_text)
         chi_sei = self._promemoria_identita()
-        # L'ordine conta: prima cio' che hai chiesto, poi cio' che NOVA sa, poi
-        # cio' che ha gia' fatto, poi come deve rispondere. L'istruzione resta
-        # l'ultima cosa letta.
         self.messages.append(
             {"role": "user",
-             "content": user_text + memoria + procedure + chi_sei + postilla})
+             "content": componi_domanda(user_text, memoria, procedure,
+                                        chi_sei, postilla)})
         _inizio_turno = time.time()
         # Quali strumenti ha usato *questo* turno: serve a decidere se cio' che
         # e' passato di qui puo' finire in memoria.

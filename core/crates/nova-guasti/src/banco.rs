@@ -12,6 +12,7 @@
 
 use std::io::Read;
 
+use nova_guasti::http;
 use nova_guasti::{senza_chiavi, spiega, spiega_irraggiungibile, Guasto};
 use serde::{Deserialize, Serialize};
 
@@ -47,6 +48,15 @@ struct Dentro {
     /// di cosa ci si e' trovato dentro.
     #[serde(default)]
     da_giudicare: Vec<String>,
+    /// (codice, corpo, chi parla) da spiegare in italiano.
+    #[serde(default)]
+    http: Vec<(i64, String, String)>,
+    /// Corpi di errore di cui si vuole il motivo utile, e il giudizio sulla
+    /// vista.
+    #[serde(default)]
+    corpi: Vec<String>,
+    #[serde(default)]
+    numeri: Vec<i64>,
 }
 
 #[derive(Serialize)]
@@ -56,6 +66,12 @@ struct Fuori {
     irraggiungibili: Vec<String>,
     pacchetti: Vec<String>,
     giudizi: Vec<Option<String>>,
+    http: Vec<String>,
+    motivi: Vec<String>,
+    senza_vista: Vec<bool>,
+    contesto_sfondato: Vec<bool>,
+    misure: Vec<(i64, i64)>,
+    migliaia: Vec<String>,
 }
 
 fn main() {
@@ -123,6 +139,16 @@ fn main() {
                 nova_guasti::guardiano::perche_non_si_salva(t).map(|s| s.to_string())
             })
             .collect(),
+        http: d
+            .http
+            .iter()
+            .map(|(c, corpo, dove)| http::spiega_http(*c, corpo, dove))
+            .collect(),
+        motivi: d.corpi.iter().map(|c| http::motivo_del_fornitore(c)).collect(),
+        senza_vista: d.corpi.iter().map(|c| http::senza_vista(c)).collect(),
+        contesto_sfondato: d.corpi.iter().map(|c| http::contesto_sfondato(c)).collect(),
+        misure: d.corpi.iter().map(|c| http::misure_del_contesto(c)).collect(),
+        migliaia: d.numeri.iter().map(|n| http::migliaia(*n)).collect(),
     };
 
     match serde_json::to_string(&fuori) {

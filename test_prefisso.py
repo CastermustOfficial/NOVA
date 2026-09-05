@@ -17,9 +17,11 @@ diventa dieci volte piu' lenti in silenzio.
 
 Questa prova sta qui per quello.
 """
+import ast
 import inspect
 import re
 import sys
+import textwrap
 from pathlib import Path
 
 RADICE = Path(__file__).resolve().parent
@@ -44,17 +46,67 @@ from nova.agent import Agent                                     # noqa: E402
 
 print("\n1. quello che dipende dalla domanda sta in coda, non nel sistema")
 sorgente_invio = inspect.getsource(Agent.send)
-# I due blocchi che cambiano a ogni turno.
+
+# Questa parte guarda **la forma del codice**, non il suo comportamento, e la
+# ragione e' che il comportamento qui non si vede: mettere il contesto nel
+# prompt di sistema non rompe niente, rende dieci volte piu' lenti in
+# silenzio. Ma una prova che legge il sorgente va scritta come una domanda
+# sulla struttura, non come una ricerca di parole: cercare
+# `"content": user_text + ...` e' diventato rosso il giorno in cui quella
+# somma e' passata dentro una funzione, cioe' per un difetto che non c'era
+# (D159, ed e' la seconda volta in questo file).
+albero = ast.parse(textwrap.dedent(sorgente_invio))
+
+
+def nomi_dai_blocchi(fn: ast.AST) -> dict[str, str]:
+    """Quali variabili nascono da `self._blocco_*()`."""
+    fuori = {}
+    for nodo in ast.walk(fn):
+        if not isinstance(nodo, ast.Assign) or len(nodo.targets) != 1:
+            continue
+        if not isinstance(nodo.targets[0], ast.Name):
+            continue
+        chiamata = nodo.value
+        if (isinstance(chiamata, ast.Call)
+                and isinstance(chiamata.func, ast.Attribute)
+                and chiamata.func.attr.startswith("_blocco_")):
+            fuori[chiamata.func.attr] = nodo.targets[0].id
+    return fuori
+
+
+def dentro_al_messaggio_utente(fn: ast.AST) -> set[str]:
+    """I nomi che finiscono nel `content` di un messaggio con ruolo `user`.
+
+    Si guarda dentro la chiamata che compone, se c'e': il valore puo' essere
+    una somma scritta li' o una funzione che la fa: sono la stessa cosa, e la
+    prova deve accettarle tutte e due.
+    """
+    for nodo in ast.walk(fn):
+        if not isinstance(nodo, ast.Dict):
+            continue
+        campi = {k.value: v for k, v in zip(nodo.keys, nodo.values)
+                 if isinstance(k, ast.Constant)}
+        ruolo = campi.get("role")
+        if not (isinstance(ruolo, ast.Constant) and ruolo.value == "user"):
+            continue
+        contenuto = campi.get("content")
+        if contenuto is None:
+            continue
+        return {n.id for n in ast.walk(contenuto) if isinstance(n, ast.Name)}
+    return set()
+
+
+nati = nomi_dai_blocchi(albero)
+nel_messaggio = dentro_al_messaggio_utente(albero)
 for pezzo, come_si_chiama in [("_blocco_memoria", "il contesto della memoria"),
                               ("_blocco_procedure", "le ricette")]:
-    controlla(f"{come_si_chiama} si calcola nel turno",
-              f"self.{pezzo}(" in sorgente_invio)
-    # Devono finire nel messaggio dell'utente, che e' in coda.
-    controlla(f"e finisce nel messaggio, non nel prompt di sistema",
-              re.search(rf'"content": user_text \+.*\b'
-                        rf'{pezzo.lstrip("_").replace("blocco_", "")}\b',
-                        sorgente_invio) is not None
-              or "user_text + memoria + procedure" in sorgente_invio)
+    controlla(f"{come_si_chiama} si calcola nel turno", pezzo in nati,
+              f"nessuna variabile nasce da self.{pezzo}()")
+    controlla(f"e {come_si_chiama} finisce nel messaggio dell'utente, "
+              "non nel prompt di sistema",
+              nati.get(pezzo) in nel_messaggio,
+              f"«{nati.get(pezzo)}» non compare nel contenuto del messaggio "
+              f"utente, che usa {sorted(nel_messaggio)}")
 
 sorgente_sistema = inspect.getsource(Agent.system_prompt)
 for vietato in ["_blocco_memoria", "_contesto_kb", "_blocco_procedure",

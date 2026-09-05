@@ -327,6 +327,90 @@ ripetuti = [t[:40] for t in TUTTI
 controlla("e il rifiuto non ripete mai quello che ha rifiutato",
           not ripetuti, str(ripetuti[:2]))
 
+# --------------------------------------------------------------------------
+# Un codice HTTP detto in italiano.
+#
+# E' il punto 7 dell'attrito: «non ci riesco» deve dire perche' e cosa fare.
+# Ma c'e' anche una parte che non e' cortesia: il corpo della risposta puo'
+# contenere la chiave rimandata indietro dal fornitore, e da li' finirebbe in
+# chat e nel registro.
+CHIAVE = "sk-proj-" + "A" * 40
+
+CORPI = [
+    "",
+    "<html><body>502 Bad Gateway</body></html>",
+    '{"codice": 12, "roba": [1, 2]}',
+    '{"message": "modello sconosciuto"}',
+    '{"error": {"message": "Incorrect API key provided: ' + CHIAVE + '"}}',
+    '{"error": {"detail": "rate limit, riprova fra un minuto"}}',
+    '{"error":{"error":{"error":{"error":"in fondo"}}}}',
+    '{"error":{"error":{"error":{"error":{"error":"troppo in fondo"}}}}}',
+    '{"message": "' + "a" * 500 + '"}',
+    '{"error": {"message": "con accenti: perché la città è così"}}',
+    '{"error":{"code":400,"message":"the request exceeds the available context '
+    'size. try increasing the context size or enable context shift",'
+    '"n_prompt_tokens":102953,"n_ctx":16384,"type":"exceed_context_size_error"}}',
+    '{"error":"maximum context length"}',
+    '{"error":{"n_prompt_tokens":"102953","n_ctx":"16384",'
+    '"message":"context length exceeded"}}',
+    '{"error":{"n_prompt_tokens":"tanti","n_ctx":16384,'
+    '"message":"context length exceeded"}}',
+    "image input is not supported - hint: if this is unexpected, you may need "
+    "to provide the mmproj",
+    '{"error": {"message": "MMPROJ missing"}}',
+    '{"message": 42}',
+    '{"message": null}',
+    '{"message": ["a", "b"]}',
+]
+
+CODICI = [200, 400, 401, 402, 403, 404, 413, 429, 499, 500, 502, 503, 599]
+HTTP = [(c, corpo, "Il fornitore") for c in CODICI for corpo in CORPI[:6]]
+HTTP += [(400, CORPI[10], "Il fornitore"), (400, CORPI[11], "Il fornitore"),
+         (400, CORPI[12], "Il fornitore"), (400, CORPI[13], "Il fornitore"),
+         (500, CORPI[14], "llama-server"), (502, CORPI[15], "Il fornitore"),
+         (401, CORPI[4], "OpenRouter")]
+NUMERI = [0, 1, 12, 999, 1000, 1234, 16384, 102953, 1000000, -4321]
+
+suo = rust({"http": [list(x) for x in HTTP], "corpi": CORPI, "numeri": NUMERI})
+
+diverse = [f"{c} {corpo[:30]!r}: rust {r[:70]!r} vs python {py.spiega_http(c, corpo, dove)[:70]!r}"
+           for (c, corpo, dove), r in zip(HTTP, suo["http"])
+           if r != py.spiega_http(c, corpo, dove)]
+controlla(f"le {len(HTTP)} spiegazioni HTTP sono identiche", not diverse,
+          " | ".join(diverse[:2]))
+
+diverse = [f"{c[:40]!r}: rust {r!r} vs python {py._motivo_del_fornitore(c)!r}"
+           for c, r in zip(CORPI, suo["motivi"]) if r != py._motivo_del_fornitore(c)]
+controlla(f"i {len(CORPI)} motivi estratti sono identici", not diverse,
+          " | ".join(diverse[:2]))
+
+diverse = [f"{c[:40]!r}" for c, r in zip(CORPI, suo["senza_vista"])
+           if r != py.senza_vista(c)]
+controlla("e il giudizio «questo modello non vede» pure", not diverse, str(diverse[:2]))
+
+diverse = [f"{c[:40]!r}" for c, r in zip(CORPI, suo["contesto_sfondato"])
+           if r != py._contesto_sfondato(c)]
+controlla("e il giudizio «il contesto non basta» pure", not diverse, str(diverse[:2]))
+
+diverse = [f"{c[:40]!r}: rust {tuple(r)} vs python {py._misure_del_contesto(c)}"
+           for c, r in zip(CORPI, suo["misure"]) if tuple(r) != py._misure_del_contesto(c)]
+controlla("e i due numeri del contesto pure", not diverse, " | ".join(diverse[:2]))
+
+diverse = [f"{n}: rust {r!r} vs python {f'{n:,}'.replace(',', '.')!r}"
+           for n, r in zip(NUMERI, suo["migliaia"])
+           if r != f"{n:,}".replace(",", ".")]
+controlla("e le migliaia si scrivono col punto, come in Python", not diverse,
+          " | ".join(diverse[:2]))
+
+# La domanda che conta piu' di tutte le altre messe insieme.
+tutte = suo["http"] + suo["motivi"]
+perde = [x[:60] for x in tutte if "sk-proj-" in x or "A" * 20 in x]
+controlla("e la chiave non compare in NESSUNA delle frasi prodotte",
+          not perde, str(perde[:2]))
+controlla("il banco ha davvero un corpo con la chiave dentro",
+          any(CHIAVE in c for c in CORPI),
+          "senza, la verifica qui sopra non prova niente")
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")

@@ -55,6 +55,28 @@ pub fn identita(agentico: bool) -> &'static str {
     }
 }
 
+/// Il messaggio dell'utente con attaccato tutto il resto.
+///
+/// **L'ordine conta**, ed e' l'unica cosa che questa funzione decide: prima
+/// cio' che hai chiesto, poi cio' che NOVA sa, poi cio' che ha gia' fatto,
+/// poi come deve rispondere. L'istruzione resta l'ultima cosa letta, che e'
+/// il posto in cui i modelli la seguono di piu'.
+///
+/// La `postilla` e' un'istruzione per il cervello e basta: non entra nella
+/// ricerca in memoria e non viene imparata. Serve alla voce, che a ogni turno
+/// deve ricordare al cervello di rispondere come si parla — e che non puo'
+/// metterlo nel prompt di sistema, visto che quello si passa solo quando la
+/// sessione si apre.
+pub fn domanda(
+    testo: &str,
+    memoria: &str,
+    procedure: &str,
+    identita: &str,
+    postilla: &str,
+) -> String {
+    format!("{testo}{memoria}{procedure}{identita}{postilla}")
+}
+
 #[cfg(test)]
 mod prove {
     use super::*;
@@ -71,6 +93,15 @@ mod prove {
         assert!(b.ends_with("\n</memoria>"));
         assert!(b.contains("gio usa Rust"));
         assert!(b.contains("kb_forget"), "manca il permesso di correggere");
+    }
+
+    #[test]
+    fn lordine_e_quello_e_non_un_altro() {
+        assert_eq!(domanda("chiesto", "-sa", "-fatto", "-chi", "-come"),
+                   "chiesto-sa-fatto-chi-come");
+        // Senza niente attorno resta esattamente la domanda: nessuna riga
+        // aggiunta, nessuno spazio.
+        assert_eq!(domanda("chiesto", "", "", "", ""), "chiesto");
     }
 
     #[test]

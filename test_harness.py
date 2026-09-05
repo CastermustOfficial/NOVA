@@ -136,6 +136,39 @@ with _tmp.TemporaryDirectory() as _d:
     controlla("un file che non si legge non fa cadere il banco",
               _banco.attesa_di(_c / "non_esiste.py") == _banco.ATTESA_PROVA_S)
 
+# --------------------------------------------------------------------------
+# Tre colonne, non due: verde, rossa, «non provabile qui».
+#
+# Non e' una gentilezza. `test_tastiera.py` esce 2 quando non riesce a
+# prendere il fuoco, perche' non scrive alla cieca (D145); `test_scala_rust.py`
+# esce 2 se il banco Rust non e' costruito su questo sistema. Il banco
+# guardava solo `returncode == 0` e le metteva fra le rosse: su questa
+# macchina non si vedeva, sulla macchina di qualcun altro meta' della suite
+# avrebbe detto «rossa» parlando di se' e non del codice.
+with _tmp.TemporaryDirectory() as _d:
+    _c = _P(_d)
+    (_c / "nova").mkdir()
+    (_c / "test_verde.py").write_text("raise SystemExit(0)\n", encoding="utf-8")
+    (_c / "test_rossa.py").write_text("raise SystemExit(1)\n", encoding="utf-8")
+    (_c / "test_non_provabile.py").write_text(
+        "print('qui non si puo')\nraise SystemExit(2)\n", encoding="utf-8")
+    r = _banco.verifica_grezza(_c)
+    # «sintassi» e' la compilazione del pacchetto, che il banco misura per
+    # prima: c'e' sempre, e qui e' verde perche' la cartella finta ha un
+    # pacchetto vuoto.
+    controlla("la verde e' verde", r["verdi"] == ["sintassi", "test_verde.py"],
+              str(r["verdi"]))
+    controlla("la rossa e' rossa", r["rosse"] == ["test_rossa.py"], str(r["rosse"]))
+    controlla("e la terza non e' ne' l'una ne' l'altra",
+              r["non_provabili"] == ["test_non_provabile.py"],
+              str(r.get("non_provabili")))
+    controlla("una prova non provabile non e' una regressione",
+              next(e["ok"] for e in r["prove"] if e["nome"] == "test_non_provabile.py"),
+              "conta come rossa nella regola del banco")
+    controlla("ma non e' nemmeno contata fra le verdi",
+              "test_non_provabile.py" not in r["verdi"],
+              "sarebbe credere provata una cosa che nessuno ha provato")
+
 controlla("e la prova che aspetta Windows lo dichiara davvero",
           _banco.attesa_di(_P(__file__).parent / "test_promemoria.py") > _banco.ATTESA_PROVA_S)
 
