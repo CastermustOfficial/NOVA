@@ -336,6 +336,26 @@ di qua, `[2, 5, 8]` di la'.
 > esattamente il lavoro per cui esiste, e la prima volta che l'ha fatto
 > contro chi lo stava scrivendo.
 
+### Stavo per archiviare come «prova fragile» un difetto di NOVA
+
+**Credevo** che `test_appunti.py`, rossa nella suite e verde da sola, fosse
+l'ennesima prova sensibile al carico — ne avevo appena sistemata una cosi'
+poche ore prima, dichiarandole un tempo piu' lungo. **Era vero** che il
+sintomo era identico. **Me ne sono accorto** solo perche' invece di dichiarare
+un tempo sono andato a vedere *perche'* fallisse: `OpenClipboard` provava una
+volta sola, e gli appunti di Windows sono del sistema — chiunque stia
+copiando qualcosa li tiene per qualche millesimo.
+
+> Non e' la terza forma (una prova che non prova niente): e' il suo
+> **contrario**. La prova funzionava benissimo, e stava segnalando un difetto
+> vero; ero io a voler zittire lo strumento invece di leggere la misura.
+>
+> La differenza fra i due casi non si vede dal sintomo — rossa insieme, verde
+> da sola — e questo e' il punto: sono indistinguibili finche' non si guarda
+> la causa. Quindi la regola non puo' essere «se e' intermittente allarga il
+> budget». Deve essere: **prima si chiede perche', poi si decide se e' la
+> prova o il codice**. La volta prima era la prova. Questa era NOVA.
+
 ---
 
 ## Le forme che si ripetono

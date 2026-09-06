@@ -122,6 +122,73 @@ pub fn chiedi(
     )))
 }
 
+/// La rete vera, dietro lo stesso tratto del copione.
+///
+/// E' l'unica parte di questo modulo che tocca il mondo, ed e' apposta corta:
+/// tutto cio' che si puo' sbagliare senza accorgersene sta sopra, dove si
+/// prova.
+///
+/// **`ureq` e non altro** perche' e' gia' in casa — `nova-voce` ci parla con
+/// ElevenLabs — e portarsi dietro un secondo cliente HTTP per la stessa cosa
+/// vuol dire due comportamenti da conoscere invece di uno.
+pub struct Rete {
+    agente: ureq::Agent,
+}
+
+impl Rete {
+    /// `connetti` e `leggi` in secondi. Sono due tempi diversi apposta: un
+    /// server che non c'e' si scopre in dieci secondi, un modello che sta
+    /// pensando puo' metterci un quarto d'ora — e confonderli vuol dire o
+    /// aspettare un quarto d'ora per niente, o interrompere una risposta a
+    /// meta'.
+    pub fn nuova(connetti: u64, leggi: u64) -> Self {
+        Self {
+            agente: ureq::AgentBuilder::new()
+                .timeout_connect(std::time::Duration::from_secs(connetti))
+                .timeout_read(std::time::Duration::from_secs(leggi))
+                .build(),
+        }
+    }
+}
+
+impl Trasporto for Rete {
+    fn posta(
+        &self,
+        url: &str,
+        intestazioni: &[(String, String)],
+        corpo: &str,
+    ) -> Result<Esito, Muto> {
+        let mut r = self.agente.post(url);
+        for (chiave, valore) in intestazioni {
+            r = r.set(chiave, valore);
+        }
+        // Un codice >= 400 per `ureq` e' un `Err`, per NOVA e' una risposta:
+        // e' la' sopra che si decide cosa vuol dire, non qui.
+        let (codice, risposta) = match r.send_string(corpo) {
+            Ok(x) => (x.status(), x),
+            Err(ureq::Error::Status(c, x)) => (c, x),
+            Err(ureq::Error::Transport(t)) => {
+                return Err(match t.kind() {
+                    ureq::ErrorKind::Io => Muto::Scaduto,
+                    _ => Muto::Connessione,
+                })
+            }
+        };
+        // L'intestazione **prima** del corpo: leggere il corpo consuma la
+        // risposta, e dopo `Retry-After` non c'e' piu'.
+        let riprova_fra = risposta.header("Retry-After").map(|x| x.to_string());
+        Ok(Esito {
+            codice,
+            corpo: risposta.into_string().unwrap_or_default(),
+            riprova_fra,
+        })
+    }
+
+    fn aspetta(&self, secondi: u64) {
+        std::thread::sleep(std::time::Duration::from_secs(secondi));
+    }
+}
+
 #[cfg(test)]
 mod prove {
     use super::*;
@@ -240,6 +307,73 @@ mod prove {
             chiedi(&c, "http://x", &[], &serde_json::json!({}), "API", false),
             Err(Errore::Fornitore(_))
         ));
+    }
+
+    /// Un server che risponde una volta sola e poi chiude. Serve a provare
+    /// che il trasporto **vero** legge quello che deve: il codice, il corpo,
+    /// e `Retry-After` — che si legge prima del corpo, perche' leggere il
+    /// corpo consuma la risposta.
+    ///
+    /// La lunghezza la conta lui: scriverla a mano e' un numero da tenere
+    /// aggiornato, cioe' una prova che un giorno fallisce per il motivo
+    /// sbagliato.
+    /// Trenta secondi, non cinque. Non serve a niente quando funziona: serve
+    /// a non diventare rosso quando la macchina e' occupata. Una di queste
+    /// prove e' gia' fallita una volta sola, girando insieme alle altre, e
+    /// un rosso che dipende da cosa gira accanto non dice niente sul codice
+    /// (D156).
+    const ATTESA_PROVE: u64 = 30;
+
+    fn server(stato: &str, intestazioni: &[(&str, &str)], corpo: &'static str) -> String {
+        use std::io::{Read, Write};
+        let mut testa = format!("HTTP/1.1 {stato}\r\nContent-Length: {}\r\n", corpo.len());
+        for (k, v) in intestazioni {
+            testa.push_str(&format!("{k}: {v}\r\n"));
+        }
+        testa.push_str("Connection: close\r\n\r\n");
+        let risposta = format!("{testa}{corpo}");
+        let ascolto = std::net::TcpListener::bind("127.0.0.1:0").expect("nessuna porta");
+        let porta = ascolto.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            if let Ok((mut c, _)) = ascolto.accept() {
+                let mut buffer = [0u8; 4096];
+                let _ = c.read(&mut buffer);
+                let _ = c.write_all(risposta.as_bytes());
+                let _ = c.flush();
+            }
+        });
+        format!("http://127.0.0.1:{porta}")
+    }
+
+    #[test]
+    fn il_trasporto_vero_legge_codice_e_corpo() {
+        let url = server("200 OK", &[("Content-Type", "application/json")],
+                         r#"{"choices":[{"message":{"content":"dal server"}}]}"#);
+        let r = chiedi(&Rete::nuova(ATTESA_PROVE, ATTESA_PROVE), &url, &[], &serde_json::json!({}), "API", false);
+        assert_eq!(r.unwrap().contenuto, "dal server");
+    }
+
+    #[test]
+    fn e_una_quota_finita_arriva_col_suo_tempo() {
+        // 429 per `ureq` e' un errore; per NOVA e' una risposta che dice
+        // «non adesso», e il tempo lo dichiara il fornitore.
+        let url = server("429 Too Many Requests", &[("Retry-After", "120")], "{}");
+        match chiedi(&Rete::nuova(ATTESA_PROVE, ATTESA_PROVE), &url, &[], &serde_json::json!({}), "API", false) {
+            Err(Errore::LimiteUso { riprova_fra_s, .. }) => assert_eq!(riprova_fra_s, 120),
+            altro => panic!("doveva essere un limite d'uso: {altro:?}"),
+        }
+    }
+
+    #[test]
+    fn e_su_una_porta_chiusa_torna_muto_invece_di_piantarsi() {
+        // Il trasporto da solo, non il giro: `chiedi` qui dormirebbe sette
+        // secondi veri fra un tentativo e l'altro, e una prova lenta e' una
+        // prova che si finisce per saltare.
+        let ascolto = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let porta = ascolto.local_addr().unwrap().port();
+        drop(ascolto);
+        let url = format!("http://127.0.0.1:{porta}/v1/chat/completions");
+        assert!(Rete::nuova(1, ATTESA_PROVE).posta(&url, &[], "{}").is_err());
     }
 
     #[test]
