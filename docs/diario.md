@@ -5824,3 +5824,38 @@ non lo trovi cercando le maiuscole.
 Guastata apposta una voce dell'elenco dell'MCP: rosso, e dice quale voce
 manca da che parte. E aggiunto un elenco finto in un crate: rosso, e dice
 dove metterlo.
+
+
+## 6 settembre 2026, mezzogiorno — Due decisioni che non erano mie
+
+Due cose di stamattina le ho lasciate a Gio, e ha risposto tutte e due.
+
+**Il demone girava col binario vecchio.** `novad.exe` sul disco era del 5
+settembre e il processo era partito stamattina da quello: la riparazione
+delle guardie esisteva nel sorgente e non nel programma acceso. Non me n'ero
+accorto scrivendola — me ne sono accorto perche' `cargo build` ha fallito
+dicendo che non poteva sostituire il file, ed era in uso. Un errore di
+compilazione che dice una cosa vera sul mondo.
+
+Fermarlo e riavviarlo e' un'azione sul PC di qualcun altro mentre lo sta
+usando, quindi ho chiesto. Fermato, ricompilato, riavviato: quarantanove
+capacita', come prima, e adesso col fix dentro.
+
+**E il `config.json`.** Lato demone avevo gia' deciso che i predefiniti delle
+guardie si aggiungono invece di lasciarsi sostituire — li' e' facile, quel
+modulo dice di se' che tiene i divieti non negoziabili. Lato NOVA no: quella
+e' la configurazione dell'utente, e la regola che Gio mi ha dato e' che
+l'utente resta responsabile di cio' che chiede. Cosi' ho chiesto invece di
+decidere.
+
+Risposta: si uniscono, ma **solo per le guardie**. Fatto cosi': tutto il
+resto della configurazione continua a funzionare come prima — il salvato
+vince — e `forbidden_command_patterns` e `protected_paths` diventano
+«predefiniti piu' i tuoi». Aggiungerne si puo'; togliere uno di quelli di
+fabbrica si fa cambiando NOVA.
+
+Con una condizione che mi sono messo da solo: **NOVA lo scrive**. In
+`avvio.log` finisce una riga che dice quali guardie ha rimesso e in che
+campo. Aggiungere qualcosa alla configurazione di qualcuno senza dirglielo
+sarebbe l'altro modo di sbagliare, e sarebbe pure peggio — perche' avrei
+appena finito di scrivere che un elenco che cambia da solo e' il difetto.
