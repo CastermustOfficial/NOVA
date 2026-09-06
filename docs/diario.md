@@ -5709,3 +5709,72 @@ livello di autonomia sconosciuto che da' le mani libere.
 Il giro delle mutazioni intanto e' diventato un modulo: era la seconda volta
 che lo scrivevo (D62). Ora `_mutazioni.py` fa il giro e i due file accanto
 dichiarano solo i punti da rompere.
+
+
+## 6 settembre 2026, mattina — Due elenchi di guardie che sapevano cose diverse
+
+Aperto CANT-7 dalla parte che si puo' aprire — la configurazione — e la prima
+domanda del metodo (*cosa c'e' gia'?*, D99) ha risposto male.
+
+`nova-core/src/config.rs` dichiarava a mano i tre livelli di autonomia, i
+percorsi protetti e i comandi vietati. Cioe' esisteva un secondo elenco di
+guardie, accanto a quello di `nova/config.py`. E come tutti gli elenchi
+separati sapeva cose diverse:
+
+- al demone mancavano **`cipher /w`** e **`wevtutil cl`**. Il primo cancella
+  lo spazio libero, cioe' rende irrecuperabile cio' che era gia' stato
+  cancellato; il secondo svuota i registri eventi di Windows. Sono due
+  comandi che stanno nella stessa pagina del manuale di chi vuole non
+  lasciare traccia, ed erano tutti e due nell'elenco di NOVA;
+- a NOVA mancavano le due forme Unix, `mkfs` e `rm -rf /`, che c'erano solo
+  dal lato Rust;
+- e al demone mancava `C:\ProgramData\Microsoft` fra i percorsi protetti.
+
+Nessuna delle tre era una scelta. Erano tre conseguenze della stessa cosa.
+
+**Ma il guaio peggiore non era l'elenco, era il meccanismo.** Il demone
+confrontava per **sottostringa**. Per non bloccare `Get-Date -Format o` con
+la voce `format `, si era dovuto aggiungere una regola sua: «il pattern conta
+solo se sta dove starebbe un comando». Ingegnosa, e non esisteva dall'altra
+parte — dove i motivi sono espressioni regolari e `\bformat\s+[a-z]:` non ha
+mai avuto quel problema. Due meccanismi sullo stesso elenco vuol dire che la
+stessa domanda ha due risposte: `vssadmin.exe delete shadows /all` — col
+punto exe, che e' come si scrive quando si copia da un forum — passava dal
+demone e veniva fermato da NOVA.
+
+Ora l'elenco e' uno: sta in Python, perche' e' li' che l'utente lo puo'
+cambiare, e `_estrai_guardie.py` lo porta in `nova-strumenti::predefiniti`,
+accanto al meccanismo che lo applica. Il demone non ha piu' un suo confronto:
+usa `Guardie`, che un banco confronta gia' col Python.
+
+Una cosa in piu', e non e' una sfumatura: i predefiniti ora si **aggiungono**
+a quelli della configurazione invece di lasciarsi sostituire. Il modulo delle
+guardie del demone dice di se' che tiene i divieti non negoziabili; un
+`core.json` salvato prima che l'elenco crescesse non e' una scelta
+dell'utente, e' un elenco che si e' congelato — ed e' esattamente cio' che era
+successo col prompt di sistema, dove una copia vecchia su disco aveva tolto a
+NOVA per mesi una capacita' che aveva. Aggiungerne si puo'; toglierne uno di
+quelli si fa cambiando NOVA, non dimenticando di aggiornare un file.
+
+**La prova che conta non e' quella sui pattern.** Quella dice che oggi le due
+liste coincidono, e domani non dice piu' niente. Quella che tiene ferma la
+riparazione va a cercare **se ne esiste un secondo**: guarda tutti i
+centoquarantasette file Rust e si arrabbia se `vssadmin`, `bcdedit`,
+`wevtutil`, `cipher /w` o `rm -rf` compaiono dentro del codice invece che
+dentro un commento (D135, D185).
+
+E l'ho scritta sbagliata al primo giro. Cercavo le stringhe con
+un'espressione regolare che accoppia le virgolette, e non funziona: basta una
+virgoletta dentro un commento e da li' in poi le coppie sono tutte spostate
+di uno. Aggiungendo apposta un `"vssadmin delete shadows"` dentro un file per
+vedere se la prova diventava rossa, e' rimasta verde. Riga per riga, saltando
+i commenti, funziona — e adesso lo so perche' l'ho visto diventare rosso.
+
+Una coda alla giornata, piccola e gia' vista. Facendo girare la suite Python
+**insieme** al `cargo test` di tutto lo spazio di lavoro, `test_cerca.py` e'
+diventata rossa; da sola passa in tre secondi. Avvia un Chrome vero e aspetta
+due volte la rete, e con la macchina occupata i novanta secondi predefiniti
+non le bastavano. Non l'ho archiviata come «capita»: ha adesso il suo tempo
+dichiarato, `# banco: attesa 240`, come il promemoria (D156). Un rosso che
+dipende da cosa gira accanto non dice niente sul codice, e uno che si vede una
+volta su tre e' peggio di uno che si vede sempre.
