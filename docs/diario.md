@@ -5406,3 +5406,60 @@ nasconderlo, cosi' chi decide se allargare la rete sa cosa sta decidendo
 Mutazioni: il gradino da sei a otto accende la scala dei layer; il flag `-ctk`
 passato sempre accende due verifiche, di cui una e' quella che controlla che
 il banco abbia davvero un caso con e uno senza.
+
+## 9 settembre 2026 — CANT-5: la porta da cui entrano gli altri
+
+Il server MCP e' il posto da cui un altro programma entra in NOVA. Sul
+cantiere c'era scritto «protocollo, quindi traducibile senza scelte», ed e'
+vero finche' non lo si guarda da vicino.
+
+**Le trentatre' dichiarazioni** — diciottomila caratteri di schema su cui
+Claude Code sceglie quale strumento di NOVA usare — non le ho ricopiate.
+Stessa regola delle sessanta interne (D112): `_estrai_mcp.py` le estrae, poi
+rilegge il file appena scritto, sfila il letterale grezzo, **lo ricarica come
+JSON** e lo confronta con la lista Python. Tre verifiche invece di una,
+perche' «ho scritto il file» non e' una verifica e «il testo combacia» non
+dice ancora che il Rust leggera' la stessa cosa.
+
+**E poi le due regole che rompono i client.**
+
+La prima: una richiesta **senza `id` e' una notifica**, e a una notifica non
+si risponde mai — nemmeno per dire che il metodo non esiste. Chi riceve una
+risposta a una notifica resta ad aspettare una risposta che non arrivera' mai,
+oppure la accoppia alla richiesta sbagliata. Il banco confronta anche i
+`None`, e ha una verifica che si arrabbia se **nessuno** degli scenari e'
+senza risposta: un banco che prova solo le domande non prova il silenzio
+(D175). Mutazione di prova, rispondere anche alle notifiche: due rosse.
+
+La seconda: «non ha funzionato» e «non ci siamo capiti» sono **due buste
+diverse**. Uno strumento che non esiste e' un errore di protocollo; uno che
+esiste ed esplode e' un risultato **riuscito** con `isError`. Confonderli vuol
+dire che un programma riprova all'infinito una chiamata che non ha senso, o si
+arrende alla prima cosa che poteva riuscire al secondo giro (D176). Mutazione:
+una rossa.
+
+**E una cosa che il banco ha trovato al primo giro.** Una `tools/call` senza
+`params` non ha nome, e il Python scrive «strumento sconosciuto: **None**» —
+non stringa vuota. Avevo messo `unwrap_or("")` senza pensarci. Sembra un
+dettaglio di messaggio, ma quel messaggio e' l'unica cosa che chi ha sbagliato
+la chiamata riesce a leggere, e «nome vuoto» e «nome mancante» sono due errori
+diversi da riparare. Adesso ci sono due nomi apposta: quello con cui si cerca
+e quello con cui si scrive.
+
+**E la regola che non e' di protocollo ma di fiducia.** Quando un altro
+programma chiede di fare qualcosa sul PC, la domanda passa dal demone. Se il
+demone non risponde, nessuno puo' autorizzare: si **nega**. Rispondere
+«consenti» vorrebbe dire che un guasto di NOVA si trasforma in un permesso,
+cioe' che un demone spento aggira in silenzio il livello di autonomia scelto
+dall'utente. E i modi di finire sono **cinque** e non tre, perche' «non ho
+potuto chiedere» non e' «ha detto di no»: il primo e' un guasto e va detto
+com'e', il secondo e' una decisione e va rispettata in silenzio (D177).
+
+**Cosa resta, e dove va.** Non protocollo: i corpi dei trentatre' strumenti,
+e ognuno e' una riga che chiama un pezzo di NOVA piu' il modo in cui ne
+racconta la risposta. Quel racconto appartiene al cantiere del pezzo che
+chiama — il vault a CANT-1, l'harness a CANT-8, il browser a CANT-6, il router
+a CANT-3. L'ho scritto file per file in `verso_la_beta.md`, come per CANT-2, e
+guardando cosa ogni corpo **chiama** invece di come si chiama (D150).
+
+CANT-5 e' chiuso.

@@ -1,0 +1,20 @@
+[package]
+name = "nova-mcp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Il protocollo con cui NOVA si apre a un altro programma: JSON-RPC, le dichiarazioni, e la domanda che l'utente vede."
+
+[dependencies]
+# Il protocollo **e'** JSON: qui non e' una comodita', e' la materia.
+serde_json = { workspace = true }
+serde = { workspace = true, features = ["derive"], optional = true }
+
+[features]
+banco = ["dep:serde"]
+
+[[bin]]
+name = "banco-mcp"
+path = "src/banco.rs"
+required-features = ["banco"]
