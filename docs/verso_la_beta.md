@@ -967,7 +967,7 @@ mole, non di difficolta'.
 | CANT-3 | **Il ciclo dell'agente e i cervelli** — `agent.py`, i client dei modelli | ~2.200 | E' il pezzo che davvero libera dal Python, ma va dopo gli strumenti: un ciclo che chiama strumenti Python non ha liberato niente. Dentro c'e' la parte piu' delicata di tutto il progetto — il taglio del contesto a token, che se sbaglia perde pezzi di conversazione senza dirlo |
 | CANT-4 | **Lanciare il modello locale** — *le decisioni: fatte; avviare il processo e leggere cosa dice: da fare* | ~690 | Il calcolo degli strati era gia' in `nova-modelli`; restava il pezzo dove le decisioni si vedono poco e costano molto — la riga di comando, la scala dei layer, l'unico errore che vale la pena riprovare (D173) |
 | ~~CANT-5~~ | ~~**Il server MCP**~~ — **fatto**: il protocollo, le trentatre' dichiarazioni, il rischio, la domanda in chiaro, gli allegati e la risposta al permesso. I corpi degli strumenti appartengono ai cantieri che chiamano | ~1.290 | Protocollo, quindi traducibile senza scelte — ma le **buste** hanno una regola che rompe i client quando si sbaglia (D175, D176) |
-| CANT-6 | **Il browser e la ricerca** — CDP | ~760 | Parla con Chrome via WebSocket. Nessuna scelta di interfaccia, ma dipende da una libreria asincrona: e' il primo pezzo che porta `tokio` dentro un crate di logica |
+| CANT-6 | **Il browser e la ricerca** — *il codice che gira nella pagina e come ci entrano gli argomenti: fatto; aprire il browser, la connessione, la ricerca in rete: da fare* | ~760 | Nessuna scelta di interfaccia, ma il pezzo dove il confine fra argomento e codice conta piu' che altrove: quel testo lo esegue un interprete che non e' nostro (D178) |
 | CANT-7 | **L'impalcatura** — config, main, dati, componenti | ~1.800 | Non si porta: si **riscrive**, perche' meta' esiste solo per tenere insieme il Python. `nova-core::config` ne ha gia' un pezzo. Va per ultima fra quelle di sostanza, quando si sa cosa deve tenere insieme |
 | CANT-8 | **L'harness dei documenti** | ~2.900 | Il piu' grosso, e l'unico che **non e' una traduzione**: e' una finestra Qt, e in Rust vuol dire deciderne un'altra. E' una decisione di interfaccia travestita da porting, e va presa da sveglio, non a fine lista |
 
@@ -1658,10 +1658,39 @@ pezzo che chiama, non a questo — file per file, come per CANT-2:
 | `web_*` (12) | il browser e la ricerca: CANT-6 |
 | `delega`, `modelli` | il router: `nova-scala`, collegamento in CANT-3 |
 | `pianifica_*`, `avvisi_recenti`, `azione_registra`, `azioni_recenti`, `dati_dove` | `nova-pianificazione` e `nova-registro`, gia' in Rust |
-| `chiedi_permesso` | fatto: la decisione e' qui, il demone e' CANT-7 |
 
-Restano fuori anche il ciclo su stdio e `scrivi_config`, che sono impalcatura
-(CANT-7).
+Il trentaquattresimo, quello che chiede il permesso, non e' in tabella perche'
+non e' rimasto: la sua decisione e' portata, e di la' resta solo la chiamata
+al demone, che e' impalcatura. Restano fuori per la stessa ragione il ciclo su
+stdio e `scrivi_config` (CANT-7).
+
+Una nota sul perche' quella tabella e' scritta cosi': `test_conto_shell.py`
+legge questo file e si arrabbia se una riga `| nome |` elenca come «da fare»
+qualcosa che e' gia' fatto. E' un controllo che invecchia all'indietro, ed e'
+proprio quello che ha trovato la riga di troppo appena l'avevo scritta.
+
+
+**CANT-6, primo pezzo: quello che gira dentro la pagina.** Il browser di NOVA
+si guida dal di dentro — `document.querySelector("#docs-file-menu")` invece di
+venti passi nell'albero di accessibilita' — e questo vuol dire che NOVA fa
+eseguire del **suo** JavaScript su una pagina dove l'utente e' gia'
+autenticato. Ottomila caratteri di copioni, estratti e non ricopiati, e una
+funzione sola da cui gli argomenti ci entrano: e' li' che passa il confine fra
+un dato dell'utente e del codice (D178).
+
+Si scrive come lo scrive `json.dumps` di Python — `\uXXXX` compresi, coppie
+surrogate comprese — non perche' l'altra forma sia sbagliata, ma perche' un
+banco che accetta due scritture diverse smette di accorgersi di tutto il
+resto. Mutazione con `serde_json` al posto suo: quattro verifiche rosse, tutte
+e sole quelle con accenti o emoji.
+
+E la scelta della scheda, che e' il posto dove sbagliare non da' un errore ma
+il **contenuto di un'altra pagina** (D179). Il banco ha apposta il caso che
+distingue le due regole; mutazione con l'ordine invertito: chiedere la scheda
+«esempio» ne restituisce un'altra.
+
+Quello che resta di CANT-6 e' aprire il browser, tenere la connessione e la
+ricerca in rete: processi e rete, non decisioni.
 
 
 ## Il cancello della beta

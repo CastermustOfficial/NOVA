@@ -5504,3 +5504,60 @@ sul PC di qualcuno.
 
 Il PC e' rimasto acceso. In `dove_ho_sbagliato.md` c'e' la voce, e nell'elenco
 delle forme che si ripetono ce n'e' una nuova: **ho semplificato riportando**.
+
+## 9 settembre 2026, mattina — CANT-6: il codice che gira in casa d'altri
+
+Il browser di NOVA si guida dal di dentro. La ragione sta scritta in cima a
+`browser.py` ed e' una misura: ventiquattro turni e il menu File di Google
+Docs ancora non era aperto, mentre chi apre «Ispeziona» ci arriva in tre
+secondi perche' `document.querySelector("#docs-file-menu")` sostituisce venti
+chiamate.
+
+La conseguenza e' che NOVA fa **eseguire del proprio JavaScript su una pagina
+dove l'utente e' gia' autenticato**. E' l'unica parte del progetto che gira
+dentro un interprete che non e' nostro, su un documento che non e' nostro. Non
+l'ho ricopiata: `_estrai_copioni.py` la estrae, poi rilegge il file appena
+scritto e confronta gli otto copioni uno per uno. Ottomila caratteri in cui un
+carattere sbagliato dentro un'espressione regolare o un selettore non darebbe
+un errore — darebbe **l'elemento sbagliato**.
+
+**E poi il confine.** Un selettore e un testo da scrivere sono dati
+dell'utente che finiscono dentro codice. Ci si passa **sempre** da una
+funzione sola, anche per un selettore che «sicuramente non ha virgolette»: un
+confine che vale solo per gli argomenti prevedibili non e' un confine (D178).
+La prova che conta prende un selettore fatto per uscire dalla stringa:
+
+    a"); alert(1); (
+
+e chiede se la stringa si **chiude** li'. La prima stesura della prova
+chiedeva invece se `alert(1)` fosse presente nel testo — e certo che lo e', e'
+quello che l'utente ha scritto. La domanda giusta e' un'altra.
+
+Una cosa che pensavo cosmetica e non lo e': si scrive come scrive
+`json.dumps`, cioe' con `\uXXXX` per tutto quello che non e' ASCII e con le
+coppie surrogate per gli emoji. Le due forme sono tutte e due JavaScript
+valido e fanno la stessa identica cosa. Ma un banco che accetta due scritture
+diverse smette di accorgersi di tutto il resto — e infatti la mutazione con
+`serde_json` al posto suo ha acceso quattro verifiche, **tutte e sole quelle
+con accenti o emoji**.
+
+**E il difetto che il banco ha trovato in quello che avevo scritto io.** In
+Python `if r.get("exceptionDetails"):` e' falso anche quando la chiave c'e' ma
+e' un oggetto **vuoto**. Io in Rust avevo scritto «se la chiave c'e'», e un
+`exceptionDetails: {}` diventava un errore: un turno riuscito che falliva.
+«C'e' la chiave» e «la chiave dice qualcosa» sono due domande diverse.
+
+Ultima, la scelta della scheda (D179): per identificativo **prima**, per testo
+poi. Sbagliare qui non da' un errore, da' il contenuto di un'altra pagina. Il
+banco ha apposta il caso che distingue le due regole — un identificativo che
+e' anche un pezzo dell'indirizzo di un'altra scheda — e con l'ordine invertito
+chiedere la scheda «esempio» ne restituisce un'altra.
+
+Una coda: chiudendo CANT-5 avevo messo in tabella anche `chiedi_permesso`,
+scrivendoci accanto «fatto». `test_conto_shell.py` e' diventata rossa subito:
+quella prova legge `verso_la_beta.md` e si arrabbia se una riga `| nome |`
+elenca come da fare qualcosa che e' gia' fatto. E' un controllo che invecchia
+**all'indietro** — l'opposto di quello sopra, che controlla che nessuno
+sparisca dai documenti — e ha fatto esattamente il suo mestiere su una riga
+scritta cinque minuti prima. Tolta dalla tabella e detta in prosa, che e'
+dove va una cosa finita.
