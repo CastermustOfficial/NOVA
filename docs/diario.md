@@ -6001,3 +6001,15 @@ Vale la pena dirlo perche' e' la lezione della giornata nella sua forma piu'
 pura: non l'ho trovata guardando il codice. L'ho trovata **facendo le due
 domande e confrontando le due risposte** — che e' l'unica cosa che un elenco
 scritto due volte non sopravvive.
+
+Ultimo giro dello stesso mestiere, e stavolta era pulito: i trentatre'
+strumenti che il server MCP di NOVA **dichiara** e i trentatre' che
+**smista** sono gli stessi, in tutte e due le direzioni. Un nome dichiarato
+senza gestore e' uno strumento che il programma dall'altra parte vede,
+chiama, e si sente rispondere «sconosciuto»; un gestore senza dichiarazione
+e' l'opposto — una cosa che NOVA sa fare e che nessuno le chiedera' mai,
+perche' non l'ha detto.
+
+Sei confronti in un giorno, quattro difetti veri. La domanda che li ha
+trovati tutti e' sempre la stessa, e non ha niente a che vedere col leggere
+il codice: **questo elenco, chi lo confronta con la realta'?**
