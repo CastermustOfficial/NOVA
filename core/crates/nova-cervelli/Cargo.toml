@@ -13,6 +13,9 @@ serde_json = { workspace = true }
 # «Un solo messaggio di sistema in testa» e' una regola di finestra, e la
 # finestra sta li' (D73).
 nova-contesto = { path = "../nova-contesto" }
+# Le parole con cui si racconta un guasto stanno li', gia' confrontate
+# col Python da un banco (D135).
+nova-guasti = { path = "../nova-guasti" }
 serde = { workspace = true, features = ["derive"], optional = true }
 
 [features]

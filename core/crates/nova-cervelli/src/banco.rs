@@ -6,6 +6,7 @@
 
 use std::io::Read;
 
+use nova_cervelli::rete::{chiedi, Errore, Esito, Muto, Trasporto};
 use nova_cervelli::{claude, cli, openai, Messaggio};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -111,6 +112,61 @@ struct Dentro {
     /// Corpi di risposta dei fornitori, da leggere.
     #[serde(default)]
     risposte: Vec<Value>,
+    /// Giri di tentativi: cosa risponde l'altro capo, una tappa alla volta.
+    #[serde(default)]
+    giri: Vec<Giro>,
+}
+
+#[derive(Deserialize)]
+struct Tappa {
+    /// Vuoto vuol dire «ha risposto»; altrimenti «connessione» o «scaduto».
+    #[serde(default)]
+    muto: String,
+    #[serde(default)]
+    codice: u16,
+    #[serde(default)]
+    corpo: String,
+    #[serde(default)]
+    riprova_fra: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct Giro {
+    #[serde(default)]
+    tappe: Vec<Tappa>,
+    #[serde(default)]
+    base_url: String,
+    #[serde(default)]
+    etichetta: String,
+    #[serde(default)]
+    in_casa: bool,
+}
+
+/// Com'e' finito un giro, in una forma che si confronta.
+#[derive(Serialize)]
+struct GiroFuori {
+    /// "ok" | "limite" | "fornitore" | "irraggiungibile"
+    esito: String,
+    messaggio: String,
+    riprova_fra_s: i64,
+    contenuto: String,
+    /// Quante volte si e' aspettato, e quanto.
+    attese: Vec<u64>,
+}
+
+/// Un trasporto che risponde da un copione invece che dalla rete.
+struct Copione {
+    tappe: std::cell::RefCell<std::vec::IntoIter<Result<Esito, Muto>>>,
+    attese: std::cell::RefCell<Vec<u64>>,
+}
+
+impl Trasporto for Copione {
+    fn posta(&self, _u: &str, _i: &[(String, String)], _c: &str) -> Result<Esito, Muto> {
+        self.tappe.borrow_mut().next().unwrap_or(Err(Muto::Connessione))
+    }
+    fn aspetta(&self, secondi: u64) {
+        self.attese.borrow_mut().push(secondi);
+    }
 }
 
 /// Cio' che si confronta di una risposta letta: tutto tranne l'orologio.
@@ -139,12 +195,50 @@ struct Fuori {
     cli_argomenti: Vec<Vec<String>>,
     candidati: Vec<Vec<String>>,
     risposte: Vec<RispostaFuori>,
+    giri: Vec<GiroFuori>,
 }
 
 fn messaggi(v: &[MessaggioIn]) -> Vec<Messaggio> {
     v.iter()
         .map(|m| Messaggio { ruolo: m.ruolo.clone(), contenuto: m.contenuto.clone() })
         .collect()
+}
+
+fn un_giro(g: &Giro) -> GiroFuori {
+    let tappe: Vec<Result<Esito, Muto>> = g
+        .tappe
+        .iter()
+        .map(|t| match t.muto.as_str() {
+            "connessione" => Err(Muto::Connessione),
+            "scaduto" => Err(Muto::Scaduto),
+            _ => Ok(Esito {
+                codice: t.codice,
+                corpo: t.corpo.clone(),
+                riprova_fra: t.riprova_fra.clone(),
+            }),
+        })
+        .collect();
+    let c = Copione {
+        tappe: std::cell::RefCell::new(tappe.into_iter()),
+        attese: std::cell::RefCell::new(Vec::new()),
+    };
+    let esito = chiedi(&c, &g.base_url, &[], &Value::Null, &g.etichetta, g.in_casa);
+    let attese = c.attese.borrow().clone();
+    let (esito, messaggio, riprova_fra_s, contenuto) = match esito {
+        Ok(r) => ("ok", String::new(), 0, r.contenuto),
+        Err(Errore::LimiteUso { messaggio, riprova_fra_s }) => {
+            ("limite", messaggio, riprova_fra_s, String::new())
+        }
+        Err(Errore::Fornitore(m)) => ("fornitore", m, 0, String::new()),
+        Err(Errore::Irraggiungibile(m)) => ("irraggiungibile", m, 0, String::new()),
+    };
+    GiroFuori {
+        esito: esito.into(),
+        messaggio,
+        riprova_fra_s,
+        contenuto,
+        attese,
+    }
 }
 
 fn main() {
@@ -261,6 +355,7 @@ fn main() {
                 }
             })
             .collect(),
+        giri: d.giri.iter().map(un_giro).collect(),
     };
 
     match serde_json::to_string(&fuori) {

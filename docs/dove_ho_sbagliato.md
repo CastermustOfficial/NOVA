@@ -312,6 +312,30 @@ accorto** venti minuti dopo, guardando un'altra cosa.
 > — «ci sono nomi qui dentro che nessuno nomina?» — ha tolto subito due voci
 > che avevo aggiunto a memoria.
 
+### Ho migliorato invece di portare, e me ne sono accorto solo perche' c'era il banco
+
+**Credevo** di aver portato fedelmente il giro dei tentativi. **Era vero** per
+tutto tranne una riga: avevo tolto l'attesa dopo l'ultimo tentativo, perche'
+aspettare quando la risposta e' gia' decisa e' tempo regalato a nessuno.
+Ragionevole — e vietato: «il porting non e' un'occasione per migliorare» sta
+scritto in cima al primo crate che ho portato, e l'ho scritto io. **Me ne
+sono accorto** perche' il confronto col Python e' diventato rosso: `[2, 5]`
+di qua, `[2, 5, 8]` di la'.
+
+> La forma non e' nell'elenco qui sotto, ed e' sua: **ho avuto ragione nel
+> merito e torto nel metodo**. Un miglioramento infilato dentro una
+> traduzione toglie l'unica cosa che serve a una traduzione — poter dire se
+> una differenza fra le due versioni e' un errore o una scelta.
+>
+> La cura non era rimettere l'attesa: era portarla dall'altra parte. Adesso
+> le due versioni dicono la stessa cosa, e la dicono otto secondi prima —
+> quindici, col modello locale spento, che erano l'utente ad aspettare una
+> frase gia' decisa al primo tentativo.
+>
+> E la cosa che conta davvero: **questa l'ha trovata il banco, non io**. E'
+> esattamente il lavoro per cui esiste, e la prima volta che l'ha fatto
+> contro chi lo stava scrivendo.
+
 ---
 
 ## Le forme che si ripetono

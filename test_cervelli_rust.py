@@ -220,6 +220,71 @@ RISPOSTE = [
 ]
 
 
+BUONA = '{"choices":[{"message":{"content":"ecco"}}]}'
+
+# Il giro dei tentativi. Gli scenari che contano sono quelli storti: qui si
+# decide se un guasto passeggero costa un turno o una conversazione, e se
+# una quota finita si racconta come «riprova» o come «non ha funzionato» —
+# che sono due cose diverse per il router, non due frasi.
+def muto(quanti):
+    return [{"muto": "connessione"} for _ in range(quanti)]
+
+
+def risponde(codice=200, corpo=BUONA, riprova=None):
+    return {"codice": codice, "corpo": corpo, "riprova_fra": riprova}
+
+
+GIRI = [
+    # buona al primo colpo
+    dict(tappe=[risponde()], base_url="http://127.0.0.1:8080",
+         etichetta="Modello locale", in_casa=True),
+    # due silenzi e poi risponde: si riprova, e si aspetta in mezzo
+    dict(tappe=muto(2) + [risponde()], base_url="https://api.esempio.it",
+         etichetta="API esterna", in_casa=False),
+    # muto per tutti e tre i tentativi, in casa
+    dict(tappe=muto(3), base_url="http://127.0.0.1:8080",
+         etichetta="Modello locale", in_casa=True),
+    # muto per tutti e tre, fuori: la cura e' un'altra
+    dict(tappe=muto(3), base_url="https://api.esempio.it",
+         etichetta="API esterna", in_casa=False),
+    # quota finita, col tempo dichiarato dal fornitore
+    dict(tappe=[risponde(429, '{"error":"rate limited"}', "120")],
+         base_url="https://api.esempio.it", etichetta="API esterna", in_casa=False),
+    # quota finita senza `Retry-After`
+    dict(tappe=[risponde(402, '{"error":"insufficient credits"}')],
+         base_url="https://api.esempio.it", etichetta="API esterna", in_casa=False),
+    # `Retry-After` fuori dai limiti, e uno che non e' un numero
+    dict(tappe=[risponde(429, "{}", "5")], base_url="https://x.it",
+         etichetta="API esterna", in_casa=False),
+    dict(tappe=[risponde(429, "{}", "Wed, 21 Oct 2026 07:28:00 GMT")],
+         base_url="https://x.it", etichetta="API esterna", in_casa=False),
+    # una richiesta sbagliata: non si riprova, rimandarla uguale non la
+    # raddrizza
+    dict(tappe=[risponde(400, '{"error":{"message":"model not found"}}'),
+                risponde()],
+         base_url="https://api.esempio.it", etichetta="API esterna", in_casa=False),
+    # il fornitore che sta male
+    dict(tappe=[risponde(503, "service unavailable")], base_url="https://x.it",
+         etichetta="API esterna", in_casa=False),
+    # una chiave sbagliata
+    dict(tappe=[risponde(401, '{"error":{"message":"invalid api key"}}')],
+         base_url="https://x.it", etichetta="API esterna", in_casa=False),
+    # Un corpo lunghissimo. Il taglio a 600 si vede solo dove il messaggio
+    # del fornitore viene **riportato**, cioe' su un 400 con un `error`
+    # dentro: tagliato, quel JSON non si legge piu' e resta la frase secca.
+    # Tagliare in un punto diverso vuol dire dire una cosa diversa.
+    dict(tappe=[risponde(400, json.dumps({"error": {"message": "x" * 900}}))],
+         base_url="https://x.it", etichetta="API esterna", in_casa=False),
+    # E uno con gli accenti, che e' dove tagliare a byte spezza una lettera.
+    dict(tappe=[risponde(400, json.dumps({"error": {"message": "però " * 200}},
+                                         ensure_ascii=False))],
+         base_url="https://x.it", etichetta="API esterna", in_casa=False),
+    # un silenzio, poi una quota finita
+    dict(tappe=muto(1) + [risponde(429, "{}", "60")], base_url="https://x.it",
+         etichetta="API esterna", in_casa=False),
+]
+
+
 def _msg(lista):
     return [{"ruolo": m.get("role", ""), "contenuto": m.get("content", "")}
             for m in lista]
@@ -241,6 +306,7 @@ fuori = rust({
     "cli_argomenti": CLI_ARGOMENTI,
     "candidati": CANDIDATI,
     "risposte": RISPOSTE,
+    "giri": GIRI,
 })
 
 print("\n1. la riga di comando di Claude Code")
@@ -489,6 +555,104 @@ controlla("e un <think> che il modello non ha chiuso",
 controlla("e dei token contati in un modo che Python accetta a fatica",
           any(isinstance((r.get("usage") or {}).get("prompt_tokens"), str)
               for r in RISPOSTE))
+
+print("\n8. il giro dei tentativi: cosa si riprova, e cosa si dice")
+import requests                                              # noqa: E402
+
+
+class FintaRisposta:
+    def __init__(self, t):
+        self.status_code = t["codice"]
+        self.text = t["corpo"]
+        self.headers = ({"Retry-After": t["riprova_fra"]}
+                        if t.get("riprova_fra") is not None else {})
+
+    def json(self):
+        return json.loads(self.text)
+
+
+class FintaSessione:
+    """La rete, sostituita da un copione. Cosi' quello che si misura e' la
+    politica dei tentativi, non se il PC e' in rete."""
+
+    def __init__(self, tappe):
+        self.tappe = list(tappe)
+
+    def post(self, *a, **k):
+        if not self.tappe:
+            raise requests.ConnectionError("copione finito")
+        t = self.tappe.pop(0)
+        if t.get("muto"):
+            raise (requests.Timeout if t["muto"] == "scaduto"
+                   else requests.ConnectionError)("muto")
+        return FintaRisposta(t)
+
+
+def py_giro(g):
+    from nova.brains.base import LimiteUso
+    b = openai_compat.OpenAICompatBrain.__new__(openai_compat.OpenAICompatBrain)
+    b.base_url = g["base_url"].rstrip("/")
+    b.api_key = ""
+    b.model = "m"
+    b.timeout_lettura = 1
+    b.etichetta = g["etichetta"]
+    b._sessione = FintaSessione(g["tappe"])
+    attese = []
+    vero_sleep = openai_compat.time.sleep
+    openai_compat.time.sleep = lambda s: attese.append(s)
+    try:
+        dati = openai_compat.OpenAICompatBrain._post(b, {})
+        msg = (dati.get("choices") or [{}])[0].get("message") or {}
+        return {"esito": "ok", "messaggio": "", "riprova_fra_s": 0,
+                "contenuto": (msg.get("content") or "").strip(), "attese": attese}
+    except LimiteUso as e:
+        return {"esito": "limite", "messaggio": str(e),
+                "riprova_fra_s": e.riprova_fra_s, "contenuto": "", "attese": attese}
+    except RuntimeError as e:
+        # Python non distingue: sono tutti e due `RuntimeError`. La
+        # differenza la fa **quale** testo, e quello si confronta.
+        testo = str(e)
+        dentro = "non risponde su" in testo or "non riesco a raggiungere" in testo
+        return {"esito": "irraggiungibile" if dentro else "fornitore",
+                "messaggio": testo, "riprova_fra_s": 0, "contenuto": "",
+                "attese": attese}
+    finally:
+        openai_compat.time.sleep = vero_sleep
+
+
+diverse = []
+for i, (g, ru) in enumerate(zip(GIRI, fuori["giri"])):
+    py = py_giro(json.loads(json.dumps(g)))
+    if ru != py:
+        primi = [k for k in py if ru.get(k) != py[k]]
+        diverse.append(f"giro {i} ({g['etichetta']}, {len(g['tappe'])} tappe): "
+                       f"{primi} rust {[ru.get(k) for k in primi]} vs "
+                       f"python {[py[k] for k in primi]}")
+controlla(f"i {len(GIRI)} giri di tentativi finiscono allo stesso modo",
+          not diverse, " | ".join(diverse[:2])[:400])
+controlla("il banco ha un giro che si riprende dopo due silenzi",
+          any(sum(1 for t in g["tappe"] if t.get("muto")) == 2
+              and not g["tappe"][-1].get("muto") for g in GIRI),
+          "senza, «si riprova» non e' provato")
+controlla("e uno che non risponde mai, dentro e fuori casa",
+          len({g["in_casa"] for g in GIRI
+               if all(t.get("muto") for t in g["tappe"])}) == 2,
+          "il silenzio si racconta in due modi: e' spento, oppure non sei in rete")
+controlla("e una quota finita, che non e' un errore del compito",
+          any(r["esito"] == "limite" for r in fuori["giri"]),
+          "se arriva come errore qualunque, il ripiego non parte mai")
+# Dopo l'ultimo tentativo non si aspetta: la risposta e' gia' decisa. Col
+# modello locale spento erano quindici secondi di attese su ogni domanda,
+# prima del messaggio che dice di riaccenderlo — e li ha trovati il banco,
+# perche' li avevo tolti dal Rust senza toglierli dal Python (D191).
+mai = next(g for g in GIRI if all(t.get("muto") for t in g["tappe"]))
+attese_mai = fuori["giri"][GIRI.index(mai)]["attese"]
+controlla("dopo l'ultimo tentativo non si aspetta per niente",
+          len(attese_mai) == len(mai["tappe"]) - 1, str(attese_mai))
+controlla("e un 400, che non si riprova",
+          any(len(g["tappe"]) > 1 and g["tappe"][0].get("codice") == 400
+              for g in GIRI),
+          "rimandare uguale una richiesta sbagliata non la raddrizza")
 
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:

@@ -6056,3 +6056,44 @@ I casi che contano non li ho trovati pensando: li ho trovati chiedendomi
 **cosa vedrei di diverso** se ognuno di quei dettagli fosse sbagliato. Due
 scenari sono nati cosi' — quello coi due nomi del ragionamento insieme, e
 quello col primo vuoto — e senza di loro due mutazioni sarebbero passate.
+
+
+## 6 settembre 2026, sera — Il giro dei tentativi, e il banco che ha preso me
+
+Con le decisioni portate, il pezzo che parla in rete e' diventato piccolo. Ma
+non e' *tutto* rete: dentro c'e' la politica, e la politica e' fatta di
+distinzioni che se si perdono costano.
+
+La rete l'ho messa **dietro un tratto**. Non per eleganza: un giro di
+tentativi che si puo' provare solo con un server acceso e' un giro che
+nessuno prova. Cosi' invece il copione delle risposte lo scrive la prova —
+due silenzi e poi una risposta buona, una quota finita col tempo dichiarato,
+un 400, un corpo che non e' JSON — e non serve accendere niente (D191).
+
+Le distinzioni che ci vivono dentro sono tre:
+
+- **quota finita non e' un errore del compito.** Detto cosi', il router mette
+  in pausa quel gradino e ripiega su un altro fornitore. Detto come errore
+  qualunque, il ripiego non parte mai e all'utente arriva sotto gli occhi il
+  JSON del fornitore;
+- **una richiesta sbagliata non si riprova.** Un 400 rimandato uguale tre
+  volte resta un 400;
+- **il silenzio si racconta in due modi**, perche' le cure sono due: un
+  server in casa che non risponde di solito e' spento e si riaccende; uno su
+  internet o e' giu' lui o non c'e' rete.
+
+**E poi il banco ha preso me.** Scrivendo il Rust avevo tolto l'attesa dopo
+l'ultimo tentativo — «tempo regalato a nessuno», ci avevo pure messo il
+commento. Ragionevole, e sbagliato: il porting non e' un'occasione per
+migliorare, ed e' scritto in cima al primo crate che ho portato. Il confronto
+col Python e' diventato rosso su due giri, e la differenza era nelle attese:
+`[2, 5]` di qua, `[2, 5, 8]` di la'.
+
+Quegli otto secondi pero' esistono davvero. Col modello locale spento, NOVA
+aspettava 2+5+8 = quindici secondi di sonno prima di dire «non risponde,
+riaccendilo» — una frase che era gia' decisa al primo tentativo. Quindi non
+l'ho rimessa: l'ho **tolta anche dal Python**, e adesso le due parti dicono
+la stessa cosa e la dicono otto secondi prima.
+
+E' la seconda volta oggi che il confronto trova qualcosa che nessuno stava
+cercando. La prima era un difetto del Python; questa era mio.

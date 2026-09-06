@@ -127,10 +127,13 @@ class OpenAICompatBrain:
         except (TypeError, ValueError):
             return 900
 
+    #: Quante volte si insiste quando l'altro capo non risponde.
+    TENTATIVI = 3
+
     def _post(self, payload: dict) -> dict:
         from ..guasti import spiega_http, spiega_irraggiungibile
         ultimo = None
-        for tentativo in range(3):
+        for tentativo in range(self.TENTATIVI):
             try:
                 r = self._sessione.post(
                     f"{self.base_url}/v1/chat/completions",
@@ -139,7 +142,13 @@ class OpenAICompatBrain:
                 )
             except (requests.ConnectionError, requests.Timeout) as e:
                 ultimo = e
-                time.sleep(2 + 3 * tentativo)
+                # Non dopo l'ultimo: la risposta e' gia' decisa, e quegli
+                # otto secondi sono l'utente che aspetta di sentirsi dire
+                # una cosa che si sapeva gia'. Col modello locale spento
+                # erano quindici secondi di attese su ogni domanda, prima
+                # del messaggio che dice di riaccenderlo.
+                if tentativo + 1 < self.TENTATIVI:
+                    time.sleep(2 + 3 * tentativo)
                 continue
             if r.status_code in (429, 402):
                 # Quota finita non e' un errore del compito: e' «riprova piu'
