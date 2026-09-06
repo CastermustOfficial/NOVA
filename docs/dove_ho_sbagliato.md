@@ -273,6 +273,26 @@ sbagliata e non so quale». L'ha risolto Gio in due parole.
 > che il diario non restasse **indietro**, e stare avanti non era previsto.
 > Ora c'e'.
 
+### Ho scritto scenari tutti gia' in ordine, e due mutazioni sono passate
+
+**Credevo** che il banco della fusione provasse anche **chi assorbe chi** e
+il riordino finale dell'archivio. **Era vero** che i casi c'erano: coppie,
+terne, pareggi. Ma erano tutti scritti con la procedura piu' usata gia' per
+prima, quindi l'ordine di assorbimento coincideva con l'ordine dell'archivio
+e invertirlo non cambiava niente di osservabile. **Me ne sono accorto**
+mutando: due guasti su otto sono rimasti verdi.
+
+> Terza forma dell'elenco qui sotto, di nuovo, e con la stessa causa di
+> stamattina: non la prova, il **dato** che le arriva. Scrivendo gli scenari
+> avevo messo le cose in ordine perche' si leggono meglio in ordine — ed e'
+> proprio l'ordine che dovevo togliere.
+>
+> La domanda che li ha sistemati non e' «questo caso e' realistico?» ma
+> «**cosa vedrei di diverso** se la funzione facesse la cosa sbagliata?». Con
+> quella, i tre scenari mancanti si scrivono da soli: l'archivio in ordine
+> sparso, la gemella con un'estranea in mezzo, e la catena dove chi assorbe
+> per primo cambia quante procedure restano.
+
 ---
 
 ## Le forme che si ripetono
