@@ -28,7 +28,7 @@ RADICE = Path(__file__).resolve().parent
 sys.path.insert(0, str(RADICE))
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-from nova.dati import posti                                   # noqa: E402
+from nova.dati import posti, racconta, rendiconto, tutto      # noqa: E402
 
 passati = 0
 falliti: list[str] = []
@@ -192,6 +192,24 @@ avanzati = sorted(n for n in a_mano if n not in A_MANO_CON_MOTIVO
                   and n not in scritti)
 controlla("e quelli scritti a mano sono solo quelli dichiarati", not avanzati,
           f"{avanzati}  <- aggiungilo ad A_MANO_CON_MOTIVO con scritto perche'")
+
+print("\n6. e la stessa domanda ha una risposta sola")
+# Ce n'erano due, e differivano di quindici gigabyte: chi chiedeva a NOVA
+# «dove stanno i miei dati» sentiva 4,28 GB, chi disinstallava ne vedeva
+# 19,93 — perche' il rendiconto per l'installer aggiungeva il modello
+# scaricato e il racconto per l'utente no. Nessuno dei due era sbagliato:
+# erano due elenchi.
+nomi_racconto = {p.che_cos_e for p in tutto()}
+nomi_json = {v["che_cos_e"] for v in rendiconto()["voci"]}
+controlla("il rendiconto per l'installer non nomina niente che il racconto taccia",
+          not (nomi_json - nomi_racconto), str(sorted(nomi_json - nomi_racconto)))
+controlla("e il modello scaricato sta in tutti e due, quando c'e'",
+          ("Il modello scaricato" in nomi_racconto)
+          == ("Il modello scaricato" in nomi_json))
+testo = racconta(solo_esistenti=False)
+mancanti = sorted(n for n in nomi_racconto if n not in testo)
+controlla("e il racconto per l'utente li nomina tutti", not mancanti,
+          str(mancanti))
 
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:

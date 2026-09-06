@@ -180,7 +180,7 @@ def racconta(solo_esistenti: bool = True) -> str:
     righe = ["Dove NOVA tiene le tue cose:\n"]
     totale = 0
     visti = 0
-    for p in posti():
+    for p in tutto():
         if solo_esistenti and not p.esiste:
             continue
         visti += 1
@@ -232,6 +232,19 @@ def il_modello() -> Posto | None:
                  "LM Studio o llama.cpp, e' lo stesso che usano loro.")
 
 
+def tutto() -> list[Posto]:
+    """Tutto quello di cui NOVA e' fatta sul disco, modello compreso.
+
+    Esiste perche' non ce n'era uno, e le due risposte alla stessa domanda
+    differivano di quindici gigabyte: chi chiedeva a NOVA «dove stanno i miei
+    dati» sentiva 4,28 GB, e chi disinstallava ne vedeva 19,93 — perche' il
+    rendiconto aggiungeva il modello scaricato e il racconto no.
+
+    Nessuno dei due era sbagliato: erano due elenchi (D188).
+    """
+    return posti() + [q for q in (il_modello(),) if q is not None]
+
+
 def rendiconto() -> dict:
     """L'inventario in JSON, per chi disinstalla da PowerShell.
 
@@ -246,7 +259,7 @@ def rendiconto() -> dict:
     """
     base = _base()
     voci = []
-    for p in posti() + [q for q in (il_modello(),) if q is not None]:
+    for p in tutto():
         if not p.esiste:
             continue
         voci.append({
