@@ -5950,3 +5950,27 @@ E' la terza volta oggi che la stessa domanda paga: *questo elenco, chi lo
 confronta con la realta'?* Le guardie, gli elenchi dichiarati in Rust, e
 adesso la mappa dei dati. Tre volte su tre la risposta era «nessuno», e tre
 volte su tre c'era gia' qualcosa di sbagliato dentro.
+
+Quarta volta, stessa domanda, stesso mestiere: **i nomi degli strumenti**.
+NOVA li scrive in tre posti — l'elenco dei permessi passato a Claude Code, le
+regole operative, il suggerimento sulla memoria — e in nessuno dei tre c'era
+qualcuno che li confrontasse con gli strumenti che esistono davvero.
+
+Stavolta erano tutti giusti: trentatre' permessi, undici nomi nel prompt,
+zero fantasmi. Ma e' proprio il caso in cui la prova serve di piu', perche'
+il difetto qui **non da' errore**: da' una capacita' che manca e nessuno sa
+perche'. E' costata due volte gia' — `Read` fuori dai permessi, e i nomi del
+demone cercati col punto invece che col trattino basso.
+
+La prova guarda tre direzioni, e la terza e' quella che non mi era venuta in
+mente per prima: uno strumento **insegnato dal prompt ma fuori dai
+permessi**. E' peggio degli altri due casi, perche' il modello ci prova, si
+vede rifiutare, e non ha modo di capire che il problema non e' la sua
+richiesta — quindi ci riprova, o si convince di non poter fare una cosa che
+puo' fare (D189).
+
+Una nota su cosa **non** si puo' controllare: i nativi di Claude Code —
+`Read`, `Glob`, `Grep`, `WebSearch`, `WebFetch` — non sono nostri e non c'e'
+nessun elenco da cui leggerli. Sono l'unico posto del progetto in cui dei
+nomi di strumento sono ricopiati a mano, e la prova lo dichiara invece di
+farlo di nascosto.
