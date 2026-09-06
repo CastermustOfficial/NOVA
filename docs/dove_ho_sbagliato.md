@@ -194,7 +194,7 @@ problema li'.
 > valore, non al testo come e' scritto.
 
 
-## 9 settembre 2026
+## 6 settembre 2026
 
 ### Ho riportato un ordine buttandone via la condizione
 
@@ -248,6 +248,30 @@ problema non era la prova, era il dato che le arrivava.
 > provando**. Il difetto nascondeva la prova che serviva a trovarlo. E' il
 > motivo per cui mutare non e' un lusso da fare quando c'e' tempo: e' l'unica
 > cosa che distingue «verde perche' funziona» da «verde perche' non guarda».
+
+### Ho datato il diario a memoria, per cinque giorni di fila
+
+**Credevo** che bastasse guardare l'ultima voce e scrivere «il giorno dopo».
+**Era vero** che ogni sessione nuova cominciava dopo la precedente, ma non
+che fosse un giorno dopo: erano quasi sempre poche ore. **Me ne sono
+accorto** solo perche' stamattina ho guardato l'orologio del PC per un altro
+motivo e l'ho visto tre giorni indietro rispetto al diario — e ho avuto il
+dubbio giusto: non «il PC ha l'ora sbagliata», ma «una delle due e'
+sbagliata e non so quale». L'ha risolto Gio in due parole.
+
+> E' la prima forma dell'elenco qui sotto — ho ricordato invece di misurare —
+> ma con un contorno che le altre volte non c'era: **il documento sbagliato
+> era quello che serve a ricordare**. Il diario e' la fonte: non c'e' un
+> secondo posto dove controllare, quindi un errore li' dentro non lo trova
+> nessuno guardando altrove.
+>
+> La misura c'era e non l'avevo cercata: ogni voce e' entrata con un commit, e
+> `git log -S«titolo»` dice giorno e ora. Ricostruite cosi', otto voci di fila
+> sono «5 settembre, pomeriggio»: un pomeriggio lungo, non cinque giorni.
+>
+> E la prova che mancava era una riga: `test_documentazione.py` controllava
+> che il diario non restasse **indietro**, e stare avanti non era previsto.
+> Ora c'e'.
 
 ---
 

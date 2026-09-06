@@ -3617,7 +3617,7 @@ sei mesi sarebbe un difetto.
 
 ---
 
-## 5 settembre 2026 — Le guardie, che erano sbagliate in tre modi insieme
+## 4 settembre 2026, tarda sera — Le guardie, che erano sbagliate in tre modi insieme
 
 Secondo pezzo di CANT-2: non cosa gli strumenti fanno, ma cosa gli e'
 permesso. Tre domande — dove si puo' scrivere, quali comandi non si eseguono
@@ -3765,7 +3765,7 @@ difficolta' tecnica, una decisione. Meglio prenderla da svegli.
 
 ---
 
-## 5 settembre 2026, sera — I corpi: trentuno operazioni su una cartella vera
+## 4 settembre 2026, tarda sera — I corpi: trentuno operazioni su una cartella vera
 
 Preso il punto che avevo lasciato aperto: i **corpi** degli strumenti, quelli
 che il disco lo toccano davvero. Tredici, la famiglia dei file.
@@ -4759,7 +4759,7 @@ leggevo, non per il dato (D131). Nella prova finale il campo si chiede in un
 modo che non dipende dalla lingua, e c'e' scritto perche'.
 
 
-## 5 settembre 2026, notte — CANT-2 si chiude, e non dove pensavo
+## 5 settembre 2026, pomeriggio — CANT-2 si chiude, e non dove pensavo
 
 Ieri sera, chiuso il Cestino, ho scritto a Gio il programma di oggi: «dentro
 CANT-2 restano i corpi degli altri strumenti — `automazioni.py`,
@@ -4792,7 +4792,7 @@ che si ripetono: avevo guardato la cartella, non i file.
 Quindi CANT-2 e' chiuso, con la sua tabella di ragioni file per file in
 [verso_la_beta.md](verso_la_beta.md), e si apre CANT-3.
 
-## 5 settembre 2026, notte — CANT-3 comincia dal pezzo che se sbaglia non lo dice
+## 5 settembre 2026, pomeriggio — CANT-3 comincia dal pezzo che se sbaglia non lo dice
 
 Aperto CANT-3 dalla parte piu' delicata di tutto il progetto, che e' anche la
 piu' piccola: **il taglio del contesto**. Duecento righe di Python che
@@ -4861,7 +4861,7 @@ Rust cio' che il Python fa diversamente vuol dire due cose insieme: che il
 banco non confronta piu' niente, e che il difetto resta comunque in
 produzione, dove il codice gira ancora oggi. Prima uguali, poi si discute.
 
-## 5 settembre 2026, tarda notte — Dove la prosa diventa un'azione
+## 5 settembre 2026, pomeriggio — Dove la prosa diventa un'azione
 
 Secondo pezzo di CANT-3, e non e' il ciclo: sono i **due punti in cui il testo
 del modello e il mondo si toccano**.
@@ -4902,7 +4902,7 @@ passare avanti, e' un campo che **non conta**, e si guarda `parameters`. Con
 un semplice «c'e' / non c'e'» si passerebbe una stringa vuota dove il Python
 passa `{}` — e lo strumento riceverebbe argomenti diversi da quelli scritti.
 
-## 5 settembre 2026, dopo mezzanotte — Un verde che era una monetina
+## 5 settembre 2026, pomeriggio — Un verde che era una monetina
 
 Rimisurata la suite dopo il secondo pezzo, e' uscita rossa dove tre ore prima
 era verde: `test_promemoria.py`, «appesa: non e' finita entro 90s». Non avevo
@@ -4935,7 +4935,7 @@ non provavano niente, con la differenza che le separa: quelle erano verdi
 **sempre** e per il motivo sbagliato — si smascherano guardandole — questa e'
 verde **a volte**, e guardarla non basta. Bisogna rimisurare.
 
-## 6 settembre 2026 — Il messaggio numero zero, e NOVA che non partiva
+## 5 settembre 2026, pomeriggio — Il messaggio numero zero, e NOVA che non partiva
 
 Terzo pezzo di CANT-3: il prompt di sistema. Ventimila caratteri — 4.804 di
 prompt predefinito e 15.239 di regole operative — che il modello rilegge a
@@ -5000,7 +5000,7 @@ turno lo rilegga. Stessa domanda, posta a cio' che il codice fa invece che a
 come e' scritto (D159). Verificata con una mutazione che legge l'ora due
 volte: rossa.
 
-## 6 settembre 2026, sera — Quello che si attacca in coda, e un numero scritto due volte
+## 5 settembre 2026, pomeriggio — Quello che si attacca in coda, e un numero scritto due volte
 
 Quarto pezzo di CANT-3: i blocchi. La memoria e le procedure fanno la stessa
 cosa — aggiungono roba **alla domanda** invece che al prompt di sistema — e la
@@ -5048,7 +5048,7 @@ modello decide se quei passi sono un ordine o un appunto.
 
 116 verifiche in `test_contesto_rust.py`, 35 in `test_ricette_rust.py`.
 
-## 6 settembre 2026, notte — Un codice HTTP detto in italiano
+## 5 settembre 2026, pomeriggio — Un codice HTTP detto in italiano
 
 Quinto pezzo di CANT-3, e non e' dentro `agent.py`: e' la faccia che i
 fornitori mostrano quando qualcosa non va. `nova-guasti::http`.
@@ -5091,7 +5091,7 @@ e' una funzione sola invece di una somma scritta a mano dentro il turno.
 L'istruzione resta l'ultima cosa letta, che e' il posto in cui i modelli la
 seguono di piu'.
 
-## 7 settembre 2026 — Il banco aveva due colonne e ne servivano tre
+## 5 settembre 2026, pomeriggio — Il banco aveva due colonne e ne servivano tre
 
 Rimisurando dopo il pezzo sugli errori HTTP, quattro rosse. Nessuna delle
 quattro era un difetto del codice, e la ragione di ognuna vale la pena di
@@ -5151,7 +5151,7 @@ ed e' il modo esatto in cui una prova diventa verde per assenza. Resta rossa,
 ma senza traceback: adesso dice cosa e' successo e cosa provare prima di
 cercare il difetto nel codice (D165).
 
-## 7 settembre 2026, sera — Due foto che uscivano dal PC senza che nessuno lo dicesse
+## 5 settembre 2026, sera — Due foto che uscivano dal PC senza che nessuno lo dicesse
 
 Sesto pezzo di CANT-3: le immagini che entrano nella conversazione. Doveva
 essere una funzione di comodo, ed e' venuta fuori una domanda di privacy.
@@ -5217,7 +5217,7 @@ prendeva tutta la riga e Python solo il primo pezzo.
 regola del numero potrebbe essere troppo stretta (un elenco con dentro una
 sola foto la manda comunque) o troppo larga. Gio dira'.
 
-## 7 settembre 2026, notte — Come NOVA impara, e un a capo che Rust non conosce
+## 5 settembre 2026, tarda sera — Come NOVA impara, e un a capo che Rust non conosce
 
 Settimo pezzo di CANT-3: `nova-ricette::imparare`. Tre cose che decidono
 **cosa NOVA impara** e che in Python stavano dentro un metodo di novanta righe
@@ -5267,7 +5267,7 @@ di soli spazi, «NIENTE», un titolo solo, passi troppo corti, «ALTRE PAROLE»
 senza i due punti, alias vuoti fra le virgole, accenti nei passi, e i quattro
 tipi di a capo.
 
-## 8 settembre 2026 — Il titolo di una finestra e' una stringa qualunque
+## 5 settembre 2026, tarda sera — Il titolo di una finestra e' una stringa qualunque
 
 Ottavo pezzo di CANT-3, e sono due cose piccole che stavano in mezzo al ciclo.
 
@@ -5306,7 +5306,7 @@ solo se per caso quel caso c'era: e' la stessa lezione delle sessanta
 dichiarazioni (D113). Mutazione di prova con `screenshot` tolto dal Rust: due
 verifiche rosse, di cui una dice esattamente quale manca.
 
-## 8 settembre 2026, sera — I cervelli, e un dominio che si chiama quasi come casa
+## 5 settembre 2026, tarda sera — I cervelli, e un dominio che si chiama quasi come casa
 
 Nono pezzo di CANT-3, e stavolta non e' `agent.py`: sono i **cervelli**. Non
 il loro giro di rete, che resta dov'e', ma le decisioni che prendono guardando
@@ -5350,7 +5350,7 @@ causa vera stava in `subtype`, che c'era gia' e nessuno leggeva. Adesso sta in
 `nova-guasti::cervelli` insieme ai riconoscitori di limite d'uso e alle due
 reti sotto — il flag non documentato e la riga di comando troppo lunga.
 
-## 8 settembre 2026, notte — Il conto di CANT-3, e CANT-4 che comincia
+## 6 settembre 2026, notte — Il conto di CANT-3, e CANT-4 che comincia
 
 **Prima il conto, e stavolta guardato invece che dedotto.** Chiudendo CANT-2
 avevo annunciato cinque file scegliendoli dai nomi nella cartella, e nessuno
@@ -5407,7 +5407,7 @@ Mutazioni: il gradino da sei a otto accende la scala dei layer; il flag `-ctk`
 passato sempre accende due verifiche, di cui una e' quella che controlla che
 il banco abbia davvero un caso con e uno senza.
 
-## 9 settembre 2026 — CANT-5: la porta da cui entrano gli altri
+## 6 settembre 2026, notte — CANT-5: la porta da cui entrano gli altri
 
 Il server MCP e' il posto da cui un altro programma entra in NOVA. Sul
 cantiere c'era scritto «protocollo, quindi traducibile senza scelte», ed e'
@@ -5464,7 +5464,7 @@ guardando cosa ogni corpo **chiama** invece di come si chiama (D150).
 
 CANT-5 e' chiuso.
 
-## 9 settembre 2026, notte — Il PC e' rimasto acceso, e ha fatto bene NOVA
+## 6 settembre 2026, notte — Il PC e' rimasto acceso, e ha fatto bene NOVA
 
 Chiuso CANT-5, Gio aveva chiesto di spegnere il PC chiedendolo a NOVA. Non si
 e' spento, e le due ragioni valgono piu' della cosa in se'.
@@ -5505,7 +5505,7 @@ sul PC di qualcuno.
 Il PC e' rimasto acceso. In `dove_ho_sbagliato.md` c'e' la voce, e nell'elenco
 delle forme che si ripetono ce n'e' una nuova: **ho semplificato riportando**.
 
-## 9 settembre 2026, mattina — CANT-6: il codice che gira in casa d'altri
+## 6 settembre 2026, mattina — CANT-6: il codice che gira in casa d'altri
 
 Il browser di NOVA si guida dal di dentro. La ragione sta scritta in cima a
 `browser.py` ed e' una misura: ventiquattro turni e il menu File di Google
@@ -5562,7 +5562,7 @@ sparisca dai documenti — e ha fatto esattamente il suo mestiere su una riga
 scritta cinque minuti prima. Tolta dalla tabella e detta in prosa, che e'
 dove va una cosa finita.
 
-## 9 settembre 2026, pomeriggio — Il titolo di un sito, e quello di un altro
+## 6 settembre 2026, mattina — Il titolo di un sito, e quello di un altro
 
 CANT-6 aveva ancora una meta': i copioni che girano nella pagina erano
 portati, la ricerca in rete no. E la ricerca in rete, quando il browser non
@@ -5636,3 +5636,76 @@ riga**, dove lo toglie comunque la ripulita finale: la prova sembrava buona e
 non provava niente. L'altra perche' il titolo lungo che dovevo tagliare stava
 nel risultato che veniva inghiottito — cioe' era proprio il difetto di prima a
 nascondere la prova del difetto dopo.
+
+## 6 settembre 2026, mattina — Le date del diario erano avanti di tre giorni
+
+Prima di andare avanti col cantiere, una cosa che va scritta perche' e' del
+genere che si scopre per caso e poi si dimentica.
+
+Scrivendo la voce di stamattina ho notato che l'orologio del PC diceva **6
+settembre** e il diario era gia' al **9**. Gliel'ho detto a Gio dicendo che
+una delle due date era sbagliata e non sapevo quale. Risposta: quella del PC
+e' esatta.
+
+Quindi il diario camminava avanti. Non di poco: le voci dal *5 settembre — Le
+guardie* in poi erano tutte spostate, di uno, poi di due, poi di tre giorni.
+Il perche' e' banale — ogni volta che una sessione ricominciava, la data la
+mettevo io a memoria invece di misurarla, e a memoria «e' passato un giorno»
+sembra sempre vero.
+
+Non l'ho corretta a occhio. Ogni voce l'ha introdotta un commit, e il commit
+ha una data e un'ora: `git log -S«titolo della voce»` dice quale, e da li'
+viene sia il giorno sia il momento della giornata. Cosi' otto voci di fila
+sono diventate «5 settembre, pomeriggio» — che sembra ripetitivo e invece e'
+esattamente cio' che e' successo: un pomeriggio lungo.
+
+E ho aggiunto la prova che mancava. `test_documentazione.py` controllava che
+il diario non restasse **indietro** rispetto all'ultimo lavoro, e passava:
+essere avanti non era previsto. Un diario in ritardo e' una dimenticanza, un
+diario avanti e' un'affermazione falsa su quando e' successo cio' che
+racconta — ed e' l'unico documento del progetto che non ha modo di smentirsi
+da solo, perche' e' lui la fonte.
+
+
+## 6 settembre 2026, mattina — Cosa NOVA dice a un cervello che vive fuori
+
+CANT-3 e' fermo sul ciclo, che vuole i cervelli in Rust. Allora i cervelli.
+
+Un cervello esterno — Claude Code, una CLI agentica, un endpoint che parla il
+dialetto OpenAI — riceve tre cose: una riga di comando, un prompt di sistema,
+un payload JSON. In tutte e tre **sbagliare non da' un errore**, e i tre modi
+di sbagliare li conosco tutti perche' sono gia' successi.
+
+**La riga di comando.** Su Windows `claude` e' `claude.cmd`, un file batch:
+lo esegue `cmd.exe`, che rianalizza la riga. Un argomento con degli a capo la
+chiude li', e tutto quel che segue non arriva. Il prompt di sistema di NOVA
+ne ha una sessantina, di a capo. Il sintomo era che NOVA perdeva le proprie
+quarantanove capacita' — fra cui tutte le `ui_*`, cioe' le mani sul browser —
+**solo nelle sessioni nuove**, perche' solo li' il prompt viene passato. Le
+sessioni riprese funzionavano, e il difetto sembrava un capriccio. Percio' le
+opzioni MCP vanno prima, e percio' il prompt, quando si puo', non viaggia
+affatto sulla riga: la riga di comando di Windows finisce a 8191 caratteri e
+il prompt da solo ne pesa 8641 (D184).
+
+**L'elenco degli strumenti permessi.** Trentatre' nomi separati da virgole, in
+una stringa sola. Era scritto come quattro elementi di lista, e «Read»,
+«Glob» e «Grep» finivano appesi in fondo alla riga come argomenti a se'
+stanti: a seconda della versione del CLI venivano assorbiti o ignorati, e in
+nessun caso erano davvero fra i permessi. Senza `Read`, NOVA scattava
+screenshot che non poteva guardare — `Read` e' anche cio' che apre le
+immagini. Estratto dal sorgente, non ricopiato, e il banco lo **conta**
+(D183).
+
+**Il payload.** L'ordine delle chiavi si conserva e si confronta carattere
+per carattere col Python. Non perche' a un server importi l'ordine, ma
+perche' un banco che confronta «a meno dell'ordine» e' un banco che ha
+cominciato ad accettare differenze, e da li' in poi ne accetta altre.
+
+Dodici mutazioni, dodici rosse. Fra queste ci sono quasi tutti i difetti veri
+di cui sopra, rimessi dentro apposta: l'elenco rispezzato in argomenti, le
+opzioni MCP dopo il prompt, il prompt passato anche alle sessioni riprese, un
+livello di autonomia sconosciuto che da' le mani libere.
+
+Il giro delle mutazioni intanto e' diventato un modulo: era la seconda volta
+che lo scrivevo (D62). Ora `_mutazioni.py` fa il giro e i due file accanto
+dichiarano solo i punti da rompere.

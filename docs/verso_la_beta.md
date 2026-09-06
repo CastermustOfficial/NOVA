@@ -964,7 +964,7 @@ mole, non di difficolta'.
 |---|---|---|---|
 | ~~CANT-1~~ | ~~**Il vault su disco**~~ — **fatto** | ~660 | Era il seguito diretto di `nova-nodi`, ed e' stato il primo pezzo scritto contro un tratto invece che sopra il filesystem nudo: e' quello che apre la strada a tutti gli altri. Ha ripagato prima di essere finito — la scrittura delle note dell'utente non era atomica (D102) — e ha portato dentro anche il guardiano dei segreti (D109, D110) |
 | ~~CANT-2~~ | ~~**Gli strumenti**~~ — **fatto**, per la parte traducibile: dichiarazioni, guardie, formato, i corpi dei file, la shell, i tasti, le pagine, la **scelta** di cosa ricordare, e i quindici strumenti che chiedono davvero alla piattaforma. Quel che resta in `nova/tools/` appartiene ad altri cantieri, file per file (D150) | ~2.570 | Sono la meta' di NOVA che tocca il PC, ed e' esattamente quella che in Python costa di piu' in dipendenze. Tanti pezzi piccoli e indipendenti: si e' portato uno strumento per volta senza fermare niente |
-| CANT-3 | **Il ciclo dell'agente e i cervelli** — `agent.py`, i client dei modelli | ~2.200 | E' il pezzo che davvero libera dal Python, ma va dopo gli strumenti: un ciclo che chiama strumenti Python non ha liberato niente. Dentro c'e' la parte piu' delicata di tutto il progetto — il taglio del contesto a token, che se sbaglia perde pezzi di conversazione senza dirlo |
+| CANT-3 | **Il ciclo dell'agente e i cervelli** — *tutto cio' che decide: fatto — il contesto, il prompt, i blocchi, le immagini, le procedure, i guasti, e cosa si dice a un cervello che vive fuori. Resta il **ciclo**, ~280 righe, e i pezzi che avviano processi o parlano in rete* | ~2.200 | E' il pezzo che davvero libera dal Python, ma va dopo gli strumenti: un ciclo che chiama strumenti Python non ha liberato niente. Dentro c'e' la parte piu' delicata di tutto il progetto — il taglio del contesto a token, che se sbaglia perde pezzi di conversazione senza dirlo |
 | CANT-4 | **Lanciare il modello locale** — *le decisioni: fatte; avviare il processo e leggere cosa dice: da fare* | ~690 | Il calcolo degli strati era gia' in `nova-modelli`; restava il pezzo dove le decisioni si vedono poco e costano molto — la riga di comando, la scala dei layer, l'unico errore che vale la pena riprovare (D173) |
 | ~~CANT-5~~ | ~~**Il server MCP**~~ — **fatto**: il protocollo, le trentatre' dichiarazioni, il rischio, la domanda in chiaro, gli allegati e la risposta al permesso. I corpi degli strumenti appartengono ai cantieri che chiamano | ~1.290 | Protocollo, quindi traducibile senza scelte — ma le **buste** hanno una regola che rompe i client quando si sbaglia (D175, D176) |
 | ~~CANT-6~~ | ~~**Il browser e la ricerca**~~ — **fatto**, per la parte traducibile: i nove copioni che girano nella pagina, il confine fra argomento e codice, la scelta della scheda, cosa di una pagina e' testo, e i due raschiatori del motore. Quel che resta e' avviare Chrome e tenere la connessione: processi e rete, e appartiene a CANT-7 | ~760 | Nessuna scelta di interfaccia, ma il pezzo dove il confine fra argomento e codice conta piu' che altrove: quel testo lo esegue un interprete che non e' nostro (D178). Ed e' il cantiere in cui il banco ha trovato un difetto vero, non una differenza di porto (D181) |
@@ -1572,6 +1572,34 @@ come lo estrae `urlparse` — ventisei indirizzi confrontati, e una mutazione
 per sottostringa che chiama «casa» `localhost.evil.example.com` (D171). Con
 il ragionamento separato dalla risposta anche quando il `<think>` non e'
 chiuso (D172), e «Claude Code:» che non e' piu' seguito dal nulla.
+
+
+**CANT-3, decimo pezzo: cosa si dice a un cervello che vive fuori.** Un
+cervello esterno riceve tre cose, e in tutte e tre sbagliare **non da' un
+errore**: una riga di comando, un prompt di sistema, un payload JSON.
+
+La riga di comando di Claude Code e' il pezzo con la storia peggiore. Su
+Windows `claude` e' un file batch, `cmd.exe` rianalizza la riga, e un
+argomento con degli a capo la chiude li': NOVA perdeva le proprie
+quarantanove capacita' **solo nelle sessioni nuove**, che e' l'unico caso in
+cui il prompt di sistema viene passato (D184). E l'elenco dei trentatre'
+strumenti permessi e' una stringa sola: quando era una lista, «Read», «Glob»
+e «Grep» restavano appesi in fondo alla riga e non erano permessi — senza
+`Read`, NOVA scattava screenshot che non poteva guardare (D183).
+
+Dodici mutazioni, dodici rosse. Fra queste, quasi tutti i difetti veri
+rimessi dentro apposta: l'elenco rispezzato, le opzioni MCP dopo il prompt,
+il prompt passato anche alle sessioni riprese, un livello di autonomia
+sconosciuto che da' le mani libere.
+
+**Cosa resta di CANT-3.**
+
+| Pezzo | Righe | Dove appartiene |
+|---|---|---|
+| `agent.send`, `agent._giro`, `agent._execute_call`, `agent._sali_di_gradino` | ~280 | Il ciclo vero e proprio. E' l'ultimo, e per una ragione: un ciclo che chiama strumenti Python non ha liberato niente |
+| `claude_cli._esegui`, `_traccia_avvio`, le sessioni su file, `tipo_accesso` | ~150 | Avviare un processo, leggerne l'uscita, tenere il capo del filo su disco: impalcatura (CANT-7) |
+| `openai_compat._post`, `rileva_modello`, `disponibile` | ~60 | Le richieste HTTP e i tre tentativi: rete. Le **decisioni** — quali codici vogliono dire «riprova», quanto aspettare, cosa dire — sono gia' portate |
+| `cli_generic._esegui`, `_trova` | ~35 | Un processo e una ricerca nel PATH: sistema |
 
 
 **CANT-3: il conto di cosa resta, guardato invece che dedotto.** Chiudendo
