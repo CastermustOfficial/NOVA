@@ -7,7 +7,15 @@ una. E la ricerca doveva essere di NOVA, non di Claude Code: chi la fa
 ragionare con Gemini o col modello locale non ha `WebSearch`.
 
 La prova tocca la rete: se non c'e', lo dice e non finge di aver provato.
+
+Il tempo dichiarato non e' un permesso di essere lenta. Questa prova avvia un
+Chrome vero e aspetta due volte la rete, e con la macchina occupata — un
+`cargo test` di tutto lo spazio di lavoro accanto — i novanta secondi
+predefiniti non le bastano: e' successo, e il banco l'ha segnata rossa mentre
+da sola passava in tre secondi. Un rosso che dipende da cosa gira accanto non
+dice niente sul codice (D156).
 """
+# banco: attesa 240
 import sys
 import time
 from pathlib import Path

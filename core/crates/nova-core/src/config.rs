@@ -2,12 +2,17 @@
 
 use std::path::PathBuf;
 
+use nova_strumenti::predefiniti;
 use serde::{Deserialize, Serialize};
 
 /// Livelli di autonomia: gli stessi nomi usati da NOVA in Python.
-pub const AUTONOMY_ASK_ALL: &str = "always_ask";
-pub const AUTONOMY_ASK_RISKY: &str = "ask_risky";
-pub const AUTONOMY_FULL: &str = "autonomous";
+///
+/// Non riscritti: vengono da `nova_strumenti::predefiniti`, che li estrae da
+/// `nova/config.py`. Erano tre stringhe dichiarate qui a mano, ed era il
+/// posto in cui prima o poi una delle due copie sarebbe cambiata da sola.
+pub const AUTONOMY_ASK_ALL: &str = predefiniti::LIVELLI[0];
+pub const AUTONOMY_ASK_RISKY: &str = predefiniti::LIVELLI[1];
+pub const AUTONOMY_FULL: &str = predefiniti::LIVELLI[2];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -57,18 +62,11 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             endpoint: nova_proto::endpoint_default(),
-            autonomy: AUTONOMY_ASK_RISKY.to_string(),
+            autonomy: predefiniti::AUTONOMIA_PREDEFINITA.to_string(),
             protected_paths: default_protected(),
             write_roots: Vec::new(),
-            forbidden_commands: vec![
-                "format ".into(),
-                "diskpart".into(),
-                "vssadmin delete".into(),
-                "bcdedit".into(),
-                "mkfs".into(),
-                "rm -rf /".into(),
-            ],
-            shell_timeout_s: 120,
+            forbidden_commands: predefiniti::COMANDI_VIETATI.iter().map(|s| s.to_string()).collect(),
+            shell_timeout_s: predefiniti::SHELL_TIMEOUT_S,
             services: Vec::new(),
             log_level: "info".into(),
         }
@@ -77,16 +75,12 @@ impl Default for Config {
 
 #[cfg(windows)]
 fn default_protected() -> Vec<String> {
-    vec![
-        r"C:\Windows".into(),
-        r"C:\Program Files".into(),
-        r"C:\Program Files (x86)".into(),
-    ]
+    predefiniti::PERCORSI_PROTETTI.iter().map(|s| s.to_string()).collect()
 }
 
 #[cfg(not(windows))]
 fn default_protected() -> Vec<String> {
-    vec!["/boot".into(), "/etc".into(), "/sys".into(), "/proc".into(), "/dev".into()]
+    predefiniti::PERCORSI_PROTETTI_UNIX.iter().map(|s| s.to_string()).collect()
 }
 
 impl Config {

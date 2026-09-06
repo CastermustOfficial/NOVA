@@ -8,13 +8,22 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Result};
+use nova_strumenti::guardie::{Autonomia, Divieto, Guardie};
+use nova_strumenti::predefiniti;
 
 use crate::config::Config;
 
 pub struct Policy {
     protected: Vec<PathBuf>,
     write_roots: Vec<PathBuf>,
-    forbidden: Vec<String>,
+    /// La stessa guardia che usa NOVA lato Python, non una seconda scritta
+    /// qui: `Guardie` compila i motivi come espressioni regolari senza
+    /// distinzione fra maiuscole e minuscole, ed e' gia' confrontata col
+    /// Python da un banco. Prima qui c'era un confronto per sottostringa,
+    /// con in piu' una regola sua — «conta solo dove starebbe un comando» —
+    /// che dall'altra parte non esisteva: due meccanismi sullo stesso
+    /// elenco, cioe' due risposte diverse alla stessa domanda (D185).
+    guardie: Guardie,
 }
 
 impl Policy {
@@ -22,7 +31,7 @@ impl Policy {
         Self {
             protected: cfg.protected_paths.iter().map(PathBuf::from).collect(),
             write_roots: cfg.write_roots.iter().map(PathBuf::from).collect(),
-            forbidden: cfg.forbidden_commands.iter().map(|c| c.to_lowercase()).collect(),
+            guardie: Guardie::nuove(&[], &[], &motivi(cfg), Autonomia::ChiediSeRischioso),
         }
     }
 
@@ -48,34 +57,37 @@ impl Policy {
         Ok(())
     }
 
+    /// Se questo comando si puo' eseguire.
     pub fn check_command(&self, command: &str) -> Result<()> {
-        let c = command.to_lowercase();
-        for vietato in &self.forbidden {
-            if !vietato.is_empty() && in_posizione_di_comando(&c, vietato) {
-                bail!("comando bloccato dalla policy del demone (contiene «{vietato}»)");
+        match self.guardie.comando_permesso(command) {
+            Ok(()) => Ok(()),
+            Err(Divieto::ComandoBloccato(m)) => {
+                bail!("comando bloccato dalla policy del demone (pattern: {m})")
             }
+            Err(altro) => bail!("{}", altro.messaggio()),
         }
-        Ok(())
     }
 }
 
-/// Il pattern conta solo se sta dove starebbe un comando: a inizio riga o
-/// dopo un separatore. Cosi' `diskpart /s` e' bloccato ma `-Format o` no.
-fn in_posizione_di_comando(comando: &str, vietato: &str) -> bool {
-    let mut da = 0usize;
-    while let Some(rel) = comando[da..].find(vietato) {
-        let i = da + rel;
-        let precedente = comando[..i].chars().rev().find(|ch| !ch.is_whitespace());
-        let e_inizio = matches!(
-            precedente,
-            None | Some(';') | Some('|') | Some('&') | Some('(') | Some('{') | Some('\n')
-        );
-        if e_inizio {
-            return true;
+/// I motivi vietati: quelli della configurazione **piu'** i predefiniti.
+///
+/// I predefiniti non si lasciano sostituire. Questo modulo dice di se' che
+/// tiene i divieti non negoziabili, quelli che nessun modello e nessun client
+/// possono aggirare; una configurazione salvata prima che l'elenco crescesse
+/// non e' una scelta dell'utente, e' un elenco che si e' congelato. E' gia'
+/// successo col prompt di sistema, dove una copia vecchia su disco ha tolto a
+/// NOVA per mesi una capacita' che aveva.
+///
+/// Aggiungerne si puo'; toglierne uno di questi si fa cambiando NOVA, non
+/// dimenticando di aggiornare un file.
+fn motivi(cfg: &Config) -> Vec<String> {
+    let mut fuori = cfg.forbidden_commands.clone();
+    for p in predefiniti::COMANDI_VIETATI {
+        if !fuori.iter().any(|x| x == p) {
+            fuori.push(p.to_string());
         }
-        da = i + vietato.len().max(1);
     }
-    false
+    fuori
 }
 
 /// Confronto robusto: minuscole su Windows, separatori uniformi.
@@ -118,11 +130,42 @@ mod tests {
     #[test]
     fn le_opzioni_innocue_non_scattano() {
         let policy = Policy::from_config(&Config::default());
-        // "format " compare dentro "-Format o": non e' un comando
+        // `\bformat\s+[a-z]:` non tocca ne' `-Format o` ne' `Format-Table`.
         assert!(policy.check_command("Get-Date -Format o").is_ok());
         assert!(policy.check_command("Get-ChildItem | Format-Table").is_ok());
-        // ma in posizione di comando si'
         assert!(policy.check_command("format c:").is_err());
         assert!(policy.check_command("echo ciao; diskpart").is_err());
+    }
+
+    #[test]
+    fn le_due_guardie_che_al_demone_mancavano() {
+        // `cipher /w` cancella lo spazio libero: rende irrecuperabile cio'
+        // che era gia' stato cancellato. `wevtutil cl` svuota i registri
+        // eventi, cioe' toglie la traccia di quello che e' successo. Nessuna
+        // delle due era nell'elenco del demone, ed erano tutte e due in
+        // quello di NOVA (D185).
+        let policy = Policy::from_config(&Config::default());
+        assert!(policy.check_command("cipher /w:C").is_err());
+        assert!(policy.check_command("wevtutil cl System").is_err());
+    }
+
+    #[test]
+    fn i_predefiniti_non_si_possono_perdere_per_dimenticanza() {
+        // Una configurazione salvata prima che l'elenco crescesse non e' una
+        // scelta dell'utente: e' un elenco congelato.
+        let mut cfg = Config::default();
+        cfg.forbidden_commands = vec!["mia regola".into()];
+        let policy = Policy::from_config(&cfg);
+        assert!(policy.check_command("vssadmin delete shadows /all").is_err());
+        assert!(policy.check_command("mia regola").is_err());
+    }
+
+    #[test]
+    fn una_regola_scritta_male_non_spegne_le_altre() {
+        let mut cfg = Config::default();
+        cfg.forbidden_commands = vec!["(".into()];
+        let policy = Policy::from_config(&cfg);
+        assert!(policy.check_command("diskpart /s x").is_err());
+        assert!(policy.check_command("Get-Process").is_ok());
     }
 }

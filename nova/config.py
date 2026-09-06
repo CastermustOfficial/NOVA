@@ -500,6 +500,13 @@ class SafetyConfig:
         "C:\\ProgramData\\Microsoft",
     ])
     # pattern vietati nei comandi shell (regex, case-insensitive)
+    #
+    # Questo elenco e' anche quello del demone: `nova-strumenti::predefiniti`
+    # lo estrae da qui, e `nova-core` lo usa come minimo non negoziabile. Ne
+    # esistevano due, e sapevano cose diverse (D185): al demone mancavano
+    # `cipher /w` — che cancella lo spazio libero, cioe' rende irrecuperabile
+    # cio' che era stato cancellato — e `wevtutil cl`, che svuota i registri
+    # eventi di Windows; a questo mancavano le due forme Unix.
     forbidden_command_patterns: list[str] = field(default_factory=lambda: [
         r"\bformat\s+[a-z]:",
         r"\bvssadmin\b.*\bdelete\b",
@@ -507,6 +514,11 @@ class SafetyConfig:
         r"\bcipher\s+/w",
         r"\bdiskpart\b",
         r"\bwevtutil\s+cl\b",
+        # Le due che c'erano solo dal lato Rust. Su Windows non scattano quasi
+        # mai, ma NOVA non e' solo Windows, e una guardia che esiste da una
+        # parte sola non e' una guardia: e' una differenza fra due copie.
+        r"\bmkfs(\.[a-z0-9]+)?\b",
+        r"\brm\s+(?:-[a-z]+\s+)*-[a-z]*(?:rf|fr)[a-z]*\s+/",
     ])
     shell_timeout: int = 120
     confirm_before_shutdown: bool = True

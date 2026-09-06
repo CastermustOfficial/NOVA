@@ -968,7 +968,7 @@ mole, non di difficolta'.
 | CANT-4 | **Lanciare il modello locale** — *le decisioni: fatte; avviare il processo e leggere cosa dice: da fare* | ~690 | Il calcolo degli strati era gia' in `nova-modelli`; restava il pezzo dove le decisioni si vedono poco e costano molto — la riga di comando, la scala dei layer, l'unico errore che vale la pena riprovare (D173) |
 | ~~CANT-5~~ | ~~**Il server MCP**~~ — **fatto**: il protocollo, le trentatre' dichiarazioni, il rischio, la domanda in chiaro, gli allegati e la risposta al permesso. I corpi degli strumenti appartengono ai cantieri che chiamano | ~1.290 | Protocollo, quindi traducibile senza scelte — ma le **buste** hanno una regola che rompe i client quando si sbaglia (D175, D176) |
 | ~~CANT-6~~ | ~~**Il browser e la ricerca**~~ — **fatto**, per la parte traducibile: i nove copioni che girano nella pagina, il confine fra argomento e codice, la scelta della scheda, cosa di una pagina e' testo, e i due raschiatori del motore. Quel che resta e' avviare Chrome e tenere la connessione: processi e rete, e appartiene a CANT-7 | ~760 | Nessuna scelta di interfaccia, ma il pezzo dove il confine fra argomento e codice conta piu' che altrove: quel testo lo esegue un interprete che non e' nostro (D178). Ed e' il cantiere in cui il banco ha trovato un difetto vero, non una differenza di porto (D181) |
-| CANT-7 | **L'impalcatura** — config, main, dati, componenti | ~1.800 | Non si porta: si **riscrive**, perche' meta' esiste solo per tenere insieme il Python. `nova-core::config` ne ha gia' un pezzo. Va per ultima fra quelle di sostanza, quando si sa cosa deve tenere insieme |
+| CANT-7 | **L'impalcatura** — *le guardie predefinite: fatte; config, main, dati, componenti: da fare* | ~1.800 | Non si porta: si **riscrive**, perche' meta' esiste solo per tenere insieme il Python. `nova-core::config` ne ha gia' un pezzo. Va per ultima fra quelle di sostanza, quando si sa cosa deve tenere insieme |
 | CANT-8 | **L'harness dei documenti** | ~2.900 | Il piu' grosso, e l'unico che **non e' una traduzione**: e' una finestra Qt, e in Rust vuol dire deciderne un'altra. E' una decisione di interfaccia travestita da porting, e va presa da sveglio, non a fine lista |
 
 Due cose che la tabella non dice.
@@ -1757,6 +1757,23 @@ Nessuno di questi e' una decisione: sono processi, connessioni e percorsi di
 sistema, cioe' impalcatura. Vanno con CANT-7, che e' il cantiere
 dell'impalcatura, e non prima — portarli adesso vorrebbe dire scegliere una
 libreria di rete per un ciclo che ancora non esiste.
+
+
+**CANT-7, primo pezzo: la configurazione — e due elenchi di guardie che
+sapevano cose diverse.** Aprendo il cantiere dell'impalcatura dalla parte che
+si puo' aprire, la domanda «cosa c'e' gia'?» (D99) ha trovato un secondo
+elenco di guardie scritto a mano nella configurazione del demone. Mancavano
+di la' `cipher /w` — che cancella lo spazio libero, cioe' rende
+irrecuperabile cio' che era **gia'** stato cancellato — e `wevtutil cl`, che
+svuota i registri eventi; mancavano di qua le due forme Unix; e i due lati
+confrontavano in due modi diversi, cosi' `vssadmin.exe delete shadows`
+passava dal demone e veniva fermato da NOVA (D185).
+
+Ora l'elenco e' uno, sta in Python perche' e' li' che l'utente lo puo'
+cambiare, e il demone usa la stessa guardia. La prova che tiene ferma la
+riparazione non e' quella sui pattern — quella dice solo che oggi coincidono
+— ma quella che va a cercare **se ne esiste un secondo**, su tutti i file
+Rust.
 
 
 ## Il cancello della beta
