@@ -293,6 +293,25 @@ mutando: due guasti su otto sono rimasti verdi.
 > sparso, la gemella con un'estranea in mezzo, e la catena dove chi assorbe
 > per primo cambia quante procedure restano.
 
+### Ho scritto «e' l'unico posto» dentro la prova che serviva a controllarlo
+
+**Credevo**, e l'ho scritto in un commento, che i nomi degli strumenti nativi
+di Claude Code fossero ricopiati a mano in un solo posto: la prova che stavo
+scrivendo. **Era vero** che erano ricopiati a mano, e falso che il posto
+fosse uno: gli stessi nomi stanno anche in `mcp_kb._rischio`. **Me ne sono
+accorto** venti minuti dopo, guardando un'altra cosa.
+
+> Non e' una forma nuova — e' la prima dell'elenco, ho ricordato invece di
+> misurare — ma il posto lo rende speciale: l'ho scritta **dentro la prova
+> che esiste apposta per trovare gli elenchi che nessuno confronta**. Una
+> frase che afferma una proprieta' non e' un controllo di quella proprieta',
+> nemmeno quando sta in un file di prove.
+>
+> La riparazione e' stata renderla vera invece che toglierla: adesso i due
+> elenchi si confrontano, e in tutte e due le direzioni. La seconda direzione
+> — «ci sono nomi qui dentro che nessuno nomina?» — ha tolto subito due voci
+> che avevo aggiunto a memoria.
+
 ---
 
 ## Le forme che si ripetono

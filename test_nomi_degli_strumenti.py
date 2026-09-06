@@ -52,10 +52,19 @@ def controlla(nome, condizione, dettaglio=""):
 
 
 #: I nativi di Claude Code. Non sono nostri: non c'e' nessun elenco da cui
-#: leggerli, quindi stanno scritti qui — ed e' l'unico posto del progetto in
-#: cui un nome di strumento e' ricopiato a mano, col suo perche'.
+#: leggerli, quindi stanno scritti qui col loro perche'.
+#:
+#: «L'unico posto in cui un nome di strumento e' ricopiato a mano» era una
+#: frase che avevo scritto e che era **falsa**: gli stessi nomi stanno anche
+#: dentro `mcp_kb._rischio`, che classifica le richieste di permesso che
+#: arrivano da Claude Code. Adesso il confronto c'e' (sezione 6), cosi' la
+#: frase e' vera perche' e' controllata, non perche' l'ho detta.
+#: `Task` e `TodoWrite` li avevo messi qui a memoria, e la prova al contrario
+#: — quella che cerca i nomi che **nessuno** nomina — li ha tolti subito:
+#: nessuno li permette e nessuno li classifica. Un elenco di riferimento che
+#: cresce a intuizione smette di essere un riferimento.
 NATIVI = {"Read", "Glob", "Grep", "WebSearch", "WebFetch", "Write", "Edit",
-          "Bash", "Task", "TodoWrite"}
+          "Bash", "MultiEdit", "NotebookRead", "NotebookEdit"}
 
 # ----------------------------------------------------------- i nomi veri
 NOSTRI = {s["name"] for s in STRUMENTI}
@@ -161,6 +170,35 @@ avvisato = any(x in (REGOLE_OPERATIVE + HINT)
                for x in ("underscore", "trattino basso", "col punto"))
 controlla("e il prompt lo dice a chi legge", avvisato,
           "la regola vale solo se chi la deve seguire la legge")
+
+print("\n6. e l'altro elenco di nativi dice le stesse cose di questo")
+# `mcp_kb._rischio` classifica le richieste di permesso che arrivano **da**
+# Claude Code, e per farlo nomina i suoi strumenti nativi. E' un secondo
+# elenco scritto a mano, ed e' esattamente la forma di difetto che oggi ha
+# gia' morso tre volte: due elenchi separati sanno cose diverse (D113).
+albero = ast.parse(io.open(RADICE / "nova" / "mcp_kb.py", encoding="utf-8-sig").read())
+DA_RISCHIO: set[str] = set()
+for f in ast.walk(albero):
+    if isinstance(f, ast.FunctionDef) and f.name == "_rischio":
+        for c in ast.walk(f):
+            if isinstance(c, (ast.Tuple, ast.List, ast.Set)):
+                for e in c.elts:
+                    if isinstance(e, ast.Constant) and isinstance(e.value, str):
+                        DA_RISCHIO.add(e.value)
+controlla(f"il classificatore dei permessi nomina {len(DA_RISCHIO)} nativi",
+          len(DA_RISCHIO) >= 5, str(sorted(DA_RISCHIO)))
+sconosciuti = sorted(DA_RISCHIO - NATIVI)
+controlla("e ognuno di loro e' fra quelli che questa prova conosce",
+          not sconosciuti,
+          f"{sconosciuti}  <- due elenchi separati sanno cose diverse: o e' "
+          "un nativo e va in NATIVI, o non lo e' e li' non ci va")
+# E al contrario: NATIVI non deve diventare una lista dei desideri.
+mai_usati = sorted(n for n in NATIVI
+                   if n not in DA_RISCHIO and n not in PERMESSI)
+controlla("e questa prova non conosce nativi che non nomina nessuno",
+          not mai_usati,
+          f"{mai_usati}  <- nessuno li permette e nessuno li classifica: "
+          "toglierli, o scoprire chi doveva nominarli")
 
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:

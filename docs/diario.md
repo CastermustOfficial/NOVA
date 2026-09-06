@@ -5974,3 +5974,15 @@ Una nota su cosa **non** si puo' controllare: i nativi di Claude Code —
 nessun elenco da cui leggerli. Sono l'unico posto del progetto in cui dei
 nomi di strumento sono ricopiati a mano, e la prova lo dichiara invece di
 farlo di nascosto.
+
+Una coda, e mi ha ripreso subito. Scrivendo quella prova avevo messo in un
+commento che i nativi di Claude Code sono «l'unico posto del progetto in cui
+un nome di strumento e' ricopiato a mano». Era **falso**: gli stessi nomi
+stanno anche dentro `mcp_kb._rischio`, che classifica le richieste di
+permesso che arrivano *da* Claude Code. Due elenchi separati, di nuovo, nella
+prova che serviva a trovare i due elenchi separati.
+
+Adesso si confrontano, e in tutte e due le direzioni. La seconda direzione ha
+tolto subito due nomi che avevo messo a memoria — `Task` e `TodoWrite` —
+che nessuno permette e nessuno classifica. Un elenco di riferimento che
+cresce a intuizione smette di essere un riferimento.
