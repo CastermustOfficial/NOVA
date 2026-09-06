@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """«Dove sono i miei dati?»
 
 E' la domanda che decide se qualcuno lascia installato un programma che gli
@@ -71,8 +71,17 @@ def pesa(byte: int) -> str:
 def posti() -> list[Posto]:
     """Tutto quello che NOVA scrive, in ordine di quanto e' delicato."""
     b = _base()
-    from . import fascicolo
+    # Ogni percorso lo dice **il modulo che lo scrive**, non questa mappa.
+    # Un percorso scritto due volte e' un percorso che prima o poi diverge, e
+    # qui divergere vuol dire indicare a chi cerca i suoi dati un file che
+    # non c'e' — che e' esattamente com'e' cominciata (D188).
+    from . import automazioni, browser, cerca, fascicolo, guasti
+    from . import pianificazione, registro, ricette
+    from .brains import claude_cli
+    from .config import CONFIG_PATH, LOG_DIR
+    from .harness import _base as base_harness
     from .kb_setup import percorso_vault
+    from .tools import schermo
 
     try:
         from .config import Config
@@ -81,6 +90,9 @@ def posti() -> list[Posto]:
         vault = b / "vault"
 
     return [
+        # Le due che restano scritte qui: `segreti.dat` lo scrive il demone,
+        # che e' in Rust e non ha una funzione da chiamare di qua;
+        # `procedure.log` lo scrive `agent` senza passare da una funzione.
         Posto("Le credenziali", b / "segreti.dat",
               "NOVA non sa piu' entrare da nessuna parte, e le password vanno "
               "rimesse una per una. Cifrato con DPAPI: senza il tuo account "
@@ -95,30 +107,71 @@ def posti() -> list[Posto]:
               "NOVA dimentica quello che ha imparato su di te e sul PC. Sono "
               "file .md leggibili: si aprono in Obsidian, o in un editor "
               "qualunque."),
-        Posto("Il registro delle azioni", b / "azioni.jsonl",
+        Posto("Il registro delle azioni", registro.percorso(),
               "Si perde la traccia di cosa NOVA ha fatto e non si puo' "
               "annullare. Non cambia niente di come funziona; cambia cosa "
               "puoi rivedere."),
-        Posto("Le procedure imparate", b / "ricette.json",
+        Posto("Le procedure imparate", ricette._percorso(),
               "NOVA rifa' da capo le strade che aveva gia' trovato: torna a "
               "funzionare, ci mette solo di piu'."),
-        Posto("Le automazioni che si e' scritta", b / "automazioni",
+        Posto("Le automazioni che si e' scritta", automazioni.cartella(),
               "Spariscono gli strumenti che NOVA si e' costruita da sola. "
               "Se le riservono, se le riscrive."),
-        Posto("La configurazione", b / "config.json",
+        Posto("La configurazione", CONFIG_PATH,
               "NOVA riparte come appena installata: si rifa' la scelta del "
               "cervello e dei permessi. Qui dentro puo' esserci una chiave "
               "API, se ne hai messa una.",
               delicato=True),
-        Posto("I guasti", b / "guasti.jsonl",
+        Posto("I guasti", guasti.percorso_guasti(),
               "Si perde il racconto di cosa e' andato storto. Serve solo a "
               "chi ripara: cancellarlo non rompe niente."),
-        Posto("L'harness", b / "harness",
+        Posto("L'harness", base_harness(),
               "Si chiudono i documenti aperti e si perdono le proposte in "
               "attesa. I documenti veri non si toccano."),
-        Posto("Le cose in programma", b / "pianificate.json",
+        # Il nome era «pianificate.json», e nessuno scriveva un file con quel
+        # nome: la voce spariva dall'elenco perche' il file non esisteva, e
+        # chi chiedeva «dove stanno i miei dati» non sentiva parlare delle
+        # cose che NOVA fa da sola. Una mappa che tace su un posto e' peggio
+        # di una mappa che non c'e': sembra completa.
+        Posto("Le cose in programma", pianificazione.percorso(),
               "NOVA smette di fare da sola le cose ricorrenti. Le attivita' "
               "di Windows restano: si tolgono con «install.ps1 -Disinstalla»."),
+        Posto("Gli avvisi gia' dati", pianificazione.avvisi_percorso(),
+              "Si perde la traccia di cosa NOVA ti ha gia' segnalato. Non "
+              "cambia niente di come funziona: al massimo ti ridice una cosa "
+              "che avevi gia' letto."),
+        Posto("I log di avvio", LOG_DIR,
+              "Si perde il racconto delle accensioni. Serve a chi ripara "
+              "quando NOVA non parte: cancellarlo non rompe niente."),
+        # Il profilo del browser che NOVA guida. E' la voce piu' delicata
+        # dopo le credenziali, e mancava: dentro ci sono i cookie e le
+        # sessioni aperte dei siti su cui NOVA lavora per te. Chiunque copi
+        # questa cartella entra dove sei entrato tu.
+        Posto("Il browser di NOVA (cookie e sessioni aperte)", browser.profilo(),
+              "NOVA deve rifare l'accesso a tutti i siti su cui lavora per "
+              "te. Non tocca il tuo browser: questo e' un profilo suo, "
+              "separato apposta.",
+              delicato=True),
+        Posto("Il browser delle ricerche", cerca.profilo(),
+              "Niente: si ricrea alla prima ricerca. E' un profilo separato "
+              "da quello di lavoro proprio per non mescolare le due cose."),
+        # Le schermate non stanno sotto %APPDATA%: stanno in casa, dove le
+        # puoi vedere. E sono immagini di quello che c'era sullo schermo.
+        Posto("Le schermate che ha scattato", schermo.CARTELLA,
+              "Si perdono le immagini che NOVA ha catturato dello schermo. "
+              "Sono fotografie di cio' che stavi guardando: se le cancelli "
+              "non si rompe niente.",
+              delicato=True),
+        Posto("Il filo della conversazione", claude_cli._percorso_sessione(),
+              "La prossima frase apre una conversazione nuova invece di "
+              "continuare quella di prima. Dentro c'e' solo un "
+              "identificativo, non il testo."),
+        Posto("Il prompt di sistema passato al cervello", claude_cli._percorso_prompt(),
+              "Niente: si riscrive al primo turno. Esiste perche' su Windows "
+              "la riga di comando non regge ottomila caratteri."),
+        Posto("Il diario delle procedure imparate", b / "procedure.log",
+              "Si perde la traccia di quando NOVA ha imparato cosa. Le "
+              "procedure restano: quelle stanno in ricette.json."),
     ]
 
 
