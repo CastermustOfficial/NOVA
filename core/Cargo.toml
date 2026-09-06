@@ -12,6 +12,7 @@ members = [
     "crates/nova-salita",
     "crates/nova-contesto",
     "crates/nova-mcp",
+    "crates/nova-browser",
     "crates/nova-catalogo",
     "crates/nova-cartelle",
     "crates/nova-nodi",

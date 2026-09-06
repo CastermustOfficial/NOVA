@@ -1,0 +1,22 @@
+[package]
+name = "nova-browser"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Il browser guidato dal di dentro: il JavaScript che gira nella pagina, e come ci si mettono dentro gli argomenti."
+
+[dependencies]
+# I messaggi del DevTools Protocol sono JSON, e gli argomenti che finiscono
+# dentro il JavaScript si scrivono come li scrive `json.dumps`: qui non e' una
+# comodita', e' il confine fra un argomento e del codice.
+serde_json = { workspace = true }
+serde = { workspace = true, features = ["derive"], optional = true }
+
+[features]
+banco = ["dep:serde"]
+
+[[bin]]
+name = "banco-browser"
+path = "src/banco.rs"
+required-features = ["banco"]
