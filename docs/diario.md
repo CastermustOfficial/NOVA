@@ -5986,3 +5986,18 @@ Adesso si confrontano, e in tutte e due le direzioni. La seconda direzione ha
 tolto subito due nomi che avevo messo a memoria — `Task` e `TodoWrite` —
 che nessuno permette e nessuno classifica. Un elenco di riferimento che
 cresce a intuizione smette di essere un riferimento.
+
+E la mappa dei dati me ne aveva nascosta un'altra, sotto il naso. Chiedendo a
+NOVA «dove stanno i miei dati» la risposta era **4,28 GB**; chiedendo la
+stessa cosa al disinstallatore, **19,93**. La differenza e' il modello
+scaricato: quindici gigabyte e mezzo, il file piu' grosso di tutti, che il
+rendiconto in JSON elencava e il racconto per l'utente no.
+
+Nessuno dei due era sbagliato. Erano due elenchi — la stessa cosa che avevo
+appena finito di riparare, una funzione piu' in la' nello stesso file. Adesso
+c'e' `tutto()`, e tutti e due passano di li'.
+
+Vale la pena dirlo perche' e' la lezione della giornata nella sua forma piu'
+pura: non l'ho trovata guardando il codice. L'ho trovata **facendo le due
+domande e confrontando le due risposte** — che e' l'unica cosa che un elenco
+scritto due volte non sopravvive.
