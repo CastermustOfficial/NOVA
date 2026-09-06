@@ -5859,3 +5859,47 @@ Con una condizione che mi sono messo da solo: **NOVA lo scrive**. In
 campo. Aggiungere qualcosa alla configurazione di qualcuno senza dirglielo
 sarebbe l'altro modo di sbagliare, e sarebbe pure peggio — perche' avrei
 appena finito di scrivere che un elenco che cambia da solo e' il difetto.
+
+
+## 6 settembre 2026, pomeriggio — Le procedure che si dividono il contatore
+
+Cercato cosa resta di portabile con l'inventario invece che a impressione, e
+saltata fuori `ricette.unisci`: cinquantatre' righe, aritmetica pura, e il
+crate e il banco esistono gia'. Il posto giusto da cui continuare.
+
+Cosa fa, e perche' esiste: ventotto procedure archiviate e solo quattro usate
+piu' di una volta, perche' «Controllo posta Gmail» e «Controllo ultime email
+Gmail» sono la stessa cosa e si dividono il contatore. Divise, nessuna delle
+due arriva alle tre volte che fanno scattare il suggerimento
+dell'automazione. Il gradino successivo non si presenta mai, e guardando NOVA
+non c'e' niente che dica perche' (D187).
+
+Due cose che sembrano dettagli e non lo sono.
+
+La soglia di fusione e' 0,75 contro lo 0,30 con cui si sceglie cosa mostrare.
+Non e' una taratura piu' fine: e' il **verso opposto**. Proporre una
+candidata di troppo costa qualche centinaio di token; fondere due cose
+diverse perde una procedura per sempre.
+
+E l'archivio torna nell'ordine in cui stava. Sembra pulizia, e invece:
+`unisci` gira a ogni registrazione, e quando si supera il tetto delle
+sessanta si taglia **in coda**. Un elenco che si rimescola da solo cambia in
+silenzio anche chi viene buttato.
+
+**Otto mutazioni, e due sono passate.** Non per un difetto del codice: per un
+difetto dei miei scenari, che erano tutti gia' ordinati per «quante volte e'
+servita». Invertire l'ordine di assorbimento non cambiava niente di
+osservabile, e togliere il riordino finale nemmeno — perche' l'ordine finale
+era gia' quello.
+
+Aggiunti tre scenari che quel difetto lo mostrano: tre procedure distinte in
+un ordine che non e' quello di assorbimento; due gemelle con un'estranea **in
+mezzo**, cosi' che il posto della fusa si veda; e una catena — A somiglia a
+B, B somiglia a C, A e C no — dove chi assorbe per primo cambia **quante**
+ne restano, non solo come si chiamano. Con quelli, otto su otto: sette rosse
+e una dichiarata equivalente.
+
+Ho anche chiuso un buco che nessuna mutazione avrebbe trovato: le tre soglie
+di `ricette` non si vedevano da nessuno scenario, perche' il banco le passa
+da fuori. Una che fosse cambiata da una parte sola sarebbe rimasta verde per
+sempre. Ora il banco le dichiara e il Python le confronta.

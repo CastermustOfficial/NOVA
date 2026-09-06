@@ -39,13 +39,29 @@ pub const VUOTE: &[&str] = &[
     "the", "an", "of", "to", "for", "my", "please", "can", "you",
 ];
 
+/// Sopra questa, due procedure sono la stessa cosa scritta due volte.
+///
+/// Molto piu' alta di [`SOGLIA`], e per una ragione opposta: li' si sceglie
+/// cosa **mostrare**, e una candidata di troppo costa qualche centinaio di
+/// token; qui si sceglie cosa **buttare**, e una fusione sbagliata perde una
+/// procedura per sempre.
+pub const SOGLIA_FUSIONE: f64 = 0.75;
+
 /// Una procedura in archivio, ridotta a cio' che serve per ritrovarla.
-#[derive(Debug, Clone, Default)]
+///
+/// I campi oltre le parole servono alla fusione: chi assorbe chi si decide
+/// su `usata` e `ultimo_uso`, e cio' che si tiene — titolo e passi — viene
+/// dall'ultima riuscita.
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Ricetta {
     pub parole: Vec<String>,
     pub parole_alias: Vec<String>,
     pub parole_passi: Vec<String>,
     pub usata: i64,
+    pub ultimo_uso: f64,
+    pub titolo: String,
+    pub procedura: String,
+    pub strumenti: Vec<String>,
 }
 
 /// Toglie gli accenti come fa `unicodedata.normalize("NFKD", ...)` seguito
@@ -249,6 +265,82 @@ pub mod blocco;
 // pena chiederglielo, e come si legge quello che risponde.
 pub mod imparare;
 
+/// Fonde le procedure che sono la stessa cosa scritta due volte.
+///
+/// Serve perche' il difetto si vede nei numeri: ventotto procedure
+/// archiviate e solo quattro usate piu' di una volta, con «Controllo posta
+/// Gmail» e «Controllo ultime email Gmail» che si dividono il contatore.
+/// Divise, nessuna delle due arriva alle tre volte che fanno scattare il
+/// suggerimento dell'automazione: il gradino successivo non si presenta mai.
+///
+/// Chi resta e' la piu' usata; a parita', la piu' recente. I passi tenuti
+/// sono quelli dell'**ultima riuscita**: se la strada e' cambiata, quella
+/// buona e' l'ultima.
+///
+/// L'ordine di assorbimento vive solo qui dentro. Fuori si restituisce
+/// l'archivio nell'ordine in cui stava, e non e' una gentilezza: `unisci`
+/// gira a ogni registrazione, e un elenco che si rimescola da solo cambia in
+/// silenzio anche **chi viene buttato** quando si supera il tetto, che taglia
+/// in coda.
+pub fn unisci(elenco: &[Ricetta], soglia: f64) -> Vec<Ricetta> {
+    if elenco.len() < 2 {
+        return elenco.to_vec();
+    }
+    let peso = rarita(elenco);
+
+    // Si ordina per (usata, ultimo_uso) decrescente. `sort_by` e' stabile
+    // come `list.sort` di Python, quindi a parita' di entrambi vince chi
+    // veniva prima nell'archivio — di qua e di la'.
+    let mut ordine: Vec<usize> = (0..elenco.len()).collect();
+    ordine.sort_by(|x, y| {
+        let a = (elenco[*y].usata, elenco[*y].ultimo_uso);
+        let b = (elenco[*x].usata, elenco[*x].ultimo_uso);
+        (a.0, a.1)
+            .partial_cmp(&(b.0, b.1))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    // `tenute` conserva la posizione originale accanto alla ricetta, cosi'
+    // alla fine si rimette tutto dov'era.
+    let mut tenute: Vec<(usize, Ricetta)> = Vec::new();
+    for i in ordine {
+        let r = &elenco[i];
+        let gemella = tenute.iter().position(|(_, t)| {
+            let d = somiglianza(&r.parole, t, &peso);
+            let s = somiglianza(&t.parole, r, &peso);
+            d.max(s) >= soglia
+        });
+        let Some(g) = gemella else {
+            tenute.push((i, r.clone()));
+            continue;
+        };
+        let t = &mut tenute[g].1;
+        // I contatori si sommano: e' il punto di tutta la fusione.
+        t.usata += r.usata;
+        t.parole = unione(&t.parole, &r.parole);
+        t.parole_passi = unione(&t.parole_passi, &r.parole_passi);
+        t.parole_alias = unione(&t.parole_alias, &r.parole_alias);
+        t.strumenti = unione(&t.strumenti, &r.strumenti);
+        // Il testo, invece, non si somma: si tiene quello dell'ultima volta
+        // che la strada ha funzionato.
+        if r.ultimo_uso > t.ultimo_uso {
+            t.procedura = r.procedura.clone();
+            t.titolo = r.titolo.clone();
+            t.ultimo_uso = r.ultimo_uso;
+        }
+    }
+    tenute.sort_by_key(|(i, _)| *i);
+    tenute.into_iter().map(|(_, r)| r).collect()
+}
+
+/// `sorted(set(a) | set(b))` di Python.
+fn unione(a: &[String], b: &[String]) -> Vec<String> {
+    let mut insieme: Vec<String> = a.iter().chain(b.iter()).cloned().collect();
+    insieme.sort();
+    insieme.dedup();
+    insieme
+}
+
 #[cfg(test)]
 mod prove {
     use super::*;
@@ -289,5 +381,82 @@ mod prove {
         // «posta» sta in tutte e due, «fantacalcio» in una: 1+2/3 contro 1+2/2.
         assert!((r["posta"] - (1.0 + 2.0 / 3.0)).abs() < 1e-12);
         assert!((r["fantacalcio"] - 2.0).abs() < 1e-12);
+    }
+
+    fn con(parole: &[&str], usata: i64, ultimo: f64, titolo: &str) -> Ricetta {
+        Ricetta {
+            parole: parole.iter().map(|x| x.to_string()).collect(),
+            usata,
+            ultimo_uso: ultimo,
+            titolo: titolo.into(),
+            procedura: format!("passi di {titolo}"),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn due_scritture_della_stessa_cosa_diventano_una() {
+        // Il caso vero: «Controllo posta Gmail» e «Controllo ultime email
+        // Gmail». Divise, nessuna delle due arriva alle tre volte che fanno
+        // scattare il suggerimento dell'automazione.
+        let a = con(&["controllo", "posta", "gmail"], 2, 100.0, "Controllo posta Gmail");
+        let b = con(&["controllo", "posta", "gmail"], 1, 200.0, "Controllo ultime email");
+        let f = unisci(&[a, b], SOGLIA_FUSIONE);
+        assert_eq!(f.len(), 1);
+        assert_eq!(f[0].usata, 3, "i contatori si sommano: e' il punto");
+        // I passi tenuti sono quelli dell'ultima riuscita, non della piu' usata.
+        assert_eq!(f[0].titolo, "Controllo ultime email");
+        assert_eq!(f[0].ultimo_uso, 200.0);
+    }
+
+    #[test]
+    fn due_cose_diverse_restano_due() {
+        let a = con(&["controllo", "posta", "gmail"], 5, 100.0, "Posta");
+        let b = con(&["ordina", "fatture", "cartella"], 5, 100.0, "Fatture");
+        assert_eq!(unisci(&[a, b], SOGLIA_FUSIONE).len(), 2);
+    }
+
+    #[test]
+    fn larchivio_torna_nellordine_in_cui_stava() {
+        // Non e' una gentilezza: `unisci` gira a ogni registrazione, e chi
+        // viene buttato quando si supera il tetto e' chi sta in coda. Un
+        // elenco che si rimescola da solo cambia in silenzio anche quello.
+        let a = con(&["alfa", "uno"], 1, 10.0, "A");
+        let b = con(&["beta", "due"], 9, 90.0, "B");
+        let c = con(&["gamma", "tre"], 5, 50.0, "C");
+        let f = unisci(&[a, b, c], SOGLIA_FUSIONE);
+        assert_eq!(f.iter().map(|r| r.titolo.as_str()).collect::<Vec<_>>(),
+                   vec!["A", "B", "C"]);
+    }
+
+    #[test]
+    fn assorbe_la_piu_usata_non_la_prima() {
+        // Se assorbisse la prima dell'elenco, il titolo tenuto sarebbe quello
+        // della meno usata e il conteggio finirebbe sotto la voce sbagliata.
+        let debole = con(&["controllo", "posta", "gmail"], 1, 10.0, "Debole");
+        let forte = con(&["controllo", "posta", "gmail"], 8, 20.0, "Forte");
+        let f = unisci(&[debole, forte], SOGLIA_FUSIONE);
+        assert_eq!(f.len(), 1);
+        assert_eq!(f[0].titolo, "Forte");
+        assert_eq!(f[0].usata, 9);
+    }
+
+    #[test]
+    fn le_parole_si_sommano_ordinate_e_senza_doppioni() {
+        let mut a = con(&["controllo", "posta", "gmail"], 2, 100.0, "A");
+        a.strumenti = vec!["web_apri".into()];
+        let mut b = con(&["controllo", "posta", "gmail"], 1, 50.0, "B");
+        b.strumenti = vec!["web_leggi".into(), "web_apri".into()];
+        b.parole.push("email".into());
+        let f = unisci(&[a, b], SOGLIA_FUSIONE);
+        assert_eq!(f[0].strumenti, vec!["web_apri", "web_leggi"]);
+        assert_eq!(f[0].parole, vec!["controllo", "email", "gmail", "posta"]);
+    }
+
+    #[test]
+    fn un_archivio_di_uno_o_di_zero_non_si_tocca() {
+        assert!(unisci(&[], SOGLIA_FUSIONE).is_empty());
+        let uno = vec![con(&["alfa"], 1, 1.0, "A")];
+        assert_eq!(unisci(&uno, SOGLIA_FUSIONE), uno);
     }
 }

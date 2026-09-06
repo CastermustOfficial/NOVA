@@ -27,6 +27,27 @@ struct RicettaIn {
     parole_passi: Vec<String>,
     #[serde(default)]
     usata: i64,
+    #[serde(default)]
+    ultimo_uso: f64,
+    #[serde(default)]
+    titolo: String,
+    #[serde(default)]
+    procedura: String,
+    #[serde(default)]
+    strumenti: Vec<String>,
+}
+
+/// Una ricetta come esce dalla fusione: si confronta campo per campo.
+#[derive(Serialize)]
+struct RicettaFuori {
+    parole: Vec<String>,
+    parole_alias: Vec<String>,
+    parole_passi: Vec<String>,
+    usata: i64,
+    ultimo_uso: f64,
+    titolo: String,
+    procedura: String,
+    strumenti: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -63,6 +84,9 @@ struct Dentro {
     /// (domanda, risposta, strumenti) di cui si vuole il prompt.
     #[serde(default)]
     richieste: Vec<(String, String, Vec<String>)>,
+    /// Archivi da fondere, ognuno con la sua soglia.
+    #[serde(default)]
+    fusioni: Vec<(Vec<RicettaIn>, f64)>,
     /// (attive, secondi, soglia, agentico, quanti strumenti).
     #[serde(default)]
     decisioni: Vec<(bool, f64, i64, bool, usize)>,
@@ -96,6 +120,39 @@ struct Fuori {
     /// null se non si e' letta niente, con a fianco il motivo.
     lette: Vec<(Option<(String, String, Vec<String>)>, String)>,
     righe: Vec<Vec<String>>,
+    fusioni: Vec<Vec<RicettaFuori>>,
+    /// Le soglie, dette da questa parte.
+    ///
+    /// Non si vedono da nessuno degli scenari: il banco le passa da fuori,
+    /// quindi una che cambiasse resterebbe verde. Sono numeri che decidono
+    /// cosa si propone e cosa si butta, e vanno confrontati per conto loro.
+    soglie: Vec<(String, f64)>,
+}
+
+fn come_ricetta(r: &RicettaIn) -> Ricetta {
+    Ricetta {
+        parole: r.parole.clone(),
+        parole_alias: r.parole_alias.clone(),
+        parole_passi: r.parole_passi.clone(),
+        usata: r.usata,
+        ultimo_uso: r.ultimo_uso,
+        titolo: r.titolo.clone(),
+        procedura: r.procedura.clone(),
+        strumenti: r.strumenti.clone(),
+    }
+}
+
+fn come_fuori(r: Ricetta) -> RicettaFuori {
+    RicettaFuori {
+        parole: r.parole,
+        parole_alias: r.parole_alias,
+        parole_passi: r.parole_passi,
+        usata: r.usata,
+        ultimo_uso: r.ultimo_uso,
+        titolo: r.titolo,
+        procedura: r.procedura,
+        strumenti: r.strumenti,
+    }
 }
 
 fn main() {
@@ -120,6 +177,10 @@ fn main() {
             parole_alias: r.parole_alias,
             parole_passi: r.parole_passi,
             usata: r.usata,
+            ultimo_uso: r.ultimo_uso,
+            titolo: r.titolo,
+            procedura: r.procedura,
+            strumenti: r.strumenti,
         })
         .collect();
     let fuori = Fuori {
@@ -188,6 +249,19 @@ fn main() {
             })
             .collect(),
         righe: dentro.risposte.iter().map(|r| imparare::righe(r)).collect(),
+        soglie: vec![
+            ("SOGLIA".into(), nova_ricette::SOGLIA),
+            ("SOGLIA_PAROLA".into(), nova_ricette::SOGLIA_PAROLA),
+            ("SOGLIA_FUSIONE".into(), nova_ricette::SOGLIA_FUSIONE),
+        ],
+        fusioni: dentro
+            .fusioni
+            .iter()
+            .map(|(a, soglia)| {
+                let e: Vec<Ricetta> = a.iter().map(come_ricetta).collect();
+                nova_ricette::unisci(&e, *soglia).into_iter().map(come_fuori).collect()
+            })
+            .collect(),
     };
     match serde_json::to_string(&fuori) {
         Ok(s) => println!("{s}"),

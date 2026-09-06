@@ -375,6 +375,124 @@ controlla("il banco ha un caso con un a capo che Rust non conosce",
           any("\u2028" in t or "\u000b" in t for t in RISPOSTE),
           "senza, splitlines e lines() sembrano la stessa cosa")
 
+print("\n6. e quando due procedure sono la stessa cosa scritta due volte")
+# Il difetto si vede nei numeri: ventotto procedure archiviate e solo quattro
+# usate piu' di una volta, con «Controllo posta Gmail» e «Controllo ultime
+# email Gmail» che si dividono il contatore. Divise, nessuna delle due arriva
+# alle tre volte che fanno scattare il suggerimento dell'automazione.
+#
+# Qui si sbaglia in due modi opposti: fondere cio' che e' diverso perde una
+# procedura per sempre, non fondere lascia il difetto. Percio' gli scenari
+# stanno **attorno alla soglia**, non lontano.
+def ric(parole, usata=1, ultimo=0.0, titolo="", alias=(), passi=(), strumenti=()):
+    return {"parole": list(parole), "parole_alias": list(alias),
+            "parole_passi": list(passi), "usata": usata, "ultimo_uso": ultimo,
+            "titolo": titolo, "procedura": f"passi di {titolo}",
+            "strumenti": list(strumenti)}
+
+
+GEMELLE = [ric(["controllo", "posta", "gmail"], 2, 100.0, "Controllo posta Gmail",
+               strumenti=["web_apri"]),
+           ric(["controllo", "ultime", "email", "gmail"], 1, 200.0,
+               "Controllo ultime email Gmail", strumenti=["web_leggi", "web_apri"])]
+
+FUSIONI = [
+    # il caso vero
+    (GEMELLE, 0.75),
+    # la stessa coppia con la soglia altissima: non si fonde piu' niente
+    (GEMELLE, 0.99),
+    # e con la soglia a zero: si fonde tutto, che e' l'altro estremo
+    (GEMELLE, 0.0),
+    # cose diverse restano due
+    ([ric(["controllo", "posta", "gmail"], 5, 10.0, "Posta"),
+      ric(["ordina", "fatture", "cartella"], 5, 10.0, "Fatture")], 0.75),
+    # a parita' di «usata» e di «ultimo_uso» decide l'ordine dell'archivio, e
+    # decide **uguale** di qua e di la' solo se tutti e due gli ordinamenti
+    # sono stabili
+    ([ric(["controllo", "posta", "gmail"], 3, 50.0, "Prima"),
+      ric(["controllo", "posta", "gmail"], 3, 50.0, "Seconda")], 0.75),
+    # la piu' usata assorbe, anche se sta in fondo
+    ([ric(["controllo", "posta", "gmail"], 1, 10.0, "Debole"),
+      ric(["controllo", "posta", "gmail"], 8, 20.0, "Forte")], 0.75),
+    # una catena: la terza somiglia alla seconda ma non alla prima
+    ([ric(["alfa", "beta", "gamma"], 9, 90.0, "A"),
+      ric(["alfa", "beta", "gamma"], 5, 50.0, "B"),
+      ric(["delta", "epsilon", "zeta"], 1, 10.0, "C")], 0.75),
+    # archivio di uno, e archivio vuoto: non si tocca niente
+    ([ric(["alfa"], 1, 1.0, "Sola")], 0.75),
+    ([], 0.75),
+    # una senza parole, che e' il caso in cui la somiglianza si divide per zero
+    ([ric([], 4, 40.0, "Vuota"), ric(["alfa", "beta"], 2, 20.0, "Piena")], 0.75),
+    # Tre distinte, in un ordine che **non** e' quello di assorbimento: se
+    # l'archivio non tornasse dov'era, uscirebbe B, C, A.
+    ([ric(["uno", "alfa"], 1, 10.0, "A"), ric(["due", "beta"], 9, 90.0, "B"),
+      ric(["tre", "gamma"], 5, 50.0, "C")], 0.75),
+    # Una catena: A somiglia a B, B somiglia a C, A e C no. Chi viene
+    # assorbito prima decide **quanti** ne restano, non solo come si chiamano.
+    ([ric(["alfa", "beta"], 5, 50.0, "A"),
+      ric(["alfa", "beta", "gamma", "delta"], 9, 90.0, "B"),
+      ric(["gamma", "delta"], 1, 10.0, "C")], 0.75),
+    # Due gemelle con una estranea **in mezzo**: la fusa prende il posto di
+    # chi ha assorbito, e con l'ordine sbagliato finisce prima invece che dopo.
+    ([ric(["controllo", "posta", "gmail"], 1, 10.0, "Debole"),
+      ric(["ordina", "fatture"], 4, 40.0, "Distinta"),
+      ric(["controllo", "posta", "gmail"], 8, 20.0, "Forte")], 0.75),
+    # alias e passi contano meno delle parole: la fusione deve vederlo
+    ([ric(["posta"], 3, 30.0, "Con parole"),
+      ric([], 1, 10.0, "Solo alias", alias=["posta"], passi=["gmail"])], 0.75),
+]
+
+esito4 = subprocess.run([str(BINARIO)], input=json.dumps({
+    "fusioni": [[a, s] for a, s in FUSIONI],
+}, ensure_ascii=False), capture_output=True, text=True, encoding="utf-8",
+    errors="replace", timeout=60)
+if esito4.returncode != 0:
+    print(f"  il banco Rust si e' fermato: {esito4.stderr.strip()[:300]}")
+    sys.exit(1)
+u4 = json.loads(esito4.stdout)
+
+CAMPI = ["parole", "parole_alias", "parole_passi", "usata", "ultimo_uso",
+         "titolo", "procedura", "strumenti"]
+diverse = []
+for i, ((archivio, soglia), ru) in enumerate(zip(FUSIONI, u4["fusioni"])):
+    # copia profonda: `unisci` di Python modifica i dizionari che riceve, e
+    # riusare gli stessi fra uno scenario e l'altro sposterebbe il confronto
+    # su dati gia' fusi una volta.
+    py = ricette.unisci(json.loads(json.dumps(archivio)), soglia)
+    suo = [{k: r[k] for k in CAMPI} for r in ru]
+    loro = [{k: r.get(k) for k in CAMPI} for r in py]
+    if suo != loro:
+        diverse.append(f"scenario {i} (soglia {soglia}): rust {len(suo)} voci "
+                       f"{[x['titolo'] for x in suo]} vs python {len(loro)} voci "
+                       f"{[x['titolo'] for x in loro]}")
+controlla(f"le {len(FUSIONI)} fusioni danno lo stesso archivio", not diverse,
+          " | ".join(diverse[:2]))
+
+# Le soglie non si vedono da nessuno scenario: il banco le passa da fuori,
+# quindi una che cambiasse di la' resterebbe verde. Sono i numeri che
+# decidono cosa si propone e cosa si **butta**, e si confrontano da soli.
+diverse = [f"{n}: rust {v} vs python {getattr(ricette, n)}"
+           for n, v in u4["soglie"] if v != getattr(ricette, n)]
+controlla(f"le {len(u4['soglie'])} soglie sono le stesse", not diverse,
+          " | ".join(diverse))
+
+controlla("il banco ha due procedure che si dividono il contatore",
+          any(len(ricette.unisci(json.loads(json.dumps(a)), s)) < len(a)
+              for a, s in FUSIONI),
+          "senza, la fusione non e' provata su niente")
+controlla("e un archivio il cui ordine non e' quello di assorbimento",
+          any(len(a) > 2 and [r["usata"] for r in a]
+              != sorted((r["usata"] for r in a), reverse=True) for a, _ in FUSIONI),
+          "senza, «l'archivio torna dov'era» non e' provato")
+controlla("e una catena, dove chi assorbe per primo cambia quanti ne restano",
+          any(len(ricette.unisci(json.loads(json.dumps(a)), s2)) == 1 and len(a) == 3
+              for a, s2 in FUSIONI),
+          "senza, l'ordine di assorbimento non cambia niente di visibile")
+controlla("e una coppia identica in tutto tranne l'ordine",
+          any(len(a) == 2 and a[0]["usata"] == a[1]["usata"]
+              and a[0]["ultimo_uso"] == a[1]["ultimo_uso"] for a, _ in FUSIONI),
+          "senza, la stabilita' dell'ordinamento non e' provata")
+
 print(f"\n{passati}/{passati + len(falliti)} passati")
 for x in falliti:
     print("  FALLITO:", x)
