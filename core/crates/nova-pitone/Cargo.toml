@@ -1,0 +1,7 @@
+[package]
+name = "nova-pitone"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Le abitudini di Python che il porto deve rispettare: dove finisce una riga, cos'e' uno spazio."

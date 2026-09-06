@@ -5561,3 +5561,78 @@ elenca come da fare qualcosa che e' gia' fatto. E' un controllo che invecchia
 sparisca dai documenti — e ha fatto esattamente il suo mestiere su una riga
 scritta cinque minuti prima. Tolta dalla tabella e detta in prosa, che e'
 dove va una cosa finita.
+
+## 9 settembre 2026, pomeriggio — Il titolo di un sito, e quello di un altro
+
+CANT-6 aveva ancora una meta': i copioni che girano nella pagina erano
+portati, la ricerca in rete no. E la ricerca in rete, quando il browser non
+c'e', vuol dire una cosa sola: leggere l'HTML che ha risposto DuckDuckGo con
+delle espressioni regolari. E' la strada di ripiego, quella che si rompe
+quando cambia una classe CSS — e che si e' gia' rotta una volta, in silenzio,
+facendo dire a NOVA «motore non raggiungibile» quando il motore rispondeva
+benissimo.
+
+Portarla ha voluto dire portare anche cio' che c'e' sotto: **cosa, di una
+pagina, e' testo**. Che sembra una funzioncina e invece e' due dichiarazioni
+grosse.
+
+La prima sono le entita' HTML. `html.unescape` di Python ne conosce
+duemiladuecentotrentuno, in due forme ciascuna, e io stavo per scriverne
+venti — quelle che vengono in mente: `&amp;`, `&lt;`, `&quot;`, `&nbsp;`. Il
+guaio di una tabella parziale e' che **non da' errore**: `&hellip;` e
+`&rsquo;` restano scritti dentro il titolo che NOVA mostra, e sono
+esattamente i due che nei titoli veri ci sono sempre. Peggio: un banco non
+se ne accorge, perche' i casi li sceglie chi ha scritto la tabella, e
+sceglierebbe gli stessi venti. Quindi estratta intera (D180), come i copioni
+e come le dichiarazioni degli strumenti MCP.
+
+La seconda sono le espressioni regolari. Quelle di `html_a_testo.py` erano
+costanti di modulo e si prendono dagli oggetti gia' compilati; i due
+raschiatori vivevano **dentro** le funzioni, e li' ci vuole l'albero
+sintattico. Una sola l'ho dovuta riscrivere, perche' usa un riferimento
+all'indietro (`</\1>`) che il motore di Rust non ha: l'estrattore ne genera
+l'espansione e tiene anche l'originale, e una prova controlla che dicano la
+stessa cosa sullo stesso testo. Non e' zelo: e' che l'unica riga riscritta a
+mano e' l'unica che puo' divergere.
+
+**E poi il banco ha trovato una cosa vera.** Non una differenza di porto: un
+difetto, nel Python, che c'era da sempre.
+
+Il raschiatore cercava titolo e riassunto con **una** espressione sola, col
+riassunto in un gruppo facoltativo in fondo. Un gruppo facoltativo si prende
+il primo riassunto che trova — e se il risultato non ne ha uno, va a
+prendersi quello del risultato **dopo**. E siccome `finditer` riparte da dove
+ha finito, si porta via anche quel risultato. Sulla pagina di prova, quattro
+risultati diventavano tre: il secondo si prendeva il riassunto del terzo, e
+il terzo spariva.
+
+Cosa vede l'utente: un elenco piu' corto, e una descrizione attaccata
+all'indirizzo sbagliato. NOVA racconta un sito e ne linka un altro. Nessun
+errore, nessuna riga di log, nessun modo di accorgersene se non guardando la
+pagina vera — che e' esattamente quello che questo strumento serve a non fare.
+
+L'ho corretto in tutti e due, con la stessa forma: due espressioni, e il
+riassunto che vale solo **dentro la finestra** che va da un risultato al
+prossimo (D181). Fuori di li', e' di un altro.
+
+**Una terza cosa, piccola.** `nova-ricette` sapeva gia' che `str.splitlines()`
+di Python non taglia dove taglia `str::lines()` di Rust. Ora serviva anche al
+testo delle pagine, e questa e' la seconda occorrenza: si condivide (D62). E'
+nato `nova-pitone`, che tiene le abitudini di Python che il porto deve
+rispettare — dove finisce una riga, e cos'e' uno spazio. Due sole funzioni,
+ma sono due domande su cui le librerie standard non sono d'accordo, e la
+stessa domanda in due posti diventa prima o poi due risposte diverse.
+
+Nove mutazioni. Otto rosse. La nona e' **equivalente**, e si sa perche': se
+il riassunto si cerca dall'inizio del risultato invece che dalla fine, la
+finestra piu' larga contiene in piu' soltanto il collegamento del titolo, che
+ha una classe diversa. L'ho lasciata in elenco marcata «equivalente» invece
+di inventare una prova per farla diventare rossa — un mutante equivalente
+esiste, e dichiararlo e' piu' onesto che nasconderlo.
+
+Due mutazioni sono passate al primo giro e non dovevano. Una perche' il
+separatore di unita' che avevo messo nel caso di prova stava **in fondo alla
+riga**, dove lo toglie comunque la ripulita finale: la prova sembrava buona e
+non provava niente. L'altra perche' il titolo lungo che dovevo tagliare stava
+nel risultato che veniva inghiottito — cioe' era proprio il difetto di prima a
+nascondere la prova del difetto dopo.

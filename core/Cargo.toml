@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "crates/nova-proto",
+    "crates/nova-pitone",
     "crates/nova-ricette",
     "crates/nova-memoria",
     "crates/nova-registro",

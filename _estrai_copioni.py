@@ -22,15 +22,21 @@ sys.path.insert(0, str(RADICE))
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 sorgente = io.open(RADICE / "nova" / "browser.py", encoding="utf-8").read()
+ricerca = io.open(RADICE / "nova" / "cerca.py", encoding="utf-8").read()
 
 # Si esegue il solo blocco delle costanti: importare `browser` tirerebbe
 # dentro requests e il profilo di Chrome per leggere delle stringhe.
 NOMI = ["_TROVA", "_CLICCA", "_SCRIVI", "_INCOLLA", "_TABELLA",
-        "_PER_TESTO", "_CLICCA_TESTO", "_LEGGI"]
+        "_PER_TESTO", "_CLICCA_TESTO", "_LEGGI", "_ESTRAI"]
 spazio: dict = {}
 i = sorgente.index("_TROVA = ")
 j = sorgente.index("\ndef trova(")
 exec(sorgente[i:j], spazio)
+# Il copione che legge i risultati del motore di ricerca sta in `cerca.py`,
+# ma e' della stessa famiglia: gira nella pagina, e va portato con gli altri.
+k = ricerca.index("_ESTRAI = ")
+l = ricerca.index("\ndef _chiudi(")
+exec(ricerca[k:l], spazio)
 
 DESTINAZIONE = RADICE / "core" / "crates" / "nova-browser" / "src" / "copioni.rs"
 
@@ -64,6 +70,10 @@ PERCHE = {
                       "/// bottoni del web non hanno un id, e la sintassi che tutti conoscono —\n"
                       "/// `button:has-text(\"...\")` — e' di Playwright e in CSS non esiste."),
     "_LEGGI": "Il testo della pagina, con il titolo e l'indirizzo.",
+    "_ESTRAI": ("I risultati di una ricerca, letti dalla pagina del motore. Il pezzo\n"
+                "/// che sbroglia l'indirizzo vero da quello di rimbalzo e' li' perche'\n"
+                "/// altrimenti NOVA riporterebbe l'indirizzo del motore invece che\n"
+                "/// quello del sito, e chi legge non saprebbe dove sta andando."),
 }
 
 pezzi = ["""//! Il JavaScript che NOVA fa girare **dentro la pagina dell'utente**.

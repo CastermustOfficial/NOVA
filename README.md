@@ -777,12 +777,13 @@ nova/
 core/crates/
   nova-core/          il demone: bus, capacita', processi lunghi, RPC
   nova-ricette/       le ricette in Rust, e il banco che le confronta col Python
+  nova-pitone/        le abitudini di Python che il porto deve rispettare
   nova-memoria/       BM25, fusione e coseno in Rust, con il loro banco
   nova-registro/      cercare e raccontare il registro, in Rust
   nova-scala/         chi risponde a cosa: gradini, salite obbligate, ripieghi
   nova-contesto/      quanto della conversazione ci sta, e cosa si butta quando no
   nova-mcp/           il protocollo con cui un altro programma entra in NOVA
-  nova-browser/       il codice che gira dentro la pagina, e come ci entrano gli argomenti
+  nova-browser/       il codice che gira dentro la pagina, e cosa di una pagina e' testo
   nova-guasti/        un guasto detto in italiano, e le chiavi che non escono
   nova-modelli/       trovare i GGUF e llama-server sul disco, e i conti sulla VRAM
   nova-voce/          audio, Kokoro, whisper, Scribe: niente Python

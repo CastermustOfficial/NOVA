@@ -225,6 +225,30 @@ Desktop prima ancora di rispondermi.
 > una regola migliore di quella che avrei scritto io.
 
 
+### Ho scritto due prove che non potevano fallire, e una nascondeva l'altra
+
+**Credevo** che il banco del browser provasse due cose che invece non
+provava: che le righe si ripuliscono coi bianchi di Python (e non con
+`trim()` di Rust), e che il titolo di un risultato si taglia a duecento
+caratteri.
+
+**Era vero** che i casi c'erano tutti e due. Ma il separatore di unita' che
+serviva al primo l'avevo messo **in fondo alla riga**, dove lo toglie
+comunque la ripulita finale: guastando il codice, il risultato non cambiava.
+E il titolo lungo che serviva al secondo stava nel terzo risultato della
+pagina di prova — quello che il difetto D181 faceva **sparire**. Il caso
+c'era, e non arrivava mai.
+
+**Me ne sono accorto** solo mutando: due guasti su nove sono passati verdi.
+Rileggendo le due prove non l'avrei visto, perche' erano scritte bene; il
+problema non era la prova, era il dato che le arrivava.
+
+> La forma e' la terza dell'elenco qui sotto, ma con una piega nuova: la
+> seconda prova era resa cieca **da un difetto del codice che stavo
+> provando**. Il difetto nascondeva la prova che serviva a trovarlo. E' il
+> motivo per cui mutare non e' un lusso da fare quando c'e' tempo: e' l'unica
+> cosa che distingue «verde perche' funziona» da «verde perche' non guarda».
+
 ---
 
 ## Le forme che si ripetono

@@ -194,3 +194,36 @@ pub const LEGGI: &str = r#"
           testo: t.slice(0, %d), tagliato: t.length > %d};
 })()
 "#;
+
+/// I risultati di una ricerca, letti dalla pagina del motore. Il pezzo
+/// che sbroglia l'indirizzo vero da quello di rimbalzo e' li' perche'
+/// altrimenti NOVA riporterebbe l'indirizzo del motore invece che
+/// quello del sito, e chi legge non saprebbe dove sta andando.
+pub const ESTRAI: &str = r#"
+(() => {
+  const vero = href => {
+    try {
+      const u = new URL(href);
+      const p = u.searchParams.get('u');
+      if (p && p.startsWith('a1')) {
+        let b = p.slice(2).replace(/-/g, '+').replace(/_/g, '/');
+        while (b.length %% 4) b += '=';
+        return decodeURIComponent(escape(atob(b)));
+      }
+    } catch (e) {}
+    return href;
+  };
+  const testo = n => n ? (n.textContent || '').replace(/\s+/g, ' ').trim() : '';
+  const out = [];
+  for (const n of document.querySelectorAll('li.b_algo')) {
+    const a = n.querySelector('h2 a[href]');
+    if (!a) continue;
+    out.push({
+      titolo: testo(n.querySelector('h2')).slice(0, 120),
+      url: vero(a.href).slice(0, 300),
+      testo: testo(n.querySelector('.b_caption p, .b_lineclamp2, p')).slice(0, %d),
+    });
+  }
+  return {quanti: out.length, risultati: out.slice(0, %d)};
+})()
+"#;

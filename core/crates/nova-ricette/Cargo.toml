@@ -9,6 +9,8 @@ license.workspace = true
 # senza dipendenze e' un pezzo che compila ovunque e non invecchia. serde
 # serve solo al banco di confronto, che e' un binario a parte.
 [dependencies]
+# Dove finisce una riga lo decide Python, non Rust (D62, D73).
+nova-pitone = { path = "../nova-pitone" }
 serde = { workspace = true, features = ["derive"], optional = true }
 serde_json = { workspace = true, optional = true }
 

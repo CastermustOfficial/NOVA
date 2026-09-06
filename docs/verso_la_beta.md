@@ -967,7 +967,7 @@ mole, non di difficolta'.
 | CANT-3 | **Il ciclo dell'agente e i cervelli** — `agent.py`, i client dei modelli | ~2.200 | E' il pezzo che davvero libera dal Python, ma va dopo gli strumenti: un ciclo che chiama strumenti Python non ha liberato niente. Dentro c'e' la parte piu' delicata di tutto il progetto — il taglio del contesto a token, che se sbaglia perde pezzi di conversazione senza dirlo |
 | CANT-4 | **Lanciare il modello locale** — *le decisioni: fatte; avviare il processo e leggere cosa dice: da fare* | ~690 | Il calcolo degli strati era gia' in `nova-modelli`; restava il pezzo dove le decisioni si vedono poco e costano molto — la riga di comando, la scala dei layer, l'unico errore che vale la pena riprovare (D173) |
 | ~~CANT-5~~ | ~~**Il server MCP**~~ — **fatto**: il protocollo, le trentatre' dichiarazioni, il rischio, la domanda in chiaro, gli allegati e la risposta al permesso. I corpi degli strumenti appartengono ai cantieri che chiamano | ~1.290 | Protocollo, quindi traducibile senza scelte — ma le **buste** hanno una regola che rompe i client quando si sbaglia (D175, D176) |
-| CANT-6 | **Il browser e la ricerca** — *il codice che gira nella pagina e come ci entrano gli argomenti: fatto; aprire il browser, la connessione, la ricerca in rete: da fare* | ~760 | Nessuna scelta di interfaccia, ma il pezzo dove il confine fra argomento e codice conta piu' che altrove: quel testo lo esegue un interprete che non e' nostro (D178) |
+| ~~CANT-6~~ | ~~**Il browser e la ricerca**~~ — **fatto**, per la parte traducibile: i nove copioni che girano nella pagina, il confine fra argomento e codice, la scelta della scheda, cosa di una pagina e' testo, e i due raschiatori del motore. Quel che resta e' avviare Chrome e tenere la connessione: processi e rete, e appartiene a CANT-7 | ~760 | Nessuna scelta di interfaccia, ma il pezzo dove il confine fra argomento e codice conta piu' che altrove: quel testo lo esegue un interprete che non e' nostro (D178). Ed e' il cantiere in cui il banco ha trovato un difetto vero, non una differenza di porto (D181) |
 | CANT-7 | **L'impalcatura** — config, main, dati, componenti | ~1.800 | Non si porta: si **riscrive**, perche' meta' esiste solo per tenere insieme il Python. `nova-core::config` ne ha gia' un pezzo. Va per ultima fra quelle di sostanza, quando si sa cosa deve tenere insieme |
 | CANT-8 | **L'harness dei documenti** | ~2.900 | Il piu' grosso, e l'unico che **non e' una traduzione**: e' una finestra Qt, e in Rust vuol dire deciderne un'altra. E' una decisione di interfaccia travestita da porting, e va presa da sveglio, non a fine lista |
 
@@ -1388,7 +1388,7 @@ file per file invece di supporlo.
 | `schermo.py` | 89 | Importa `mss` e `PIL`, e per la regione di una finestra chiama gia' il core. Stessa domanda: quale libreria, e quanta ne tiene `nova-platform` |
 | `deleghe.py` | 164 | E' il router visto da uno strumento. Il router e' `nova-scala`, e il collegamento e' CANT-3 |
 | `kb.py` | 178 | E' il vault e il motore visti da uno strumento. Entrambi sono gia' in Rust: manca il filo, e il filo e' CANT-3 |
-| `web.py` | 205 | Ricerca e lettura di pagine: CANT-6, insieme al browser via CDP |
+| `web.py` | 228 | Ricerca e lettura di pagine: CANT-6, insieme al browser via CDP |
 | `riparazione.py` | 176 | Sei strumenti che pilotano il banco. Il banco e' CANT-8 |
 | `automazioni.py` | 214 | Esegue corpi Python **per disegno**: e' il posto dove NOVA scrive strumenti nuovi mentre gira. Non e' codice da tradurre, e' una decisione da prendere - e va presa quando si sa cosa resta di Python |
 | `procedure.py`, `tempo.py` | 255 | Gia' portati sotto: `nova-registro`, `nova-pianificazione`, `attivita.py` |
@@ -1689,8 +1689,46 @@ il **contenuto di un'altra pagina** (D179). Il banco ha apposta il caso che
 distingue le due regole; mutazione con l'ordine invertito: chiedere la scheda
 «esempio» ne restituisce un'altra.
 
-Quello che resta di CANT-6 e' aprire il browser, tenere la connessione e la
-ricerca in rete: processi e rete, non decisioni.
+**CANT-6, secondo pezzo: cosa, di una pagina, e' testo.** Quando Chrome non
+c'e', NOVA cerca leggendo l'HTML che ha risposto il motore. E' la strada di
+ripiego, e sotto ci sono due dichiarazioni che non si possono ricopiare a
+mano: le **duemiladuecentotrentuno** entita' HTML che `html.unescape`
+conosce, e le espressioni regolari che separano il testo dal codice della
+pagina. Estratte tutte e due (D180) — dagli oggetti compilati quando sono
+costanti, dall'albero sintattico quando vivono dentro una funzione.
+
+E qui il banco ha trovato **un difetto vero**, non una differenza di porto: il
+riassunto di un risultato veniva cercato con la stessa espressione del
+titolo, in un gruppo facoltativo. Un risultato senza riassunto si prendeva
+quello del risultato dopo, e siccome `finditer` riparte da dove ha finito, si
+portava via anche quel risultato. Un elenco piu' corto e una descrizione
+attaccata all'indirizzo sbagliato, senza nessun errore da nessuna parte.
+Corretto in tutti e due i linguaggi (D181).
+
+Nove mutazioni, otto rosse; la nona e' un mutante **equivalente** dichiarato
+come tale. Due erano passate al primo giro: una prova aveva il carattere
+giusto nel posto sbagliato, e l'altra era resa cieca proprio dal difetto che
+serviva a trovare.
+
+Ed e' nato `nova-pitone`, che tiene le abitudini di Python che il porto deve
+rispettare — dove finisce una riga, cos'e' uno spazio. Due funzioni, seconda
+occorrenza, quindi condivise (D182).
+
+**Cosa resta di `browser.py`, `cerca.py` e `tools/web.py`, e dove va.**
+
+| Pezzo | Righe | Dove appartiene |
+|---|---|---|
+| `browser.avvia`, `cerca.avvia` | ~52 | Avviare Chrome col profilo e la porta: processi. Stessa famiglia dell'avvio di llama-server (CANT-4) |
+| `browser.chiama`, `browser._parla`, `_Sessione` | ~35 | La connessione WebSocket al DevTools Protocol: rete, e una libreria da scegliere |
+| `browser.apri`, `browser.schede`, `browser._versione`, `cerca.prendi`, `cerca._chiudi` | ~68 | Le richieste HTTP al browser: rete |
+| `browser.carica`, `browser._eseguibile`, `browser.profilo`, `cerca.profilo` | ~60 | Trovare Chrome ed Edge sul disco: e' `nova-platform`, un backend per sistema |
+| `web.fetch_url`, `web._rete`, `web.open_in_browser` | ~45 | Scaricare una pagina e aprirne una: rete e sistema |
+| `web.web_search` (l'orchestrazione), `cerca.cerca` | ~80 | Il **giro**: prima il browser, poi i raschiatori, e cosa dire se falliscono tutti e due. Si porta quando c'e' sotto qualcosa da orchestrare |
+
+Nessuno di questi e' una decisione: sono processi, connessioni e percorsi di
+sistema, cioe' impalcatura. Vanno con CANT-7, che e' il cantiere
+dell'impalcatura, e non prima — portarli adesso vorrebbe dire scegliere una
+libreria di rete per un ciclo che ancora non esiste.
 
 
 ## Il cancello della beta

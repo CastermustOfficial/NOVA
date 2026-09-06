@@ -2468,6 +2468,8 @@ dependencies = [
 name = "nova-browser"
 version = "0.1.0"
 dependencies = [
+ "nova-pitone",
+ "regex",
  "serde",
  "serde_json",
 ]
@@ -2580,6 +2582,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "nova-pitone"
+version = "0.1.0"
+
+[[package]]
 name = "nova-platform"
 version = "0.1.0"
 dependencies = [
@@ -2611,6 +2617,7 @@ dependencies = [
 name = "nova-ricette"
 version = "0.1.0"
 dependencies = [
+ "nova-pitone",
  "serde",
  "serde_json",
 ]
