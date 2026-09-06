@@ -11,6 +11,11 @@ description = "Il browser guidato dal di dentro: il JavaScript che gira nella pa
 # dentro il JavaScript si scrivono come li scrive `json.dumps`: qui non e' una
 # comodita', e' il confine fra un argomento e del codice.
 serde_json = { workspace = true }
+# Le regole che dicono cosa, in una pagina, e' testo sono le stesse di
+# Python: estratte, non riscritte. Per farle girare serve un motore vero.
+regex = "1"
+# Dove finisce una riga, e cos'e' uno spazio, lo decide Python (D62).
+nova-pitone = { path = "../nova-pitone" }
 serde = { workspace = true, features = ["derive"], optional = true }
 
 [features]

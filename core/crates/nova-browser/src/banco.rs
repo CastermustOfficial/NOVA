@@ -8,9 +8,11 @@
 
 use std::io::Read;
 
+use nova_browser::motori::{self, Risultato};
+use nova_browser::testo;
 use nova_browser::{
-    clicca, clicca_testo, dentro, errore_di_pagina, incolla, leggi, per_testo, scheda,
-    scrivi, tabella, trova, valuta_params, NessunaScheda, Scheda,
+    clicca, clicca_testo, dentro, errore_di_pagina, incolla, leggi, per_testo, risultati,
+    scheda, scrivi, tabella, trova, valuta_params, NessunaScheda, Scheda,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -66,6 +68,29 @@ struct Dentro {
     risposte: Vec<Value>,
     #[serde(default)]
     espressioni: Vec<String>,
+    /// (caratteri, quanti) per il copione dei risultati.
+    #[serde(default)]
+    risultati: Vec<(i64, i64)>,
+    /// Pagine HTML di DuckDuckGo da raschiare, con quanti risultati tenere.
+    #[serde(default)]
+    ddg_html: Vec<(String, usize)>,
+    #[serde(default)]
+    ddg_lite: Vec<(String, usize)>,
+    /// Indirizzi di cui sbrogliare il rimbalzo.
+    #[serde(default)]
+    rimbalzi: Vec<String>,
+    /// Testi da sciogliere dalle entita' HTML.
+    #[serde(default)]
+    entita: Vec<String>,
+    /// (indice, titolo, url, riassunto) da raccontare.
+    #[serde(default)]
+    righe: Vec<(usize, String, String, String)>,
+    /// Pagine HTML da ridurre a testo.
+    #[serde(default)]
+    pagine: Vec<String>,
+    /// (pagina, quanto del titolo tenere).
+    #[serde(default)]
+    titoli: Vec<(String, usize)>,
 }
 
 #[derive(Serialize)]
@@ -83,6 +108,20 @@ struct Fuori {
     schede: Vec<Result<String, String>>,
     errori: Vec<Option<String>>,
     params: Vec<Value>,
+    risultati: Vec<String>,
+    ddg_html: Vec<Vec<(String, String, String)>>,
+    ddg_lite: Vec<Vec<(String, String, String)>>,
+    rimbalzi: Vec<String>,
+    entita: Vec<String>,
+    righe: Vec<String>,
+    pagine: Vec<String>,
+    titoli: Vec<String>,
+}
+
+fn come_tre(r: &[Risultato]) -> Vec<(String, String, String)> {
+    r.iter()
+        .map(|x| (x.titolo.clone(), x.url.clone(), x.riassunto.clone()))
+        .collect()
 }
 
 fn main() {
@@ -137,6 +176,26 @@ fn main() {
             .collect(),
         errori: d.risposte.iter().map(errore_di_pagina).collect(),
         params: d.espressioni.iter().map(|e| valuta_params(e)).collect(),
+        risultati: d.risultati.iter().map(|(c, q)| risultati(*c, *q)).collect(),
+        ddg_html: d
+            .ddg_html
+            .iter()
+            .map(|(p, q)| come_tre(&motori::da_html(p, *q)))
+            .collect(),
+        ddg_lite: d
+            .ddg_lite
+            .iter()
+            .map(|(p, q)| come_tre(&motori::da_lite(p, *q)))
+            .collect(),
+        rimbalzi: d.rimbalzi.iter().map(|u| motori::senza_rimbalzo(u)).collect(),
+        entita: d.entita.iter().map(|t| testo::scioglie(t)).collect(),
+        righe: d
+            .righe
+            .iter()
+            .map(|(i, t, u, r)| motori::riga(*i, t, u, r))
+            .collect(),
+        pagine: d.pagine.iter().map(|p| testo::a_testo(p)).collect(),
+        titoli: d.titoli.iter().map(|(p, m)| testo::titolo_di(p, *m)).collect(),
     };
 
     match serde_json::to_string(&fuori) {

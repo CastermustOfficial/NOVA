@@ -6,7 +6,7 @@ interprete che non e' nostro, su una pagina dove l'utente e' **gia'
 autenticato**. Una virgoletta di differenza non e' un formato diverso, e' un
 confine che non c'e' piu'.
 
-Si confrontano cinque cose:
+Si confrontano nove cose:
 
 1. come un valore entra dentro il JavaScript — virgolette, barre rovesce,
    caratteri di controllo, accenti, emoji, e i tentativi di uscire dalla
@@ -15,7 +15,12 @@ Si confrontano cinque cose:
 3. quale scheda si sceglie, che e' il punto dove sbagliare non da' un errore
    ma il **contenuto di un'altra pagina**;
 4. l'errore della pagina, quando c'e';
-5. i parametri di `Runtime.evaluate`.
+5. i parametri di `Runtime.evaluate`;
+6. il copione che legge i risultati del motore di ricerca;
+7. i due raschiatori che leggono la pagina di DuckDuckGo quando il browser
+   non c'e' — dove sbagliare vuol dire mandare chi legge su un altro sito;
+8. cosa, di una pagina, e' testo: `html_a_testo.a_testo` e `titolo_di`;
+9. le entita' HTML, **tutte e duemiladuecento**, contro `html.unescape`.
 
 Esce 2 se il banco non e' costruito.
 """
@@ -45,6 +50,13 @@ _i = SORGENTE.index("_TROVA = ")
 _j = SORGENTE.index("\ndef trova(")
 S: dict = {}
 exec(SORGENTE[_i:_j], S)
+
+# Il copione che legge i risultati del motore sta in `cerca.py`, ma e' della
+# stessa famiglia: gira nella pagina, e si confronta con gli altri.
+RICERCA = io.open(RADICE / "nova" / "cerca.py", encoding="utf-8").read()
+_k = RICERCA.index("_ESTRAI = ")
+_l = RICERCA.index("\ndef _chiudi(")
+exec(RICERCA[_k:_l], S)
 
 passati = 0
 falliti: list[str] = []
@@ -131,6 +143,96 @@ RISPOSTE = [
 
 ESPRESSIONI = ["1+1", "document.readyState", ""]
 
+# ------------------------------------------------ i motori, senza browser
+# Una pagina come quella vera, con dentro i casi che contano: un rimbalzo, un
+# titolo con dei tag e un'entita', un risultato **senza** riassunto seguito da
+# uno che ce l'ha, un attributo in maiuscolo, e un titolo piu' lungo del tetto.
+DDG_HTML_PAGINA = (
+    '<div class="result results_links">'
+    '<a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Funo.it%2Fa%20b'
+    '&amp;rut=xy">Primo <b>sito</b> &amp; compagnia</a>'
+    '<a class="result__snippet" href="#">Il riassunto&nbsp;del primo&hellip;</a>'
+    '</div>'
+    '<div class="result"><a CLASS="foo result__a bar" href="https://due.it/perch%C3%A9">'
+    'Secondo</a></div>'
+    '<div class="result"><a class="result__a" href="https://tre.it">' + "T" * 260 +
+    '</a><a class="result__snippet">riassunto del terzo</a></div>'
+    '<div class="result"><a class="result__a" href="https://quattro.it">Quarto</a></div>'
+)
+DDG_LITE_PAGINA = (
+    '<a href="https://uno.it" class="result-link">Uno &amp; <i>altro</i></a>'
+    '<a href="/interno" class="result-link">Interno</a>'
+    '<a href="https://due.it/perch%C3%A9" class="result-link">Perch&eacute;</a>'
+)
+DDG_ROTTA = "<html><body>ci dispiace, questa pagina ora ha un'altra forma</body></html>"
+
+DDG_HTML = [(DDG_HTML_PAGINA, 6), (DDG_HTML_PAGINA, 2), (DDG_ROTTA, 6), ("", 6)]
+DDG_LITE = [(DDG_LITE_PAGINA, 6), (DDG_LITE_PAGINA, 1), (DDG_ROTTA, 6)]
+
+RIMBALZI = [
+    "https://esempio.it",
+    "//duckduckgo.com/l/?uddg=https%3A%2F%2Fesempio.it%2Fpagina&rut=x",
+    # Sciolto due volte, come fa Python passando da parse_qs e poi da unquote.
+    "//duckduckgo.com/l/?uddg=https%3A%2F%2Fx.it%2Fa%2520b",
+    "//duckduckgo.com/l/?uddg=",
+    "//duckduckgo.com/l/?uddg=https%3A%2F%2Fperch%C3%A9.it",
+    "//duckduckgo.com/l/?uddg=a+b&rut=x",
+    "//duckduckgo.com/l/?uddg=x#uddg=y",
+]
+
+# Le entita': tutte quelle che lo standard definisce, nelle due forme in cui
+# le definisce. Una tabella parziale non da' un errore — lascia `&hellip;`
+# dentro il titolo che NOVA mostra (D113).
+import html as _html
+import html.entities as _entita
+
+TUTTE = sorted(_entita.html5)
+ENTITA = ["&" + n for n in TUTTE]
+ENTITA = ["".join(ENTITA[i:i + 120]) for i in range(0, len(ENTITA), 120)]
+ENTITA += [
+    "niente da sciogliere",
+    "a &amp; b",
+    "perch&#233; s&igrave;",
+    "perch&#xe9;",
+    "&mai_vista;",
+    "&notindot;",          # il nome piu' lungo vince
+    "&notit;",             # il prefisso piu' lungo, e il resto com'era
+    "l&#146;altro",        # Windows-1252, non il carattere di controllo
+    "&#0;",
+    "&#xD800;",
+    "&#99999999999999999999;",
+    "&#x110000;",
+    "&",
+    "&;",
+    "&#;",
+]
+
+PAGINE = [
+    "",
+    "<p>prima</p><script>var x = 1 < 2;</script><p>dopo</p>",
+    "<ul><li>uno</li><li>due</li><li>tre</li></ul>",
+    "a&nbsp;b\u00a0c",
+    "&lt;script&gt;via&lt;/script&gt;",
+    "<div>uno</div>\n\n\n\n<div>due</div>",
+    "<head><title>t</title></head><body>corpo</body>",
+    "<STYLE>p{color:red}</STYLE>ciao<SVG><path/></SVG>",
+    "<template>via</template><noscript>anche</noscript>resta",
+    "riga\u2028sotto",          # `splitlines` di Python taglia qui, `lines()` no
+    "  \u001c spazi \u001f  ",  # bianchi che Rust da solo non toglie
+    "riga\u001f\nsotto \u001f fine",  # e uno a fine riga, dove la ripulita finale non arriva
+    "<p>a</p>" * 3,
+    "senza tag ma con &amp; dentro",
+    "<a href='x'>testo</a> fuori",
+    "<br>uno<br/>due<BR />tre",
+]
+TITOLI = [("<html><head><TITLE>Perch&#233; s&igrave;</TITLE>", 120),
+          ("<html>senza</html>", 120),
+          ("<title>abcdef</title>", 3),
+          ("<title>  con <b>tag</b> dentro  </title>", 120),
+          ("<title>", 120)]
+
+RISULTATI = [(200, 8), (200, 1), (200, 25)]
+
 fuori = rust({
     "valori": VALORI, "trova": [list(x) for x in TROVA],
     "per_testo": [list(x) for x in PER_TESTO], "clicca": CLICCA,
@@ -138,6 +240,11 @@ fuori = rust({
     "scrivi": [list(x) for x in SCRIVI], "incolla": [list(x) for x in INCOLLA],
     "tabella": [list(x) for x in TABELLA], "leggi": LEGGI,
     "schede": SCHEDE, "risposte": RISPOSTE, "espressioni": ESPRESSIONI,
+    "risultati": [list(x) for x in RISULTATI],
+    "ddg_html": [list(x) for x in DDG_HTML], "ddg_lite": [list(x) for x in DDG_LITE],
+    "rimbalzi": RIMBALZI, "entita": ENTITA, "pagine": PAGINE,
+    "titoli": [list(x) for x in TITOLI],
+    "righe": [[1, "T", "u", "r"], [2, "T", "u", ""], [10, "", "", ""]],
 })
 
 print("\n1. come un valore entra dentro il JavaScript")
@@ -238,6 +345,116 @@ atteso = [{"expression": e, "returnByValue": True, "awaitPromise": True,
            "userGesture": True} for e in ESPRESSIONI]
 controlla("i parametri di Runtime.evaluate sono quelli", fuori["params"] == atteso,
           f"{fuori['params']}")
+
+print("\n5. i risultati del motore, letti dalla pagina")
+confronta("risultati", RISULTATI, fuori["risultati"],
+          lambda c, q: S["_ESTRAI"] % (c, q))
+
+print("\n6. i due raschiatori, contro il Python vero")
+
+
+class FintaRete:
+    """Il posto della rete. Le due funzioni fanno la richiesta e poi
+    leggono: qui si sostituisce la prima meta' e si prova la seconda, che e'
+    quella dove si sbaglia."""
+
+    def __init__(self, pagina):
+        self.text = pagina
+
+    def post(self, *a, **k):
+        return self
+
+    def get(self, *a, **k):
+        return self
+
+    def raise_for_status(self):
+        return None
+
+
+from nova.tools import web as _web  # noqa: E402
+
+
+def raschia(fn, pagina, quanti):
+    prima = _web._rete
+    _web._rete = lambda: FintaRete(pagina)
+    try:
+        return [(r["title"], r["url"], r["snippet"]) for r in fn("q", quanti)]
+    finally:
+        _web._rete = prima
+
+
+for nome, fn, casi, avuti in (("ddg_html", _web._ddg_html, DDG_HTML, fuori["ddg_html"]),
+                              ("ddg_lite", _web._ddg_lite, DDG_LITE, fuori["ddg_lite"])):
+    diverse = []
+    for (pagina, quanti), ru in zip(casi, avuti):
+        py = raschia(fn, pagina, quanti)
+        suo = [tuple(x) for x in ru]
+        if suo != py:
+            diverse.append(f"{len(py)} risultati in Python, {len(suo)} in Rust; "
+                           f"primo diverso: {next((f'{a} vs {b}' for a, b in zip(suo, py) if a != b), '')[:200]}")
+    controlla(f"{nome}: i {len(casi)} raschiamenti coincidono", not diverse,
+              " | ".join(diverse[:1]))
+
+# Il caso che una pagina vera contiene sempre: un risultato senza riassunto,
+# seguito da uno che ce l'ha. Se il riassunto si va a prendere «il prossimo
+# che c'e'», il secondo risultato si porta via quello del terzo.
+_dopo_due = DDG_HTML_PAGINA.split("due.it")[1]
+controlla("il banco ha un risultato senza riassunto seguito da uno che ce l'ha",
+          _dopo_due.index("result__a") < _dopo_due.index("result__snippet"),
+          "senza, «di chi e' questo riassunto» non e' provato")
+controlla("e una pagina che ha cambiato forma",
+          raschia(_web._ddg_html, DDG_ROTTA, 6) == [],
+          "senza, «se smette di funzionare si vede» non e' provato")
+
+# Il rimbalzo non ha una funzione sua, in Python: sta dentro `_ddg_html`. Si
+# confronta facendolo passare di li', invece di riscrivere qui quelle quattro
+# righe — che e' il modo di far tornare i conti sbagliando due volte (D112).
+def rimbalzo_python(u: str) -> str:
+    finta = f'<a class="result__a" href="{u}">t</a>'
+    r = raschia(_web._ddg_html, finta, 1)
+    return r[0][1] if r else ""
+
+
+diverse = [f"{u[:44]!r}: rust {ru!r} vs python {rimbalzo_python(u)!r}"
+           for u, ru in zip(RIMBALZI, fuori["rimbalzi"]) if ru != rimbalzo_python(u)]
+controlla(f"i {len(RIMBALZI)} rimbalzi si sbrogliano come in Python", not diverse,
+          " | ".join(diverse[:2]))
+controlla("il banco ha un titolo tagliato al tetto dei 200",
+          any(len(t) == 200 for t, _, _ in
+              [tuple(x) for x in fuori["ddg_html"][0]]),
+          "senza, il taglio a 200 non e' provato")
+controlla("il banco ha un rimbalzo con un %25 dentro",
+          any("%25" in u for u in RIMBALZI),
+          "senza, «si scioglie due volte» non e' provato")
+
+print("\n7. cosa, di una pagina, e' testo")
+from nova import html_a_testo as _ht  # noqa: E402
+
+diverse = [f"{p[:28]!r}: rust {ru!r} vs python {_ht.a_testo(p)!r}"
+           for p, ru in zip(PAGINE, fuori["pagine"]) if ru != _ht.a_testo(p)]
+controlla(f"le {len(PAGINE)} pagine danno lo stesso testo", not diverse,
+          " | ".join(diverse[:2]))
+diverse = [f"{p[:28]!r}: rust {ru!r} vs python {_ht.titolo_di(p, m)!r}"
+           for (p, m), ru in zip(TITOLI, fuori["titoli"])
+           if ru != _ht.titolo_di(p, m)]
+controlla(f"i {len(TITOLI)} titoli coincidono", not diverse, " | ".join(diverse[:2]))
+controlla("il banco ha una pagina con un separatore che Rust non vede da solo",
+          any("\u2028" in p or "\u001c" in p for p in PAGINE),
+          "senza, `splitlines` contro `lines()` non e' provato")
+
+print("\n8. le entita', tutte")
+diverse = [i for i, (t, ru) in enumerate(zip(ENTITA, fuori["entita"]))
+           if ru != _html.unescape(t)]
+primo = ""
+if diverse:
+    t = ENTITA[diverse[0]]
+    a, b = fuori["entita"][diverse[0]], _html.unescape(t)
+    k = next((j for j, (x, y) in enumerate(zip(a, b)) if x != y), min(len(a), len(b)))
+    primo = f"caso {diverse[0]} a {k}: {a[k:k+40]!r} vs {b[k:k+40]!r}"
+controlla(f"i {len(ENTITA)} testi si sciolgono come html.unescape",
+          not diverse, primo)
+controlla(f"e sono tutti i {len(TUTTE)} nomi che lo standard definisce",
+          len(TUTTE) > 2000, "una tabella parziale non e' una tabella")
 
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:

@@ -132,39 +132,11 @@ pub struct Letta {
 
 /// Le righe come le separa Python.
 ///
-/// `str.splitlines()` non taglia solo su `\n`: taglia anche su `\r`, `\r\n`,
-/// `\v`, `\f`, i separatori `\x1c`-`\x1e`, `\x85`, e su `\u{2028}`/`\u{2029}`.
-/// `str::lines()` di Rust taglia **solo** su `\n`. Non e' pedanteria: qui si
-/// legge il testo che ha scritto un modello, e un modello puo' scrivere
-/// qualunque cosa — se le righe si contano diversamente, «risposta troppo
-/// corta» scatta da una parte e non dall'altra.
-pub fn righe(testo: &str) -> Vec<String> {
-    fn e_a_capo(c: char) -> bool {
-        matches!(c, '\n' | '\r' | '\u{b}' | '\u{c}' | '\u{1c}' | '\u{1d}'
-                    | '\u{1e}' | '\u{85}' | '\u{2028}' | '\u{2029}')
-    }
-    let mut fuori: Vec<String> = Vec::new();
-    let mut corrente = String::new();
-    let caratteri: Vec<char> = testo.chars().collect();
-    let mut i = 0;
-    while i < caratteri.len() {
-        let c = caratteri[i];
-        if e_a_capo(c) {
-            fuori.push(std::mem::take(&mut corrente));
-            // `\r\n` e' un a capo solo.
-            if c == '\r' && i + 1 < caratteri.len() && caratteri[i + 1] == '\n' {
-                i += 1;
-            }
-        } else {
-            corrente.push(c);
-        }
-        i += 1;
-    }
-    if !corrente.is_empty() {
-        fuori.push(corrente);
-    }
-    fuori
-}
+/// L'ha imparato prima questo modulo, contando le righe della risposta di un
+/// modello; poi e' servito anche al testo delle pagine web. Alla seconda
+/// occorrenza si condivide (D62): ora vive in `nova-pitone`, e qui resta il
+/// nome con cui era gia' conosciuto.
+pub use nova_pitone::righe;
 
 /// Quello che il modello ha risposto, letto come procedura.
 pub fn leggi(testo: &str) -> Result<Letta, NonSiLegge> {

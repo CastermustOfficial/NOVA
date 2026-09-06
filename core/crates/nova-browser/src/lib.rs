@@ -31,6 +31,12 @@
 //! concatenazione.
 
 pub mod copioni;
+pub mod entita;
+pub mod motori;
+pub mod regole;
+pub mod testo;
+
+// Leggere i risultati di un motore senza browser: la strada di ripiego.
 
 use serde_json::{json, Value};
 
@@ -83,29 +89,45 @@ pub fn numero(n: i64) -> String {
     n.to_string()
 }
 
+/// Mette gli argomenti al posto dei segnaposto, come fa `%` di Python.
+///
+/// **`%%` diventa un `%` solo**, e non e' un dettaglio da manuale: dentro
+/// questi copioni c'e' del JavaScript che fa `b.length %% 4` — cioe' un resto
+/// modulo 4 — e sta li' per rimettere in piedi il padding di una stringa
+/// base64. Se `%%` restasse `%%`, il browser leggerebbe un operatore doppio e
+/// direbbe «SyntaxError»; se il segnaposto lo si cercasse senza saperlo, si
+/// prenderebbe `% 4` per un segnaposto e si consumerebbe un argomento di
+/// troppo. Chi scrive in Python quel raddoppio lo fa e se ne dimentica; chi
+/// porta deve saperlo.
 fn riempi(copione: &str, pezzi: &[String]) -> String {
+    let b = copione.as_bytes();
     let mut fuori = String::new();
     let mut i = 0usize;
-    let mut resto = copione;
-    while let Some(p) = trova_segnaposto(resto) {
-        fuori.push_str(&resto[..p.0]);
-        fuori.push_str(pezzi.get(i).map(String::as_str).unwrap_or(""));
-        resto = &resto[p.1..];
-        i += 1;
-    }
-    fuori.push_str(resto);
-    fuori
-}
-
-/// Il prossimo `%s` o `%d`: dove comincia e dove finisce.
-fn trova_segnaposto(t: &str) -> Option<(usize, usize)> {
-    let b = t.as_bytes();
-    for i in 0..b.len().saturating_sub(1) {
-        if b[i] == b'%' && (b[i + 1] == b's' || b[i + 1] == b'd') {
-            return Some((i, i + 2));
+    let mut quale = 0usize;
+    while i < b.len() {
+        if b[i] == b'%' && i + 1 < b.len() {
+            match b[i + 1] {
+                b's' | b'd' => {
+                    fuori.push_str(pezzi.get(quale).map(String::as_str).unwrap_or(""));
+                    quale += 1;
+                    i += 2;
+                    continue;
+                }
+                b'%' => {
+                    fuori.push('%');
+                    i += 2;
+                    continue;
+                }
+                _ => {}
+            }
         }
+        // `copione` e' UTF-8 e i segnaposto sono ASCII: si copia il carattere
+        // intero, non il byte, o si spezzerebbe una lettera accentata.
+        let c = copione[i..].chars().next().unwrap();
+        fuori.push(c);
+        i += c.len_utf8();
     }
-    None
+    fuori
 }
 
 // --------------------------------------------------------------- i copioni
@@ -162,6 +184,16 @@ pub fn tabella(selettore: &str, righe: i64, caratteri_cella: i64) -> String {
 /// Il testo della pagina.
 pub fn leggi(caratteri: i64) -> String {
     riempi(copioni::LEGGI, &[numero(caratteri), numero(caratteri)])
+}
+
+/// I risultati di una ricerca, letti dalla pagina del motore.
+///
+/// `caratteri` e' quanto si tiene del riassunto di ogni risultato, `quanti`
+/// quanti risultati. Il copione sbroglia anche l'indirizzo **vero** da quello
+/// di rimbalzo del motore: senza, NOVA riporterebbe l'indirizzo del motore e
+/// chi legge non saprebbe dove sta andando.
+pub fn risultati(caratteri: i64, quanti: i64) -> String {
+    riempi(copioni::ESTRAI, &[numero(caratteri), numero(quanti)])
 }
 
 // ------------------------------------------------------------------- CDP
@@ -323,6 +355,17 @@ mod prove {
             assert!(!js.contains("%s"), "{js}");
             assert!(!js.contains("%d"), "{js}");
         }
+    }
+
+    #[test]
+    fn il_per_cento_raddoppiato_torna_singolo() {
+        // Dentro il copione della ricerca c'e' `b.length %% 4`: un resto
+        // modulo 4 che rimette in piedi il padding di una base64. Deve
+        // arrivare al browser come `%`, o e' un SyntaxError.
+        let js = risultati(200, 8);
+        assert!(js.contains("b.length % 4"), "{js}");
+        assert!(!js.contains("%%"), "{js}");
+        assert!(!js.contains("%d"), "{js}");
     }
 
     #[test]

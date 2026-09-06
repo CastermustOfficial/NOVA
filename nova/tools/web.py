@@ -35,6 +35,29 @@ TIMEOUT = 25
 from ..html_a_testo import a_testo as _clean   # noqa: E402
 
 
+#: Un risultato: il collegamento che porta il titolo.
+#:
+#: Il riassunto **non** sta qui dentro, e non e' un dettaglio di stile. Prima
+#: erano una sola espressione, col riassunto in un gruppo facoltativo in
+#: fondo; ma un gruppo facoltativo si prende il primo riassunto che trova, e
+#: se il risultato non ne ha uno lo va a prendere **dal risultato dopo** — e
+#: si porta via anche quello, perche' `finditer` riparte da dove ha finito.
+#: Effetto: un risultato in meno nell'elenco e un riassunto attaccato
+#: all'indirizzo sbagliato. Nessun errore, nessun log: solo NOVA che descrive
+#: un sito e ne linka un altro.
+_RISULTATO = re.compile(
+    r'<a[^>]+class="[^"]*result__a[^"]*"[^>]+href="([^"]+)"[^>]*>(.*?)</a>',
+    re.I | re.S,
+)
+
+#: Il riassunto, che si cerca **dentro la finestra** di un risultato solo.
+_RIASSUNTO = re.compile(
+    r'<a[^>]+class="[^"]*result__snippet[^"]*"[^>]*>(.*?)</a>', re.I | re.S)
+
+#: L'indirizzo che DuckDuckGo da' al posto di quello vero.
+_RIMBALZO = "duckduckgo.com/l/?uddg="
+
+
 def _ddg_html(query: str, max_results: int) -> list[dict]:
     r = _rete().post(
         "https://html.duckduckgo.com/html/",
@@ -42,21 +65,21 @@ def _ddg_html(query: str, max_results: int) -> list[dict]:
     )
     r.raise_for_status()
     out: list[dict] = []
-    pattern = re.compile(
-        r'<a[^>]+class="[^"]*result__a[^"]*"[^>]+href="([^"]+)"[^>]*>(.*?)</a>'
-        r'(?:.*?<a[^>]+class="[^"]*result__snippet[^"]*"[^>]*>(.*?)</a>)?',
-        re.I | re.S,
-    )
-    for m in pattern.finditer(r.text):
+    trovati = list(_RISULTATO.finditer(r.text))
+    for k, m in enumerate(trovati):
+        # Il riassunto di questo risultato sta fra la fine del suo
+        # collegamento e l'inizio del prossimo. Fuori di li' e' di un altro.
+        fine = trovati[k + 1].start() if k + 1 < len(trovati) else len(r.text)
+        riassunto = _RIASSUNTO.search(r.text, m.end(), fine)
         url = html.unescape(m.group(1))
-        if "duckduckgo.com/l/?uddg=" in url:
+        if _RIMBALZO in url:
             q = urllib.parse.parse_qs(urllib.parse.urlparse(url).query).get("uddg")
             if q:
                 url = urllib.parse.unquote(q[0])
         out.append({
             "title": _clean(m.group(2))[:200],
             "url": url,
-            "snippet": _clean(m.group(3) or "")[:400],
+            "snippet": _clean(riassunto.group(1) if riassunto else "")[:400],
         })
         if len(out) >= max_results:
             break
