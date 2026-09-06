@@ -121,6 +121,16 @@ if date:
         controlla("e l'ultima non e' piu' vecchia dell'ultimo lavoro",
                   scarto <= 7,
                   f"ultima voce {max(date)}, ultimo lavoro {ultimo_lavoro}")
+        # E nemmeno piu' **nuova**. Questa non c'era, e per questo il diario
+        # ha camminato tre giorni avanti all'orologio senza che niente lo
+        # dicesse: le voci erano datate 9 settembre mentre l'ultimo lavoro
+        # era del 6. Un diario avanti non e' un diario in ritardo di segno
+        # opposto: e' un documento che afferma una cosa falsa su quando e'
+        # successo cio' che racconta, ed e' l'unico documento che non ha modo
+        # di smentirsi da solo.
+        controlla("e nemmeno piu' nuova: un diario non puo' stare nel futuro",
+                  max(date) <= ultimo_lavoro,
+                  f"ultima voce {max(date)}, ultimo lavoro {ultimo_lavoro}")
 
 print("\n6. e dice a cosa serve, cosi' nessuno lo confonde con git log")
 controlla("spiega perche' non basta il registro delle modifiche",

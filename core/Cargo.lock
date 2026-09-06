@@ -2496,6 +2496,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "nova-cervelli"
+version = "0.1.0"
+dependencies = [
+ "nova-contesto",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "nova-cli"
 version = "0.1.0"
 dependencies = [

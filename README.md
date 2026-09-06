@@ -784,6 +784,7 @@ core/crates/
   nova-contesto/      quanto della conversazione ci sta, e cosa si butta quando no
   nova-mcp/           il protocollo con cui un altro programma entra in NOVA
   nova-browser/       il codice che gira dentro la pagina, e cosa di una pagina e' testo
+  nova-cervelli/      cosa NOVA dice a un cervello che vive fuori: riga di comando, prompt, payload
   nova-guasti/        un guasto detto in italiano, e le chiavi che non escono
   nova-modelli/       trovare i GGUF e llama-server sul disco, e i conti sulla VRAM
   nova-voce/          audio, Kokoro, whisper, Scribe: niente Python

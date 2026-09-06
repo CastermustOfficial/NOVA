@@ -794,6 +794,7 @@ core/crates/
   nova-contesto/      how much of the conversation fits, and what goes when it doesn't
   nova-mcp/           the protocol another program uses to enter NOVA
   nova-browser/       the code that runs inside the page, and what counts as a page's text
+  nova-cervelli/      what NOVA says to a brain that lives outside: command line, prompt, payload
   nova-guasti/        a failure said in Italian, and keys that never leak
   nova-modelli/       finding GGUFs and llama-server on disk, and the VRAM sums
   nova-voce/          audio, Kokoro, whisper, Scribe: no Python

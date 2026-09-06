@@ -1,0 +1,24 @@
+[package]
+name = "nova-cervelli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Cosa NOVA dice a un cervello che vive fuori: la riga di comando, il prompt di sistema, il payload."
+
+[dependencies]
+# Il payload di una chiamata OpenAI-compatibile e' JSON, e l'ordine delle
+# chiavi si conserva: si confronta carattere per carattere col Python.
+serde_json = { workspace = true }
+# «Un solo messaggio di sistema in testa» e' una regola di finestra, e la
+# finestra sta li' (D73).
+nova-contesto = { path = "../nova-contesto" }
+serde = { workspace = true, features = ["derive"], optional = true }
+
+[features]
+banco = ["dep:serde"]
+
+[[bin]]
+name = "banco-cervelli"
+path = "src/banco.rs"
+required-features = ["banco"]
