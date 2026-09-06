@@ -6013,3 +6013,46 @@ perche' non l'ha detto.
 Sei confronti in un giorno, quattro difetti veri. La domanda che li ha
 trovati tutti e' sempre la stessa, e non ha niente a che vedere col leggere
 il codice: **questo elenco, chi lo confronta con la realta'?**
+
+
+## 6 settembre 2026, sera — Leggere la risposta e' una decisione
+
+Tornato al porting con una scoperta che avevo fatto e non usato: `nova-voce`
+usa gia' `ureq` per parlare con ElevenLabs. La libreria HTTP non e' una
+scelta aperta, e' una scelta gia' fatta in casa (D99, ancora). Quindi il
+pezzo dei cervelli che parla in rete si puo' fare senza chiedere niente a
+nessuno.
+
+Ma prima della rete viene una cosa che rete non e': **leggere cio' che il
+fornitore ha risposto**. Sembra parsing e non lo e', perche' sbagliarlo non
+da' un errore — da' una risposta **vuota**. E per chi guarda NOVA una
+risposta vuota e' indistinguibile da un modello che non ha saputo rispondere:
+il difetto non si scopre, si attribuisce al modello (D190).
+
+I punti dove si sbaglia sono tutti minuscoli:
+
+- la lista delle scelte puo' essere **vuota**, e «la prima di zero» in Python
+  non e' un errore: c'e' un `or [{}]` messo li' apposta;
+- il ragionamento arriva con **due nomi**, `reasoning_content` e `reasoning`,
+  perche' i fornitori non si sono messi d'accordo. Vince il primo — ma solo
+  se non e' la stringa vuota, perche' in Python `"" or x` da' `x`. Senza quel
+  dettaglio, un fornitore che manda il campo vuoto fa sparire il ragionamento
+  invece di far prendere l'altro nome;
+- oppure sta **dentro** il testo, in un `<think>` che a volte non e' chiuso
+  perche' il modello si e' interrotto;
+- e i token contati arrivano come stringa, o con la virgola.
+
+Su quest'ultimo ho lasciato una differenza **voluta**, e l'ho scritta in una
+prova invece di nasconderla: `int("abc")` in Python solleva, e il turno
+intero va perso; qui vale zero. Un fornitore che sbaglia a contare i token
+non deve poter buttare via una risposta che il modello ha gia' dato.
+
+Diciotto corpi di risposta confrontati col `chat` vero — chiamato con la rete
+sostituita, cosi' quello che si misura e' il codice che gira. Cinque
+mutazioni nuove, cinque rosse; diciassette su diciassette in tutto il banco
+dei cervelli.
+
+I casi che contano non li ho trovati pensando: li ho trovati chiedendomi
+**cosa vedrei di diverso** se ognuno di quei dettagli fosse sbagliato. Due
+scenari sono nati cosi' — quello coi due nomi del ragionamento insieme, e
+quello col primo vuoto — e senza di loro due mutazioni sarebbero passate.

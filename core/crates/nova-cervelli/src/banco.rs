@@ -108,6 +108,19 @@ struct Dentro {
     cli_argomenti: Vec<(String, Vec<String>, String)>,
     #[serde(default)]
     candidati: Vec<String>,
+    /// Corpi di risposta dei fornitori, da leggere.
+    #[serde(default)]
+    risposte: Vec<Value>,
+}
+
+/// Cio' che si confronta di una risposta letta: tutto tranne l'orologio.
+#[derive(Serialize)]
+struct RispostaFuori {
+    contenuto: String,
+    ragionamento: String,
+    tool_calls: Vec<Value>,
+    token_input: i64,
+    token_output: i64,
 }
 
 #[derive(Serialize)]
@@ -125,6 +138,7 @@ struct Fuori {
     cli_prompt: Vec<String>,
     cli_argomenti: Vec<Vec<String>>,
     candidati: Vec<Vec<String>>,
+    risposte: Vec<RispostaFuori>,
 }
 
 fn messaggi(v: &[MessaggioIn]) -> Vec<Messaggio> {
@@ -233,6 +247,20 @@ fn main() {
             .map(|(e, a, m)| cli::argomenti(e, a, m))
             .collect(),
         candidati: d.candidati.iter().map(|b| cli::candidati(b)).collect(),
+        risposte: d
+            .risposte
+            .iter()
+            .map(|r| {
+                let x = openai::leggi_risposta(r);
+                RispostaFuori {
+                    contenuto: x.contenuto,
+                    ragionamento: x.ragionamento,
+                    tool_calls: x.tool_calls,
+                    token_input: x.token_input,
+                    token_output: x.token_output,
+                }
+            })
+            .collect(),
     };
 
     match serde_json::to_string(&fuori) {
