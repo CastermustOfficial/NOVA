@@ -68,7 +68,16 @@ def _eseguibile() -> str:
         trovato = shutil.which(nome)
         if trovato:
             return trovato
-    raise RuntimeError("non trovo ne' Edge ne' Chrome")
+    # Chi legge questo messaggio non ha ne' Edge ne' Chrome, quindi non e' una
+    # macchina come le altre: merita di sapere **cosa smette di funzionare e
+    # cosa no**, invece di un elenco di due nomi. La ricerca sul web resta,
+    # perche' ha un ripiego che non passa da un browser.
+    raise RuntimeError(
+        "non trovo ne' Edge ne' Chrome, e senza uno dei due non posso "
+        "guidare una pagina: aprire, leggere, premere e scrivere sui siti "
+        "restano fuori. Cercare sul web funziona lo stesso, in modo piu' "
+        "fragile. Se ne hai uno installato altrove, dimmi dov'e'."
+    )
 
 
 # ------------------------------------------------------------------ attacco

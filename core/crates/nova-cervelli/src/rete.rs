@@ -309,10 +309,16 @@ mod prove {
         ));
     }
 
-    /// Un server che risponde una volta sola e poi chiude. Serve a provare
-    /// che il trasporto **vero** legge quello che deve: il codice, il corpo,
-    /// e `Retry-After` — che si legge prima del corpo, perche' leggere il
-    /// corpo consuma la risposta.
+    /// Un server che risponde **sempre la stessa cosa**, finche' vive la
+    /// prova. Serve a provare che il trasporto **vero** legge quello che
+    /// deve: il codice, il corpo, e `Retry-After` — che si legge prima del
+    /// corpo, perche' leggere il corpo consuma la risposta.
+    ///
+    /// Rispondeva una volta sola, e quella era la fragilita': un'altra prova
+    /// che cercava una porta chiusa poteva **prendersi l'unica connessione**
+    /// di questo server, e da li' in poi chi lo stava usando davvero si
+    /// sentiva rifiutare. Rosso a caso, e solo quando le prove girano
+    /// insieme. Un server che serve in cerchio non ha quel problema.
     ///
     /// La lunghezza la conta lui: scriverla a mano e' un numero da tenere
     /// aggiornato, cioe' una prova che un giorno fallisce per il motivo
@@ -335,7 +341,8 @@ mod prove {
         let ascolto = std::net::TcpListener::bind("127.0.0.1:0").expect("nessuna porta");
         let porta = ascolto.local_addr().unwrap().port();
         std::thread::spawn(move || {
-            if let Ok((mut c, _)) = ascolto.accept() {
+            for arrivato in ascolto.incoming() {
+                let Ok(mut c) = arrivato else { break };
                 let mut buffer = [0u8; 4096];
                 let _ = c.read(&mut buffer);
                 let _ = c.write_all(risposta.as_bytes());
@@ -369,11 +376,14 @@ mod prove {
         // Il trasporto da solo, non il giro: `chiedi` qui dormirebbe sette
         // secondi veri fra un tentativo e l'altro, e una prova lenta e' una
         // prova che si finisce per saltare.
-        let ascolto = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        let porta = ascolto.local_addr().unwrap().port();
-        drop(ascolto);
-        let url = format!("http://127.0.0.1:{porta}/v1/chat/completions");
-        assert!(Rete::nuova(1, ATTESA_PROVE).posta(&url, &[], "{}").is_err());
+        //
+        // La porta **uno**, e non una presa a caso e poi chiusa: quella
+        // poteva essere riassegnata al server di un'altra prova nel frattempo,
+        // e allora questa si prendeva la sua connessione. Sulla porta 1 non
+        // ascolta mai nessuno, ed e' l'unico modo di dire «chiusa» che non
+        // dipende da cosa gira accanto.
+        let url = "http://127.0.0.1:1/v1/chat/completions";
+        assert!(Rete::nuova(1, ATTESA_PROVE).posta(url, &[], "{}").is_err());
     }
 
     #[test]

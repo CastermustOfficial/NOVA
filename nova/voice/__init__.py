@@ -43,3 +43,14 @@ def chiave_api(cfg) -> str:
     import os
     return (os.environ.get("ELEVENLABS_API_KEY", "").strip()
             or getattr(cfg.voice, "api_key", "").strip())
+
+
+#: Cosa si dice quando la chiave non c'e'.
+#:
+#: Una frase sola, e non due copie: era scritta in `stt` e in `tts`, ne ho
+#: riparata una e l'altra e' rimasta cruda — l'ha trovata la prova, non io.
+#: Dove si mette una chiave e' la stessa risposta per tutti e due i versi
+#: della voce, quindi sta in un posto solo (D73).
+SENZA_CHIAVE = ("manca la chiave ElevenLabs: si mette in voice.api_key nella "
+                "configurazione, oppure nella variabile d'ambiente "
+                "ELEVENLABS_API_KEY.")

@@ -6,7 +6,12 @@ cercare - scheda, cookie, pagina dei risultati, click - quattro chiamate per
 una. E la ricerca doveva essere di NOVA, non di Claude Code: chi la fa
 ragionare con Gemini o col modello locale non ha `WebSearch`.
 
-La prova tocca la rete: se non c'e', lo dice e non finge di aver provato.
+La prova tocca la rete: se non c'e', lo dice e non finge di aver provato. E
+il motore di ricerca e' di qualcun altro — puo' strozzare, puo' rispondere
+una pagina anti-bot, puo' essere giu'. Quando succede questa prova si
+dichiara **non provabile** invece di rossa: dare la colpa a NOVA per una
+cosa che NOVA non controlla e' il modo di rendere una suite inaffidabile, e
+una suite che ogni tanto mente non la guarda piu' nessuno (D164).
 
 Il tempo dichiarato non e' un permesso di essere lenta. Questa prova avvia un
 Chrome vero e aspetta due volte la rete, e con la macchina occupata — un
@@ -81,9 +86,31 @@ else:
         for f in falliti:
             print("  FALLITO:", f)
         sys.exit(1 if falliti else 2)
+    # Due volte, e poi si dichiara.
+    #
+    # Un motore di ricerca e' di qualcun altro: puo' rispondere una pagina
+    # anti-bot, puo' strozzare chi chiede troppo in fretta, puo' essere giu'.
+    # Quando succede, questa prova diceva **rossa** — cioe' dava la colpa a
+    # NOVA per una cosa che NOVA non controlla, ed e' esattamente l'errore
+    # che il banco ha smesso di fare quando ha imparato «non provabile»
+    # (D164). Qui la distinzione non c'era ancora, e in una giornata di
+    # lavoro l'ho vista sbagliare due volte.
+    #
+    # Cosa resta rosso: se NOVA non sa guidare il browser, o se il codice si
+    # rompe. Quello si vede lo stesso, perche' fallisce in un altro modo.
     t0 = time.time()
     d = cerca.cerca("listone fantacalcio ruoli", quanti=6)
+    if not (d.get("ok") and d.get("risultati")):
+        time.sleep(3)
+        d = cerca.cerca("listone fantacalcio ruoli", quanti=6)
     ms = (time.time() - t0) * 1000
+    if not (d.get("ok") and d.get("risultati")):
+        print(f"      il motore non ha dato risultati ({d.get('motivo') or 'nessun motivo'}):")
+        print("      non e' una cosa che NOVA controlla, quindi qui non si prova.")
+        print(f"\n{passati}/{passati + len(falliti)} passati")
+        for f in falliti:
+            print("  FALLITO:", f)
+        sys.exit(1 if falliti else 2)
     controlla("la ricerca risponde", d.get("ok"), str(d.get("motivo")))
     ris = d.get("risultati") or []
     controlla("con piu' di un risultato", len(ris) >= 3, f"{len(ris)}")

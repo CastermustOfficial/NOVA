@@ -350,9 +350,14 @@ pub fn verifica_file(indicato: &str) -> Verifica {
     match gguf::misura(&p) {
         Ok(m) if !m.completo() => {
             let mancano = m.byte_minimi.saturating_sub(m.byte) / (1024 * 1024);
+            // La diagnosi da sola lascia fermo chi legge: un GGUF a meta'
+            // non si ripara, si riscarica — e il file c'e', quindi guardando
+            // la cartella sembra a posto (D193).
             return vuota(&format!(
                 "e' un GGUF ma non e' finito di scaricare: \
-                 mancano almeno {mancano} MB dei suoi {} tensori",
+                 mancano almeno {mancano} MB dei suoi {} tensori. Va \
+                 riscaricato: un file interrotto non si ripara riprovando \
+                 a caricarlo.",
                 m.tensori
             ));
         }

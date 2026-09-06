@@ -1795,11 +1795,23 @@ Non e' una data, sono cinque frasi che devono essere vere insieme:
 1. **Qualcuno che non e' l'autore l'ha installato**, su una macchina che non e'
    questa, e gli ha fatto fare qualcosa di utile.
 2. **Nessun traceback raggiunge l'utente**, in nessuna delle strade provate.
+
 3. ~~**La disinstallazione e' pulita** e lo dice.~~ Fatto: dice cosa ha tolto riga per riga, e cosa ha lasciato apposta con nome, peso e
    percorso. Resta da provarlo su una macchina che non e' questa.
 4. **Le compatibilita' dichiarate sono provate**, oppure sono state tolte dal
    README. Nessuna promessa in sospeso.
 5. **I numeri del README sono misurati**, anche quelli dei modelli consigliati.
+
+> **Primo passo sulla prima frase, il 6 settembre.** Non si puo' installare
+> NOVA su un'altra macchina da questa, ma si puo' leggere **cosa NOVA dice a
+> chi non ha gia' tutto**. I percorsi personali erano gia' a posto, e i
+> percorsi ostili hanno gia' il loro banco. Non era a posto la cosa che
+> nessuno poteva vedere da qui: i tre messaggi che si leggono solo senza
+> Chrome, senza llama-server e senza un GGUF erano gli unici tre del progetto
+> a dire cosa manca senza dire cosa fare (D193). Adesso lo dicono, e una
+> prova tiene l'elenco di cio' che NOVA chiede al mondo fuori — quindici
+> voci, ognuna con scritto cosa succede senza.
+
 
 L'ordine di lavoro che ne segue: prima la lista 3 dal punto 7 in giu' (gli
 errori), poi la lista 2 (le macchine altrui), poi la lista 1 (la velocita').
