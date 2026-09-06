@@ -81,6 +81,39 @@ GUASTI = [
      '.join("\\n\\n")\n        .trim()',
      '.join("\\n")\n        .trim()',
      "rosso"),
+    # --- come si legge cio' che il modello ha risposto ---
+    ("si legge l'ultima scelta invece della prima",
+     C / "openai.rs",
+     ".and_then(|a| a.first())",
+     ".and_then(|a| a.last())",
+     "rosso"),
+    ("dei due nomi del ragionamento vince il secondo",
+     C / "openai.rs",
+     '        .get("reasoning_content")\n        .and_then(|x| x.as_str())\n'
+     '        .filter(|x| !x.is_empty())\n'
+     '        .or_else(|| msg.get("reasoning").and_then(|x| x.as_str()))',
+     '        .get("reasoning")\n        .and_then(|x| x.as_str())\n'
+     '        .filter(|x| !x.is_empty())\n'
+     '        .or_else(|| msg.get("reasoning_content").and_then(|x| x.as_str()))',
+     "rosso"),
+    ("un ragionamento vuoto conta come un ragionamento",
+     C / "openai.rs",
+     '        .and_then(|x| x.as_str())\n        .filter(|x| !x.is_empty())\n'
+     '        .or_else(|| msg.get("reasoning")',
+     '        .and_then(|x| x.as_str())\n'
+     '        .or_else(|| msg.get("reasoning")',
+     "rosso"),
+    ("il ragionamento resta dentro la risposta",
+     C / "openai.rs",
+     "    let (contenuto, ragionamento) =\n"
+     "        nova_contesto::blocchi::separa_ragionamento(contenuto, a_parte);",
+     "    let (contenuto, ragionamento) = (contenuto.to_string(), a_parte.to_string());",
+     "rosso"),
+    ("i token con la virgola si arrotondano invece di troncare",
+     C / "openai.rs",
+     "Some(Value::Number(n)) => n.as_f64().map(|x| x.trunc() as i64).unwrap_or(0),",
+     "Some(Value::Number(n)) => n.as_f64().map(|x| x.round() as i64).unwrap_or(0),",
+     "rosso"),
 ]
 
 sys.exit(_mutazioni.giro(GUASTI, "nova-cervelli", "banco-cervelli",

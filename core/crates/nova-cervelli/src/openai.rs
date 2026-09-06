@@ -115,6 +115,75 @@ pub fn payload_semplice(model: &str, prompt: &str, max_tokens: i64) -> Value {
     Value::Object(p)
 }
 
+/// Cio' che un cervello restituisce dopo un turno.
+///
+/// `durata_ms` non c'e': non e' una decisione, e' un orologio.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Risposta {
+    pub contenuto: String,
+    pub ragionamento: String,
+    pub tool_calls: Vec<Value>,
+    pub token_input: i64,
+    pub token_output: i64,
+}
+
+/// `int(x or 0)` di Python, sui numeri che i fornitori mandano davvero.
+///
+/// Non e' pignoleria: chi manda i token come **stringa** esiste, e chi li
+/// manda con la virgola pure. Python li accetta tutti e due e tronca verso
+/// lo zero; su una stringa che non e' un numero invece **solleva**, e il
+/// turno intero va perso — una prova lo dichiara, perche' qui non succede.
+pub fn come_intero(v: Option<&Value>) -> i64 {
+    match v {
+        None | Some(Value::Null) => 0,
+        Some(Value::Bool(b)) => *b as i64,
+        Some(Value::Number(n)) => n.as_f64().map(|x| x.trunc() as i64).unwrap_or(0),
+        Some(Value::String(t)) => t.trim().parse::<f64>().map(|x| x.trunc() as i64).unwrap_or(0),
+        _ => 0,
+    }
+}
+
+/// Cosa ha detto il modello, letto dalla risposta del fornitore.
+///
+/// La prima scelta e non le altre: i fornitori ne mandano piu' d'una solo se
+/// gliene chiedi piu' d'una, e NOVA non lo fa. Una lista **vuota** pero'
+/// capita, ed e' il caso in cui leggere «la prima» senza pensarci si porta
+/// dietro un errore invece di una risposta vuota.
+pub fn leggi_risposta(dati: &Value) -> Risposta {
+    let vuoto = Value::Object(Default::default());
+    let scelta = dati
+        .get("choices")
+        .and_then(|c| c.as_array())
+        .and_then(|a| a.first())
+        .unwrap_or(&vuoto);
+    let msg = scelta.get("message").filter(|m| !m.is_null()).unwrap_or(&vuoto);
+
+    let contenuto = msg.get("content").and_then(|x| x.as_str()).unwrap_or("");
+    // `reasoning_content` prima, `reasoning` poi: sono lo stesso campo con due
+    // nomi, e i fornitori non si sono messi d'accordo.
+    let a_parte = msg
+        .get("reasoning_content")
+        .and_then(|x| x.as_str())
+        .filter(|x| !x.is_empty())
+        .or_else(|| msg.get("reasoning").and_then(|x| x.as_str()))
+        .unwrap_or("");
+    let (contenuto, ragionamento) =
+        nova_contesto::blocchi::separa_ragionamento(contenuto, a_parte);
+
+    let uso = dati.get("usage").filter(|u| !u.is_null()).unwrap_or(&vuoto);
+    Risposta {
+        contenuto,
+        ragionamento,
+        tool_calls: msg
+            .get("tool_calls")
+            .and_then(|x| x.as_array())
+            .cloned()
+            .unwrap_or_default(),
+        token_input: come_intero(uso.get("prompt_tokens")),
+        token_output: come_intero(uso.get("completion_tokens")),
+    }
+}
+
 /// Come si racconta lo stato di un cervello che parla questo dialetto.
 pub fn descrizione_stato(etichetta: &str, model: &str) -> String {
     format!(
@@ -232,6 +301,47 @@ mod prove {
     fn del_percorso_del_modello_si_dice_solo_il_nome() {
         assert_eq!(stato_locale("C:\\modelli\\qwen.gguf"), "Locale: qwen.gguf");
         assert_eq!(stato_locale(""), "Locale: in caricamento");
+    }
+
+    #[test]
+    fn la_risposta_si_legge_anche_quando_manca_meta_roba() {
+        // Una lista di scelte **vuota** capita, e leggere «la prima» senza
+        // pensarci si porta dietro un errore invece di una risposta vuota.
+        assert_eq!(leggi_risposta(&json!({})), Risposta::default());
+        assert_eq!(leggi_risposta(&json!({"choices": []})), Risposta::default());
+        assert_eq!(leggi_risposta(&json!({"choices": [{}]})), Risposta::default());
+        assert_eq!(leggi_risposta(&json!({"choices": [{"message": null}]})),
+                   Risposta::default());
+    }
+
+    #[test]
+    fn il_ragionamento_si_prende_da_tutti_e_due_i_nomi() {
+        let a = leggi_risposta(&json!({"choices": [{"message":
+            {"content": "risposta", "reasoning_content": "penso"}}]}));
+        assert_eq!((a.contenuto.as_str(), a.ragionamento.as_str()), ("risposta", "penso"));
+        let b = leggi_risposta(&json!({"choices": [{"message":
+            {"content": "risposta", "reasoning": "penso"}}]}));
+        assert_eq!(b.ragionamento, "penso");
+        // E dal testo, quando il modello lo scrive li' dentro.
+        let c = leggi_risposta(&json!({"choices": [{"message":
+            {"content": "<think>ci penso</think>ecco"}}]}));
+        assert_eq!((c.contenuto.as_str(), c.ragionamento.as_str()), ("ecco", "ci penso"));
+    }
+
+    #[test]
+    fn i_token_contati_male_non_fanno_perdere_il_turno() {
+        // Chi manda i token come stringa esiste, e chi li manda con la
+        // virgola pure.
+        let u = |v: serde_json::Value| leggi_risposta(&json!({"usage": v})).token_input;
+        assert_eq!(u(json!({"prompt_tokens": 12})), 12);
+        assert_eq!(u(json!({"prompt_tokens": "12"})), 12);
+        assert_eq!(u(json!({"prompt_tokens": 12.7})), 12);
+        assert_eq!(u(json!({})), 0);
+        assert_eq!(u(json!(null)), 0);
+        // Questo Python non lo accetta: `int("abc")` solleva, e il turno
+        // intero va perso. Qui vale zero. E' una differenza **voluta**, e
+        // sta scritta qui perche' si veda.
+        assert_eq!(u(json!({"prompt_tokens": "abc"})), 0);
     }
 
     #[test]

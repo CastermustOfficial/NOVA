@@ -173,6 +173,52 @@ CLI_ARGOMENTI = [
 ]
 CANDIDATI = ["gemini", "", "claude"]
 
+# I corpi che i fornitori mandano indietro. Quelli storti contano piu' di
+# quelli buoni: una risposta letta male non da' un errore, da' **una risposta
+# vuota** — e per chi guarda NOVA e' indistinguibile da un modello che non ha
+# saputo rispondere.
+RISPOSTE = [
+    {"choices": [{"message": {"content": "ecco la risposta"}}],
+     "usage": {"prompt_tokens": 120, "completion_tokens": 40}},
+    # una lista di scelte vuota: capita, ed e' il caso in cui «la prima»
+    # senza pensarci si porta dietro un errore
+    {"choices": []},
+    {},
+    {"choices": [{}]},
+    {"choices": [{"message": None}]},
+    # il ragionamento, nei tre modi in cui arriva
+    {"choices": [{"message": {"content": "r", "reasoning_content": "penso"}}]},
+    {"choices": [{"message": {"content": "r", "reasoning": "penso"}}]},
+    {"choices": [{"message": {"content": "<think>ci penso</think>ecco"}}]},
+    # un `<think>` che il modello non ha chiuso, perche' si e' interrotto
+    {"choices": [{"message": {"content": "prima <think>e poi si ferma"}}]},
+    # tutti e due insieme
+    {"choices": [{"message": {"content": "<think>a</think>b",
+                              "reasoning_content": "fuori"}}]},
+    # le chiamate di strumento
+    {"choices": [{"message": {"content": "", "tool_calls": [
+        {"id": "1", "function": {"name": "read_file",
+                                 "arguments": "{\"path\": \"x\"}"}}]}}]},
+    # i token contati in modi strani
+    {"usage": {"prompt_tokens": "12", "completion_tokens": 7.9}},
+    {"usage": {"prompt_tokens": None, "completion_tokens": None}},
+    {"usage": None},
+    # accenti ed emoji, che e' dove il confronto si rompe se si sbaglia
+    {"choices": [{"message": {"content": "perché la città è così \U0001f9ea"}}]},
+    # Tutti e due i nomi del ragionamento **insieme**, con valori diversi:
+    # e' l'unico caso in cui si vede quale dei due vince.
+    {"choices": [{"message": {"content": "r", "reasoning_content": "primo",
+                              "reasoning": "secondo"}}]},
+    # Il primo vuoto: in Python `"" or x` da' x, e senza quel dettaglio il
+    # ragionamento sparirebbe invece di prendere l'altro nome.
+    {"choices": [{"message": {"content": "r", "reasoning_content": "",
+                              "reasoning": "quello buono"}}]},
+    # Piu' di una scelta: NOVA ne chiede sempre una sola, ma se un fornitore
+    # ne manda due la prima e' la prima.
+    {"choices": [{"message": {"content": "questa"}},
+                 {"message": {"content": "non questa"}}]},
+]
+
 
 def _msg(lista):
     return [{"ruolo": m.get("role", ""), "contenuto": m.get("content", "")}
@@ -194,6 +240,7 @@ fuori = rust({
     "cli_prompt": [{**c, "messaggi": _msg(c["messaggi"])} for c in CLI_PROMPT],
     "cli_argomenti": CLI_ARGOMENTI,
     "candidati": CANDIDATI,
+    "risposte": RISPOSTE,
 })
 
 print("\n1. la riga di comando di Claude Code")
@@ -410,6 +457,38 @@ controlla(f"i {len(CANDIDATI)} nomi si cercano nello stesso ordine", not diverse
 controlla("il .cmd si cerca per primo",
           fuori["candidati"][0][0].endswith(".cmd"),
           "su Windows npm installa quello, e il nome nudo e' uno script")
+
+print("\n7. e cosa ha detto il modello, letto dalla risposta del fornitore")
+
+
+def py_risposta(corpo):
+    """Il `chat` vero, con al posto della rete il corpo gia' pronto."""
+    b = openai_compat.OpenAICompatBrain.__new__(openai_compat.OpenAICompatBrain)
+    b.model = "m"
+    b._post = lambda p: corpo
+    cfg = finto(model=finto(temperature=0.7, top_p=0.9, max_tokens=1))
+    r = openai_compat.OpenAICompatBrain.chat(b, [], [], cfg)
+    return {"contenuto": r.contenuto, "ragionamento": r.ragionamento,
+            "tool_calls": r.tool_calls, "token_input": r.token_input,
+            "token_output": r.token_output}
+
+
+diverse = []
+for i, (corpo, ru) in enumerate(zip(RISPOSTE, fuori["risposte"])):
+    py = py_risposta(corpo)
+    if ru != py:
+        diverse.append(f"caso {i}: rust {ru} vs python {py}")
+controlla(f"le {len(RISPOSTE)} risposte si leggono uguale", not diverse,
+          " | ".join(diverse[:2]))
+controlla("il banco ha una lista di scelte vuota",
+          any(r.get("choices") == [] for r in RISPOSTE),
+          "senza, «la prima di zero» non e' provata")
+controlla("e un <think> che il modello non ha chiuso",
+          any("<think>" in str(r) and "</think>" not in str(r) for r in RISPOSTE),
+          "senza, il troncone di ragionamento finisce nella risposta")
+controlla("e dei token contati in un modo che Python accetta a fatica",
+          any(isinstance((r.get("usage") or {}).get("prompt_tokens"), str)
+              for r in RISPOSTE))
 
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
