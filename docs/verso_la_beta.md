@@ -1598,7 +1598,7 @@ sconosciuto che da' le mani libere.
 |---|---|---|
 | `agent.send`, `agent._giro`, `agent._execute_call`, `agent._sali_di_gradino` | ~280 | Il ciclo vero e proprio. E' l'ultimo, e per una ragione: un ciclo che chiama strumenti Python non ha liberato niente |
 | `claude_cli._esegui`, `_traccia_avvio`, le sessioni su file, `tipo_accesso` | ~150 | Avviare un processo, leggerne l'uscita, tenere il capo del filo su disco: impalcatura (CANT-7) |
-| `openai_compat._post`, `rileva_modello`, `disponibile` | ~45 | Le richieste HTTP e i tre tentativi: rete — e la libreria non e' una scelta aperta, `ureq` e' gia' in casa per `nova-voce`. Le **decisioni** sono tutte portate: quali codici vogliono dire «riprova», quanto aspettare, cosa dire, e **come si legge la risposta** (D190) |
+| ~~`openai_compat._post`~~, `rileva_modello`, `disponibile` | ~20 | **Fatto** il giro dei tentativi, con la rete dietro un tratto e `ureq` — che era gia' in casa — dall'altra parte (D191). Restano due chiamate di servizio: chiedere l'elenco dei modelli e chiedere se il server e' su |
 | `cli_generic._esegui`, `_trova` | ~35 | Un processo e una ricerca nel PATH: sistema |
 
 

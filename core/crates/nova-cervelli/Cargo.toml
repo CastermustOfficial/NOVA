@@ -16,6 +16,9 @@ nova-contesto = { path = "../nova-contesto" }
 # Le parole con cui si racconta un guasto stanno li', gia' confrontate
 # col Python da un banco (D135).
 nova-guasti = { path = "../nova-guasti" }
+# Gia' in casa: `nova-voce` ci parla con ElevenLabs. Un secondo cliente HTTP
+# per la stessa cosa sarebbero due comportamenti da conoscere invece di uno.
+ureq = "2"
 serde = { workspace = true, features = ["derive"], optional = true }
 
 [features]

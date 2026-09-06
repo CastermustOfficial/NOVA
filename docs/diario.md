@@ -6097,3 +6097,50 @@ la stessa cosa e la dicono otto secondi prima.
 
 E' la seconda volta oggi che il confronto trova qualcosa che nessuno stava
 cercando. La prima era un difetto del Python; questa era mio.
+
+E poi la rete vera, che e' la parte corta: venticinque righe dietro lo stesso
+tratto del copione. `ureq`, e non un'altra libreria, per la ragione piu'
+noiosa e piu' buona — **c'e' gia'**, `nova-voce` ci parla con ElevenLabs, e
+portarsi dietro un secondo cliente HTTP per la stessa cosa vuol dire due
+comportamenti da conoscere invece di uno.
+
+Provata con un server vero: un `TcpListener` su una porta a caso che risponde
+una volta sola e poi chiude. Tre prove — una risposta buona, un 429 col suo
+`Retry-After`, e una porta chiusa. La lunghezza del corpo la conta il server,
+non io: scriverla a mano e' un numero da tenere aggiornato, cioe' una prova
+che un giorno fallisce per il motivo sbagliato.
+
+Ed e' fallita **una volta**, girando insieme alle altre e non da sola: sette
+secondi di attese vere in mezzo, e cinque secondi di timeout non bastavano
+piu'. Non l'ho archiviata come «capita» — e' la forma peggiore di prova, e la
+conosco. Ora il tratto si prova senza passare dal giro dei tentativi, e i
+timeout delle prove sono trenta secondi: non servono a niente quando funziona,
+servono a non diventare rossi quando la macchina e' occupata (D156). Due giri
+interi dello spazio di lavoro dopo la modifica: mille e due prove, zero rosse.
+
+Ultima cosa della giornata, e non l'avevo cercata. Girando la suite,
+`test_appunti.py` e' diventata rossa; da sola passava. La tentazione era
+archiviarla come «capita» — l'avevo gia' fatto stamattina con `test_cerca`,
+dove era vero.
+
+Stavolta no. Gli appunti di Windows **sono del sistema, non nostri**:
+chiunque stia copiando qualcosa in quell'istante li tiene in mano per qualche
+millesimo di secondo, e `OpenClipboard` in quel millesimo fallisce. NOVA
+provava una volta sola. Quindi ogni tanto risponde «gli appunti sono
+occupati» per un'operazione che sarebbe riuscita dieci millisecondi dopo, e
+chi guarda vede un difetto di NOVA invece di una coda (D192).
+
+Non era la prova a essere fragile: era NOVA. Dieci tentativi a dieci
+millesimi — un decimo di secondo che nessuno percepisce — e la politica messa
+**fuori** dal codice che tocca Windows, perche' e' l'unica parte che si puo'
+provare senza avere degli appunti occupati davvero.
+
+Il binario in `bin/` era del 5 settembre, quindi la riparazione non sarebbe
+arrivata a niente: ricostruito e rimesso li'. Quattro giri di fila della
+prova, quattro verdi.
+
+E una nota per Gio, che non e' un difetto: `bin/SHA256SUMS.txt` non e'
+tracciato da git, elenca **tre** binari su quindici, e tutti e tre hanno un
+hash che non e' piu' quello dei file. Il manifesto vero lo genera la CI al
+momento del rilascio (`dist/SHA256SUMS.txt`), quindi quello in `bin/` e' un
+avanzo locale: o si rigenera sapendo cosa contiene, o si butta.

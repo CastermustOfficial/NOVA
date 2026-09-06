@@ -2503,6 +2503,7 @@ dependencies = [
  "nova-guasti",
  "serde",
  "serde_json",
+ "ureq",
 ]
 
 [[package]]
