@@ -185,6 +185,49 @@ controlla("e le applica con la stessa guardia di NOVA, non con una sua",
           and "in_posizione_di_comando" not in POLICY_RS,
           "un secondo meccanismo sullo stesso elenco da' due risposte diverse")
 
+print("\n4. una configurazione salvata non congela le guardie")
+# Ovunque altro nella configurazione il salvato vince, ed e' giusto: e' roba
+# dell'utente. Qui no, perche' questa e' l'unica lista che **cresce**, e una
+# lista che cresce piu' un file che vince danno un elenco congelato al giorno
+# in cui e' stato salvato. E' gia' successo col prompt di sistema.
+import json                                                  # noqa: E402
+import tempfile                                              # noqa: E402
+
+from nova.config import Config, GUARDIE_CHE_SI_UNISCONO      # noqa: E402
+
+SUOI_PATTERN = [r"\bdiskpart\b", r"\bmia regola\b"]
+SUOI_PERCORSI = ["D:\\lavoro"]
+_d = Path(tempfile.mkdtemp()) / "config.json"
+_d.write_text(json.dumps({"safety": {
+    "forbidden_command_patterns": SUOI_PATTERN,
+    "protected_paths": SUOI_PERCORSI,
+}}), encoding="utf-8")
+salvata = Config.load(_d)
+
+controlla("i predefiniti tornano dentro un elenco che non li aveva",
+          all(x in salvata.safety.forbidden_command_patterns
+              for x in S.forbidden_command_patterns),
+          str([x for x in S.forbidden_command_patterns
+               if x not in salvata.safety.forbidden_command_patterns]))
+controlla("e quelli dell'utente restano dove li aveva messi",
+          salvata.safety.forbidden_command_patterns[:len(SUOI_PATTERN)] == SUOI_PATTERN
+          and SUOI_PERCORSI[0] in salvata.safety.protected_paths)
+controlla("senza duplicare quelli che c'erano gia'",
+          len(salvata.safety.forbidden_command_patterns)
+          == len(set(salvata.safety.forbidden_command_patterns)),
+          str(salvata.safety.forbidden_command_patterns))
+controlla("e NOVA dice cosa ha rimesso, invece di farlo in silenzio",
+          set(salvata.guardie_aggiunte) == set(GUARDIE_CHE_SI_UNISCONO),
+          str(salvata.guardie_aggiunte))
+controlla("una configurazione che le aveva gia' tutte non viene toccata",
+          not Config().guardie_aggiunte)
+# E cio' che si aggiunge non finisce nel file: un campo che non si serializza
+# non deve poter tornare indietro come se l'utente l'avesse scritto lui.
+_r = _d.parent / "riscritta.json"
+salvata.save(_r)
+controlla("e cio' che ha aggiunto non si riscrive come se fosse suo",
+          "guardie_aggiunte" not in _r.read_text(encoding="utf-8"))
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")

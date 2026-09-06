@@ -664,6 +664,10 @@ class Config:
     fascicolo: str = ""
     # non si serializza: dice se il file su disco e' stato ignorato e perche'
     errore_caricamento: str = ""
+    # non si serializza: quali guardie di fabbrica sono state riaggiunte a
+    # quelle salvate, per campo. Aggiungere qualcosa alla configurazione di
+    # qualcuno senza dirlo e' l'altro modo di sbagliare.
+    guardie_aggiunte: dict = field(default_factory=dict)
 
     # ------------------------------------------------------------------
     @property
@@ -675,6 +679,7 @@ class Config:
         path.parent.mkdir(parents=True, exist_ok=True)
         dati = asdict(self)
         dati.pop("errore_caricamento", None)
+        dati.pop("guardie_aggiunte", None)
         # newline esplicito e nessun BOM: il file lo rileggono anche altri
         # Di fianco e poi rinomina: qui dentro puo' esserci una chiave API, e
         # una configurazione troncata vuol dire NOVA che riparte come appena
@@ -708,6 +713,7 @@ class Config:
         finale = _merge(cfg, raw)
         _pulisci_cli(finale)
         _traccia_config("letto", path, finale.brains.claude_max_turns)
+        _traccia_guardie(finale.guardie_aggiunte)
         return finale
 
 
@@ -745,7 +751,67 @@ def _merge(cfg: Config, raw: dict[str, Any]) -> Config:
             setattr(obj, k, v)
     if raw.get("system_prompt"):
         cfg.system_prompt = raw["system_prompt"]
+    _guardie_non_si_perdono(cfg)
     return cfg
+
+
+#: Le due liste in cui il salvato **non** vince da solo: si unisce.
+GUARDIE_CHE_SI_UNISCONO = ("forbidden_command_patterns", "protected_paths")
+
+
+def _guardie_non_si_perdono(cfg: Config) -> None:
+    """I predefiniti delle guardie si aggiungono, non si lasciano sostituire.
+
+    Ovunque altro in questa configurazione il salvato vince, ed e' giusto:
+    e' roba dell'utente. Qui no, e la ragione non e' che NOVA sappia meglio —
+    e' che questa e' l'unica lista che **cresce**, e una lista che cresce piu'
+    un file che vince danno un elenco congelato al giorno in cui e' stato
+    salvato.
+
+    E' gia' successo, con il prompt di sistema: una configurazione di mesi
+    prima conteneva 2423 caratteri contro i 4609 del predefinito, e fra le
+    righe mancanti c'era quella che diceva a NOVA che poteva guardare la posta
+    dal browser. Nessun errore, nessun avviso: solo NOVA che per mesi
+    rispondeva di non poterlo fare.
+
+    Qui il costo di quel silenzio non e' una capacita' in meno: sono
+    `cipher /w` e `wevtutil cl` che non vengono fermati. Quindi si uniscono —
+    e lo si scrive nel registro, perche' aggiungere qualcosa alla
+    configurazione di qualcuno senza dirlo e' l'altro modo di sbagliare.
+
+    L'utente puo' ancora aggiungerne. Toglierne uno di quelli di fabbrica si
+    fa cambiando NOVA, non dimenticando di aggiornare un file (D185).
+    """
+    fabbrica = SafetyConfig()
+    for campo in GUARDIE_CHE_SI_UNISCONO:
+        suoi = list(getattr(cfg.safety, campo) or [])
+        mancanti = [x for x in getattr(fabbrica, campo) if x not in suoi]
+        if mancanti:
+            setattr(cfg.safety, campo, suoi + mancanti)
+            cfg.guardie_aggiunte.setdefault(campo, []).extend(mancanti)
+
+
+def _traccia_guardie(aggiunte: dict) -> None:
+    """Cosa NOVA ha rimesso nell'elenco delle guardie, e in che campo.
+
+    Silenziosa come `_traccia_config`, e per la stessa ragione: una
+    diagnostica che impedisce a NOVA di partire sarebbe peggio del difetto
+    che misura. Ma non muta: chi apre `avvio.log` deve poter vedere che la
+    sua configurazione e' stata integrata, e con cosa.
+    """
+    if not aggiunte:
+        return
+    try:
+        import datetime
+        import os as _os
+        f = Path(__file__).resolve().parent.parent / "avvio.log"
+        pezzi = ", ".join(f"{k}: {len(v)}" for k, v in sorted(aggiunte.items()))
+        with open(f, "a", encoding="utf-8") as fh:
+            fh.write(f"{datetime.datetime.now():%d/%m %H:%M:%S} "
+                     f"pid={_os.getpid()} GUARDIE rimesse dai predefiniti "
+                     f"({pezzi}) - il salvato non le conteneva\n")
+    except Exception:
+        pass
 
 
 def _traccia_config(verso: str, path: "Path", turni: int) -> None:
