@@ -18,6 +18,7 @@ pub mod claude;
 pub mod cli;
 pub mod dichiarazioni;
 pub mod openai;
+pub mod rete;
 
 /// Un messaggio della conversazione, come lo vedono i cervelli.
 pub use nova_contesto::Messaggio;
