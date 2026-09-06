@@ -11,6 +11,7 @@ members = [
     "crates/nova-pianificazione",
     "crates/nova-salita",
     "crates/nova-contesto",
+    "crates/nova-mcp",
     "crates/nova-catalogo",
     "crates/nova-cartelle",
     "crates/nova-nodi",

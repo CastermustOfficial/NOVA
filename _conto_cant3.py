@@ -48,8 +48,10 @@ def esamina(percorso: Path) -> list[tuple[str, int, list[str]]]:
     return fuori
 
 
-FILE = ["nova/agent.py", "nova/brains/openai_compat.py", "nova/brains/claude_cli.py",
-        "nova/brains/cli_generic.py", "nova/brains/base.py", "nova/brains/__init__.py"]
+import sys as _s
+FILE = _s.argv[1:] or ["nova/agent.py", "nova/brains/openai_compat.py",
+        "nova/brains/claude_cli.py", "nova/brains/cli_generic.py",
+        "nova/brains/base.py", "nova/brains/__init__.py"]
 
 pure_righe = 0
 sporche_righe = 0

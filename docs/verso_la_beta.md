@@ -966,7 +966,7 @@ mole, non di difficolta'.
 | ~~CANT-2~~ | ~~**Gli strumenti**~~ — **fatto**, per la parte traducibile: dichiarazioni, guardie, formato, i corpi dei file, la shell, i tasti, le pagine, la **scelta** di cosa ricordare, e i quindici strumenti che chiedono davvero alla piattaforma. Quel che resta in `nova/tools/` appartiene ad altri cantieri, file per file (D150) | ~2.570 | Sono la meta' di NOVA che tocca il PC, ed e' esattamente quella che in Python costa di piu' in dipendenze. Tanti pezzi piccoli e indipendenti: si e' portato uno strumento per volta senza fermare niente |
 | CANT-3 | **Il ciclo dell'agente e i cervelli** — `agent.py`, i client dei modelli | ~2.200 | E' il pezzo che davvero libera dal Python, ma va dopo gli strumenti: un ciclo che chiama strumenti Python non ha liberato niente. Dentro c'e' la parte piu' delicata di tutto il progetto — il taglio del contesto a token, che se sbaglia perde pezzi di conversazione senza dirlo |
 | CANT-4 | **Lanciare il modello locale** — *le decisioni: fatte; avviare il processo e leggere cosa dice: da fare* | ~690 | Il calcolo degli strati era gia' in `nova-modelli`; restava il pezzo dove le decisioni si vedono poco e costano molto — la riga di comando, la scala dei layer, l'unico errore che vale la pena riprovare (D173) |
-| CANT-5 | **Il server MCP** | ~1.290 | Protocollo, quindi traducibile senza scelte. Ma serve solo a chi collega NOVA a un altro programma: non toglie Python a nessuno finche' c'e' il resto |
+| ~~CANT-5~~ | ~~**Il server MCP**~~ — **fatto**: il protocollo, le trentatre' dichiarazioni, il rischio, la domanda in chiaro, gli allegati e la risposta al permesso. I corpi degli strumenti appartengono ai cantieri che chiamano | ~1.290 | Protocollo, quindi traducibile senza scelte — ma le **buste** hanno una regola che rompe i client quando si sbaglia (D175, D176) |
 | CANT-6 | **Il browser e la ricerca** — CDP | ~760 | Parla con Chrome via WebSocket. Nessuna scelta di interfaccia, ma dipende da una libreria asincrona: e' il primo pezzo che porta `tokio` dentro un crate di logica |
 | CANT-7 | **L'impalcatura** — config, main, dati, componenti | ~1.800 | Non si porta: si **riscrive**, perche' meta' esiste solo per tenere insieme il Python. `nova-core::config` ne ha gia' un pezzo. Va per ultima fra quelle di sostanza, quando si sa cosa deve tenere insieme |
 | CANT-8 | **L'harness dei documenti** | ~2.900 | Il piu' grosso, e l'unico che **non e' una traduzione**: e' una finestra Qt, e in Rust vuol dire deciderne un'altra. E' una decisione di interfaccia travestita da porting, e va presa da sveglio, non a fine lista |
@@ -1618,6 +1618,50 @@ parole. Sono i due casi in cui NOVA non riprova con meno layer e si arrende.
 Portate uguali e **dichiarate** in una prova che si chiama
 `e_due_forme_che_oggi_NON_si_riconoscono` (D174): allargare la rete e' una
 decisione, e chi la prende deve sapere cosa sta decidendo.
+
+
+**CANT-5 e' chiuso.** Il server MCP e' il posto da cui un altro programma —
+Claude Code — entra in NOVA, e la parte che si porta e' il **protocollo**: la
+busta JSON-RPC, il dispacciamento, le trentatre' dichiarazioni (estratte, non
+ricopiate, con l'estrattore che si rilegge da solo), il giudizio di rischio,
+la domanda che l'utente legge, gli allegati con il loro tetto, e la risposta
+a chi chiede il permesso.
+
+Il protocollo si porta «senza scelte» solo finche' non lo si guarda da vicino.
+Due regole che a leggere la specifica in fretta si perdono, e sono quelle che
+rompono i client:
+
+- **una richiesta senza `id` e' una notifica, e a una notifica non si risponde
+  mai** — nemmeno per dire che il metodo non esiste (D175). Il banco confronta
+  anche i `None`, e si arrabbia se nessuno scenario e' senza risposta: un banco
+  che prova solo le domande non prova il silenzio.
+- **«non ha funzionato» e «non ci siamo capiti» sono due buste diverse**: uno
+  strumento che non esiste e' `-32601`, uno che esplode e' un risultato
+  riuscito con `isError` (D176). E il banco ha trovato al primo giro che una
+  `tools/call` senza `params` scrive «strumento sconosciuto: **None**», non
+  stringa vuota.
+
+E una regola che non e' di protocollo ma di fiducia: **se non si e' potuto
+chiedere il permesso, si nega** (D177). Se il demone non risponde nessuno puo'
+autorizzare, e rispondere «consenti» vorrebbe dire che un guasto di NOVA si
+trasforma in un permesso.
+
+Quel che resta in `mcp_kb.py` non e' protocollo: sono i **corpi** dei
+trentatre' strumenti, e ognuno e' una riga che chiama un pezzo di NOVA piu' il
+modo in cui ne racconta la risposta. Quel racconto appartiene al cantiere del
+pezzo che chiama, non a questo — file per file, come per CANT-2:
+
+| Strumenti | Dove appartengono |
+|---|---|
+| `kb_search`, `kb_note` | il vault e il motore: CANT-1, gia' in Rust — manca il filo |
+| `harness_*`, `fascicolo*` (11) | l'harness dei documenti: CANT-8 |
+| `web_*` (12) | il browser e la ricerca: CANT-6 |
+| `delega`, `modelli` | il router: `nova-scala`, collegamento in CANT-3 |
+| `pianifica_*`, `avvisi_recenti`, `azione_registra`, `azioni_recenti`, `dati_dove` | `nova-pianificazione` e `nova-registro`, gia' in Rust |
+| `chiedi_permesso` | fatto: la decisione e' qui, il demone e' CANT-7 |
+
+Restano fuori anche il ciclo su stdio e `scrivi_config`, che sono impalcatura
+(CANT-7).
 
 
 ## Il cancello della beta
