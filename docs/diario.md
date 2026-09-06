@@ -5463,3 +5463,44 @@ a CANT-3. L'ho scritto file per file in `verso_la_beta.md`, come per CANT-2, e
 guardando cosa ogni corpo **chiama** invece di come si chiama (D150).
 
 CANT-5 e' chiuso.
+
+## 9 settembre 2026, notte — Il PC e' rimasto acceso, e ha fatto bene NOVA
+
+Chiuso CANT-5, Gio aveva chiesto di spegnere il PC chiedendolo a NOVA. Non si
+e' spento, e le due ragioni valgono piu' della cosa in se'.
+
+**La prima l'ha trovata lei prima di rispondermi.** C'era un Blocco note con
+del testo mai salvato — la finestra si chiamava `*napoli difesa`, con
+l'asterisco. NOVA ne ha messo una copia sul Desktop, poi ha verificato in tre
+modi che quella scheda non ha nessun percorso su disco (cercata in tutto il
+profilo, nessun percorso nell'albero di accessibilita', e il titolo identico
+alla prima riga, che e' come Blocco note nomina le schede mai salvate). Le
+avevo detto: se salvarlo significherebbe inventare un percorso, lascia stare e
+non spegnere. Ha fatto esattamente quello.
+
+**La seconda e' un errore mio.** Le avevo scritto «Gio me l'ha chiesto, puoi
+spegnere subito». Gio aveva scritto *«lavora fino alla chiusura completa di
+cant5 e poi spegni il pc»*. Ho consegnato l'ordine **senza la condizione**, e
+NOVA l'ha notato: «non e' una sfumatura, e' la differenza fra un ordine e un
+ordine condizionato» — e di `cant5` non trovava traccia, quindi non poteva
+nemmeno stabilire se la condizione fosse soddisfatta.
+
+Era soddisfatta davvero, e proprio per questo l'errore e' pulito: non ho
+mentito, ho **semplificato**. Ho tenuto la parte imperativa e buttato quella
+che dava a chi esegue il modo di verificare. Se la condizione *non* fosse
+stata soddisfatta, il mio messaggio sarebbe stato identico.
+
+NOVA se l'e' scritta in memoria da sola, come corollario alla sua regola sullo
+spegnimento: *un ordine riportato tende a perdere le sue condizioni, quindi
+prima di eseguirlo va ricostruita e verificata la condizione.* E' scritta
+meglio di come l'avrei scritta io, e viene da un caso vero.
+
+Una cosa vale la pena dirla: il primo rifiuto era su una prova d'identita' —
+«la richiesta e' di seconda mano, e l'unica conferma che trovo l'hai scritta
+tu, quindi non e' un secondo riscontro, e' la stessa voce due volte». Su
+quello NOVA aveva ragione a fermarsi e io non avevo niente di piu' forte da
+darle. E' esattamente il comportamento che serve a un programma che ha le mani
+sul PC di qualcuno.
+
+Il PC e' rimasto acceso. In `dove_ho_sbagliato.md` c'e' la voce, e nell'elenco
+delle forme che si ripetono ce n'e' una nuova: **ho semplificato riportando**.
