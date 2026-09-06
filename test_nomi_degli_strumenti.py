@@ -200,6 +200,38 @@ controlla("e questa prova non conosce nativi che non nomina nessuno",
           f"{mai_usati}  <- nessuno li permette e nessuno li classifica: "
           "toglierli, o scoprire chi doveva nominarli")
 
+print("\n7. e ogni strumento dichiarato dal server ha chi lo esegue")
+# Un nome nell'elenco `tools/list` senza un gestore dietro e' uno strumento
+# che il programma dall'altra parte vede, chiama, e si sente rispondere
+# «sconosciuto». Un gestore senza dichiarazione e' l'opposto: una cosa che
+# NOVA sa fare e che nessuno le chiedera' mai, perche' non l'ha detto.
+alb = ast.parse(io.open(RADICE / "nova" / "mcp_kb.py", encoding="utf-8-sig").read())
+GESTITI: list[str] = []
+for n in ast.walk(alb):
+    if (isinstance(n, ast.Dict) and n.keys
+            and all(isinstance(k, ast.Constant) and isinstance(k.value, str)
+                    for k in n.keys)
+            and all(isinstance(v, ast.Attribute)
+                    and getattr(v.value, "id", "") == "self" for v in n.values)):
+        GESTITI = [k.value for k in n.keys]
+controlla(f"il server smista {len(GESTITI)} nomi", len(GESTITI) > 20,
+          "non ho ritrovato la tabella di smistamento")
+orfani = sorted(NOSTRI - set(GESTITI))
+controlla("ogni strumento dichiarato ha chi lo esegue", not orfani,
+          f"{orfani}  <- l'altro programma lo vede, lo chiama, e si sente "
+          "rispondere «sconosciuto»")
+muti = sorted(set(GESTITI) - NOSTRI)
+controlla("e ogni gestore e' dichiarato", not muti,
+          f"{muti}  <- NOVA lo sa fare e nessuno glielo chiedera' mai")
+
+senza_descrizione = sorted(s["name"] for s in STRUMENTI
+                           if len((s.get("description") or "").strip()) < 20)
+controlla("e ognuno dice a cosa serve", not senza_descrizione,
+          f"{senza_descrizione}  <- il modello sceglie gli strumenti leggendo "
+          "questo, non il nome")
+senza_schema = sorted(s["name"] for s in STRUMENTI if not s.get("inputSchema"))
+controlla("e come si chiama", not senza_schema, str(senza_schema))
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")
