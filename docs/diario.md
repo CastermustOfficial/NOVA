@@ -5778,3 +5778,49 @@ non le bastavano. Non l'ho archiviata come «capita»: ha adesso il suo tempo
 dichiarato, `# banco: attesa 240`, come il promemoria (D156). Un rosso che
 dipende da cosa gira accanto non dice niente sul codice, e uno che si vede una
 volta su tre e' peggio di uno che si vede sempre.
+
+
+## 6 settembre 2026, pomeriggio — Ventuno elenchi, e nove che nessuno guardava
+
+Trovate le due liste di guardie che sapevano cose diverse, la domanda giusta
+non era «l'ho riparata?». Era: **quanti altri elenchi sono in quello stato?**
+
+Contati: ventuno `pub const NOME: [&str; N]` nei crate. Otto sono generati da
+un estrattore, quindi identici per costruzione. Degli altri tredici, **nove
+non avevano nessuno che li confrontasse col Python**: le variabili d'ambiente
+delle cartelle sincronizzate, le estensioni delle immagini, i segnaposto del
+prompt, i segni di limite d'uso, le parole pesanti dell'MCP, i sei modi in
+cui llama.cpp dice «non ci sta in memoria», i tipi generici e i prefissi del
+vault, gli strumenti trasparenti alla ripetizione.
+
+Buona notizia: coincidevano tutti e nove. Cattiva: coincidevano **per
+fortuna**. Nessuno di quei nove sarebbe diventato rosso se una delle due
+parti fosse cambiata da sola — che e' esattamente cio' che era successo alle
+guardie.
+
+Adesso c'e' `test_elenchi_gemelli.py`, e la cosa che fa non e' il confronto di
+oggi. E' che li **conta tutti**, e pretende che ognuno sia in uno di tre
+stati: generato, gemellato, o dichiarato senza gemello con scritto perche'.
+Un elenco nuovo che non e' in nessuno dei tre fa diventare la prova rossa
+(D186). Non serve che io mi ricordi: serve che non si possa dimenticare.
+
+Scrivendola sono venute fuori due cose.
+
+La prima: le forme non coincidono quasi mai. Le estensioni in Python hanno il
+punto davanti e in Rust no; i tipi generici di qua sono un insieme e di la'
+una lista, quindi l'ordine non c'e'; i segni di memoria finita in Python non
+sono un elenco affatto — sono un'alternanza dentro un'espressione regolare, e
+senza distinzione fra maiuscole e minuscole. Ognuna di queste differenze
+adesso e' **scritta accanto al confronto**, che e' il posto dove serve.
+
+La seconda: due «lo confronta un altro banco» erano false. `NON_SI_VERSANO`
+non lo nominava nessuno, e `GIORNI` era confrontato — ma con una copia
+**ricopiata dentro la prova stessa**. Confrontare Rust con una lista che ho
+riscritto io nel test non prova niente: prova che ho ricopiato due volte allo
+stesso modo (D112). Il gemello vero era `giorni` dentro `get_datetime`, una
+variabile locale — cioe' il posto dove un elenco si nasconde meglio, perche'
+non lo trovi cercando le maiuscole.
+
+Guastata apposta una voce dell'elenco dell'MCP: rosso, e dice quale voce
+manca da che parte. E aggiunto un elenco finto in un crate: rosso, e dice
+dove metterlo.
