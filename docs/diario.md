@@ -6144,3 +6144,116 @@ tracciato da git, elenca **tre** binari su quindici, e tutti e tre hanno un
 hash che non e' piu' quello dei file. Il manifesto vero lo genera la CI al
 momento del rilascio (`dist/SHA256SUMS.txt`), quindi quello in `bin/` e' un
 avanzo locale: o si rigenera sapendo cosa contiene, o si butta.
+
+
+## 6 settembre 2026, sera — Cosa vede chi non e' Gio
+
+A ruota libera, e allora ho preso la prima delle cinque frasi del cancello
+della beta: *«qualcuno che non e' l'autore l'ha installato, su una macchina
+che non e' quella»*. Non posso installarlo altrove. Posso pero' fare l'unica
+cosa che di qui si puo' fare: **leggere cosa NOVA dice a chi non ha gia'
+tutto**.
+
+Prima sorpresa, buona: i percorsi personali non sono un problema. `nova/` e
+`core/crates/` non contengono `C:\Users\giova` da nessuna parte, e c'e' gia'
+una prova che tiene pulito il README. Anche i percorsi ostili — spazi,
+accenti, apostrofi — hanno il loro banco. Chi ci ha pensato prima di me ha
+fatto un buon lavoro, e la domanda «cosa c'e' gia'?» me l'ha risparmiata
+tutta (D99).
+
+Seconda sorpresa, meno buona. C'e' una regola di casa sui messaggi, e non e'
+scritta da nessuna parte: *dire cosa manca e cosa fare*. «manca sounddevice:
+si installa con pip install sounddevice». «Claude Code non trovato.
+Installalo con: npm install -g …». «Non trovo l'orb: se hai installato con
+install.ps1 dovrebbe stare in bin\». Sono decine, e sono tutte cosi'.
+
+Tranne tre. E sono, precisamente:
+
+- **«non trovo ne' Edge ne' Chrome»**;
+- **«Binario llama-server non trovato: C:\…»**;
+- **«Modello GGUF non trovato: C:\…»**.
+
+Cioe' i tre che vede **solo chi non ha gia' tutto**. Su questa macchina non
+li legge nessuno, e infatti nessuno li aveva mai letti. Sono i primi tre che
+incontra chi installa NOVA adesso.
+
+Riscritti (D193). E la cosa che ho imparato scrivendoli: la cura non e' solo
+un comando. In tutti e tre i casi la meta' che serve davvero e' **cosa
+continua a funzionare** — senza browser la ricerca sul web c'e' lo stesso,
+senza modello locale ci sono claude e le API. Chi ha appena installato
+qualcosa e legge «non trovo X» pensa che sia rotta; sapere che non lo e' vale
+quanto sapere dove si scarica X.
+
+Poi ho messo la regola in una prova, e la prova ha continuato a lavorare
+dopo di me. Ha trovato altre tre cose:
+
+- un GGUF interrotto diceva **quanti MB mancano** e non che va riscaricato —
+  e un file a meta' sembra a posto guardando la cartella;
+- «manca la chiave ElevenLabs» non diceva dove si mette una chiave;
+- e quella frase era scritta **due volte**, in `stt` e in `tts`. Ne ho
+  riparata una, e la prova mi ha fatto vedere l'altra rimasta cruda. Adesso
+  e' una sola (D73).
+
+**Due volte, scrivendo la prova, ho sbagliato lo strumento invece del
+soggetto** — e la seconda mi ha insegnato qualcosa. La prima: leggevo solo i
+messaggi *sollevati*, e i piu' gentili non si sollevano affatto («senza
+PyQt6-WebEngine resta il sorgente» e' scritto, non lanciato). La seconda, piu'
+insidiosa: un `f"manca X: " "installa con pip install X"` per l'albero
+sintattico sono **due pezzi**. Il primo dice che manca qualcosa e non dice
+cosa fare; il secondo dice cosa fare e non sembra un'assenza. Letti separati,
+un messaggio perfetto risulta rotto e uno rotto passa — e li ho visti fare
+tutte e due le cose nello stesso giro.
+
+Due code, e sono tutte e due il banco che lavora.
+
+La prima: cambiando il messaggio del GGUF interrotto ho rotto
+`test_modelli_rust.py`, perche' quella frase ha un gemello in Rust e ne
+avevo riscritta una sola. E' la terza volta oggi che il confronto prende
+**me** invece del codice, ed e' esattamente il lavoro per cui esiste.
+
+La seconda: `test_cerca.py` e' andata rossa due volte in una giornata,
+sempre insieme alle altre e mai da sola, e stamattina le avevo dato un tempo
+piu' lungo credendo fosse il carico. Non era quello. Un motore di ricerca e'
+**di qualcun altro**: puo' strozzare chi chiede troppo in fretta, puo'
+rispondere una pagina anti-bot, puo' essere giu'. La prova dava la colpa a
+NOVA per una cosa che NOVA non controlla — cioe' faceva l'errore che il banco
+ha smesso di fare quando ha imparato «non provabile» (D164), un livello piu'
+in la'.
+
+Adesso riprova una volta e poi si **dichiara**: se il motore non ha dato
+risultati lo scrive e esce 2. Quel che resta rosso e' cio' che deve restarlo,
+perche' fallisce in un altro modo: NOVA che non sa guidare il browser, o il
+codice che si rompe.
+
+E' la stessa lezione della cosa degli appunti, girata al contrario. Li' un
+rosso intermittente era un difetto vero e stavo per zittirlo; qui era davvero
+il mondo fuori, e allargare il budget non bastava — serviva dirlo. La regola
+buona non e' ne' «allarga» ne' «ripara»: e' **chiedere di chi e' la cosa che
+non ha funzionato**.
+
+E una terza coda, che e' la piu' istruttiva delle tre perche' il difetto
+l'avevo scritto io un'ora prima.
+
+Il banco dei cervelli e' diventato rosso girando insieme a tutto lo spazio di
+lavoro, sempre sulla stessa prova — quella che accende un server vero su una
+porta a caso — e mai da solo. Stamattina avrei allargato il timeout. Stavolta
+sono andato a vedere, e la causa e' bella: **una prova si prendeva il server
+di un'altra**.
+
+Il server rispondeva una volta sola e poi chiudeva. Accanto c'era la prova
+che verifica cosa succede su una porta chiusa, e per averne una prendeva una
+porta libera e la lasciava andare subito. Fra il lasciarla andare e il
+provarci, il sistema poteva assegnare quella stessa porta al server di
+un'altra prova — che a quel punto si vedeva arrivare la connessione
+sbagliata, la serviva, e moriva. Chi lo stava usando davvero trovava la porta
+chiusa.
+
+Due riparazioni, e nessuna delle due e' un timeout: il server adesso serve
+**in cerchio** invece di una volta sola, e la prova sulla porta chiusa usa la
+porta **uno**, dove non ascolta mai nessuno. Cinque giri di fila del crate,
+cinque verdi.
+
+Tre rossi intermittenti in una giornata, tre cause diverse: uno era davvero
+il carico, uno era un difetto di NOVA, e uno era una prova che rubava a
+un'altra. Se li avessi trattati tutti e tre allo stesso modo — allargando il
+budget — avrei nascosto due cose vere su tre.

@@ -41,7 +41,12 @@ class SpeechToText:
             return False, motivo
         if self.engine == "elevenlabs":
             if self.cliente is None or not self.cliente.configurato():
-                return False, "manca la chiave ElevenLabs"
+                # Accanto c'e' «manca faster-whisper: pip install
+                # faster-whisper», che dice cosa fare. Questo diceva solo
+                # cosa manca, e chi legge non sa dove si mette una chiave.
+                from . import SENZA_CHIAVE
+                return False, (SENZA_CHIAVE + " Senza, resta faster-whisper, "
+                               "che ascolta in casa.")
             return True, ""
         if self.engine == "faster-whisper":
             try:

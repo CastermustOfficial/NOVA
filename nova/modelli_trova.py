@@ -267,9 +267,13 @@ def verifica_file(percorso: str) -> dict:
     if not m["completo"]:
         mancano = (m["byte_minimi"] - m["byte"]) // (1024 * 1024)
         return {"ok": False, "percorso": str(p),
+                # La diagnosi da sola lascia fermo chi legge: un GGUF a
+                # meta' non si ripara, si riscarica. E vale la pena dirlo,
+                # perche' il file c'e' e sembra a posto guardando la cartella.
                 "motivo": "e' un GGUF ma non e' finito di scaricare: "
                           f"mancano almeno {mancano} MB dei suoi "
-                          f"{m['tensori']} tensori"}
+                          f"{m['tensori']} tensori. Va riscaricato: un file "
+                          "interrotto non si ripara riprovando a caricarlo."}
     byte = p.stat().st_size
     return {
         "ok": True, "percorso": str(p), "nome": p.name, "cartella": str(p.parent),

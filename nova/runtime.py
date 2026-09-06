@@ -373,7 +373,17 @@ class LlamaServer:
         if self.cfg.server.binary:
             p = Path(self.cfg.server.binary)
             if not p.exists():
-                raise FileNotFoundError(f"Binario llama-server non trovato: {p}")
+                # Il percorso da solo non serve a chi non sa cos'e' un
+                # llama-server. Serve sapere che si scarica, e soprattutto
+                # che NOVA funziona lo stesso: il modello locale e' **uno**
+                # dei cervelli, non l'unico.
+                raise FileNotFoundError(
+                    f"non trovo llama-server dove dice la configurazione ({p}). "
+                    "Si scarica con «.\\install.ps1 -ConCuda», oppure si "
+                    "indica quello che hai gia' in server.binary. Nel "
+                    "frattempo NOVA funziona con «claude» o con una chiave "
+                    "API: il modello locale e' uno dei cervelli, non l'unico."
+                )
             self.accelerator = _classify(p)[0]
             return p
         cands = discover_runtimes()
@@ -437,7 +447,14 @@ class LlamaServer:
         self.binary = self.resolve_binary()
         model = Path(self.cfg.server.model_path)
         if not model.exists():
-            raise FileNotFoundError(f"Modello GGUF non trovato: {model}")
+            raise FileNotFoundError(
+                f"non trovo il modello GGUF dove dice la configurazione ({model}). "
+                "Con «python -m nova --reconfigure» lo cerco fra quelli che "
+                "hai gia' — LM Studio, Jan, GPT4All, koboldcpp, la cache di "
+                "HuggingFace, Download e Desktop — oppure si indica il "
+                "percorso in server.model_path. E NOVA funziona lo stesso "
+                "con «claude» o con una chiave API."
+            )
 
         self._log(f"Runtime: {self.binary} [{self.accelerator}]")
 

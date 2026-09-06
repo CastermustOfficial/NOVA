@@ -49,7 +49,9 @@ class TextToSpeech:
             return False, "sintesi disattivata"
         if self.engine == "elevenlabs":
             if self.cliente is None or not self.cliente.configurato():
-                return False, "manca la chiave ElevenLabs"
+                from . import SENZA_CHIAVE
+                return False, (SENZA_CHIAVE + " Senza, uso la voce di "
+                               "sistema, che c'e' su ogni Windows.")
             return True, ""
         return True, ""
 
@@ -114,7 +116,8 @@ class TextToSpeech:
             except ErroreVoce as e:
                 # Una voce che smette di funzionare perche' e' caduta la rete
                 # non deve zittire l'assistente: si scende di qualita'.
-                self.on_nota(f"ElevenLabs non disponibile ({e}), voce di sistema")
+                self.on_nota(f"ElevenLabs non disponibile ({e}): uso la "
+                             "voce di sistema.")
         elif perche:
             self.on_nota(perche)
         self.ultimo_motore = "sapi"
