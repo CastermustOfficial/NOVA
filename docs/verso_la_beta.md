@@ -1776,6 +1776,18 @@ riparazione non e' quella sui pattern — quella dice solo che oggi coincidono
 Rust.
 
 
+E subito dopo la domanda che quel difetto obbligava a fare: **quanti altri
+elenchi sono in quello stato?** Ventuno in tutto; otto generati da un
+estrattore, e degli altri tredici **nove non avevano nessuno che li
+confrontasse col Python**. Coincidevano tutti e nove — per fortuna, non per
+costruzione.
+
+`test_elenchi_gemelli.py` adesso li conta tutti e pretende che ognuno sia
+generato, gemellato o dichiarato senza gemello con scritto perche' (D186). Il
+valore non e' il confronto di oggi: e' che un elenco nuovo non possa entrare
+senza dire da che parte sta.
+
+
 ## Il cancello della beta
 
 Non e' una data, sono cinque frasi che devono essere vere insieme:
