@@ -5903,3 +5903,50 @@ Ho anche chiuso un buco che nessuna mutazione avrebbe trovato: le tre soglie
 di `ricette` non si vedevano da nessuno scenario, perche' il banco le passa
 da fuori. Una che fosse cambiata da una parte sola sarebbe rimasta verde per
 sempre. Ora il banco le dichiara e il Python le confronta.
+
+
+## 6 settembre 2026, pomeriggio — La mappa dei dati taceva su sei posti
+
+Continuando l'inventario del portabile sono arrivato a `dati.py`, che risponde
+a «dove stanno le mie cose». Prima di portarla ho fatto la domanda che
+funziona da stamattina: non «e' scritta bene?» ma **«e' completa?»**.
+
+No. E in due modi opposti insieme.
+
+Prometteva `pianificate.json`, e nessuno scriveva un file con quel nome — il
+vero e' `pianificazione.json`. Siccome l'elenco mostra solo cio' che esiste,
+quella voce **spariva**: chi chiedeva dove stanno i suoi dati non sentiva
+parlare delle cose che NOVA fa da sola. Non un errore: un silenzio.
+
+E taceva su sei posti veri. Due sono i piu' delicati di tutti dopo le
+credenziali:
+
+- **il profilo del browser** che NOVA guida. Dentro ci sono i cookie e le
+  sessioni aperte dei siti su cui lavora per te. Chiunque copi quella
+  cartella entra dove sei entrato tu, e nella mappa dei dati non c'era;
+- **la cartella delle schermate**, che sono fotografie di cio' che avevi
+  sullo schermo. E sta perfino in un posto diverso dagli altri — sotto casa,
+  non sotto `%APPDATA%` — quindi non la trovavi nemmeno per caso.
+
+Gli altri quattro: gli avvisi gia' dati, i log di avvio, il filo della
+conversazione con Claude Code, e il diario delle procedure.
+
+**La riparazione vera non e' stata aggiungere le voci.** E' stata smettere di
+ricalcolare i percorsi dentro la mappa: adesso ogni voce la dice il modulo
+che quel file lo scrive (D188). Un percorso scritto due volte e' un percorso
+che prima o poi diverge — ed erano gia' divergenti in tre punti, invisibili
+perche' su Windows coincidono per caso e NOVA gira su Windows. Le due che
+restano scritte a mano sono dichiarate col perche': `segreti.dat` lo scrive
+il demone in Rust, `procedure.log` non passa da nessuna funzione.
+
+E la prova non guarda l'elenco: legge il **codice**. Cerca ogni espressione
+che finisce con «NOVA» e ci attacca un nome — che e' come ogni modulo si
+costruisce il proprio percorso, ognuno con un nome di variabile diverso — e
+pretende che la mappa lo copra, o che qualcuno abbia scritto perche' no.
+Provata togliendo una voce e rimettendo un percorso a mano: rossa tutte e
+due le volte, e dice quale.
+
+E' la terza volta oggi che la stessa domanda paga: *questo elenco, chi lo
+confronta con la realta'?* Le guardie, gli elenchi dichiarati in Rust, e
+adesso la mappa dei dati. Tre volte su tre la risposta era «nessuno», e tre
+volte su tre c'era gia' qualcosa di sbagliato dentro.
