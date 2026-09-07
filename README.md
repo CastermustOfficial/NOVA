@@ -736,6 +736,7 @@ nova/
   automazioni.py      il guscio degli strumenti che NOVA scrive da se'
   banco.py            la copia su cui si prova una riparazione
   registro.py         cio' che non si annulla, si annota - e si ricerca
+  rotazione.py        nessun diario cresce per sempre: due MB, uno storico
   pianificazione.py   attivita' ricorrenti e sentinelle
   fascicolo.py        i fatti veri sull'utente: CV, esperienze, testi suoi
   harness.py          documenti e progetti: aprire, cercare, indicare

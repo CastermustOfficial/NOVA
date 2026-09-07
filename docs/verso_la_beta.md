@@ -1812,6 +1812,16 @@ Non e' una data, sono cinque frasi che devono essere vere insieme:
 > prova tiene l'elenco di cio' che NOVA chiede al mondo fuori — quindici
 > voci, ognuna con scritto cosa succede senza.
 
+> **Secondo passo, il 7 settembre.** Su questa macchina si puo' guardare una
+> cosa che su una macchina nuova non si vede: cosa diventa NOVA dopo mesi di
+> uso. `avvio.log` era a 2,8 MB e 13.186 righe — il file che si apre proprio
+> il giorno che qualcosa non parte, e che a tredicimila righe non apre piu'
+> nessuno. Adesso nessun diario cresce per sempre, e la regola sta in un
+> posto solo invece che in quattro con quattro tetti diversi (D194). Vale per
+> la beta piu' di quanto sembri: chi installa NOVA adesso questo difetto lo
+> incontra fra sei mesi, e da solo.
+
+
 
 L'ordine di lavoro che ne segue: prima la lista 3 dal punto 7 in giu' (gli
 errori), poi la lista 2 (le macchine altrui), poi la lista 1 (la velocita').

@@ -746,6 +746,7 @@ nova/
   automazioni.py      the shell around the tools NOVA writes itself
   banco.py            the copy a repair is tried on
   registro.py         what can't be undone gets written down - and searched
+  rotazione.py        no journal grows forever: two MB, one file of history
   pianificazione.py   recurring tasks and sentinels
   fascicolo.py        the true facts about the user: CV, experience, own texts
   harness.py          documents and projects: open, search, point at

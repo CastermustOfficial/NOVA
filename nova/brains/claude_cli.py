@@ -507,14 +507,17 @@ def _traccia_avvio(brain) -> None:
                 Path(CONFIG_PATH).stat().st_mtime).strftime("%d/%m %H:%M:%S")
         except Exception:
             mtime = "?"
-        riga = (f"{quando} pid={os.getpid()} ppid={_babbo()} "
-                f"tetto={brain.max_turns} modello={brain.model} "
-                f"config={CONFIG_PATH} (scritto {mtime}) "
-                f"APPDATA={os.environ.get('APPDATA')!r} "
-                f"python={sys.version.split()[0]} "
-                f"argv={_solo_opzioni(sys.argv[:3])!r}\n")
-        with open(f, "a", encoding="utf-8") as fh:
-            fh.write(riga)
+        corpo = (f"pid={os.getpid()} ppid={_babbo()} "
+                 f"tetto={brain.max_turns} modello={brain.model} "
+                 f"config={CONFIG_PATH} (scritto {mtime}) "
+                 f"APPDATA={os.environ.get('APPDATA')!r} "
+                 f"python={sys.version.split()[0]} "
+                 f"argv={_solo_opzioni(sys.argv[:3])!r}")
+        from ..rotazione import accoda
+        # L'ora resta fuori dal confronto: lo stesso processo che nasce un
+        # cervello dodici volte scrive dodici righe identiche a meno di un
+        # secondo, e nessuna delle undici dopo la prima dice niente di nuovo.
+        accoda(f, f"{quando} {corpo}", corpo)
     except Exception:
         pass
 

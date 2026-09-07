@@ -25,9 +25,9 @@ def _traccia_main() -> None:
         # per D52 puo' essere sincronizzata col cloud.
         from .forme_riservate import solo_opzioni
         argomenti = solo_opzioni(sys.argv[:3])
-        with open(f, "a", encoding="utf-8") as fh:
-            fh.write(f"{datetime.datetime.now():%d/%m %H:%M:%S} "
-                     f"pid={os.getpid()} MAIN argv={argomenti!r}\n")
+        from .rotazione import accoda
+        corpo = f"pid={os.getpid()} MAIN argv={argomenti!r}"
+        accoda(f, f"{datetime.datetime.now():%d/%m %H:%M:%S} {corpo}", corpo)
     except Exception:
         pass
 
