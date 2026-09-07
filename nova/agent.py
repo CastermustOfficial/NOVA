@@ -1170,8 +1170,8 @@ class Agent:
                 return
             p = Path(base) / "NOVA" / "procedure.log"
             p.parent.mkdir(parents=True, exist_ok=True)
-            with open(p, "a", encoding="utf-8") as f:
-                f.write(f"{datetime.now():%d/%m %H:%M:%S}\t{motivo}\n")
+            from .rotazione import accoda
+            accoda(p, f"{datetime.now():%d/%m %H:%M:%S}\t{motivo}", motivo)
         except Exception:
             pass
 

@@ -136,7 +136,21 @@ f = registro.percorso()
 controlla("il file resta sotto controllo", f.stat().st_size <= 40000,
           f"{f.stat().st_size} byte")
 controlla("e il vecchio e' messo da parte, non buttato",
-          f.with_suffix(".jsonl.1").exists())
+          f.with_suffix(".1.jsonl").exists())
+
+# `cerca` esiste per «cosa ho mandato a quella societa'?» tre settimane dopo.
+# Se `leggi` guardasse solo il file vivo, il giorno della potatura quella
+# domanda comincerebbe a rispondere «niente»: nessun errore, nessuna riga di
+# log, e nessun modo di capire perche'.
+storico = f.with_suffix(".1.jsonl").read_text(encoding="utf-8").splitlines()
+primo = json.loads(storico[0])["azione"]
+azioni = [x.get("azione") for x in registro.leggi(quante=10000)]
+controlla("cio' che sta nello storico si legge ancora",
+          primo in azioni, f"«{primo}» sparita dopo la potatura")
+controlla("e l'elenco resta dal piu' recente al piu' vecchio",
+          azioni[-1] == primo,
+          f"in fondo c'e' «{azioni[-1]}» invece della prima riga mai scritta: "
+          "i due file si leggono nell'ordine sbagliato")
 
 print(f"\n{passati}/{passati + len(falliti)} passati")
 for x in falliti:

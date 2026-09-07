@@ -34,6 +34,8 @@ segreti.json
 # davvero: compilava qui e non sarebbe mai arrivato nel repository.
 /bin/
 avvio.log
+# ...e il suo storico: la potatura ne lascia sempre uno accanto.
+*.1.log
 azioni.jsonl*
 avvisi.jsonl
 pianificazione.json

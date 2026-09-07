@@ -202,6 +202,9 @@ def avvisa(nome: str, testo: str, valore=None) -> None:
     try:
         f = avvisi_percorso()
         f.parent.mkdir(parents=True, exist_ok=True)
+        from .rotazione import ruota_se_serve
+        # Nessun accorpamento: un avviso ripetuto e' successo di nuovo.
+        ruota_se_serve(f)
         with open(f, "a", encoding="utf-8") as fh:
             fh.write(json.dumps({
                 "quando": datetime.now().isoformat(timespec="seconds"),

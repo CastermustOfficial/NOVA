@@ -6257,3 +6257,66 @@ Tre rossi intermittenti in una giornata, tre cause diverse: uno era davvero
 il carico, uno era un difetto di NOVA, e uno era una prova che rubava a
 un'altra. Se li avessi trattati tutti e tre allo stesso modo — allargando il
 budget — avrei nascosto due cose vere su tre.
+
+### La regola che credevo stesse in un posto solo
+
+`avvio.log` era a 2,8 MB. Non e' un problema di spazio — sono megabyte, non
+gigabyte — ma quel file esiste apposta per essere aperto il giorno che
+qualcosa non parte, e a 13.186 righe non lo apre piu' nessuno. Sono andato a
+vedere cosa c'era dentro prima di decidere cosa fare, ed e' stata la mossa
+buona: 8.812 righe distinte su 13.186, e una riga che si ripeteva
+**diciassette volte dentro lo stesso processo**. Due difetti, non uno, e
+nessuno dei due si cura con l'altro — accorpare non mette un tetto, il tetto
+non toglie il rumore.
+
+La regola per il tetto esisteva gia': il registro del vault potava a due
+megabyte e teneva il precedente. L'ho spostata in `nova/rotazione.py`
+convinto di prendere l'unica copia esistente e di darla agli altri dodici
+posti che non la conoscevano — che e' D72, una lezione imparata in un posto
+non si sposta da sola.
+
+Poi ho scritto la prova che obbliga gli altri a passarci, e la prova mi ha
+risposto che i posti erano **quattro**. Il registro delle azioni ne aveva una
+sua, con 2.000.000 di byte invece di 2.097.152: due megabyte da
+fruttivendolo, novantasettemila byte di differenza che non avrebbe mai
+notato nessuno. I guasti ne avevano una terza, mezzo megabyte, che teneva le
+ultime duecento righe e **buttava via il resto** — quello era anche l'unico
+difetto vero fra i quattro: chi cercava un guasto di ieri non lo trovava
+piu'. E `kb_setup` una quarta. In piu' il file vecchio si chiamava in **tre**
+modi diversi — `.jsonl.1`, `.1.jsonl`, `.1.log` — e su quale fosse quello
+giusto ho scelto male: avevo messo il numero in fondo per abitudine, e la
+prova del vault e' diventata rossa. Ha ragione lei. Con l'estensione in
+fondo, `guasti.1.jsonl` si apre ancora con cio' che apre `guasti.jsonl`; su
+Windows l'estensione **e'** il programma, e un file storico su cui clicchi
+due volte per niente e' un file che non guardi.
+
+Nessuna delle quattro era sbagliata da sola. Erano sbagliate insieme, perche'
+erano quattro risposte alla stessa domanda (D73). E il punto che mi resta e'
+un altro: **stavo aggiungendo la quinta**, e senza la prova avrei scritto nel
+diario che la regola adesso sta in un posto solo. Sarebbe stata una frase,
+non un fatto.
+
+Le mutazioni hanno preso anche me. Due sono sopravvissute al primo giro, e in
+tutti e due i casi aveva ragione il mutante: provavo che si pota **prima** di
+scrivere su un file da centosessanta byte, dove nessuno dei due ordini pota
+niente, e provavo che l'accorpamento e' per file usando due righe diverse su
+due file diversi — dove anche una memoria unica per tutti darebbe la stessa
+risposta. Terza volta in questo cantiere che uno scenario troppo ordinato fa
+sembrare provata una cosa che non lo e'. E la quarta e' arrivata subito
+dopo, su una prova che avevo scritto io dieci minuti prima: controllavo che
+la riga vecchia si legga ancora **e** che l'ordine sia giusto, ma l'ordine lo
+controllavo chiedendo «compare dopo il primo posto?», che e' vero anche
+leggendo i due file al contrario. Quel che distingue i due ordini e' chi sta
+**in fondo**.
+
+Il difetto vero, pero', e' saltato fuori alla fine e non c'entra col tetto.
+Il registro delle azioni si potava gia', da sempre, e `leggi` guardava solo
+il file vivo. `cerca` esiste per «cosa ho mandato a quella societa'?» tre
+settimane dopo: il giorno della potatura quella domanda avrebbe cominciato a
+rispondere «niente». Nessun errore, nessuna riga di log, nessun modo di
+capire perche' — e il README promette proprio quella cosa, «cio' che non si
+annulla, si annota **e si ricerca**». Adesso legge anche lo storico, e prima
+di quello vivo, perche' l'ordine e' il tempo.
+
+Non l'ho trovato leggendo il codice. L'ho trovato perche' unificare la regola
+mi ha costretto a chiedermi, per ogni file potato, **chi lo rilegge**.

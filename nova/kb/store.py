@@ -473,17 +473,11 @@ class Vault:
         Ogni upsert e ogni ricerca scrivono una riga: senza rotazione il file
         cresceva per sempre, e nessuno lo potava da nessuna parte.
         """
-        try:
-            if self.audit_path.stat().st_size < MAX_AUDIT_BYTE:
-                return
-        except OSError:
-            return
-        precedente = self.audit_path.with_suffix(".1.jsonl")
-        try:
-            precedente.unlink(missing_ok=True)
-            self.audit_path.replace(precedente)
-        except OSError:
-            pass
+        # La regola e' nata qui e adesso vive in `nova.rotazione`: era in un
+        # posto solo, e gli altri dodici file in cui NOVA scrive una riga
+        # alla volta non la conoscevano (D72).
+        from ..rotazione import ruota_se_serve
+        ruota_se_serve(self.audit_path, MAX_AUDIT_BYTE)
 
     # -- manutenzione --------------------------------------------------
     def statistiche(self) -> dict:

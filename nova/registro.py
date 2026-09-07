@@ -41,7 +41,7 @@ from .forme_riservate import etichetta_di_segreto, maschera
 
 # Oltre questa soglia il file viene ruotato in .1: un registro che cresce
 # senza fine e' un registro che nessuno apre.
-BYTE_MAX = 2_000_000
+from .rotazione import MAX_BYTE as BYTE_MAX          # noqa: F401
 TESTO_MAX = 300
 
 
@@ -52,14 +52,15 @@ def percorso() -> Path:
 
 
 def _ruota(f: Path) -> None:
-    try:
-        if f.exists() and f.stat().st_size > BYTE_MAX:
-            vecchio = f.with_suffix(".jsonl.1")
-            if vecchio.exists():
-                vecchio.unlink()
-            f.rename(vecchio)
-    except Exception:
-        pass
+    """Due megabyte, poi si ricomincia e il precedente resta.
+
+    Faceva questa cosa per conto suo, con un tetto suo: 2.000.000 di byte
+    invece di 2.097.152, cioe' due megabyte da fruttivendolo invece che due
+    megabyte veri. Nessuno l'avrebbe mai notato — e' proprio per questo che
+    adesso il tetto sta in un posto solo (D72).
+    """
+    from .rotazione import ruota_se_serve
+    ruota_se_serve(f, BYTE_MAX)
 
 
 def _dettagli_sicuri(azione: str, dove: str, dettagli: str) -> str:
@@ -119,23 +120,33 @@ def annota(azione: str, dove: str = "", dettagli: str = "",
 
 
 def leggi(quante: int = 30, ore: float = 0) -> list[dict]:
-    """Le ultime righe, dalla piu' recente. Con `ore` si guarda una finestra."""
+    """Le ultime righe, dalla piu' recente. Con `ore` si guarda una finestra.
+
+    Legge **anche lo storico**, e prima di quello vivo. Il registro si pota,
+    e questo e' l'unico file potato di NOVA su cui qualcuno fa una domanda
+    vecchia: `cerca` esiste per «cosa ho mandato a quella societa'?» tre
+    settimane dopo. Leggendo solo il file vivo, il giorno della potatura
+    quella domanda avrebbe cominciato a rispondere «niente» — senza errori,
+    senza righe di log, e senza che si potesse capire perche'.
+    """
     f = percorso()
-    if not f.exists():
-        return []
+    vecchio = f.with_suffix(".1" + f.suffix)
     righe: list[dict] = []
-    try:
-        with open(f, encoding="utf-8") as fh:
-            for r in fh:
-                r = r.strip()
-                if not r:
-                    continue
-                try:
-                    righe.append(json.loads(r))
-                except Exception:
-                    continue
-    except Exception:
-        return []
+    for parte in (vecchio, f):        # prima il vecchio: l'ordine e' il tempo
+        if not parte.exists():
+            continue
+        try:
+            with open(parte, encoding="utf-8") as fh:
+                for r in fh:
+                    r = r.strip()
+                    if not r:
+                        continue
+                    try:
+                        righe.append(json.loads(r))
+                    except Exception:
+                        continue
+        except Exception:
+            continue
     if ore:
         limite = time.time() - ore * 3600
         tenute = []

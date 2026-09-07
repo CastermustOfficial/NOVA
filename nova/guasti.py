@@ -169,9 +169,11 @@ def registra(e: BaseException, dove: str = "") -> Path:
     riga["dove"] = senza_chiavi(riga["dove"])
     try:
         # Un file che cresce all'infinito e' un file che nessuno apre.
-        if f.exists() and f.stat().st_size > 512_000:
-            coda = f.read_text(encoding="utf-8", errors="replace").splitlines()[-200:]
-            f.write_text("\n".join(coda) + "\n", encoding="utf-8")
+        # Teneva le ultime duecento righe e buttava via il resto: adesso il
+        # resto finisce in `guasti.jsonl.1` invece che nel niente. Chi cerca
+        # un guasto di ieri lo trova ancora.
+        from .rotazione import ruota_se_serve
+        ruota_se_serve(f, 512_000)
         with f.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(riga, ensure_ascii=False) + "\n")
     except Exception:                                   # noqa: BLE001

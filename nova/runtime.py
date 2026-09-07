@@ -615,7 +615,12 @@ class LlamaServer:
 
     def _spawn_and_wait(self, ngl: int, wait: bool) -> tuple[bool, str]:
         LOG_DIR.mkdir(parents=True, exist_ok=True)
-        self._logfile = open(LOG_DIR / "llama-server.log", "a", encoding="utf-8", errors="replace")
+        from .rotazione import ruota_se_serve
+        # Prima di aprire, non dopo: qui il file resta aperto per tutta la
+        # vita del server, e a manico gia' preso non si pota piu' niente.
+        _log_server = LOG_DIR / "llama-server.log"
+        ruota_se_serve(_log_server)
+        self._logfile = open(_log_server, "a", encoding="utf-8", errors="replace")
         args = self._build_args(ngl)
         self._log("Avvio: " + " ".join(args[1:]))
 

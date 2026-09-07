@@ -804,12 +804,12 @@ def _traccia_guardie(aggiunte: dict) -> None:
     try:
         import datetime
         import os as _os
+        from .rotazione import accoda
         f = Path(__file__).resolve().parent.parent / "avvio.log"
         pezzi = ", ".join(f"{k}: {len(v)}" for k, v in sorted(aggiunte.items()))
-        with open(f, "a", encoding="utf-8") as fh:
-            fh.write(f"{datetime.datetime.now():%d/%m %H:%M:%S} "
-                     f"pid={_os.getpid()} GUARDIE rimesse dai predefiniti "
-                     f"({pezzi}) - il salvato non le conteneva\n")
+        corpo = (f"pid={_os.getpid()} GUARDIE rimesse dai predefiniti "
+                 f"({pezzi}) - il salvato non le conteneva")
+        accoda(f, f"{datetime.datetime.now():%d/%m %H:%M:%S} {corpo}", corpo)
     except Exception:
         pass
 
@@ -842,11 +842,15 @@ def _traccia_config(verso: str, path: "Path", turni: int) -> None:
             chi = f"{st.st_dev}:{st.st_ino}"
         except Exception:
             quando_file, byte, chi = "?", "?", "?"
-        with open(f, "a", encoding="utf-8") as fh:
-            fh.write(f"{datetime.datetime.now():%d/%m %H:%M:%S} "
-                     f"pid={_os.getpid()} CONFIG {verso} turni={turni} "
-                     f"file=({quando_file}, {byte} byte, id {chi}) "
-                     f"vero={_os.path.realpath(path)!r} "
-                     f"argv={_solo_opzioni(_sys.argv[:2])!r}\n")
+        # Il corpo senza l'ora e' cio' che si confronta: lo stesso processo
+        # che rilegge la stessa configurazione tre volte in un secondo ha
+        # detto una cosa sola. Su questa macchina erano 7.119 righe su
+        # 13.186 — piu' della meta' di un diario che esiste per essere letto.
+        corpo = (f"pid={_os.getpid()} CONFIG {verso} turni={turni} "
+                 f"file=({quando_file}, {byte} byte, id {chi}) "
+                 f"vero={_os.path.realpath(path)!r} "
+                 f"argv={_solo_opzioni(_sys.argv[:2])!r}")
+        from .rotazione import accoda
+        accoda(f, f"{datetime.datetime.now():%d/%m %H:%M:%S} {corpo}", corpo)
     except Exception:
         pass

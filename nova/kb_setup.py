@@ -67,8 +67,10 @@ def _registra_su_file(vault, messaggio: str) -> None:
     try:
         percorso = vault.root / ".nova" / "memoria.log"
         percorso.parent.mkdir(parents=True, exist_ok=True)
-        if percorso.exists() and percorso.stat().st_size > 512 * 1024:
-            percorso.replace(percorso.with_suffix(".1.log"))
+        from .rotazione import ruota_se_serve
+        # Mezzo megabyte invece di due: e' il diario di una cartella
+        # dell'utente, e li' NOVA e' ospite.
+        ruota_se_serve(percorso, 512 * 1024)
         with open(percorso, "a", encoding="utf-8") as f:
             f.write(f"{datetime.now().isoformat(timespec='seconds')} {messaggio}\n")
     except OSError:
