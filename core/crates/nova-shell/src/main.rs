@@ -17,6 +17,7 @@
 use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 mod bus;
+mod cervelli;
 mod cervello;
 mod componenti;
 mod cronologia;
@@ -330,6 +331,8 @@ fn main() {
             componenti::componenti_ferma,
             modelli::modelli_elenco,
             modelli::modelli_verifica,
+            cervelli::cervelli_stato,
+            cervelli::cervello_collega,
             nuova_conversazione
         ])
         .setup(|app| {

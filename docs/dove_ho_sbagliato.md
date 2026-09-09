@@ -387,3 +387,36 @@ Rileggendole di fila, sono quasi tutte una di queste quattro:
 La terza e' la piu' pericolosa, perche' le altre tre le trova qualcun altro —
 una prova, un compilatore, un errore. Una prova che non prova niente non la
 trova nessuno: passa.
+
+## Ho chiesto «cosa c'e' gia'» a meta' del progetto
+
+9 settembre. La domanda che si e' pagata sei volte in questo cantiere -
+**cosa c'e' gia'?** - l'ho fatta al Python e mi sono fermato li'.
+
+Serviva che il pannello dicesse quali modelli GGUF ci sono. Ho trovato
+`nova/modelli_trova.py`, ho esultato per non aver aggiunto una dipendenza, e
+ho scritto un comando del guscio che lancia `python -m nova.modelli_trova`.
+Poi serviva dire se Claude Code e' installato e collegato: ho trovato
+`disponibile()` su ogni cervello Python e ho scritto **un modulo Python
+nuovo** per esporli.
+
+`nova-modelli::trova` e `verifica_file` esistevano gia', portate e gemellate
+con un banco. `nova-cervelli::claude::perche_non_pronto` pure. Il cantiere di
+questi mesi e' portare il Python in Rust, e io stavo aggiungendo Python e
+facendo lanciare l'interprete al guscio per cose che il guscio aveva in casa.
+
+Me l'ha detto Gio in sei parole: «ti devo ricordare che dobbiamo usare rust?».
+
+La forma dell'errore non e' «non conoscevo quei crate»: e' che **ho smesso di
+cercare appena ho trovato una risposta**. Una risposta che funziona chiude la
+domanda con la stessa forza di una risposta giusta, e la differenza fra le
+due non si vede da dentro. La regola che ne esce e' piu' stretta di D99: la
+domanda non e' «esiste gia' qualcosa che fa questo?», e' **«esiste gia'
+qualcosa che fa questo dalla parte in cui sto lavorando?»**. Stavo scrivendo
+codice Rust; la prima cartella da aprire era `core/crates`, non `nova/`.
+
+E c'e' una coda che dice quanto era vera la svista: portare quel pezzo per
+davvero ha voluto dire scrivere `accesso.rs`, cioe' scoprire che **due
+funzioni non erano ancora portate** - trovare Claude nel PATH, e leggere che
+tipo di abbonamento e'. Il lavoro c'era, e il mio giro dal Python me lo
+stava facendo saltare invece che scoprire.

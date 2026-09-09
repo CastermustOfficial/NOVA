@@ -34,8 +34,13 @@ def etichetta_brain(cfg, nome: str) -> str:
 
 
 def crea_brain(nome: str, cfg, vault=None, kb_context: str = "",
-               model_override: str = ""):
-    """Costruisce il cervello richiesto. Sconosciuto -> locale."""
+               model_override: str = "", traccia: bool = True):
+    """Costruisce il cervello richiesto. Sconosciuto -> locale.
+
+    `traccia=False` serve a chi lo costruisce solo per **chiedergli come sta**
+    (`cervelli_stato`): guardare non e' avviare, e il diario deve continuare a
+    raccontare solo gli avvii veri.
+    """
     nome = (nome or "locale").strip().lower()
 
     # CLI agentiche descritte in configurazione (gemini, deepseek, glm, ...)
@@ -63,7 +68,8 @@ def crea_brain(nome: str, cfg, vault=None, kb_context: str = "",
                 except Exception:
                     mcp = ""
         return ClaudeCodeBrain(cfg, kb_context=kb_context, vault_path=vault_path,
-                               mcp_config=mcp, model_override=model_override)
+                               mcp_config=mcp, model_override=model_override,
+                               traccia=traccia)
     if nome == "api":
         return ApiBrain(cfg)
     return LocalBrain(cfg)

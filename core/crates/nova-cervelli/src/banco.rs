@@ -7,7 +7,7 @@
 use std::io::Read;
 
 use nova_cervelli::rete::{chiedi, Errore, Esito, Muto, Trasporto};
-use nova_cervelli::{claude, cli, openai, Messaggio};
+use nova_cervelli::{accesso, claude, cli, openai, Messaggio};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -115,6 +115,13 @@ struct Dentro {
     /// Giri di tentativi: cosa risponde l'altro capo, una tappa alla volta.
     #[serde(default)]
     giri: Vec<Giro>,
+    /// Come si paga Claude Code: (chiave nell'ambiente, credenziali lette).
+    /// Il file non si legge qui — arriva gia' letto, o `null` se non c'era.
+    #[serde(default)]
+    accessi: Vec<(String, Option<Value>)>,
+    /// `%APPDATA%` da cui ricavare il ripiego di npm.
+    #[serde(default)]
+    ripieghi: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -196,6 +203,9 @@ struct Fuori {
     candidati: Vec<Vec<String>>,
     risposte: Vec<RispostaFuori>,
     giri: Vec<GiroFuori>,
+    accessi: Vec<(String, String)>,
+    ripieghi: Vec<String>,
+    candidati_claude: Vec<String>,
 }
 
 fn messaggi(v: &[MessaggioIn]) -> Vec<Messaggio> {
@@ -356,6 +366,13 @@ fn main() {
             })
             .collect(),
         giri: d.giri.iter().map(un_giro).collect(),
+        accessi: d
+            .accessi
+            .iter()
+            .map(|(k, c)| accesso::tipo_accesso(k, c.as_ref()))
+            .collect(),
+        ripieghi: d.ripieghi.iter().map(|a| accesso::ripiego_npm(a)).collect(),
+        candidati_claude: accesso::CANDIDATI.iter().map(|s| s.to_string()).collect(),
     };
 
     match serde_json::to_string(&fuori) {

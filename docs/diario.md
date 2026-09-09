@@ -6369,3 +6369,49 @@ Uscita di lato: `stato_orb` non lo chiama davvero nessuno, e il commento nel
 codice dice perche' — «la chiamera' il demone quando NOVA pensa, ascolta o
 parla». Finche' resta cosi' l'orb non cambia mai aspetto. Non l'ho toccato,
 ma adesso e' scritto in un posto dove si vede.
+
+### «Ti devo ricordare che dobbiamo usare rust?»
+
+Sei parole di Gio, e avevo appena fatto due volte lo stesso errore.
+
+Serviva che il pannello dicesse quali GGUF ci sono. Ho fatto la domanda che
+in questo cantiere si e' gia' pagata sei volte — cosa c'e' gia'? — ho trovato
+`nova/modelli_trova.py`, ed ero perfino contento: nessuna dipendenza nuova,
+niente logica riscritta. Poi serviva dire se Claude Code e' installato e
+collegato, e ho scritto un modulo Python nuovo per esporre i `disponibile()`
+che ogni cervello ha gia'.
+
+`nova-modelli::trova` e `verifica_file` esistevano gia' in Rust, portate e
+gemellate con un banco. `nova-cervelli::claude::perche_non_pronto` pure. Il
+cantiere di questi mesi e' portare il Python in Rust, e io stavo aggiungendo
+Python e facendo lanciare l'interprete al guscio per cose che aveva in casa.
+
+L'errore non e' «non conoscevo quei crate». E' che **ho smesso di cercare
+appena ho trovato una risposta**: una risposta che funziona chiude la domanda
+con la stessa forza di una risposta giusta, e da dentro non si distinguono.
+La regola che me ne resta e' piu' stretta di D99 — non «esiste gia' qualcosa
+che fa questo?», ma «esiste gia' qualcosa che fa questo **dalla parte in cui
+sto lavorando**?». Stavo scrivendo Rust: la prima cartella da aprire era
+`core/crates`, non `nova/`.
+
+La coda dice quanto era vera la svista. Portare quel pezzo sul serio ha
+voluto dire scrivere `accesso.rs`, e cioe' scoprire che due funzioni **non
+erano ancora portate**: trovare Claude nel PATH, e leggere che tipo di
+abbonamento e'. Il lavoro c'era, e il mio giro dal Python me lo stava
+facendo saltare invece che trovare.
+
+La seconda ha tre trappole, tutte silenziose. `x or ""` di Python e' falso
+anche per `0` e per `false`, quindi un `subscriptionType` a zero e'
+«sconosciuto» e non «abbonamento 0». `.strip()` toglie anche i separatori di
+unita' che `char::is_whitespace` non considera bianchi. E `.replace()` toglie
+il prefisso **ovunque**, non solo in testa: quest'ultima l'ha trovata una
+mutazione che restava verde, perche' il caso che avevo scritto aveva il
+prefisso ripetuto all'inizio — dove `trim_start_matches` di Rust fa la stessa
+identica cosa. Sedici casi di lettura delle credenziali, e sono i tre stupidi
+quelli che avrebbero fatto dire a NOVA una frase falsa con sicurezza.
+
+Nel frattempo Gio provava il pannello e mi ha detto la cosa piu' utile della
+giornata: «non dice il modello attivo». Vero, e non ci avevo pensato perche'
+guardavo l'elenco. Il modello in uso si sa **subito**, dalla configurazione,
+senza aspettare nessuna ricerca — e se il file scelto sta in una cartella che
+la ricerca non guarda, senza quella riga non lo avrebbe saputo mai.

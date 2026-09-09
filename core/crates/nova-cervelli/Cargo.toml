@@ -16,6 +16,9 @@ nova-contesto = { path = "../nova-contesto" }
 # Le parole con cui si racconta un guasto stanno li', gia' confrontate
 # col Python da un banco (D135).
 nova-guasti = { path = "../nova-guasti" }
+# `.strip()` di Python non e' `trim()` di Rust: le abitudini di Python
+# stanno in un posto solo (D182).
+nova-pitone = { path = "../nova-pitone" }
 # Gia' in casa: `nova-voce` ci parla con ElevenLabs. Un secondo cliente HTTP
 # per la stessa cosa sarebbero due comportamenti da conoscere invece di uno.
 ureq = "2"
