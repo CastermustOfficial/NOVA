@@ -6320,3 +6320,52 @@ di quello vivo, perche' l'ordine e' il tempo.
 
 Non l'ho trovato leggendo il codice. L'ho trovato perche' unificare la regola
 mi ha costretto a chiedermi, per ogni file potato, **chi lo rilegge**.
+
+### Il campo che diceva la verita' ed era inutile
+
+Gio: «di fatto non posso fare "apri" cercando il percorso». Il campo del
+modello locale dice «qui si punta a un file che hai gia'» sopra una casella
+di testo vuota, e ha ragione: chi non ricorda dove sta il suo GGUF non ha
+nessun posto dove guardare.
+
+La prima idea era il bottone Sfoglia con la finestra di Windows, che vuole
+una dipendenza nuova nel guscio. Poi ho fatto la domanda che si e' gia'
+pagata sei volte in questo cantiere — **cosa c'e' gia'?** — e la risposta era
+tutta li': `nova/modelli_trova.py` sa cercare i GGUF nei posti dove
+finiscono davvero, ordinarli dal piu' adatto, dire quanti GB pesano e se
+hanno accanto il proiettore. E `verifica_file` sa distinguere «non esiste»
+da «non e' un GGUF» da «e' un GGUF ma non e' finito di scaricare» — che e' il
+caso cattivo, perche' il file c'e' e guardando la cartella sembra a posto.
+
+Lo chiamavano solo l'installer e la riga di comando. Sulla macchina di Gio
+quel modulo trova sei modelli in venti secondi, con le dimensioni giuste. La
+capacita' c'era, e chi ne aveva bisogno non la vedeva: la stessa forma di
+D188 e D193, e si trova solo guardando cosa NOVA mostra a chi non l'ha
+appena installata. Zero dipendenze nuove, un modulo di guscio che apre la
+porta e non ripete nessuna regola.
+
+### Il controllo che accusava il falso
+
+Non potevo provarlo cliccando: Gio stava usando il PC. Allora l'ho provato
+dall'altra parte, e chiedendomi come si controlla un `invoke('nome')` — che
+e' una stringa, e se il nome e' sbagliato **non succede niente**. Nessun
+errore, nessuna riga di log: un bottone che si preme e non fa niente, il
+difetto piu' difficile da attribuire, perche' sembra rotto il programma e non
+il collegamento. Nessuna prova lo guardava.
+
+La prima versione del cercatore chiedeva `invoke(` e le pagine scrivono
+`invoke?.(`. Risultato: cinque comandi vivissimi dichiarati morti. Se avessi
+creduto al mio stesso controllo avrei tolto meta' della chat.
+
+Da li' la parte che tengo. Non basta che un cercatore trovi: bisogna sapere
+**se ha perso qualcosa**, e per saperlo non ci si puo' affidare al cercatore
+stesso. Adesso conta tutte le volte che compare la parola e pretende di
+averle riconosciute tutte, cosi' una forma nuova diventa rossa invece di
+sparire. Un controllo che accusa il falso e' un controllo che si smette di
+leggere, ed e' peggio di nessun controllo — perche' il giorno che ha ragione
+nessuno gli crede.
+
+Uscita di lato: `stato_orb` non lo chiama davvero nessuno, e il commento nel
+codice dice perche' — «la chiamera' il demone quando NOVA pensa, ascolta o
+parla». Finche' resta cosi' l'orb non cambia mai aspetto. Non l'ho toccato,
+ma adesso e' scritto in un posto dove si vede.
