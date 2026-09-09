@@ -23,6 +23,7 @@ mod cronologia;
 mod config;
 mod demone;
 mod finestre;
+mod modelli;
 mod processo;
 mod stato;
 mod voce;
@@ -327,6 +328,8 @@ fn main() {
             componenti::componenti_elenco,
             componenti::componenti_scarica,
             componenti::componenti_ferma,
+            modelli::modelli_elenco,
+            modelli::modelli_verifica,
             nuova_conversazione
         ])
         .setup(|app| {

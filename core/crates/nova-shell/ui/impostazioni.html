@@ -591,13 +591,100 @@ function formClaude(){
 
 function formLocale(){
   return `<div class="dett">
-    <div class="campo"><label>Modello</label>
+    <div class="campo"><label>Quelli che hai</label>
+      <div id="modelliTrovati"><p class="nota">${T('Sto guardando dove finiscono di solito i modelli...')}</p></div>
+      <p class="aiuto">${T('I modelli si scaricano da')} <b>${T('Componenti')}</b>, ${T("piu' in basso: li' NOVA sa quali stanno nella tua scheda video.")}</p>
+      <button class="bottone secondo" id="btnModelliOvunque">${T('Cerca su tutti i dischi')}</button></div>
+    <div class="campo"><label>${T('Oppure il percorso a mano')}</label>
       <input type="text" id="loFile" value="${esc(prendi('model.path','') || prendi('model.file',''))}"
              placeholder="il .gguf da usare">
-      <p class="aiuto">I modelli si scaricano da <b>Componenti</b>, piu' in basso:
-        li' NOVA sa quali stanno nella tua scheda video. Qui si punta a un file
-        che hai gia'.</p></div>
+      <p class="aiuto" id="loEsito"></p></div>
   </div>`;
+}
+
+/* --- i modelli che ci sono davvero --------------------------------------
+   Il campo del percorso da solo era vero e inutile: chi non ricorda dove sta
+   il suo GGUF non ha nessun posto dove guardare. Cercare lo sa gia' Python
+   (`nova/modelli_trova.py`), che e' lo stesso posto da cui lo sa l'installer:
+   qui non si ripete nessuna regola su dove cercare o cosa sia utilizzabile. */
+/* La ricerca costa una ventina di secondi, e aprire il pannello due volte
+   non cambia cosa c'e' sul disco: si tiene la risposta finche' la finestra
+   resta aperta. Non su disco, pero' — un modello cancellato mentre la
+   finestra e' chiusa deve sparire dall'elenco alla riapertura, non restare
+   li' a farsi scegliere. */
+let modelliVisti = null;
+
+async function disegnaModelli(ovunque, dinuovo){
+  const cont = $('modelliTrovati');
+  if(!cont) return;
+  if(!invoke){ cont.innerHTML = `<p class="nota">${T('Il ponte col guscio non c\'e\': non posso cercare i modelli.')}</p>`; return; }
+  let r = (!ovunque && !dinuovo) ? modelliVisti : null;
+  if(!r){
+    cont.innerHTML = `<p class="nota">${ovunque
+      ? T('Sto percorrendo i dischi. Puo\' metterci qualche minuto.')
+      : T('Sto guardando dove finiscono di solito i modelli...')}</p>`;
+    try { r = await invoke('modelli_elenco', { ovunque: !!ovunque }); }
+    catch(e){ cont.innerHTML = `<p class="nota">${T('Non riesco a cercare i modelli: ')}${e}</p>`; return; }
+    modelliVisti = r;
+  }
+
+  const in_uso = (prendi('model.path','') || prendi('model.file','')).toLowerCase();
+  const trovati = r.modelli || [];
+  if(!trovati.length){
+    cont.innerHTML = `<p class="nota">${ovunque
+      ? T('Nessun GGUF sui dischi fissi. Scaricane uno da Componenti, oppure scrivi qui sotto il percorso se sta su un disco esterno o in rete.')
+      : T('Nessun GGUF nei posti soliti. Prova «Cerca su tutti i dischi», oppure scaricane uno da Componenti.')}</p>`;
+  } else {
+    cont.innerHTML = trovati.map(m => `
+      <div class="riga" data-modello="${esc(m.percorso)}">
+        <div class="info">
+          <b>${esc(m.nome)}</b>
+          <span>${m.gb} GB · ${esc(m.cartella)}${m.proiettore ? ' · ' + T('vede le immagini') : ''}</span>
+        </div>
+        ${m.percorso.toLowerCase() === in_uso
+          ? `<span class="etichetta">${T('In uso')}</span>`
+          : `<button class="bottone secondo" data-usa="${esc(m.percorso)}">${T('Usa questo')}</button>`}
+      </div>`).join('');
+    cont.querySelectorAll('[data-usa]').forEach(b => b.onclick = () => {
+      const f = $('loFile');
+      if(f) f.value = b.dataset.usa;
+      salva({ model: { path: b.dataset.usa } });
+      const e = $('loEsito');
+      if(e){ e.textContent = ''; e.className = 'aiuto'; }
+      // Dalla memoria, sempre: qui si sposta solo l'etichetta «In uso», e
+      // rifare la ricerca sui dischi per quello sarebbero minuti di attesa
+      // per un cambiamento che non riguarda cosa c'e' sul disco.
+      disegnaModelli(false);
+    });
+  }
+  // Un elenco parziale che sembra completo fa concludere «il mio modello non
+  // c'e'», che e' la conclusione sbagliata.
+  if(r.troncato){
+    cont.innerHTML += `<p class="nota">${T('Il tempo e\' scaduto dopo')} ${r.secondi}s: ${T("l'elenco e' parziale. Se il tuo non c'e', scrivi il percorso a mano.")}</p>`;
+  }
+}
+
+/* Un percorso scritto a mano non basta accettarlo: «non esiste», «non e' un
+   GGUF» e «e' un GGUF interrotto» sono tre cose diverse, e la terza ha il file
+   al suo posto con la sua dimensione. Senza dirlo qui si scopriva mezzo minuto
+   dopo, sotto forma di llama.cpp che muore. */
+async function verificaModello(percorso){
+  const dove = $('loEsito');
+  if(!dove) return;
+  if(!percorso){ dove.textContent = ''; dove.className = 'aiuto'; return; }
+  if(!invoke){ dove.textContent = ''; return; }
+  dove.className = 'aiuto';
+  dove.textContent = T('Controllo...');
+  let r;
+  try { r = await invoke('modelli_verifica', { percorso }); }
+  catch(e){ dove.textContent = T('Non riesco a controllarlo: ') + e; return; }
+  if(r.ok){
+    dove.className = 'aiuto chiave-ok';
+    dove.textContent = `${T('Va bene')}: ${r.nome} · ${r.gb} GB` + (r.proiettore ? ` · ${T('vede le immagini')}` : '');
+  } else {
+    dove.className = 'aiuto chiave-no';
+    dove.textContent = `${T('Non va')}: ${T(r.motivo)}`;
+  }
 }
 
 function formCli(nome, spec){
@@ -718,7 +805,16 @@ function legaDettaglioCervello(quale, nome){
     };
   } else {
     const f = $('loFile');
-    if(f) f.onchange = () => salva({ model: { path: f.value.trim() } });
+    if(f) f.onchange = () => {
+      const v = f.value.trim();
+      salva({ model: { path: v } });
+      verificaModello(v);
+      disegnaModelli(false);
+    };
+    const ov = $('btnModelliOvunque');
+    if(ov) ov.onclick = () => disegnaModelli(true);
+    disegnaModelli(false);
+    if(f && f.value.trim()) verificaModello(f.value.trim());
   }
 }
 
