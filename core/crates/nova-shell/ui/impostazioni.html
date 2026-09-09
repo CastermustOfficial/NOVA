@@ -89,6 +89,14 @@
 .etichette{display:flex;gap:5px;margin-top:7px;flex-wrap:wrap}
 .etichetta{font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:2.5px 7px;border-radius:6px;
   border:1px solid var(--linea);color:var(--fioco)}
+.etichetta.in-uso{color:var(--ascolto);border-color:var(--ascolto);font-weight:600}
+.statocerv{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 0;
+  padding:9px 12px;border:1px solid var(--linea);border-radius:9px;font-size:12px}
+.statocerv.si{border-color:var(--ascolto)}
+.statocerv .che{flex:1;min-width:200px}
+.statocerv .dove{font-family:var(--mono);font-size:10.5px;color:var(--fioco);
+  display:block;margin-top:3px;word-break:break-all}
+.riga.scelta{border-color:var(--ascolto)}
 .cervello.scelto .etichetta{color:var(--brace);border-color:rgba(232,115,74,.3)}
 /* — stati dell'orb, la legenda — */
 .legenda{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
@@ -522,10 +530,66 @@ function disegnaDettaglioCervello(){
   else if(attivo === 'claude')  dove.innerHTML = formClaude();
   else if(cli[attivo])        { dove.innerHTML = formCli(attivo, cli[attivo]); quale = 'cli'; }
   else                          dove.innerHTML = formLocale();
-  dove.innerHTML = fasciaRiservatezza(attivo, cli[attivo]) + dove.innerHTML;
+  dove.innerHTML = fasciaRiservatezza(attivo, cli[attivo])
+    + `<div class="statocerv" id="statoCervello">${T('Controllo com\'e\' messo...')}</div>`
+    + dove.innerHTML;
   dove.innerHTML += formAggiungiCli();
   legaDettaglioCervello(quale, attivo);
+  disegnaStatoCervello(attivo);
   legaAggiungiCli();
+}
+
+/* --- «c'e' davvero?» ------------------------------------------------------
+   Il pannello sapeva scegliere un cervello e non sapeva dire se la cosa
+   scelta esiste. Per Claude Code c'erano quattro campi da riempire e nessuna
+   riga che rispondesse alle due domande che uno si fa: e' installato, e sono
+   collegato al mio account? Per le CLI aggiunte a mano c'era scritto «se
+   manca, NOVA lo dice quando provi a usarla» — onesto, e tardi.
+
+   Risponde Python, dove ogni cervello ha gia' `disponibile()`: qui non si
+   ricontrolla niente, si chiede. */
+async function disegnaStatoCervello(nome){
+  const dove = $('statoCervello');
+  if(!dove) return;
+  if(!invoke){ dove.textContent = T('Il ponte col guscio non c\'e\'.'); return; }
+  dove.className = 'statocerv';
+  dove.textContent = T('Controllo com\'e\' messo...');
+  let s;
+  try { s = await invoke('cervelli_stato', { nome }); }
+  catch(e){ dove.textContent = T('Non riesco a controllare: ') + e; return; }
+
+  const paga = s.accesso === 'abbonamento'
+      ? `${T('abbonamento')}${s.accesso_dettaglio ? ' ' + esc(s.accesso_dettaglio) : ''}`
+    : s.accesso === 'consumo'
+      ? `${T('a consumo')}${s.accesso_dettaglio ? ' · ' + esc(s.accesso_dettaglio) : ''}`
+    : '';
+  // Un cervello che si collega da terminale e' una CLI: per il modello
+  // locale e per un endpoint HTTP quel bottone non vuol dire niente.
+  const daTerminale = !!s.eseguibile || (nome !== 'locale' && nome !== 'api' && !s.pronto);
+
+  dove.className = 'statocerv' + (s.pronto ? ' si' : '');
+  dove.innerHTML = `
+    <span class="che">
+      <b>${s.pronto ? '✓ ' : '✗ '}${esc(s.etichetta)}${s.pronto ? ' ' + T('e\' pronto') : ''}</b>${paga ? ' · ' + paga : ''}
+      ${s.pronto ? '' : `<br>${esc(s.motivo || T('non disponibile'))}`}
+      ${s.eseguibile ? `<span class="dove">${esc(s.eseguibile)}</span>` : ''}
+    </span>
+    ${(!s.pronto && daTerminale)
+      ? `<button class="bottone secondo" id="btnCollega">${T('Apri il terminale per collegarti')}</button>` : ''}
+    <button class="bottone secondo" id="btnRicontrolla">${T('Ricontrolla')}</button>`;
+
+  $('btnRicontrolla').onclick = () => disegnaStatoCervello(nome);
+  const c = $('btnCollega');
+  if(c) c.onclick = async () => {
+    // NOVA non fa il login al posto di nessuno e non tocca credenziali: apre
+    // la finestra e si fa da parte. Mettersi in mezzo a una password sarebbe
+    // proprio il posto in cui ha promesso di non stare.
+    c.disabled = true;
+    try { await invoke('cervello_collega', { nome }); }
+    catch(e){ dove.innerHTML += `<span class="che">${T('Non riesco ad aprire il terminale: ')}${e}</span>`; return; }
+    finally { c.disabled = false; }
+    c.textContent = T('Terminale aperto: collegati li\', poi Ricontrolla');
+  };
 }
 
 function formApi(){
@@ -590,7 +654,20 @@ function formClaude(){
 }
 
 function formLocale(){
+  // Il modello in uso si sa **subito**, dalla configurazione: non dipende da
+  // nessuna ricerca, e farlo aspettare venti secondi insieme all'elenco
+  // voleva dire che per venti secondi la domanda «quale sto usando?» non
+  // aveva risposta da nessuna parte. E se il file scelto sta in una cartella
+  // che la ricerca non guarda, senza questa riga non l'avrebbe mai avuta.
+  const ora = prendi('model.path','') || prendi('model.file','');
+  const nomeOra = ora ? ora.split(/[\\/]/).pop() : '';
   return `<div class="dett">
+    <div class="campo"><label>${T('In uso adesso')}</label>
+      <div class="statocerv${ora ? ' si' : ''}" id="modelloAttivo">
+        <span class="che">${ora
+          ? `<b>${esc(nomeOra)}</b><span class="dove">${esc(ora)}</span>`
+          : `<b>${T('Nessun modello scelto')}</b> — ${T('prendine uno qui sotto')}`}</span>
+      </div></div>
     <div class="campo"><label>Quelli che hai</label>
       <div id="modelliTrovati"><p class="nota">${T('Sto guardando dove finiscono di solito i modelli...')}</p></div>
       <p class="aiuto">${T('I modelli si scaricano da')} <b>${T('Componenti')}</b>, ${T("piu' in basso: li' NOVA sa quali stanno nella tua scheda video.")}</p>
@@ -620,11 +697,31 @@ async function disegnaModelli(ovunque, dinuovo){
   if(!invoke){ cont.innerHTML = `<p class="nota">${T('Il ponte col guscio non c\'e\': non posso cercare i modelli.')}</p>`; return; }
   let r = (!ovunque && !dinuovo) ? modelliVisti : null;
   if(!r){
-    cont.innerHTML = `<p class="nota">${ovunque
-      ? T('Sto percorrendo i dischi. Puo\' metterci qualche minuto.')
-      : T('Sto guardando dove finiscono di solito i modelli...')}</p>`;
+    // Una riga ferma per venti secondi non si legge come «sta lavorando», si
+    // legge come «non fa niente» - e' successo al primo che l'ha usata. Il
+    // rimedio non e' una frase piu' gentile: e' dire quanto ci mette, e far
+    // vedere che il tempo passa.
+    const quanto = ovunque ? T('qualche minuto') : T('una ventina di secondi');
+    const dal = Date.now();
+    const scrivi = () => {
+      const s = Math.round((Date.now() - dal) / 1000);
+      cont.innerHTML = `<p class="nota">${ovunque
+        ? T('Sto percorrendo i dischi fissi')
+        : T('Sto guardando dove finiscono di solito i modelli')}` +
+        ` — ${T('ci vuole')} ${quanto}. ${s}s</p>`;
+    };
+    scrivi();
+    const battito = setInterval(scrivi, 1000);
+    // Una seconda ricerca lanciata sopra la prima non la ferma e non si vede:
+    // si vedono solo due attese sovrapposte e un elenco che cambia da solo.
+    const ov = $('btnModelliOvunque');
+    if(ov){ ov.disabled = true; ov.style.opacity = '.5'; }
     try { r = await invoke('modelli_elenco', { ovunque: !!ovunque }); }
     catch(e){ cont.innerHTML = `<p class="nota">${T('Non riesco a cercare i modelli: ')}${e}</p>`; return; }
+    finally {
+      clearInterval(battito);
+      if(ov){ ov.disabled = false; ov.style.opacity = ''; }
+    }
     modelliVisti = r;
   }
 
@@ -636,21 +733,25 @@ async function disegnaModelli(ovunque, dinuovo){
       : T('Nessun GGUF nei posti soliti. Prova «Cerca su tutti i dischi», oppure scaricane uno da Componenti.')}</p>`;
   } else {
     cont.innerHTML = trovati.map(m => `
-      <div class="riga" data-modello="${esc(m.percorso)}">
+      <div class="riga${m.percorso.toLowerCase() === in_uso ? ' scelta' : ''}" data-modello="${esc(m.percorso)}">
         <div class="info">
           <b>${esc(m.nome)}</b>
           <span>${m.gb} GB · ${esc(m.cartella)}${m.proiettore ? ' · ' + T('vede le immagini') : ''}</span>
         </div>
         ${m.percorso.toLowerCase() === in_uso
-          ? `<span class="etichetta">${T('In uso')}</span>`
+          ? `<span class="etichetta in-uso">✓ ${T('In uso')}</span>`
           : `<button class="bottone secondo" data-usa="${esc(m.percorso)}">${T('Usa questo')}</button>`}
       </div>`).join('');
-    cont.querySelectorAll('[data-usa]').forEach(b => b.onclick = () => {
+    cont.querySelectorAll('[data-usa]').forEach(b => b.onclick = async () => {
+      const scelto = b.dataset.usa;
       const f = $('loFile');
-      if(f) f.value = b.dataset.usa;
-      salva({ model: { path: b.dataset.usa } });
-      const e = $('loEsito');
-      if(e){ e.textContent = ''; e.className = 'aiuto'; }
+      if(f) f.value = scelto;
+      await salva({ model: { path: scelto } });
+      aggiornaAttivo();
+      // La conferma si **scrive**, non si cancella. Qui prima la si
+      // svuotava, e l'unica risposta alla domanda «l'ha preso o no?»
+      // spariva proprio nell'istante in cui uno se la fa.
+      verificaModello(scelto);
       // Dalla memoria, sempre: qui si sposta solo l'etichetta «In uso», e
       // rifare la ricerca sui dischi per quello sarebbero minuti di attesa
       // per un cambiamento che non riguarda cosa c'e' sul disco.
@@ -668,6 +769,32 @@ async function disegnaModelli(ovunque, dinuovo){
    GGUF» e «e' un GGUF interrotto» sono tre cose diverse, e la terza ha il file
    al suo posto con la sua dimensione. Senza dirlo qui si scopriva mezzo minuto
    dopo, sotto forma di llama.cpp che muore. */
+/* La riga «In uso adesso» in cima. Sa gia' il nome dalla configurazione: qui
+   ci si aggiunge cosa il file e' davvero — quanti GB, se vede le immagini, o
+   perche' non va. */
+async function aggiornaAttivo(){
+  const dove = $('modelloAttivo');
+  if(!dove) return;
+  const ora = prendi('model.path','') || prendi('model.file','');
+  const nome = ora ? ora.split(/[\\/]/).pop() : '';
+  if(!ora){
+    dove.className = 'statocerv';
+    dove.innerHTML = `<span class="che"><b>${T('Nessun modello scelto')}</b> — ${T('prendine uno qui sotto')}</span>`;
+    return;
+  }
+  dove.className = 'statocerv si';
+  dove.innerHTML = `<span class="che"><b>${esc(nome)}</b><span class="dove">${esc(ora)}</span></span>`;
+  if(!invoke) return;
+  let r;
+  try { r = await invoke('modelli_verifica', { percorso: ora }); }
+  catch(e){ return; }
+  dove.className = 'statocerv' + (r.ok ? ' si' : '');
+  dove.innerHTML = `<span class="che">
+      <b>${r.ok ? '✓ ' : '✗ '}${esc(nome)}</b>${r.ok ? ` · ${r.gb} GB` : ''}${r.ok && r.proiettore ? ' · ' + T('vede le immagini') : ''}
+      ${r.ok ? '' : `<br>${esc(T(r.motivo || 'non va'))}`}
+      <span class="dove">${esc(ora)}</span></span>`;
+}
+
 async function verificaModello(percorso){
   const dove = $('loEsito');
   if(!dove) return;
@@ -680,7 +807,10 @@ async function verificaModello(percorso){
   catch(e){ dove.textContent = T('Non riesco a controllarlo: ') + e; return; }
   if(r.ok){
     dove.className = 'aiuto chiave-ok';
-    dove.textContent = `${T('Va bene')}: ${r.nome} · ${r.gb} GB` + (r.proiettore ? ` · ${T('vede le immagini')}` : '');
+    const attivo = (prendi('model.path','') || prendi('model.file','')).toLowerCase()
+                 === String(r.percorso).toLowerCase();
+    dove.textContent = (attivo ? `✓ ${T('In uso')}: ` : `${T('Va bene')}: `)
+      + `${r.nome} · ${r.gb} GB` + (r.proiettore ? ` · ${T('vede le immagini')}` : '');
   } else {
     dove.className = 'aiuto chiave-no';
     dove.textContent = `${T('Non va')}: ${T(r.motivo)}`;
@@ -809,11 +939,13 @@ function legaDettaglioCervello(quale, nome){
       const v = f.value.trim();
       salva({ model: { path: v } });
       verificaModello(v);
+      aggiornaAttivo();
       disegnaModelli(false);
     };
     const ov = $('btnModelliOvunque');
     if(ov) ov.onclick = () => disegnaModelli(true);
     disegnaModelli(false);
+    aggiornaAttivo();
     if(f && f.value.trim()) verificaModello(f.value.trim());
   }
 }

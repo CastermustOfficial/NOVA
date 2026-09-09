@@ -10,6 +10,11 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 nova-proto = { path = "../nova-proto" }
+# Cercare i GGUF e dire se un cervello e' pronto sono cose gia' portate:
+# il guscio le chiede, non le rifa'.
+nova-modelli = { path = "../nova-modelli" }
+nova-cervelli = { path = "../nova-cervelli" }
+nova-platform = { path = "../nova-platform" }
 tauri = { version = "2", features = ["tray-icon"] }
 # La guardia di istanza singola: due doppi clic non devono dare due orb.
 # Vedi `finestre::richiama` per cosa fa il secondo.

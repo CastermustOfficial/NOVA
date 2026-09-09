@@ -7,38 +7,35 @@
 //! inutile: chi non ricorda dove sta il suo GGUF non ha nessun posto dove
 //! guardare, e chi ci scrive un percorso sbagliato non lo scopre li'.
 //!
-//! Non c'era niente da inventare. `nova/modelli_trova.py` sa gia' cercare i
-//! GGUF, ordinarli dal piu' adatto, dire quanto pesano e se hanno accanto il
-//! proiettore; e sa verificare un percorso indicato a mano, distinguendo «non
-//! esiste» da «non e' un GGUF» da «e' un GGUF ma non e' finito di scaricare».
-//! Lo chiamavano solo l'installer e la riga di comando. Qui non si duplica
-//! nessuna di quelle regole: si apre la porta.
+//! Cercare, ordinare e verificare lo sa gia' `nova-modelli`, portato dal
+//! Python e gemellato con un banco. Qui non si ripete nessuna di quelle
+//! regole — nemmeno «quanto tempo si concede» o «dove si guarda»: si mette
+//! insieme la richiesta, si chiede al crate, si traduce in JSON per la
+//! finestra.
 
-use serde_json::Value;
+use serde_json::{json, Value};
+
+use nova_modelli::trova::{cartelle_note, trova, verifica_file, Come, Trovato,
+                          PROFONDITA, PROFONDITA_OVUNQUE};
 
 use crate::cervello::radice_progetto;
-use crate::processo;
 
-fn python() -> String {
-    std::env::var("NOVA_PYTHON").unwrap_or_else(|_| {
-        if cfg!(windows) { "python".into() } else { "python3".into() }
-    })
+/// La casa dell'utente. Senza, non si sa nemmeno dove guardare.
+fn casa() -> std::path::PathBuf {
+    std::env::var_os("USERPROFILE")
+        .or_else(|| std::env::var_os("HOME"))
+        .map(std::path::PathBuf::from)
+        .unwrap_or_default()
 }
 
-/// Lancia `nova.modelli_trova` con questi argomenti e legge il JSON.
-fn chiedi(argomenti: Vec<String>) -> Result<Value, String> {
-    let mut args: Vec<String> = vec!["-m".into(), "nova.modelli_trova".into()];
-    args.extend(argomenti);
-    let uscita = processo::comando(&python())
-        .env("PYTHONIOENCODING", "utf-8")
-        .args(&args)
-        .current_dir(radice_progetto())
-        .output()
-        .map_err(|e| format!("non riesco a cercare i modelli: {e}"))?;
-    let testo = String::from_utf8_lossy(&uscita.stdout);
-    serde_json::from_str::<Value>(testo.trim()).map_err(|e| {
-        let err = String::from_utf8_lossy(&uscita.stderr);
-        format!("risposta illeggibile ({e}): {}", err.trim())
+fn come_json(m: &Trovato) -> Value {
+    json!({
+        "percorso": m.percorso,
+        "nome": m.nome,
+        "cartella": m.cartella,
+        "byte": m.byte,
+        "gb": m.gb,
+        "proiettore": m.proiettore,
     })
 }
 
@@ -56,11 +53,31 @@ fn chiedi(argomenti: Vec<String>) -> Result<Value, String> {
 #[tauri::command]
 pub async fn modelli_elenco(ovunque: bool) -> Result<Value, String> {
     tokio::task::spawn_blocking(move || {
-        let mut a: Vec<String> = Vec::new();
-        if ovunque {
-            a.push("--ovunque".into());
-        }
-        chiedi(a)
+        let progetto = radice_progetto();
+        let come = if ovunque {
+            Come {
+                radici: nova_platform::dischi::fissi(),
+                profondita: PROFONDITA_OVUNQUE,
+                // La ricerca vera ha bisogno di respiro: con venti secondi
+                // percorrerebbe mezzo disco e direbbe «non ne hai», che e'
+                // il modo peggiore di sbagliare.
+                secondi: 180.0,
+                ..Default::default()
+            }
+        } else {
+            Come {
+                radici: cartelle_note(&casa(), None, &progetto),
+                profondita: PROFONDITA,
+                secondi: 20.0,
+                ..Default::default()
+            }
+        };
+        let (modelli, resoconto) = trova(&come);
+        Ok(json!({
+            "modelli": modelli.iter().map(come_json).collect::<Vec<_>>(),
+            "troncato": resoconto.troncato,
+            "secondi": resoconto.secondi,
+        }))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -74,7 +91,19 @@ pub async fn modelli_elenco(ovunque: bool) -> Result<Value, String> {
 /// si scopriva mezzo minuto dopo, sotto forma di llama.cpp che muore.
 #[tauri::command]
 pub async fn modelli_verifica(percorso: String) -> Result<Value, String> {
-    tokio::task::spawn_blocking(move || chiedi(vec!["--verifica".into(), percorso]))
-        .await
-        .map_err(|e| e.to_string())?
+    tokio::task::spawn_blocking(move || {
+        let v = verifica_file(&percorso);
+        Ok(json!({
+            "ok": v.ok,
+            "percorso": v.percorso,
+            "motivo": v.motivo,
+            "nome": v.nome,
+            "cartella": v.cartella,
+            "byte": v.byte,
+            "gb": v.gb,
+            "proiettore": v.proiettore,
+        }))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }

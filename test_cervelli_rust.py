@@ -654,6 +654,122 @@ controlla("e un 400, che non si riprova",
               for g in GIRI),
           "rimandare uguale una richiesta sbagliata non la raddrizza")
 
+
+print("\n9. e come si paga Claude Code, che non e' contabilita'")
+
+#: (chiave nell'ambiente, contenuto di .credentials.json oppure None)
+#:
+#: `None` vuol dire «il file non c'e' o non si legge»: e' un «non lo so», non
+#: un «non e' abbonato». Le due frasi mandano a controllare cose diverse — la
+#: prima l'accesso, la seconda il portafoglio.
+ACCESSI = [
+    ("sk-ant-qualcosa", {"claudeAiOauth": {"subscriptionType": "max"}}),
+    ("", {"claudeAiOauth": {"subscriptionType": "max",
+                            "rateLimitTier": "default_claude_max_5x"}}),
+    ("", {"claudeAiOauth": {"subscriptionType": "pro"}}),
+    ("", {"claudeAiOauth": {"subscriptionType": "pro", "rateLimitTier": ""}}),
+    ("", {"claudeAiOauth": {"subscriptionType": "pro", "rateLimitTier": None}}),
+    ("", {"claudeAiOauth": {}}),
+    ("", {"claudeAiOauth": None}),
+    ("", {}),
+    ("", None),
+    # Le trappole vere: in Python sono **falsi** anche lo zero e il booleano,
+    # e un porto che guardasse solo `null` direbbe «abbonamento 0».
+    ("", {"claudeAiOauth": {"subscriptionType": 0}}),
+    ("", {"claudeAiOauth": {"subscriptionType": False}}),
+    ("", {"claudeAiOauth": {"subscriptionType": True}}),
+    ("", {"claudeAiOauth": {"subscriptionType": ""}}),
+    # `.strip()` di Python toglie anche i separatori di unita', che
+    # `char::is_whitespace` non considera bianchi (D182).
+    ("", {"claudeAiOauth": {"subscriptionType": "  max  "}}),
+    ("", {"claudeAiOauth": {"subscriptionType": "\x1fmax\x1f"}}),
+    ("", {"claudeAiOauth": {"subscriptionType": "max",
+                            "rateLimitTier": "default_claude_default_claude_x"}}),
+    # Il prefisso **in mezzo**: Python lo toglie ovunque, e un porto che
+    # tagliasse solo la testa resterebbe verde su tutti i casi qui sopra —
+    # anche su quello ripetuto, perche' `trim_start_matches` di Rust ripete.
+    ("", {"claudeAiOauth": {"subscriptionType": "max",
+                            "rateLimitTier": "max_default_claude_5x"}}),
+]
+
+#: I `%APPDATA%` da cui ricavare il ripiego di npm.
+#:
+#: Fra questi **non** c'e' un percorso in stile Unix («/home/x/.config»): su
+#: Windows `%APPDATA%` non e' mai fatto cosi', e le due librerie standard lo
+#: normalizzano diversamente — Python lo riscrive con le barre rovesce, Rust
+#: lo lascia com'e'. Confrontare la normalizzazione di due librerie su un
+#: valore che quella piattaforma non produce e' un rosso che non corrisponde a
+#: nessun difetto, e i rossi che non corrispondono a niente insegnano a non
+#: leggere i rossi.
+RIPIEGHI = [
+    r"C:\Users\x\AppData\Roaming",
+    "",                                  # variabile assente: viene relativo
+    "C:\\Users\\Gio Rossi\\AppData\\Roaming",   # gli spazi ci sono davvero
+    "C:\\Users\\x\\AppData\\Roaming\\",  # con la barra in fondo
+    r"\\server\condivisa\AppData",       # profilo in rete: capita in azienda
+]
+
+fuori2 = rust({
+    "accessi": [[k, c] for k, c in ACCESSI],
+    "ripieghi": RIPIEGHI,
+})
+
+
+def py_accesso(chiave, credenziali):
+    """Il `tipo_accesso` vero, con l'ambiente e la casa spostati sotto."""
+    import tempfile
+    vero_env = os.environ.get("ANTHROPIC_API_KEY")
+    vera_home = claude_cli.Path.home
+    with tempfile.TemporaryDirectory() as tmp:
+        casa = Path(tmp)
+        (casa / ".claude").mkdir()
+        if credenziali is not None:
+            (casa / ".claude" / ".credentials.json").write_text(
+                json.dumps(credenziali), encoding="utf-8")
+        try:
+            if chiave:
+                os.environ["ANTHROPIC_API_KEY"] = chiave
+            else:
+                os.environ.pop("ANTHROPIC_API_KEY", None)
+            claude_cli.Path.home = staticmethod(lambda: casa)
+            return list(claude_cli.tipo_accesso())
+        finally:
+            claude_cli.Path.home = vera_home
+            os.environ.pop("ANTHROPIC_API_KEY", None)
+            if vero_env is not None:
+                os.environ["ANTHROPIC_API_KEY"] = vero_env
+
+
+diverse = []
+for (chiave, cred), ru in zip(ACCESSI, fuori2["accessi"]):
+    py = py_accesso(chiave, cred)
+    if list(ru) != py:
+        diverse.append(f"{cred!r}: rust {ru} vs python {py}")
+controlla(f"i {len(ACCESSI)} modi di pagare si leggono uguali", not diverse,
+          " | ".join(diverse[:2]))
+controlla("un abbonamento non si chiama «a consumo»",
+          any(r[0] == "abbonamento" for r in fuori2["accessi"]),
+          "col dollaro riportato che e' l'equivalente API, chiamarlo consumo "
+          "vuol dire mostrare una spesa che nessuno paga")
+controlla("«non lo so» esiste, e non e' «non e' abbonato»",
+          any(r[0] == "sconosciuto" for r in fuori2["accessi"]))
+controlla("uno zero non diventa un abbonamento",
+          fuori2["accessi"][ACCESSI.index(("", {"claudeAiOauth": {"subscriptionType": 0}}))][0]
+          == "sconosciuto")
+
+# Dove npm mette Claude quando il PATH non lo sa.
+diverse = []
+for appdata, ru in zip(RIPIEGHI, fuori2["ripieghi"]):
+    py = str(Path(appdata) / "npm" / "claude.cmd")
+    if ru != py:
+        diverse.append(f"{appdata!r}: rust {ru!r} vs python {py!r}")
+controlla("il ripiego di npm e' lo stesso percorso", not diverse,
+          " | ".join(diverse[:2]))
+controlla("i nomi di Claude si cercano nello stesso ordine",
+          fuori2["candidati_claude"] == ["claude.cmd", "claude.exe", "claude"],
+          f"rust {fuori2['candidati_claude']}: su Windows npm installa il .cmd, "
+          "e cercare l'.exe per primo vuol dire non trovarlo dove c'e'")
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")

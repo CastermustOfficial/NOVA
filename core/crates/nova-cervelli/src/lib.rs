@@ -14,6 +14,7 @@
 //! Le dichiarazioni — identita', permessi, elenco degli strumenti — stanno in
 //! [`dichiarazioni`] e sono **generate** da `_estrai_cervelli.py` (D112).
 
+pub mod accesso;
 pub mod claude;
 pub mod cli;
 pub mod dichiarazioni;

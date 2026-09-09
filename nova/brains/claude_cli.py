@@ -104,7 +104,8 @@ class ClaudeCodeBrain:
     agentico = True
 
     def __init__(self, cfg, kb_context: str = "", vault_path: str = "",
-                 mcp_config: str = "", model_override: str = ""):
+                 mcp_config: str = "", model_override: str = "",
+                 traccia: bool = True):
         b = cfg.brains
         self.cfg = cfg
         self.eseguibile = b.claude_binary or _trova_claude()
@@ -112,7 +113,13 @@ class ClaudeCodeBrain:
         self.model = model_override or b.claude_model or "sonnet"
         self.cwd = b.claude_cwd or str(Path.home())
         self.max_turns = b.claude_max_turns
-        _traccia_avvio(self)
+        # `traccia=False` per chi vuole solo **guardare** com'e' messo: il
+        # pannello che chiede «Claude Code c'e'?» non sta facendo nascere un
+        # cervello, e una riga di diario che dice il contrario e' rumore che
+        # somiglia a un fatto — la cosa peggiore da mettere in un diario che
+        # si apre per capire chi ha letto quale configurazione.
+        if traccia:
+            _traccia_avvio(self)
         self.timeout = b.claude_timeout
         self.extra_args = list(b.claude_extra_args)
         # La sessione sopravvive al processo.

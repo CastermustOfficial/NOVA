@@ -2501,6 +2501,7 @@ version = "0.1.0"
 dependencies = [
  "nova-contesto",
  "nova-guasti",
+ "nova-pitone",
  "serde",
  "serde_json",
  "ureq",
@@ -2654,6 +2655,9 @@ name = "nova-shell"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "nova-cervelli",
+ "nova-modelli",
+ "nova-platform",
  "nova-proto",
  "serde",
  "serde_json",

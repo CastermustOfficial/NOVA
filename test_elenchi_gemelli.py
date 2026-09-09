@@ -202,6 +202,11 @@ GEMELLI = [
 #: Elenchi che un altro banco confronta gia', col nome della prova che lo fa.
 ALTROVE = {
     "GUARDANO_LO_SCHERMO": "test_guasti_rust.py",
+    # I nomi con cui si cerca Claude nel PATH: il banco dei cervelli li
+    # confronta con quelli che il Python chiede davvero a `shutil.which`,
+    # nell'ordine. Su Windows npm installa un `.cmd`, e cercare l'`.exe`
+    # per primo vuol dire non trovarlo su una macchina dove c'e'.
+    "CANDIDATI": "test_cervelli_rust.py",
 }
 
 #: Elenchi che in Python non esistono, con il perche'. Restare qui e' una
