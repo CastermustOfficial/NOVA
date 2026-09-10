@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import asdict
 import os
 import subprocess
 import sys
@@ -33,10 +34,34 @@ def _traccia_main() -> None:
 
 
 def _prepare_config(reconfigure: bool = False) -> Config:
+    """Carica la configurazione, la completa se manca qualcosa, e la salva
+    **solo se e' cambiata davvero**.
+
+    Salvava sempre, e non era una svista innocua. Il guscio chiede le
+    statistiche della memoria ogni quindici secondi con `--kb-stats`, e ogni
+    volta si passa di qui: quattro riscritture al minuto di un file che
+    contiene anche le chiavi API, per ore, senza che nessuno avesse chiesto
+    di cambiare niente. Misurato il 10 settembre in `avvio.log`: il file
+    cambiava identita' sul disco a ogni giro.
+
+    Il danno vero pero' non e' l'usura. `save()` scrive `asdict(self)`,
+    cioe' **solo i campi che le classi conoscono**: ogni chiave estranea che
+    qualcun altro abbia messo nel file sparisce alla prima riscrittura. E'
+    cosi' che il modello scelto dal pannello svaniva dopo quindici secondi -
+    il pannello scriveva `model.path`, che non esiste, e la riscrittura
+    periodica lo cancellava senza un errore, senza una riga di log e senza
+    che nessuno potesse collegare le due cose.
+
+    Il confronto e' su **tutta** la configurazione e non su un elenco di
+    campi: un elenco scritto a mano qui non saprebbe del campo che
+    `autoconfigure` imparera' a toccare domani (D112).
+    """
     _traccia_main()
     cfg = Config.load()
+    prima = asdict(cfg)
     notes = autoconfigure(cfg, force=reconfigure)
-    cfg.save()
+    if asdict(cfg) != prima:
+        cfg.save()
     for n in notes:
         print("[setup]", n)
     return cfg

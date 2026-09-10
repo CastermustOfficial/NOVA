@@ -85,6 +85,37 @@ def componi_prompt(modello: str, utente: str, adesso: str, casa: str,
     return base + clausola(lingua)
 
 
+def _traccia_turno(verso: str, cervello: str, secondi: float, esito: str) -> None:
+    """Una riga quando un turno comincia, e una quando finisce.
+
+    Il 10 settembre NOVA ha lavorato per due ore su una sola domanda - un
+    modello da 27 miliardi di parametri a 3,3 token al secondo - e in quelle
+    due ore non ha scritto **niente** da nessuna parte. Chi guardava vedeva
+    un programma fermo, e non c'era modo di distinguerlo da un programma
+    piantato: sono due cose diverse e vogliono due reazioni diverse.
+
+    Il contenuto della domanda **non** entra qui, e non e' una dimenticanza:
+    questo file sta accanto al programma e per D52 puo' finire sincronizzato
+    col cloud. Per capire un blocco servono l'ora, il cervello e la durata;
+    cosa e' stato chiesto non serve, e sarebbe l'unica cosa che non si puo'
+    piu' togliere da li'.
+
+    Silenziosa come tutta la diagnostica: un guasto nel diario non deve poter
+    fermare la risposta.
+    """
+    try:
+        import datetime
+        import os as _os
+        from .rotazione import accoda
+        f = Path(__file__).resolve().parent.parent / "avvio.log"
+        corpo = f"pid={_os.getpid()} TURNO {verso} cervello={cervello}"
+        if verso == "fine":
+            corpo += f" durata={secondi:.1f}s esito={esito}"
+        accoda(f, f"{datetime.datetime.now():%d/%m %H:%M:%S} {corpo}", corpo)
+    except Exception:
+        pass
+
+
 class Denied(Exception):
     """L'utente ha rifiutato l'azione."""
 
@@ -585,11 +616,20 @@ class Agent:
 
         from .attesa import Battito
         self._battito = Battito(self.cb.on_status)
+        _traccia_turno("inizio", self.cfg.brains.active, 0.0, "")
+        esito = "interrotto"
         try:
-            return self._giro(user_text, tools, agentico, gradino, _inizio_turno)
+            risposta = self._giro(user_text, tools, agentico, gradino, _inizio_turno)
+            esito = "ok"
+            return risposta
+        except BaseException as e:                          # noqa: BLE001
+            esito = type(e).__name__
+            raise
         finally:
             self._battito.fermati()
             self._battito = None
+            _traccia_turno("fine", self.cfg.brains.active,
+                           time.time() - _inizio_turno, esito)
 
     def _giro(self, user_text: str, tools: list, agentico: bool,
               gradino: str, _inizio_turno: float) -> str:

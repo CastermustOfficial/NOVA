@@ -6415,3 +6415,53 @@ giornata: «non dice il modello attivo». Vero, e non ci avevo pensato perche'
 guardavo l'elenco. Il modello in uso si sa **subito**, dalla configurazione,
 senza aspettare nessuna ricerca — e se il file scelto sta in una cartella che
 la ricerca non guarda, senza quella riga non lo avrebbe saputo mai.
+
+### Due ore di silenzio, e un campo che non esisteva
+
+Gio: «Rimane cosi' anche quando son certo abbia scelto un modello. Comunque
+intanto Nova e' rimasto bloccato in loop».
+
+Due frasi, tre difetti, e sono legati.
+
+**Il loop.** Alle 20:23 Gio scrive «spegniti». Alle 22:17 quel processo era
+ancora vivo: due ore, 410 secondi di CPU, e **nessuna riga scritta da nessuna
+parte** — `azioni.jsonl` fermo al 5 settembre. Aveva acceso `llama-server`
+con un modello da 27 miliardi di parametri che genera a 3,27 token al secondo:
+l'ultima risposta gli aveva preso 266 secondi per 872 token, riempiendo il
+contesto a 15.730 su 16.384. Non era piantato. Stava macinando. Ma da fuori
+le due cose sono identiche, e vogliono due reazioni opposte.
+
+Ho anche imparato a guardare prima di sparare: i nove `claude.exe` in cima
+alla lista dei processi sembravano NOVA impazzita, ed erano l'applicazione
+desktop con cui sto parlando con Gio.
+
+**Il campo che non esisteva.** Il pannello salvava `model.path`. Quel campo
+non c'e': `ModelConfig` tiene temperatura e top_p, il file del modello sta in
+`server.model_path`. Quindi scegliere un modello dal pannello **non ha mai
+funzionato** — da prima di ieri, e io ci ho costruito sopra l'elenco senza
+accorgermene, propagando l'errore in sette punti invece di guardare la
+configurazione vera una volta.
+
+**E il terzo, che spiega perche' nessuno se n'era accorto.** Il guscio chiede
+le statistiche della memoria ogni quindici secondi, e ogni richiesta passava
+da `_prepare_config`, che faceva `cfg.save()` **sempre**. Quattro riscritture
+al minuto. E `save()` scrive `asdict(self)`: solo i campi che le classi
+conoscono. Quindi la chiave sbagliata finiva davvero nel file, ci restava
+qualche secondo, e poi spariva — senza errori, senza log, e con quindici
+secondi di distanza fra la causa e l'effetto, che e' il modo migliore per non
+collegarli mai.
+
+Due difetti che da soli non si vedono. Insieme fanno una funzione che non
+funziona e non lo dice.
+
+La cosa che mi tengo e' come sono venuti fuori. Non leggendo il codice: **il
+file di configurazione cambiava identita' a ogni giro in `avvio.log`**, e
+quella riga la scriveva la traccia che avevo messo ieri per un altro motivo.
+La diagnostica serve al giorno che non sai cosa chiedere.
+
+Coda: scrivendo la traccia del turno ho usato `self.brain_name`, che non
+esiste. Sta dentro `except Exception: pass`, come tutta la diagnostica di
+NOVA — quindi non avrebbe dato nessun errore: avrebbe solo smesso di
+scrivere, e io avrei creduto di aver messo un diario. Una diagnostica che
+tace e' peggio di nessuna diagnostica. Adesso una prova pretende che ogni
+`self.x` letto in `Agent` sia assegnato da qualche parte.

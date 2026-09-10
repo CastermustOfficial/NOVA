@@ -384,6 +384,20 @@ async function salva(modifica){
 }
 const prendi = (p, d) => p.split('.').reduce((o,k)=> (o||{})[k], cfg) ?? d;
 
+/* Dove vive il percorso del modello locale.
+ *
+ * Sta in `server.model_path`, non in `model.path`: la sezione `model` della
+ * configurazione contiene i parametri di generazione (temperatura, top_p,
+ * top_k...), il file lo tiene `ServerConfig` perche' e' cio' che si passa a
+ * llama-server. Il pannello scriveva `model.path` — un campo che **non
+ * esiste** — e Python, che salva la configurazione da un oggetto tipizzato,
+ * lo buttava via al primo salvataggio: scegliere un modello da qui non ha
+ * mai funzionato, e non dava nessun errore. Il nome sta scritto una volta
+ * sola apposta: era ripetuto in sette punti, ed e' anche per questo che
+ * nessuno lo ha mai confrontato con la configurazione vera. */
+const modelloOra   = () => prendi('server.model_path','');
+const salvaModello = (percorso) => salva({ server: { model_path: percorso } });
+
 function cervelliTutti(){
   /* I tre di casa, piu' ogni CLI descritta in configurazione. Python le
      accettava gia' come cervello attivo - crea_brain guarda brains.cli prima
@@ -659,7 +673,7 @@ function formLocale(){
   // voleva dire che per venti secondi la domanda «quale sto usando?» non
   // aveva risposta da nessuna parte. E se il file scelto sta in una cartella
   // che la ricerca non guarda, senza questa riga non l'avrebbe mai avuta.
-  const ora = prendi('model.path','') || prendi('model.file','');
+  const ora = modelloOra();
   const nomeOra = ora ? ora.split(/[\\/]/).pop() : '';
   return `<div class="dett">
     <div class="campo"><label>${T('In uso adesso')}</label>
@@ -673,7 +687,7 @@ function formLocale(){
       <p class="aiuto">${T('I modelli si scaricano da')} <b>${T('Componenti')}</b>, ${T("piu' in basso: li' NOVA sa quali stanno nella tua scheda video.")}</p>
       <button class="bottone secondo" id="btnModelliOvunque">${T('Cerca su tutti i dischi')}</button></div>
     <div class="campo"><label>${T('Oppure il percorso a mano')}</label>
-      <input type="text" id="loFile" value="${esc(prendi('model.path','') || prendi('model.file',''))}"
+      <input type="text" id="loFile" value="${esc(modelloOra())}"
              placeholder="il .gguf da usare">
       <p class="aiuto" id="loEsito"></p></div>
   </div>`;
@@ -725,7 +739,7 @@ async function disegnaModelli(ovunque, dinuovo){
     modelliVisti = r;
   }
 
-  const in_uso = (prendi('model.path','') || prendi('model.file','')).toLowerCase();
+  const in_uso = modelloOra().toLowerCase();
   const trovati = r.modelli || [];
   if(!trovati.length){
     cont.innerHTML = `<p class="nota">${ovunque
@@ -746,7 +760,7 @@ async function disegnaModelli(ovunque, dinuovo){
       const scelto = b.dataset.usa;
       const f = $('loFile');
       if(f) f.value = scelto;
-      await salva({ model: { path: scelto } });
+      await salvaModello(scelto);
       aggiornaAttivo();
       // La conferma si **scrive**, non si cancella. Qui prima la si
       // svuotava, e l'unica risposta alla domanda «l'ha preso o no?»
@@ -775,7 +789,7 @@ async function disegnaModelli(ovunque, dinuovo){
 async function aggiornaAttivo(){
   const dove = $('modelloAttivo');
   if(!dove) return;
-  const ora = prendi('model.path','') || prendi('model.file','');
+  const ora = modelloOra();
   const nome = ora ? ora.split(/[\\/]/).pop() : '';
   if(!ora){
     dove.className = 'statocerv';
@@ -807,8 +821,7 @@ async function verificaModello(percorso){
   catch(e){ dove.textContent = T('Non riesco a controllarlo: ') + e; return; }
   if(r.ok){
     dove.className = 'aiuto chiave-ok';
-    const attivo = (prendi('model.path','') || prendi('model.file','')).toLowerCase()
-                 === String(r.percorso).toLowerCase();
+    const attivo = modelloOra().toLowerCase() === String(r.percorso).toLowerCase();
     dove.textContent = (attivo ? `✓ ${T('In uso')}: ` : `${T('Va bene')}: `)
       + `${r.nome} · ${r.gb} GB` + (r.proiettore ? ` · ${T('vede le immagini')}` : '');
   } else {
@@ -937,7 +950,7 @@ function legaDettaglioCervello(quale, nome){
     const f = $('loFile');
     if(f) f.onchange = () => {
       const v = f.value.trim();
-      salva({ model: { path: v } });
+      salvaModello(v);
       verificaModello(v);
       aggiornaAttivo();
       disegnaModelli(false);
