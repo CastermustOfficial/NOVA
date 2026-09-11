@@ -406,7 +406,7 @@ const PROVE = [
    'se lo scrive in memoria, e alla prossima accensione lo sa ancora'],
 ];
 
-function benvenuto(senzaCervello) {
+function benvenuto(motivo) {
   const v = $('vuoto');
   if (!v) return;
   v.innerHTML = '';
@@ -420,15 +420,22 @@ function benvenuto(senzaCervello) {
   /* Senza un cervello configurato le prove non funzionerebbero, e proporle
      sarebbe il modo peggiore di cominciare: si chiede la prima cosa, non
      succede niente, e si chiude. Meglio dirlo e porgere la strada. */
-  if (senzaCervello) {
+  if (motivo) {
     const m = document.createElement('div');
     m.className = 'manca';
-    m.textContent = T('Non hai ancora scelto chi ragiona. Finché non lo fai '
+    m.textContent = T('Chi ragiona per me non è pronto. Finché non lo sistemi '
       + 'so aprire e guardare, ma non capire quello che mi chiedi.');
+    /* Il motivo vero, non una frase generica: «non trovato nel PATH» e «non
+       autenticato» si curano in due modi diversi, e chi legge deve sapere
+       quale dei due gli e' capitato (D193). */
+    const p = document.createElement('div');
+    p.style.marginTop = '6px';
+    p.textContent = motivo;
+    m.appendChild(p);
     const b = document.createElement('button');
     b.className = 'prova';
     b.style.marginTop = '8px';
-    b.textContent = T('Scegli un cervello →');
+    b.textContent = T('Sistemalo →');
     b.onclick = () => invoke?.('apri_impostazioni');
     m.appendChild(b);
     v.appendChild(m);
@@ -462,16 +469,20 @@ function benvenuto(senzaCervello) {
     for (const b of battute) battuta(b.da, b.testo);
   } catch (e) { console.warn(e); }
   if (vuota) {
-    let senzaCervello = false;
+    /* Perche' non si guarda solo la configurazione: «ho scelto un cervello»
+       e «quel cervello risponde» sono due cose diverse, e la seconda e'
+       quella che decide se le tre prove funzioneranno. Con Gemini scelto ma
+       non collegato, guardare la configurazione diceva «tutto a posto» e si
+       finiva a cliccare tre prove che falliscono in fila.
+       Lo stato vero lo sa gia' `cervelli_stato`: qui non si deduce niente. */
+    let motivo = '';
     try {
       const cfg = await invoke('config_leggi');
-      const b = cfg?.brains || {};
-      // «Locale» senza un modello sul disco non e' un cervello: e' la
-      // configurazione di partenza che nessuno ha ancora toccato.
-      senzaCervello = (!b.active || b.active === 'locale')
-        && !(cfg?.server?.model_path || '').trim();
+      const attivo = (cfg?.brains?.active || 'locale');
+      const s = await invoke('cervelli_stato', { nome: attivo });
+      if (!s?.pronto) motivo = s?.motivo || T('non risulta pronto');
     } catch (e) { console.warn(e); }
-    benvenuto(senzaCervello);
+    benvenuto(motivo);
   }
   $('testo').focus();
 })();

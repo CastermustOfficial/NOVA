@@ -580,6 +580,12 @@ async function disegnaStatoCervello(nome){
   // Un cervello che si collega da terminale e' una CLI: per il modello
   // locale e per un endpoint HTTP quel bottone non vuol dire niente.
   const daTerminale = !!s.eseguibile || (nome !== 'locale' && nome !== 'api' && !s.pronto);
+  // «Pronto» qui vuol dire solo che il binario c'e'. Su questa macchina
+  // `gemini` c'e', ha pure il file delle credenziali, e al primo messaggio
+  // risponde che non hai la licenza: percio' il bottone per collegarsi si
+  // mostra **anche** quando NOVA lo crede pronto, e c'e' un secondo bottone
+  // che glielo chiede davvero invece di dedurlo.
+  const provabile = daTerminale && !!s.eseguibile;
 
   dove.className = 'statocerv' + (s.pronto ? ' si' : '');
   dove.innerHTML = `
@@ -588,11 +594,28 @@ async function disegnaStatoCervello(nome){
       ${s.pronto ? '' : `<br>${esc(s.motivo || T('non disponibile'))}`}
       ${s.eseguibile ? `<span class="dove">${esc(s.eseguibile)}</span>` : ''}
     </span>
-    ${(!s.pronto && daTerminale)
+    ${provabile
+      ? `<button class="bottone secondo" id="btnProva">${T('Provalo davvero')}</button>` : ''}
+    ${daTerminale
       ? `<button class="bottone secondo" id="btnCollega">${T('Apri il terminale per collegarti')}</button>` : ''}
-    <button class="bottone secondo" id="btnRicontrolla">${T('Ricontrolla')}</button>`;
+    <button class="bottone secondo" id="btnRicontrolla">${T('Ricontrolla')}</button>
+    <span class="che" id="esitoProva" style="flex-basis:100%"></span>`;
 
   $('btnRicontrolla').onclick = () => disegnaStatoCervello(nome);
+  const pr = $('btnProva');
+  if(pr) pr.onclick = async () => {
+    const dove2 = $('esitoProva');
+    pr.disabled = true;
+    dove2.textContent = T('Gli sto chiedendo una cosa corta. Puo\' metterci una ventina di secondi...');
+    let r;
+    try { r = await invoke('cervello_prova', { nome }); }
+    catch(e){ dove2.textContent = T('Non riesco a provarlo: ') + e; return; }
+    finally { pr.disabled = false; }
+    // Niente categorie inventate: si mostra cio' che ha risposto davvero,
+    // tolti gli avvisi dell'ambiente, lo stack e le chiavi.
+    dove2.innerHTML = `<b>${r.va ? '✓ ' : '✗ '}${esc(T(r.esito))}</b>`
+      + (r.dettaglio ? `<br><span class="dove">${esc(r.dettaglio)}</span>` : '');
+  };
   const c = $('btnCollega');
   if(c) c.onclick = async () => {
     // NOVA non fa il login al posto di nessuno e non tocca credenziali: apre

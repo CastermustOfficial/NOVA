@@ -311,3 +311,155 @@ pub async fn cervello_collega(nome: String) -> Result<Value, String> {
     }
     Ok(s)
 }
+
+/// La domanda che si fa per provare una CLI.
+///
+/// Corta apposta: deve costare il meno possibile e finire in fretta. Non
+/// serve che la risposta sia giusta - serve che **arrivi**.
+const DOMANDA: &str = "rispondi solo con la parola: ok";
+
+/// Quanto si aspetta una CLI che sta provando a rispondere.
+///
+/// Trenta secondi sono tanti per un «ok» e pochi per un modello lento: e' il
+/// punto in cui si smette di aspettare e si dice «non ha risposto in tempo»,
+/// che e' un'informazione vera e diversa da «non funziona».
+const TETTO_S: u64 = 30;
+
+/// Lancia un comando scrivendogli il prompt, e si ferma dopo `TETTO_S`.
+fn lancia(args: &[String], per_stdin: Option<&str>) -> Result<(i32, String, String), String> {
+    use std::io::Write;
+    use std::process::Stdio;
+
+    let mut c = crate::processo::comando(&args[0]);
+    c.args(&args[1..])
+        .stdin(if per_stdin.is_some() { Stdio::piped() } else { Stdio::null() })
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut figlio = c.spawn().map_err(|e| format!("non parte: {e}"))?;
+    if let (Some(testo), Some(mut dentro)) = (per_stdin, figlio.stdin.take()) {
+        let _ = dentro.write_all(testo.as_bytes());
+        // La chiusura conta: una CLI che legge da stdin aspetta la fine del
+        // flusso per cominciare, e senza questo resterebbe li' fino al tetto.
+        drop(dentro);
+    }
+
+    let scadenza = std::time::Instant::now() + std::time::Duration::from_secs(TETTO_S);
+    loop {
+        match figlio.try_wait() {
+            Ok(Some(_)) => break,
+            Ok(None) => {
+                if std::time::Instant::now() > scadenza {
+                    let _ = figlio.kill();
+                    let _ = figlio.wait();
+                    return Ok((-1, String::new(), String::new()));
+                }
+                std::thread::sleep(std::time::Duration::from_millis(120));
+            }
+            Err(e) => return Err(format!("non riesco ad aspettarlo: {e}")),
+        }
+    }
+    let fine = figlio
+        .wait_with_output()
+        .map_err(|e| format!("non riesco a leggerlo: {e}"))?;
+    Ok((
+        fine.status.code().unwrap_or(-2),
+        String::from_utf8_lossy(&fine.stdout).into_owned(),
+        String::from_utf8_lossy(&fine.stderr).into_owned(),
+    ))
+}
+
+/// Provare davvero questo cervello: gli si fa una domanda e si guarda.
+///
+/// Il pannello sapeva dire «il binario c'e' nel PATH» e lo chiamava pronto.
+/// Non e' la stessa cosa: su questa macchina `gemini` c'e', ha pure il file
+/// delle credenziali, e al primo messaggio risponde «You do not have a valid
+/// license of this product». Ogni controllo che guarda i file avrebbe detto
+/// «collegato».
+///
+/// Percio' non si indovina niente e **non si classifica** l'errore in
+/// categorie inventate: si mostra la riga che la CLI ha davvero scritto,
+/// tolti gli avvisi dell'ambiente, lo stack e le chiavi. Quello che NOVA
+/// aggiunge e' solo il verdetto che puo' dimostrare - ha risposto, non ha
+/// risposto, non e' partito, non ha fatto in tempo.
+#[tauri::command]
+pub async fn cervello_prova(nome: String) -> Result<Value, String> {
+    if !nome.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
+        return Err("nome non valido".into());
+    }
+    let scheda = cervelli_stato(Some(nome.clone())).await?;
+    let eseguibile = scheda.get("eseguibile").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let motivo = scheda.get("motivo").and_then(|v| v.as_str()).unwrap_or("").to_string();
+
+    tokio::task::spawn_blocking(move || {
+        if eseguibile.is_empty() {
+            return Ok(json!({
+                "esito": "non installato",
+                "va": false,
+                "dettaglio": motivo,
+            }));
+        }
+        let cfg = config::leggi().map_err(|e| e.to_string())?;
+        let spec = cfg.get("brains").and_then(|b| b.get("cli")).and_then(|c| c.get(&nome)).cloned();
+
+        let (args, per_stdin) = match (&spec, nome.as_str()) {
+            (Some(s), _) if !s.is_null() => {
+                let lista: Vec<String> = s
+                    .get("args")
+                    .and_then(|a| a.as_array())
+                    .map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect())
+                    .unwrap_or_default();
+                let model = s.get("model").and_then(|v| v.as_str()).unwrap_or("");
+                let mut args = cli::argomenti(&eseguibile, &lista, model);
+                // «stdin» o «argomento»: e' la CLI a dirlo nella sua
+                // specifica, e sbagliarlo vuol dire una prova che scade
+                // sempre invece di una risposta.
+                let da_stdin = s.get("prompt").and_then(|v| v.as_str()).unwrap_or("argomento") == "stdin";
+                if !da_stdin {
+                    args.push(DOMANDA.to_string());
+                }
+                (args, if da_stdin { Some(DOMANDA) } else { None })
+            }
+            (_, "claude") => (
+                vec![eseguibile.clone(), "--print".into(), DOMANDA.into()],
+                None,
+            ),
+            _ => {
+                return Ok(json!({
+                    "esito": "non provabile",
+                    "va": false,
+                    "dettaglio": "questo cervello non si prova da riga di comando: \
+                                  il modello locale e le API si vedono dallo stato qui sopra",
+                }))
+            }
+        };
+
+        let (codice, uscita, errore) = lancia(&args, per_stdin)?;
+        if codice == -1 {
+            return Ok(json!({
+                "esito": "non ha risposto in tempo",
+                "va": false,
+                "dettaglio": format!("ha superato i {TETTO_S} secondi. Non vuol dire rotto: \
+                                      puo' essere un modello lento, o un accesso rimasto a \
+                                      meta' in attesa di qualcosa nel terminale."),
+            }));
+        }
+        // Le chiavi non escono di qui: un messaggio d'errore porta
+        // spessissimo il valore che l'ha causato.
+        let riga = nova_guasti::senza_chiavi(&nova_guasti::prova::riga_utile(&uscita, &errore));
+        if codice == 0 && !uscita.trim().is_empty() {
+            return Ok(json!({
+                "esito": "risponde",
+                "va": true,
+                "dettaglio": nova_guasti::prova::accorciata(&nova_guasti::senza_chiavi(uscita.trim())),
+            }));
+        }
+        Ok(json!({
+            "esito": if codice == 0 { "non ha detto niente" } else { "non funziona" },
+            "va": false,
+            "codice": codice,
+            "dettaglio": nova_guasti::prova::accorciata(&riga),
+        }))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}

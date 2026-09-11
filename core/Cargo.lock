@@ -2656,6 +2656,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "nova-cervelli",
+ "nova-guasti",
  "nova-modelli",
  "nova-platform",
  "nova-proto",

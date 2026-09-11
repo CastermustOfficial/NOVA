@@ -30,6 +30,10 @@ pub mod http;
 // prima diceva «Claude Code:» e poi niente.
 pub mod cervelli;
 
+/// Cosa ha detto una CLI quando l'abbiamo provata: quale riga far
+/// leggere, e quanto mostrarne.
+pub mod prova;
+
 pub use chiavi::senza_chiavi;
 
 /// Cosa e' andato storto, nei termini in cui lo sa il chiamante.
