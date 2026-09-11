@@ -122,6 +122,11 @@ struct Dentro {
     /// `%APPDATA%` da cui ricavare il ripiego di npm.
     #[serde(default)]
     ripieghi: Vec<String>,
+    /// (binario, nome) di CLI che non si trovano: la frase deve essere la
+    /// stessa di la'. Nessuno la confrontava, e una frase che diverge e' una
+    /// cura sbagliata detta all'utente.
+    #[serde(default)]
+    cli_non_pronte: Vec<(String, String)>,
 }
 
 #[derive(Deserialize)]
@@ -206,6 +211,7 @@ struct Fuori {
     accessi: Vec<(String, String)>,
     ripieghi: Vec<String>,
     candidati_claude: Vec<String>,
+    cli_non_pronte: Vec<String>,
 }
 
 fn messaggi(v: &[MessaggioIn]) -> Vec<Messaggio> {
@@ -373,6 +379,11 @@ fn main() {
             .collect(),
         ripieghi: d.ripieghi.iter().map(|a| accesso::ripiego_npm(a)).collect(),
         candidati_claude: accesso::CANDIDATI.iter().map(|s| s.to_string()).collect(),
+        cli_non_pronte: d
+            .cli_non_pronte
+            .iter()
+            .map(|(b, n)| cli::perche_non_pronto("", b, n).unwrap_or_default())
+            .collect(),
     };
 
     match serde_json::to_string(&fuori) {
