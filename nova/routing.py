@@ -533,8 +533,44 @@ def cli_predefinite() -> dict:
             "timeout": 900,
             "a_consumo": False,
         },
+        # Il sostituto di Gemini CLI per chi ha un account personale.
+        #
+        # Il 18 giugno 2026 Gemini CLI ha smesso di servire gli account
+        # individuali - Google AI Pro, AI Ultra e piano gratuito - e Google
+        # ha indicato Antigravity CLI come la strada. Chi ha un abbonamento
+        # personale, da quel giorno, con `gemini` riceve soltanto
+        # «IneligibleTierError: this client is no longer supported».
+        #
+        # `--dangerously-skip-permissions` e' l'equivalente del vecchio
+        # `--approval-mode yolo`, e va detto chiaro: **una CLI agentica agisce
+        # con le proprie mani**, non passando dalle guardie di NOVA. Sta qui
+        # per simmetria con la voce che sostituisce, ed e' una riga che si
+        # toglie dal pannello in tre secondi da chi non la vuole.
+        #
+        # Attenzione a una cosa non ancora verificata su questa macchina: e'
+        # stato segnalato che `agy -p` possa scartare lo stdout quando gira
+        # come sottoprocesso invece che in un terminale vero, uscendo con
+        # zero. Se capita, NOVA lo vede come «ha risposto ma non ha detto
+        # niente» - che e' esattamente la frase giusta da leggere, e non
+        # «non funziona».
+        "antigravity": {
+            "etichetta": "Antigravity (Google)",
+            "binary": "agy",
+            "args": ["--dangerously-skip-permissions", "-p"],
+            "model": "",
+            "prompt": "argomento",
+            "timeout": 600,
+            "a_consumo": False,
+        },
+        # Resta, ma con scritto per chi funziona.
+        #
+        # Toglierla sarebbe sbagliato: per gli utenti enterprise con licenza
+        # Gemini Code Assist, e per chi usa una chiave API a pagamento, questa
+        # strada e' aperta. Lasciarla chiamare «Gemini» e basta sarebbe
+        # altrettanto sbagliato, perche' e' il nome che uno cerca quando ha un
+        # abbonamento personale - ed e' proprio il caso in cui non va.
         "gemini": {
-            "etichetta": "Gemini",
+            "etichetta": "Gemini (licenza enterprise o chiave API)",
             "binary": "gemini",
             "args": ["--approval-mode", "yolo", "-p"],
             "model": "",
