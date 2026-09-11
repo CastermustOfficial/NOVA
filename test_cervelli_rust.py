@@ -770,6 +770,43 @@ controlla("i nomi di Claude si cercano nello stesso ordine",
           f"rust {fuori2['candidati_claude']}: su Windows npm installa il .cmd, "
           "e cercare l'.exe per primo vuol dire non trovarlo dove c'e'")
 
+
+print("\n10. e perche' una CLI non e' pronta, lo dicono con le stesse parole")
+
+#: (binario, nome) di CLI che non si trovano nel PATH.
+#:
+#: Nessuno confrontava questa frase, e ci e' voluto un caso vero per
+#: accorgersene: «Installalo» e basta e' la cura **sbagliata** quando il
+#: programma e' installato e NOVA sta guardando un PATH vecchio. Un processo
+#: eredita le variabili d'ambiente da chi lo ha avviato, quindi una CLI
+#: installata mentre NOVA gira resta invisibile finche' NOVA non riparte.
+CLI_NON_PRONTE = [
+    ("agy", "antigravity"),
+    ("codex", "codex"),
+    ("qwen", "Qwen Code"),
+    # I caratteri che rompono le virgolette: il nome lo sceglie l'utente.
+    ("mio-agente", "il «mio» agente"),
+]
+
+fuori3 = rust({"cli_non_pronte": [[b, n] for b, n in CLI_NON_PRONTE]})
+
+from nova.brains.cli_generic import motivo_non_pronto          # noqa: E402
+
+diverse = []
+for (binario, nome), ru in zip(CLI_NON_PRONTE, fuori3["cli_non_pronte"]):
+    py = motivo_non_pronto(binario, nome)
+    if ru != py:
+        diverse.append(f"{binario}: rust {ru!r} vs python {py!r}")
+controlla(f"le {len(CLI_NON_PRONTE)} frasi coincidono", not diverse,
+          " | ".join(diverse[:1]))
+controlla("e dicono di riavviare NOVA, non di reinstallare e basta",
+          all("riavvia NOVA" in r for r in fuori3["cli_non_pronte"]),
+          "una CLI installata mentre NOVA gira e' invisibile finche' non "
+          "riparte, e «installalo» manda a rifare una cosa gia' fatta (D193)")
+controlla("ma dicono anche cosa fare se davvero non c'e'",
+          all("installalo" in r.lower() for r in fuori3["cli_non_pronte"]),
+          "il caso normale resta il piu' probabile: non va tolto")
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")

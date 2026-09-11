@@ -29,6 +29,23 @@ from ..processi import SENZA_FINESTRA
 from .base import Risposta
 
 
+def motivo_non_pronto(binario: str, nome: str) -> str:
+    """Perche' questa CLI non e' pronta, e cosa fare.
+
+    «Installalo» da solo e' fuorviante in un caso che capita spesso: il
+    programma **e' installato**, e NOVA sta guardando un PATH vecchio. Un
+    processo eredita le variabili d'ambiente da chi lo ha avviato, quindi una
+    CLI installata mentre NOVA gira resta invisibile finche' NOVA non riparte
+    - e il messaggio manda a reinstallare una cosa che c'e' gia' (D193).
+
+    Capitato davvero l'11 settembre con Antigravity CLI: installata alle
+    13:34, NOVA era in piedi dalle 13:14, e per NOVA `agy` non esisteva.
+    """
+    return (f"«{binario}» non trovato nel PATH. Se l'hai appena installato, "
+            f"riavvia NOVA: eredita il PATH da quando e' partita. Altrimenti "
+            f"installalo, oppure togli «{nome}» da brains.cli.")
+
+
 class CliBrain:
     """Un agente esterno pilotato per riga di comando."""
 
@@ -73,8 +90,8 @@ class CliBrain:
 
     def disponibile(self) -> tuple[bool, str]:
         if not self._eseguibile:
-            return False, (f"«{self.spec.get('binary', self.nome)}» non trovato nel PATH. "
-                           f"Installalo, oppure togli «{self.nome}» da brains.cli.")
+            return False, motivo_non_pronto(
+                self.spec.get("binary", self.nome), self.nome)
         return True, ""
 
     def descrizione_stato(self) -> str:

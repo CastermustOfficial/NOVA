@@ -180,6 +180,13 @@ GUASTI = [
      'pub const CANDIDATI: [&str; 3] = ["claude.cmd", "claude.exe", "claude"];',
      'pub const CANDIDATI: [&str; 3] = ["claude.exe", "claude.cmd", "claude"];',
      "rosso"),
+    # La frase che nessuno confrontava, finche' un caso vero non l'ha
+    # mostrata sbagliata: «installalo» a chi l'ha gia' installato.
+    ("la CLI che non si trova torna a dire solo «installalo»",
+     C / "cli.rs",
+     '"«{binario}» non trovato nel PATH. Se l\'hai appena installato, \\\n             riavvia NOVA: eredita il PATH da quando e\' partita. Altrimenti \\\n             installalo, oppure togli «{nome}» da brains.cli."',
+     '"«{binario}» non trovato nel PATH. Installalo, oppure togli «{nome}» da brains.cli."',
+     "rosso"),
     ("il ripiego di npm cambia cartella",
      C / "accesso.rs",
      '.join("npm")',

@@ -547,12 +547,15 @@ def cli_predefinite() -> dict:
         # per simmetria con la voce che sostituisce, ed e' una riga che si
         # toglie dal pannello in tre secondi da chi non la vuole.
         #
-        # Attenzione a una cosa non ancora verificata su questa macchina: e'
-        # stato segnalato che `agy -p` possa scartare lo stdout quando gira
+        # Era stato segnalato che `agy -p` potesse scartare lo stdout girando
         # come sottoprocesso invece che in un terminale vero, uscendo con
-        # zero. Se capita, NOVA lo vede come «ha risposto ma non ha detto
-        # niente» - che e' esattamente la frase giusta da leggere, e non
-        # «non funziona».
+        # zero: sarebbe stato grave, perche' e' esattamente il modo in cui
+        # NOVA lancia le CLI. **Misurato l'11 settembre su agy 1.2.1**: la
+        # riga di comando qui sopra, lanciata come sottoprocesso con lo stdout
+        # in una pipa, esce con zero e scrive «ok\n» - tre caratteri, niente
+        # su stderr, 7,6 secondi. Non ci riguarda, su questa versione. Se
+        # tornasse, NOVA lo direbbe come «ha risposto ma non ha detto niente»,
+        # che e' la frase giusta e non «non funziona».
         "antigravity": {
             "etichetta": "Antigravity (Google)",
             "binary": "agy",

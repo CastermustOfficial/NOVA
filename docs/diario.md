@@ -6588,3 +6588,47 @@ dichiarato nel commento: e' segnalato che `agy -p` possa scartare lo stdout
 quando gira come sottoprocesso invece che in un terminale vero, uscendo con
 zero. Se capita, NOVA lo legge come «ha risposto ma non ha detto niente» —
 che e' esattamente la frase giusta, e non «non funziona».
+
+### Misurata, finalmente
+
+Gio installa Antigravity CLI, e la voce che ieri avevo scritto sulla
+documentazione diventa verificabile. Tre cose, in ordine di quanto mi
+interessano.
+
+**Il rischio dichiarato non c'era.** Avevo lasciato scritto nel codice che era
+stato segnalato un difetto per cui `agy -p` poteva scartare lo stdout girando
+come sottoprocesso invece che in un terminale — che e' esattamente il modo in
+cui NOVA lancia le CLI. Misurato su `agy` 1.2.1: uscita 0, `ok\n`, tre
+caratteri, stderr vuoto, 7,6 secondi. Non ci riguarda. Ho sostituito il
+commento «non ancora verificato» con la misura e la data: un commento che dice
+«attenzione, forse» quando ormai si sa e' rumore, e il rumore fa smettere di
+leggere i commenti.
+
+**Due falsi allarmi miei, di fila.** Primo: ho letto il PATH dal registro e ho
+concluso che `agy` non si trovava — era `REG_EXPAND_SZ`, e `%LOCALAPPDATA%`
+me lo stavo portando dietro non espanso. Secondo: ho visto che il
+`config.json` di Gio ha `cli: [codex, gemini, qwen]` e ho pensato che
+Antigravity non gli sarebbe comparsa. `Config.load()` fonde i predefiniti col
+salvato, e la vede eccome. Tutte e due le volte stavo per **annunciare** un
+difetto invece di verificarlo. Un allarme falso costa piu' di un silenzio:
+manda a cercare dove non c'e' niente.
+
+**Il difetto vero era un terzo, e l'ho trovato per caso.** NOVA girava dalle
+13:14, `agy` e' stata installata alle 13:34, e per NOVA non esisteva — un
+processo eredita l'ambiente da chi l'ha avviato, e il PATH di NOVA era quello
+di venti minuti prima. Il messaggio pero' diceva «Installalo», che in quel
+caso e' la cura sbagliata: manda a reinstallare una cosa gia' installata, e
+chi ci prova due volte conclude che NOVA e' rotta.
+
+Ma la cosa che ha permesso a quella frase di restare sbagliata e' un'altra:
+**il banco non la confrontava**. `perche_non_pronto` esisteva in Rust e in
+Python, uguale nelle due parti per fortuna e non per costruzione. Adesso il
+banco confronta anche quella, con dei nomi che l'utente puo' essersi scelto,
+virgolette comprese.
+
+Una cosa ancora aperta e che non ho forzato: la voce `gemini` gia' salvata nel
+file di Gio tiene l'etichetta vecchia, «Gemini» e basta. La nuova — «Gemini
+(licenza enterprise o chiave API)» — arriva solo a chi installa NOVA da
+adesso. Sovrascriverla sarebbe cancellare una scelta che l'utente **puo'**
+aver fatto, visto che dal pannello l'etichetta si cambia. Per chi ce l'ha gia',
+la verita' la dice la prova.

@@ -62,8 +62,17 @@ pub fn argomenti(eseguibile: &str, args: &[String], model: &str) -> Vec<String> 
 /// Perche' questa CLI non e' pronta, se non lo e'.
 pub fn perche_non_pronto(eseguibile: &str, binario: &str, nome: &str) -> Option<String> {
     if eseguibile.is_empty() {
+        // «Installalo» da solo e' fuorviante in un caso che capita spesso: il
+        // programma **e' installato**, e si sta guardando un PATH vecchio. Un
+        // processo eredita le variabili d'ambiente da chi lo ha avviato,
+        // quindi una CLI installata mentre NOVA gira resta invisibile finche'
+        // NOVA non riparte - e il messaggio manda a reinstallare una cosa che
+        // c'e' gia' (D193). Capitato l'11 settembre con Antigravity CLI:
+        // installata alle 13:34, NOVA in piedi dalle 13:14.
         return Some(format!(
-            "«{binario}» non trovato nel PATH. Installalo, oppure togli «{nome}» da brains.cli."
+            "«{binario}» non trovato nel PATH. Se l'hai appena installato, \
+             riavvia NOVA: eredita il PATH da quando e' partita. Altrimenti \
+             installalo, oppure togli «{nome}» da brains.cli."
         ));
     }
     None
