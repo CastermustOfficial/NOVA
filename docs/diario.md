@@ -6541,3 +6541,50 @@ NOVA offriva tre prove da cliccare che sarebbero fallite tutte e tre, una
 dopo l'altra. Adesso lo chiede allo stato vero, e dice il motivo che ha
 ricevuto invece di una frase generica: «non trovato nel PATH» e «non sei
 collegato» si curano in due modi diversi.
+
+### «Non capisco come mai non mi fa usare gemini se ho l'abbonamento pro»
+
+Non era l'abbonamento. Era che quella porta e' murata da tre mesi.
+
+Il 19 maggio Google annuncia il passaggio da Gemini CLI ad Antigravity CLI;
+il **18 giugno** Gemini CLI smette di servire gli account individuali — AI
+Pro, AI Ultra, piano gratuito. Restano dentro solo gli utenti enterprise con
+licenza Code Assist e chi usa una chiave API a pagamento. Gio ha
+`@google/gemini-cli@0.59.0` installato e un abbonamento personale: per lui
+quella strada e' chiusa dal 18 giugno.
+
+Ma il messaggio che leggeva diceva un'altra cosa: «non hai una licenza valida,
+contatta il tuo amministratore». Nel suo `~/.gemini/.env` c'era
+`GOOGLE_CLOUD_PROJECT`, e quella variabile fa prendere alla CLI il percorso
+**enterprise** — dove la risposta giusta e' proprio quella. Due errori
+sovrapposti, e quello visibile era il meno informativo dei due: mandava a
+cercare una licenza aziendale invece di dire «questo prodotto non e' piu' per
+te».
+
+L'ho dimostrato senza toccare i suoi file: stessa domanda, due volte, con e
+senza quella variabile nell'ambiente del solo processo di prova. Con:
+«licenza mancante». Senza: «IneligibleTierError: this client is no longer
+supported for Gemini Code Assist for individuals, migrate to Antigravity».
+
+Quello che mi tengo, pero', e' un'altra cosa. Se avessi fatto il controllo che
+mi era venuto in mente per primo — «esiste `~/.gemini/oauth_creds.json`?» —
+NOVA avrebbe detto «Gemini collegato» **per sempre**. Il file c'e', 1814 byte,
+l'OAuth passa davvero: e' la licenza che manca dopo. La prova vera non solo
+l'ha visto: ha **cambiato diagnosi** quando ho tolto la variabile. Una
+verifica che sa distinguere due cause diverse vale infinitamente piu' di una
+che guarda se un file esiste.
+
+Poi la decisione sull'elenco. `gemini` non si toglie: per chi ha una licenza
+enterprise o una chiave API funziona ancora. Ma non puo' nemmeno restare
+chiamata «Gemini» e basta, perche' quello e' il nome che cerca proprio chi ha
+l'abbonamento personale — l'unico a cui non va. Adesso si chiama «Gemini
+(licenza enterprise o chiave API)» e accanto c'e' «Antigravity (Google)», che
+e' cio' che Google indica agli account come il suo.
+
+Una cosa che **non** ho fatto: provarla. Antigravity CLI non e' installata su
+questa macchina, quindi la voce e' scritta sulla documentazione ufficiale e
+non su una misura. L'ho detto a Gio invece di far finta. E c'e' un rischio
+dichiarato nel commento: e' segnalato che `agy -p` possa scartare lo stdout
+quando gira come sottoprocesso invece che in un terminale vero, uscendo con
+zero. Se capita, NOVA lo legge come «ha risposto ma non ha detto niente» —
+che e' esattamente la frase giusta, e non «non funziona».

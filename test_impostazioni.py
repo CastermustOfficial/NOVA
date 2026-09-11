@@ -123,6 +123,40 @@ for nome in pronte:
     cervello = crea_brain(nome, c)
     controlla(f"«{nome}» diventa davvero un cervello",
               type(cervello).__name__ == "CliBrain", type(cervello).__name__)
+
+# Una voce predefinita mal formata non da' nessun errore: da' una CLI che
+# viene lanciata con la riga di comando sbagliata e scade, oppure che riceve
+# il prompt da una parte e lo aspetta dall'altra. Sono campi dichiarati, e i
+# campi dichiarati si controllano (D112).
+for nome, spec in pronte.items():
+    controlla(f"«{nome}» dice da dove prende la domanda",
+              spec.get("prompt") in ("argomento", "stdin"),
+              f"«{spec.get('prompt')}»: un valore diverso fa lanciare la CLI "
+              "senza domanda, e l'unico sintomo e' un'attesa che scade")
+    controlla(f"«{nome}» ha un tempo massimo sensato",
+              isinstance(spec.get("timeout"), int) and spec["timeout"] > 0,
+              str(spec.get("timeout")))
+    controlla(f"«{nome}» dice se fa spendere davvero",
+              isinstance(spec.get("a_consumo"), bool),
+              "senza questo il tetto in dollari non sa se vale")
+
+# Il 18 giugno 2026 Gemini CLI ha smesso di servire gli account individuali,
+# e per tre mesi NOVA ha continuato a proporre una voce che a chi ha un
+# abbonamento personale non poteva funzionare. Il fatto in se' nessuna prova
+# puo' saperlo - sta fuori. Ma l'etichetta e' cio' che uno legge **prima** di
+# sceglierla, e quando una voce funziona solo per alcuni deve dirlo li'.
+controlla("c'e' la CLI che Google indica agli account personali",
+          "antigravity" in pronte, str(list(pronte)))
+controlla("e quella dismessa resta, ma dicendo per chi vale",
+          "gemini" in pronte
+          and pronte["gemini"]["etichetta"] != "Gemini"
+          and any(x in pronte["gemini"]["etichetta"].lower()
+                  for x in ("enterprise", "api", "chiave")),
+          f"«{pronte.get('gemini', {}).get('etichetta')}»: per gli utenti "
+          "enterprise e per chi ha una chiave API funziona ancora, quindi non "
+          "si toglie - ma «Gemini» e basta e' il nome che cerca proprio chi "
+          "ha l'abbonamento personale, cioe' l'unico a cui non va")
+
 controlla("la pagina le elenca insieme agli altri", "function cervelliTutti" in html)
 controlla("e ne salta una tolta", "if(!v) continue" in html)
 for campo, cosa in [("cliBinario", "il comando"), ("cliArgs", "gli argomenti"),
