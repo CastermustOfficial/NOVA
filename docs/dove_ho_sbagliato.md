@@ -420,3 +420,38 @@ davvero ha voluto dire scrivere `accesso.rs`, cioe' scoprire che **due
 funzioni non erano ancora portate** - trovare Claude nel PATH, e leggere che
 tipo di abbonamento e'. Il lavoro c'era, e il mio giro dal Python me lo
 stava facendo saltare invece che scoprire.
+
+## Ho corretto un difetto in un posto e l'ho lasciato nell'altro
+
+11 settembre. Il campo del modello scriveva `model.path`, che non esiste. L'ho
+corretto, ho messo il nome della chiave in un posto solo, e ho scritto una
+prova che confronta **ogni chiave che il pannello tocca** con le classi vere
+di `config.py`. Cinquanta controlli verdi.
+
+Gio riapre e trova due frasi opposte nella stessa schermata: in cima «✗
+Modello locale — nessun modello scelto», e due righe sotto «✓
+gemma-4-26B... · 10.6 GB» con tanto di percorso.
+
+La fascia in cima la scrive il **Rust** del guscio, e li' avevo lasciato
+`model.path`. Stessa chiave sbagliata, stesso danno, altro linguaggio.
+
+Il punto non e' la svista: e' che **la prova che avevo scritto apposta per
+questo difetto guardava solo meta' del posto**. Cercava in `ui/*.html` e
+`ui/*.js` perche' li' avevo trovato l'errore, e il guscio legge la stessa
+configurazione da `src/*.rs`. Ho scritto una rete e l'ho tesa dove il pesce
+era gia' passato.
+
+E' D135 letta al contrario. La conoscevo — «cio' che tiene una correzione e'
+che non ci sia un secondo posto» — e l'ho applicata ai **nomi** (il nome della
+chiave adesso sta scritto una volta sola) senza applicarla ai **lettori**. Due
+programmi che leggono lo stesso file sono due posti, sempre, anche quando il
+valore che leggono ha finalmente un nome solo.
+
+C'e' una coda che vale quanto il resto. Estendendo la prova al Rust, il
+cercatore raccoglieva qualunque coppia di stringhe e per non accusare il
+falso saltava le sezioni che non riconosceva — cioe' esattamente il caso in
+cui la sezione e' **sbagliata**. Una mutazione con una sezione inventata
+restava verde. La cura non e' stata allargare le eccezioni ma **cercare
+meglio**: si raccolgono solo le letture che hanno `cfg` come ricevente, e a
+quel punto si puo' pretendere tutto. Un cercatore impreciso si paga sempre in
+controlli disattivati.

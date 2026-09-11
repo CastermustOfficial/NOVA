@@ -6465,3 +6465,33 @@ NOVA — quindi non avrebbe dato nessun errore: avrebbe solo smesso di
 scrivere, e io avrei creduto di aver messo un diario. Una diagnostica che
 tace e' peggio di nessuna diagnostica. Adesso una prova pretende che ogni
 `self.x` letto in `Agent` sia assegnato da qualche parte.
+
+### Due frasi opposte nella stessa schermata
+
+Gio riapre il pannello e trova questo: in cima «✗ Modello locale — nessun
+modello scelto», due righe sotto «✓ gemma-4-26B... · 10.6 GB · vede le
+immagini», col percorso completo.
+
+Una schermata che si contraddice e' peggio di una che sbaglia: non si sa a
+quale meta' credere.
+
+La fascia in cima la scrive il Rust del guscio, e li' `model.path` era
+rimasto. Avevo corretto il JavaScript, messo il nome della chiave in un posto
+solo, scritto una prova che confronta ogni chiave del pannello con le classi
+vere — cinquanta controlli verdi — e la prova cercava in `ui/*.html` e
+`ui/*.js`. Il guscio legge la stessa configurazione da `src/*.rs`.
+
+Avevo teso la rete dove il pesce era gia' passato.
+
+E' D135 letta al contrario: l'ho applicata ai nomi e non ai lettori. Due
+programmi che leggono lo stesso file sono due posti, sempre, anche quando il
+valore ha finalmente un nome solo.
+
+La coda vale quanto il resto. Estendendo la prova al Rust, il primo
+cercatore raccoglieva qualunque coppia di stringhe, e per non accusare il
+falso saltava le sezioni che non riconosceva — cioe' esattamente il caso in
+cui la sezione e' sbagliata. Una mutazione con una sezione inventata restava
+verde. La cura non e' stata allargare le eccezioni ma cercare meglio: si
+prendono solo le letture che hanno `cfg` come ricevente, e allora si puo'
+pretendere tutto. Un cercatore impreciso si paga sempre in controlli
+disattivati.
