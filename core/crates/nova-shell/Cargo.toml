@@ -14,6 +14,9 @@ nova-proto = { path = "../nova-proto" }
 # il guscio le chiede, non le rifa'.
 nova-modelli = { path = "../nova-modelli" }
 nova-cervelli = { path = "../nova-cervelli" }
+# Le parole con cui si racconta un guasto, e cosa si mostra di cio'
+# che una CLI ha scritto: stanno li', gia' provate.
+nova-guasti = { path = "../nova-guasti" }
 nova-platform = { path = "../nova-platform" }
 tauri = { version = "2", features = ["tray-icon"] }
 # La guardia di istanza singola: due doppi clic non devono dare due orb.

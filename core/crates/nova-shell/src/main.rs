@@ -333,6 +333,7 @@ fn main() {
             modelli::modelli_verifica,
             cervelli::cervelli_stato,
             cervelli::cervello_collega,
+            cervelli::cervello_prova,
             nuova_conversazione
         ])
         .setup(|app| {

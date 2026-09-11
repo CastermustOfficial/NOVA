@@ -1821,6 +1821,16 @@ Non e' una data, sono cinque frasi che devono essere vere insieme:
 > la beta piu' di quanto sembri: chi installa NOVA adesso questo difetto lo
 > incontra fra sei mesi, e da solo.
 
+> **Terzo passo, l'11 settembre.** Il cancello della beta e' «cosa vede chi
+> non ha gia' tutto», e qui si vedeva male: NOVA diceva «pronto» a un cervello
+> che al primo messaggio rifiuta. Ora glielo si **chiede** invece di dedurlo
+> dai file, e al primo avvio la chat non offre piu' tre prove destinate a
+> fallire a chi non ha ancora collegato niente — dice cosa non va e come si
+> sistema (D201). Vale il caso piu' comune di tutti: chi installa NOVA adesso
+> ha una CLI installata e non collegata, ed e' esattamente lo stato su cui
+> tutti i controlli precedenti rispondevano «tutto a posto».
+
+
 
 
 L'ordine di lavoro che ne segue: prima la lista 3 dal punto 7 in giu' (gli

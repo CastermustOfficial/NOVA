@@ -55,14 +55,25 @@ for prova in prove:
     sporche = [x for x in IRREVERSIBILI if x in prova.lower()]
     controlla(f"«{prova[:38]}» non fa danni", not sporche, str(sporche))
 
-print("\n3. e se non c'e' un cervello si dice, invece di far fallire la prima cosa")
-# Proporre tre prove a chi non ha scelto nessun modello vuol dire: chiede la
-# prima cosa, non succede niente, chiude. Non lo riapre.
-controlla("il caso «nessun cervello» esiste", "senzaCervello" in CHAT)
-controlla("«locale» senza un modello sul disco non conta come cervello",
-          "server?.model_path" in CHAT)
+print("\n3. e se il cervello non risponde si dice, invece di far fallire la prima cosa")
+# Proporre tre prove a chi non ha un cervello che risponde vuol dire: chiede
+# la prima cosa, non succede niente, chiude. Non lo riapre.
+#
+# «Ho scelto un cervello» e «quel cervello risponde» sono due cose diverse, e
+# la seconda e' quella che decide se le tre prove funzioneranno. Guardare solo
+# la configurazione bastava per il caso «non ho scelto niente» e diceva «tutto
+# a posto» a chi aveva scelto una CLI senza essersi collegato - cioe' proprio
+# il caso che capita a chi installa NOVA adesso.
+controlla("il caso «non risponde» esiste", "if (motivo)" in CHAT)
+controlla("e non lo si deduce dalla configurazione: lo si chiede",
+          "invoke('cervelli_stato'" in CHAT,
+          "«ho scelto Gemini» non vuol dire «Gemini mi risponde»")
+controlla("si dice il motivo vero, non una frase generica",
+          "s?.motivo" in CHAT,
+          "«non trovato nel PATH» e «non sei collegato» si curano in due modi "
+          "diversi, e chi legge deve sapere quale dei due gli e' capitato (D193)")
 controlla("e si porge la strada invece di lasciarlo li'",
-          "apri_impostazioni" in CHAT and "Scegli un cervello" in CHAT)
+          "apri_impostazioni" in CHAT and "Sistemalo" in CHAT)
 
 print("\n4. il benvenuto compare solo la prima volta")
 # Chi ha gia' parlato con NOVA non deve rivedere il volantino a ogni

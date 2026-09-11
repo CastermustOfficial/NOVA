@@ -6495,3 +6495,49 @@ verde. La cura non e' stata allargare le eccezioni ma cercare meglio: si
 prendono solo le letture che hanno `cfg` come ricevente, e allora si puo'
 pretendere tutto. Un cercatore impreciso si paga sempre in controlli
 disattivati.
+
+### «Stavo andando manualmente a farlo»
+
+Gio mi manda lo schermo del terminale: Gemini CLI, l'autenticazione con
+Google, e in fondo `Failed to sign in: You do not have a valid license of
+this product`. Poi la pagina del browser che dice «Autenticazione riuscita».
+E la frase che conta: «stavo andando manualmente a farlo, perche' non abbiamo
+un modo ancora per renderlo semplice all'utente».
+
+Il bottone «Apri il terminale per collegarti» l'avevo messo il giorno prima.
+Non gli e' mai comparso, e il motivo e' istruttivo: compariva solo quando NOVA
+riteneva il cervello **non pronto**, e per una CLI «pronto» voleva dire «il
+binario esiste nel PATH». `gemini` esiste. Quindi NOVA diceva «pronto» a un
+cervello che al primo messaggio lo avrebbe respinto.
+
+Ho guardato se si poteva fare meglio con i file: `~/.gemini/oauth_creds.json`
+c'e', 1814 byte. Un controllo «hai il file delle credenziali?» avrebbe detto
+«collegato» — ed e' falso. **Autenticato non vuol dire utilizzabile.** Nessuna
+euristica sul disco puo' saperlo: l'OAuth e' andato a buon fine, e' la licenza
+che manca.
+
+Quindi si chiede. Domanda cortissima, tetto di trenta secondi, e si guarda cosa
+risponde. Misurato: cinque secondi, uscita 1, e il messaggio giusto.
+
+La parte che mi ha fatto pensare non e' lanciare il processo: e' **quale riga
+far leggere**. Lo stderr vero di Gemini e' fatto cosi': un avviso sui 256
+colori del terminale, la frase che conta, e venti righe di stack con dentro i
+percorsi dei file. Mostrare la prima riga vuol dire mostrare l'avviso.
+Mostrarle tutte vuol dire mostrare uno stack a chi voleva solo collegarsi.
+
+E soprattutto: **non classifico**. La tentazione era fare un elenco di parole
+spia — «authenticating», «login», «unauthorized» — e tradurre in categorie.
+Ma di quelle parole ne ho misurata **una**, le altre le avrei indovinate, e
+indovinare qui vuol dire dire una frase falsa con sicurezza. Si mostra cio'
+che la CLI ha detto, tolti rumore, stack e chiavi. NOVA aggiunge solo il
+verdetto che puo' dimostrare: ha risposto, non ha risposto, non e' partito,
+non ha fatto in tempo.
+
+Stessa storia al primo avvio, ed e' il pezzo che conta per la beta. La chat
+aveva gia' il caso «non hai scelto chi ragiona», con tanto di bottone. Ma lo
+decideva guardando la configurazione: `active` vuoto **e** nessun modello sul
+disco. Con Gemini scelto e non collegato quella condizione e' falsa, quindi
+NOVA offriva tre prove da cliccare che sarebbero fallite tutte e tre, una
+dopo l'altra. Adesso lo chiede allo stato vero, e dice il motivo che ha
+ricevuto invece di una frase generica: «non trovato nel PATH» e «non sei
+collegato» si curano in due modi diversi.
