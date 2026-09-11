@@ -16,6 +16,7 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 PROVA = "test_pannello_e_configurazione.py"
 UI = RADICE / "core" / "crates" / "nova-shell" / "ui" / "impostazioni.html"
 CFG = RADICE / "nova" / "config.py"
+RS = RADICE / "core" / "crates" / "nova-shell" / "src" / "cervelli.rs"
 
 
 def leggi(p: Path):
@@ -41,6 +42,15 @@ def prova(quale: str = PROVA) -> int:
 
 
 GUASTI = [
+    # Il difetto che Gio ha visto ieri sera: corretto nel JavaScript e
+    # lasciato nel Rust. La prima versione di questa prova guardava solo le
+    # pagine, e infatti non l'ha preso.
+    ("il guscio torna a leggere il modello da model.path",
+     RS, 'let model = testo(cfg, &["server", "model_path"]);',
+         'let model = testo(cfg, &["model", "path"]);'),
+    ("il guscio legge una sezione che non esiste",
+     RS, 'let url = testo(cfg, &["brains", "api_base_url"]);',
+         'let url = testo(cfg, &["cervelli", "api_base_url"]);'),
     ("il difetto vero: il pannello torna a salvare in model.path",
      UI, "const salvaModello = (percorso) => salva({ server: { model_path: percorso } });",
          "const salvaModello = (percorso) => salva({ model: { path: percorso } });"),

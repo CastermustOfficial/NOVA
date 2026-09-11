@@ -31,6 +31,7 @@ sys.path.insert(0, str(RADICE))
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 UI = RADICE / "core" / "crates" / "nova-shell" / "ui"
+SRC = RADICE / "core" / "crates" / "nova-shell" / "src"
 
 passati = 0
 falliti: list[str] = []
@@ -132,6 +133,57 @@ for chiave in sorted(USATE):
               f"tipizzato, quindi questa chiave viene buttata via al primo "
               f"salvataggio — senza nessun errore. Campi veri: "
               f"{sorted(SEZIONI[sezione])[:6]}...")
+
+print("\n== e il Rust del guscio legge le stesse chiavi ==")
+# Il pannello non e' solo la pagina: anche il guscio legge `config.json`, e
+# la prima versione di questa prova guardava solo l'HTML. Risultato: la
+# chiave l'ho corretta nel JavaScript e l'ho lasciata sbagliata nel Rust,
+# dove faceva esattamente lo stesso danno - la fascia in cima diceva «nessun
+# modello scelto» accanto alla riga che il modello lo nominava.
+# Cio' che tiene una correzione e' che non ci sia un secondo posto (D135).
+DA_RUST: dict[str, set[str]] = {}
+#: I due modi in cui il guscio va a prendere un valore dalla configurazione.
+#: Il ricevente `cfg` fa parte del disegno: senza, il cercatore raccoglie
+#: qualunque coppia di stringhe del Rust e per non accusare il falso deve
+#: saltare le sezioni che non riconosce — cioe' proprio il caso in cui la
+#: sezione e' **sbagliata**. Meglio cercare meno e pretendere tutto.
+MODI = [
+    r'testo\(\s*cfg\s*,\s*&\[\s*"(\w+)"\s*,\s*"(\w+)"\s*\]',
+    r'cfg\s*\.\s*get\(\s*"(\w+)"\s*\)[^;]*?get\(\s*"(\w+)"',
+]
+for f in sorted(SRC.rglob("*.rs")):
+    testo_rs = f.read_text(encoding="utf-8-sig")
+    for modo in MODI:
+        for m in re.finditer(modo, testo_rs, re.S):
+            DA_RUST.setdefault(f"{m.group(1)}.{m.group(2)}", set()).add(f.name)
+
+controlla("il guscio legge davvero qualcosa dalla configurazione",
+          len(DA_RUST) >= 5,
+          f"trovate {len(DA_RUST)}: il cercatore non cerca piu' niente")
+
+for chiave in sorted(DA_RUST):
+    sezione, campo = chiave.split(".")
+    if sezione not in SEZIONI:
+        controlla(f"«{chiave}» (Rust): la sezione «{sezione}» esiste", False,
+                  f"letta in {sorted(DA_RUST[chiave])}: in config.py ci sono "
+                  f"{sorted(SEZIONI)}")
+        continue
+    controlla(f"«{chiave}» (Rust) esiste in config.py",
+              campo in SEZIONI[sezione],
+              f"letta in {sorted(DA_RUST[chiave])}: «{sezione}» non ha "
+              f"«{campo}», quindi quel valore sara' sempre vuoto - senza "
+              f"nessun errore. Campi veri: {sorted(SEZIONI[sezione])[:6]}...")
+
+print("\n== e le due parti guardano lo stesso posto ==")
+for chiave in sorted(set(USATE) & set(DA_RUST)):
+    passati += 1
+    print(f"  [ok ] «{chiave}» la leggono tutte e due")
+controlla("il percorso del modello lo leggono tutte e due dallo stesso campo",
+          "server.model_path" in USATE and "server.model_path" in DA_RUST,
+          f"pagina: {'si' if 'server.model_path' in USATE else 'NO'}, "
+          f"guscio: {'si' if 'server.model_path' in DA_RUST else 'NO'} - "
+          "se una delle due guarda altrove, il pannello dice due cose "
+          "diverse sulla stessa riga")
 
 print("\n== e nessuna dichiarazione scaduta ==")
 for chiave, motivo in sorted(FUORI_DALLA_CONFIGURAZIONE.items()):

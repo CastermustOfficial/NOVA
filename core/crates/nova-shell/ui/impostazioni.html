@@ -762,6 +762,7 @@ async function disegnaModelli(ovunque, dinuovo){
       if(f) f.value = scelto;
       await salvaModello(scelto);
       aggiornaAttivo();
+      disegnaStatoCervello(prendi('brains.active','locale'));
       // La conferma si **scrive**, non si cancella. Qui prima la si
       // svuotava, e l'unica risposta alla domanda «l'ha preso o no?»
       // spariva proprio nell'istante in cui uno se la fa.
@@ -953,6 +954,7 @@ function legaDettaglioCervello(quale, nome){
       salvaModello(v);
       verificaModello(v);
       aggiornaAttivo();
+      disegnaStatoCervello(prendi('brains.active','locale'));
       disegnaModelli(false);
     };
     const ov = $('btnModelliOvunque');

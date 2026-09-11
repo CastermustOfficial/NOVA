@@ -184,10 +184,12 @@ fn un_api(cfg: &Value) -> Value {
 }
 
 fn un_locale(cfg: &Value) -> Value {
-    let model = {
-        let m = testo(cfg, &["model", "path"]);
-        if m.is_empty() { testo(cfg, &["model", "file"]) } else { m }
-    };
+    // `server.model_path`, non `model.path`: la sezione `model` tiene i
+    // parametri di generazione. Qui avevo ripetuto lo stesso errore che il
+    // pannello aveva da mesi — corretto di la' e lasciato di qua, che e' il
+    // modo in cui una correzione non tiene (D135). Adesso la prova guarda
+    // tutte e due le parti.
+    let model = testo(cfg, &["server", "model_path"]);
     // «Pronto» qui vuol dire che il file c'e'. Se il server sia acceso lo dice
     // il pannello dello stato: chiederglielo adesso vorrebbe dire far
     // aspettare una domanda per la risposta a un'altra.
