@@ -248,6 +248,23 @@ mod imp {
 
     const MB: u64 = 1024 * 1024;
 
+    /// Le schede finte di Windows: il «Microsoft Basic Render Driver» e WARP.
+    ///
+    /// C'e' sempre almeno una di queste, non disegnano niente e non hanno
+    /// memoria: contarle vorrebbe dire dire a chi non ha GPU che ne ha una.
+    ///
+    /// Il flag `SOFTWARE` da solo **non basta**, e l'ha dimostrato la CI: su
+    /// un agente senza scheda video l'unico adattatore e' il Basic Render
+    /// Driver, e li' quel flag non e' acceso - lo e' per WARP creato a mano,
+    /// non per quello che `EnumAdapters1` restituisce. Il segno che non mente
+    /// e' il venditore: `0x1414` e' Microsoft, e nessuna scheda video vera
+    /// porta quel numero. Guardare il nome sarebbe piu' fragile di cosi': un
+    /// nome si puo' tradurre, un identificativo di venditore no.
+    pub fn e_finta(bandiere: i32, venditore: u32) -> bool {
+        const MICROSOFT: u32 = 0x1414;
+        bandiere & DXGI_ADAPTER_FLAG_SOFTWARE.0 != 0 || venditore == MICROSOFT
+    }
+
     pub fn schede() -> Result<Vec<Scheda>> {
         let mut fuori = Vec::new();
         unsafe {
@@ -265,10 +282,7 @@ mod imp {
                     Ok(d) => d,
                     Err(_) => continue,
                 };
-                // Il «Microsoft Basic Render Driver» e' una scheda finta: c'e'
-                // sempre, non disegna niente e non ha memoria. Contarla
-                // vorrebbe dire dire a chi non ha GPU che ne ha una.
-                if DXGI_ADAPTER_FLAG(desc.Flags as i32).0 & DXGI_ADAPTER_FLAG_SOFTWARE.0 != 0 {
+                if e_finta(DXGI_ADAPTER_FLAG(desc.Flags as i32).0, desc.VendorId) {
                     continue;
                 }
                 let nome = String::from_utf16_lossy(&desc.Description)
@@ -576,6 +590,21 @@ mod prove {
     #[test]
     fn una_deduzione_costa_piu_margine_di_una_misura() {
         assert!(Certezza::Dedotta.margine_extra_mb() > Certezza::Misurata.margine_extra_mb());
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn il_basic_render_driver_e_finto_anche_senza_bandiera() {
+        // I numeri veri, quelli che la CI ha in mano: venditore Microsoft e
+        // nessuna bandiera accesa. La prova qui sotto guarda le schede di
+        // questa macchina, e su una macchina con la GPU non puo' accorgersi
+        // di niente: questa invece vale ovunque, perche' i numeri se li
+        // porta dietro.
+        assert!(imp::e_finta(0, 0x1414), "Basic Render Driver");
+        assert!(imp::e_finta(2, 0x1414), "WARP, che la bandiera ce l'ha");
+        assert!(!imp::e_finta(0, 0x10DE), "NVIDIA");
+        assert!(!imp::e_finta(0, 0x1002), "AMD");
+        assert!(!imp::e_finta(0, 0x8086), "Intel");
     }
 
     #[test]
