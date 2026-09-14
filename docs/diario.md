@@ -6854,3 +6854,31 @@ Intel. Quella guarda le schede di *questa* macchina e su una macchina con la
 GPU non puo' accorgersi di niente; questa vale ovunque, perche' i numeri se li
 porta dietro. E' la differenza fra una prova che dipende da chi la lancia e
 una che dipende da cio' che si sta provando.
+
+### v0.1.1, per davvero questa volta
+
+Il tag stava su un commit che non compilava le prove. L'ho spostato: cancellato
+e rifatto su `ca2fe72`, che e' il primo commit con tutti e sei i lavori verdi.
+Cancellare un tag non e' una cosa da fare a cuor leggero, ma qui non c'era
+niente da perdere - a quel tag non era mai stata attaccata nessuna release,
+perche' il lavoro era morto prima di compilare. Nessuno ha scaricato niente,
+perche' non c'era niente da scaricare.
+
+Adesso c'e': `nova-core-windows-x64.zip`, 8,5 MB, e `SHA256SUMS.txt` con le
+impronte di tutti e quindici i binari, generate dalla CI al momento del
+rilascio. Verificato chiedendo all'API, non leggendo una pagina.
+
+Il conto della serata: tre rossi diversi, e nessuno dei tre era una prova
+sbagliata. Uno era un difetto vero nel codice (la scheda finta che passava il
+filtro), uno un difetto vero nel giro delle prove (il codice di uscita che si
+ereditava dall'ultima), e uno una regola scritta nel posto sbagliato (il
+controllo sui dati personali dentro il file della CI). Tutti e tre visibili
+solo da una macchina che non e' questa, e tutti e tre invisibili finche' i
+lavori non hanno imparato a dire **cosa** era fallito invece di **che** era
+fallito.
+
+Resta per Gio, e non lo tocco: `bin/SHA256SUMS.txt` sul suo disco elenca tre
+binari su quindici con impronte vecchie. Non e' tracciato, quindi non e' mai
+uscito di qui; ma finche' c'e', a chi lo apre dice una cosa falsa. E il guscio
+compilato sul suo disco e' quello di prima: `.\build.ps1` a NOVA chiusa, e
+allinea anche quello.
