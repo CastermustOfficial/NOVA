@@ -264,7 +264,7 @@ mod prove {
     #[test]
     fn la_domanda_si_fa_sui_nomi_e_funziona_con_tutte_e_due_le_barre() {
         assert!(dentro("C:/dati/mio.txt", r"C:\dati"));
-        assert!(dentro("/home/gio/dati/x", "/home/gio/dati"));
+        assert!(dentro("/home/utente/dati/x", "/home/utente/dati"));
         assert!(dentro(r"C:\dati\.\mio.txt", r"C:\dati"));
         // Un `..` si scioglie **a nome**, senza chiedere niente al disco.
         assert!(!dentro(r"C:\dati\..\fuori.txt", r"C:\dati"));
@@ -285,7 +285,7 @@ mod prove {
             &[],
             Autonomia::ChiediSeRischioso,
         );
-        assert!(g.puo_scrivere(r"C:\Users\gio\nota.txt", None).is_ok());
+        assert!(g.puo_scrivere(r"C:\Users\utente\nota.txt", None).is_ok());
         assert!(g.puo_scrivere(r"C:\Windows\system32\x.dll", None).is_err());
         // E `C:\Windows-mio` non e' dentro `C:\Windows`.
         assert!(g.puo_scrivere(r"C:\Windows-mio\x.txt", None).is_ok());

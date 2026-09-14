@@ -135,11 +135,11 @@ mod prove {
 
     #[test]
     fn i_tre_segnaposto_spariscono() {
-        let f = componi(PROMPT_PREDEFINITO, "gio", "lunedi 05/09/2026 15:00", "C:\\Users\\gio", "it");
+        let f = componi(PROMPT_PREDEFINITO, "utente", "lunedi 05/09/2026 15:00", "C:\\Users\\utente", "it");
         for s in SEGNAPOSTO {
             assert!(!f.contains(s), "{s} e' rimasto nel prompt");
         }
-        assert!(f.contains("gio"));
+        assert!(f.contains("utente"));
     }
 
     #[test]
@@ -147,16 +147,16 @@ mod prove {
         // Il difetto trovato portando: `str.format` guardava tutte le
         // graffe, e NOVA non partiva.
         let mio = "Sei NOVA per {user}. Rispondi cosi': {\"ok\": true} e con {} vuote.";
-        let f = componi(mio, "gio", "ora", "casa", "it");
+        let f = componi(mio, "utente", "ora", "casa", "it");
         assert!(f.contains("{\"ok\": true}"));
         assert!(f.contains("{}"));
-        assert!(f.starts_with("Sei NOVA per gio."));
+        assert!(f.starts_with("Sei NOVA per utente."));
     }
 
     #[test]
     fn un_segnaposto_sconosciuto_resta_scritto_com_e() {
-        let f = componi("ciao {utente}", "gio", "ora", "casa", "it");
-        assert!(f.starts_with("ciao {utente}"));
+        let f = componi("ciao {tizio}", "utente", "ora", "casa", "it");
+        assert!(f.starts_with("ciao {tizio}"));
     }
 
     #[test]

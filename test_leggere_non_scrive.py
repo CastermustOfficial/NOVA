@@ -73,28 +73,53 @@ with tempfile.TemporaryDirectory() as tmp:
     d = Path(tmp)
     salvataggi = []
     vero_load, vero_save = Config.load, Config.save
+    vero_percorso, vero_auto = main_mod.CONFIG_PATH, main_mod.autoconfigure
     try:
         Config.load = staticmethod(lambda *a, **k: config_completa(d))
         Config.save = lambda self, path=None: salvataggi.append(1)
+        # Il file della macchina vera non c'entra: si guarda quello finto. Se
+        # no la prova dice cose diverse su una macchina gia' configurata e su
+        # una spoglia - e la CI e' l'unica macchina spoglia che abbiamo.
+        finto_config = d / "config.json"
+        finto_config.write_text("{}", encoding="utf-8")
+        main_mod.CONFIG_PATH = finto_config
+        # Cosa `autoconfigure` riesce a trovare dipende da cosa c'e' sul
+        # disco; cosa `_prepare_config` decide di fare con quel risultato no.
+        # Si sostituisce, cosi' la prova misura la decisione di salvare e non
+        # la ricerca di un modello.
+        main_mod.autoconfigure = lambda cfg, force=False: []
         main_mod._prepare_config()
         controlla("niente da completare, niente da salvare", not salvataggi,
                   f"ha salvato {len(salvataggi)} volte: il guscio chiede le "
                   "statistiche ogni 15 secondi, e ogni salvataggio butta via "
                   "le chiavi che le classi non conoscono")
 
-        # E al contrario: quando c'e' qualcosa da completare, si salva.
-        def mancante(*a, **k):
-            cfg = config_completa(d)
-            cfg.server.model_path = ""
-            return cfg
+        # Ma se il file non c'e' ancora, si scrive lo stesso. Senza questa
+        # riga, su una macchina dove non c'e' niente da completare NOVA
+        # girava senza mai crearsi una configurazione: nessun errore, e
+        # nessun file da aprire per correggerla.
         salvataggi.clear()
-        Config.load = staticmethod(mancante)
+        finto_config.unlink()
+        main_mod._prepare_config()
+        controlla("ma la prima volta il file nasce", len(salvataggi) == 1,
+                  f"{len(salvataggi)} salvataggi: alla prima accensione su "
+                  "una macchina spoglia non c'e' niente da completare, e il "
+                  "confronto da solo direbbe di non scrivere")
+        finto_config.write_text("{}", encoding="utf-8")
+
+        # E al contrario: quando c'e' qualcosa da completare, si salva.
+        def tocca(cfg, force=False):
+            cfg.server.model_path = str(d / "un altro.gguf")
+            return []
+        salvataggi.clear()
+        main_mod.autoconfigure = tocca
         main_mod._prepare_config()
         controlla("se invece completa qualcosa, salva", len(salvataggi) == 1,
                   f"{len(salvataggi)} salvataggi: l'autoconfigurazione deve "
                   "poter scrivere cio' che ha trovato, se no lo rifa' ogni volta")
     finally:
         Config.load, Config.save = vero_load, vero_save
+        main_mod.CONFIG_PATH, main_mod.autoconfigure = vero_percorso, vero_auto
 
 print("\n2. e sul serio, con il comando vero")
 
@@ -112,11 +137,19 @@ with tempfile.TemporaryDirectory() as tmp:
     ambiente["PYTHONPATH"] = os.pathsep.join(
         x for x in (site.getusersitepackages(), os.environ.get("PYTHONPATH", "")) if x)
     # Prima chiamata: crea la configurazione e la completa. Puo' salvare.
-    subprocess.run([sys.executable, "-m", "nova", "--kb-stats"], cwd=RADICE,
-                   env=ambiente, capture_output=True, timeout=90)
+    prima_volta = subprocess.run([sys.executable, "-m", "nova", "--kb-stats"],
+                                 cwd=RADICE, env=ambiente,
+                                 capture_output=True, timeout=90)
     f = casa / "NOVA" / "config.json"
     if not f.exists():
-        controlla("la configurazione si crea", False, f"{f} non c'e'")
+        # Il motivo sta nello stderr del sottoprocesso, e senza stamparlo si
+        # legge solo «non c'e'». E' successo: la CI ha detto «non c'e'» per
+        # tre giri, e la causa - il file non nasceva su una macchina senza
+        # niente da completare - era li' dentro dal primo.
+        coda = (prima_volta.stderr or b"").decode("utf-8", "replace")
+        coda = " / ".join(coda.strip().splitlines()[-5:]) or "(stderr vuoto)"
+        controlla("la configurazione si crea", False,
+                  f"{f} non c'e'; uscita {prima_volta.returncode}; {coda}")
     else:
         # Una chiave che le classi non conoscono: e' il canarino. Se la
         # seconda chiamata la fa sparire, il difetto e' tornato.

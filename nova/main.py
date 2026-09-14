@@ -35,7 +35,7 @@ def _traccia_main() -> None:
 
 def _prepare_config(reconfigure: bool = False) -> Config:
     """Carica la configurazione, la completa se manca qualcosa, e la salva
-    **solo se e' cambiata davvero**.
+    **solo se e' cambiata davvero** - o se il file non c'e' ancora.
 
     Salvava sempre, e non era una svista innocua. Il guscio chiede le
     statistiche della memoria ogni quindici secondi con `--kb-stats`, e ogni
@@ -60,7 +60,13 @@ def _prepare_config(reconfigure: bool = False) -> Config:
     cfg = Config.load()
     prima = asdict(cfg)
     notes = autoconfigure(cfg, force=reconfigure)
-    if asdict(cfg) != prima:
+    # Il confronto dice se qualcosa e' cambiato, non se il file esiste. Alla
+    # prima accensione su una macchina spoglia - nessun modello sul disco,
+    # nessun runtime da trovare - `autoconfigure` non completa niente, il
+    # confronto e' uguale, e il file non nasceva affatto: NOVA girava senza
+    # mai scriversi una configurazione da aprire e correggere. Lo ha visto la
+    # CI, che e' l'unica macchina spoglia che questo progetto abbia.
+    if asdict(cfg) != prima or not CONFIG_PATH.exists():
         cfg.save()
     for n in notes:
         print("[setup]", n)

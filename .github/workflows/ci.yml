@@ -94,18 +94,22 @@ jobs:
 
   # Rete di sicurezza: se un dato personale sfugge al .gitignore, meglio
   # scoprirlo qui che dopo averlo pubblicato.
+  #
+  # La regola non e' piu' scritta qui dentro. Era un grep con due esenzioni:
+  # non si poteva lanciare prima di spingere, e le esenzioni conoscevano i
+  # nomi dei file di un linguaggio solo - il rilevatore intanto era nato
+  # anche in Rust, con le sue prove dentro `src/*.rs`, e la rete era tesa
+  # dove i pesci non passavano piu'. Adesso e' una prova del progetto:
+  # `test_niente_dati_personali.py`, che chiunque puo' leggere e lanciare.
+  # Gira anche fra le prove Python su Windows; qui resta un lavoro a parte
+  # perche' dura sei secondi e dice subito se si sta per pubblicare qualcosa
+  # che non si puo' piu' ritirare.
   niente-dati-personali:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Cerco chiavi e percorsi personali
-        run: |
-          set +e
-          PAT='sk-ant-api|sk-proj-|ghp_[A-Za-z0-9]{20,}|BEGIN [A-Z ]*PRIVATE KEY|C:\\\\Users\\\\[a-z]'
-          # riservatezza.py e i test contengono di proposito le regex e gli
-          # esempi: sono il rilevatore, non il segreto.
-          HIT=$(grep -rInE "$PAT" . \
-                --exclude-dir=.git --exclude-dir=target --exclude-dir=.github \
-                --exclude=riservatezza.py --exclude='test_*.py')
-          if [ -n "$HIT" ]; then echo "$HIT"; echo "::error::possibile dato personale nel repository"; exit 1; fi
-          echo "nessun dato personale"
+        run: python test_niente_dati_personali.py

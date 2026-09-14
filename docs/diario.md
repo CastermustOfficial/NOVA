@@ -1502,7 +1502,7 @@ Dieci voci di compatibilita' su dieci portavano l'etichetta «serve un altro
 PC», e almeno tre non l'hanno mai meritata. **I percorsi ostili si
 costruiscono qui.**
 
-Questa macchina ha quelli facili — `C:\Users\giova`, niente OneDrive, niente
+Questa macchina ha quelli facili — un nome utente corto, niente OneDrive, niente
 accenti — ed e' precisamente per questo che nessuno di quei casi era mai stato
 esercitato. L'etichetta non descriveva la voce: descriveva la mia distrazione.
 
@@ -6155,7 +6155,7 @@ cosa che di qui si puo' fare: **leggere cosa NOVA dice a chi non ha gia'
 tutto**.
 
 Prima sorpresa, buona: i percorsi personali non sono un problema. `nova/` e
-`core/crates/` non contengono `C:\Users\giova` da nessuna parte, e c'e' gia'
+`core/crates/` non contengono la cartella personale di chi scrive, e c'e' gia'
 una prova che tiene pulito il README. Anche i percorsi ostili — spazi,
 accenti, apostrofi — hanno il loro banco. Chi ci ha pensato prima di me ha
 fatto un buon lavoro, e la domanda «cosa c'e' gia'?» me l'ha risparmiata
@@ -6714,3 +6714,69 @@ Resta una cosa per Gio, che non tocco: `bin/SHA256SUMS.txt` elenca tre binari
 su quindici con hash vecchi. Non e' tracciato, quindi non esce con la
 release - il manifesto vero lo fa la CI - ma sul suo disco continua a dire
 una cosa falsa a chi lo apra.
+
+### La CI ha visto quello che qui non si vedeva
+
+Pubblicato, e due controlli su tre sono diventati rossi. Nessuno dei due era
+un falso allarme, e tutti e due dicono la stessa cosa: **questa macchina non
+e' una macchina qualunque**. Il cancello della beta chiede che qualcuno che
+non e' l'autore l'abbia installato su una macchina che non e' questa. Non
+posso farlo, ma la CI e' precisamente quello: una macchina spoglia, che non
+ha niente e non sa niente.
+
+**Primo rosso: la configurazione non nasceva.** `test_leggere_non_scrive`
+falliva su tutte e quattro le versioni di Python con «`config.json` non
+c'e'». La causa e' una mia correzione di quattro giorni fa: leggere non deve
+riscrivere la configurazione, quindi si salva solo se `autoconfigure` ha
+cambiato qualcosa. Qui cambia sempre qualcosa - c'e' un modello sul disco, un
+runtime da trovare. Su una macchina spoglia non c'e' niente da completare, il
+confronto e' uguale, e il file **non veniva creato affatto**: NOVA girava
+senza scriversi una configurazione, e chi avesse voluto correggerla a mano non
+avrebbe trovato niente da aprire. Il confronto dice se e' cambiata, non se
+esiste (D207).
+
+Due cose che ho sistemato mentre ci ero. La prova diceva «non c'e'» e basta:
+adesso stampa lo stderr del sottoprocesso, dove il motivo stava dal primo
+giro. E la prima parte misurava `_prepare_config` **attraverso**
+`autoconfigure`, cioe' attraverso cio' che c'e' sul disco: adesso
+`autoconfigure` e' sostituita, cosi' la prova misura la decisione di salvare e
+non la fortuna di avere un modello. Con la sostituzione ho potuto aggiungere
+il caso che mancava - il file che non c'e' ancora - e quel caso e' rosso senza
+la correzione.
+
+**Secondo rosso: il controllo sui dati personali.** Questo mi piace meno,
+perche' e' la stessa forma di errore che ho scritto in questo diario due
+settimane fa. Il controllo era un `grep` dentro il file della CI, con due
+esenzioni: `riservatezza.py` e `test_*.py`, «sono il rilevatore, non il
+segreto». Giusto. Solo che da allora il rilevatore e' nato **anche in Rust**,
+e in Rust le prove stanno dentro `src/*.rs`. La rete era tesa dove i pesci non
+passano piu' (D135). Venti righe rosse, tutte esempi.
+
+Non ho allargato le esenzioni: ho spostato la regola dove si puo' leggere e
+provare, cioe' in una prova del progetto. E le ho cambiato il criterio. Prima
+segnalava qualunque percorso dentro `C:\Users\` scritto con un nome in
+minuscola, esempi compresi; adesso c'e' **un
+nome finto solo per tutto il progetto**, `utente`, e ogni altro nome e' di
+qualcuno (D206). Niente da giudicare, niente da discutere. Tradotti gli
+esempi: venti righe fra Rust e documentazione, dove per sbaglio c'era anche il
+mio nome utente vero, tre volte, in due file di documentazione.
+
+La terza prova, quella che non avevo previsto di scrivere, e' la piu' utile:
+**un'esenzione che non copre piu' niente e' rossa** (D208). Le esenzioni si
+ereditano, restano scritte quando il motivo e' passato, e coprono in silenzio
+il file che prendera' quel nome domani. Alla prima esecuzione ne ha trovata
+una: `riservatezza.py` era esente e non contiene nessuno degli esempi che
+cerca. Era un'esenzione ereditata e mai verificata - probabilmente vera nel
+2025, falsa adesso.
+
+**E un terzo rosso che non era un difetto**, ma andava capito lo stesso.
+`test_cerca` falliva su Python 3.13 e non sulle altre tre: «lascia una scheda
+di ricerca aperta». Una prova che fallisce su una versione sola invita a
+cercare cosa e' cambiato in quella versione, ed e' la strada sbagliata:
+chiudere una scheda non e' istantaneo, e la prova guardava una volta sola. Non
+era Python, era il carico. Adesso aspetta cinque secondi che sparisca, e solo
+se resta e' una perdita.
+
+Il rilascio `v0.1.1` intanto e' andato a buon fine: sette minuti e trentanove,
+zip e `SHA256SUMS.txt` allegati. I rossi sono della CI, non della release -
+ma sarebbero rimasti rossi in cima alla pagina del progetto.

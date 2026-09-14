@@ -243,9 +243,9 @@ mod prove {
 
     #[test]
     fn un_percorso_windows_e_uno_unix() {
-        assert_eq!(nominate(r"salvata in C:\Users\gio\schermate\x.png"),
-                   vec![r"C:\Users\gio\schermate\x.png"]);
-        assert_eq!(nominate("vedi /home/gio/foto.JPEG"), vec!["/home/gio/foto.JPEG"]);
+        assert_eq!(nominate(r"salvata in C:\Users\utente\schermate\x.png"),
+                   vec![r"C:\Users\utente\schermate\x.png"]);
+        assert_eq!(nominate("vedi /home/utente/foto.JPEG"), vec!["/home/utente/foto.JPEG"]);
     }
 
     #[test]
