@@ -6258,7 +6258,7 @@ il carico, uno era un difetto di NOVA, e uno era una prova che rubava a
 un'altra. Se li avessi trattati tutti e tre allo stesso modo — allargando il
 budget — avrei nascosto due cose vere su tre.
 
-### La regola che credevo stesse in un posto solo
+## 7 settembre 2026 — La regola che credevo stesse in un posto solo
 
 `avvio.log` era a 2,8 MB. Non e' un problema di spazio — sono megabyte, non
 gigabyte — ma quel file esiste apposta per essere aperto il giorno che
@@ -6321,7 +6321,7 @@ di quello vivo, perche' l'ordine e' il tempo.
 Non l'ho trovato leggendo il codice. L'ho trovato perche' unificare la regola
 mi ha costretto a chiedermi, per ogni file potato, **chi lo rilegge**.
 
-### Il campo che diceva la verita' ed era inutile
+## 9 settembre 2026 — Il campo che diceva la verita' ed era inutile
 
 Gio: «di fatto non posso fare "apri" cercando il percorso». Il campo del
 modello locale dice «qui si punta a un file che hai gia'» sopra una casella
@@ -6416,7 +6416,7 @@ guardavo l'elenco. Il modello in uso si sa **subito**, dalla configurazione,
 senza aspettare nessuna ricerca — e se il file scelto sta in una cartella che
 la ricerca non guarda, senza quella riga non lo avrebbe saputo mai.
 
-### Due ore di silenzio, e un campo che non esisteva
+## 10 settembre 2026 — Due ore di silenzio, e un campo che non esisteva
 
 Gio: «Rimane cosi' anche quando son certo abbia scelto un modello. Comunque
 intanto Nova e' rimasto bloccato in loop».
@@ -6466,7 +6466,7 @@ scrivere, e io avrei creduto di aver messo un diario. Una diagnostica che
 tace e' peggio di nessuna diagnostica. Adesso una prova pretende che ogni
 `self.x` letto in `Agent` sia assegnato da qualche parte.
 
-### Due frasi opposte nella stessa schermata
+## 11 settembre 2026 — Due frasi opposte nella stessa schermata
 
 Gio riapre il pannello e trova questo: in cima «✗ Modello locale — nessun
 modello scelto», due righe sotto «✓ gemma-4-26B... · 10.6 GB · vede le
@@ -6633,7 +6633,7 @@ adesso. Sovrascriverla sarebbe cancellare una scelta che l'utente **puo'**
 aver fatto, visto che dal pannello l'etichetta si cambia. Per chi ce l'ha gia',
 la verita' la dice la prova.
 
-### L'installatore, cioe' l'unico che vede chi non ha niente
+## 14 settembre 2026 — L'installatore, cioe' l'unico che vede chi non ha niente
 
 Gio: «l'installer, come e' messo?». Sono andato a guardarlo invece di
 rispondere, ed e' venuta fuori la cosa che questo progetto caccia da mesi.
@@ -6678,3 +6678,39 @@ che esistesse. La prova adesso guarda anche quel predefinito: se cambia,
 Provato per davvero con `-Prova`, che non tocca niente: gira da cima a fondo,
 riconosce la RTX 4060 Ti e i 16 GB di VRAM, trova il modello gia' sul disco, e
 chiude con «non ho toccato niente». `git status` conferma.
+
+### Il numero di versione, e quattro file che non erano sorgente
+
+Prima di pubblicare ho guardato cosa sarebbe uscito, invece di pubblicare e
+basta. Due cose non andavano, tutte e due piccole e tutte e due del tipo che
+si nota solo da fuori.
+
+La prima: `core/Cargo.toml` diceva 0.1.1 e `core/Cargo.lock` diceva ancora
+0.1.0, per tutti e venticinque i crate. Qui non cambia niente, perche' chi
+compila senza `--locked` si riscrive il lock e va avanti. In CI, che compila
+col lock, sarebbe stata la prima riga rossa del rilascio. Venticinque righe
+`version`, nessuna dipendenza toccata: l'ho verificato contando le righe del
+diff invece di fidarmi di cosa credevo di aver cambiato.
+
+La seconda: nel repository c'erano quattro file che non sono sorgente.
+`_shell_out.txt` e `_shell_err.txt`, zero byte, dove la shell scarica uscita
+ed errore. `_tast_prova.txt.eventi`, gli eventi lasciati dalla prova della
+tastiera. E un file che si chiama `importante'` - zero byte, nato da un
+apostrofo di troppo in una riga di comando, chissa' quando.
+
+Erano tracciati da prima che `.gitignore` avesse la sezione degli scarti, e
+per questo nessuna delle regole scritte dopo li ha mai toccati: git ignora i
+file che non conosce, non quelli che sta gia' seguendo. Li ho tolti dal
+repository e lasciati sul disco, e **insieme** ho aggiunto le regole. Solo
+toglierli sarebbe stato inutile: il primo che rilancia le prove della
+tastiera li rimette dentro. Un file cancellato torna, una regola no (D135).
+
+Poi la pubblicazione vera: `master` portato a `ottimizzazione` senza merge e
+senza riscrivere niente, e il tag `v0.1.1` che fa partire la CI. Prima di
+spingere ho contato i commit e gli autori: un autore solo, e nessuna riga di
+attribuzione che non fosse la sua.
+
+Resta una cosa per Gio, che non tocco: `bin/SHA256SUMS.txt` elenca tre binari
+su quindici con hash vecchi. Non e' tracciato, quindi non esce con la
+release - il manifesto vero lo fa la CI - ma sul suo disco continua a dire
+una cosa falsa a chi lo apra.
