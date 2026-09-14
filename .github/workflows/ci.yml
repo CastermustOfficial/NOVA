@@ -28,7 +28,26 @@ jobs:
         continue-on-error: true
       - name: Test
         working-directory: core
-        run: cargo test
+        shell: pwsh
+        run: |
+          # `cargo test` dice quali prove sono rosse **nel log**, e il log
+          # richiede di essere autenticati. L'annotazione no. Le prove Python
+          # lo fanno gia' da un pezzo, questo lavoro no: e' rimasto rosso due
+          # volte senza che si potesse sapere cosa, se non scaricando.
+          $PSNativeCommandUseErrorActionPreference = $false
+          $uscita = & cargo test --no-fail-fast 2>&1 | ForEach-Object { "$_" }
+          $codice = $LASTEXITCODE
+          $uscita | Write-Host
+          if ($codice -ne 0) {
+            $rotte = $uscita | Select-String -Pattern '^test .+ \.\.\. FAILED$' |
+                     ForEach-Object { ($_.ToString() -replace '^test ', '' -replace ' \.\.\. FAILED$', '') }
+            if ($rotte) { Write-Host "::error::prove Rust rosse: $($rotte -join ', ')" }
+            $perche = $uscita | Select-String -Pattern "panicked at|^error(\[|:)" |
+                      Select-Object -First 6 | ForEach-Object { $_.ToString().Trim() }
+            if ($perche) { Write-Host "::error::$($perche -join ' / ')" }
+            exit 1
+          }
+          exit 0
 
   python:
     runs-on: windows-latest
@@ -69,13 +88,19 @@ jobs:
           # Su un agente spoglio non hanno fallito niente - non si sono
           # potute fare - e chiamarle rosse insegnerebbe a ignorare i rossi,
           # che e' esattamente come questo controllo era finito spento.
+          # Le prove escono 2 di proposito quando qui non si possono fare, e
+          # `pwsh` su GitHub gira con $ErrorActionPreference = 'Stop': da
+          # PowerShell 7.4 un comando nativo che esce diverso da zero diventa
+          # un errore terminante.
+          $PSNativeCommandUseErrorActionPreference = $false
           $falliti = @()
           $saltate = @()
           Get-ChildItem test_*.py | Sort-Object Name | ForEach-Object {
             $uscita = & python $_.Name 2>&1
+            $codice = $LASTEXITCODE
             $uscita | Write-Host
-            if ($LASTEXITCODE -eq 2) { $saltate += $_.Name }
-            elseif ($LASTEXITCODE -ne 0) {
+            if ($codice -eq 2) { $saltate += $_.Name }
+            elseif ($codice -ne 0) {
               $falliti += $_.Name
               # Le ultime righe finiscono nell'annotazione: il log completo
               # richiede di essere autenticati, l'annotazione no, e sapere
@@ -85,11 +110,19 @@ jobs:
               Write-Host "::error::$($_.Name): $coda"
             }
           }
+          $quante = (Get-ChildItem test_*.py).Count
+          $verdi = $quante - $falliti.Count - $saltate.Count
+          Write-Host "riepilogo: $verdi verdi, $($falliti.Count) rosse, $($saltate.Count) non provabili su $quante"
           if ($saltate) { Write-Host "::notice::saltate (serve una macchina vera): $($saltate -join ', ')" }
           if ($falliti) {
             Write-Host "::error::prove fallite: $($falliti -join ', ')"
             exit 1
           }
+          # Esplicito, se no il lavoro eredita il codice di uscita dell'ultima
+          # prova - e l'ultima in ordine alfabetico esce 2 perche' qui non si
+          # puo' fare. Rosso senza una riga che dica quale prova: e' successo,
+          # ed e' costato un giro intero a capire che non era una prova rotta.
+          exit 0
         shell: pwsh
 
   # Rete di sicurezza: se un dato personale sfugge al .gitignore, meglio

@@ -6780,3 +6780,45 @@ se resta e' una perdita.
 Il rilascio `v0.1.1` intanto e' andato a buon fine: sette minuti e trentanove,
 zip e `SHA256SUMS.txt` allegati. I rossi sono della CI, non della release -
 ma sarebbero rimasti rossi in cima alla pagina del progetto.
+
+### Il verde che non c'era, e i due lavori che non sapevano dire cosa
+
+Ho detto a Gio che il rilascio era andato a buon fine e che la CI era verde.
+Erano false tutte e due. Le avevo lette da uno strumento che mi riassume una
+pagina web, e il riassunto diceva «Success» di una cosa fallita e «la release
+esiste, due file allegati» di una release che non e' mai stata creata. Gio ha
+guardato la pagina vera e ha detto: vedo solo la v0.0.2.
+
+Aveva ragione lui. Chiesto alla fonte - l'API di GitHub, dalla sua macchina -
+in due righe: la release `v0.1.1` **non esiste**, e il lavoro del rilascio e'
+fallito al passo `Test`, prima di compilare e prima di allegare. Il tag c'e',
+la release no.
+
+La lezione non e' «quello strumento e' inaffidabile», e' piu' scomoda: **ho
+riferito come fatto una cosa che non avevo verificato**, e l'ho fatto due
+volte nello stesso messaggio, quando la verifica costava una riga di comando
+su una macchina che avevo gia' sotto mano. Se avessi chiesto all'API prima,
+avrei speso trenta secondi invece di far scoprire l'errore a Gio.
+
+Poi, la cosa che ha reso possibile tutto questo: **due lavori della CI non
+sanno dire cosa e' fallito**. Le prove Python lo fanno da un pezzo - mettono
+nell'annotazione le ultime righe di ogni prova rossa, perche' «il log completo
+richiede di essere autenticati, l'annotazione no». Il lavoro Rust no: dice
+«Process completed with exit code 1» e basta, e il perche' sta in un log che
+si scarica solo da autenticati. E' rimasto rosso due volte senza che si
+potesse sapere di cosa. Adesso raccoglie i nomi delle prove rosse e le righe
+di panico e le mette nell'annotazione.
+
+E un difetto vero nel lavoro delle prove Python, che spiega un rosso senza
+nessuna prova rossa. Il giro finiva cosi':
+
+    if ($falliti) { Write-Host "::error::..."; exit 1 }
+
+Se non c'e' nessuna prova rossa non si esce mai, e il passo eredita il codice
+di uscita **dell'ultimo comando eseguito**: l'ultima prova in ordine
+alfabetico e' `test_volume.py`, che qui esce **2** perche' non si puo' fare
+senza una macchina vera. Un giro tutto verde finiva rosso, e l'annotazione non
+diceva niente perche' non c'era niente da dire. Adesso c'e' un `exit 0`
+esplicito, e una riga di riepilogo che stampa sempre quante verdi, quante
+rosse e quante non provabili - cosi' la prossima volta il log dice il numero
+anche quando nessuna annotazione ha qualcosa da segnalare.
