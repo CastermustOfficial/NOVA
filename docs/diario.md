@@ -6822,3 +6822,35 @@ diceva niente perche' non c'era niente da dire. Adesso c'e' un `exit 0`
 esplicito, e una riga di riepilogo che stampa sempre quante verdi, quante
 rosse e quante non provabili - cosi' la prossima volta il log dice il numero
 anche quando nessuna annotazione ha qualcosa da segnalare.
+
+### La scheda finta passava, e serviva una macchina senza scheda per vederlo
+
+Col lavoro Rust che adesso dice i nomi, il rosso ha smesso di essere un
+mistero in un giro solo: `gpu::prove::la_scheda_finta_non_si_conta`.
+
+Quella prova dice: il «Microsoft Basic Render Driver» non deve comparire fra
+le schede video, perche' c'e' sempre, non disegna niente e non ha memoria -
+contarla vorrebbe dire dire a chi non ha GPU che ne ha una. Il filtro
+guardava la bandiera `DXGI_ADAPTER_FLAG_SOFTWARE`. Su questa macchina la
+prova e' verde da sempre, e non poteva essere altrimenti: **qui quella scheda
+non e' l'unica**, e la prova passa anche se il filtro non funziona, perche' le
+schede vere ci sono comunque e nessuna si chiama cosi'.
+
+Su un agente della CI non c'e' nessuna scheda video. L'unico adattatore e' il
+Basic Render Driver - e quella bandiera **non e' accesa**: DXGI la accende per
+WARP creato a mano, non per quello che `EnumAdapters1` restituisce da se'. Il
+filtro non filtrava niente, da sempre, e nessuna macchina qui poteva dirlo.
+
+Adesso guarda il venditore: `0x1414` e' Microsoft, e nessuna scheda video vera
+porta quel numero. Il nome sarebbe stato piu' fragile - un nome si traduce, un
+identificativo di venditore no. E la cosa che mi fa piacere e che dovevo
+guardare prima: **l'installatore faceva gia' cosi'**, `AdapterCompatibility
+-notmatch 'Microsoft'`, da mesi. La regola giusta era gia' in casa, in
+PowerShell, e la parte Rust ne aveva inventata una piu' debole.
+
+Poi ho aggiunto la prova che manca a quella esistente: `e_finta` con i numeri
+veri dentro - Basic Render senza bandiera, WARP con la bandiera, NVIDIA, AMD,
+Intel. Quella guarda le schede di *questa* macchina e su una macchina con la
+GPU non puo' accorgersi di niente; questa vale ovunque, perche' i numeri se li
+porta dietro. E' la differenza fra una prova che dipende da chi la lancia e
+una che dipende da cio' che si sta provando.
