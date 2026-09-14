@@ -67,3 +67,11 @@ _misura*.py
 _conta.py
 _suite.py
 _kv.txt
+
+# Scarti delle prove, finiti nel repository per sbaglio: i due file dove la
+# shell scarica uscita ed errore, il bersaglio della prova tastiera con i suoi
+# eventi, e un nome nato da un apostrofo di troppo in una riga di comando.
+_shell_*.txt
+_tast_prova.txt*
+_giro_prove.py
+importante'
