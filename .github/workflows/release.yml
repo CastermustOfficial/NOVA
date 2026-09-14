@@ -32,7 +32,24 @@ jobs:
 
       - name: Test
         working-directory: core
-        run: cargo test --release
+        shell: pwsh
+        run: |
+          # Se e' rosso, il rilascio non parte - e il motivo va detto qui:
+          # il log completo richiede di essere autenticati, l'annotazione no.
+          $PSNativeCommandUseErrorActionPreference = $false
+          $uscita = & cargo test --release --no-fail-fast 2>&1 | ForEach-Object { "$_" }
+          $codice = $LASTEXITCODE
+          $uscita | Write-Host
+          if ($codice -ne 0) {
+            $rotte = $uscita | Select-String -Pattern '^test .+ \.\.\. FAILED$' |
+                     ForEach-Object { ($_.ToString() -replace '^test ', '' -replace ' \.\.\. FAILED$', '') }
+            if ($rotte) { Write-Host "::error::prove Rust rosse: $($rotte -join ', ')" }
+            $perche = $uscita | Select-String -Pattern "panicked at|^error(\[|:)" |
+                      Select-Object -First 6 | ForEach-Object { $_.ToString().Trim() }
+            if ($perche) { Write-Host "::error::$($perche -join ' / ')" }
+            exit 1
+          }
+          exit 0
 
       - name: Compila
         working-directory: core
