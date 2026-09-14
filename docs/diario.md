@@ -6632,3 +6632,49 @@ file di Gio tiene l'etichetta vecchia, «Gemini» e basta. La nuova — «Gemini
 adesso. Sovrascriverla sarebbe cancellare una scelta che l'utente **puo'**
 aver fatto, visto che dal pannello l'etichetta si cambia. Per chi ce l'ha gia',
 la verita' la dice la prova.
+
+### L'installatore, cioe' l'unico che vede chi non ha niente
+
+Gio: «l'installer, come e' messo?». Sono andato a guardarlo invece di
+rispondere, ed e' venuta fuori la cosa che questo progetto caccia da mesi.
+
+Aveva l'elenco delle CLI **scritto a mano** in PowerShell — quattro righe con
+claude, codex, gemini, qwen — e il commento sopra diceva perfino dove stava
+quello vero: `nova/routing.py`, `cli_predefinite()`. Era gia' divergente:
+Antigravity non c'era, e Gemini aveva l'etichetta di prima del 18 giugno.
+
+La parte che fa male e' che lo stesso file fa gia' la cosa giusta **tre
+volte**. La ricerca dei GGUF, il verdetto sul modello, l'avvertenza sulle
+cartelle sincronizzate: tutte e tre chiedono a Python, e accanto c'e' scritto
+il motivo — «due copie della stessa regola sono due regole destinate a
+divergere». La regola era conosciuta, applicata, commentata. E a venti righe
+di distanza c'era la copia.
+
+Adesso l'elenco lo chiede a NOVA. Claude Code resta scritto a mano, ma
+dichiarato: non sta fra le CLI predefinite perche' ha un modulo suo. E senza
+Python si offre solo quello e lo si dice, invece di inventare una lista li'
+dentro che domani non somiglia piu' a quella vera.
+
+Poi «facile da usare», che era l'altra meta' della richiesta. Ho contato le
+domande prima di giudicare: ventitre'. Ma una via breve **c'era gia'**:
+`-Silenzioso` fa rispondere a ognuna il suo predefinito. Stava in un parametro
+da riga di comando — chi fa doppio clic non la vede, e chi la vede non la
+riconosce, perche' «silenzioso» dice come si comporta e non cosa ottiene.
+
+Non ho aggiunto una modalita': sarebbe stato un secondo comportamento da
+tenere allineato a mano. Ho reso visibile quella che c'era, come prima
+domanda: «Fai tu» oppure «Scelgo io».
+
+La cosa che mi ha fatto piacere scoprire e' che «fai tu» e' sicuro **per
+costruzione**, non perche' ce lo metto io. Ero pronto a doverlo blindare — un
+«fai tu» che scarica dodici gigabyte al buio sarebbe stato molto peggio di
+ventitre' domande. Poi ho letto il predefinito della domanda sull'IA: «nessuna
+per ora» se non ci sono modelli, «usa quello che hai» se ce ne sono. Da
+nessuna delle due si arriva allo scaricamento; ci si arriva solo scegliendolo.
+Qualcuno ci aveva gia' pensato, mesi fa, e la via breve era sicura da prima
+che esistesse. La prova adesso guarda anche quel predefinito: se cambia,
+«fai tu» comincerebbe a scaricare al buio e nessuno se ne accorgerebbe.
+
+Provato per davvero con `-Prova`, che non tocca niente: gira da cima a fondo,
+riconosce la RTX 4060 Ti e i 16 GB di VRAM, trova il modello gia' sul disco, e
+chiude con «non ho toccato niente». `git status` conferma.

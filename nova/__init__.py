@@ -5,7 +5,7 @@ file, applicazioni, finestre, PowerShell e web. Nessuna visione: solo
 API di sistema e tool testuali.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 APP_NAME = "NOVA"
 
 # La regola delle finestre vale da subito, prima che qualunque pezzo di NOVA

@@ -255,6 +255,72 @@ controlla("e lo si dice, invece di lasciar credere che sia tutto uguale",
 controlla("il disinstallatore toglie anche l'attivita'",
           "schtasks /delete" in INST and "^\\\\?NOVA($| |-)" in INST)
 
+
+
+print("\n11. le CLI non si ricopiano: si chiedono a NOVA")
+# L'installatore aveva l'elenco scritto a mano, e il commento sopra diceva
+# perfino dove stava quello vero. Era gia' divergente: il 18 giugno Gemini CLI
+# ha smesso di servire gli account personali, fra i predefiniti e' entrata
+# Antigravity, e questa lista non lo sapeva.
+#
+# E' il posto peggiore in cui tenere un elenco vecchio: l'installatore e'
+# l'unico che vede chi non ha ancora niente (D112, D135).
+from nova.routing import cli_predefinite as _cli_pred        # noqa: E402
+pronte = _cli_pred()
+
+controlla("l'elenco delle CLI lo chiede a NOVA",
+          "from nova.routing import cli_predefinite" in INST,
+          "se lo riscrive, e allora invecchia da solo")
+for nome, spec in pronte.items():
+    binario = spec.get("binary", nome)
+    # La riga che le nomina a mano non deve esistere: se compare
+    # «nome = 'gemini'» o simili, la copia e' tornata.
+    controlla(f"«{nome}» non e' ricopiato nell'installatore",
+              f"nome = '{nome}'; binario" not in INST,
+              f"c'e' una voce scritta a mano per «{nome}»: quella lista "
+              "invecchia senza che nessuno se ne accorga")
+# Claude Code e' l'unica eccezione, e va dichiarata: non sta fra le CLI
+# predefinite perche' ha un modulo suo, non una voce in brains.cli.
+import re as _re                                              # noqa: E402
+voci = _re.findall(r"nome = '(\w+)'; binario", INST)
+controlla("Claude Code resta scritto, ed e' l'unico",
+          voci == ["claude"],
+          f"voci CLI scritte a mano: {voci}")
+controlla("e il perche' e' scritto accanto",
+          "modulo suo in NOVA" in INST,
+          "un'eccezione senza motivo e' una scappatoia (D148)")
+controlla("senza Python lo dice, invece di inventare una lista",
+          "Non riesco a chiedere a NOVA quali CLI conosce" in INST,
+          "meglio offrire meno che offrire una lista che domani non somiglia "
+          "a quella vera")
+
+
+
+print("\n12. la via breve si vede, invece di stare in un parametro")
+# Ventitre' domande sono tante per chi voleva solo provare. La via breve
+# c'era gia' (-Silenzioso), ma in un parametro da riga di comando: chi fa
+# doppio clic non la vede, e il nome dice **come** si comporta invece di
+# **cosa** ottiene.
+controlla("la prima domanda e' come procedere",
+          "Come vuoi procedere?" in INST,
+          "la via breve resta nascosta a chi non legge i parametri")
+controlla("e la scorciatoia e' la scelta di base",
+          "'Fai tu:" in INST and "'Scelgo io:" in INST)
+controlla("«fai tu» riusa il meccanismo che c'era, non ne inventa un altro",
+          "$Silenzioso = $true" in INST,
+          "una seconda modalita' sarebbe un secondo comportamento da tenere "
+          "allineato a mano (D73)")
+controlla("non si chiede a chi ha gia' detto -Silenzioso",
+          "if (-not $Silenzioso) {" in INST,
+          "chiedere a chi ha gia' risposto e' la definizione di domanda inutile")
+# La promessa fatta dentro «fai tu» dev'essere vera: la scelta di base
+# dell'IA e' «nessuna» su una macchina vuota, quindi non parte nessuno
+# scaricamento pesante senza che qualcuno lo scelga.
+controlla("e la promessa e' vera: senza modelli, la scelta di base non scarica",
+          "$(if ($srv -or $gia.Count) { 2 } else { 1 })" in INST,
+          "se il predefinito portasse al ramo «scarica», «fai tu» "
+          "scaricherebbe gigabyte al buio")
+
 print(f"\n{passati}/{passati + len(falliti)} passati")
 for x in falliti:
     print("  FALLITO:", x)

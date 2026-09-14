@@ -87,9 +87,13 @@ pub fn accorciata(riga: &str) -> String {
 mod prove {
     use super::*;
 
-    /// Lo stderr vero di `gemini` su questa macchina, il 11 settembre.
-    /// Non e' un esempio inventato: e' cio' che ha scritto.
-    const GEMINI: &str = "Warning: 256-color support not detected. Using a terminal with at least 256-color support is recommended for a better visual experience.\nError authenticating: _GaxiosError: You do not have a valid license of this product. Please contact your administrator to request a license. If you are not an enterprise user and believe you are receiving this message as an error, please try using the latest version and logging in again. (#3501)\n    at Gaxios._request (file:///C:/Users/giova/AppData/Roaming/npm/node_modules/@google/gemini-cli/bundle/chunk-YSBB75DZ.js:17446:19)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)";
+    /// Lo stderr vero di `gemini`, misurato l'11 settembre 2026.
+    ///
+    /// Non e' un esempio inventato: e' cio' che ha scritto, riga per riga.
+    /// L'unica cosa cambiata e' il nome utente dentro il percorso dello
+    /// stack — quello non serve alla prova, e un nome vero in un repository
+    /// pubblico e' un dato personale regalato per niente.
+    const GEMINI: &str = "Warning: 256-color support not detected. Using a terminal with at least 256-color support is recommended for a better visual experience.\nError authenticating: _GaxiosError: You do not have a valid license of this product. Please contact your administrator to request a license. If you are not an enterprise user and believe you are receiving this message as an error, please try using the latest version and logging in again. (#3501)\n    at Gaxios._request (file:///C:/Users/utente/AppData/Roaming/npm/node_modules/@google/gemini-cli/bundle/chunk-YSBB75DZ.js:17446:19)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)";
 
     #[test]
     fn dell_errore_vero_si_legge_la_riga_che_conta() {

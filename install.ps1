@@ -291,6 +291,34 @@ Write-Host "   NOVA" -ForegroundColor White
 Write-Host "   un esperto seduto accanto a te, dentro il tuo PC" -ForegroundColor DarkGray
 Write-Host ""
 
+# ------------------------------------------------------------ come procedere
+#
+# Ventitre' domande sono tante per chi voleva solo provare NOVA. Una via
+# breve c'era gia' — `-Silenzioso` fa rispondere a ognuna il suo predefinito —
+# ma stava in un parametro da riga di comando: chi fa doppio clic
+# sull'installatore non la vede, e chi la vede non la riconosce, perche'
+# «silenzioso» dice **come** si comporta e non **cosa** ottiene.
+#
+# Quindi la si offre qui, come prima domanda, con le parole della cosa che fa.
+# Non e' una modalita' nuova: e' la stessa, resa visibile.
+#
+# E' sicura per costruzione, e vale la pena dire perche': la scelta di base
+# dell'IA e' «nessuna per ora» su una macchina senza modelli, e «usa quello
+# che hai» su una che ne ha. Da nessuna delle due si arriva a scaricare
+# gigabyte: allo scaricamento ci si arriva solo scegliendolo.
+if (-not $Silenzioso) {
+    $via = Chiedi "Come vuoi procedere?" @(
+        'Fai tu: scegli le impostazioni di base e installa (una domanda sola)',
+        'Scelgo io: mi fai le domande, una per volta'
+    ) 1
+    if ($via -eq 1) {
+        $Silenzioso = $true
+        Info "Vado con le scelte di base. Si cambia tutto dopo, dal pannello."
+        Info "Cosa faro': niente IA se non ne trovo gia' una, nessuno scaricamento"
+        Info "pesante, e l'avvio automatico acceso."
+    }
+}
+
 # ------------------------------------------------------------- prerequisiti
 Titolo "Controllo i prerequisiti"
 
@@ -668,13 +696,45 @@ function Verifica-Gguf($percorso) {
 # Codex o Gemini bisognava scrivere a mano una voce in config.json, cioe'
 # bisognava sapere che quella voce esisteva. Qui si guarda solo se il binario
 # c'e'; cosa passargli lo sa Python.
+function Elenco-Cli {
+    # L'elenco vero sta in nova/routing.py, cli_predefinite(): qui non si
+    # ricopia, per la stessa ragione per cui non si riscrive la ricerca dei
+    # GGUF ne' il verdetto sul modello - due copie della stessa regola sono
+    # due regole destinate a divergere.
+    #
+    # Ed era gia' divergente: il 18 giugno Gemini CLI ha smesso di servire gli
+    # account personali, fra i predefiniti e' entrata Antigravity, e questa
+    # lista non lo sapeva. L'installatore e' il posto peggiore in cui tenere
+    # un elenco vecchio, perche' e' l'unico che vede chi non ha ancora niente.
+    #
+    # Claude Code resta scritto qui, ed e' dichiarato: non sta fra le CLI
+    # predefinite perche' ha un modulo suo in NOVA - sessioni, permessi, MCP -
+    # e non una voce in `brains.cli`.
+    $note = @(@{ nome = 'claude'; binario = 'claude'; etichetta = 'Claude Code' })
+    if ($py) {
+        Push-Location $Root
+        try {
+            $grezzo = & $py -c "import json,sys; sys.path.insert(0,'.'); from nova.routing import cli_predefinite; print(json.dumps([{'nome':k,'binario':v.get('binary',k),'etichetta':v.get('etichetta',k)} for k,v in cli_predefinite().items()]))" 2>$null
+            $lette = ($grezzo | Out-String).Trim()
+            if ($lette) {
+                foreach ($v in ($lette | ConvertFrom-Json)) {
+                    $note += @{ nome = $v.nome; binario = $v.binario; etichetta = $v.etichetta }
+                }
+            }
+        } catch { } finally { Pop-Location }
+    }
+    # Senza Python resta solo Claude Code, e si dice: meglio offrire meno di
+    # offrire una lista inventata qui dentro che domani non somiglia piu' a
+    # quella che NOVA usa davvero.
+    if ($note.Count -le 1) {
+        Warn "Non riesco a chiedere a NOVA quali CLI conosce: ne propongo solo una."
+        Warn "Le altre si scelgono dal pannello, dopo l'installazione."
+    }
+    $note
+}
+
 function Trova-Cli {
-    $note = @(
-        @{ nome = 'claude'; binario = 'claude'; etichetta = 'Claude Code' },
-        @{ nome = 'codex';  binario = 'codex';  etichetta = 'Codex (OpenAI)' },
-        @{ nome = 'gemini'; binario = 'gemini'; etichetta = 'Gemini' },
-        @{ nome = 'qwen';   binario = 'qwen';   etichetta = 'Qwen Code' }
-    )
+    $note = Elenco-Cli
     $fuori = @()
     foreach ($c in $note) {
         foreach ($sfx in @('.cmd', '.exe', '')) {
