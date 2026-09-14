@@ -175,7 +175,7 @@ uniche che separano l'alpha dalla beta.
    nell'avvio automatico e crea un collegamento: cosa succede se non puo'.
 3. ~~**Percorsi ostili**~~ — e questa voce non ha mai avuto bisogno di una
    seconda macchina: i percorsi ostili si costruiscono qui. Questa ha quelli
-   facili (`C:\Users\giova`, niente OneDrive, niente accenti), che e'
+   facili (nome utente senza spazi ne' accenti, niente OneDrive), che e'
    esattamente il motivo per cui nessuno di questi casi era mai stato provato.
 
    `test_percorsi_ostili.py` costruisce sei cartelle che rompono cose diverse

@@ -137,15 +137,15 @@ mod prove {
 
     #[test]
     fn i_nomi_si_riconoscono_a_componente_intero() {
-        assert_eq!(s(r"C:\Users\gio\OneDrive\Documenti"), "OneDrive");
-        assert_eq!(s(r"C:\Users\gio\Dropbox\NOVA"), "Dropbox");
-        assert_eq!(s(r"C:\Users\gio\Google Drive\x"), "Google Drive");
-        assert_eq!(s(r"C:\Users\gio\Nextcloud\x"), "Nextcloud");
+        assert_eq!(s(r"C:\Users\utente\OneDrive\Documenti"), "OneDrive");
+        assert_eq!(s(r"C:\Users\utente\Dropbox\NOVA"), "Dropbox");
+        assert_eq!(s(r"C:\Users\utente\Google Drive\x"), "Google Drive");
+        assert_eq!(s(r"C:\Users\utente\Nextcloud\x"), "Nextcloud");
     }
 
     #[test]
     fn onedrive_aziendale_ha_il_trattino_spaziato() {
-        assert_eq!(s(r"C:\Users\gio\OneDrive - Acme\Documenti"), "OneDrive");
+        assert_eq!(s(r"C:\Users\utente\OneDrive - Acme\Documenti"), "OneDrive");
     }
 
     #[test]
@@ -162,9 +162,9 @@ mod prove {
         // Riconosciuto dal nome o dalla variabile d'ambiente, il servizio deve
         // uscire scritto uguale: due grafie nella stessa installazione fanno
         // sembrare il messaggio generato invece che scritto.
-        assert_eq!(s(r"C:\Users\gio\OneDrive\x"), "OneDrive");
-        assert_eq!(s(r"C:\Users\gio\onedrive\x"), "OneDrive");
-        assert_eq!(s(r"C:\Users\gio\ONEDRIVE\x"), "OneDrive");
+        assert_eq!(s(r"C:\Users\utente\OneDrive\x"), "OneDrive");
+        assert_eq!(s(r"C:\Users\utente\onedrive\x"), "OneDrive");
+        assert_eq!(s(r"C:\Users\utente\ONEDRIVE\x"), "OneDrive");
         // e i tre nomi di Google Drive danno un nome solo
         for p in [r"C:\g\Google Drive\x", r"C:\g\GoogleDrive\x",
                   r"C:\g\My Drive\x", r"C:\g\Il mio Drive\x"] {
@@ -175,7 +175,7 @@ mod prove {
 
     #[test]
     fn una_cartella_normale_non_dice_niente() {
-        assert_eq!(s(r"C:\Users\gio\NOVA\runtime\modelli"), "");
+        assert_eq!(s(r"C:\Users\utente\NOVA\runtime\modelli"), "");
         assert_eq!(s(r"D:\modelli"), "");
         assert_eq!(s(""), "");
     }
@@ -183,7 +183,7 @@ mod prove {
     #[test]
     fn lavvertenza_ce_solo_quando_serve() {
         assert!(avvertenza(Path::new(r"D:\modelli"), "i modelli").is_empty());
-        let a = avvertenza(Path::new(r"C:\Users\gio\Dropbox\m"), "i modelli");
+        let a = avvertenza(Path::new(r"C:\Users\utente\Dropbox\m"), "i modelli");
         assert!(a.contains("Dropbox"), "{a}");
         assert!(a.contains("segnaposti vuoti"), "il guaio peggiore va nominato");
         // Non e' un divieto: da' una ragione e una alternativa, non un no.
@@ -195,7 +195,7 @@ mod prove {
 
     #[test]
     fn il_cosa_finisce_nella_frase() {
-        let a = avvertenza(Path::new(r"C:\Users\gio\Dropbox\v"), "il vault");
+        let a = avvertenza(Path::new(r"C:\Users\utente\Dropbox\v"), "il vault");
         assert!(a.contains("Mettere il vault li' dentro"), "{a}");
     }
 }

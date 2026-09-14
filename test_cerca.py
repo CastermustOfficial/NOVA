@@ -129,8 +129,18 @@ else:
     from nova import browser
     controlla("resta acceso per la prossima ricerca", browser.acceso(cerca.PORTA))
     # E non deve aver lasciato schede aperte ad accumularsi.
-    schede = [s for s in browser.schede(cerca.PORTA) if s.get("type") == "page"
-              and "bing.com" in (s.get("url") or "")]
+    # Chiudere una scheda non e' istantaneo: guardare una volta sola fa dire
+    # «lasciata aperta» a chi ha la macchina lenta. In CI e' capitato su una
+    # versione di Python su quattro - cioe' la differenza non era Python, era
+    # il carico. Si aspetta che sparisca, e solo se resta e' una perdita.
+    def schede_di_ricerca():
+        return [s for s in browser.schede(cerca.PORTA)
+                if s.get("type") == "page" and "bing.com" in (s.get("url") or "")]
+    schede = schede_di_ricerca()
+    scade = time.time() + 5
+    while schede and time.time() < scade:
+        time.sleep(0.5)
+        schede = schede_di_ricerca()
     controlla("non lascia schede di ricerca aperte", not schede, str(len(schede)))
 
 print(f"\n{passati}/{passati + len(falliti)} passati")

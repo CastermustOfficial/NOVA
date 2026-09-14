@@ -144,7 +144,7 @@ fn casa() -> Option<PathBuf> {
 /// Toglie il prefisso `\\?\` che `canonicalize` mette su Windows.
 ///
 /// E' vero, e' corretto, ed e' illeggibile: un messaggio che dice
-/// `\\?\C:\Users\gio\nota.txt` fa sembrare rotto qualcosa che funziona.
+/// `\\?\C:\Users\utente\nota.txt` fa sembrare rotto qualcosa che funziona.
 fn pulisci_prefisso(p: PathBuf) -> PathBuf {
     let s = p.display().to_string();
     match s.strip_prefix(r"\\?\") {
