@@ -6882,3 +6882,62 @@ binari su quindici con impronte vecchie. Non e' tracciato, quindi non e' mai
 uscito di qui; ma finche' c'e', a chi lo apre dice una cosa falsa. E il guscio
 compilato sul suo disco e' quello di prima: `.\build.ps1` a NOVA chiusa, e
 allinea anche quello.
+
+## 15 settembre 2026 — Due cantieri nuovi, e cosa dicono le misure
+
+Gio: «non e' ancora full rust, non e' ancora pronto per Mac e Linux, e c'e'
+Excel che il pubblico chiede. Mettiamo tutto in lista». Prima di scriverla
+sono andato a misurare, perche' una lista fatta a memoria elenca quello che si
+ricorda invece di quello che c'e'.
+
+**Mac e Linux: la sorpresa e' buona.** Il nucleo Rust si compila gia' altrove.
+Ogni modulo che tocca Windows ha gia' accanto il suo gemello per gli altri
+sistemi, e quel gemello non e' un buco: dice onestamente cosa non sa fare -
+«le notifiche di sistema qui non ci sono», «premere i tasti qui si fa in un
+altro modo». Tredici file in `nova-platform`, piu' qualche punto altrove. La
+parita' non parte da zero: parte da tredici caselle da riempire, due volte.
+
+Una sola di quelle caselle non e' una traduzione: **l'avvio automatico**. Su
+Windows e' una chiave di registro; altrove un `.plist` di `launchd` o un
+`.desktop` in `autostart`. Non si porta, si decide - ed e' il genere di cosa
+che, se non la si vede prima, si scopre a meta' strada con meta' del codice
+gia' scritto intorno all'idea sbagliata.
+
+E il primo passo non e' codice. E' **un lavoro della CI su `macos-latest` e
+`ubuntu-latest`** (D209). Ieri notte ho imparato cosa costa scrivere codice che
+nessuna macchina diversa guarda mai: un filtro che non filtrava da sempre, e
+una configurazione che su una macchina spoglia non nasceva. Prima si accende la
+luce.
+
+**I fogli di calcolo: NOVA sa fare meta' della meta'.** Legge il testo delle
+celle di un `.xlsx`, in sola lettura, e non scrive niente. E lo fa in due
+posti, `tools/documenti.py` e `fascicolo.py` - il solito odore delle due copie
+(D73).
+
+Poi ho misurato invece di fidarmi del commento. Tutti e due aprono con
+`data_only=True`, «interessa il risultato, non la formula». Su un file salvato
+da Excel e' giusto. Su un file scritto da un programma e mai aperto da Excel
+il risultato non e' salvato da nessuna parte, e la cella torna **vuota**:
+`A1=3, A2=4, A3==A1+A2` si legge `3, 4, None`. A chi genera un foglio con uno
+script e chiede a NOVA di leggerlo, NOVA risponde che i totali non ci sono.
+Non sbaglia il numero: nega che ci sia, che e' il tipo di errore peggiore
+perche' non somiglia a un errore (D211).
+
+La decisione, chiesta a Gio e sua: **i file, non l'applicazione** (D210).
+Leggere e scrivere `.xlsx` e `.csv` da se', senza Office. Funziona su un PC
+senza Excel, si prova su un agente spoglio, e - non per caso - funziona anche
+su Mac e Linux: CANT-10 aiuta CANT-9 invece di litigarci. Il ponte COM verso
+l'Excel aperto sullo schermo resta possibile dopo, e dichiaratamente solo per
+Windows.
+
+L'ordine, sempre suo: **prima si chiude il Rust**. Finche' resta un file
+Python l'utente installa Python comunque, e scrivere Excel in Python adesso
+vorrebbe dire portarlo una seconda volta fra un mese.
+
+**E cinque pezzi piccoli**, che restavano aperti solo perche' non erano scritti
+in un posto dove si rivedono. Tre li ho verificati oggi e non ricordati:
+`bin/SHA256SUMS.txt` ha tre righe per quindici eseguibili; `stato_orb` e'
+definito e registrato fra i comandi e **nessuno lo chiama**, quindi NOVA che
+pensa e NOVA che aspetta si vedono uguali; e il modo di passare la domanda a
+una CLI e' scritto dentro un valore predefinito del pannello invece di essere
+un campo.
