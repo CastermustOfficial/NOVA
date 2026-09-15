@@ -970,6 +970,8 @@ mole, non di difficolta'.
 | ~~CANT-6~~ | ~~**Il browser e la ricerca**~~ — **fatto**, per la parte traducibile: i nove copioni che girano nella pagina, il confine fra argomento e codice, la scelta della scheda, cosa di una pagina e' testo, e i due raschiatori del motore. Quel che resta e' avviare Chrome e tenere la connessione: processi e rete, e appartiene a CANT-7 | ~760 | Nessuna scelta di interfaccia, ma il pezzo dove il confine fra argomento e codice conta piu' che altrove: quel testo lo esegue un interprete che non e' nostro (D178). Ed e' il cantiere in cui il banco ha trovato un difetto vero, non una differenza di porto (D181) |
 | CANT-7 | **L'impalcatura** — *le guardie predefinite: fatte; config, main, dati, componenti: da fare* | ~1.800 | Non si porta: si **riscrive**, perche' meta' esiste solo per tenere insieme il Python. `nova-core::config` ne ha gia' un pezzo. Va per ultima fra quelle di sostanza, quando si sa cosa deve tenere insieme |
 | CANT-8 | **L'harness dei documenti** | ~2.900 | Il piu' grosso, e l'unico che **non e' una traduzione**: e' una finestra Qt, e in Rust vuol dire deciderne un'altra. E' una decisione di interfaccia travestita da porting, e va presa da sveglio, non a fine lista |
+| CANT-9 | **Mac e Linux, parita' piena** | ~3.300 | Non e' in coda per caso: e' il primo cantiere che **non si puo' provare da qui**. Tutto il resto lo si vede su questa macchina; questo no, e la notte del 14 settembre ha mostrato cosa succede a scrivere codice che nessuna macchina diversa guarda mai. Va dopo il Rust perche' portare due volte le stesse cose - una in Python e una in Rust - e' l'unico modo garantito di finire con due comportamenti diversi |
+| CANT-10 | **I fogli di calcolo** | ~150 oggi | Il pubblico lo chiede, e oggi NOVA sa fare **meta' della meta'**: legge il testo delle celle di un `.xlsx`, in sola lettura, e non sa scrivere niente. Va dopo il Rust per la stessa ragione di CANT-9, e nasce direttamente come crate: un lettore-scrittore di fogli e' aritmetica e formati, cioe' esattamente il genere di cosa che si porta bene e si prova meglio |
 
 Due cose che la tabella non dice.
 
@@ -988,6 +990,98 @@ in Rust e meta' no, l'utente installa comunque Python e ci sono due
 implementazioni della stessa cosa da tenere allineate. Il guadagno arriva
 tutto insieme, alla fine.
 
+### CANT-9 — Mac e Linux: cosa manca davvero
+
+La prima sorpresa e' buona, ed e' misurata: **il nucleo Rust si compila gia'
+anche altrove**. Ogni modulo che tocca Windows ha gia' accanto il suo gemello
+per gli altri sistemi, e quel gemello non e' vuoto: dice onestamente cosa non
+sa fare. «le notifiche di sistema qui non ci sono». «premere i tasti qui si fa
+in un altro modo». Sono tredici file in `nova-platform`, piu' qualche punto in
+`nova-shell`, `nova-core`, `nova-proto` e `nova-cli`.
+
+Vuol dire che la parita' non parte da zero: parte da **tredici caselle vuote
+da riempire, due volte**. Le righe che oggi toccano Windows sono ~3.300 sulle
+4.025 di `nova-platform`, e sono la misura di cosa va rifatto per macOS e per
+Linux — non uguale, perche' meta' di quel codice e' logica che resta.
+
+| Cosa | Su Windows | Altrove |
+|---|---|---|
+| appunti, tastiera, finestre | Win32 diretto | X11/Wayland e AppKit: due mondi diversi anche dentro Linux |
+| notifiche | toast di sistema | `notify-send` e `NSUserNotification` |
+| cestino | shell API | il cestino di freedesktop.org, che e' un file di metadati accanto |
+| dischi, sistema | Win32 | `/proc`, `sysctl` |
+| GPU | DXGI | Metal e `/sys/class/drm` — e senza DXGI non c'e' un modo solo di sapere quanta VRAM e' libera |
+| nuvola | cartelle note nel profilo | iCloud Drive si chiama in un altro modo e sta in un altro posto |
+| **avvio automatico** | una chiave di registro | **qui non si porta: si decide.** Un `.plist` di `launchd`, un `.desktop` in `autostart`. Non e' una traduzione, e' un'altra cosa che fa lo stesso mestiere |
+
+Poi c'e' il contorno, che non e' Rust e pesa uguale: `install.ps1` e' 1.296
+righe di PowerShell, e `build.ps1` altre 183. Mac e Linux vogliono il loro
+installatore — e la trappola e' gia' scritta in D204: due installatori che
+tengono la loro copia degli elenchi sono due elenchi destinati a divergere.
+Quello che c'e' chiede a NOVA; anche gli altri due dovranno.
+
+**Il primo passo pero' non e' codice: e' un lavoro della CI su `macos-latest`
+e `ubuntu-latest`.** Questa macchina non puo' dire niente su quei due sistemi,
+e la notte del 14 settembre ha mostrato cosa costa scrivere codice che nessuna
+macchina diversa guarda mai: un filtro che non filtrava da sempre, e una
+configurazione che su una macchina spoglia non nasceva. Prima si accende la
+luce, poi si guarda.
+
+### CANT-10 — I fogli di calcolo: cosa c'e' gia', e cosa non c'e'
+
+Oggi NOVA sa fare meta' della meta': legge il testo delle celle di un `.xlsx`,
+in sola lettura, e non sa scrivere niente. Lo fa in **due posti** —
+`nova/tools/documenti.py` per lo strumento e `nova/fascicolo.py` per il
+fascicolo — che e' il solito odore delle due copie (D73).
+
+E c'e' un difetto vero, misurato invece che sospettato. Tutti e due aprono il
+file con `data_only=True`, cioe' chiedono il **risultato** invece della
+formula. Sembra la scelta giusta, e su un file salvato da Excel lo e'. Su un
+file scritto da un programma e mai aperto da Excel il risultato non e' salvato
+da nessuna parte, e quella cella torna **vuota**:
+
+    A1 = 3, A2 = 4, A3 = «=A1+A2»
+    letto con data_only=True   ->  3, 4, None
+    letto con data_only=False  ->  3, 4, "=A1+A2"
+
+Cioe': a chi genera un foglio con uno script e poi chiede a NOVA di leggerlo,
+NOVA risponde che i totali sono vuoti. Non sbaglia il numero: nega che ci sia.
+
+**La decisione: i file, non Excel.** Leggere e scrivere `.xlsx` e `.csv` da
+se', senza che Office sia installato. Non e' una rinuncia: e' la scelta che
+funziona anche sul PC di chi Office non ce l'ha, e - non per caso - anche su
+Mac e Linux, quindi CANT-10 aiuta CANT-9 invece di litigarci. Il ponte COM
+verso l'Excel aperto sullo schermo resta una cosa possibile, dopo, e
+dichiaratamente solo per Windows.
+
+Cosa serve, in ordine di quanto e' chiaro cosa fare:
+
+1. **leggere davvero**: valore *e* formula, i formati (una data non e' il
+   numero 45.000), i fogli, le celle unite, e dire quale delle due si sta
+   guardando invece di scegliere in silenzio;
+2. **scrivere**: celle, formule, un foglio nuovo, senza spogliare il resto del
+   file - la stessa regola che vale per i `.docx` (si modifica, non si
+   riscrive);
+3. **il `.csv` vero**, che non e' un formato ma una famiglia: separatore,
+   codifica, virgolette, prima riga che a volte e' intestazione e a volte no;
+4. **cosa e' una tabella** in un foglio fatto da una persona - intestazioni
+   che non stanno alla riga 1, righe vuote in mezzo, totali in fondo. Questa e'
+   la parte difficile, ed e' la stessa difficolta' del taglio del contesto: un
+   foglio grosso non entra in un prompt, e decidere cosa mostrare e' una
+   decisione, non un troncamento.
+### I pezzi piccoli che restano
+
+Non sono cantieri: sono cose che stanno in mezz'ora l'una, e che restano
+aperte solo perche' nessuno le ha scritte in un posto dove si rivedono. Ognuna
+e' verificata oggi, non ricordata.
+
+| Cosa | Dove | Stato misurato |
+|---|---|---|
+| **Le impronte dei binari locali** | `bin/SHA256SUMS.txt` | Tre righe per **quindici** eseguibili, e le tre non corrispondono piu' ai file. Non e' tracciato, quindi non e' mai uscito di qui - il manifesto vero lo fa la CI al rilascio - ma finche' c'e', a chi lo apre dice una cosa falsa. O si rigenera sapendo cosa contiene, o si butta |
+| **L'orb non cambia mai faccia** | `nova-shell/src/main.rs:165` | `stato_orb` esiste ed e' registrato fra i comandi (riga 322), e **nessuno lo chiama**: non compare in nessuna pagina dell'interfaccia. NOVA che pensa e NOVA che aspetta si vedono uguali |
+| **Il modo di passare la domanda a una CLI** | `impostazioni.html:905` | `prompt: 'argomento'` e' scritto dentro un valore predefinito e non e' un campo: chi aggiunge una CLI che vuole la domanda sullo standard input non ha modo di dirlo dal pannello |
+| **L'etichetta di Gemini gia' salvata** | la configurazione di chi ce l'ha | La voce nuova - «Gemini (licenza enterprise o chiave API)» - arriva solo a chi installa da adesso. Sovrascriverla vorrebbe dire cancellare una scelta che l'utente **puo'** aver fatto, visto che dal pannello l'etichetta si cambia. Per chi ce l'ha gia', la verita' la dice la prova |
+| **Il client websocket per il browser** | nessun crate, ancora | E' l'unica scelta di libreria rimasta aperta di tutto il cantiere. Serve a CANT-7, perche' parlare a Chrome in CDP vuol dire tenere aperta una connessione - e finche' non c'e', quella meta' del browser resta in Python |
 ### Da dove si riprende
 
 Scritto qui e non in una chat, perche' una chat finisce e questo file no.
