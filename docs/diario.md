@@ -7295,3 +7295,56 @@ E una delle prove non guarda cosa dice, ma cosa **non** dice: niente «non
 posso», «errore», «fallito», «impossibile». Fermarsi al tetto non e' un
 guasto, e chiamarlo cosi' insegnerebbe all'utente a leggere un limite di
 progetto come una rottura.
+
+## 16 settembre 2026, notte fonda — Il giro, senza cervello e senza strumenti
+
+Le 290 righe che restavano di CANT-3 sono `_giro`, `_execute_call`,
+`_sali_di_gradino` e `send`: il **braccio**. Chiedere a un cervello vuol dire
+parlare in rete, eseguire uno strumento vuol dire toccare il PC, salire di
+gradino vuol dire mandare il compito fuori di qui.
+
+Stesso schema di CANT-4, e ormai e' una forma che riconosco: **il giro non fa
+niente**. C'e' un tratto, `Mondo`, ed e' l'unica cosa che tocca qualcosa. Il
+turno chiede, esegue, rilegge e ripete senza sapere cosa ci sia dall'altra
+parte.
+
+Non e' un'astrazione per bellezza, ed e' facile vedere perche' guardando cosa
+si e' potuto provare. Le regole di questo giro sono quelle che si vedono meno
+e costano di piu':
+
+- dopo quanti fallimenti si cambia cervello;
+- se una chiamata **negata dall'utente** conta come un errore del modello;
+- se una riuscita in mezzo a due fallimenti azzera il conto;
+- cosa si consegna quando i passi finiscono;
+- se ci si puo' fermare a meta' di una riga di strumenti.
+
+Provarle contro un cervello vero vuol dire non provarle mai: servirebbe un
+modello che fallisce due volte a comando. Con la cucitura sono tredici prove
+che girano in zero virgola, su qualunque sistema, senza rete.
+
+**La piu' importante e' la negata.** In Python c'e' gia' la riga giusta, con
+il commento accanto: *«non e' un fallimento del modello: e' una tua scelta»*.
+E' vera e va detta a voce alta, perche' contare i no dell'utente fra i
+fallimenti vorrebbe dire far **salire di gradino** — cioe' mandare il compito
+fuori dal PC, la decisione piu' cara che NOVA prende da sola — perche'
+l'utente ha detto di no due volte. Sarebbe l'esatto contrario di ascoltarlo. E
+adesso c'e' una prova che lo tiene fermo, invece di un commento.
+
+Ma il giro la vede lo stesso: tre «cancella» negate di fila fanno scattare il
+promemoria. Un modello che martella una cosa vietata e' il giro da spezzare
+per eccellenza, e le due cose non si contraddicono — una e' «non salire»,
+l'altra e' «faglielo notare».
+
+**Otto mutazioni, e la prima volta che una e' sopravvissuta.** `passo + 1`
+cambiato in `passo` passava: tutte le mie prove mettevano
+`passi_prima_di_salire: 0`, che spegne quel ramo. Con la soglia a **un** passo
+la differenza si vede eccome — con l'indice non scatterebbe mai al primo giro,
+e una soglia di uno vuol dire proprio «dopo il primo». Aggiunta la prova, la
+mutazione muore. Senza le mutazioni avrei avuto tredici prove verdi e un ramo
+che nessuna guardava.
+
+Quel che `nova-ciclo` **non** fa, ed e' bene dirlo: non e' ancora attaccato a
+niente. Il turno Python gira ancora com'era. La prossima e' scrivere il
+`Mondo` vero — quello che chiede a `nova-cervelli` ed esegue con
+`nova-strumenti` — e li' non ci sara' niente da decidere, perche' le decisioni
+sono tutte qui e tutte provate.

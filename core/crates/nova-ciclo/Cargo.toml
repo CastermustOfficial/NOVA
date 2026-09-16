@@ -1,0 +1,15 @@
+[package]
+name = "nova-ciclo"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# Le decisioni su come non farcela stanno li', e sono gia' confrontate col
+# Python da un banco: quando salire, quando dire che si sta girando in tondo,
+# cosa si dice quando i passi finiscono (D213, D216, D217).
+nova-salita = { path = "../nova-salita" }
+
+# Niente altro, e di proposito. Questo crate e' **controllo di flusso**: non
+# parla in rete, non legge dischi, non conosce tokio. Chi fa quelle cose sta
+# dietro al tratto `Mondo`, e per questo il turno si prova senza un cervello,
+# senza strumenti e senza una macchina vera.
