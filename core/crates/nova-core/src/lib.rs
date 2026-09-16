@@ -32,6 +32,9 @@ pub mod supervisor;
 // Accendere il modello locale: il giro sopra al supervisore, con la decisione
 // che arriva da nova-modelli.
 pub mod modello;
+// Il braccio del turno: cervelli veri e strumenti veri, dietro le regole
+// che nova-ciclo prova contro una finzione.
+pub mod mondo;
 
 use std::sync::Arc;
 

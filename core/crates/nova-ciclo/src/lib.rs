@@ -19,6 +19,7 @@
 //! Le decisioni vere non sono nemmeno qui: stanno in `nova-salita`, gia'
 //! confrontate col Python da un banco. Qui c'e' l'ordine in cui si chiedono.
 
+use async_trait::async_trait;
 use nova_salita::{passi_finiti, serve_salire, Manopole as ManopoleSalita};
 
 /// Una chiamata a uno strumento, come l'ha chiesta il modello.
@@ -53,14 +54,15 @@ pub enum Andata {
 }
 
 /// Il mondo fuori dal turno. L'unica cosa che tocca qualcosa.
-pub trait Mondo {
+#[async_trait]
+pub trait Mondo: Send {
     /// Chiede al cervello. La conversazione la tiene chi implementa.
-    fn chiedi(&mut self) -> Result<Risposta, String>;
+    async fn chiedi(&mut self) -> Result<Risposta, String>;
     /// Esegue una chiamata, ne mette il risultato in conversazione, e dice
     /// com'e' andata. Se e' andata male, l'errore da ricordare.
-    fn esegui(&mut self, c: &Chiamata) -> (Andata, String);
+    async fn esegui(&mut self, c: &Chiamata) -> (Andata, String);
     /// Passa il compito a un cervello piu' capace, dati gli errori recenti.
-    fn sali(&mut self, errori: &[String]);
+    async fn sali(&mut self, errori: &[String]);
     /// Mette una nota in conversazione: sta girando in tondo.
     fn annota(&mut self, nota: &str);
     /// Consegna all'utente cio' che il modello ha appena scritto.
@@ -93,7 +95,7 @@ pub enum Fine {
 }
 
 /// Un turno intero.
-pub fn turno(m: &mut dyn Mondo, mano: &Manopole) -> Fine {
+pub async fn turno(m: &mut dyn Mondo, mano: &Manopole) -> Fine {
     let mut ultimo = String::new();
     let mut fallimenti = 0u32;
     let mut salite = 0u32;
@@ -104,7 +106,7 @@ pub fn turno(m: &mut dyn Mondo, mano: &Manopole) -> Fine {
         if m.fermato() {
             return Fine::Fermato;
         }
-        let risposta = match m.chiedi() {
+        let risposta = match m.chiedi().await {
             Ok(r) => r,
             Err(e) => return Fine::Rotto(e),
         };
@@ -119,7 +121,7 @@ pub fn turno(m: &mut dyn Mondo, mano: &Manopole) -> Fine {
             if m.fermato() {
                 return Fine::Fermato;
             }
-            let (andata, errore) = m.esegui(c);
+            let (andata, errore) = m.esegui(c).await;
             match andata {
                 // Una negata azzera come una riuscita: e' una risposta
                 // dell'utente, non un muro contro cui il modello ha sbattuto.
@@ -143,7 +145,7 @@ pub fn turno(m: &mut dyn Mondo, mano: &Manopole) -> Fine {
         if serve_salire(&mano.salita, fallimenti, salite, passo + 1) {
             salite += 1;
             fallimenti = 0;
-            m.sali(&errori);
+            m.sali(&errori).await;
             errori.clear();
         }
     }
@@ -153,6 +155,7 @@ pub fn turno(m: &mut dyn Mondo, mano: &Manopole) -> Fine {
 #[cfg(test)]
 mod prove {
     use super::*;
+    use async_trait::async_trait;
 
     /// Un mondo che risponde cio' che gli si dice, e si ricorda cosa e'
     /// successo. Nessun cervello, nessuno strumento, nessuna rete.
@@ -174,15 +177,16 @@ mod prove {
         }
     }
 
-    impl Mondo for Finto {
-        fn chiedi(&mut self) -> Result<Risposta, String> {
+    #[async_trait]
+impl Mondo for Finto {
+        async fn chiedi(&mut self) -> Result<Risposta, String> {
             self.chiesto += 1;
             if self.risposte.is_empty() {
                 return Err("il finto ha finito le risposte".into());
             }
             Ok(self.risposte.remove(0))
         }
-        fn esegui(&mut self, c: &Chiamata) -> (Andata, String) {
+        async fn esegui(&mut self, c: &Chiamata) -> (Andata, String) {
             self.eseguite.push(c.nome.clone());
             if self.esiti.is_empty() {
                 (Andata::Riuscita, String::new())
@@ -190,7 +194,7 @@ mod prove {
                 self.esiti.remove(0)
             }
         }
-        fn sali(&mut self, errori: &[String]) {
+        async fn sali(&mut self, errori: &[String]) {
             self.salite.push(errori.to_vec());
         }
         fn annota(&mut self, nota: &str) {
@@ -227,27 +231,27 @@ mod prove {
         }
     }
 
-    #[test]
-    fn una_risposta_senza_strumenti_chiude_il_turno() {
+    #[tokio::test]
+    async fn una_risposta_senza_strumenti_chiude_il_turno() {
         let mut f = Finto::che_dice(vec![parla("ecco qua", &[])]);
-        assert_eq!(turno(&mut f, &mano(12)), Fine::Risposto("ecco qua".into()));
+        assert_eq!(turno(&mut f, &mano(12)).await, Fine::Risposto("ecco qua".into()));
         assert_eq!(f.chiesto, 1, "non deve chiedere due volte");
         assert_eq!(f.consegnato, vec!["ecco qua"]);
     }
 
-    #[test]
-    fn con_gli_strumenti_si_rilegge_e_si_va_avanti() {
+    #[tokio::test]
+    async fn con_gli_strumenti_si_rilegge_e_si_va_avanti() {
         let mut f = Finto::che_dice(vec![
             parla("ora guardo", &["leggi"]),
             parla("trovato", &[]),
         ]);
-        assert_eq!(turno(&mut f, &mano(12)), Fine::Risposto("trovato".into()));
+        assert_eq!(turno(&mut f, &mano(12)).await, Fine::Risposto("trovato".into()));
         assert_eq!(f.eseguite, vec!["leggi"]);
         assert_eq!(f.consegnato, vec!["ora guardo", "trovato"]);
     }
 
-    #[test]
-    fn due_fallimenti_di_fila_fanno_salire_di_gradino() {
+    #[tokio::test]
+    async fn due_fallimenti_di_fila_fanno_salire_di_gradino() {
         let mut f = Finto::che_dice(vec![
             parla("", &["a"]),
             parla("", &["b"]),
@@ -257,14 +261,14 @@ mod prove {
             (Andata::Fallita, "non trovo il file".into()),
             (Andata::Fallita, "nemmeno questo".into()),
         ];
-        turno(&mut f, &mano(12));
+        turno(&mut f, &mano(12)).await;
         assert_eq!(f.salite.len(), 1, "doveva salire una volta");
         assert_eq!(f.salite[0], vec!["non trovo il file", "nemmeno questo"],
                    "e portarsi dietro gli errori che l'hanno deciso");
     }
 
-    #[test]
-    fn una_riuscita_in_mezzo_azzera_il_conto() {
+    #[tokio::test]
+    async fn una_riuscita_in_mezzo_azzera_il_conto() {
         let mut f = Finto::che_dice(vec![
             parla("", &["a"]),
             parla("", &["b"]),
@@ -276,12 +280,12 @@ mod prove {
             (Andata::Riuscita, String::new()),
             (Andata::Fallita, "due".into()),
         ];
-        turno(&mut f, &mano(12));
+        turno(&mut f, &mano(12)).await;
         assert!(f.salite.is_empty(), "non sono due di fila: {:?}", f.salite);
     }
 
-    #[test]
-    fn una_chiamata_negata_non_e_un_fallimento_del_modello() {
+    #[tokio::test]
+    async fn una_chiamata_negata_non_e_un_fallimento_del_modello() {
         // E' la decisione piu' cara che NOVA prende da sola: mandare il
         // compito fuori dal PC perche' l'utente ha detto di no due volte
         // sarebbe esattamente il contrario di ascoltarlo.
@@ -294,12 +298,12 @@ mod prove {
             (Andata::Negata, String::new()),
             (Andata::Negata, String::new()),
         ];
-        turno(&mut f, &mano(12));
+        turno(&mut f, &mano(12)).await;
         assert!(f.salite.is_empty(), "un no non fa salire: {:?}", f.salite);
     }
 
-    #[test]
-    fn e_pero_il_giro_lo_vede_lo_stesso() {
+    #[tokio::test]
+    async fn e_pero_il_giro_lo_vede_lo_stesso() {
         // Tre volte la stessa chiamata, negata ogni volta: martellare una
         // cosa vietata e' il giro da spezzare per eccellenza.
         let mut f = Finto::che_dice(vec![
@@ -309,15 +313,15 @@ mod prove {
             parla("ok", &[]),
         ]);
         f.esiti = vec![(Andata::Negata, String::new()); 3];
-        turno(&mut f, &mano(12));
+        turno(&mut f, &mano(12)).await;
         assert_eq!(f.annotato.len(), 1, "alla terza si dice: {:?}", f.annotato);
         assert!(f.annotato[0].contains("volte di fila"), "{:?}", f.annotato);
     }
 
-    #[test]
-    fn finiti_i_passi_si_consegna_quel_che_ce() {
+    #[tokio::test]
+    async fn finiti_i_passi_si_consegna_quel_che_ce() {
         let mut f = Finto::che_dice(vec![parla("un pezzo", &["a"]); 3]);
-        match turno(&mut f, &mano(3)) {
+        match turno(&mut f, &mano(3)).await {
             Fine::PassiFiniti(d) => {
                 assert!(d.starts_with("un pezzo"), "{d}");
                 assert!(d.contains("3 passaggi"), "{d}");
@@ -327,38 +331,38 @@ mod prove {
         assert_eq!(f.chiesto, 3, "ne ha fatti esattamente tre");
     }
 
-    #[test]
-    fn fermarsi_si_puo_prima_di_toccare_qualunque_cosa() {
+    #[tokio::test]
+    async fn fermarsi_si_puo_prima_di_toccare_qualunque_cosa() {
         // Il caso che conta: si e' chiesto di fermarsi mentre il cervello
         // stava rispondendo. Le chiamate che quella risposta portava non si
         // eseguono affatto - fermarsi dopo averle fatte sarebbe fermarsi a
         // cose fatte.
         let mut f = Finto::che_dice(vec![parla("", &["a", "b", "c"]); 4]);
         f.fermo_dopo = Some(0);
-        assert_eq!(turno(&mut f, &mano(12)), Fine::Fermato);
+        assert_eq!(turno(&mut f, &mano(12)).await, Fine::Fermato);
         assert!(f.eseguite.is_empty(), "non doveva eseguirne nessuna: {:?}", f.eseguite);
     }
 
-    #[test]
-    fn e_ci_si_ferma_anche_in_mezzo_a_una_riga_gia_cominciata() {
+    #[tokio::test]
+    async fn e_ci_si_ferma_anche_in_mezzo_a_una_riga_gia_cominciata() {
         let mut f = Finto::che_dice(vec![parla("", &["a", "b", "c"]); 4]);
         f.fermo_dopo = Some(1);
-        assert_eq!(turno(&mut f, &mano(12)), Fine::Fermato);
+        assert_eq!(turno(&mut f, &mano(12)).await, Fine::Fermato);
         assert_eq!(f.eseguite, vec!["a", "b", "c"],
                    "il primo giro va fino in fondo, il secondo non comincia");
     }
 
-    #[test]
-    fn un_cervello_che_non_risponde_non_diventa_una_risposta_vuota() {
+    #[tokio::test]
+    async fn un_cervello_che_non_risponde_non_diventa_una_risposta_vuota() {
         let mut f = Finto::che_dice(vec![]);
-        match turno(&mut f, &mano(12)) {
+        match turno(&mut f, &mano(12)).await {
             Fine::Rotto(e) => assert!(e.contains("finito le risposte"), "{e}"),
             altro => panic!("un guasto non e' una risposta: {altro:?}"),
         }
     }
 
-    #[test]
-    fn il_contenuto_vuoto_non_cancella_quel_che_aveva_gia_detto() {
+    #[tokio::test]
+    async fn il_contenuto_vuoto_non_cancella_quel_che_aveva_gia_detto() {
         // Un passo che chiama strumenti senza scrivere niente non deve
         // cancellare la frase del passo prima: e' quella che si consegna se
         // poi i passi finiscono.
@@ -367,30 +371,30 @@ mod prove {
             parla("", &["b"]),
             parla("   ", &["c"]),
         ]);
-        match turno(&mut f, &mano(3)) {
+        match turno(&mut f, &mano(3)).await {
             Fine::PassiFiniti(d) => assert!(d.starts_with("ho trovato tre cose"), "{d}"),
             altro => panic!("{altro:?}"),
         }
     }
 
-    #[test]
-    fn la_soglia_dei_passi_conta_i_passi_fatti_non_lindice() {
+    #[tokio::test]
+    async fn la_soglia_dei_passi_conta_i_passi_fatti_non_lindice() {
         // Sembra pignoleria e non lo e': con l'indice, una soglia di **un**
         // passo non scatterebbe mai al primo giro - e una soglia di uno vuol
         // dire proprio «dopo il primo».
         let mut mano = mano(1);
         mano.salita.passi_prima_di_salire = 1;
         let mut f = Finto::che_dice(vec![parla("", &["a"])]);
-        turno(&mut f, &mano);
+        turno(&mut f, &mano).await;
         assert_eq!(f.salite.len(), 1,
                    "un passo fatto e' un passo, non zero");
     }
 
-    #[test]
-    fn si_sale_una_volta_sola_se_una_sola_e_concessa() {
+    #[tokio::test]
+    async fn si_sale_una_volta_sola_se_una_sola_e_concessa() {
         let mut f = Finto::che_dice(vec![parla("", &["a"]); 9]);
         f.esiti = vec![(Andata::Fallita, "male".into()); 9];
-        turno(&mut f, &mano(9));
+        turno(&mut f, &mano(9)).await;
         assert_eq!(f.salite.len(), 1, "salite_massime e' 1: {:?}", f.salite.len());
     }
 }
