@@ -29,6 +29,9 @@ pub mod config;
 pub mod policy;
 pub mod server;
 pub mod supervisor;
+// Accendere il modello locale: il giro sopra al supervisore, con la decisione
+// che arriva da nova-modelli.
+pub mod modello;
 
 use std::sync::Arc;
 

@@ -33,6 +33,8 @@ pub fn register_builtins(reg: &mut Registry) {
     reg.add(Arc::new(ProcLogsCap));
     reg.add(Arc::new(ServiceListCap));
     reg.add(Arc::new(ServiceStartCap));
+    reg.add(Arc::new(ModelloAccendiCap));
+    reg.add(Arc::new(ModelloSpegniCap));
     reg.add(Arc::new(BusPublishCap));
     reg.add(Arc::new(AzioneFermaCap));
     reg.add(Arc::new(AzioneStatoCap));
@@ -630,7 +632,126 @@ impl Capability for ServiceStartCap {
     }
 }
 
+// ---------------------------------------------------------------- modello
+
+struct ModelloAccendiCap;
+
+#[async_trait]
+impl Capability for ModelloAccendiCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "modello.accendi".into(),
+            description: "Accende il modello locale e **aspetta che risponda**, scendendo \
+                          di gradino se la memoria video non basta. Il giro e' qui: chi \
+                          chiama lo fa una volta sola invece di avviare, aspettare, \
+                          rileggere i registri e decidere."
+                .into(),
+            risk: Risk::Moderate,
+            category: "modello".into(),
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "binario": { "type": "string", "description": "llama-server" },
+                    "modello": { "type": "string", "description": "Il file GGUF" },
+                    "host": { "type": "string" },
+                    "porta": { "type": "integer" },
+                    "contesto": { "type": "integer" },
+                    "paralleli": { "type": "integer" },
+                    "fili": { "type": "integer" },
+                    "tipo_kv": { "type": "string", "description": "f16, q8_0, q5_1, q4_0" },
+                    "argomenti_extra": { "type": "array", "items": { "type": "string" } },
+                    "scala": {
+                        "type": "array", "items": { "type": "integer" },
+                        "description": "I gradini di -ngl da provare, dal piu' ambizioso"
+                    },
+                    "proiettore": { "type": "string" },
+                    "auto": { "type": "boolean", "description": "Se si puo' scendere di gradino" },
+                    "attesa_s": { "type": "integer", "description": "L'attesa del primo tentativo" }
+                },
+                "required": ["binario", "scala"]
+            }),
+        }
+    }
+
+    async fn call(&self, args: Value, ctx: &Ctx) -> Result<Value> {
+        let binario = arg_str(&args, "binario")?;
+        let scala: Vec<i64> = args
+            .get("scala")
+            .and_then(|v| v.as_array())
+            .map(|a| a.iter().filter_map(|v| v.as_i64()).collect())
+            .unwrap_or_default();
+        let imp = nova_modelli::avvio::Impostazioni {
+            percorso_modello: arg_str_opt(&args, "modello").unwrap_or_default(),
+            host: arg_str_opt(&args, "host").unwrap_or_default(),
+            porta: args.get("porta").and_then(|v| v.as_u64()).unwrap_or(0) as u16,
+            contesto: args.get("contesto").and_then(|v| v.as_i64()).unwrap_or(0),
+            paralleli: args.get("paralleli").and_then(|v| v.as_i64()).unwrap_or(0),
+            fili: args.get("fili").and_then(|v| v.as_i64()).unwrap_or(0),
+            tipo_kv: arg_str_opt(&args, "tipo_kv").unwrap_or_default(),
+            argomenti_extra: arg_vec_str(&args, "argomenti_extra"),
+        };
+        // La riga di comando passa dalla stessa guardia di qualunque altro
+        // comando: il demone non ha un cancello di servizio per se'.
+        let riga = nova_modelli::avvio::argomenti(
+            std::path::Path::new(&binario),
+            &imp,
+            scala.first().copied().unwrap_or(0),
+            None,
+        );
+        ctx.policy.check_command(&riga.join(" "))?;
+        let richiesta = crate::modello::Richiesta {
+            binario,
+            impostazioni: imp,
+            scala,
+            proiettore: arg_str_opt(&args, "proiettore"),
+            auto: arg_bool(&args, "auto", true),
+            attesa_s: args.get("attesa_s").and_then(|v| v.as_u64()).unwrap_or(600),
+        };
+        let chi = crate::modello::ColSupervisore {
+            sup: &ctx.supervisor,
+            binario: richiesta.binario.clone(),
+            impostazioni: richiesta.impostazioni.clone(),
+            proiettore: richiesta.proiettore.clone(),
+        };
+        let acceso = crate::modello::accendi(&richiesta, &chi).await?;
+        Ok(json!({
+            "acceso": true,
+            "ngl": acceso.ngl,
+            "tentativi": acceso.tentativi
+        }))
+    }
+}
+
+struct ModelloSpegniCap;
+
+#[async_trait]
+impl Capability for ModelloSpegniCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "modello.spegni".into(),
+            description: "Spegne il modello locale. Il nome con cui vive fra i processi \
+                          lo sa il demone: chi chiama non deve indovinarlo."
+                .into(),
+            risk: Risk::Moderate,
+            category: "modello".into(),
+            schema: schema(&[]),
+        }
+    }
+
+    async fn call(&self, _args: Value, ctx: &Ctx) -> Result<Value> {
+        let era_acceso = ctx
+            .supervisor
+            .status()
+            .await
+            .iter()
+            .any(|c| c.name == crate::modello::NOME && c.running);
+        let _ = ctx.supervisor.stop(crate::modello::NOME).await;
+        Ok(json!({ "spento": era_acceso }))
+    }
+}
+
 // -------------------------------------------------------------------- bus
+
 
 struct BusPublishCap;
 

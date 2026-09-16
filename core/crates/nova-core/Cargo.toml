@@ -13,6 +13,12 @@ nova-platform = { path = "../nova-platform" }
 # chiede e chi sa fare (D130).
 nova-strumenti = { path = "../nova-strumenti" }
 nova-voce = { path = "../nova-voce" }
+# La decisione di cosa fare quando il modello non parte sta li', confrontata
+# col Python da un banco (D213). Qui c'e' solo il braccio che la esegue.
+nova-modelli = { path = "../nova-modelli" }
+# Il cliente HTTP di casa: `nova-voce` e `nova-cervelli` parlano gia' con
+# questo, e un secondo sarebbe un secondo comportamento da conoscere.
+ureq = "2"
 tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true
