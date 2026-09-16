@@ -133,6 +133,43 @@ class DaemonBridge:
             self._client = None
             return False, str(e)
 
+    def accendi_modello(self, binario: str, impostazioni: dict, scala: list[int],
+                        proiettore: str = "", auto: bool = True,
+                        attesa_s: int = 600) -> tuple[bool, str]:
+        """Chiede al demone di accendere il modello, **giro compreso**.
+
+        Prima questa sequenza la guidava di qua: costruisci gli argomenti,
+        `proc.spawn`, aspetta la salute, rileggi i registri, decidi, riprova.
+        Il demone faceva da braccio senza sapere cosa stesse facendo, e
+        chiunque volesse accendere il modello doveva riscrivere tutta la
+        sequenza. Adesso si chiede una volta sola.
+
+        Torna `(None, motivo)` se il demone e' piu' vecchio di questa
+        capacita': non e' un guasto, e' un binario da ricostruire, e chi
+        chiama torna al giro di prima invece di fermarsi.
+        """
+        if self.client is None:
+            return False, "demone non raggiungibile"
+        try:
+            r = self.client.call("modello.accendi", {
+                "binario": binario,
+                "scala": list(scala),
+                "proiettore": proiettore,
+                "auto": auto,
+                "attesa_s": attesa_s,
+                **impostazioni,
+            }) or {}
+            return True, f"acceso con -ngl {r.get('ngl')} dopo {r.get('tentativi')} tentativi"
+        except CoreError as e:
+            testo = str(e)
+            if "modello.accendi" in testo or "sconosciut" in testo.lower() \
+                    or "unknown" in testo.lower():
+                return None, "questo demone non sa ancora accendere il modello da se'"
+            return False, testo
+        except Exception as e:
+            self._client = None
+            return False, str(e)
+
     def ferma_modello(self, nome: str = SERVIZIO_MODELLO) -> bool:
         try:
             if self.client:

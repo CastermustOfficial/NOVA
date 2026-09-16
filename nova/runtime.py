@@ -616,6 +616,36 @@ class LlamaServer:
             return self.is_ready(3.0) or self._attendi_salute()
 
         scala = self._gpu_layer_ladder()
+
+        # Prima strada: il demone fa il giro da se'. E' una chiamata sola, e
+        # soprattutto la decisione la prende la stessa regola di qui (D213),
+        # compilata invece che interpretata.
+        s = self.cfg.server
+        acceso, msg = bridge.accendi_modello(
+            str(self.binary),
+            {"modello": s.model_path, "host": s.host, "porta": s.port,
+             "contesto": s.ctx_size, "paralleli": s.n_parallel,
+             "fili": s.threads,
+             "tipo_kv": getattr(s, "kv_cache_type", "") or "",
+             "argomenti_extra": list(s.extra_args)},
+            scala,
+            proiettore=str(proiettore_accanto(s.model_path) or ""),
+            auto=s.auto_tune_gpu_layers,
+            attesa_s=s.startup_timeout,
+        )
+        if acceso is True:
+            self.via_demone = True
+            self._log(f"Modello affidato a nova-core: {msg}")
+            return True
+        if acceso is False:
+            self._log(f"nova-core non ha potuto accendere il modello: {msg}")
+            self.via_demone = False
+            return False
+        # `None`: il demone e' piu' vecchio di questa capacita'. Si fa il giro
+        # di qui, che e' quello di prima, e lo si dice una volta sola.
+        self._log(f"{msg}: faccio il giro da qui. "
+                  "Ricostruendo i binari il giro lo fa lui.")
+
         for tentativo, ngl in enumerate(scala):
             self.gpu_layers = ngl
             args = self._build_args(ngl)[1:]  # gli argomenti, senza l'eseguibile

@@ -7067,3 +7067,56 @@ maiuscolo: su Windows NOVA vede il proiettore, su Linux e macOS no — e un
 modello che vede diventa un modello cieco a seconda del sistema. Il lato Rust
 confronta in minuscolo apposta ed e' quello giusto. Non l'ho corretto: e' di
 CANT-9, e la lista se lo tiene.
+
+## 16 settembre 2026, sera — Il demone faceva il braccio senza sapere cosa stava facendo
+
+Seconda meta' di CANT-4: il pezzo che accende davvero.
+
+Sono andato a guardare come funzionava prima, e la forma era questa. Il demone
+offriva `proc.spawn`, `proc.stop`, `proc.logs` — tre attrezzi generici — e il
+giro lo guidava Python: costruisci gli argomenti, avvia, aspetta la salute,
+rileggi i registri, decidi, riprova con meno layer. Il demone **possiede** i
+processi lunghi, ma non sapeva di star accendendo un modello: faceva da
+braccio. E chiunque volesse accendere il modello — la chat, il pannello,
+domani il ciclo dell'agente in Rust — doveva riscrivere tutta quella sequenza.
+
+Adesso e' una chiamata sola, `modello.accendi`, e il giro sta dentro (D215).
+
+La cosa su cui ho passato piu' tempo non e' il giro: e' **come provarlo**.
+«Tre gradini e poi si arrende» si prova solo se si riesce a far fallire un
+tentativo a comando, e l'unico modo onesto che conosco per far finire la
+memoria a una scheda video e' caricarci dodici gigabyte. Quindi il giro non
+avvia niente: chiede a un `Tentativo`, che e' l'unica cosa del modulo che
+tocca il mondo. Dietro c'e' il supervisore vero, oppure una finzione che
+risponde cio' che si vuole.
+
+Sette prove deterministiche, che girano su qualunque sistema in zero virgola.
+E **sei mutazioni su sei prese** — quella che mi interessava di piu' e'
+«non si spegne il gradino fallito»: se il tentativo che non ce l'ha fatta
+resta acceso, il prossimo trova la memoria occupata da lui e fallisce per
+colpa sua. E' il genere di difetto che si vede solo su una macchina al limite,
+cioe' mai qui.
+
+Due scelte piccole con dentro un motivo:
+
+**`restart: false`.** Il supervisore sa rialzare i processi che cadono, ed e'
+giusto — ma qui il riavvio lo decide la scala. Due meccanismi che rimettono in
+piedi lo stesso processo litigherebbero, e il supervisore lo rialzerebbe con
+gli stessi layer che avevano appena fallito.
+
+**`0.0.0.0` non e' un posto a cui bussare.** Se la configurazione dice di
+ascoltare ovunque, la domanda «sei pronto?» va fatta a `127.0.0.1`: chiederla
+a `0.0.0.0` vuol dire chiederla a nessuno. Non e' un difetto che avevamo, e'
+un difetto che avremmo avuto la prima volta che qualcuno cambiava quel campo.
+
+Per la salute ho usato `ureq`, che e' il cliente HTTP di casa — `nova-voce` e
+`nova-cervelli` parlano gia' con quello, e c'e' scritto accanto perche': «un
+secondo cliente per la stessa cosa sarebbero due comportamenti da conoscere
+invece di uno». E' bloccante e il demone e' asincrono, quindi gira dove il
+blocco non ferma nessuno.
+
+Il ponte Python ci arriva con una via d'uscita: se il demone installato e'
+piu' vecchio di questa capacita', non e' un guasto — e' un binario da
+ricostruire. Lo dice una volta, fa il giro di qui (che e' lo stesso, con la
+stessa regola) e va avanti. Rompere NOVA a chi non ha ancora ricompilato
+sarebbe stato il modo piu' rapido di far sembrare un miglioramento un danno.

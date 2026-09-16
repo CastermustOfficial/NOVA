@@ -2532,6 +2532,7 @@ version = "0.1.1"
 dependencies = [
  "anyhow",
  "async-trait",
+ "nova-modelli",
  "nova-platform",
  "nova-proto",
  "nova-strumenti",
@@ -2540,6 +2541,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
+ "ureq",
  "windows 0.62.2",
 ]
 
