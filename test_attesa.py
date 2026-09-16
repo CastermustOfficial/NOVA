@@ -59,8 +59,15 @@ b.dice("Apro il portale")
 controlla("il primo stato esce subito", visti == ["Apro il portale"], str(visti))
 time.sleep(0.35)
 controlla("e poi si ripete da solo", len(visti) >= 4, str(len(visti)))
-quanti = len(visti)
 b.fermati()
+# Si conta **dopo** aver fermato, non prima. Fra `len(visti)` e `fermati()`
+# passa un istante, e il battito batte ogni 0,05s: quello gia' in volo
+# atterra comunque, e la prova diventava rossa per un colpo legittimo. E'
+# capitato in CI su una versione di Python su quattro - cioe' non era Python,
+# era il carico. Cio' che si vuole provare e' che dopo non ne arrivino di
+# **nuovi**.
+time.sleep(0.15)
+quanti = len(visti)
 time.sleep(0.25)
 controlla("fermarlo lo ferma davvero", len(visti) == quanti,
           f"{quanti} -> {len(visti)}")

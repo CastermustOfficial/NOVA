@@ -7182,3 +7182,22 @@ E la frase. Dirgli «stai girando» senza dirgli **in cosa** e' un rimprovero;
 dirgli «web_search → read_page, tre volte di fila» e' un'informazione. La
 decisione — cambiare strada o rispondere con quello che ha — resta sua, come
 era gia' scritto in testa a quel file mesi fa.
+
+**Coda.** La CI e' tornata rossa su una versione di Python su quattro, e non
+per il giro: `test_attesa`, alla riga «fermarlo lo ferma davvero».
+
+    quanti = len(visti)
+    b.fermati()
+    time.sleep(0.25)
+    assert len(visti) == quanti
+
+Fra `len(visti)` e `fermati()` passa un istante, e il battito batte ogni
+cinquanta millesimi: quello gia' in volo atterra comunque. La prova diventava
+rossa per un colpo legittimo. Di nuovo: non era Python, era il carico — e di
+nuovo la cura e' contare **dopo** aver fermato, perche' cio' che si vuole
+provare e' che non ne arrivino di **nuovi**.
+
+E' la seconda corsa della settimana, dopo la scheda del browser. Comincio a
+pensare che «prendi la misura prima dell'azione e confronta dopo» sia un modo
+di scrivere prove che sembra rigoroso e invece e' fragile: misura anche
+l'istante in mezzo, che non appartiene a nessuno dei due.
