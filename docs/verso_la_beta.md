@@ -1027,6 +1027,37 @@ macchina diversa guarda mai: un filtro che non filtrava da sempre, e una
 configurazione che su una macchina spoglia non nasceva. Prima si accende la
 luce, poi si guarda.
 
+**Accesa il 16 settembre, e cosa ha detto subito.** Prima di scrivere il
+lavoro della CI ho preso una macchina Linux vera e ci ho costruito il
+nucleo. Quattro risposte, tutte utili:
+
+- **si compila tutto**, tranne `nova-shell` - che vuole gtk e webkit
+  installati, ed e' l'involucro Tauri, cioe' proprio il pezzo che CANT-9
+  dovra' portare davvero;
+- serve **una sola cosa da fuori**: `libasound2-dev`, perche' cpal parla
+  ad ALSA. Su macOS non serve, Core Audio c'e' gia';
+- `nova-cartelle` era rossa **cinque prove su sette** - e non per colpa
+  della funzione. Le prove erano scritte solo con i backslash, e su Linux
+  un backslash non separa niente: tutto il percorso e' un componente solo
+  e non ci si trova mai «onedrive». Le prove descrivevano un sistema solo;
+- sistemate quelle: **505 prove verdi, zero rosse**.
+
+E due cose che si vedono **solo** da li', e che nessuna prova su Windows
+avrebbe mai potuto dire:
+
+- su macOS OneDrive non sta nel profilo: sta in
+  `~/Library/CloudStorage/OneDrive-Personal`. Trattino **senza** spazio -
+  che e' esattamente la forma che la regola rifiuta apposta, per non
+  scambiare `dropbox-export-2024` per una cartella sincronizzata. Non e'
+  un difetto da correggere di corsa: e' una decisione da prendere, perche'
+  allargare la regola rimette in gioco il falso allarme che era costato
+  scriverla;
+- nella tabella dei nomi c'e' `icloakdrive`, che e' un refuso per
+  `iclouddrive`: una riga che non puo' corrispondere a niente. Sta in
+  Python **e** in Rust, identica - portata fedelmente, refuso compreso. Il
+  banco confronta i due elenchi e li trova d'accordo, perche' **una prova
+  gemella dimostra che due cose sono uguali, non che hanno ragione**.
+
 ### CANT-10 — I fogli di calcolo: cosa c'e' gia', e cosa non c'e'
 
 Oggi NOVA sa fare meta' della meta': legge il testo delle celle di un `.xlsx`,
