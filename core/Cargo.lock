@@ -2511,7 +2511,9 @@ dependencies = [
 name = "nova-ciclo"
 version = "0.1.1"
 dependencies = [
+ "async-trait",
  "nova-salita",
+ "tokio",
 ]
 
 [[package]]
@@ -2539,6 +2541,8 @@ version = "0.1.1"
 dependencies = [
  "anyhow",
  "async-trait",
+ "nova-cervelli",
+ "nova-ciclo",
  "nova-modelli",
  "nova-platform",
  "nova-proto",

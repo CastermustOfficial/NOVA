@@ -7380,3 +7380,58 @@ un compito difficile, ed e' il posto peggiore in cui cominciare a rompersi.
 
 Un contatore che sale e basta non puo' tornare indietro, perche' non guarda
 niente. Tre righe, e una prova che accorcia la lista apposta.
+
+## 16 settembre 2026, ancora piu' tardi — Il braccio del turno
+
+Ho girato la cucitura di `nova-ciclo` ad asincrona, e ho scritto il mondo vero.
+
+**La giravolta prima.** Avevo fatto il tratto `Mondo` sincrono, e l'avevo pure
+scritto nei commenti come un pregio: «non conosce tokio». Poi sono andato a
+guardare come si esegue davvero uno strumento, e le capacita' del demone sono
+asincrone. Le scelte erano due: tenere il sincrono e far fare a chi implementa
+un `block_on` dentro un runtime — che funziona e poi ti morde — oppure girare
+il tratto adesso, che non lo usa ancora nessuno. Ho girato. `tokio` resta
+fuori: c'e' `async-trait`, che e' una macro, e il motore compare solo fra le
+dipendenze delle prove.
+
+Mi tengo la lezione: **«non dipende da X» e' un pregio solo se il lavoro si
+puo' davvero fare senza X.** Altrimenti e' un costo spostato su chi viene
+dopo, scritto in un commento come se fosse un merito.
+
+**Il braccio.** `nova-core::mondo` e' il pezzo che chiede a un cervello vero ed
+esegue strumenti veri. Anche qui c'e' una cucitura — `Esecutore` — e stavolta
+il motivo e' preciso: le capacita' vere vogliono un `Ctx` intero (bus,
+politiche, configurazione, supervisore), e costruirlo per provare **come si
+scrive un messaggio in conversazione** vorrebbe dire non provarlo mai. E la
+forma della trascrizione e' la cosa piu' facile da sbagliare di tutto il file.
+
+Nove prove, sette mutazioni, sei prese al primo giro. Quella sopravvissuta mi
+ha insegnato qualcosa. Avevo scritto una prova sugli argomenti di una
+chiamata: devono passare **identici**, senza essere riscritti. La mutazione
+che li riserializza passava lo stesso — perche' il mio esempio era
+`{"b":1,"a":2}`, e riserializzarlo con `preserve_order` da' esattamente la
+stessa stringa. La prova c'era, il comportamento pure, e la prova non lo
+guardava.
+
+Basta uno spazio: `{"b": 1, "a": 2}`. Riserializzato diventa `{"b":1,"a":2}`, e
+la mutazione muore. E quello spazio non e' un dettaglio da prova: il gemello
+Python confronta le impronte sulla stringa che il fornitore ha mandato, e un
+serializzatore che «sistema» la spaziatura farebbe divergere i due lati su una
+cosa che nessuno dei due sta decidendo.
+
+Tre cose che il mondo vero fa, e che si vedono solo scrivendole:
+
+**Il messaggio dell'assistente si mette prima di eseguire.** Il `tool` che
+risponde deve trovare gia' li' il `tool_calls` a cui risponde, o la
+trascrizione e' invalida — la stessa regola di D218, dall'altro lato.
+
+**Il campo `tools` non si manda quando e' vuoto.** Una lista vuota non e'
+«nessuno strumento»: e' un campo in piu' che qualche fornitore rifiuta.
+
+**Sopra l'ultimo gradino non si finge.** Non c'e' dove salire, e lo si dice al
+modello invece di far finta di aver delegato a qualcuno.
+
+Quel che ancora non c'e': chi tiene la conversazione fra un turno e l'altro, e
+chi costruisce i gradini leggendo la configurazione. Sono CANT-7, e adesso si
+vede bene perche' quella si **riscrive** invece di portarla: e' la cosa a cui
+tutte le altre chiedono qualcosa.

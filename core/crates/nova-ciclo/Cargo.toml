@@ -9,7 +9,18 @@ edition.workspace = true
 # cosa si dice quando i passi finiscono (D213, D216, D217).
 nova-salita = { path = "../nova-salita" }
 
+# Il tratto `Mondo` ha metodi che aspettano - chiedere a un cervello vuol dire
+# parlare in rete - e questo serve a scriverli. E' una macro, non un motore:
+# `tokio` resta fuori, e lo si vede da qui sotto, dove sta solo fra le
+# dipendenze delle prove.
+async-trait.workspace = true
+
 # Niente altro, e di proposito. Questo crate e' **controllo di flusso**: non
-# parla in rete, non legge dischi, non conosce tokio. Chi fa quelle cose sta
-# dietro al tratto `Mondo`, e per questo il turno si prova senza un cervello,
-# senza strumenti e senza una macchina vera.
+# parla in rete, non legge dischi, non possiede un motore asincrono. Chi fa
+# quelle cose sta dietro al tratto `Mondo`, e per questo il turno si prova
+# senza un cervello, senza strumenti e senza una macchina vera.
+
+[dev-dependencies]
+# Solo per far girare le prove: un motore serve a chi le lancia, non a chi
+# scrive il giro.
+tokio = { workspace = true }
