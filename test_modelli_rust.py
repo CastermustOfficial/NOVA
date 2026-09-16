@@ -581,8 +581,46 @@ CARTELLE = [
     ["mmproj.txt"],
 ]
 
+# Tentativi finiti male, e cosa si fa dopo. Il caso che conta e' il terzo:
+# un errore che NON e' memoria, con la scala accesa. Prima si scendeva di un
+# gradino dicendo «memoria insufficiente» — sei volte, per un flag rifiutato.
+GIRI = [
+    {"esito": "pronto", "coda": "", "auto": True, "altri_gradini": True},
+    {"esito": "pronto", "coda": "error: qualcosa", "auto": False,
+     "altri_gradini": False},
+    {"esito": "morto", "coda": "error: unknown argument: --flash-attn-tipo",
+     "auto": True, "altri_gradini": True},
+    {"esito": "morto", "coda": "ggml_backend_cuda: cudaMalloc failed",
+     "auto": True, "altri_gradini": True},
+    {"esito": "morto", "coda": "error: failed to allocate buffer: out of memory",
+     "auto": True, "altri_gradini": True},
+    {"esito": "morto", "coda": "llm_load_tensors: offloading 30 layers",
+     "auto": True, "altri_gradini": True},
+    {"esito": "morto", "coda": "", "auto": True, "altri_gradini": False},
+    {"esito": "scaduto", "coda": "llm_load_tensors: offloading 40 layers",
+     "auto": True, "altri_gradini": True},
+    {"esito": "scaduto", "coda": "", "auto": False, "altri_gradini": True},
+    {"esito": "morto", "coda": "error: boh\nload: ok\nerror: ultima parola",
+     "auto": True, "altri_gradini": True},
+    {"esito": "morto", "coda": "error: " + "x" * 500, "auto": True,
+     "altri_gradini": True},
+]
+
+ATTESE = [(True, 600), (False, 600), (False, 30), (True, 30), (False, 121)]
+
 suo = rust({"righe": RIGHE, "scale": [list(x) for x in SCALE],
-            "registri": REGISTRI, "cartelle": CARTELLE})
+            "registri": REGISTRI, "cartelle": CARTELLE,
+            "giri": GIRI, "attese": [list(x) for x in ATTESE]})
+
+# Un banco piu' vecchio della prova non e' un fallimento: e' un binario da
+# ricostruire, e dirlo con un KeyError manderebbe a cercare un difetto che
+# non c'e'.
+if "giri" not in suo:
+    print("Il banco Rust e' piu' vecchio di questa prova: non sa ancora")
+    print("rispondere sui giri di avvio. Per allinearlo:")
+    print("  cd core && .\\x.cmd build --release -p nova-modelli "
+          "--features banco --bin banco-modelli")
+    sys.exit(2)
 
 diverse = [f"{i}: rust {ru} vs python {py_riga(c, c['proiettore'])}"
            for i, (c, ru) in enumerate(zip(RIGHE, suo["righe"]))
@@ -638,6 +676,36 @@ for nomi, ru in zip(CARTELLE, suo["proiettori"]):
             diverse.append(f"{nomi}: rust {ru!r} vs python {py!r}")
 controlla(f"i {len(CARTELLE)} proiettori si scelgono allo stesso modo",
           not diverse, " | ".join(diverse[:2]))
+
+diverse = []
+for c, ru in zip(GIRI, suo["giri"]):
+    py = list(pyrt.dopo_un_tentativo(c["esito"], c["coda"], c["auto"],
+                                     c["altri_gradini"]))
+    if py != ru:
+        diverse.append(f"{c['esito']}/{c['coda'][:30]!r}: rust {ru} vs python {py}")
+controlla(f"i {len(GIRI)} giri decidono allo stesso modo", not diverse,
+          " | ".join(diverse[:2]))
+
+verdetti = {v for v, _ in suo["giri"]}
+controlla("il banco ha tutte e tre le uscite", verdetti == {"acceso", "riprova", "arrenditi"},
+          f"{verdetti}: senza un «arrenditi» il difetto che stiamo curando "
+          "tornerebbe senza far rosso niente")
+controlla("un errore che non e' memoria ferma il giro",
+          suo["giri"][2][0] == "arrenditi" and "unknown argument" in suo["giri"][2][1],
+          str(suo["giri"][2]))
+controlla("e non dice «memoria» quando la memoria non c'entra",
+          "memoria" not in suo["giri"][2][1].lower(), str(suo["giri"][2]))
+controlla("ma una morte muta scende comunque di un gradino",
+          suo["giri"][5][0] == "riprova", str(suo["giri"][5]))
+
+diverse = [f"{c}: rust {ru} vs python {pyrt.attesa_del_tentativo(*c)}"
+           for c, ru in zip(ATTESE, suo["attese"])
+           if ru != pyrt.attesa_del_tentativo(*c)]
+controlla(f"le {len(ATTESE)} attese sono identiche", not diverse,
+          " | ".join(diverse[:2]))
+controlla("la seconda attesa e' piu' corta della prima",
+          suo["attese"][1] < suo["attese"][0],
+          "senza, un giro di sei tentativi tiene NOVA zitta un'ora")
 
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:

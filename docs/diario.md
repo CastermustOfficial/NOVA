@@ -6998,3 +6998,72 @@ hanno ragione** (D212). Protegge dalla divergenza, che e' il guasto che nasce
 dopo il porto; contro un errore che c'era gia' prima non puo' niente. Quello
 lo trova solo il codice che incontra il mondo vero — o qualcuno che rilegge
 una riga che nessuno rileggeva da mesi.
+
+## 16 settembre 2026, pomeriggio — La frase che diceva «memoria» senza averlo guardato
+
+CANT-4: le decisioni erano gia' in Rust — la riga di comando, la scala dei
+layer, i sei modi in cui llama.cpp dice «non ci sta». Restava *cosa si fa
+quando non parte*, e quella non stava da nessuna parte: viveva dentro due `if`
+di `runtime.py`, scritti in due punti diversi, e uno dei due diceva una cosa
+falsa.
+
+    if not _OOM_PATTERNS.search(err) and not auto_tune_gpu_layers: break
+
+Si esce dal giro solo se **tutte e due** sono vere. Con `auto_tune` acceso — e
+il valore di fabbrica e' acceso — un errore che non c'entra niente con la
+memoria non ferma niente: si percorre tutta la scala, e a ogni gradino NOVA
+scrive «Memoria insufficiente: riprovo con meno layer». Sei volte una frase
+che non e' stata verificata nemmeno una.
+
+Un flag rifiutato, un GGUF interrotto, la porta gia' occupata: NOVA dice
+«memoria», scende di sei layer, riprova, ridice «memoria». Alla fine sputa
+l'errore vero, in fondo a una coda di registro, dopo che chi guardava ha gia'
+cominciato a cercare nel posto sbagliato. **Dire la causa sbagliata con
+sicurezza e' peggio che non dirla.**
+
+Gio ha scelto la regola, e l'ha detta meglio di come l'avevo scritta io:
+distinguere **morte muta** da **morte parlante**. Se il processo muore senza
+dire perche', si scende di un gradino — una memoria video che finisce di colpo
+fa esattamente questo, il sistema chiude il processo e non gli lascia il tempo
+di scrivere. Se muore *dicendo* un motivo che non e' memoria, ci si ferma
+subito e si riporta quel motivo (D213).
+
+Uno **scaduto muto** vale come una morte muta, e non per simmetria: e' il caso
+della memoria **condivisa**, che non da' nessun errore — accetta tutto e va
+dieci volte piu' piano. Li' l'unico rimedio e' meno layer, e non c'e' niente
+da leggere che lo dica.
+
+La parte che mi ha fatto pensare e' **come si riconosce che ha parlato**. La
+tentazione era un elenco di cause note — «unknown argument», «no such file»,
+«address in use» — e sarebbe stata la terza volta in questo progetto che un
+elenco immaginato non copre il caso che capita davvero. Quindi una parola
+sola, `error`, e dichiarata come tale nel commento. Se un giorno llama.cpp
+dicesse il motivo senza scriverla, NOVA lo tratterebbe come una morte muta e
+farebbe un tentativo in piu': dei due modi di sbagliare, quello che costa
+meno.
+
+E l'ultima riga, non la prima: llama.cpp ne stampa centinaia prima di morire,
+e la prima e' un banner. `riga_utile` di `nova-guasti` fa il contrario — prende
+la prima — ed e' giusto li', perche' li' si guarda lo stderr di una CLI che
+fallisce subito. Due domande che si somigliano e non sono la stessa: riusarla
+qui sarebbe stato forzare un vestito.
+
+Poi l'attesa. `startup_timeout` vale **600 secondi**, e per il primo tentativo
+e' giusto: un modello da decine di gigabyte su un disco lento ci mette davvero
+tanto. Per sei gradini fa un'ora di silenzio. Dal secondo in poi quel file il
+sistema ce l'ha gia' in mano: se non risponde entro due minuti non e'
+lentezza, e' un guasto (D214).
+
+Undici prove nuove in Rust, e **cinque mutazioni su cinque prese** — compresa
+quella che scambia l'ordine fra «ha parlato» e «e' memoria», che e' l'unico
+punto dove sbagliare non si vedrebbe: `error: out of memory` parla **e** parla
+di memoria, e deve vincere la memoria. Il banco gemello confronta undici giri
+e cinque attese, e Python e Rust decidono uguale.
+
+**Una cosa in piu', arrivata gratis dal banco girato su Linux.**
+`proiettore_accanto` in Python usa `Path.glob`, che su Windows non guarda le
+maiuscole e altrove si'. Un modello con accanto `MMPROJ-F16.GGUF` scritto in
+maiuscolo: su Windows NOVA vede il proiettore, su Linux e macOS no — e un
+modello che vede diventa un modello cieco a seconda del sistema. Il lato Rust
+confronta in minuscolo apposta ed e' quello giusto. Non l'ho corretto: e' di
+CANT-9, e la lista se lo tiene.

@@ -81,6 +81,25 @@ struct Dentro {
     /// Elenchi di nomi di file in cui cercare il proiettore.
     #[serde(default)]
     cartelle: Vec<Vec<String>>,
+    /// Tentativi finiti male, di cui si vuole sapere cosa si fa dopo.
+    #[serde(default)]
+    giri: Vec<CasoGiro>,
+    /// (e' il primo tentativo, attesa configurata) di cui si vuole l'attesa vera.
+    #[serde(default)]
+    attese: Vec<(bool, u64)>,
+}
+
+/// Un tentativo di accensione finito in un certo modo.
+#[derive(Deserialize)]
+struct CasoGiro {
+    /// «pronto», «morto» o «scaduto».
+    esito: String,
+    #[serde(default)]
+    coda: String,
+    #[serde(default)]
+    auto: bool,
+    #[serde(default)]
+    altri_gradini: bool,
 }
 
 fn quattro() -> usize {
@@ -158,6 +177,12 @@ struct Fuori {
     scale: Vec<Vec<i64>>,
     memoria_finita: Vec<bool>,
     proiettori: Vec<Option<String>>,
+    /// Per ogni tentativo: [cosa si fa, perche']. Due stringhe e non un
+    /// numero, perche' il **perche'** e' meta' della decisione: e' la frase
+    /// che l'utente legge, ed e' quella che prima diceva «memoria
+    /// insufficiente» senza averlo verificato.
+    giri: Vec<[String; 2]>,
+    attese: Vec<u64>,
 }
 
 #[derive(Deserialize)]
@@ -358,6 +383,27 @@ fn main() {
             .collect(),
         memoria_finita: dentro.registri.iter().map(|r| avvio::e_memoria_finita(r)).collect(),
         proiettori: dentro.cartelle.iter().map(|n| avvio::proiettore(n)).collect(),
+        giri: dentro
+            .giri
+            .iter()
+            .map(|c| {
+                let esito = match c.esito.as_str() {
+                    "pronto" => avvio::Esito::Pronto,
+                    "scaduto" => avvio::Esito::Scaduto,
+                    _ => avvio::Esito::Morto,
+                };
+                match avvio::dopo_un_tentativo(esito, &c.coda, c.auto, c.altri_gradini) {
+                    avvio::Prossimo::Acceso => ["acceso".to_string(), String::new()],
+                    avvio::Prossimo::Riprova(p) => ["riprova".to_string(), p],
+                    avvio::Prossimo::Arrenditi(p) => ["arrenditi".to_string(), p],
+                }
+            })
+            .collect(),
+        attese: dentro
+            .attese
+            .iter()
+            .map(|(primo, conf)| avvio::attesa_del_tentativo(*primo, *conf))
+            .collect(),
     };
 
     match serde_json::to_string(&fuori) {
