@@ -200,6 +200,7 @@ class Agent:
         # ricomincia da capo.
         self._ultima_impronta = ""
         self._quante_ripetute = 0
+        self._quante_deleghe = getattr(self, "_quante_deleghe", 0)
         self._storia_giro: list[str] = []
         self._nomi_giro: list[str] = []
         self._giro_detto: tuple[str, int] | None = None
@@ -211,6 +212,7 @@ class Agent:
         self.memory = memory
         self._ultima_impronta = ""
         self._quante_ripetute = 0
+        self._quante_deleghe = getattr(self, "_quante_deleghe", 0)
         self._storia_giro: list[str] = []
         self._nomi_giro: list[str] = []
         self._giro_detto: tuple[str, int] | None = None
@@ -613,6 +615,7 @@ class Agent:
         # ricomincia da capo.
         self._ultima_impronta = ""
         self._quante_ripetute = 0
+        self._quante_deleghe = getattr(self, "_quante_deleghe", 0)
         self._storia_giro: list[str] = []
         self._nomi_giro: list[str] = []
         self._giro_detto: tuple[str, int] | None = None
@@ -841,6 +844,24 @@ class Agent:
         limite_passi = int(r.get("passi_prima_di_salire", 0))
         return bool(limite_passi) and passi >= limite_passi
 
+    def _id_delega(self) -> str:
+        """Un identificativo che nella stessa conversazione non si ripete.
+
+        Era `escalation-{len(self.messages)}`, e **dentro un turno** bastava:
+        la lista dei messaggi li' dentro cresce e basta. Fra un turno e
+        l'altro no: `trim_history` butta cio' che sta subito dopo il messaggio
+        di sistema, quindi la lista si **accorcia** — e il numero torna su uno
+        gia' usato, mentre la coppia che lo portava e' ancora li', perche' il
+        taglio tiene i messaggi recenti.
+
+        Due coppie con lo stesso `tool_call_id` nella stessa trascrizione: e'
+        esattamente la trascrizione invalida che il commento qui sotto dice di
+        voler evitare, presa dalla porta di servizio. Un contatore che sale e
+        basta non puo' tornare indietro, perche' non guarda niente.
+        """
+        self._quante_deleghe = getattr(self, "_quante_deleghe", 0) + 1
+        return f"escalation-{self._quante_deleghe}"
+
     def _sali_di_gradino(self, richiesta: str, errori: list[str],
                          partenza: str) -> str:
         """Passa la palla da solo e rimette il risultato nelle mani del modello.
@@ -886,7 +907,7 @@ class Agent:
         # Un messaggio 'tool' senza il 'tool_calls' corrispondente e' una
         # trascrizione invalida: le API OpenAI-compatibili la rifiutano. Si
         # sintetizza la coppia completa, come se il modello avesse chiamato lui.
-        identificativo = f"escalation-{len(self.messages)}"
+        identificativo = self._id_delega()
         self.messages.append({
             "role": "assistant",
             "content": "",
