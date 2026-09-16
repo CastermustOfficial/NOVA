@@ -7348,3 +7348,35 @@ niente. Il turno Python gira ancora com'era. La prossima e' scrivere il
 `Mondo` vero — quello che chiede a `nova-cervelli` ed esegue con
 `nova-strumenti` — e li' non ci sara' niente da decidere, perche' le decisioni
 sono tutte qui e tutte provate.
+
+**E leggendo la salita di gradino, una cosa piccola con conseguenze grosse.**
+
+Quando NOVA delega da sola deve mettere in conversazione una coppia
+sintetizzata: l'`assistant` con dentro `tool_calls`, e il `tool` che risponde.
+C'e' il commento che spiega perche':
+
+> Un messaggio 'tool' senza il 'tool_calls' corrispondente e' una trascrizione
+> invalida: le API OpenAI-compatibili la rifiutano.
+
+Giusto, e fatto. L'identificativo pero' era questo:
+
+    identificativo = f"escalation-{len(self.messages)}"
+
+Dentro un turno funziona: quella lista cresce e basta. Fra un turno e l'altro
+no. `trim_history` butta cio' che sta **subito dopo il messaggio di sistema** —
+sta scritto tre righe sopra, con tanto di spiegazione sulla cache del prefisso
+— quindi la lista si **accorcia**. Il numero torna su uno gia' usato, e la
+coppia che lo portava e' ancora li', perche' il taglio tiene i messaggi
+recenti.
+
+Due `tool_call_id` uguali nella stessa trascrizione: esattamente la
+trascrizione invalida che quel commento dice di voler evitare, entrata dalla
+porta di servizio (D218).
+
+Non l'ho visto capitare. Perche' capiti serve una conversazione lunga
+abbastanza da essere tagliata, due deleghe automatiche, e la sfortuna che il
+conto cada sullo stesso numero — cioe' capita a chi usa NOVA da settimane, su
+un compito difficile, ed e' il posto peggiore in cui cominciare a rompersi.
+
+Un contatore che sale e basta non puo' tornare indietro, perche' non guarda
+niente. Tre righe, e una prova che accorcia la lista apposta.

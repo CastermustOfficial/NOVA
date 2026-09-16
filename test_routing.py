@@ -138,6 +138,32 @@ c6.brains.routing["tiers"]["mio"] = {"brain": "locale"}
 controlla("un gradino non elencato si accoda invece di sparire",
           "mio" in Router(c6, log=lambda m: None).scala())
 
+# ------------------------------------------------------------------- 7
+print("\n7. l'identificativo di una delega non torna mai indietro")
+# La coppia sintetizzata da `_sali_di_gradino` — assistant con `tool_calls`
+# piu' il `tool` che risponde — porta un identificativo. Era ricavato da
+# `len(self.messages)`, e dentro un turno bastava: la lista li' dentro cresce
+# e basta. Fra un turno e l'altro no: `trim_history` butta cio' che sta subito
+# dopo il messaggio di sistema, la lista si accorcia, e il numero torna su uno
+# gia' usato — mentre la coppia che lo portava e' ancora li', perche' il
+# taglio tiene i messaggi recenti.
+#
+# Due coppie con lo stesso `tool_call_id` nella stessa trascrizione sono
+# esattamente la trascrizione invalida che quel codice dice di voler evitare.
+from nova.agent import Agent                                   # noqa: E402
+
+finto = Agent.__new__(Agent)
+finto.messages = [0] * 20
+visti = [finto._id_delega()]
+finto.messages = [0] * 17        # il taglio ha buttato la testa
+visti.append(finto._id_delega())
+finto.messages = [0] * 20        # e la conversazione torna sulla stessa misura
+visti.append(finto._id_delega())
+controlla("tre deleghe, tre identificativi diversi",
+          len(set(visti)) == 3, str(visti))
+controlla("e non dipendono da quanti messaggi ci sono",
+          visti == ["escalation-1", "escalation-2", "escalation-3"], str(visti))
+
 print("\n" + ("tutti i difetti corretti" if all(c for _, c in esiti)
               else "ATTENZIONE: qualcosa non torna"))
 raise SystemExit(0 if all(c for _, c in esiti) else 1)
