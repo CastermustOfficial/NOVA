@@ -34,6 +34,89 @@ _OOM_PATTERNS = re.compile(
 )
 
 
+# --- il giro di avvio: cosa si fa quando il modello non parte ------------
+#
+# Gemello di `core/crates/nova-modelli/src/avvio.rs`, e nato da un difetto che
+# stava scritto qui in due posti:
+#
+#     if not _OOM_PATTERNS.search(err) and not auto_tune_gpu_layers: break
+#
+# Si esce dal giro solo se **tutte e due** sono vere. Con `auto_tune` acceso —
+# che e' il valore di fabbrica — un errore che non c'entra niente con la
+# memoria (un flag rifiutato, un GGUF rotto, la porta occupata) non ferma
+# niente: si percorre tutta la scala, e a ogni gradino NOVA scrive «Memoria
+# insufficiente: riprovo con meno layer». Una frase mai verificata, ripetuta
+# sei volte. Dire la causa sbagliata con sicurezza e' peggio che non dirla.
+
+ATTESA_DOPO_IL_PRIMO_S = 120
+QUANTO_DEL_MOTIVO = 200
+
+
+def ha_parlato(coda: str) -> str | None:
+    """L'ultima riga con cui il processo ha detto di avere un problema.
+
+    Una parola sola, «error», e dichiarata: non un elenco di frasi indovinate.
+    L'**ultima**, non la prima: llama.cpp stampa centinaia di righe prima di
+    morire, e la prima e' un banner.
+    """
+    for riga in reversed((coda or "").splitlines()):
+        pulita = riga.strip()
+        if pulita and "error" in pulita.lower():
+            return pulita
+    return None
+
+
+def _accorcia(riga: str) -> str:
+    if len(riga) <= QUANTO_DEL_MOTIVO:
+        return riga
+    return f"{riga[:QUANTO_DEL_MOTIVO]}\u2026 (+{len(riga) - QUANTO_DEL_MOTIVO} caratteri)"
+
+
+def dopo_un_tentativo(esito: str, coda: str, auto: bool,
+                      altri_gradini: bool) -> tuple[str, str]:
+    """Cosa si fa dopo un tentativo, e **perche'**.
+
+    La scala cura la memoria, quindi si scende solo quando la memoria c'entra
+    — o quando il processo e' morto senza dire niente, che e' esattamente cio'
+    che fa una memoria video che finisce di colpo: il sistema chiude il
+    processo e non gli lascia il tempo di scrivere. Uno «scaduto» muto vale
+    uguale, ed e' il caso della memoria **condivisa**: non da' nessun errore,
+    accetta tutto e va dieci volte piu' piano.
+    """
+    if esito == "pronto":
+        return ("acceso", "")
+    detto = ha_parlato(coda)
+    memoria = bool(_OOM_PATTERNS.search(coda or ""))
+    if detto is not None:
+        motivo = _accorcia(detto)
+    elif esito == "morto":
+        motivo = "e' uscito subito senza dire perche'"
+    else:
+        motivo = "non ha risposto entro l'attesa"
+    if not auto:
+        return ("arrenditi", motivo)
+    if memoria:
+        return ("riprova", "la memoria video non basta")
+    if detto is not None:
+        # Ha parlato, e non ha parlato di memoria: scendere di un gradino non
+        # cura niente. Lo si dice subito invece che dopo sei tentativi.
+        return ("arrenditi", motivo)
+    if not altri_gradini:
+        return ("arrenditi", motivo)
+    return ("riprova",
+            "non ha detto perche', e la memoria che finisce di colpo fa proprio questo")
+
+
+def attesa_del_tentativo(primo: bool, configurata_s: int) -> int:
+    """Il primo tentativo puo' essere lento davvero; il secondo no.
+
+    Dal secondo in poi il file il sistema ce l'ha gia' in mano: se non
+    risponde entro due minuti non e' lentezza, e' un guasto — e aspettarne
+    dieci vuol dire solo che NOVA sta zitta un'ora prima di dirlo.
+    """
+    return configurata_s if primo else min(configurata_s, ATTESA_DOPO_IL_PRIMO_S)
+
+
 @dataclass
 class RuntimeCandidate:
     path: Path
@@ -462,21 +545,24 @@ class LlamaServer:
             return True
 
         ladder = self._gpu_layer_ladder()
-        last_err = ""
+        perche = ""
         for attempt, ngl in enumerate(ladder):
             self.gpu_layers = ngl
-            ok, err = self._spawn_and_wait(ngl, wait=wait)
+            ok, esito, coda = self._spawn_and_wait(ngl, wait=wait,
+                                                   primo=(attempt == 0))
             if ok:
                 if attempt:
                     self._log(f"Caricato con -ngl {ngl} dopo {attempt} tentativi.")
                 return True
-            last_err = err
             self.stop()
-            if not _OOM_PATTERNS.search(err) and not self.cfg.server.auto_tune_gpu_layers:
+            cosa, perche = dopo_un_tentativo(
+                esito, coda, self.cfg.server.auto_tune_gpu_layers,
+                attempt + 1 < len(ladder))
+            if cosa == "arrenditi":
                 break
-            if attempt + 1 < len(ladder):
-                self._log(f"Memoria insufficiente con -ngl {ngl}: riprovo con meno layer.")
-        raise RuntimeError(f"llama-server non e' partito.\n{last_err}\n\n{self.log_tail}")
+            self._log(f"Con -ngl {ngl} {perche}: riprovo con meno layer.")
+        raise RuntimeError(
+            f"llama-server non e' partito: {perche}\n\n{self.log_tail}")
 
     # -- percorso nova-core -------------------------------------------
     def _adotta_dal_demone(self) -> bool:
@@ -529,7 +615,8 @@ class LlamaServer:
             self._log("Il modello e' gia' caricato in nova-core: lo riuso.")
             return self.is_ready(3.0) or self._attendi_salute()
 
-        for tentativo, ngl in enumerate(self._gpu_layer_ladder()):
+        scala = self._gpu_layer_ladder()
+        for tentativo, ngl in enumerate(scala):
             self.gpu_layers = ngl
             args = self._build_args(ngl)[1:]  # gli argomenti, senza l'eseguibile
             ok, msg = bridge.avvia_modello(str(self.binary), args,
@@ -541,21 +628,28 @@ class LlamaServer:
             self._log(f"Modello affidato a nova-core (-ngl {ngl}).")
             if not wait:
                 return True
-            if self._attendi_salute():
+            if self._attendi_salute(primo=(tentativo == 0)):
                 return True
             coda = "\n".join(bridge.log_modello(80))
             for riga in coda.splitlines()[-12:]:
                 self._log(riga)
             bridge.ferma_modello()
-            if not _OOM_PATTERNS.search(coda) and not self.cfg.server.auto_tune_gpu_layers:
+            # La stessa regola del percorso senza demone, e per forza: sono
+            # due strade per la stessa domanda (D73).
+            cosa, perche = dopo_un_tentativo(
+                "scaduto", coda, self.cfg.server.auto_tune_gpu_layers,
+                tentativo + 1 < len(scala))
+            if cosa == "arrenditi":
+                self._log(f"Il modello non e' partito: {perche}")
                 self.via_demone = False
                 return False
-            self._log("Memoria insufficiente: riprovo con meno layer.")
+            self._log(f"{perche}: riprovo con meno layer.")
         self.via_demone = False
         return False
 
-    def _attendi_salute(self) -> bool:
-        scadenza = time.time() + self.cfg.server.startup_timeout
+    def _attendi_salute(self, primo: bool = True) -> bool:
+        scadenza = time.time() + attesa_del_tentativo(
+            primo, self.cfg.server.startup_timeout)
         while time.time() < scadenza:
             if self.bridge is not None and not self.bridge.modello_attivo():
                 return False
@@ -613,7 +707,8 @@ class LlamaServer:
                 out.append(v)
         return out
 
-    def _spawn_and_wait(self, ngl: int, wait: bool) -> tuple[bool, str]:
+    def _spawn_and_wait(self, ngl: int, wait: bool,
+                        primo: bool = True) -> tuple[bool, str, str]:
         LOG_DIR.mkdir(parents=True, exist_ok=True)
         from .rotazione import ruota_se_serve
         # Prima di aprire, non dopo: qui il file resta aperto per tutta la
@@ -646,17 +741,20 @@ class LlamaServer:
         self._reader.start()
 
         if not wait:
-            return True, ""
+            return True, "pronto", ""
 
-        deadline = time.time() + self.cfg.server.startup_timeout
+        # Morto e scaduto non sono la stessa cosa, e finora finivano tutti e
+        # due in una stringa: chi decideva cosa fare dopo doveva rileggerla.
+        deadline = time.time() + attesa_del_tentativo(
+            primo, self.cfg.server.startup_timeout)
         while time.time() < deadline:
             if self.proc.poll() is not None:
-                return False, f"Processo terminato (exit {self.proc.returncode}).\n{self.log_tail}"
+                return False, "morto", self.log_tail
             if self.is_ready():
                 self._log(f"Modello pronto su {self.cfg.base_url}")
-                return True, ""
+                return True, "pronto", ""
             time.sleep(1.0)
-        return False, "Timeout di caricamento del modello."
+        return False, "scaduto", self.log_tail
 
     def _pump(self) -> None:
         assert self.proc and self.proc.stdout

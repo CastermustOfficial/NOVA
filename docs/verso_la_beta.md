@@ -965,7 +965,7 @@ mole, non di difficolta'.
 | ~~CANT-1~~ | ~~**Il vault su disco**~~ — **fatto** | ~660 | Era il seguito diretto di `nova-nodi`, ed e' stato il primo pezzo scritto contro un tratto invece che sopra il filesystem nudo: e' quello che apre la strada a tutti gli altri. Ha ripagato prima di essere finito — la scrittura delle note dell'utente non era atomica (D102) — e ha portato dentro anche il guardiano dei segreti (D109, D110) |
 | ~~CANT-2~~ | ~~**Gli strumenti**~~ — **fatto**, per la parte traducibile: dichiarazioni, guardie, formato, i corpi dei file, la shell, i tasti, le pagine, la **scelta** di cosa ricordare, e i quindici strumenti che chiedono davvero alla piattaforma. Quel che resta in `nova/tools/` appartiene ad altri cantieri, file per file (D150) | ~2.570 | Sono la meta' di NOVA che tocca il PC, ed e' esattamente quella che in Python costa di piu' in dipendenze. Tanti pezzi piccoli e indipendenti: si e' portato uno strumento per volta senza fermare niente |
 | CANT-3 | **Il ciclo dell'agente e i cervelli** — *tutto cio' che decide: fatto — il contesto, il prompt, i blocchi, le immagini, le procedure, i guasti, e cosa si dice a un cervello che vive fuori. Resta il **ciclo**, ~280 righe, e i pezzi che avviano processi o parlano in rete* | ~2.200 | E' il pezzo che davvero libera dal Python, ma va dopo gli strumenti: un ciclo che chiama strumenti Python non ha liberato niente. Dentro c'e' la parte piu' delicata di tutto il progetto — il taglio del contesto a token, che se sbaglia perde pezzi di conversazione senza dirlo |
-| CANT-4 | **Lanciare il modello locale** — *le decisioni: fatte; avviare il processo e leggere cosa dice: da fare* | ~690 | Il calcolo degli strati era gia' in `nova-modelli`; restava il pezzo dove le decisioni si vedono poco e costano molto — la riga di comando, la scala dei layer, l'unico errore che vale la pena riprovare (D173) |
+| CANT-4 | **Lanciare il modello locale** — *le decisioni: fatte, **il giro compreso** — cosa si fa quando non parte (D213) e quanto si aspetta (D214). Resta avviare il processo e leggerne l'uscita* | ~690 | Il calcolo degli strati era gia' in `nova-modelli`; restava il pezzo dove le decisioni si vedono poco e costano molto — la riga di comando, la scala dei layer, l'unico errore che vale la pena riprovare (D173) |
 | ~~CANT-5~~ | ~~**Il server MCP**~~ — **fatto**: il protocollo, le trentatre' dichiarazioni, il rischio, la domanda in chiaro, gli allegati e la risposta al permesso. I corpi degli strumenti appartengono ai cantieri che chiamano | ~1.290 | Protocollo, quindi traducibile senza scelte — ma le **buste** hanno una regola che rompe i client quando si sbaglia (D175, D176) |
 | ~~CANT-6~~ | ~~**Il browser e la ricerca**~~ — **fatto**, per la parte traducibile: i nove copioni che girano nella pagina, il confine fra argomento e codice, la scelta della scheda, cosa di una pagina e' testo, e i due raschiatori del motore. Quel che resta e' avviare Chrome e tenere la connessione: processi e rete, e appartiene a CANT-7 | ~760 | Nessuna scelta di interfaccia, ma il pezzo dove il confine fra argomento e codice conta piu' che altrove: quel testo lo esegue un interprete che non e' nostro (D178). Ed e' il cantiere in cui il banco ha trovato un difetto vero, non una differenza di porto (D181) |
 | CANT-7 | **L'impalcatura** — *le guardie predefinite: fatte; config, main, dati, componenti: da fare* | ~1.800 | Non si porta: si **riscrive**, perche' meta' esiste solo per tenere insieme il Python. `nova-core::config` ne ha gia' un pezzo. Va per ultima fra quelle di sostanza, quando si sa cosa deve tenere insieme |
@@ -1056,7 +1056,14 @@ avrebbe mai potuto dire:
   `iclouddrive`: una riga che non puo' corrispondere a niente. Sta in
   Python **e** in Rust, identica - portata fedelmente, refuso compreso. Il
   banco confronta i due elenchi e li trova d'accordo, perche' **una prova
-  gemella dimostra che due cose sono uguali, non che hanno ragione**.
+  gemella dimostra che due cose sono uguali, non che hanno ragione**;
+- `proiettore_accanto` in Python usa `Path.glob`, che su Windows **non guarda
+  le maiuscole** e altrove si'. Un modello con accanto `MMPROJ-F16.GGUF`
+  scritto in maiuscolo: su Windows NOVA vede il proiettore, su Linux e macOS
+  no - e lo stesso modello e' multimodale o cieco a seconda del sistema. Il
+  lato Rust confronta in minuscolo apposta, ed e' quello giusto: qui e' il
+  Python da allineare. Trovato dal banco gemello girato su Linux, che e'
+  l'unico posto da cui quella differenza si vede.
 
 ### CANT-10 — I fogli di calcolo: cosa c'e' gia', e cosa non c'e'
 
