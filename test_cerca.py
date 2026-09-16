@@ -52,6 +52,23 @@ controlla("un indirizzo senza schema viene rifiutato",
 r = cerca.cerca("   ")
 controlla("una domanda vuota viene rifiutata", not r.get("ok"), str(r))
 
+# Guidare il browser vuol dire parlargli in HTTP, e quella conversazione si
+# rompe in tutti i modi in cui si rompe una conversazione. Ogni altra strada
+# di questo modulo torna un motivo; questa sola sollevava, e chi la chiamava
+# si ritrovava in mano uno stack di `requests`. Al modello uno stack non dice
+# se riprovare, se cambiare strada o se dirlo all'utente. Una frase si'.
+#
+# La porta e' chiusa apposta: questa prova non ha bisogno di un browser, e
+# quindi gira dappertutto.
+try:
+    r = cerca.cerca("qualcosa", porta=59999, attesa=1)
+    esploso = ""
+except Exception as e:                                         # noqa: BLE001
+    r, esploso = {}, f"{type(e).__name__}: {e}"
+controlla("con il browser irraggiungibile torna un motivo, non uno stack",
+          not esploso and not r.get("ok") and bool(r.get("motivo")),
+          esploso or str(r))
+
 print("\n2. da HTML a testo")
 grezzo = ("<html><head><title>Prova &amp; C.</title><style>p{color:red}</style>"
           "</head><body><script>var x=1</script><h1>Titolo</h1>"
