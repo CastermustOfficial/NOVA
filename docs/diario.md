@@ -7240,3 +7240,58 @@ qui mancava in mezzo alla strada piu' battuta del modulo.
 Adesso torna un motivo. E la prova nuova non ha bisogno di un browser — chiede
 su una porta chiusa apposta — quindi gira su tutte e quattro le versioni di
 Python e su tutti e tre i sistemi, invece che solo dove c'e' Edge.
+
+## 16 settembre 2026, tarda notte — Il terzo modo di non farcela
+
+`nova-salita` si apre cosi': «due modi di non farcela, e cosa si fa in
+ciascuno». Sbattere contro un muro, e girare a vuoto. Ieri ho sistemato il
+secondo; oggi, leggendo il ciclo per portarlo, ne ho trovato un terzo che non
+stava scritto da nessuna parte: **finire i passi**.
+
+Il ciclo ne ha dodici. Quando li esaurisce faceva questo:
+
+    limit_msg = ("Ho raggiunto il numero massimo di passaggi consentiti. "
+                 "Dimmi come vuoi che proceda.")
+    return limit_msg
+
+E `final_text` — la variabile che lungo tutto il giro ha raccolto cio' che il
+modello aveva scritto — restava li', piena, e non la leggeva nessuno.
+
+Dodici passi di lavoro. Pagine aperte, file letti, pezzi di risposta messi
+giu' strada facendo. E all'utente arriva una riga burocratica che non dice
+nemmeno cosa aveva trovato.
+
+E' **esattamente** la stessa forma di un difetto che questo progetto ha gia'
+curato una volta, e c'e' scritto sopra `_versa`:
+
+> Prima si tagliava a 24000 caratteri e si scriveva «[risultato troncato]»: il
+> resto spariva, e il modello non sapeva *cosa* aveva perso — solo che mancava
+> qualcosa. […] La differenza non e' lo spazio risparmiato: e' che una perdita
+> silenziosa diventa un rinvio.
+
+La stessa regola, scritta mesi fa, a novanta righe di distanza dal punto in
+cui non era applicata. Non e' una svista clamorosa: e' che il tetto dei passi
+sembra un caso di errore, e i casi di errore si scrivono in fretta pensando
+che tanto non capitano. Capitano — e capitano dopo che NOVA ha lavorato di
+piu', non di meno.
+
+Adesso quel che c'e' si consegna, e il tetto diventa una nota accanto (D217):
+
+    Ho trovato tre listoni aggiornati a ieri.
+
+    [Mi sono fermato dopo 12 passaggi: e' il tetto che ho da solo. Quello qui
+    sopra e' quanto sono riuscito a mettere insieme. Se non basta, dimmi come
+    vuoi che proceda.]
+
+Quattro prove, quattro mutazioni su quattro prese, banco gemello su sei casi.
+Una delle mutazioni mi interessava in particolare — «lo spazio bianco conta
+come risposta»: se si guarda `gia_detto` invece di `gia_detto.trim()`, un
+`"\n \t"` diventa una risposta da consegnare, e l'utente riceve una riga vuota
+seguita da una nota. Il confine fra «ha scritto qualcosa» e «non ha scritto
+niente» non e' «la stringa e' vuota»: e' «resta qualcosa dopo aver tolto lo
+spazio».
+
+E una delle prove non guarda cosa dice, ma cosa **non** dice: niente «non
+posso», «errore», «fallito», «impossibile». Fermarsi al tetto non e' un
+guasto, e chiamarlo cosi' insegnerebbe all'utente a leggere un limite di
+progetto come una rottura.

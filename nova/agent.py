@@ -745,8 +745,8 @@ class Agent:
                 errori_recenti.clear()
 
         self._stato("")
-        limit_msg = ("Ho raggiunto il numero massimo di passaggi consentiti. "
-                     "Dimmi come vuoi che proceda.")
+        limit_msg = self._passi_finiti(
+            self.cfg.model.max_tool_iterations, final_text)
         self.messages.append({"role": "assistant", "content": limit_msg})
         self.cb.on_assistant(limit_msg)
         return limit_msg
@@ -954,6 +954,33 @@ class Agent:
         except Exception:
             corpo = repr(args)
         return f"{name}\u0000{corpo}"
+
+    @staticmethod
+    def _passi_finiti(quanti: int, gia_detto: str) -> str:
+        """Cosa si dice quando i passi sono finiti.
+
+        Il terzo modo di non farcela, e non stava scritto da nessuna parte.
+        Prima si diceva «Ho raggiunto il numero massimo di passaggi
+        consentiti» e si tornava **quella frase al posto di cio' che il
+        modello aveva gia' scritto**: dodici passi di lavoro — pagine lette,
+        file aperti, pezzi di risposta messi giu' lungo la strada — e
+        all'utente arrivava una riga burocratica che non diceva nemmeno cosa
+        aveva trovato.
+
+        E' la stessa forma del taglio dei risultati, gia' curata una volta in
+        questo progetto: una perdita silenziosa deve diventare un rinvio.
+
+        Gemello di `core/crates/nova-salita/src/lib.rs`.
+        """
+        avanzo = (gia_detto or "").strip()
+        if not avanzo:
+            return (f"Ho fatto {quanti} passaggi senza arrivare a una "
+                    f"risposta, e mi fermo qui invece di continuare "
+                    f"all'infinito. Dimmi come vuoi che proceda.")
+        return (f"{avanzo}\n\n[Mi sono fermato dopo {quanti} passaggi: e' il "
+                f"tetto che ho da solo. Quello qui sopra e' quanto sono "
+                f"riuscito a mettere insieme. Se non basta, dimmi come vuoi "
+                f"che proceda.]")
 
     @classmethod
     def _ciclo(cls, storia: list[str]) -> tuple[int, int] | None:

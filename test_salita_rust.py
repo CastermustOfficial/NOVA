@@ -171,6 +171,39 @@ controlla("cambiare argomenti fa ripartire da capo",
           py_detti[10] == "" and py_detti[11] == "")
 controlla("dopo l'ottava si tace", py_detti[9] == "")
 
+print("\n=== Quando i passi finiscono ===")
+# Il terzo modo di non farcela. Prima la riga del tetto prendeva il posto di
+# cio' che il modello aveva gia' scritto: dodici passi di lavoro, e all'utente
+# arrivava una frase burocratica che non diceva nemmeno cosa aveva trovato.
+PASSI = [
+    (12, "Ho trovato tre listoni aggiornati a ieri."),
+    (12, ""),
+    (12, "   \n\t "),
+    (4, "un pezzo di risposta"),
+    (30, ""),
+    (1, "una riga sola"),
+]
+risposte = rust([{"tipo": "passi", "quanti": q, "gia_detto": d}
+                 for q, d in PASSI])
+diverse = [f"({q}, {d!r}): rust={r.get('fine')!r} python={Agent._passi_finiti(q, d)!r}"
+           for (q, d), r in zip(PASSI, risposte)
+           if r.get("fine") != Agent._passi_finiti(q, d)]
+controlla(f"i {len(PASSI)} finali si dicono uguali", not diverse,
+          " | ".join(diverse[:2]))
+
+primo = risposte[0].get("fine") or ""
+controlla("quel che aveva gia' scritto si consegna",
+          primo.startswith("Ho trovato tre listoni"), primo[:80])
+controlla("e il tetto e' una nota accanto, non una sostituzione",
+          "12 passaggi" in primo and "Se non basta" in primo, primo[-90:])
+vuoto = risposte[1].get("fine") or ""
+controlla("senza niente da consegnare lo dice e basta",
+          "senza arrivare a una risposta" in vuoto and "qui sopra" not in vuoto,
+          vuoto[:80])
+controlla("il numero e' quello vero, non una costante",
+          "4 passaggi" in (risposte[3].get("fine") or ""),
+          str(risposte[3].get("fine"))[:60])
+
 print("\n=== Il giro che non e' di fila ===")
 # Il giro vero: cerca, leggi, cerca, leggi. Ogni chiamata e' diversa dalla
 # precedente, quindi il contatore delle ripetizioni di fila resta a uno per
