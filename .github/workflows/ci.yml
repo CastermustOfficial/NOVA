@@ -146,3 +146,54 @@ jobs:
           python-version: '3.12'
       - name: Cerco chiavi e percorsi personali
         run: python test_niente_dati_personali.py
+  # La luce prima delle mani (D209). Mac e Linux non si possono provare dalla
+  # macchina di chi scrive, e finche' nessuna macchina diversa guarda, il
+  # codice che sta dietro a #[cfg(windows)] non e' verde: e' non guardato.
+  #
+  # Misurato su Linux il 16 settembre, prima di scrivere questo lavoro: tutto
+  # lo spazio di lavoro si compila, 505 prove verdi e zero rosse - dopo aver
+  # sistemato le prove di `nova-cartelle`, che erano scritte solo con i
+  # backslash e la' dentro non separano niente. Due cose sole servono da fuori:
+  #
+  # - `libasound2-dev`: cpal parla ad ALSA, e senza l'intestazione non si
+  #   compila nemmeno `nova-voce`. Su macOS non serve, Core Audio c'e' gia';
+  # - `nova-shell` resta fuori: e' l'involucro Tauri e vuole gtk e webkit
+  #   installati. Non e' un difetto da scoprire, e' il pezzo che CANT-9 dovra'
+  #   portare davvero. Tenerlo fuori rende il lavoro onesto - dice cosa vale
+  #   gia' ovunque, senza far finta sul resto.
+  #
+  # macOS invece non l'ha ancora guardato nessuno: se il primo giro e' rosso
+  # li', e' esattamente il motivo per cui questo lavoro esiste.
+  altrove:
+    strategy:
+      fail-fast: false
+      matrix:
+        sistema: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.sistema }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+      - name: Quel che serve da fuori
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+      - name: Prove
+        working-directory: core
+        shell: bash
+        run: |
+          # Come per gli altri lavori: il log completo lo legge chi e'
+          # autenticato, l'annotazione la legge chiunque.
+          set +e
+          cargo test --workspace --exclude nova-shell --no-fail-fast 2>&1 | tee /tmp/prove.log
+          esito=${PIPESTATUS[0]}
+          if [ "$esito" -ne 0 ]; then
+            rotte=$(grep -E '^test .+ \.\.\. FAILED$' /tmp/prove.log | sed 's/^test //; s/ \.\.\. FAILED$//' | tr '\n' ' ')
+            if [ -n "$rotte" ]; then echo "::error::prove Rust rosse su ${{ matrix.sistema }}: $rotte"; fi
+            perche=$(grep "panicked at" /tmp/prove.log | head -5 | tr '\n' '|')
+            if [ -n "$perche" ]; then echo "::error::$perche"; fi
+            exit 1
+          fi
+          verdi=$(grep -E '^test result: ok\.' /tmp/prove.log | sed -E 's/^test result: ok\. ([0-9]+) passed.*/\1/' | awk '{s+=$1} END {print s+0}')
+          echo "riepilogo: $verdi prove verdi su ${{ matrix.sistema }}"

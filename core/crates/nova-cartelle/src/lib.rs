@@ -131,8 +131,23 @@ pub fn avvertenza(percorso: &Path, cosa: &str) -> String {
 mod prove {
     use super::*;
 
+    /// Il percorso di prova, scritto con i backslash e costruito con il
+    /// separatore di **questo** sistema.
+    ///
+    /// Le prove erano scritte solo con i backslash, e su Linux e macOS un
+    /// backslash non separa niente: tutto il percorso e' un componente
+    /// solo, `components()` non ci trova mai la cartella sincronizzata, e
+    /// cinque prove su sette diventano rosse. Non perche' la funzione
+    /// sbagli la' - con un percorso vero di quei sistemi funziona - ma
+    /// perche' le prove descrivevano un sistema solo. Cosi' descrivono lo
+    /// stesso caso ovunque. Misurato il 16 settembre su Linux: cinque
+    /// rosse prima, sette verdi dopo, e la funzione non e' stata toccata.
+    fn perc(p: &str) -> PathBuf {
+        p.split('\\').collect()
+    }
+
     fn s(p: &str) -> String {
-        sincronizzata(Path::new(p))
+        sincronizzata(&perc(p))
     }
 
     #[test]
@@ -182,8 +197,8 @@ mod prove {
 
     #[test]
     fn lavvertenza_ce_solo_quando_serve() {
-        assert!(avvertenza(Path::new(r"D:\modelli"), "i modelli").is_empty());
-        let a = avvertenza(Path::new(r"C:\Users\utente\Dropbox\m"), "i modelli");
+        assert!(avvertenza(&perc(r"D:\modelli"), "i modelli").is_empty());
+        let a = avvertenza(&perc(r"C:\Users\utente\Dropbox\m"), "i modelli");
         assert!(a.contains("Dropbox"), "{a}");
         assert!(a.contains("segnaposti vuoti"), "il guaio peggiore va nominato");
         // Non e' un divieto: da' una ragione e una alternativa, non un no.
@@ -195,7 +210,7 @@ mod prove {
 
     #[test]
     fn il_cosa_finisce_nella_frase() {
-        let a = avvertenza(Path::new(r"C:\Users\utente\Dropbox\v"), "il vault");
+        let a = avvertenza(&perc(r"C:\Users\utente\Dropbox\v"), "il vault");
         assert!(a.contains("Mettere il vault li' dentro"), "{a}");
     }
 }

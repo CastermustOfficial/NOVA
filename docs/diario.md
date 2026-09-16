@@ -6941,3 +6941,60 @@ definito e registrato fra i comandi e **nessuno lo chiama**, quindi NOVA che
 pensa e NOVA che aspetta si vedono uguali; e il modo di passare la domanda a
 una CLI e' scritto dentro un valore predefinito del pannello invece di essere
 un campo.
+
+## 16 settembre 2026 — Acceso il Linux, e la prima cosa che ha detto
+
+CANT-9 diceva «prima si accende la luce, poi si guarda». L'ho fatto oggi, e la
+luce ha parlato in mezz'ora.
+
+Ho preso una macchina Linux vera e ci ho costruito il nucleo. **Si compila
+tutto**, tranne `nova-shell` — che vuole gtk e webkit installati, ed e'
+l'involucro Tauri, cioe' proprio il pezzo che CANT-9 dovra' portare davvero.
+Da fuori serve **una cosa sola**: `libasound2-dev`, perche' cpal parla ad
+ALSA. Su macOS non serve nemmeno quella.
+
+Poi le prove. `nova-cartelle`: **cinque rosse su sette**. E qui la cosa
+interessante e' che la funzione non ha niente che non va. Le prove erano
+scritte cosi':
+
+    s(r"C:\Users\utente\OneDrive\Documenti")  ->  "OneDrive"
+
+Su Windows quel percorso ha quattro componenti e il terzo e' «OneDrive». Su
+Linux un backslash non separa niente: e' **un componente solo**, lungo
+trentasei caratteri, e dentro non ci si trova mai «onedrive». Con un percorso
+vero di Linux — `/home/utente/OneDrive/Documenti` — la funzione risponde
+giusto. Non era il codice a parlare un sistema solo: erano le prove.
+
+Sistemate — il percorso di prova si costruisce col separatore di **questo**
+sistema, e descrive lo stesso caso ovunque — il conto e': **505 prove verdi,
+zero rosse**. Il nucleo Rust e' gia' portabile, e non lo sapeva nessuno.
+
+Adesso il lavoro della CI su `ubuntu-latest` e `macos-latest` esiste, con
+dentro la misura invece di un'ipotesi: so cosa installare e cosa escludere
+perche' l'ho visto, non perche' l'ho letto. macOS pero' non l'ha ancora
+guardato nessuno, nemmeno io: se il primo giro e' rosso li', e' esattamente il
+motivo per cui quel lavoro esiste.
+
+**Due cose che si vedono solo da fuori Windows.**
+
+La prima e' una decisione, non una correzione: su macOS OneDrive non sta nel
+profilo dell'utente, sta in `~/Library/CloudStorage/OneDrive-Personal`.
+Trattino **senza** spazio — che e' precisamente la forma che la regola rifiuta
+apposta, perche' accettarla rimetterebbe in gioco `dropbox-export-2024`, cioe'
+roba tirata fuori da Dropbox scambiata per una cartella sincronizzata. Quel
+falso allarme era costato scrivere la regola; non lo butto via di corsa per
+far posto a macOS. Va in lista, e si decide da svegli.
+
+La seconda mi piace di piu', perche' non l'ha trovata Linux: l'ha trovata il
+fatto di essere andato a leggere. Nella tabella dei nomi c'e'
+`("icloakdrive", "iCloud Drive")`. E' un refuso per `iclouddrive`: una riga
+che non puo' corrispondere a niente, perche' nessuna cartella al mondo si
+chiama cosi'. Sta **identica** in Python e in Rust.
+
+Il banco confronta i due elenchi, e li trova d'accordo. Sono d'accordo nello
+sbagliare. E' il limite di tutto il metodo dei gemelli, e vale la pena
+averlo scritto: **un banco gemello dimostra che due parti sono uguali, non che
+hanno ragione** (D212). Protegge dalla divergenza, che e' il guasto che nasce
+dopo il porto; contro un errore che c'era gia' prima non puo' niente. Quello
+lo trova solo il codice che incontra il mondo vero — o qualcuno che rilegge
+una riga che nessuno rileggeva da mesi.
