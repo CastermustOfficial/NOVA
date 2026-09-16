@@ -81,6 +81,9 @@ class FintoAgent(Agent):
         self.router = object()          # basta che non sia None
         self._ultima_impronta = None
         self._quante_ripetute = 0
+        self._storia_giro = []
+        self._nomi_giro = []
+        self._giro_detto = None
 
 
 # ---------------------------------------------------------------------------
@@ -167,6 +170,45 @@ controlla("il tool di servizio non ha spezzato la catena",
 controlla("cambiare argomenti fa ripartire da capo",
           py_detti[10] == "" and py_detti[11] == "")
 controlla("dopo l'ottava si tace", py_detti[9] == "")
+
+print("\n=== Il giro che non e' di fila ===")
+# Il giro vero: cerca, leggi, cerca, leggi. Ogni chiamata e' diversa dalla
+# precedente, quindi il contatore delle ripetizioni di fila resta a uno per
+# sempre e prima non si diceva niente - dodici passi di lavoro inutile e
+# nessuna parola.
+GIRO = ([("web_search", {"q": "gatti"}), ("read_page", {"url": "a"})] * 6
+        + [("write_file", {"path": "fine"})] * 2)
+b = FintoAgent({})
+py_giro, domande = [], []
+for nome, args in GIRO:
+    py_giro.append(b._promemoria_ripetizione(nome, args))
+    corpo = json.dumps(args, sort_keys=True, ensure_ascii=False, default=str)
+    breve = json.dumps(args, ensure_ascii=False, default=str)[:300]
+    domande.append({"tipo": "ripetizione", "sessione": "giro", "nome": nome,
+                    "argomenti": corpo, "breve": breve})
+risposte = rust(domande)
+diverse = [f"passo {i}: rust={r.get('promemoria')!r} python={p!r}"
+           for i, (r, p) in enumerate(zip(risposte, py_giro), 1)
+           if r.get("promemoria") != p]
+controlla("il giro alternato si legge uguale nelle due parti", not diverse,
+          "; ".join(diverse[:3]))
+
+quando = [i for i, d in enumerate(py_giro, 1) if d]
+controlla("il giro si dice al terzo e al quinto, non a ogni passo",
+          quando == [6, 10], f"ha parlato ai passi {quando}")
+controlla("e lo fa vedere invece di rimproverare",
+          "web_search \u2192 read_page" in (py_giro[5] or ""),
+          repr(py_giro[5]))
+controlla("uscire dal giro lo spegne", py_giro[-1] == "" and py_giro[-2] == "")
+
+# E il contrario: lavoro vero con argomenti che cambiano non e' un giro.
+LAVORO = [("read_file", {"path": f"f{i}"}) if k == 0
+          else ("write_file", {"path": f"f{i}"})
+          for i in range(6) for k in (0, 1)]
+c = FintoAgent({})
+detti = [c._promemoria_ripetizione(n, a2) for n, a2 in LAVORO]
+controlla("dodici passi di lavoro vero non diventano un giro",
+          not any(detti), str([d for d in detti if d][:1]))
 
 print("\n=== È un promemoria, non un divieto ===")
 # Se un domani diventasse un blocco, il confronto fra le due implementazioni

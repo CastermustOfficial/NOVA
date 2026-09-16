@@ -200,6 +200,9 @@ class Agent:
         # ricomincia da capo.
         self._ultima_impronta = ""
         self._quante_ripetute = 0
+        self._storia_giro: list[str] = []
+        self._nomi_giro: list[str] = []
+        self._giro_detto: tuple[str, int] | None = None
         self.cfg = cfg
         self.cb = callbacks or AgentCallbacks()
         self.safety = SafetyContext(cfg)
@@ -208,6 +211,9 @@ class Agent:
         self.memory = memory
         self._ultima_impronta = ""
         self._quante_ripetute = 0
+        self._storia_giro: list[str] = []
+        self._nomi_giro: list[str] = []
+        self._giro_detto: tuple[str, int] | None = None
         self.messages: list[dict] = []
         self.cancel_event = threading.Event()
         self._mem_idx: int | None = None
@@ -607,6 +613,9 @@ class Agent:
         # ricomincia da capo.
         self._ultima_impronta = ""
         self._quante_ripetute = 0
+        self._storia_giro: list[str] = []
+        self._nomi_giro: list[str] = []
+        self._giro_detto: tuple[str, int] | None = None
         agentico = getattr(self.brain, "agentico", False)
         tools = [] if agentico else openai_schema()
         self.trim_history(token_disponibili=self._spazio_per_la_conversazione(tools))
@@ -913,6 +922,21 @@ class Agent:
     # diversamente, cercare altrove, o concludere — resta al modello. Una
     # ripetizione legittima non viene bloccata da niente.
     SOGLIE_RIPETIZIONE = (3, 5, 8)
+
+    # Il contatore qui sopra ha sempre saputo riconoscere **un** modo di
+    # girare a vuoto: la stessa chiamata, identica, piu' volte di fila. E' il
+    # giro piu' stupido, ed era l'unico che si vedeva.
+    #
+    # Quello vero e' un altro. Un modello che non sa come uscirne alterna:
+    # cerca, leggi, cerca, leggi, cerca, leggi. Ogni chiamata e' diversa dalla
+    # precedente, quindi la catena si azzerava a ogni passo e il contatore
+    # restava a uno **per sempre**. Dodici passi di lavoro inutile, nessun
+    # promemoria, e l'utente che guarda NOVA girare.
+    #
+    # Gemello di `core/crates/nova-salita/src/lib.rs`.
+    MEMORIA_DEL_GIRO = 20
+    PERIODO_MASSIMO = 4
+    GIRI_PRIMA_DI_DIRLO = (3, 5)
     # I tool di servizio non azzerano la catena: se contassero, basterebbe un
     # `get_datetime` in mezzo per ripulire un ciclo e renderlo invisibile.
     RIPETIZIONE_TRASPARENTI = frozenset({"get_datetime", "kb_stats", "modelli"})
@@ -931,6 +955,56 @@ class Agent:
             corpo = repr(args)
         return f"{name}\u0000{corpo}"
 
+    @classmethod
+    def _ciclo(cls, storia: list[str]) -> tuple[int, int] | None:
+        """Il giro in fondo a questa storia: (quante chiamate, quante volte).
+
+        Si cerca il periodo **piu' corto** che spieghi la coda: `A B A B A B`
+        e' un giro di due ripetuto tre volte, non uno di sei fatto una volta.
+        Un periodo dove tutte le chiamate sono uguali non conta: quello e' il
+        giro stupido, e lo dice gia' il contatore delle ripetizioni di fila.
+        """
+        for periodo in range(2, cls.PERIODO_MASSIMO + 1):
+            if len(storia) < periodo * 2:
+                break
+            coda = storia[len(storia) - periodo:]
+            if all(x == coda[0] for x in coda):
+                continue
+            giri = 1
+            while len(storia) >= periodo * (giri + 1):
+                fine = len(storia) - periodo * giri
+                if storia[fine - periodo:fine] != coda:
+                    break
+                giri += 1
+            if giri >= cls.GIRI_PRIMA_DI_DIRLO[0]:
+                return (periodo, giri)
+        return None
+
+    @staticmethod
+    def _canonico(giro: list[str]) -> str:
+        """Lo stesso giro visto da un punto diverso e' lo stesso giro.
+
+        `A B A B A B A` contiene `AB` e anche `BA`: sono la stessa ruota,
+        girata di un passo.
+        """
+        if not giro:
+            return ""
+        minimo = min(range(len(giro)), key=lambda i: giro[i])
+        return "\u0001".join(giro[minimo:] + giro[:minimo])
+
+    @classmethod
+    def _promemoria_del_giro(cls, periodo: int, giri: int,
+                             nomi: list[str]) -> str:
+        """Dirgli «stai girando» senza dirgli **in cosa** e' un rimprovero."""
+        if giri not in cls.GIRI_PRIMA_DI_DIRLO:
+            return ""
+        catena = " \u2192 ".join(nomi)
+        return (f"\n\n[nota di sistema] Stai girando in tondo: le stesse "
+                f"{periodo} chiamate nello stesso ordine, {giri} volte di "
+                f"fila ({catena}). Ripeterle non cambiera' il risultato. "
+                f"Rileggi cosa ti hanno gia' risposto, poi cambia strada "
+                f"oppure rispondi con quello che hai.")
+
     def _promemoria_ripetizione(self, name: str, args: dict) -> str:
         """Se questa chiamata e' identica alle precedenti, cosa dirgli."""
         if name in self.RIPETIZIONE_TRASPARENTI:
@@ -941,9 +1015,27 @@ class Agent:
         else:
             self._ultima_impronta = impronta
             self._quante_ripetute = 1
+        self._storia_giro.append(impronta)
+        self._nomi_giro.append(name)
+        if len(self._storia_giro) > self.MEMORIA_DEL_GIRO:
+            del self._storia_giro[0]
+            del self._nomi_giro[0]
         n = self._quante_ripetute
         if n not in self.SOGLIE_RIPETIZIONE:
-            return ""
+            # Il giro di fila ha la precedenza: e' il caso piu' preciso, e due
+            # promemoria nello stesso passo sarebbero rumore.
+            trovato = self._ciclo(self._storia_giro)
+            if trovato is None:
+                return ""
+            periodo, giri = trovato
+            quale = self._canonico(self._storia_giro[-periodo:])
+            if self._giro_detto == (quale, giri):
+                return ""
+            frase = self._promemoria_del_giro(
+                periodo, giri, self._nomi_giro[-periodo:])
+            if frase:
+                self._giro_detto = (quale, giri)
+            return frase
         if n == self.SOGLIE_RIPETIZIONE[0]:
             return (f"\n\n[nota di sistema] Hai chiamato {n} volte di fila la stessa "
                     f"cosa con gli stessi argomenti. Rileggi il risultato che hai "

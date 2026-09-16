@@ -7120,3 +7120,65 @@ piu' vecchio di questa capacita', non e' un guasto — e' un binario da
 ricostruire. Lo dice una volta, fa il giro di qui (che e' lo stesso, con la
 stessa regola) e va avanti. Rompere NOVA a chi non ha ancora ricompilato
 sarebbe stato il modo piu' rapido di far sembrare un miglioramento un danno.
+
+## 16 settembre 2026, notte — Il giro che nessuno vedeva
+
+CANT-3, e sono partito dalla cosa che Gio mi aveva detto giorni fa senza che
+ci tornassimo sopra: *«Nova è rimasto bloccato in loop»*.
+
+C'e' un rilevatore, e funziona. `nova-salita` lo dice bene in testa: due modi
+di non farcela, sbattere contro un muro e girare a vuoto, e il secondo non si
+cura salendo di gradino — si fa **notare**. La ripetizione produce un
+promemoria, mai un divieto.
+
+Solo che guardava una cosa sola: la stessa chiamata, identica, piu' volte **di
+fila**.
+
+    if impronta == self._ultima_impronta:
+        self._quante_ripetute += 1
+    else:
+        self._ultima_impronta = impronta
+        self._quante_ripetute = 1
+
+Quello e' il giro piu' stupido, ed e' l'unico che un modello quasi mai fa.
+Quello vero alterna: cerca, leggi, cerca, leggi, cerca, leggi. Ogni chiamata
+e' diversa dalla precedente, quindi la catena si azzerava a ogni passo e il
+contatore restava a **uno per sempre**. Dodici passi — il tetto e' dodici — di
+lavoro inutile, nessun promemoria, e l'utente che guarda NOVA girare.
+
+Identico in Python e in Rust, portato fedelmente. Il banco confronta le due
+catene e le trova d'accordo: d'accordo nel non vedere. E' la seconda volta in
+due giorni che incontro D212, e comincio a pensare che sia la cosa piu' utile
+scritta in quel file.
+
+Adesso si guarda anche il **ciclo**: il periodo piu' corto che spiega la coda,
+fino a quattro chiamate, e si parla al terzo e al quinto giro (D216).
+
+Tre dettagli che sembrano pignoleria e non lo sono.
+
+**Il periodo piu' corto.** `A B A B A B` e' un giro di due ripetuto tre volte,
+non uno di sei fatto una volta. Cercare il piu' lungo vuol dire non
+riconoscere mai niente.
+
+**La ruota girata di un passo e' la stessa ruota.** `A B A B A B A` contiene
+`AB` tre volte e anche `BA` tre volte: senza accorgersene, il promemoria
+arriva a **ogni singolo passo** da li' in poi. Un avviso che arriva sempre e'
+un avviso che non legge piu' nessuno — e sarebbe stato un peggioramento
+travestito da correzione. Si ruota il giro finche' la piu' piccola sta davanti,
+e si confronta quello.
+
+**Gli argomenti fanno la differenza fra un giro e il lavoro.**
+`leggi(a) scrivi(a) leggi(b) scrivi(b) leggi(c) scrivi(c)` ha i nomi che si
+ripetono e gli argomenti che cambiano: non e' un giro, e' esattamente cosa
+vuol dire lavorare su piu' file. L'impronta comprende gli argomenti, quindi
+quel caso non tocca niente — e c'e' una prova che lo tiene cosi', perche' e'
+il falso allarme che renderebbe inutile tutto il resto.
+
+Diciotto prove in Rust, **sette mutazioni su sette prese**, e il banco gemello
+confronta la sequenza passo per passo — compresa quella di dodici passi di
+lavoro vero, che deve restare muta.
+
+E la frase. Dirgli «stai girando» senza dirgli **in cosa** e' un rimprovero;
+dirgli «web_search → read_page, tre volte di fila» e' un'informazione. La
+decisione — cambiare strada o rispondere con quello che ha — resta sua, come
+era gia' scritto in testa a quel file mesi fa.

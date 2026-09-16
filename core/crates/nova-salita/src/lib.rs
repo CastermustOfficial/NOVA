@@ -103,11 +103,122 @@ pub fn promemoria(n: u32, nome: &str, breve: &str) -> Option<String> {
     ))
 }
 
+// ------------------------------------------------------------- il giro
+//
+// Il contatore qui sotto ha sempre saputo riconoscere **un** modo di girare a
+// vuoto: la stessa chiamata, identica, piu' volte di fila. E' il giro piu'
+// stupido, ed e' l'unico che si vedeva.
+//
+// Quello vero e' un altro. Un modello che non sa come uscirne alterna:
+// cerca, leggi, cerca, leggi, cerca, leggi. Ogni chiamata e' diversa dalla
+// precedente, quindi la catena si azzerava a ogni passo e il contatore
+// restava a uno **per sempre**. Dodici passi di lavoro inutile, nessun
+// promemoria, e l'utente che guarda NOVA girare.
+//
+// La regola resta quella scritta in testa a questo file: si fa **notare**,
+// non si vieta. Un giro riconosciuto produce una frase, e la decisione —
+// cambiare strada o concludere — resta al modello.
+
+/// Quante impronte si tengono per riconoscere un giro.
+///
+/// Il giro piu' lungo che si riconosce e' di quattro chiamate, ripetuto
+/// cinque volte: venti. Tenerne di piu' non servirebbe a niente.
+pub const MEMORIA_DEL_GIRO: usize = 20;
+
+/// Il giro piu' lungo che si riconosce.
+///
+/// Oltre le quattro chiamate non e' piu' un giro: e' un piano. Riconoscere
+/// cicli lunghissimi vorrebbe dire chiamare «giro a vuoto» un lavoro vero che
+/// per caso si ripete, ed e' il modo piu' rapido di far ignorare l'avviso.
+pub const PERIODO_MASSIMO: usize = 4;
+
+/// Dopo quanti giri completi si dice qualcosa.
+pub const GIRI_PRIMA_DI_DIRLO: [usize; 2] = [3, 5];
+
+/// Il giro in fondo a questa storia: (quante chiamate lo compongono, quante
+/// volte si e' ripetuto).
+///
+/// Si cerca il periodo **piu' corto** che spieghi la coda: `A B A B A B` e'
+/// un giro di due ripetuto tre volte, non uno di sei fatto una volta. E un
+/// periodo dove tutte le chiamate sono uguali non conta: quello e' il giro
+/// stupido, e lo dice gia' il contatore delle ripetizioni di fila.
+pub fn ciclo(storia: &[String]) -> Option<(usize, usize)> {
+    for periodo in 2..=PERIODO_MASSIMO {
+        if storia.len() < periodo * 2 {
+            break;
+        }
+        let coda = &storia[storia.len() - periodo..];
+        if coda.iter().all(|x| x == &coda[0]) {
+            continue;
+        }
+        let mut giri = 1;
+        while storia.len() >= periodo * (giri + 1) {
+            let fine = storia.len() - periodo * giri;
+            let prima = &storia[fine - periodo..fine];
+            if prima != coda {
+                break;
+            }
+            giri += 1;
+        }
+        if giri >= GIRI_PRIMA_DI_DIRLO[0] {
+            return Some((periodo, giri));
+        }
+    }
+    None
+}
+
+/// Lo stesso giro visto da un punto diverso e' lo stesso giro.
+///
+/// `A B A B A B A` contiene `AB` e anche `BA`: sono la stessa ruota, girata
+/// di un passo. Si ruota finche' la piu' piccola sta davanti, cosi' due letture
+/// dello stesso giro si riconoscono uguali.
+pub fn canonico(giro: &[String]) -> String {
+    let Some(minimo) = giro.iter().enumerate().min_by(|a, b| a.1.cmp(b.1)).map(|(i, _)| i) else {
+        return String::new();
+    };
+    let mut ruotato: Vec<&String> = giro[minimo..].iter().collect();
+    ruotato.extend(giro[..minimo].iter());
+    ruotato
+        .into_iter()
+        .map(|s| s.as_str())
+        .collect::<Vec<_>>()
+        .join("\u{1}")
+}
+
+/// Cosa si dice a chi sta girando in tondo, se va detto adesso.
+///
+/// `nomi` sono le chiamate del giro, in ordine: servono a farglielo vedere.
+/// Dirgli «stai girando» senza dirgli **in cosa** e' un rimprovero; dirgli
+/// «cerca → leggi → cerca → leggi» e' un'informazione.
+pub fn promemoria_del_giro(periodo: usize, giri: usize, nomi: &[String]) -> Option<String> {
+    if !GIRI_PRIMA_DI_DIRLO.contains(&giri) {
+        return None;
+    }
+    let catena = nomi.join(" → ");
+    Some(format!(
+        "\n\n[nota di sistema] Stai girando in tondo: le stesse {periodo} \
+         chiamate nello stesso ordine, {giri} volte di fila ({catena}). \
+         Ripeterle non cambiera' il risultato. Rileggi cosa ti hanno gia' \
+         risposto, poi cambia strada oppure rispondi con quello che hai."
+    ))
+}
+
 /// Quante volte di fila e' arrivata la stessa identica chiamata.
 #[derive(Debug, Default, Clone)]
 pub struct Contatore {
     ultima: Option<String>,
     quante: u32,
+    /// Le ultime impronte, per riconoscere i giri che non sono di fila.
+    storia: Vec<String>,
+    /// I nomi corrispondenti: servono solo a scrivere la frase.
+    nomi: Vec<String>,
+    /// L'ultimo giro gia' segnalato, in forma canonica, e a quale conto.
+    ///
+    /// Senza questo il promemoria arriva a **ogni passo**: `A B A B A B A`
+    /// contiene il giro `AB` tre volte e anche il giro `BA` tre volte, e da
+    /// li' in poi ogni chiamata ne chiude uno. Un avviso che arriva sempre e'
+    /// un avviso che non legge piu' nessuno.
+    detto: Option<(String, usize)>,
 }
 
 impl Contatore {
@@ -134,10 +245,29 @@ impl Contatore {
         if self.ultima.as_deref() == Some(impronta.as_str()) {
             self.quante += 1;
         } else {
-            self.ultima = Some(impronta);
+            self.ultima = Some(impronta.clone());
             self.quante = 1;
         }
-        promemoria(self.quante, nome, breve)
+        self.storia.push(impronta);
+        self.nomi.push(nome.to_string());
+        if self.storia.len() > MEMORIA_DEL_GIRO {
+            self.storia.remove(0);
+            self.nomi.remove(0);
+        }
+        // Prima il giro di fila: e' il caso piu' preciso, e due promemoria
+        // nello stesso passo sarebbero rumore.
+        if let Some(p) = promemoria(self.quante, nome, breve) {
+            return Some(p);
+        }
+        let (periodo, giri) = ciclo(&self.storia)?;
+        let quale = canonico(&self.storia[self.storia.len() - periodo..]);
+        if self.detto.as_ref() == Some(&(quale.clone(), giri)) {
+            return None;
+        }
+        let nomi = &self.nomi[self.nomi.len() - periodo..];
+        let frase = promemoria_del_giro(periodo, giri, nomi)?;
+        self.detto = Some((quale, giri));
+        Some(frase)
     }
 
     pub fn quante(&self) -> u32 {
@@ -227,5 +357,115 @@ mod prove {
             }
         }
         assert_eq!(detti, 3, "tre promemoria in quindici giri, poi silenzio");
+    }
+}
+
+#[cfg(test)]
+mod prove_del_giro {
+    use super::*;
+
+    fn seq(c: &mut Contatore, chiamate: &[&str]) -> Vec<Option<String>> {
+        chiamate
+            .iter()
+            .map(|n| {
+                let (nome, arg) = n.split_once(':').unwrap_or((n, ""));
+                c.guarda(nome, arg, arg)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn il_giro_di_due_si_riconosce_alla_terza_volta() {
+        // Il caso vero: cerca, leggi, cerca, leggi, cerca, leggi. Ogni
+        // chiamata e' diversa dalla precedente, quindi il contatore delle
+        // ripetizioni di fila resta a uno per sempre.
+        let mut c = Contatore::nuovo();
+        let r = seq(&mut c, &["cerca:x", "leggi:y", "cerca:x", "leggi:y",
+                              "cerca:x", "leggi:y"]);
+        assert!(r[..5].iter().all(|x| x.is_none()), "{r:?}");
+        let detto = r[5].as_deref().expect("il giro non e' stato visto");
+        assert!(detto.contains("girando in tondo"), "{detto}");
+        assert!(detto.contains("cerca → leggi"), "deve far vedere il giro: {detto}");
+        assert_eq!(c.quante(), 1, "di fila non si e' ripetuto niente");
+    }
+
+    #[test]
+    fn e_lo_ridice_al_quinto_giro_non_a_ogni_passo() {
+        let mut c = Contatore::nuovo();
+        let mut quanti = 0;
+        for i in 0..12 {
+            let nome = if i % 2 == 0 { "cerca" } else { "leggi" };
+            if c.guarda(nome, "x", "x").is_some() {
+                quanti += 1;
+            }
+        }
+        assert_eq!(quanti, 2, "un promemoria al terzo giro e uno al quinto");
+    }
+
+    #[test]
+    fn un_lavoro_vero_con_argomenti_diversi_non_e_un_giro() {
+        // leggi(a) scrivi(a) leggi(b) scrivi(b): i nomi si ripetono, gli
+        // argomenti no. Non e' un giro, e' lavoro.
+        let mut c = Contatore::nuovo();
+        let r = seq(&mut c, &["leggi:a", "scrivi:a", "leggi:b", "scrivi:b",
+                              "leggi:c", "scrivi:c", "leggi:d", "scrivi:d"]);
+        assert!(r.iter().all(|x| x.is_none()), "{r:?}");
+    }
+
+    #[test]
+    fn due_giri_soli_non_bastano() {
+        let mut c = Contatore::nuovo();
+        let r = seq(&mut c, &["cerca:x", "leggi:y", "cerca:x", "leggi:y"]);
+        assert!(r.iter().all(|x| x.is_none()), "quattro chiamate non sono un giro: {r:?}");
+    }
+
+    #[test]
+    fn il_giro_di_tre_si_riconosce() {
+        let mut c = Contatore::nuovo();
+        let r = seq(&mut c, &["a:1", "b:2", "c:3", "a:1", "b:2", "c:3",
+                              "a:1", "b:2", "c:3"]);
+        let detto = r[8].as_deref().expect("giro di tre non visto");
+        assert!(detto.contains("le stesse 3"), "{detto}");
+        assert!(detto.contains("a → b → c"), "{detto}");
+    }
+
+    #[test]
+    fn la_stessa_chiamata_di_fila_resta_il_caso_di_prima() {
+        // Non deve arrivare il promemoria del giro: quello di fila e' piu'
+        // preciso, e due frasi nello stesso passo sono rumore.
+        let mut c = Contatore::nuovo();
+        let r = seq(&mut c, &["cerca:x", "cerca:x", "cerca:x"]);
+        let detto = r[2].as_deref().expect("la terza di fila si dice");
+        assert!(detto.contains("volte di fila"), "{detto}");
+        assert!(!detto.contains("girando in tondo"), "{detto}");
+    }
+
+    #[test]
+    fn uscire_dal_giro_lo_spegne() {
+        let mut c = Contatore::nuovo();
+        seq(&mut c, &["cerca:x", "leggi:y", "cerca:x", "leggi:y", "cerca:x", "leggi:y"]);
+        // Cambia strada davvero: il giro si interrompe e non si ridice piu'.
+        let r = seq(&mut c, &["scrivi:z", "finisci:w", "manda:v", "chiudi:u"]);
+        assert!(r.iter().all(|x| x.is_none()), "{r:?}");
+    }
+
+    #[test]
+    fn ciclo_trova_il_periodo_piu_corto() {
+        let s: Vec<String> = ["a", "b", "a", "b", "a", "b"]
+            .iter().map(|x| x.to_string()).collect();
+        assert_eq!(ciclo(&s), Some((2, 3)));
+        let vuota: Vec<String> = Vec::new();
+        assert_eq!(ciclo(&vuota), None);
+    }
+
+    #[test]
+    fn uno_strumento_trasparente_non_spezza_il_giro() {
+        // `get_datetime` esce prima di toccare qualunque contatore: chiederlo
+        // in mezzo a un giro non deve renderlo invisibile.
+        let mut c = Contatore::nuovo();
+        let r = seq(&mut c, &["cerca:x", "get_datetime:", "leggi:y",
+                              "cerca:x", "get_datetime:", "leggi:y",
+                              "cerca:x", "get_datetime:", "leggi:y"]);
+        assert!(r.iter().any(|x| x.is_some()), "il giro si e' nascosto dietro l'ora");
     }
 }
