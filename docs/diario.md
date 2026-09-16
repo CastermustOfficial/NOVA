@@ -7201,3 +7201,22 @@ E' la seconda corsa della settimana, dopo la scheda del browser. Comincio a
 pensare che «prendi la misura prima dell'azione e confronta dopo» sia un modo
 di scrivere prove che sembra rigoroso e invece e' fragile: misura anche
 l'istante in mezzo, che non appartiene a nessuno dei due.
+
+**Coda della coda.** Verde il Python, rosso macOS — e per la prima volta il
+lavoro `altrove` ha detto una cosa che nessuna delle due macchine di casa
+poteva dire: `rete::prove::il_trasporto_vero_legge_codice_e_corpo`.
+
+Il finto server dentro quella prova leggeva la richiesta **una volta sola**,
+in un colpo da quattromila byte, e poi rispondeva. Se la richiesta arriva
+spezzata in due segmenti — che e' normale, e dipende da quando il sistema
+decide di spedire — il corpo resta nella presa. E chiudere una presa con dei
+byte non letti dentro fa mandare un RST, che butta via anche la risposta che
+il cliente aveva gia' in mano.
+
+Linux e Windows se ne fanno una ragione. macOS no, ed e' nel suo diritto.
+
+Adesso legge tutta la richiesta — intestazioni, `Content-Length`, corpo — e
+poi risponde. Non l'ho potuto riprodurre qui: su Linux era verde prima ed e'
+verde adesso. E' la CI che lo dira', ed e' esattamente il motivo per cui quel
+lavoro esiste — quattro giorni fa avrei scritto «funziona» e avrei avuto
+ragione su due sistemi su tre.

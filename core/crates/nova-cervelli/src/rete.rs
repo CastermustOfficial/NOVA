@@ -343,8 +343,36 @@ mod prove {
         std::thread::spawn(move || {
             for arrivato in ascolto.incoming() {
                 let Ok(mut c) = arrivato else { break };
+                // Si legge **tutta** la richiesta prima di rispondere, e non
+                // e' pedanteria da finto server: chiudere una presa con dei
+                // byte non letti ancora dentro fa mandare un RST, e un RST
+                // butta via anche la risposta che il cliente aveva gia' in
+                // mano. Su Linux e Windows passava lo stesso da mesi; su
+                // macOS la prova e' rossa. Prima si leggeva una volta sola,
+                // e una richiesta spezzata in due segmenti lasciava indietro
+                // il corpo.
+                let mut richiesta = Vec::new();
                 let mut buffer = [0u8; 4096];
-                let _ = c.read(&mut buffer);
+                loop {
+                    let Ok(quanti) = c.read(&mut buffer) else { break };
+                    if quanti == 0 {
+                        break;
+                    }
+                    richiesta.extend_from_slice(&buffer[..quanti]);
+                    let testo = String::from_utf8_lossy(&richiesta);
+                    let Some(fine_testa) = testo.find("\r\n\r\n") else { continue };
+                    let quanto_corpo = testo[..fine_testa]
+                        .lines()
+                        .find_map(|r| {
+                            let (k, v) = r.split_once(':')?;
+                            k.trim().eq_ignore_ascii_case("content-length")
+                                .then(|| v.trim().parse::<usize>().ok())?
+                        })
+                        .unwrap_or(0);
+                    if richiesta.len() >= fine_testa + 4 + quanto_corpo {
+                        break;
+                    }
+                }
                 let _ = c.write_all(risposta.as_bytes());
                 let _ = c.flush();
             }
