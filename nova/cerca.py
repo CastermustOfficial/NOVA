@@ -131,9 +131,22 @@ def cerca(domanda: str, quanti: int = 8, porta: int = PORTA,
     domanda = (domanda or "").strip()
     if not domanda:
         return {"ok": False, "motivo": "domanda vuota"}
-    avvia(porta)
     from urllib.parse import quote_plus
-    scheda = browser.apri(MOTORE.format(q=quote_plus(domanda)), porta)
+    # Accendere il browser e aprirci una scheda vuol dire parlare in HTTP col
+    # browser stesso, e quella conversazione puo' rompersi in tutti i modi in
+    # cui si rompe una conversazione: il browser muore, la porta non risponde,
+    # il profilo e' bloccato da un'altra copia. Fuori da qui ogni strada di
+    # questo modulo torna un motivo; questa sola sollevava, e chi la chiamava
+    # si ritrovava in mano uno stack di `requests` invece di una frase.
+    #
+    # Al modello uno stack non dice niente di utile: non sa se riprovare, se
+    # cambiare strada o se dirlo all'utente. Una frase si'.
+    try:
+        avvia(porta)
+        scheda = browser.apri(MOTORE.format(q=quote_plus(domanda)), porta)
+    except Exception as e:                                     # noqa: BLE001
+        return {"ok": False,
+                "motivo": f"non riesco a guidare il browser: {spiega(e)}"}
     sid = scheda.get("id") or ""
     try:
         codice = _ESTRAI % (200, max(1, min(quanti, 25)))

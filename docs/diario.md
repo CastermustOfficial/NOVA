@@ -7220,3 +7220,23 @@ poi risponde. Non l'ho potuto riprodurre qui: su Linux era verde prima ed e'
 verde adesso. E' la CI che lo dira', ed e' esattamente il motivo per cui quel
 lavoro esiste — quattro giorni fa avrei scritto «funziona» e avrei avuto
 ragione su due sistemi su tre.
+
+**E una terza coda, che non e' una corsa.** `test_cerca` rosso su un Python su
+quattro, con dentro uno stack di `requests`. Non un fallimento della prova: un
+**difetto**, e la prova lo stava solo mostrando male.
+
+`cerca()` fa due cose prima di poter dire qualsiasi cosa: accende il browser e
+ci apre una scheda. Tutte e due vogliono dire parlare in HTTP col browser
+stesso, e quella conversazione si rompe in tutti i modi in cui si rompe una
+conversazione — il browser muore, la porta non risponde, il profilo e'
+occupato da un'altra copia. Ogni altra strada di quel modulo torna
+`{"ok": false, "motivo": ...}`. Quelle due sole **sollevavano**.
+
+Chi le chiama e' il modello. Al modello uno stack di `requests` non dice
+niente di utile: non sa se riprovare, se cambiare strada, o se dirlo
+all'utente. Una frase si'. E' la stessa cosa per cui esiste `nova-guasti`, e
+qui mancava in mezzo alla strada piu' battuta del modulo.
+
+Adesso torna un motivo. E la prova nuova non ha bisogno di un browser — chiede
+su una porta chiusa apposta — quindi gira su tutte e quattro le versioni di
+Python e su tutti e tre i sistemi, invece che solo dove c'e' Edge.
