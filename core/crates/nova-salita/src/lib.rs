@@ -203,6 +203,44 @@ pub fn promemoria_del_giro(periodo: usize, giri: usize, nomi: &[String]) -> Opti
     ))
 }
 
+// ------------------------------------------------------ i passi finiti
+//
+// Il terzo modo di non farcela, e finora non stava scritto da nessuna parte:
+// **finire i passi**. Il ciclo ne ha un tetto — dodici — e quando li esaurisce
+// diceva questo:
+//
+//     Ho raggiunto il numero massimo di passaggi consentiti.
+//     Dimmi come vuoi che proceda.
+//
+// e tornava **quella frase al posto di cio' che aveva gia' scritto**. Dodici
+// passi di lavoro: pagine lette, file aperti, pezzi di risposta messi giu'
+// lungo la strada — e all'utente arriva una riga burocratica che non dice
+// nemmeno cosa aveva trovato.
+//
+// E' la stessa forma del taglio dei risultati, che questo progetto ha gia'
+// curato una volta: una perdita silenziosa deve diventare un rinvio. Quel che
+// c'e' si consegna, e si dice perche' ci si e' fermati.
+
+/// Cosa si dice quando i passi sono finiti.
+///
+/// `gia_detto` e' l'ultimo testo che il modello aveva scritto: se c'e', si
+/// consegna, e il tetto diventa una nota accanto invece di una sostituzione.
+pub fn passi_finiti(quanti: u32, gia_detto: &str) -> String {
+    let avanzo = gia_detto.trim();
+    if avanzo.is_empty() {
+        return format!(
+            "Ho fatto {quanti} passaggi senza arrivare a una risposta, e mi \
+             fermo qui invece di continuare all'infinito. Dimmi come vuoi che \
+             proceda."
+        );
+    }
+    format!(
+        "{avanzo}\n\n[Mi sono fermato dopo {quanti} passaggi: e' il tetto che \
+         ho da solo. Quello qui sopra e' quanto sono riuscito a mettere \
+         insieme. Se non basta, dimmi come vuoi che proceda.]"
+    )
+}
+
 /// Quante volte di fila e' arrivata la stessa identica chiamata.
 #[derive(Debug, Default, Clone)]
 pub struct Contatore {
@@ -467,5 +505,45 @@ mod prove_del_giro {
                               "cerca:x", "get_datetime:", "leggi:y",
                               "cerca:x", "get_datetime:", "leggi:y"]);
         assert!(r.iter().any(|x| x.is_some()), "il giro si e' nascosto dietro l'ora");
+    }
+}
+
+#[cfg(test)]
+mod prove_dei_passi {
+    use super::*;
+
+    #[test]
+    fn quel_che_ha_gia_scritto_si_consegna() {
+        // Il difetto: dodici passi di lavoro, e la riga del tetto prendeva il
+        // posto di cio' che aveva trovato.
+        let d = passi_finiti(12, "Ho trovato tre listoni aggiornati a ieri.");
+        assert!(d.starts_with("Ho trovato tre listoni"), "{d}");
+        assert!(d.contains("12 passaggi"), "{d}");
+        assert!(d.contains("Se non basta"), "{d}");
+    }
+
+    #[test]
+    fn e_se_non_ha_scritto_niente_lo_dice_e_basta() {
+        let d = passi_finiti(12, "   \n  ");
+        assert!(d.contains("12 passaggi"), "{d}");
+        assert!(d.contains("senza arrivare a una risposta"), "{d}");
+        assert!(!d.contains("qui sopra"), "non c'e' niente sopra: {d}");
+    }
+
+    #[test]
+    fn il_numero_e_quello_vero_non_una_costante() {
+        assert!(passi_finiti(4, "").contains("4 passaggi"));
+        assert!(passi_finiti(30, "x").contains("30 passaggi"));
+    }
+
+    #[test]
+    fn non_e_un_rimprovero_e_lascia_la_mano_allutente() {
+        for testo in [passi_finiti(12, ""), passi_finiti(12, "qualcosa")] {
+            let b = testo.to_lowercase();
+            for vietato in ["non posso", "errore", "fallito", "impossibile"] {
+                assert!(!b.contains(vietato), "{testo}");
+            }
+            assert!(b.contains("dimmi come vuoi"), "{testo}");
+        }
     }
 }

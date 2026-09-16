@@ -26,6 +26,12 @@ enum Domanda {
         salite: u32,
         passi: u32,
     },
+    #[serde(rename = "passi")]
+    Passi {
+        quanti: u32,
+        #[serde(default)]
+        gia_detto: String,
+    },
     #[serde(rename = "ripetizione")]
     Ripetizione {
         sessione: String,
@@ -55,6 +61,8 @@ struct Risposta {
     #[serde(skip_serializing_if = "Option::is_none")]
     quante: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    fine: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     errore: Option<String>,
 }
 
@@ -75,6 +83,7 @@ fn main() {
                 salire: None,
                 promemoria: None,
                 quante: None,
+                fine: None,
                 errore: Some(format!("domanda illeggibile: {e}")),
             },
             Ok(Domanda::Salire {
@@ -96,9 +105,17 @@ fn main() {
                     salire: Some(serve_salire(&m, fallimenti, salite, passi)),
                     promemoria: None,
                     quante: None,
+                    fine: None,
                     errore: None,
                 }
             }
+            Ok(Domanda::Passi { quanti, gia_detto }) => Risposta {
+                salire: None,
+                promemoria: None,
+                quante: None,
+                fine: Some(nova_salita::passi_finiti(quanti, &gia_detto)),
+                errore: None,
+            },
             Ok(Domanda::Ripetizione { sessione, nome, argomenti, breve }) => {
                 let c = sessioni.entry(sessione).or_default();
                 let p = c.guarda(&nome, &argomenti, &breve);
@@ -106,6 +123,7 @@ fn main() {
                     salire: None,
                     promemoria: Some(p.unwrap_or_default()),
                     quante: Some(c.quante()),
+                    fine: None,
                     errore: None,
                 }
             }
