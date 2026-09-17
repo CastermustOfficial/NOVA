@@ -972,6 +972,7 @@ mole, non di difficolta'.
 | CANT-8 | **L'harness dei documenti** | ~2.900 | Il piu' grosso, e l'unico che **non e' una traduzione**: e' una finestra Qt, e in Rust vuol dire deciderne un'altra. E' una decisione di interfaccia travestita da porting, e va presa da sveglio, non a fine lista |
 | CANT-9 | **Mac e Linux, parita' piena** | ~3.300 | Non e' in coda per caso: e' il primo cantiere che **non si puo' provare da qui**. Tutto il resto lo si vede su questa macchina; questo no, e la notte del 14 settembre ha mostrato cosa succede a scrivere codice che nessuna macchina diversa guarda mai. Va dopo il Rust perche' portare due volte le stesse cose - una in Python e una in Rust - e' l'unico modo garantito di finire con due comportamenti diversi |
 | CANT-10 | **I fogli di calcolo** | ~150 oggi | Il pubblico lo chiede, e oggi NOVA sa fare **meta' della meta'**: legge il testo delle celle di un `.xlsx`, in sola lettura, e non sa scrivere niente. Va dopo il Rust per la stessa ragione di CANT-9, e nasce direttamente come crate: un lettore-scrittore di fogli e' aritmetica e formati, cioe' esattamente il genere di cosa che si porta bene e si prova meglio |
+| CANT-11 | **NOVA parla MCP da un lato solo** | ~400 | `nova-mcp` dice di se': «il protocollo con cui NOVA **si apre** a un altro programma». E' vero, ed e' meta': NOVA sa farsi usare e non sa usare. Ogni volta che qualcosa esiste gia' come server MCP — pilotare Excel, un gestionale, un servizio interno — la scelta e' fra riscriverlo e rinunciarci, quando la terza strada e' parlarci. Va dopo i fogli perche' e' un **cancello**, non uno strumento: un server MCP di qualcun altro descrive i propri strumenti con parole sue, e quelle parole finiscono nel prompt. Aprire quella porta senza decidere prima chi puo' entrare vorrebbe dire far scrivere a un estraneo dentro la testa di NOVA |
 
 Due cose che la tabella non dice.
 
@@ -1102,6 +1103,34 @@ Cosa serve, in ordine di quanto e' chiaro cosa fare:
    riscrive);
 3. **il `.csv` vero**, che non e' un formato ma una famiglia: separatore,
    codifica, virgolette, prima riga che a volte e' intestazione e a volte no;
+**Due segnalazioni, e cosa dicono davvero.** Gio ha trovato un articolo e un
+progetto. L'articolo (`excelwiz.net`) e' una panoramica di cosa Excel sa fare
+da se' con l'IA — Ideas, Power Query, formule dinamiche, Python dentro Excel:
+niente da adottare, ma dice cosa la gente **intende** per «automatizzare
+Excel», ed e' quasi tutto analisi e cruscotti.
+
+Il progetto e' un'altra cosa. `sbroenne/mcp-server-excel` e' l'altra meta' del
+bivio, fatta per bene. Misurato clonandolo: circa **140.000 righe di C#** su
+.NET 10, licenza MIT, **27 famiglie di comandi** — Power Query, DAX, VBA,
+`=PY()`, PivotTable, grafici, slicer, XML Map. Pilota l'**applicazione Excel
+vera** via COM, e lo dichiara in testa senza girarci intorno: richiede
+Windows, Excel 2016 o piu' recente, **un desktop interattivo**, e l'accesso
+esclusivo alla cartella di lavoro.
+
+Non cambia D210: la conferma. Quella roba non si adotta come dipendenza senza
+portarsi dentro .NET, Windows, Excel e uno schermo acceso — cioe' tutto cio'
+da cui CANT-9 sta cercando di uscire.
+
+Dice pero' due cose utili:
+
+- le sue 27 famiglie sono un **catalogo misurato** di cosa si chiede a Excel,
+  che vale piu' di quello che indovineremmo noi. Quando si decidera' cosa deve
+  saper fare `nova-fogli`, e' da li' che conviene guardare;
+- la meta' «Excel vero» si puo' avere **senza possederla**: e' un server MCP,
+  con licenza MIT. Chi ha Windows ed Excel se lo installa e NOVA lo usa; chi
+  non ce l'ha ha comunque i file. Solo che oggi NOVA non puo' — e questo e' il
+  pezzo nuovo, qui sotto.
+
 4. **cosa e' una tabella** in un foglio fatto da una persona - intestazioni
    che non stanno alla riga 1, righe vuote in mezzo, totali in fondo. Questa e'
    la parte difficile, ed e' la stessa difficolta' del taglio del contesto: un

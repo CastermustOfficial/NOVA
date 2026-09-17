@@ -128,9 +128,18 @@ if date:
         # opposto: e' un documento che afferma una cosa falsa su quando e'
         # successo cio' che racconta, ed e' l'unico documento che non ha modo
         # di smentirsi da solo.
+        #
+        # «Nel futuro» pero' vuol dire **dopo oggi**, non «dopo l'ultimo
+        # commit di codice». Erano la stessa cosa finche' ogni giornata
+        # toccava del codice; una giornata passata a leggere e a decidere no,
+        # e quella va scritta uguale — anzi, e' quella che fra sei mesi
+        # nessuno ricostruirebbe da `git log`. Con il confronto vecchio
+        # l'unico modo di scriverla era **datarla ieri**, cioe' proprio la
+        # cosa falsa che questo controllo esiste per impedire.
+        oggi = datetime.date.today()
         controlla("e nemmeno piu' nuova: un diario non puo' stare nel futuro",
-                  max(date) <= ultimo_lavoro,
-                  f"ultima voce {max(date)}, ultimo lavoro {ultimo_lavoro}")
+                  max(date) <= oggi,
+                  f"ultima voce {max(date)}, oggi {oggi}")
 
 print("\n6. e dice a cosa serve, cosi' nessuno lo confonde con git log")
 controlla("spiega perche' non basta il registro delle modifiche",

@@ -7435,3 +7435,66 @@ Quel che ancora non c'e': chi tiene la conversazione fra un turno e l'altro, e
 chi costruisce i gradini leggendo la configurazione. Sono CANT-7, e adesso si
 vede bene perche' quella si **riscrive** invece di portarla: e' la cosa a cui
 tutte le altre chiedono qualcosa.
+
+## 17 settembre 2026 — Due link, e la porta che manca
+
+Gio ha mandato due cose «per dopo». Sono andato a guardarle prima di
+dimenticarmene, perche' una delle due dice qualcosa che non sapevamo.
+
+L'articolo non e' la scoperta: e' una panoramica di cosa Excel sa fare da se'
+con l'IA. Utile per capire cosa la gente **intende** quando dice «automatizza
+Excel» — analisi, cruscotti, ETL, previsioni — e non per scegliere una
+libreria.
+
+Il progetto invece l'ho clonato e contato, invece di leggere il README e
+fidarmi. `sbroenne/mcp-server-excel`: **140.000 righe di C#** su .NET 10, MIT,
+27 famiglie di comandi. Pilota l'applicazione Excel vera via COM, e in testa
+al README c'e' scritto chiaro cosa vuole: Windows, Excel 2016 o piu' recente,
+**un desktop interattivo**, accesso esclusivo alla cartella di lavoro.
+
+E' l'altra meta' del bivio di CANT-10 — quella che Gio ha scartato — fatta
+seriamente e per intero. Vederla non mi fa rimpiangere la scelta: la conferma.
+Adottarla come dipendenza vorrebbe dire portarsi dentro .NET, Windows, Excel e
+uno schermo acceso, cioe' tutto cio' da cui CANT-9 sta cercando di uscire, e
+per giunta su una macchina dove NOVA dovrebbe **chiudere le cartelle di lavoro
+dell'utente** prima di poter lavorare.
+
+Ma guardandola bene c'e' una terza strada, e il fatto che non l'avessi in
+mente e' il pezzo interessante. Quel progetto e' un **server MCP**. NOVA parla
+MCP. Solo che lo parla **da un lato solo**: `nova-mcp` dice di se', in prima
+riga, «il protocollo con cui NOVA si apre a un altro programma». E' vero, ed e'
+meta'. NOVA sa farsi usare e non sa usare.
+
+Il che vuol dire che ogni volta che una cosa esiste gia' come server MCP — che
+sia Excel, un gestionale, un servizio interno di qualcuno — la scelta oggi e'
+fra riscriverla e rinunciarci. La terza, parlarci, non e' sul tavolo perche'
+manca una porta, non perche' qualcuno l'abbia scartata.
+
+L'ho messa in lista come CANT-11, e dopo i fogli, con un motivo che vale la
+pena scrivere: **e' un cancello, non uno strumento**. Un server MCP di
+qualcun altro descrive i propri strumenti con parole sue, e quelle parole
+finiscono dritte nel prompt di NOVA. Aprire quella porta senza aver deciso
+prima chi puo' entrare vorrebbe dire lasciar scrivere a un estraneo dentro la
+testa di NOVA — e questo e' un progetto che a un cervello che vive fuori ci
+manda gia' molto meno di quanto potrebbe, di proposito.
+
+I fogli restano dove sono: prima i file, che funzionano anche senza Office e
+anche su Mac e Linux. Ma adesso la meta' «Excel vero» ha un modo di arrivare
+che non ci costa centoquarantamila righe di C#, e quel modo si chiama saper
+usare invece di sapersi far usare.
+
+**Coda.** Questa voce non si poteva scrivere. La prova del diario dice che una
+voce non puo' stare «nel futuro», e confrontava con la data dell'**ultimo
+commit di codice**. Oggi ho solo letto due link, contato un repository e preso
+una decisione: non ho toccato una riga di `nova/` ne' di `core/`, quindi per
+quel confronto oggi non esiste.
+
+Il controllo aveva ragione nello spirito e torto nella misura. «Nel futuro»
+vuol dire **dopo oggi**. Erano la stessa cosa finche' ogni giornata toccava
+del codice; una giornata passata a leggere e a decidere no — ed e' proprio
+quella che fra sei mesi nessuno ricostruirebbe da `git log`, che e' il motivo
+per cui questo file esiste.
+
+Con il confronto vecchio l'unico modo di scrivere una giornata cosi' era
+**datarla ieri**: cioe' esattamente la cosa falsa che quel controllo esiste
+per impedire. Adesso guarda l'orologio.
