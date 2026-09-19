@@ -57,8 +57,19 @@ visti: list[str] = []
 b = Battito(visti.append, ogni=0.05)
 b.dice("Apro il portale")
 controlla("il primo stato esce subito", visti == ["Apro il portale"], str(visti))
-time.sleep(0.35)
-controlla("e poi si ripete da solo", len(visti) >= 4, str(len(visti)))
+# **Si aspetta che accada, non si misura quanto ci mette.** Prima c'era uno
+# `sleep(0.35)` e poi «devono essercene almeno quattro»: con un battito ogni
+# 50 ms il conto torna su una macchina scarica e non torna su un agente
+# carico, dove un thread puo' restare fermo mezzo secondo senza che niente
+# sia rotto. Una prova che misura la velocita' di una macchina diventa rossa
+# quando la macchina e' occupata, e insegna a ignorare i rossi.
+#
+# La proprieta' da provare e' «si ripete da solo», e quella non ha fretta.
+scadenza = time.time() + 5
+while len(visti) < 4 and time.time() < scadenza:
+    time.sleep(0.05)
+controlla("e poi si ripete da solo", len(visti) >= 4,
+          f"{len(visti)} battiti in cinque secondi: non si ripete")
 b.fermati()
 # Si conta **dopo** aver fermato, non prima. Fra `len(visti)` e `fermati()`
 # passa un istante, e il battito batte ogni 0,05s: quello gia' in volo
