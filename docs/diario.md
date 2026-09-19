@@ -7956,3 +7956,44 @@ puo' provare da qui» e «nessuno lo sta provando».
 
 Per la prima volta la suite intera e' verde su Linux: 96 prove, nessuna
 rossa, e quelle che qui non si possono fare escono 2 e lo dicono.
+
+## Tre sonde per una riga, e perche' da me funzionava
+
+`test_registro.py` verde su Windows, verde qui, rossa su Ubuntu e macOS: la
+potatura non lasciava lo storico. Non l'ho riprodotta — stessa versione di
+Python, stessa HOME, stesso ordine — quindi invece di indovinare ho insegnato
+alla prova a raccontare cosa vedeva. Su un agente il file non lo si puo'
+aprire: o lo dice la prova, o non lo dice nessuno.
+
+**Prima sonda**: quali file ci sono e quanto sono grossi. Risposta:
+`azioni.jsonl (20193b)`, e nient'altro. Venti chilobyte con un tetto da
+duemila, e nessuno storico: la potatura non era scattata **mai**.
+
+**Seconda**: il tipo, la dimensione e il tetto, piu' `ruota_se_serve` chiamata
+a mano. Risposta: `S_ISREG=True size=20193 tetto=2000 -> False`. File normale,
+piu' grosso del tetto, e risponde no. Dentro quella funzione restavano tre
+strade e due erano escluse.
+
+**Terza**: provare a rinominare, su una copia. `PermissionError`.
+
+E li' si chiude. Cinquanta righe piu' su, la prova stessa mette la cartella
+del registro a `0555` — apposta, per controllare che un registro impedito non
+si metta di traverso — e non la rimette. Su Windows non si vede: li' `chmod`
+non fa niente, la cartella resta scrivibile e il resto gira. Su Linux e macOS
+resta in sola lettura fino in fondo.
+
+Non era un difetto di NOVA, ed e' peggio: era una prova che lasciava il mondo
+storto, e il conto lo pagava un'altra prova cinquanta righe dopo, con la
+faccia di un difetto della potatura. Adesso il permesso si rimette in un
+`finally` e c'e' una riga che controlla che sia tornato.
+
+**E perche' da me funzionava.** Questo contenitore gira come **root**, e root
+i permessi delle cartelle non li guarda: `0555` per lui e' scrivibile lo
+stesso. Rifatta la prova come utente normale, la rossa e' comparsa al primo
+colpo, identica a quella dell'agente. E' la forma piu' pura del «da me
+funziona», e la cosa da ricordare non e' la riga: e' che **questa macchina e'
+un ambiente piu' debole di quello vero** per tutto cio' che riguarda i
+permessi. Da oggi, quando una prova e' rossa solo altrove, la seconda cosa da
+provare e' `su ubuntu -c`.
+
+La prima resta far parlare la prova.

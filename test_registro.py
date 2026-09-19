@@ -12,6 +12,7 @@ il posto dove una password finirebbe scritta per sempre.
 import json
 import os
 import sys
+import stat
 import tempfile
 from pathlib import Path
 
@@ -63,13 +64,35 @@ controlla("e dice dove", "acme.com" in t)
 
 print("\n3. non si mette mai di traverso")
 # Un registro che solleva impedisce di lavorare, e verrebbe tolto di mezzo.
-registro.percorso().parent.chmod(0o555) if os.name != "nt" else None
+# La cartella si rende non scrivibile per un attimo, e **si rimette com'era**.
+#
+# Prima non si rimetteva. Su Windows non si notava, perche' li' `chmod` non
+# fa niente: la cartella restava scrivibile e il resto della prova girava.
+# Su Linux e macOS invece restava a 0555 fino alla fine, e la sezione 7 - la
+# potatura - non poteva piu' rinominare niente. Rossa li', verde qui, e
+# sembrava un difetto della potatura: ci sono volute tre sonde per scoprire
+# che era questa riga, cinquanta righe piu' su, a lasciare il mondo storto.
+#
+# La regola che ne esce vale oltre questa prova: una prova che cambia i
+# permessi, l'ambiente o una cartella la rimette a posto **sempre**, anche
+# quando fallisce, o il difetto si presenta altrove e con un'altra faccia.
+cartella = registro.percorso().parent
+modo_di_prima = cartella.stat().st_mode
+if os.name != "nt":
+    cartella.chmod(0o555)
 try:
-    registro.annota("x" * 5000, dove="y" * 5000, dettagli="z" * 5000)
-    ok = True
-except Exception:
-    ok = False
+    try:
+        registro.annota("x" * 5000, dove="y" * 5000, dettagli="z" * 5000)
+        ok = True
+    except Exception:                                       # noqa: BLE001
+        ok = False
+finally:
+    if os.name != "nt":
+        cartella.chmod(stat.S_IMODE(modo_di_prima))
 controlla("un'annotazione enorme non solleva", ok)
+controlla("e la cartella e' tornata scrivibile",
+          os.access(cartella, os.W_OK),
+          "una prova che lascia il mondo storto rompe quelle dopo, e lontano")
 ultima = registro.leggi(1)[0]
 controlla("e viene comunque troncata", len(ultima["dettagli"]) <= registro.TESTO_MAX,
           str(len(ultima["dettagli"])))
@@ -144,10 +167,13 @@ controlla("il file resta sotto controllo", 0 < f.stat().st_size <= 40000,
 def perche_non_ruota() -> str:
     """Cosa risponde la potatura, chiesto direttamente.
 
-    Questa prova e' verde su Windows e sul portatile di chi scrive, e rossa
-    su un agente. Il file li' non lo si puo' aprire, quindi la domanda gliela
-    si fa fare alla prova: com'e' fatto il file, quale tetto e' in vigore, e
-    cosa risponde `ruota_se_serve` chiamata a mano subito dopo.
+    Scritta per una rossa che si vedeva solo su un agente, dove il file non
+    lo si puo' aprire: com'e' fatto, quale tetto e' in vigore, cosa risponde
+    `ruota_se_serve` chiamata a mano, e se in quella cartella rinominare si
+    puo'. E' stata l'ultima domanda a dare la risposta - `PermissionError`,
+    perche' cinquanta righe piu' su la prova stessa aveva tolto il permesso
+    di scrittura e non lo aveva rimesso. Resta qui: costa niente quando e'
+    verde, e la prossima volta la risposta arriva al primo giro.
     """
     import shutil as _shutil
     import stat as _stat
@@ -175,14 +201,6 @@ def perche_non_ruota() -> str:
         meta.unlink(missing_ok=True)
     except Exception as e:                                  # noqa: BLE001
         pezzi.append(f"rinominare NO: {type(e).__name__}: {e}")
-    # E da dove vengono davvero le due funzioni in gioco.
-    try:
-        import inspect
-        pezzi.append("ruota_se_serve da " + str(inspect.getsourcefile(ruota_se_serve)))
-        pezzi.append("_ruota da " + str(inspect.getsourcefile(registro._ruota)))
-        pezzi.append("registro da " + str(registro.__file__))
-    except Exception as e:                                  # noqa: BLE001
-        pezzi.append(f"non so da dove vengono: {e}")
     return " | ".join(pezzi)
 
 
