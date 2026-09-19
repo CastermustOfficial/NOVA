@@ -181,7 +181,17 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12' 
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Dipendenze
+        # Le stesse del lavoro su Windows: una prova che gira con meno
+        # librerie non e' la stessa prova, e le differenze si scoprirebbero
+        # come differenze di sistema invece che di ambiente. Il primo giro
+        # senza queste e' finito rosso proprio cosi': `nova/agent.py` non si
+        # importava, e sembrava un difetto di Linux.
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
       - name: Prove
         working-directory: core
         shell: bash
@@ -215,6 +225,10 @@ jobs:
       # li guardava mai. Da qui in poi li guarda questa.
       - name: Prove Python
         shell: bash
+        # Niente schermo su un agente: le prove che aprono una finestra
+        # girano in offscreen, come gia' fa il lavoro su Windows.
+        env:
+          QT_QPA_PLATFORM: offscreen
         run: |
           set +e
           falliti=()
