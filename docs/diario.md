@@ -7569,3 +7569,70 @@ Una prova guarda anche che in quel caso non parta **niente** verso nessuno.
 Tre mutazioni, tre prese — compresa quella che toglie il nome del gradino dal
 messaggio: dire «e' un processo» senza dire **quale** manda a indovinare fra
 quattro gradini.
+
+## La finestra, lo stesso giorno
+
+Il commento diceva «la conversazione: ci si aggiunge, e chi taglia sta
+altrove». Altrove non c'era. Il taglio stava ancora tutto in `Agent`, in
+Python, centocinquanta righe, e per provarne una serviva un agente intero.
+
+Sono il pezzo piu' delicato del progetto, e non perche' siano difficili:
+perche' decidono cosa NOVA dimentica. I commenti dentro raccontano quattro
+difetti gia' pagati, e vale la pena rileggerli tutti e quattro in fila perche'
+sono lo stesso difetto quattro volte — qualcosa che funziona, e nessuno che
+lo veda smettere di funzionare.
+
+Il taglio a token era scritto **dopo** l'uscita anticipata, quindi non veniva
+mai eseguito nel solo caso per cui era stato scritto: dodici scambi con dentro
+un file sono venticinque messaggi, non superano il tetto di sessanta, e sono
+centomila token. Il fondo non c'era, e si tagliava fino a `tetto - 1`: il
+turno dopo si superava di nuovo, quindi **dal trentesimo turno in poi si
+tagliava a ogni turno**, la cache del prefisso non si riformava mai piu', e
+ogni risposta pagava il prompt da capo. Non si rompeva niente. Diventava
+lenta, e restava lenta. L'accorciatura si allungava da sola: la scritta che
+dichiara il taglio e' lunga quanto i caratteri che alla seconda passata
+restavano da togliere, quindi il testo si accorciava di ottanta caratteri e
+ricresceva di ottanta, per sempre — un ciclo che «ovviamente» finisce. E la
+coda poteva cominciare da una risposta di strumento senza la chiamata che
+l'aveva prodotta, che meta' dei fornitori rifiuta.
+
+Adesso stanno in due: `nova/finestra.py` e `core/crates/nova-finestra`, che
+dicono la stessa cosa e un banco glielo chiede su 316 casi. `trim_history`
+fa dodici righe: riduce i messaggi a ruoli e testi, chiede il piano, lo
+riapplica. Diciannove prove in Rust, otto mutazioni su otto prese — ma non
+al primo giro.
+
+**La mutazione sopravvissuta.** Ho tolto il controllo finale
+dell'accorciatura, quello che dice «se non ci guadagni niente lascia stare»,
+ed e' rimasto tutto verde. Le mie due prove passavano dal controllo *prima*,
+quello sulla lunghezza, e quella riga non la toccavano mai. La zona in cui
+serve e' stretta e precisa: un testo abbastanza lungo da passare il primo
+controllo, ma con meno di ottanta caratteri da togliere — meno di quanti ne
+aggiunge la scritta. Cinquecento caratteri volendone quattrocentottanta. E'
+esattamente il difetto che il commento descriveva, e le prove scritte
+leggendo quel commento non lo raggiungevano.
+
+**E quella che non poteva sopravvivere.** Ho attaccato la cassetta a
+`MondoVero`, e ho provato a mutarla: «riapplica il piano a messaggi nuovi
+invece che ai vecchi», cioe' perdi `tool_calls` e `tool_call_id`. Verde. La
+prova che doveva prenderla usava un tetto cosi' basso che dopo il taglio
+restava **solo il messaggio di sistema**: il ciclo che controllava i campi
+non girava su niente. Una prova che non guarda niente e non lo dice. Adesso
+c'e' una riga che controlla che sia rimasto qualcosa da controllare.
+
+**E una prova rossa per il motivo sbagliato.** `test_prefisso.py` e' diventato
+rosso appena spostato il codice: cercava `self.messages[:1]` e
+`self.messages[-(` dentro il sorgente di `trim_history`. Non era rotto
+niente — cercava una **scrittura**, non una proprieta'. Lo stesso file,
+venti righe sopra, si lamenta di aver gia' fatto questo errore una volta e
+di averlo corretto. L'ho corretto anche qui: adesso costruisce duecento
+righe, chiede il piano, e guarda che la testa sia la testa, che quel che
+resta sia un pezzo di coda intero, e che in cima non ci sia un risultato
+orfano. Piu' una riga sola che controlla che l'agente il taglio lo chieda
+davvero a lei — perche' quello si', puo' rompersi.
+
+Restano due prove rosse su Linux che non sono mie: `test_percorsi_ostili.py`
+e `test_niente_cresce_per_sempre.py` danno per scontato `C:\Users\` e
+`winreg`, e dovrebbero uscire 2 invece che 1. E' roba di CANT-9, ed e'
+esattamente la forma che CANT-9 ha: non codice sbagliato, codice che nessuna
+macchina diversa guarda mai.

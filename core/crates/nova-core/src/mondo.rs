@@ -96,8 +96,15 @@ pub struct MondoVero<'a> {
     /// I gradini in ordine di potenza. Il primo e' quello da cui si parte.
     pub gradini: Vec<Gradino>,
     pub gradino: usize,
-    /// La conversazione. Ci si aggiunge, e chi taglia sta altrove.
+    /// La conversazione. Ci si aggiunge, e chi decide il taglio sta altrove:
+    /// `nova_finestra` guarda ruoli e testi e dice cosa resta, qui si
+    /// riapplica il piano ai messaggi veri, che hanno dentro ben piu' di un
+    /// ruolo e un testo.
     pub messaggi: Vec<Value>,
+    /// Entro quanto stare. `disponibili: 0` vuol dire «non lo so» - un
+    /// cervello dietro una API il suo contesto non lo dice - e allora vale
+    /// solo il taglio a numero di righe.
+    pub misure: nova_finestra::Misure,
     /// Gli schemi degli strumenti, gia' pronti da mandare.
     pub strumenti: Vec<Value>,
     /// Cio' che e' stato consegnato all'utente, in ordine.
@@ -138,6 +145,38 @@ impl<'a> MondoVero<'a> {
             c["tool_choice"] = json!("auto");
         }
         c
+    }
+
+    /// Accorcia la conversazione se non ci sta, tenendo tutto il resto.
+    ///
+    /// Di un messaggio si guardano solo ruolo e testo, ma di un messaggio che
+    /// **resta** si tiene tutto: le chiamate a strumenti, gli identificativi,
+    /// i campi che il fornitore si aspetta di rivedere. Una riga tenuta esce
+    /// da qui identica a com'e' entrata, a meno del testo accorciato.
+    pub fn taglia(&mut self) {
+        let righe: Vec<nova_finestra::Riga> = self
+            .messaggi
+            .iter()
+            .map(|m| nova_finestra::Riga {
+                ruolo: m.get("role").and_then(Value::as_str).unwrap_or("").to_string(),
+                contenuto: m.get("content").and_then(Value::as_str).unwrap_or("").to_string(),
+            })
+            .collect();
+        let piano = nova_finestra::taglia(&righe, &self.misure);
+        if piano.len() == self.messaggi.len() && piano.iter().all(|t| t.contenuto.is_none()) {
+            return; // niente da fare: e' il caso normale, e non deve costare
+        }
+        let vecchi = std::mem::take(&mut self.messaggi);
+        self.messaggi = piano
+            .into_iter()
+            .map(|t| {
+                let mut m = vecchi[t.da].clone();
+                if let Some(c) = t.contenuto {
+                    m["content"] = Value::String(c);
+                }
+                m
+            })
+            .collect();
     }
 }
 
@@ -189,6 +228,10 @@ impl Mondo for MondoVero<'_> {
         let (nome, base_url, modello) =
             (nome.to_string(), base_url.to_string(), modello.to_string());
         let intestazioni = intestazioni.to_vec();
+        // Si taglia **prima** di chiedere, non dopo aver ricevuto un rifiuto:
+        // «exceeds the available context size» e' un errore che si previene,
+        // non uno da tradurre bene.
+        self.taglia();
         let corpo = self.corpo(&modello);
         let r = chiedi(
             self.trasporto,
@@ -372,6 +415,7 @@ mod prove {
             messaggi: vec![json!({"role": "user", "content": "ciao"})],
             strumenti: vec![],
             consegnato: vec![],
+            misure: nova_finestra::Misure::default(),
             deleghe: 0,
         }
     }
@@ -518,6 +562,83 @@ mod prove {
         let l = Gradino::nuovo(
             "locale", nova_scala::Specie::Locale, "http://casa", "m", vec![], true);
         assert!(matches!(l, Gradino::Indirizzo { .. }), "{l:?}");
+    }
+
+    #[tokio::test]
+    async fn tagliare_non_perde_i_campi_che_non_guarda() {
+        // Del messaggio si guardano ruolo e testo, ma di un messaggio che
+        // **resta** si tiene tutto: un `tool_call_id` perso e' una
+        // trascrizione che l'API rifiuta, e l'utente legge un errore di
+        // formato per una conversazione che era solo lunga.
+        let c = Copione::con(&[]);
+        let f = Finge("x");
+        let mut m = mondo(&c, &f, 1);
+        m.misure = nova_finestra::Misure { tetto: 8, fondo: 6, disponibili: 0 };
+        m.messaggi = vec![json!({"role": "system", "content": "s"})];
+        for i in 0..8 {
+            m.messaggi.push(json!({
+                "role": "assistant",
+                "content": format!("passo {i}"),
+                "tool_calls": [{"id": format!("c{i}"), "type": "function"}],
+            }));
+            m.messaggi.push(json!({
+                "role": "tool", "tool_call_id": format!("c{i}"), "content": "fatto",
+            }));
+        }
+        m.taglia();
+        assert!(m.messaggi.len() < 17, "doveva tagliare: {} messaggi", m.messaggi.len());
+        // Non basta che non manchi niente a cio' che e' rimasto: deve essere
+        // rimasto qualcosa da controllare, o questa prova non guarda niente.
+        assert!(m.messaggi.iter().any(|x| x["role"] == "assistant"), "nessun assistente sopravvissuto");
+        assert!(m.messaggi.iter().any(|x| x["role"] == "tool"), "nessuna risposta di strumento sopravvissuta");
+        for msg in &m.messaggi {
+            if msg["role"] == "assistant" {
+                assert!(msg.get("tool_calls").is_some(), "chiamate perse: {msg}");
+            }
+            if msg["role"] == "tool" {
+                assert!(msg.get("tool_call_id").is_some(), "identificativo perso: {msg}");
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn quel_che_si_accorcia_viene_riscritto_davvero() {
+        // Il piano dice «questa riscrivila cosi'». Se chi lo applica se ne
+        // dimentica, il taglio e' stato calcolato e buttato: si manda la
+        // riga intera e si sfonda il contesto lo stesso, con in piu' la
+        // sicurezza sbagliata di averci pensato.
+        let c = Copione::con(&[]);
+        let f = Finge("x");
+        let mut m = mondo(&c, &f, 1);
+        m.misure = nova_finestra::Misure { tetto: 60, fondo: 40, disponibili: 2_000 };
+        m.messaggi = vec![
+            json!({"role": "system", "content": "s"}),
+            json!({"role": "tool", "tool_call_id": "c0", "content": "F".repeat(50_000)}),
+        ];
+        m.taglia();
+        assert_eq!(m.messaggi.len(), 2, "con due righe non c'e' niente da togliere");
+        let testo = m.messaggi[1]["content"].as_str().unwrap();
+        assert!(testo.contains("[...tagliati "), "riscrittura persa: un taglio silenzioso fa credere che il file finisca li'");
+        assert!(testo.len() < 50_000);
+        assert_eq!(m.messaggi[1]["tool_call_id"], "c0", "e il resto della riga resta");
+    }
+
+    #[tokio::test]
+    async fn si_taglia_prima_di_chiedere_non_dopo_il_rifiuto() {
+        // «exceeds the available context size» e' un errore che si previene.
+        let c = Copione::con(&[r#"{"choices":[{"message":{"content":"ok"}}]}"#.to_string()]);
+        let f = Finge("x");
+        let mut m = mondo(&c, &f, 1);
+        m.misure = nova_finestra::Misure { tetto: 60, fondo: 40, disponibili: 400 };
+        m.messaggi = vec![json!({"role": "system", "content": "s"})];
+        for i in 0..10 {
+            m.messaggi.push(json!({"role": "user", "content": format!("{i}{}", "z".repeat(4_000))}));
+        }
+        m.chiedi().await.expect("doveva rispondere");
+        let mandati = c.mandati.lock().unwrap();
+        let quanti = mandati[0]["messages"].as_array().unwrap().len();
+        assert!(quanti < 11, "ne ha mandati {quanti}: non ha tagliato prima di chiedere");
+        assert_eq!(mandati[0]["messages"][0]["role"], "system", "la testa resta la testa");
     }
 
     #[tokio::test]

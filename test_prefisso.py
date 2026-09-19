@@ -151,13 +151,34 @@ print("\n4. il taglio della cronologia non tocca il messaggio di sistema")
 # `trim_history` taglia in mezzo: da li' in poi la cache non combacia piu' e
 # tutto il resto si rielabora. Il sistema pero' deve restare intatto, se no
 # si perde anche il prefisso, che e' il pezzo grosso.
+# Prima queste righe cercavano dei pezzi di codice dentro `trim_history`:
+# `self.messages[:1]`, `self.messages[-(`. Il giorno in cui il taglio si e'
+# spostato in `nova/finestra.py` sono diventate rosse senza che niente fosse
+# rotto - cercavano una **scrittura**, non una proprieta'. Adesso si chiede
+# alla funzione cosa fa, e si controlla a parte che l'agente la usi davvero:
+# due cose che possono rompersi, due righe che lo dicono.
+from nova import finestra                                        # noqa: E402
+
 sorgente_taglio = inspect.getsource(Agent.trim_history)
-controlla("la testa si tiene sempre", "self.messages[:1]" in sorgente_taglio)
-controlla("e si taglia solo dalla coda", "self.messages[-(" in sorgente_taglio)
+righe = [("system", "prefisso")] + [
+    ("user" if i % 2 else "assistant", f"riga {i}") for i in range(1, 200)]
+piano = finestra.taglia(righe)
+controlla("la testa si tiene sempre", piano[0][0] == 0,
+          f"in cima c'e' la riga {piano[0][0]}")
+controlla("e si taglia solo dalla coda",
+          [i for i, _ in piano[1:]] == list(range(200 - len(piano) + 1, 200)),
+          "quel che resta non e' un pezzo di coda intero")
 # Un messaggio «tool» senza la chiamata che lo ha prodotto fa rifiutare la
 # richiesta da meta' dei fornitori.
+con_tool = list(righe)
+for i in range(161, 165):
+    con_tool[i] = ("tool", f"risultato {i}")
+dopo = finestra.taglia(con_tool)
 controlla("e un risultato orfano non resta in cima",
-          'role") == "tool"' in sorgente_taglio)
+          con_tool[dopo[1][0]][0] != "tool",
+          f"in cima alla coda c'e' un «{con_tool[dopo[1][0]][0]}»")
+controlla("e l'agente il taglio lo chiede davvero a lei",
+          "finestra.taglia" in sorgente_taglio)
 
 print("\n5. il prefisso e' davvero stabile, misurato")
 # La prova vera: due prompt di sistema costruiti a un secondo di distanza
