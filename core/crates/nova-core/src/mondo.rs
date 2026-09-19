@@ -113,6 +113,89 @@ impl Default for Misure {
     }
 }
 
+/// Dove si va a parlare, per chi un indirizzo ce l'ha.
+///
+/// La configurazione della scala (`nova_scala::Configurazione`) dice **chi**
+/// sono i gradini e in che ordine; non dice dove stanno, perche' quella e'
+/// un'altra parte del file di configurazione e cambia per ragioni sue. Qui
+/// si mettono insieme le due meta'.
+///
+/// La chiave arriva gia' risolta: leggere l'ambiente e' un mestiere di chi
+/// carica la configurazione, e una funzione pura che va a guardare
+/// `OPENAI_API_KEY` da sola non si prova.
+pub struct Recapiti {
+    /// L'indirizzo del modello in casa.
+    pub locale_url: String,
+    /// Il nome che il server di casa vuole sentirsi dire.
+    pub locale_modello: String,
+    /// L'indirizzo del fornitore esterno.
+    pub api_url: String,
+    pub api_modello: String,
+    /// Gia' letta dall'ambiente se nel file non c'era.
+    pub api_chiave: String,
+    /// I nomi dichiarati in `brains.cli`: servono a riconoscere che un
+    /// gradino e' un processo e non un indirizzo.
+    pub cli: Vec<String>,
+}
+
+/// La scala vera, dalla configurazione.
+///
+/// Tre cose che sembrano dettagli e non lo sono.
+///
+/// **L'ordine lo decide `nova_scala::scala`**, non l'ordine in cui i gradini
+/// stanno scritti: basta che un programma riordini le chiavi del file -
+/// e il pannello lo faceva - perche' «standard» finisca dopo «difficile» e
+/// non ci sia piu' niente sopra a cui salire.
+///
+/// **Con `solo_locale` restano solo i gradini che lo dichiarano.** Non e' un
+/// filtro di comodo: e' la promessa che niente esce dal PC, e va mantenuta
+/// qui, dove la scala si costruisce, non piu' avanti dove qualcuno potrebbe
+/// dimenticarsi di chiederlo.
+///
+/// **Non torna mai una scala vuota.** Se la configurazione non lascia in
+/// piedi niente, resta il modello di casa: una scala vuota non e' una scala
+/// corta, e' un turno che non puo' cominciare.
+pub fn scala_vera(cfg: &nova_scala::Configurazione, r: &Recapiti) -> Vec<Gradino> {
+    let mut fuori: Vec<Gradino> = Vec::new();
+    for nome in nova_scala::scala(cfg) {
+        let Some(t) = cfg.gradino(&nome) else { continue };
+        if cfg.solo_locale && !t.locale {
+            continue;
+        }
+        let specie = nova_scala::specie_di(&t.brain, &r.cli);
+        let (url, modello_di_scorta, chiave) = match specie {
+            nova_scala::Specie::Api => (&r.api_url, &r.api_modello, r.api_chiave.as_str()),
+            _ => (&r.locale_url, &r.locale_modello, ""),
+        };
+        // Il modello scritto sul gradino vince su quello di scorta: e' il
+        // posto in cui l'utente lo dice, e dirlo li' deve servire a qualcosa.
+        let modello = if t.model.trim().is_empty() { modello_di_scorta } else { &t.model };
+        fuori.push(Gradino::nuovo(
+            &t.nome,
+            specie,
+            url,
+            modello,
+            nova_cervelli::openai::intestazioni(chiave),
+            nova_scala::e_in_casa(url),
+        ));
+    }
+    if fuori.is_empty() {
+        fuori.push(Gradino::nuovo(
+            "locale",
+            nova_scala::Specie::Locale,
+            &r.locale_url,
+            if r.locale_modello.is_empty() {
+                nova_cervelli::openai::MODELLO_PREDEFINITO
+            } else {
+                &r.locale_modello
+            },
+            nova_cervelli::openai::intestazioni(""),
+            nova_scala::e_in_casa(&r.locale_url),
+        ));
+    }
+    fuori
+}
+
 /// Il mondo vero, per la durata di **un turno**.
 ///
 /// Cio' che vive piu' a lungo di un turno - la conversazione, la scala dei
@@ -135,13 +218,20 @@ pub struct MondoVero<'a> {
 }
 
 impl<'a> MondoVero<'a> {
-    fn ora(&self) -> &Gradino {
-        &self.sessione.gradini[self.gradino.min(self.sessione.gradini.len() - 1)]
+    /// Il gradino su cui si sta.
+    ///
+    /// Torna `None` su una scala vuota, e non e' pignoleria: la versione di
+    /// prima faceva `len() - 1` su un vettore che puo' essere vuoto, cioe'
+    /// un panico al primo turno di chi ha configurato male i cervelli. Un
+    /// panico non e' un messaggio d'errore: e' NOVA che sparisce.
+    fn ora(&self) -> Option<&Gradino> {
+        let gradini = &self.sessione.gradini;
+        gradini.get(self.gradino.min(gradini.len().saturating_sub(1)))
     }
 
     /// I dati del gradino corrente, se e' di quelli a cui si manda un corpo.
     fn indirizzo_ora(&self) -> Option<(&str, &str, &str, &[(String, String)], bool)> {
-        match self.ora() {
+        match self.ora()? {
             Gradino::Indirizzo { nome, base_url, modello, intestazioni, in_casa } => {
                 Some((nome, base_url, modello, intestazioni, *in_casa))
             }
@@ -260,13 +350,20 @@ pub fn chiamata_da(v: &Value) -> Option<Chiamata> {
 #[async_trait]
 impl Mondo for MondoVero<'_> {
     async fn chiedi(&mut self) -> Result<Risposta, String> {
+        if self.ora().is_none() {
+            // Una scala vuota non e' una scala corta: senza questa riga si
+            // usciva dicendo «e' un processo» di un gradino che non c'e'.
+            return Err("non c'e' nessun cervello configurato a cui chiedere. \
+                        Apri il pannello dei cervelli e scegline almeno uno."
+                .to_string());
+        }
         let Some((nome, base_url, modello, intestazioni, in_casa)) = self.indirizzo_ora()
         else {
             return Err(format!(
                 "«{}» non e' un indirizzo ma un processo da lanciare, e il turno non \
                  sa ancora farlo. Scegli un cervello locale o una chiave API, oppure \
                  usa quella CLI dal pannello.",
-                self.ora().nome()
+                self.ora().map_or("", Gradino::nome)
             ));
         };
         let (nome, base_url, modello) =
@@ -329,7 +426,7 @@ impl Mondo for MondoVero<'_> {
                     "[nota di sistema] Non c'e' un gradino piu' alto di «{}» a cui \
                      delegare: prosegui come puoi, oppure spiega all'utente cosa ti \
                      blocca.",
-                    self.ora().nome()
+                    self.ora().map_or("", Gradino::nome)
                 ),
             }));
             return;
@@ -352,7 +449,7 @@ impl Mondo for MondoVero<'_> {
             "content": format!(
                 "[nota di sistema] Passo a «{}» dopo {motivo}.\n\
                  Un assistente meno capace ci ha provato senza riuscirci.\n{contesto}",
-                self.ora().nome()
+                self.ora().map_or("", Gradino::nome)
             ),
         }));
     }
@@ -664,6 +761,148 @@ mod prove {
                 assert!(msg.get("tool_call_id").is_some(), "identificativo perso: {msg}");
             }
         }
+    }
+
+    fn config(scala: &[&str], tiers: &[(&str, &str, &str, bool)]) -> nova_scala::Configurazione {
+        nova_scala::Configurazione {
+            tiers: tiers
+                .iter()
+                .map(|(nome, brain, model, locale)| nova_scala::Gradino {
+                    nome: (*nome).to_string(),
+                    brain: (*brain).to_string(),
+                    model: (*model).to_string(),
+                    locale: *locale,
+                    ..Default::default()
+                })
+                .collect(),
+            scala_dichiarata: scala.iter().map(|s| (*s).to_string()).collect(),
+            ..Default::default()
+        }
+    }
+
+    fn recapiti() -> Recapiti {
+        Recapiti {
+            locale_url: "http://127.0.0.1:8080".into(),
+            locale_modello: "gemma".into(),
+            api_url: "https://api.esempio.com".into(),
+            api_modello: "gpt-di-serie".into(),
+            api_chiave: "sk-segretissima".into(),
+            cli: vec!["gemini".into()],
+        }
+    }
+
+    #[test]
+    fn la_scala_si_costruisce_nellordine_dichiarato_non_in_quello_delle_chiavi() {
+        // Basta che un programma riordini le chiavi del file - e il pannello
+        // lo faceva - perche' «standard» finisca dopo «difficile» e non ci
+        // sia piu' niente sopra a cui salire.
+        let c = config(
+            &["locale", "standard", "difficile"],
+            &[
+                ("difficile", "claude", "opus", false),
+                ("locale", "locale", "", true),
+                ("standard", "claude", "sonnet", false),
+            ],
+        );
+        let s = scala_vera(&c, &recapiti());
+        let nomi: Vec<&str> = s.iter().map(Gradino::nome).collect();
+        assert_eq!(nomi, ["locale", "standard", "difficile"]);
+    }
+
+    #[test]
+    fn un_gradino_non_elencato_si_accoda_invece_di_sparire() {
+        let c = config(
+            &["locale"],
+            &[("locale", "locale", "", true), ("aggiunto_a_mano", "api", "x", false)],
+        );
+        let s = scala_vera(&c, &recapiti());
+        let nomi: Vec<&str> = s.iter().map(Gradino::nome).collect();
+        assert_eq!(nomi, ["locale", "aggiunto_a_mano"]);
+    }
+
+    #[test]
+    fn ogni_specie_diventa_il_gradino_giusto() {
+        let c = config(
+            &["l", "a", "c", "g"],
+            &[
+                ("l", "locale", "", true),
+                ("a", "api", "", false),
+                ("c", "claude", "opus", false),
+                ("g", "gemini", "", false),
+            ],
+        );
+        let s = scala_vera(&c, &recapiti());
+        assert!(matches!(&s[0], Gradino::Indirizzo { base_url, modello, .. }
+                         if base_url == "http://127.0.0.1:8080" && modello == "gemma"));
+        assert!(matches!(&s[1], Gradino::Indirizzo { base_url, modello, .. }
+                         if base_url == "https://api.esempio.com" && modello == "gpt-di-serie"));
+        assert!(matches!(s[2], Gradino::Processo { .. }), "claude e' un processo, non un indirizzo");
+        assert!(matches!(s[3], Gradino::Processo { .. }), "una CLI dichiarata e' un processo");
+    }
+
+    #[test]
+    fn il_modello_scritto_sul_gradino_vince_su_quello_di_scorta() {
+        let c = config(&["a"], &[("a", "api", "quello-che-voglio-io", false)]);
+        let s = scala_vera(&c, &recapiti());
+        assert!(matches!(&s[0], Gradino::Indirizzo { modello, .. }
+                         if modello == "quello-che-voglio-io"));
+    }
+
+    #[test]
+    fn la_chiave_va_solo_dove_serve_e_solo_nelle_intestazioni() {
+        let c = config(&["l", "a"], &[("l", "locale", "", true), ("a", "api", "", false)]);
+        let s = scala_vera(&c, &recapiti());
+        let Gradino::Indirizzo { intestazioni: casa, .. } = &s[0] else { panic!() };
+        let Gradino::Indirizzo { intestazioni: fuori, .. } = &s[1] else { panic!() };
+        assert!(casa.iter().all(|(k, _)| k != "Authorization"),
+                "un server in casa non chiede chiavi, e mandarne una vuota e' peggio");
+        assert!(fuori.iter().any(|(k, v)| k == "Authorization" && v == "Bearer sk-segretissima"));
+        // E da nessun'altra parte: il nome del gradino e l'indirizzo li legge
+        // il modello nei messaggi d'errore.
+        for g in &s {
+            assert!(!g.nome().contains("sk-"), "la chiave non entra nel nome");
+        }
+    }
+
+    #[test]
+    fn con_solo_locale_niente_esce_dal_pc() {
+        let mut c = config(
+            &["locale", "standard", "difficile"],
+            &[
+                ("locale", "locale", "", true),
+                ("standard", "claude", "sonnet", false),
+                ("difficile", "api", "", false),
+            ],
+        );
+        c.solo_locale = true;
+        let s = scala_vera(&c, &recapiti());
+        let nomi: Vec<&str> = s.iter().map(Gradino::nome).collect();
+        assert_eq!(nomi, ["locale"], "con solo_locale la scala finisce in casa");
+    }
+
+    #[test]
+    fn una_scala_vuota_non_esiste() {
+        // Non e' una scala corta: e' un turno che non puo' cominciare.
+        let mut c = config(&["standard"], &[("standard", "claude", "sonnet", false)]);
+        c.solo_locale = true;
+        let s = scala_vera(&c, &recapiti());
+        assert_eq!(s.len(), 1);
+        assert_eq!(s[0].nome(), "locale");
+        assert_eq!(scala_vera(&nova_scala::Configurazione::default(), &recapiti()).len(), 1);
+    }
+
+    #[tokio::test]
+    async fn senza_nessun_cervello_lo_dice_invece_di_esplodere() {
+        // `ora()` faceva `len() - 1` su un vettore che puo' essere vuoto: un
+        // panico al primo turno di chi ha configurato male i cervelli. Un
+        // panico non e' un messaggio d'errore, e' NOVA che sparisce.
+        let c = Copione::con(&[]);
+        let f = Finge("x");
+        let mut sess = sessione(0);
+        let mut m = mondo(&c, &f, &mut sess);
+        let motivo = m.chiedi().await.expect_err("non doveva riuscire");
+        assert!(motivo.contains("nessun cervello"), "{motivo}");
+        assert!(c.mandati.lock().unwrap().is_empty(), "non doveva mandare niente a nessuno");
     }
 
     #[tokio::test]
