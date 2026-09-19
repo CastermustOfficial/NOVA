@@ -35,6 +35,64 @@ pub struct Gradino {
     pub a_pagamento: bool,
 }
 
+/// Di che **specie** e' un cervello: con chi si parla, e come.
+///
+/// La scala mescola due mondi che non si assomigliano affatto. Con
+/// [`Specie::Locale`] e [`Specie::Api`] si parla in HTTP: c'e' un indirizzo,
+/// si manda un corpo, arriva una risposta. Con [`Specie::Claude`] e
+/// [`Specie::Cli`] si **lancia un processo** e gli si parla su stdin e
+/// stdout. Sono due macchine diverse dietro la stessa parola «gradino», e
+/// chi costruisce un gradino deve sapere quale sta costruendo — se no
+/// costruisce quello sbagliato e lo scopre quando qualcuno prova a salire.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Specie {
+    /// Il modello in casa: HTTP verso llama-server.
+    Locale,
+    /// Un fornitore compatibile OpenAI: HTTP verso un indirizzo dichiarato.
+    Api,
+    /// Claude Code: un processo, non un indirizzo.
+    Claude,
+    /// Una CLI dichiarata in `brains.cli`: un processo anche questa.
+    Cli,
+}
+
+impl Specie {
+    /// Se ci si parla in HTTP. L'altra meta' vuole un processo.
+    pub fn e_un_indirizzo(self) -> bool {
+        matches!(self, Specie::Locale | Specie::Api)
+    }
+}
+
+/// Che specie e' il cervello che si chiama cosi'.
+///
+/// L'ordine dei controlli e' quello di `crea_brain` in Python, e non e'
+/// casuale: **una CLI dichiarata vince sui nomi di casa**. Chi mette in
+/// `brains.cli` una voce che si chiama `api` sta dicendo «per api intendo
+/// questa», e tenergli buono il significato di casa vorrebbe dire ignorarlo
+/// in silenzio.
+///
+/// Il confronto **non guarda le maiuscole**, da tutte e due le parti. Prima
+/// il nome cercato veniva abbassato e le chiavi dichiarate no: una CLI
+/// scritta a mano nel file come `"Gemini"` non si trovava, e NOVA — senza
+/// dire niente — usava il modello locale. Configurare un cervello e vederne
+/// rispondere un altro e' il difetto peggiore di questa famiglia, perche' la
+/// risposta arriva lo stesso e sembra giusta.
+pub fn specie_di(nome: &str, cli_dichiarate: &[String]) -> Specie {
+    let n = nome.trim().to_lowercase();
+    // Il Python qui scrive `nome or "locale"`, e la mutazione l'ha smascherata:
+    // togliere quel valore di ripiego non cambia niente, perche' un nome vuoto
+    // cade comunque nel ramo finale. Una riga che non puo' sbagliare non e'
+    // prudenza, e' una riga che fa credere di star gestendo un caso.
+    if cli_dichiarate.iter().any(|c| c.trim().to_lowercase() == n) {
+        return Specie::Cli;
+    }
+    match n.as_str() {
+        "claude" => Specie::Claude,
+        "api" => Specie::Api,
+        _ => Specie::Locale,
+    }
+}
+
 /// Una categoria di compiti che sale per regola, non per auto-valutazione.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Categoria {
@@ -524,5 +582,56 @@ mod prove {
         assert_eq!(host_di(""), "");
         assert_eq!(host_di("http://esempio.it?a=1"), "esempio.it");
         assert_eq!(host_di("http://esempio.it#frammento"), "esempio.it");
+    }
+}
+
+#[cfg(test)]
+mod prove_della_specie {
+    use super::*;
+
+    fn dichiarate(n: &[&str]) -> Vec<String> {
+        n.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn i_nomi_di_casa_sono_tre_e_il_resto_e_il_modello_locale() {
+        let niente: Vec<String> = vec![];
+        assert_eq!(specie_di("claude", &niente), Specie::Claude);
+        assert_eq!(specie_di("api", &niente), Specie::Api);
+        assert_eq!(specie_di("locale", &niente), Specie::Locale);
+        // Sconosciuto non e' un errore: e' il modello locale, come in Python.
+        assert_eq!(specie_di("boh", &niente), Specie::Locale);
+        assert_eq!(specie_di("", &niente), Specie::Locale);
+    }
+
+    #[test]
+    fn una_cli_dichiarata_vince_sui_nomi_di_casa() {
+        // Chi mette in `brains.cli` una voce «api» sta dicendo «per api
+        // intendo questa»: tenergli buono il significato di casa vorrebbe
+        // dire ignorarlo in silenzio.
+        let c = dichiarate(&["gemini", "api"]);
+        assert_eq!(specie_di("api", &c), Specie::Cli);
+        assert_eq!(specie_di("gemini", &c), Specie::Cli);
+        assert_eq!(specie_di("claude", &c), Specie::Claude);
+    }
+
+    #[test]
+    fn le_maiuscole_non_contano_da_nessuna_delle_due_parti() {
+        // Il difetto: il nome cercato veniva abbassato e le chiavi dichiarate
+        // no. Una CLI scritta a mano nel file come «Gemini» non si trovava, e
+        // NOVA usava il modello locale senza dirlo.
+        let c = dichiarate(&["Gemini", "  DeepSeek "]);
+        assert_eq!(specie_di("gemini", &c), Specie::Cli);
+        assert_eq!(specie_di("GEMINI", &c), Specie::Cli);
+        assert_eq!(specie_di("deepseek", &c), Specie::Cli);
+        assert_eq!(specie_di(" Claude ", &c), Specie::Claude);
+    }
+
+    #[test]
+    fn due_meta_che_non_si_assomigliano() {
+        assert!(specie_di("locale", &[]).e_un_indirizzo());
+        assert!(specie_di("api", &[]).e_un_indirizzo());
+        assert!(!specie_di("claude", &[]).e_un_indirizzo());
+        assert!(!specie_di("gemini", &dichiarate(&["gemini"])).e_un_indirizzo());
     }
 }

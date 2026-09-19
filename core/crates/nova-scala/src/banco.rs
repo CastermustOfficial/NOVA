@@ -90,6 +90,12 @@ struct Dentro {
     a_consumo: Vec<String>,
     #[serde(default)]
     parole: Vec<(String, String)>,
+    /// I nomi delle CLI dichiarate in `brains.cli`, com'e' scritta la chiave.
+    #[serde(default)]
+    cli_dichiarate: Vec<String>,
+    /// I nomi di cervello di cui si vuole sapere la specie.
+    #[serde(default)]
+    specie: Vec<String>,
     #[serde(default)]
     pause_chieste: Vec<i64>,
     /// Indirizzi di cui si vuole sapere se sono in casa.
@@ -109,6 +115,8 @@ struct Fuori {
     durate: Vec<i64>,
     host: Vec<String>,
     in_casa: Vec<bool>,
+    /// Per ogni nome: «locale», «api», «claude» o «cli».
+    specie: Vec<String>,
 }
 
 fn main() {
@@ -189,6 +197,19 @@ fn main() {
         durate: d.pause_chieste.iter().map(|s| durata_pausa(*s)).collect(),
         host: d.indirizzi.iter().map(|u| host_di(u)).collect(),
         in_casa: d.indirizzi.iter().map(|u| e_in_casa(u)).collect(),
+        specie: d
+            .specie
+            .iter()
+            .map(|n| {
+                match nova_scala::specie_di(n, &d.cli_dichiarate) {
+                    nova_scala::Specie::Locale => "locale",
+                    nova_scala::Specie::Api => "api",
+                    nova_scala::Specie::Claude => "claude",
+                    nova_scala::Specie::Cli => "cli",
+                }
+                .to_string()
+            })
+            .collect(),
     };
 
     match serde_json::to_string(&fuori) {

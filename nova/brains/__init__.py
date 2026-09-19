@@ -44,7 +44,20 @@ def crea_brain(nome: str, cfg, vault=None, kb_context: str = "",
     nome = (nome or "locale").strip().lower()
 
     # CLI agentiche descritte in configurazione (gemini, deepseek, glm, ...)
-    spec = (getattr(cfg.brains, "cli", None) or {}).get(nome)
+    #
+    # Il confronto non guarda le maiuscole **da tutte e due le parti**. Prima
+    # il nome cercato veniva abbassato (riga qui sopra) e le chiavi dichiarate
+    # no: una CLI scritta a mano nel file come «Gemini» non si trovava, e NOVA
+    # — senza dire niente — usava il modello locale. Dal pannello non capitava,
+    # perche' li' il nome si abbassa mentre lo si scrive; capitava a chi apre
+    # config.json, che e' una cosa che questo progetto invita a fare.
+    #
+    # Configurare un cervello e vederne rispondere un altro e' il difetto
+    # peggiore di questa famiglia: la risposta arriva lo stesso e sembra
+    # giusta. Gemello di `nova_scala::specie_di`.
+    dichiarate = getattr(cfg.brains, "cli", None) or {}
+    spec = next((v for k, v in dichiarate.items()
+                 if str(k).strip().lower() == nome), None)
     if spec is not None:
         spec = dict(spec)
         if model_override:

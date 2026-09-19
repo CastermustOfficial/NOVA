@@ -356,6 +356,54 @@ controlla("il banco ha un dominio che contiene «localhost» senza esserlo",
           any("localhost." in u for u in INDIRIZZI),
           "senza, un confronto per sottostringa passerebbe uguale")
 
+# ---------------------------------------------------------------- la specie
+print("\n=== Di che specie e' un cervello ===")
+# La scala mescola due mondi: con «locale» e «api» si parla in HTTP, con
+# «claude» e le CLI dichiarate si lancia un processo. Chi costruisce un
+# gradino deve sapere quale dei due sta costruendo.
+#
+# E il confronto non guarda le maiuscole da **tutte e due** le parti: prima il
+# nome cercato veniva abbassato e le chiavi dichiarate no, quindi una CLI
+# scritta a mano nel file come «Gemini» non si trovava e NOVA usava il modello
+# locale senza dirlo.
+def specie_py(nome: str, dichiarate: list[str]) -> str:
+    """La stessa domanda, chiesta a `crea_brain` guardando cosa costruisce."""
+    from nova.config import Config
+    from nova.brains import crea_brain
+    c = Config()
+    c.brains.cli = {k: {"binary": "x", "args": [], "prompt": "argomento"}
+                    for k in dichiarate}
+    quale = type(crea_brain(nome, c)).__name__
+    return {"CliBrain": "cli", "ClaudeCodeBrain": "claude",
+            "ApiBrain": "api", "LocalBrain": "locale"}.get(quale, quale)
+
+
+def confronta(nomi: list[str], dichiarate: list[str], titolo: str) -> list[str]:
+    suo = rust({"specie": nomi, "cli_dichiarate": dichiarate})["specie"]
+    diverse = [f"{n!r}: rust {ru} vs python {specie_py(n, dichiarate)}"
+               for n, ru in zip(nomi, suo) if ru != specie_py(n, dichiarate)]
+    controlla(titolo, not diverse, " | ".join(diverse[:3]))
+    return suo
+
+
+# Senza ombre: i tre nomi di casa fanno il loro mestiere, e tutto il resto e'
+# il modello locale.
+NOMI = ["locale", "api", "claude", "gemini", "GEMINI", " Claude ", "deepseek",
+        "boh", ""]
+suo = confronta(NOMI, ["Gemini", "  deepseek "],
+                f"le {len(NOMI)} specie si riconoscono uguali")
+controlla("una chiave con la maiuscola si trova lo stesso",
+          suo[NOMI.index("gemini")] == "cli",
+          "«Gemini» dichiarata, «gemini» cercata")
+controlla("il banco ha tutte e quattro le specie",
+          set(suo) == {"locale", "api", "claude", "cli"}, str(sorted(set(suo))))
+
+# E con l'ombra: chi dichiara una cli che si chiama «api» intende quella.
+ombra = confronta(["api", "Api", "claude"], ["api"],
+                  "una CLI che si chiama come un nome di casa vince")
+controlla("«api» dichiarata copre l'api di casa", ombra[0] == "cli", str(ombra))
+controlla("ma non copre «claude»", ombra[2] == "claude", str(ombra))
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")
