@@ -28,7 +28,8 @@ sys.path.insert(0, str(RADICE))
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 from nova.config import (AUTONOMY_LABELS, AUTONOMY_ORDER,       # noqa: E402
-                         SafetyConfig)
+                         SafetyConfig,
+                         PERCORSI_PROTETTI_UNIX, PERCORSI_PROTETTI_WINDOWS)
 
 GENERATO = RADICE / "core" / "crates" / "nova-strumenti" / "src" / "predefiniti.rs"
 CRATES = RADICE / "core" / "crates"
@@ -82,7 +83,14 @@ def elenco_rust(nome: str) -> list[str]:
 
 print("\n1. l'elenco portato in Rust e' quello di Python, tutto e in ordine")
 for nome, valori in [
-    ("PERCORSI_PROTETTI", S.protected_paths),
+    # I due elenchi si confrontano **tutti e due**, sempre, qualunque sia il
+    # sistema su cui gira questa prova. Confrontare `S.protected_paths` -
+    # cioe' quello di **questo** sistema - vorrebbe dire che su Windows
+    # nessuno guarda l'elenco Unix e su Linux nessuno guarda quello Windows:
+    # e' esattamente cosi' che l'elenco Unix e' rimasto per mesi senza
+    # gemello, e con lui NOVA su Linux senza nessuna protezione.
+    ("PERCORSI_PROTETTI", PERCORSI_PROTETTI_WINDOWS),
+    ("PERCORSI_PROTETTI_UNIX", PERCORSI_PROTETTI_UNIX),
     ("COMANDI_VIETATI", S.forbidden_command_patterns),
     ("LIVELLI", AUTONOMY_ORDER),
     ("ETICHETTE", [AUTONOMY_LABELS[x] for x in AUTONOMY_ORDER]),

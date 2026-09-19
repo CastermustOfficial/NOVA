@@ -216,22 +216,37 @@ from nova.agent import SafetyContext                          # noqa: E402
 from nova.config import Config  # noqa: E402
 from nova.tools.base import Risk  # noqa: E402
 
-PROTETTI = [r"C:\Windows", r"C:\Program Files", "/etc"]
-RADICI = [r"C:\dati", r"D:\lavoro"]
+def perc(*pezzi: str) -> str:
+    """Un percorso fatto con il separatore di **questa** macchina.
+
+    I casi qui sotto erano scritti con le barre rovesce. Su Windows dicono
+    quel che sembrano; su Linux e macOS la barra rovescia e' un carattere
+    qualunque dentro un nome di file, quindi `C:\\dati\\mio.txt` e' **un
+    solo** nome e Python lo dichiarava fuori dalle radici mentre il Rust lo
+    dichiarava dentro. Non era una divergenza fra le due teste: era una
+    domanda che fuori da Windows non voleva dire niente, posta lo stesso.
+    """
+    return os.sep.join(pezzi)
+
+
+PROTETTI = [perc("C:", "Windows"), perc("C:", "Program Files"), "/etc"]
+RADICI = [perc("C:", "dati"), perc("D:", "lavoro")]
 VIETATI = [r"\bformat\s+[a-z]:", r"\bdiskpart\b", r"\bvssadmin\b.*\bdelete\b"]
 
 SCRITTURE = [
-    r"C:\dati\mio.txt",
-    r"C:\dati\sotto\ancora\mio.txt",
-    r"C:\dati-altrui\tuo.txt",      # il buco dimostrato: NON deve passare
-    r"C:\datix\tuo.txt",
-    r"C:\dati",
-    r"D:\lavoro\relazione.docx",
-    r"C:\altrove\x.txt",
-    r"C:\Windows\system32\x.dll",
-    r"C:\Windows-mio\x.txt",        # non e' dentro Windows
-    r"C:\dati\..\fuori.txt",        # il .. si scioglie a nome
-    r"C:\dati\sotto\..\mio.txt",
+    perc("C:", "dati", "mio.txt"),
+    perc("C:", "dati", "sotto", "ancora", "mio.txt"),
+    perc("C:", "dati-altrui", "tuo.txt"),   # il buco dimostrato: NON deve passare
+    perc("C:", "datix", "tuo.txt"),
+    perc("C:", "dati"),
+    perc("D:", "lavoro", "relazione.docx"),
+    perc("C:", "altrove", "x.txt"),
+    perc("C:", "Windows", "system32", "x.dll"),
+    perc("C:", "Windows-mio", "x.txt"),     # non e' dentro Windows
+    perc("C:", "dati", "..", "fuori.txt"),  # il .. si scioglie a nome
+    perc("C:", "dati", "sotto", "..", "mio.txt"),
+    # Questo resta con le barre normali apposta: su Windows e' il caso in cui
+    # l'utente scrive all'unix e deve valere lo stesso.
     "C:/dati/con-le-barre-normali.txt",
 ]
 COMANDI = [
@@ -303,7 +318,7 @@ controlla("e nomina i processi, non solo il testo cercato",
 
 # E la domanda sul risultato, non sull'accordo (D51): il buco deve essere
 # chiuso da tutte e due le parti, non solo uguale.
-i = SCRITTURE.index(r"C:\dati-altrui\tuo.txt")
+i = SCRITTURE.index(perc("C:", "dati-altrui", "tuo.txt"))
 controlla("autorizzare una cartella non ne autorizza un'altra che le somiglia",
           gr["scritture"][i] is not None and py_scrittura(SCRITTURE[i]) is not None,
           f"rust {gr['scritture'][i]!r}, python {py_scrittura(SCRITTURE[i])!r}")

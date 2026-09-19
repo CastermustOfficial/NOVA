@@ -212,10 +212,12 @@ ALTROVE = {
 #: Elenchi che in Python non esistono, con il perche'. Restare qui e' una
 #: dichiarazione, non una scappatoia: chi legge sa che quella riga non ha
 #: nessuno che la controlli dall'altra parte.
-SENZA_GEMELLO = {
-    "PERCORSI_PROTETTI_UNIX":
-        "NOVA in Python e' di Windows: questo elenco serve solo al demone, "
-        "che gira anche altrove.",
+SENZA_GEMELLO: dict[str, str] = {
+    # `PERCORSI_PROTETTI_UNIX` stava qui, con scritto «NOVA in Python e' di
+    # Windows: questo elenco serve solo al demone». Era vero e costava caro:
+    # NOVA in Python girava anche su Linux, e li' `guard_write` scorreva
+    # quattro percorsi che cominciano tutti per `C:\`, cioe' non proteggeva
+    # niente. Adesso viene da Python come l'altro, ed e' generato.
 }
 
 print("\n1. ogni gemello dice la stessa cosa")

@@ -7900,3 +7900,59 @@ fra quelle di sostanza, quando si sa cosa deve tenere insieme», e oggi
 cosa. Ci sono gia' due fusioni di configurazione in giro (questa e quella del
 guscio, che va nella direzione opposta: il pannello sopra il salvato); la
 terza si scrive quando si sa quale delle due deve restare.
+
+## Far guardare a qualcuno le altre macchine
+
+CANT-9 dice di se' che e' «il primo cantiere che non si puo' provare da qui».
+E' vero solo finche' nessuno ci prova. Il lavoro `altrove` in CI gira gia' su
+Ubuntu e macOS da giorni — ma faceva solo `cargo test`. Di NOVA in Python,
+fuori da Windows, non guardava niente nessuno.
+
+Le ho fatte girare. Tre rosse, e nessuna delle tre era una prova scritta male.
+
+**`ruota_se_serve` spostava una cartella.** Guardava la dimensione e non il
+tipo. Su Windows una cartella misura zero byte: finiva sotto il tetto e
+usciva da sola, quindi la riga non e' mai stata sbagliata *li'*. Su Linux e
+macOS una cartella ne misura 4096 — passa il controllo, arriva al `rename`, e
+la cartella si sposta. Bastava un percorso di registro configurato male. Lo
+stesso identico difetto dalle due parti, Python e Rust, perche' e' la stessa
+riga tradotta.
+
+**Fuori da Windows NOVA non proteggeva niente.** `protected_paths` erano
+quattro percorsi che cominciano tutti per `C:\`. Il demone in Rust ne aveva
+un secondo elenco per Unix, e accanto c'era scritto — da me, settimane fa —
+che era «l'unico senza gemello, perche' NOVA in Python e' di Windows». Quella
+frase e' vera e nasconde la conseguenza: `guard_write` scorreva quattro
+percorsi di cui nessun file Linux sta dentro, quindi `/etc`, `/boot` e `/sys`
+erano scrivibili quanto la cartella dei download. Non «meno protetto»:
+**niente**. E' D185 visto dall'altra parte — la stessa guardia in due copie,
+e le due copie sanno cose diverse.
+
+Adesso i due elenchi stanno tutti e due in `config.py`, la classe sceglie
+quale, l'estrattore li porta tutti e due in Rust, e la prova li confronta
+**tutti e due sempre**: confrontare solo quello di questo sistema vorrebbe
+dire che su Windows nessuno guarda l'elenco Unix, che e' esattamente come
+l'elenco Unix era rimasto solo.
+
+**E due prove che parlavano windowsese.** `C:\dati\mio.txt` su Linux non e'
+un percorso con quattro componenti: e' **un nome di file solo**, perche' la
+barra rovescia li' e' un carattere come un altro. Quindi dieci casi su dieci
+rispondevano «non sincronizzata» e la prova diventava rossa per il sistema su
+cui girava invece che per un difetto. Il codice era giusto — un utente Linux
+scrive `/home/x/OneDrive/...` — ed era la prova a non saper parlare altro che
+windowsese. Stessa cura gia' applicata a `nova-cartelle` dalla parte Rust: i
+percorsi si costruiscono con il separatore di **questa** macchina.
+
+Poi c'era `import winreg` a livello di modulo, che fuori da Windows e' un
+`ImportError` e basta. Adesso e' dentro un `if`, con una riga che dice perche'
+la domanda non si pone: fuori da Windows non c'e' nessun MAX_PATH da aggirare.
+
+**La parte che vale piu' delle tre correzioni.** Il lavoro `altrove` adesso
+fa girare tutte le prove Python su Ubuntu e su macOS, con le stesse
+annotazioni degli altri lavori: chi legge vede *quale* prova e' rossa senza
+doversi autenticare per scaricare il log. Le tre di oggi sono state trovate a
+mano; le prossime le trova la CI. E' l'unica differenza che conta fra «non si
+puo' provare da qui» e «nessuno lo sta provando».
+
+Per la prima volta la suite intera e' verde su Linux: 96 prove, nessuna
+rossa, e quelle che qui non si possono fare escono 2 e lo dicono.

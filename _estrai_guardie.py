@@ -94,8 +94,14 @@ def dalla_classe(nome_classe: str) -> dict:
 SAFETY = dalla_classe("SafetyConfig")
 # `write_roots` non e' qui: il suo predefinito e' `list`, cioe' vuoto, e un
 # elenco vuoto non e' una dichiarazione da portare.
-ATTESI = ["protected_paths", "forbidden_command_patterns", "shell_timeout",
-          "autonomy"]
+ATTESI = ["forbidden_command_patterns", "shell_timeout", "autonomy"]
+# I percorsi protetti non stanno piu' dentro la classe: sono due elenchi di
+# modulo, uno per Windows e uno per il resto, e la classe sceglie quale. Se
+# sparissero, qui si tacerebbe e li' resterebbe l'elenco di ieri.
+for _nome in ("PERCORSI_PROTETTI_WINDOWS", "PERCORSI_PROTETTI_UNIX"):
+    if not MODULO.get(_nome):
+        print(f"non ho ritrovato {_nome} in nova/config.py")
+        sys.exit(1)
 mancano = [n for n in ATTESI if n not in SAFETY]
 if mancano:
     print("non ho ritrovato:", ", ".join(mancano))
@@ -147,13 +153,9 @@ pezzi = ["""//! Le guardie predefinite: cosa non si tocca, cosa non si esegue.
 
 pezzi.append(elenco(
     "PERCORSI_PROTETTI",
-    """/// I percorsi in cui NOVA non scrive mai, qualunque cosa dica il modello.
-///
-/// Sono quelli di Windows perche' NOVA in Python vive li'. Il demone gira
-/// anche altrove e ne ha un secondo elenco per i sistemi Unix, che non ha un
-/// gemello da confrontare: e' dichiarato accanto a questo, non nascosto
-/// dentro la configurazione.""",
-    SAFETY["protected_paths"]))
+    """/// I percorsi in cui NOVA non scrive mai su Windows, qualunque cosa dica
+/// il modello.""",
+    MODULO["PERCORSI_PROTETTI_WINDOWS"]))
 
 pezzi.append(elenco(
     "COMANDI_VIETATI",
@@ -167,12 +169,15 @@ pezzi.append(elenco(
 
 pezzi.append(elenco(
     "PERCORSI_PROTETTI_UNIX",
-    """/// L'equivalente per i sistemi Unix, dove gira solo il demone.
+    """/// E quelli che non si toccano altrove.
 ///
-/// Non viene da Python — NOVA in Python e' di Windows — e quindi nessun
-/// banco lo confronta con niente. E' dichiarato qui, accanto all'altro,
-/// proprio perche' si veda che e' l'unico senza gemello.""",
-    ["/boot", "/etc", "/sys", "/proc", "/dev"]))
+/// Viene da Python come l'altro, e per un motivo che e' costato: prima era
+/// dichiarato **solo** qui, con scritto accanto che era «l'unico senza
+/// gemello» perche' «NOVA in Python e' di Windows». Il risultato pratico non
+/// era che NOVA su Linux proteggesse meno — e' che non proteggeva niente:
+/// `guard_write` scorreva quattro percorsi che cominciano tutti per `C:\\`,
+/// e su Linux nessun file sta dentro nessuno di quelli.""",
+    MODULO["PERCORSI_PROTETTI_UNIX"]))
 
 pezzi.append(elenco(
     "LIVELLI",
@@ -194,7 +199,8 @@ DESTINAZIONE.write_text("\n\n".join(pezzi) + "\n", encoding="utf-8", newline="\n
 
 riletto = DESTINAZIONE.read_text(encoding="utf-8")
 guai = []
-for v in SAFETY["protected_paths"] + SAFETY["forbidden_command_patterns"] + LIVELLI:
+for v in (MODULO["PERCORSI_PROTETTI_WINDOWS"] + MODULO["PERCORSI_PROTETTI_UNIX"]
+          + SAFETY["forbidden_command_patterns"] + LIVELLI):
     if "    %s," % rust(v) not in riletto:
         guai.append(f"{v!r} non ritrovato nel file scritto")
 if "pub const SHELL_TIMEOUT_S: u64 = %d;" % SAFETY["shell_timeout"] not in riletto:
@@ -206,7 +212,8 @@ if guai:
     sys.exit(1)
 
 print(f"scritto {DESTINAZIONE}")
-print(f"  {len(SAFETY['protected_paths'])} percorsi protetti")
+print(f"  {len(MODULO['PERCORSI_PROTETTI_WINDOWS'])} percorsi protetti su Windows, "
+      f"{len(MODULO['PERCORSI_PROTETTI_UNIX'])} altrove")
 print(f"  {len(SAFETY['forbidden_command_patterns'])} comandi vietati")
 print(f"  {len(LIVELLI)} livelli, predefinito {SAFETY['autonomy']!r}, "
       f"timeout {SAFETY['shell_timeout']}s")
