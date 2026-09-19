@@ -7498,3 +7498,48 @@ per cui questo file esiste.
 Con il confronto vecchio l'unico modo di scrivere una giornata cosi' era
 **datarla ieri**: cioe' esattamente la cosa falsa che quel controllo esiste
 per impedire. Adesso guarda l'orologio.
+
+## 19 settembre 2026 — Due mondi sotto la stessa parola
+
+CANT-7 e' «non si porta: si riscrive», e la prima cosa da riscrivere e' il
+pezzo che serve a CANT-3: leggere la scala dei cervelli e costruire i gradini.
+Sono andato a vedere come si passa da un nome a un cervello, e ho trovato due
+cose.
+
+**La prima e' strutturale.** `crea_brain` fa questo, in quest'ordine: se il
+nome sta fra le CLI dichiarate costruisce una `CliBrain`; se e' `claude`, il
+processo di Claude Code; se e' `api`, un client HTTP; altrimenti il modello
+locale.
+
+Due dei quattro sono **indirizzi**, gli altri due sono **processi**. Sotto la
+parola «gradino» ci sono due macchine che non si assomigliano: a una si manda
+un corpo HTTP, all'altra si lancia un eseguibile e gli si parla su stdin.
+
+Non e' un dettaglio teorico: il `Gradino` che ho scritto due giorni fa in
+`nova-core::mondo` ha `base_url`, `modello`, `intestazioni`. Va bene per
+meta' della scala. Se qualcuno lo costruisse per «claude» otterrebbe un
+gradino che non si puo' usare, e lo scoprirebbe quando NOVA prova a salire —
+cioe' nel momento peggiore, dopo due fallimenti, con l'utente che aspetta.
+Adesso la specie e' una cosa che si chiede (D219), e non e' ancora attaccata a
+niente: e' il prossimo pezzo.
+
+**La seconda e' un difetto vero, e stava lì da sempre.** Il nome cercato viene
+abbassato — `nome = (nome or "locale").strip().lower()` — e le chiavi
+dichiarate no. Una CLI scritta a mano nel file come `"Gemini"` non si trova, e
+NOVA usa il modello locale **senza dire niente**.
+
+Dal pannello non capita, perche' li' il nome si abbassa mentre lo si scrive.
+Capita a chi apre `config.json` — che e' una cosa che questo progetto invita a
+fare, anche nei messaggi d'errore. E configurare un cervello e vederne
+rispondere un altro e' il difetto peggiore di questa famiglia, perche' **la
+risposta arriva lo stesso e sembra giusta** (D220).
+
+Provato in tutti e due i lati, con un banco che confronta dieci nomi contro
+`crea_brain` vero, guardando che classe costruisce.
+
+**E una mutazione che ha smascherato una mia riga.** Avevo scritto il ripiego
+del Python — nome vuoto vuol dire «locale» — e la mutazione che lo toglie
+passava lo stesso: un nome vuoto cade comunque nel ramo finale. La riga non
+poteva sbagliare, quindi non provava niente; l'ho tolta e ho lasciato scritto
+perche'. **Una riga che non puo' sbagliare non e' prudenza: e' una riga che fa
+credere di star gestendo un caso.**
