@@ -7724,3 +7724,42 @@ E resta `nova/finestra.py`, che e' l'unica cosa di quella mezza giornata che
 valeva: centocinquanta righe uscite da `Agent`, provabili senza costruire un
 agente. Non e' una seconda testa — e' la prima, tirata fuori dal posto in cui
 era impigliata.
+
+## E la regola che non dipende da me
+
+Scritto D223 — «prima di scrivere una funzione, `grep` del suo nome» — mi e'
+venuto il dubbio che fosse la stessa cosa di stamattina con parole piu'
+severe. Lo era. D223 e' un proposito: funziona finche' mi ricordo di
+applicarlo, e il precedente di un'ora prima dice che non me lo ricordo.
+
+`test_niente_due_volte.py` non chiede niente a nessuno. Raccoglie tutte le
+`pub const` dei crate — centottantaquattro, in diciannove crate — e pretende
+che un nome stia in un posto solo. Se sta in due, o si cancella una delle due,
+o si mette in una lista di eccezioni **con scritto perche' sono davvero due
+cose diverse**. E una eccezione che non serve piu' fa diventare rossa la prova
+esattamente come una che manca: una lista di eccezioni che invecchia in
+silenzio e' peggio di nessuna lista.
+
+L'ho messa alla prova contro gli errori veri, non contro casi inventati.
+Rimesso `nova-finestra` com'era: **tredici righe rosse**, ciascuna con scritto
+in quale crate stava gia' la cosa che stavo riscrivendo. Sarebbe successo al
+primo `cargo test`, prima di qualunque commit, prima di mezza giornata di
+lavoro. Stessa cosa per `versa` e `troncato` del tentativo precedente:
+`LIMITE_RISULTATO` e `NON_SI_VERSANO` rosse subito.
+
+**Le costanti si', le funzioni no.** Ho misurato prima di decidere: ventuno
+nomi di funzione stanno in piu' crate, e sono tutti verbi — `leggi` in sei,
+`scrivi` in tre, `trova` in tre. Chiedere che non si ripetano vorrebbe dire
+ventun eccezioni e nessun segnale. Le costanti invece si ripetono sei volte su
+centottantaquattro, e sono tutte parole generiche: `NOME`, `NOMI`, `GIORNI`,
+`PREFISSI`, `VUOTE`, `ATTESA_PREDEFINITA`. Un nome in maiuscolo dice di che
+dominio e', e `MINIMO_ACCORCIABILE` in due posti non e' una coincidenza.
+
+**E una cosa su come ho scritto le sei eccezioni.** Le prime ragioni le ho
+scritte guardando i nomi: «i nomi degli eseguibili dei browser», «le pagine
+senza contenuto». Poi sono andato a leggere davvero, e quattro su sei erano
+sbagliate — `NOMI` in `nova-browser` sono 2231 entita' HTML, `VUOTE` e'
+un'espressione regolare per gli a capo. Una lista di eccezioni con le ragioni
+indovinate e' esattamente inutile quanto non averla: chi la legge fra sei mesi
+si fida di quella riga. Adesso ogni ragione dice cosa c'e' dentro tutte e due,
+perche' l'ho aperto.

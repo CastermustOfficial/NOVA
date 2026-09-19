@@ -504,10 +504,17 @@ esattamente cosa fare; e ho ricominciato da `agent.py` senza rileggerlo.
 «Stai piu' attento» non e' una cura, e un documento degli errori che si legge
 solo mentre lo si scrive non e' un documento degli errori.
 
-Quel che ho messo al suo posto e' una regola meccanica, che non chiede
-giudizio: **prima di scrivere una funzione, `grep` del suo nome in tutto il
-progetto**. Tre secondi, e risponde da sola. Sta in D223 perche' li' la
-rileggo.
+Quel che ho messo al suo posto, in un primo momento, e' stata una regola
+meccanica: **prima di scrivere una funzione, `grep` del suo nome in tutto il
+progetto** (D223). Poi mi sono accorto che anche quella dipende da me che me
+ne ricordi, che e' precisamente cio' che si e' gia' visto non funzionare.
+
+Quindi c'e' anche `test_niente_due_volte.py` (D225): raccoglie tutte le
+costanti pubbliche dei crate e pretende che un nome stia in un posto solo, o
+in una lista di eccezioni con la ragione scritta. Rimettendo il crate
+duplicato al suo posto da' tredici righe rosse, ciascuna con scritto dove
+stava gia' la cosa che stavo riscrivendo — al primo `cargo test`, prima di
+qualunque commit. Non chiede che io mi ricordi di niente.
 
 C'e' anche una cosa da dire a favore del progetto, e conta quanto il resto:
 tutte e due le volte se n'e' accorta una prova. La prima `test_elenchi_gemelli.py`,
