@@ -133,22 +133,36 @@ registro.BYTE_MAX = 2000
 for i in range(60):
     registro.annota(f"azione numero {i}", dettagli="x" * 200)
 f = registro.percorso()
-controlla("il file resta sotto controllo", f.stat().st_size <= 40000,
+storico_f = f.with_suffix(".1.jsonl")
+# Prima si controllava solo che il file fosse **sotto** i 40.000 byte, e un
+# file vuoto lo e': se `annota` avesse smesso di scrivere del tutto, questa
+# riga sarebbe rimasta verde e la prova avrebbe detto che il registro «resta
+# sotto controllo» mentre non conteneva niente. Adesso si chiede anche che
+# abbia scritto.
+controlla("il file resta sotto controllo", 0 < f.stat().st_size <= 40000,
           f"{f.stat().st_size} byte")
 controlla("e il vecchio e' messo da parte, non buttato",
-          f.with_suffix(".1.jsonl").exists())
+          storico_f.exists(),
+          # Quando questa e' rossa serve sapere **cosa** c'era: su un agente
+          # e' rossa una volta ogni tanto e il file non lo si puo' guardare.
+          f"in {f.parent}: "
+          + ", ".join(f"{x.name} ({x.stat().st_size}b)"
+                      for x in sorted(f.parent.iterdir()))
+          + f" - tetto {registro.BYTE_MAX}, vivo {f.stat().st_size}b")
 
 # `cerca` esiste per «cosa ho mandato a quella societa'?» tre settimane dopo.
 # Se `leggi` guardasse solo il file vivo, il giorno della potatura quella
 # domanda comincerebbe a rispondere «niente»: nessun errore, nessuna riga di
 # log, e nessun modo di capire perche'.
-storico = f.with_suffix(".1.jsonl").read_text(encoding="utf-8").splitlines()
-primo = json.loads(storico[0])["azione"]
+storico = storico_f.read_text(encoding="utf-8").splitlines() if storico_f.exists() else []
+primo = json.loads(storico[0])["azione"] if storico else None
 azioni = [x.get("azione") for x in registro.leggi(quante=10000)]
 controlla("cio' che sta nello storico si legge ancora",
-          primo in azioni, f"«{primo}» sparita dopo la potatura")
+          primo is not None and primo in azioni,
+          "non c'e' nessuno storico da rileggere" if primo is None
+          else f"«{primo}» sparita dopo la potatura")
 controlla("e l'elenco resta dal piu' recente al piu' vecchio",
-          azioni[-1] == primo,
+          bool(azioni) and azioni[-1] == primo,
           f"in fondo c'e' «{azioni[-1]}» invece della prima riga mai scritta: "
           "i due file si leggono nell'ordine sbagliato")
 
