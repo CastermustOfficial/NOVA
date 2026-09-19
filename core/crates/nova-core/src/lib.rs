@@ -36,6 +36,9 @@ pub mod modello;
 // che nova-ciclo prova contro una finzione.
 pub mod mondo;
 
+// La conversazione, fra un turno e l'altro.
+pub mod sessione;
+
 use std::sync::Arc;
 
 use anyhow::Result;

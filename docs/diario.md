@@ -7763,3 +7763,42 @@ un'espressione regolare per gli a capo. Una lista di eccezioni con le ragioni
 indovinate e' esattamente inutile quanto non averla: chi la legge fra sei mesi
 si fida di quella riga. Adesso ogni ragione dice cosa c'e' dentro tutte e due,
 perche' l'ho aperto.
+
+## Chi tiene la conversazione
+
+Il pezzo che mancava a CANT-3, e stavolta ho cominciato guardando cosa c'era
+invece che da `agent.py`. C'era quasi tutto: `nova-contesto` compone la
+domanda, il prompt di sistema, i blocchi, separa il ragionamento e sa che i
+messaggi di sistema devono restare uno. Mancava una cosa sola, e non e' una
+funzione: e' **dove vivono le cose**.
+
+`MondoVero` teneva i messaggi, la scala dei cervelli e il conto delle deleghe,
+e moriva con il turno. Con quella forma «il secondo turno si ricorda del
+primo» non era una prova che falliva: era una prova che non si poteva
+nemmeno scrivere. Adesso c'e' `Sessione`, che tiene le quattro cose che
+sopravvivono a un turno — il prompt gia' composto, la conversazione, i
+gradini, le deleghe — e il mondo la prende in prestito per la durata di un
+turno.
+
+Le tre righe che separano le due cose sono tre difetti gia' visti, e le ho
+scritte come prove prima che come codice. Il prompt di sistema **non si
+ricompone**: i fornitori tengono la cache sulla prima regione della
+richiesta, e un carattere diverso nel messaggio numero zero rielabora
+l'intera conversazione — dieci giri di `ricomincia()` e il messaggio zero
+deve restare identico. Le deleghe **non tornano indietro**: azzerarle a ogni
+«ricomincia» e' lo stesso difetto di D218 con un'altra faccia, perche' gli
+identificativi che hanno gia' viaggiato verso un fornitore non tornano liberi
+perche' qui si e' voltato pagina. E il **gradino** riparte da capo mentre i
+gradini restano: essere saliti sul terzo e' di questo turno, se no una
+domanda difficile manda fuori casa anche tutte quelle facili che vengono
+dopo.
+
+Quattro mutazioni, tre prese e una no: «la domanda entra come messaggio di
+sistema». Nessuna prova guardava **chi parla** — e un secondo messaggio di
+sistema in mezzo alla conversazione meta' dei fornitori lo rifiutano e gli
+altri lo trattano male. Che `nova-contesto::un_solo_sistema` esista apposta
+per rimediarci rendeva la svista piu' imbarazzante, non meno. Adesso la
+prova conta i messaggi di sistema e pretende che sia uno.
+
+Cosa resta di CANT-3: chi costruisce i gradini dalla configurazione. Che e'
+CANT-7, e tocca fare quello.
