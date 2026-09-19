@@ -20,7 +20,7 @@ nova-modelli = { path = "../nova-modelli" }
 nova-ciclo = { path = "../nova-ciclo" }
 # Di che specie e' un gradino: con chi si parla, e come (D219).
 nova-scala = { path = "../nova-scala" }
-nova-finestra = { path = "../nova-finestra" }
+nova-contesto = { path = "../nova-contesto" }
 # Chiedere a un cervello: i tentativi, i codici, il corpo di un errore.
 nova-cervelli = { path = "../nova-cervelli" }
 # Il cliente HTTP di casa: `nova-voce` e `nova-cervelli` parlano gia' con
