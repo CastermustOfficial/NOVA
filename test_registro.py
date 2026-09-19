@@ -149,16 +149,41 @@ def perche_non_ruota() -> str:
     si fa fare alla prova: com'e' fatto il file, quale tetto e' in vigore, e
     cosa risponde `ruota_se_serve` chiamata a mano subito dopo.
     """
+    import shutil as _shutil
     import stat as _stat
     from nova.rotazione import MAX_BYTE, ruota_se_serve
+    pezzi = []
     try:
         st = f.stat()
-        return (f"S_ISREG={_stat.S_ISREG(st.st_mode)} size={st.st_size} "
-                f"tetto={registro.BYTE_MAX} (di fabbrica {MAX_BYTE}) "
-                f"chiamata a mano -> {ruota_se_serve(f, registro.BYTE_MAX)} "
-                f"poi storico={storico_f.exists()}")
+        pezzi.append(f"S_ISREG={_stat.S_ISREG(st.st_mode)} size={st.st_size} "
+                     f"tetto={registro.BYTE_MAX} (di fabbrica {MAX_BYTE})")
+        pezzi.append(f"a mano -> {ruota_se_serve(f, registro.BYTE_MAX)}, "
+                     f"storico={storico_f.exists()}")
     except Exception as e:                                  # noqa: BLE001
-        return f"non si riesce nemmeno a chiederlo: {type(e).__name__}: {e}"
+        pezzi.append(f"non si riesce nemmeno a chiederlo: {type(e).__name__}: {e}")
+    # Se dice di no con un file normale piu' grosso del tetto, l'unica strada
+    # rimasta dentro la funzione e' che il rinominare fallisca. Lo si prova su
+    # una copia, per non rovinare quel che resta da controllare.
+    copia = f.with_name("prova-di-rinomina.tmp")
+    meta = f.with_name("prova-di-rinomina.1.tmp")
+    try:
+        copia.unlink(missing_ok=True)
+        meta.unlink(missing_ok=True)
+        _shutil.copyfile(f, copia)
+        copia.replace(meta)
+        pezzi.append("rinominare li' dentro si puo'")
+        meta.unlink(missing_ok=True)
+    except Exception as e:                                  # noqa: BLE001
+        pezzi.append(f"rinominare NO: {type(e).__name__}: {e}")
+    # E da dove vengono davvero le due funzioni in gioco.
+    try:
+        import inspect
+        pezzi.append("ruota_se_serve da " + str(inspect.getsourcefile(ruota_se_serve)))
+        pezzi.append("_ruota da " + str(inspect.getsourcefile(registro._ruota)))
+        pezzi.append("registro da " + str(registro.__file__))
+    except Exception as e:                                  # noqa: BLE001
+        pezzi.append(f"non so da dove vengono: {e}")
+    return " | ".join(pezzi)
 
 
 # Quando questa e' rossa serve sapere **cosa** c'era: su un agente il file
