@@ -455,3 +455,38 @@ restava verde. La cura non e' stata allargare le eccezioni ma **cercare
 meglio**: si raccolgono solo le letture che hanno `cfg` come ricevente, e a
 quel punto si puo' pretendere tutto. Un cercatore impreciso si paga sempre in
 controlli disattivati.
+
+## Ho riscritto un pezzo che c'era gia', e non l'ho chiesto a nessuno
+
+Finito di portare il taglio della conversazione, sono passato a quello che
+sembrava il suo gemello: cosa entra in conversazione quando il risultato di
+uno strumento e' troppo grosso. E' la stessa domanda — cosa ci sta — e l'ho
+scritto in `nova-finestra`: la costante, l'elenco degli strumenti che non si
+versano, l'avviso, la sostituzione, il Python accanto, il banco, otto prove,
+sei mutazioni. Un'ora.
+
+Poi `test_elenchi_gemelli.py` e' diventato rosso, e nel messaggio c'era la
+risposta: `nova-strumenti/src/chiamate.rs`, `NON_SI_VERSANO`. Stava li' da
+prima, con `versa`, `troncato`, `avviso`, e un banco suo che la confronta gia'
+col Python. Avevo scritto la seconda copia di tutto.
+
+**Cosa avrei dovuto fare.** Cercare il nome prima di scrivere la funzione.
+`grep -rn "LIMITE_RISULTATO"` sarebbe costato tre secondi e avrebbe risposto
+esattamente. Non l'ho fatto perche' partivo da `agent.py` e li' la costante
+c'era, come attributo di classe: ho visto codice Python non portato e ho
+concluso «non e' portato», invece di chiedermi se fosse portato **altrove**.
+Un attributo di classe in Python non dice niente su cosa esiste in Rust.
+
+**La cosa che mi ha salvato non sono io.** E' una prova che esiste apposta
+per questo: tiene l'elenco degli elenchi che vivono in due lingue e pretende
+che corrispondano. L'ha detto in un secondo, dopo un'ora. Vale la pena
+notare che l'ho scoperto solo perche' ho fatto girare **tutta** la suite,
+non solo le prove del pezzo su cui stavo lavorando.
+
+**Cosa e' rimasto.** Ho buttato la duplicazione e tenuto tre cose, nel posto
+giusto: una prova che accettava un margine dove la garanzia e' netta (l'ho
+stretta), una scelta di disegno che nessuna prova difendeva da sola (i due
+terzi di testa), e — la peggiore — un banco che confrontava il Rust con una
+riscrittura della regola Python fatta nel proprio corpo invece che col Python
+vero. Quella terza copia era l'unica delle tre che non poteva accorgersi di
+niente.

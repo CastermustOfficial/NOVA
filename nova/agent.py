@@ -193,6 +193,43 @@ class AgentCallbacks:
 
 
 # ---------------------------------------------------------------- agente
+def avviso_di_versamento(omessi: int, percorso: str) -> str:
+    """L'avviso che dichiara il rinvio.
+
+    Sta fuori dalla sostituzione perche' la sua **lunghezza** entra nel conto,
+    e un avviso scritto in due posti diversi e' un conto sbagliato in uno dei
+    due.
+    """
+    return (f"\n\n[Omessi {omessi} caratteri nel mezzo. Il risultato completo "
+            f"e' in {percorso}. Leggilo con read_file, che accetta un "
+            f"intervallo di righe, oppure cercaci dentro con search_in_files.]\n\n")
+
+
+def sostituzione_versata(testo: str, percorso: str, limite: int) -> str:
+    """Testa, avviso, coda: cosa entra in conversazione al posto del testo intero.
+
+    Il costo in caratteri dell'avviso e' riservato **fuori** dal budget, e sul
+    numero piu' grande che l'avviso potra' contenere: cosi' la sostituzione
+    non puo' risultare piu' lunga di cio' che sostituisce, che sarebbe il modo
+    piu' sciocco di fallire.
+
+    Della testa se ne tiene il doppio della coda: di un risultato di strumento
+    l'inizio porta quasi sempre la forma - le intestazioni, lo schema, le
+    prime righe di una tabella - e la fine solo come e' andata a finire.
+    """
+    spazio = limite - len(avviso_di_versamento(len(testo), percorso))
+    if spazio <= 200:
+        # Non c'e' posto nemmeno per un assaggio: resta la strada.
+        return avviso_di_versamento(len(testo), percorso).strip()
+    testa = spazio * 2 // 3
+    coda = spazio - testa
+    if len(testo) <= testa + coda:
+        return testo
+    return (testo[:testa]
+            + avviso_di_versamento(len(testo) - testa - coda, percorso)
+            + testo[-coda:])
+
+
 class Agent:
     def __init__(self, cfg: Config, callbacks: AgentCallbacks | None = None,
                  kb_engine=None, memory=None, vault=None, brain=None, router=None):
@@ -951,9 +988,12 @@ class Agent:
     def _versa(self, name: str, call_id: str, testo: str) -> str:
         """Salva il testo intero, ritorna anteprima piu' dove trovarlo.
 
-        Il costo in caratteri dell'avviso e' riservato *fuori* dal budget:
-        cosi' la sostituzione non puo' risultare piu' lunga di cio' che
-        sostituisce, che sarebbe il modo piu' sciocco di fallire.
+        Qui c'e' il mestiere - scrivere il file, e mascherarlo prima di
+        scriverlo. Cosa ci si mette al posto lo decide `sostituzione_versata`,
+        che e' pura e sta qui sotto apposta: il gemello Rust e'
+        `nova_strumenti::chiamate::versa`, e la prova che li confronta si
+        scriveva da se' una **terza** copia della regola. Tre copie di una
+        regola sono due occasioni di scoprire che non e' piu' la stessa.
         """
         radice = Path(__file__).resolve().parent.parent / "runtime" / "versati"
         try:
@@ -975,17 +1015,7 @@ class Agent:
             return (testo[: self.LIMITE_RISULTATO]
                     + f"\n... [risultato troncato: non sono riuscito a salvarlo ({e})]")
 
-        def avviso_per(omessi: int) -> str:
-            return (f"\n\n[Omessi {omessi} caratteri nel mezzo. Il risultato completo "
-                    f"e' in {percorso}. Leggilo con read_file, che accetta un "
-                    f"intervallo di righe, oppure cercaci dentro con search_in_files.]\n\n")
-
-        spazio = self.LIMITE_RISULTATO - len(avviso_per(len(testo)))
-        if spazio <= 200:
-            return avviso_per(len(testo)).strip()
-        testa = spazio * 2 // 3
-        coda = spazio - testa
-        return testo[:testa] + avviso_per(len(testo) - testa - coda) + testo[-coda:]
+        return sostituzione_versata(testo, str(percorso), self.LIMITE_RISULTATO)
 
     def _append_tool_result(self, call: dict, name: str, result: str) -> None:
         if len(result) > self.LIMITE_RISULTATO:
