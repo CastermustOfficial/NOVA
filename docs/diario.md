@@ -7997,3 +7997,41 @@ permessi. Da oggi, quando una prova e' rossa solo altrove, la seconda cosa da
 provare e' `su ubuntu -c`.
 
 La prima resta far parlare la prova.
+
+## E macOS, che ha impiegato quattro giri
+
+Chiusa la rossa di Ubuntu, restava macOS, e ci sono volute quattro
+annotazioni per arrivare in fondo a **una** prova.
+
+`test_powershell.py` comincia con una porta: «PowerShell non c'e' qui, esco
+2». Primo giro: `shutil.which("powershell")` — e su un agente macOS un
+`powershell` c'e' davvero, quindi la prova passava la porta e moriva piu'
+avanti dentro `subprocess.run`, con la faccia di un difetto di NOVA.
+Secondo giro: «allora provo ad avviarlo io», con il percorso assoluto
+trovato da `which`. Partiva. Ma NOVA lo chiama **per nome**, e quella non
+partiva: due domande diverse, e quella giusta non era la mia. Terzo giro:
+«lo chiedo a `nova/powershell.py`», che e' la domanda giusta — e infatti
+PowerShell su quell'agente funziona. Quarto giro: la prova, cinquanta righe
+dopo, chiama anche `run_cmd`, e `cmd` su macOS non esiste.
+
+Quattro giri, e ogni volta la stessa lezione con un vestito diverso: la
+porta di una prova deve chiedere **tutto quello che la prova usa**, non la
+prima cosa che viene in mente.
+
+E un'ultima, di un altro genere: `test_attesa.py`. `sleep(0.35)` e poi
+«devono essercene almeno quattro», con un battito ogni cinquanta
+millisecondi. Il conto torna su una macchina scarica; su un agente carico un
+thread puo' restare fermo mezzo secondo senza che niente sia rotto. La
+proprieta' da provare era «si ripete da solo», e quella non ha fretta:
+adesso si aspetta che accada, con cinque secondi di tetto. Col battito
+spento resta rossa e lo dice — «1 battiti in cinque secondi».
+
+**Dove siamo.** Otto lavori verdi su tre sistemi: Windows, Ubuntu, macOS,
+Python dal 3.10 al 3.13, Rust, e il controllo sui dati personali. Il
+Python di NOVA, fuori da Windows, non lo guardava nessuno fino a stamattina.
+In un giorno ne sono usciti cinque difetti — due veri di NOVA (una cartella
+che si sposta, i percorsi protetti che non proteggevano), uno di una prova
+che lasciava il mondo storto, e due di prove che facevano domande che
+altrove non volevano dire niente.
+
+Nessuno dei cinque si vedeva da Windows. Questa e' CANT-9.
