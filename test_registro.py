@@ -141,14 +141,33 @@ storico_f = f.with_suffix(".1.jsonl")
 # abbia scritto.
 controlla("il file resta sotto controllo", 0 < f.stat().st_size <= 40000,
           f"{f.stat().st_size} byte")
+def perche_non_ruota() -> str:
+    """Cosa risponde la potatura, chiesto direttamente.
+
+    Questa prova e' verde su Windows e sul portatile di chi scrive, e rossa
+    su un agente. Il file li' non lo si puo' aprire, quindi la domanda gliela
+    si fa fare alla prova: com'e' fatto il file, quale tetto e' in vigore, e
+    cosa risponde `ruota_se_serve` chiamata a mano subito dopo.
+    """
+    import stat as _stat
+    from nova.rotazione import MAX_BYTE, ruota_se_serve
+    try:
+        st = f.stat()
+        return (f"S_ISREG={_stat.S_ISREG(st.st_mode)} size={st.st_size} "
+                f"tetto={registro.BYTE_MAX} (di fabbrica {MAX_BYTE}) "
+                f"chiamata a mano -> {ruota_se_serve(f, registro.BYTE_MAX)} "
+                f"poi storico={storico_f.exists()}")
+    except Exception as e:                                  # noqa: BLE001
+        return f"non si riesce nemmeno a chiederlo: {type(e).__name__}: {e}"
+
+
+# Quando questa e' rossa serve sapere **cosa** c'era: su un agente il file
+# non lo si puo' aprire, e senza queste due righe resta solo «non esiste».
+dentro = ", ".join(f"{x.name} ({x.stat().st_size}b)"
+                   for x in sorted(f.parent.iterdir()))
 controlla("e il vecchio e' messo da parte, non buttato",
           storico_f.exists(),
-          # Quando questa e' rossa serve sapere **cosa** c'era: su un agente
-          # e' rossa una volta ogni tanto e il file non lo si puo' guardare.
-          f"in {f.parent}: "
-          + ", ".join(f"{x.name} ({x.stat().st_size}b)"
-                      for x in sorted(f.parent.iterdir()))
-          + f" - tetto {registro.BYTE_MAX}, vivo {f.stat().st_size}b")
+          f"in {f.parent}: {dentro} -- {perche_non_ruota()}")
 
 # `cerca` esiste per «cosa ho mandato a quella societa'?» tre settimane dopo.
 # Se `leggi` guardasse solo il file vivo, il giorno della potatura quella
