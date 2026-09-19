@@ -7543,3 +7543,29 @@ passava lo stesso: un nome vuoto cade comunque nel ramo finale. La riga non
 poteva sbagliare, quindi non provava niente; l'ho tolta e ho lasciato scritto
 perche'. **Una riga che non puo' sbagliare non e' prudenza: e' una riga che fa
 credere di star gestendo un caso.**
+
+**Coda, lo stesso giorno.** Attaccata la specie al gradino, e non aggiungendo
+un campo: **cambiando forma**.
+
+`Gradino` era una struttura con dentro `base_url`, `modello`, `intestazioni`.
+Con quella forma, costruire un gradino per «claude» — che un indirizzo non ce
+l'ha — e' un attimo: si mette una stringa qualunque e si va avanti. Adesso
+sono due varianti, `Indirizzo` e `Processo`, e il costruttore decide in base
+alla specie. Un gradino sbagliato non si scrive piu': il compilatore non lo
+lascia passare.
+
+E per la meta' che il turno non sa ancora fare, **lo dice**:
+
+> «claude» non e' un indirizzo ma un processo da lanciare, e il turno non sa
+> ancora farlo. Scegli un cervello locale o una chiave API, oppure usa quella
+> CLI dal pannello.
+
+Il ripiego silenzioso — trattarlo come un indirizzo e vedere cosa succede —
+avrebbe dato un **guasto di rete** per un gradino che un indirizzo non l'ha
+mai avuto: la diagnosi sbagliata con la faccia di quella giusta, che e' la
+cosa che questo progetto passa le giornate a togliere.
+
+Una prova guarda anche che in quel caso non parta **niente** verso nessuno.
+Tre mutazioni, tre prese — compresa quella che toglie il nome del gradino dal
+messaggio: dire «e' un processo» senza dire **quale** manda a indovinare fra
+quattro gradini.

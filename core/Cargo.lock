@@ -2546,6 +2546,7 @@ dependencies = [
  "nova-modelli",
  "nova-platform",
  "nova-proto",
+ "nova-scala",
  "nova-strumenti",
  "nova-voce",
  "serde",
