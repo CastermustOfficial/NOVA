@@ -7,9 +7,13 @@ strumenti e identificativi - applica il piano e basta.
 
 La ragione di questa divisione e' che il taglio e' un pezzo di ragionamento
 delicato, pieno di casi che sono gia' andati storti una volta, e va potuto
-provare senza un agente intorno. Il gemello in Rust e'
-`core/crates/nova-finestra`: le due teste devono dire la stessa cosa, e c'e'
-un banco che glielo chiede.
+provare senza un agente intorno.
+
+Il gemello in Rust e' `core/crates/nova-contesto`, e il banco che li confronta
+e' `test_contesto_rust.py`: c'erano gia' tutti e due prima di questo modulo.
+Questo file non aggiunge una seconda testa — sposta la prima fuori da
+`Agent`, dove era impigliata in un oggetto che per provarne una riga andava
+costruito intero.
 """
 from __future__ import annotations
 

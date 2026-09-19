@@ -7596,11 +7596,17 @@ ricresceva di ottanta, per sempre — un ciclo che «ovviamente» finisce. E la
 coda poteva cominciare da una risposta di strumento senza la chiamata che
 l'aveva prodotta, che meta' dei fornitori rifiuta.
 
-Adesso stanno in due: `nova/finestra.py` e `core/crates/nova-finestra`, che
-dicono la stessa cosa e un banco glielo chiede su 316 casi. `trim_history`
-fa dodici righe: riduce i messaggi a ruoli e testi, chiede il piano, lo
-riapplica. Diciannove prove in Rust, otto mutazioni su otto prese — ma non
-al primo giro.
+Adesso il Python sta in `nova/finestra.py` e `trim_history` fa dodici righe:
+riduce i messaggi a ruoli e testi, chiede il piano, lo riapplica.
+
+*(Qui sotto c'e' scritto che ho anche scritto il gemello in Rust. L'ho
+scritto, e l'ho buttato lo stesso giorno: esisteva gia', si chiama
+`nova-contesto`. Il racconto sta in fondo a questa pagina. Lascio quel che
+avevo scritto invece di riscriverlo: un diario che si corregge da se' senza
+dirlo non serve a niente.)*
+
+Diciannove prove in Rust, otto mutazioni su otto prese — ma non al primo
+giro.
 
 **La mutazione sopravvissuta.** Ho tolto il controllo finale
 dell'accorciatura, quello che dice «se non ci guadagni niente lascia stare»,
@@ -7670,3 +7676,51 @@ niente — `agent.py` poteva cambiare sotto e la prova avrebbe continuato a dire
 `agent.py` espone `sostituzione_versata` — pura, fuori dalla classe, col
 mestiere del file lasciato dov'era — e la prova chiama quella. Provato
 mutando il Python: prima non se ne accorgeva, adesso diventa rossa.
+
+## E la seconda volta, un'ora dopo
+
+Finito il versamento, stavo per cominciare il pezzo seguente. Questa volta,
+prima di scrivere, ho guardato cosa c'era. Il risultato e' che `nova-finestra`
+— il crate di mezza giornata fa, quello con diciannove prove e il banco da 316
+casi, quello gia' spinto su GitHub — non andava scritto. Esiste da prima, e si
+chiama **`nova-contesto`**.
+
+Stesse costanti, stesso `taglia`, stesso `accorcia_il_piu_grosso`, gli stessi
+commenti che raccontano gli stessi quattro difetti. In piu' un `Resoconto` che
+dichiara cosa e' stato tolto e perche' — che e' la cosa giusta, e che io non
+avevo. E `test_contesto_rust.py` e' gia' il banco che lo confronta con
+`Agent.trim_history`: il mio `test_finestra_rust.py` era il secondo banco sulla
+stessa regola.
+
+La beffa sta in testa a `nova-contesto/src/lib.rs`, sotto il titolo «due
+trappole del porting, entrambe misurate»:
+
+> A parita' di lunghezza vince il primo. `max(range(n), key=...)` in Python
+> restituisce il primo massimo; `max_by_key` in Rust restituisce l'ultimo.
+
+Io ho scritto `max_by_key`. Con due messaggi lunghi uguali le due teste
+avrebbero accorciato messaggi diversi, e i miei 316 casi non se ne sono
+accorti perche' nessuno aveva un pareggio. Avevo scritto una copia peggiore
+di una cosa che c'era, e la copia conteneva proprio l'errore che l'originale
+documenta di aver evitato.
+
+**Due volte in un giorno, per lo stesso motivo.** Parto da `agent.py`, vedo
+del Python non portato, concludo «non e' portato». La domanda giusta non e'
+quella: e' «e' portato **altrove**?». Un attributo di classe in Python non
+dice niente su cosa esista in Rust. E la cura non e' stare piu' attento — e'
+meccanica: `grep` del nome della costante prima di scrivere la prima riga.
+L'ho messa in D223, per iscritto, perche' «stai piu' attento» l'avevo gia'
+scritto un'ora prima in `dove_ho_sbagliato.md` e non e' servito a niente.
+
+**Cosa resta.** `nova-finestra` cancellato. `MondoVero` attaccato a
+`nova-contesto`, che e' quello che doveva succedere dall'inizio: si taglia
+prima di chiedere, e i campi che il taglio non guarda — `tool_calls`,
+`tool_call_id` — li rimette `mondo`. Puo' farlo perche' `taglia` toglie solo
+dalla testa della coda, mai dal mezzo; ma quell'assunto e' di un altro crate,
+quindi i ruoli si ricontrollano riga per riga e c'e' una prova che ci passa
+duecentocinquanta forme diverse. Cinque mutazioni, cinque prese.
+
+E resta `nova/finestra.py`, che e' l'unica cosa di quella mezza giornata che
+valeva: centocinquanta righe uscite da `Agent`, provabili senza costruire un
+agente. Non e' una seconda testa — e' la prima, tirata fuori dal posto in cui
+era impigliata.

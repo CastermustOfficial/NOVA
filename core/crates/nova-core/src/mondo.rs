@@ -89,6 +89,29 @@ impl Gradino {
     }
 }
 
+/// Entro quanto deve stare la conversazione.
+///
+/// I tre numeri di `nova_contesto::taglia` messi insieme, perche' viaggiano
+/// sempre insieme e perche' passarne tre sciolti a una funzione e' il modo
+/// piu' facile di scambiarne due.
+#[derive(Debug, Clone, Copy)]
+pub struct Misure {
+    pub tetto: usize,
+    pub fondo: usize,
+    /// Zero vuol dire «non lo so»: vale solo il taglio a numero di righe.
+    pub disponibili: u32,
+}
+
+impl Default for Misure {
+    fn default() -> Misure {
+        Misure {
+            tetto: nova_contesto::TETTO_MESSAGGI,
+            fondo: nova_contesto::FONDO_MESSAGGI,
+            disponibili: 0,
+        }
+    }
+}
+
 /// Il mondo vero.
 pub struct MondoVero<'a> {
     pub trasporto: &'a (dyn Trasporto + Sync),
@@ -97,14 +120,14 @@ pub struct MondoVero<'a> {
     pub gradini: Vec<Gradino>,
     pub gradino: usize,
     /// La conversazione. Ci si aggiunge, e chi decide il taglio sta altrove:
-    /// `nova_finestra` guarda ruoli e testi e dice cosa resta, qui si
-    /// riapplica il piano ai messaggi veri, che hanno dentro ben piu' di un
-    /// ruolo e un testo.
+    /// `nova_contesto` guarda ruoli e testi e dice cosa resta, qui si
+    /// rimettono i campi che lui non guarda - le chiamate agli strumenti,
+    /// gli identificativi - sulle righe che sono sopravvissute.
     pub messaggi: Vec<Value>,
     /// Entro quanto stare. `disponibili: 0` vuol dire «non lo so» - un
     /// cervello dietro una API il suo contesto non lo dice - e allora vale
     /// solo il taglio a numero di righe.
-    pub misure: nova_finestra::Misure,
+    pub misure: Misure,
     /// Gli schemi degli strumenti, gia' pronti da mandare.
     pub strumenti: Vec<Value>,
     /// Cio' che e' stato consegnato all'utente, in ordine.
@@ -149,35 +172,59 @@ impl<'a> MondoVero<'a> {
 
     /// Accorcia la conversazione se non ci sta, tenendo tutto il resto.
     ///
-    /// Di un messaggio si guardano solo ruolo e testo, ma di un messaggio che
-    /// **resta** si tiene tutto: le chiamate a strumenti, gli identificativi,
-    /// i campi che il fornitore si aspetta di rivedere. Una riga tenuta esce
-    /// da qui identica a com'e' entrata, a meno del testo accorciato.
+    /// Di un messaggio `nova_contesto` guarda solo ruolo e testo - e' scritto
+    /// nel suo `Messaggio`, ed e' il motivo per cui «non lo legge e non lo
+    /// puo' rovinare». Ma di un messaggio che **resta** qui si tiene tutto:
+    /// le chiamate a strumenti, gli identificativi, i campi che il fornitore
+    /// si aspetta di rivedere. Un `tool_call_id` perso e' una trascrizione
+    /// che l'API rifiuta, e l'utente legge un errore di formato per una
+    /// conversazione che era solo lunga.
+    ///
+    /// Rimetterli al loro posto si puo' perche' `taglia` toglie **solo dalla
+    /// testa della coda**: quel che torna e' sempre la prima riga piu' un
+    /// pezzo finale intero, mai un buco in mezzo. Quindi la riga i-esima di
+    /// cio' che resta e' la `partiti - (rimasti - 1) + i` di prima. Il
+    /// `Resoconto` da' tutti e due i numeri, e i ruoli si controllano lo
+    /// stesso: se un giorno quella forma cambiasse, si vedrebbe qui e subito
+    /// invece che in una trascrizione rifiutata.
     pub fn taglia(&mut self) {
-        let righe: Vec<nova_finestra::Riga> = self
+        let righe: Vec<nova_contesto::Messaggio> = self
             .messaggi
             .iter()
-            .map(|m| nova_finestra::Riga {
+            .map(|m| nova_contesto::Messaggio {
                 ruolo: m.get("role").and_then(Value::as_str).unwrap_or("").to_string(),
                 contenuto: m.get("content").and_then(Value::as_str).unwrap_or("").to_string(),
             })
             .collect();
-        let piano = nova_finestra::taglia(&righe, &self.misure);
-        if piano.len() == self.messaggi.len() && piano.iter().all(|t| t.contenuto.is_none()) {
+        let (rimasti, conto) = nova_contesto::taglia(
+            &righe,
+            self.misure.tetto,
+            self.misure.fondo,
+            self.misure.disponibili,
+        );
+        if conto.rimasti == conto.partiti && conto.accorciati.is_empty() {
             return; // niente da fare: e' il caso normale, e non deve costare
         }
+        let quanti_di_coda = rimasti.len().saturating_sub(1);
+        let da = self.messaggi.len() - quanti_di_coda;
         let vecchi = std::mem::take(&mut self.messaggi);
-        self.messaggi = piano
-            .into_iter()
-            .map(|t| {
-                let mut m = vecchi[t.da].clone();
-                if let Some(c) = t.contenuto {
-                    m["content"] = Value::String(c);
-                }
-                m
-            })
-            .collect();
+        let mut fuori = Vec::with_capacity(rimasti.len());
+        for (i, nuovo) in rimasti.iter().enumerate() {
+            let quale = if i == 0 { 0 } else { da + i - 1 };
+            let mut m = vecchi[quale].clone();
+            debug_assert_eq!(
+                m.get("role").and_then(Value::as_str).unwrap_or(""),
+                nuovo.ruolo,
+                "il taglio non e' piu' testa piu' coda: la riga {quale} non e' quella tornata",
+            );
+            if m.get("content").and_then(Value::as_str) != Some(nuovo.contenuto.as_str()) {
+                m["content"] = Value::String(nuovo.contenuto.clone());
+            }
+            fuori.push(m);
+        }
+        self.messaggi = fuori;
     }
+
 }
 
 /// Perche' il cervello non ha risposto, in una frase.
@@ -415,7 +462,7 @@ mod prove {
             messaggi: vec![json!({"role": "user", "content": "ciao"})],
             strumenti: vec![],
             consegnato: vec![],
-            misure: nova_finestra::Misure::default(),
+            misure: Misure::default(),
             deleghe: 0,
         }
     }
@@ -573,7 +620,7 @@ mod prove {
         let c = Copione::con(&[]);
         let f = Finge("x");
         let mut m = mondo(&c, &f, 1);
-        m.misure = nova_finestra::Misure { tetto: 8, fondo: 6, disponibili: 0 };
+        m.misure = Misure { tetto: 8, fondo: 6, disponibili: 0 };
         m.messaggi = vec![json!({"role": "system", "content": "s"})];
         for i in 0..8 {
             m.messaggi.push(json!({
@@ -602,6 +649,63 @@ mod prove {
     }
 
     #[tokio::test]
+    async fn i_campi_tornano_sulla_riga_giusta_comunque_si_tagli() {
+        // Rimettere `tool_calls` e `tool_call_id` al loro posto si regge su
+        // una sola cosa: che `nova_contesto::taglia` tolga solo dalla testa
+        // della coda, mai dal mezzo. Questa prova la mette alla frusta su
+        // tante forme diverse - tetti, fondi, spazi, risposte di strumento in
+        // punti diversi - e il controllo sui ruoli dentro `taglia()` scatta
+        // al primo disallineamento. Senza di lei quell'assunto sarebbe una
+        // speranza scritta in un commento.
+        let c = Copione::con(&[]);
+        let f = Finge("x");
+        for tetto in [4usize, 8, 20, 60] {
+            for fondo in [2usize, 3, 6, 40] {
+                for disponibili in [0u32, 60, 500, 5_000] {
+                    for dove_tool in [1usize, 3, 7, 11] {
+                        let mut m = mondo(&c, &f, 1);
+                        m.misure = Misure { tetto, fondo, disponibili };
+                        m.messaggi = vec![json!({"role": "system", "content": "s"})];
+                        for i in 0..24 {
+                            let tool = i % dove_tool == 0;
+                            m.messaggi.push(if tool {
+                                json!({"role": "tool", "tool_call_id": format!("c{i}"),
+                                       "content": "r".repeat(200 + i * 40)})
+                            } else {
+                                json!({"role": "assistant", "content": "a".repeat(200 + i * 40),
+                                       "tool_calls": [{"id": format!("c{i}")}]})
+                            });
+                        }
+                        let prima: Vec<String> = m
+                            .messaggi
+                            .iter()
+                            .map(|x| x["content"].as_str().unwrap().to_string())
+                            .collect();
+                        m.taglia();
+                        for msg in &m.messaggi {
+                            let testo = msg["content"].as_str().unwrap();
+                            // Ogni riga sopravvissuta deve essere una riga di
+                            // prima, intera o accorciata da quella stessa.
+                            let sua = prima.iter().position(|p| {
+                                p == testo || (testo.contains("[...tagliati ")
+                                    && p.starts_with(&testo[..40.min(testo.len())]))
+                            });
+                            assert!(sua.is_some(), "una riga non viene da nessuna di prima");
+                            let i = sua.unwrap();
+                            if prima[i].starts_with('r') || msg["role"] == "tool" {
+                                assert_eq!(msg["role"], "tool");
+                                assert!(msg.get("tool_call_id").is_some(), "identificativo perso");
+                            } else if msg["role"] == "assistant" {
+                                assert!(msg.get("tool_calls").is_some(), "chiamate perse");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
     async fn quel_che_si_accorcia_viene_riscritto_davvero() {
         // Il piano dice «questa riscrivila cosi'». Se chi lo applica se ne
         // dimentica, il taglio e' stato calcolato e buttato: si manda la
@@ -610,7 +714,7 @@ mod prove {
         let c = Copione::con(&[]);
         let f = Finge("x");
         let mut m = mondo(&c, &f, 1);
-        m.misure = nova_finestra::Misure { tetto: 60, fondo: 40, disponibili: 2_000 };
+        m.misure = Misure { tetto: 60, fondo: 40, disponibili: 2_000 };
         m.messaggi = vec![
             json!({"role": "system", "content": "s"}),
             json!({"role": "tool", "tool_call_id": "c0", "content": "F".repeat(50_000)}),
@@ -629,7 +733,7 @@ mod prove {
         let c = Copione::con(&[r#"{"choices":[{"message":{"content":"ok"}}]}"#.to_string()]);
         let f = Finge("x");
         let mut m = mondo(&c, &f, 1);
-        m.misure = nova_finestra::Misure { tetto: 60, fondo: 40, disponibili: 400 };
+        m.misure = Misure { tetto: 60, fondo: 40, disponibili: 400 };
         m.messaggi = vec![json!({"role": "system", "content": "s"})];
         for i in 0..10 {
             m.messaggi.push(json!({"role": "user", "content": format!("{i}{}", "z".repeat(4_000))}));

@@ -456,7 +456,7 @@ meglio**: si raccolgono solo le letture che hanno `cfg` come ricevente, e a
 quel punto si puo' pretendere tutto. Un cercatore impreciso si paga sempre in
 controlli disattivati.
 
-## Ho riscritto un pezzo che c'era gia', e non l'ho chiesto a nessuno
+## Ho riscritto un pezzo che c'era gia'. Due volte, nello stesso giorno
 
 Finito di portare il taglio della conversazione, sono passato a quello che
 sembrava il suo gemello: cosa entra in conversazione quando il risultato di
@@ -490,3 +490,26 @@ terzi di testa), e — la peggiore — un banco che confrontava il Rust con una
 riscrittura della regola Python fatta nel proprio corpo invece che col Python
 vero. Quella terza copia era l'unica delle tre che non poteva accorgersi di
 niente.
+
+**E poi l'ho rifatto.** Un'ora dopo aver scritto il paragrafo qui sopra, ho
+scoperto che anche `nova-finestra` — il crate intero, con il banco, gia'
+spinto — esisteva gia' col nome `nova-contesto`. Stesse costanti, stesse
+funzioni, stessi commenti, e in piu' un `Resoconto` che io non avevo. La
+seconda volta ho fatto piu' danno della prima, perche' la prima l'avevo
+buttata prima di spingerla.
+
+La cosa da guardare non e' l'errore, e' che **non e' servito averlo gia'
+scritto**. Avevo il paragrafo qui sopra, fresco di un'ora, che dice
+esattamente cosa fare; e ho ricominciato da `agent.py` senza rileggerlo.
+«Stai piu' attento» non e' una cura, e un documento degli errori che si legge
+solo mentre lo si scrive non e' un documento degli errori.
+
+Quel che ho messo al suo posto e' una regola meccanica, che non chiede
+giudizio: **prima di scrivere una funzione, `grep` del suo nome in tutto il
+progetto**. Tre secondi, e risponde da sola. Sta in D223 perche' li' la
+rileggo.
+
+C'e' anche una cosa da dire a favore del progetto, e conta quanto il resto:
+tutte e due le volte se n'e' accorta una prova. La prima `test_elenchi_gemelli.py`,
+in un secondo dopo un'ora. La seconda nessuna — l'ho vista io, ma solo perche'
+stavolta ho guardato prima di scrivere, che e' esattamente la regola nuova.

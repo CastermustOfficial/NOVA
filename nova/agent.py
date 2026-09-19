@@ -334,7 +334,7 @@ class Agent:
             self.brain.reset()
 
     # Le misure e il ragionamento del taglio stanno in `nova/finestra.py`,
-    # con il gemello in Rust in `core/crates/nova-finestra`. Qui restano
+    # con il gemello in Rust in `core/crates/nova-contesto`. Qui restano
     # esposte perche' sono la faccia pubblica dell'agente da prima che il
     # modulo esistesse, e perche' le prove le chiamano da qui.
     CARATTERI_PER_TOKEN = finestra.CARATTERI_PER_TOKEN
