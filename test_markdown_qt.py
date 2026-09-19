@@ -88,11 +88,28 @@ print("\n1. quello che Qt buttava")
 controlla("il grassetto sopravvive", "**grassetto**" in primo, primo[:200])
 controlla("il corsivo sopravvive", "*corsivo*" in primo)
 controlla("l'enfasi dentro un elenco sopravvive", "**enfasi**" in primo)
-controlla("e il metodo di Qt lo perderebbe ancora",
-          "**grassetto**" not in QTextDocument_toMarkdown()
-          if (QTextDocument_toMarkdown := (
-              lambda: (lambda d: (d.setMarkdown(ORIGINALE), d.toMarkdown())[1])(
-                  QTextDocument()))) else False)
+# Quanto perde il metodo di Qt **su questa versione di Qt**.
+#
+# Era una verifica, e su macOS e' diventata rossa: li' Qt il grassetto non lo
+# perde. Non era rotto niente — la nostra conversione continuava a tenerlo —
+# ma la prova pretendeva che una libreria di qualcun altro avesse un difetto,
+# e quel difetto dipende dalla versione e dal sistema. Una prova che diventa
+# rossa quando una cosa **migliora** e' una prova che insegna a ignorare i
+# rossi.
+#
+# Resta scritto, perche' il giorno in cui Qt non perde piu' niente da nessuna
+# parte questo codice diventa superfluo e vale la pena accorgersene.
+def suo_di_qt() -> str:
+    d = QTextDocument()
+    d.setMarkdown(ORIGINALE)
+    return d.toMarkdown()
+
+
+if "**grassetto**" in suo_di_qt():
+    print("  (su questo Qt il grassetto non si perde: la nostra conversione")
+    print("   non serve piu' per questo caso. Ne restano altri qui sotto.)")
+else:
+    controlla("e il metodo di Qt lo perderebbe ancora", True)
 
 print("\n2. e tutto il resto resta")
 for nome, pezzo in [("titolo di primo livello", "# Stato dell'arte"),

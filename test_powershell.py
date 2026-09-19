@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -30,8 +31,28 @@ RADICE = Path(__file__).resolve().parent
 sys.path.insert(0, str(RADICE))
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-if shutil.which("powershell") is None:
-    print("PowerShell non c'e' su questo sistema: niente da provare qui.")
+def powershell_parte() -> bool:
+    """C'e' **e** si avvia.
+
+    `which` non basta: su un agente macOS c'e' un `powershell` nel PATH che
+    punta a qualcosa che non esiste, quindi la prova passava questa porta e
+    moriva piu' avanti dentro `subprocess.run` con un FileNotFoundError - che
+    si legge come un difetto di NOVA invece che come l'assenza di PowerShell.
+    """
+    exe = shutil.which("powershell")
+    if exe is None:
+        return False
+    try:
+        subprocess.run([exe, "-NoProfile", "-Command", "exit 0"],
+                       capture_output=True, timeout=60)
+        return True
+    except OSError:
+        return False
+
+
+if not powershell_parte():
+    print("PowerShell non c'e' (o non parte) su questo sistema: "
+          "niente da provare qui.")
     sys.exit(2)
 
 from nova import powershell  # noqa: E402
