@@ -7802,3 +7802,46 @@ prova conta i messaggi di sistema e pretende che sia uno.
 
 Cosa resta di CANT-3: chi costruisce i gradini dalla configurazione. Che e'
 CANT-7, e tocca fare quello.
+
+## E la scala, dalla configurazione
+
+L'ultimo pezzo di CANT-3, e anche stavolta ho guardato prima: `nova-scala`
+aveva gia' tutto tranne una cosa. Sapeva cos'e' un gradino, in che ordine
+stanno, di che specie e' ciascuno, quale si puo' usare e su quale ripiegare.
+Quel che mancava era il **ponte**: la configurazione della scala dice chi
+sono i gradini, ma non dove si va a parlare, perche' gli indirizzi stanno in
+un'altra parte del file e cambiano per ragioni loro.
+
+`mondo::scala_vera` mette insieme le due meta', ed e' l'unico posto in cui un
+gradino del turno nasce. Tre righe che sembrano dettagli:
+
+L'ordine lo decide `nova_scala::scala`, non l'ordine in cui i gradini stanno
+scritti. Sembra una ripetizione ed e' la differenza fra un'escalation che
+funziona e una che non parte mai: basta che un programma riordini le chiavi
+del file — e il pannello lo faceva — perche' «standard» finisca dopo
+«difficile» e non ci sia piu' niente sopra a cui salire.
+
+Con `solo_locale` restano solo i gradini che si dichiarano locali. Quella non
+e' una comodita': e' la promessa che niente esce dal PC, e va mantenuta qui,
+dove la scala si costruisce, non piu' avanti dove qualcuno puo' dimenticarsi
+di chiederlo.
+
+E non torna mai una scala vuota. Che mi ha portato all'altra cosa.
+
+**Una riga che sarebbe stata un panico.** `ora()` faceva
+`gradini[i.min(gradini.len() - 1)]`. Su un vettore vuoto quel `len() - 1` va
+sotto zero e il programma muore. Ci sono arrivato scrivendo la prova «una
+scala vuota non esiste»: mi sono chiesto cosa succede *se* esiste, e la
+risposta era che NOVA sparisce senza dire niente — non un errore, proprio il
+processo che se ne va. Per chi ha configurato male i cervelli, cioe' il caso
+in cui piu' serve che qualcuno parli. Adesso `ora()` torna `Option` e chi
+chiede senza gradini legge «non c'e' nessun cervello configurato a cui
+chiedere», e non parte niente verso nessuno.
+
+Sei mutazioni, sei prese — compresa quella che rimette il `len() - 1`.
+
+**Dove siamo.** CANT-3 e' chiuso per la parte che gli spettava: le decisioni,
+il giro, il braccio, la conversazione, la scala. Quel che resta del ciclo in
+Python non e' piu' traduzione, e' impalcatura — `config.py`, `main.py`,
+`componenti.py`, `dati.py` — e quella e' CANT-7, che non si porta: si
+riscrive.
