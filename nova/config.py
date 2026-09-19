@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field, fields, is_dataclass
 from pathlib import Path
 from typing import Any
 from .scrittura import scrivi
@@ -731,26 +731,50 @@ def _pulisci_cli(cfg: Config) -> None:
             voci.pop(nome, None)
 
 
+#: Campi di `Config` che non stanno nel file e non si leggono da li'.
+#: Sono diagnostica: farli arrivare da fuori vorrebbe dire che un file
+#: salvato puo' raccontare a NOVA di aver avuto un errore che non ha avuto.
+NON_SI_CARICANO = ("errore_caricamento", "guardie_aggiunte")
+
+
 def _merge(cfg: Config, raw: dict[str, Any]) -> Config:
-    """Applica il JSON salvato sopra i default, tollerando chiavi mancanti."""
-    sections = {
-        "server": cfg.server, "model": cfg.model, "safety": cfg.safety,
-        "ui": cfg.ui, "voice": cfg.voice, "kb": cfg.kb, "brains": cfg.brains,
-    }
-    for name, obj in sections.items():
-        for k, v in (raw.get(name) or {}).items():
-            if not hasattr(obj, k):
-                continue
-            predefinito = getattr(obj, k)
-            if isinstance(predefinito, dict) and isinstance(v, dict):
-                # Il salvato vince su quello che dichiara, ma le chiavi che
-                # non conosce (perche' aggiunte dopo) restano quelle di
-                # fabbrica: altrimenti ogni config vecchia perde le novita'.
-                # Solo al primo livello: dentro «tiers» comanda l'utente.
-                v = {**predefinito, **v}
-            setattr(obj, k, v)
-    if raw.get("system_prompt"):
-        cfg.system_prompt = raw["system_prompt"]
+    """Applica il JSON salvato sopra i default, tollerando chiavi mancanti.
+
+    **Le sezioni non si elencano a mano.** Prima c'era un dizionario con
+    dentro i sette nomi, piu' una riga a parte per `system_prompt`, e
+    `fascicolo` non era ne' nell'uno ne' nell'altra: `save()` lo scriveva,
+    `fascicolo.py` diceva all'utente che si puo' spostare da li', e `load()`
+    non lo leggeva mai. Chi spostava il fascicolo vedeva NOVA continuare a
+    usare quello vecchio, senza un errore da nessuna parte. Adesso i campi si
+    chiedono alla classe, cosi' aggiungerne uno non richiede di ricordarsi di
+    questo posto — che e' esattamente cio' che non era successo.
+    """
+    for campo in fields(cfg):
+        if campo.name in NON_SI_CARICANO or campo.name not in raw:
+            continue
+        attuale = getattr(cfg, campo.name)
+        valore = raw[campo.name]
+        if is_dataclass(attuale):
+            for k, v in (valore or {}).items():
+                if not hasattr(attuale, k):
+                    continue
+                predefinito = getattr(attuale, k)
+                if isinstance(predefinito, dict) and isinstance(v, dict):
+                    # Il salvato vince su quello che dichiara, ma le chiavi
+                    # che non conosce (perche' aggiunte dopo) restano quelle
+                    # di fabbrica: altrimenti ogni config vecchia perde le
+                    # novita'. Solo al primo livello: dentro «tiers» comanda
+                    # l'utente.
+                    v = {**predefinito, **v}
+                setattr(attuale, k, v)
+        elif campo.name == "system_prompt":
+            # L'unico campo in cui il vuoto **non** vince: un prompt di
+            # sistema svuotato da un salvataggio andato male lascerebbe NOVA
+            # senza istruzioni, e senza niente da cui accorgersene.
+            if valore:
+                cfg.system_prompt = valore
+        else:
+            setattr(cfg, campo.name, valore)
     _guardie_non_si_perdono(cfg)
     return cfg
 

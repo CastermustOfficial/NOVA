@@ -7845,3 +7845,58 @@ il giro, il braccio, la conversazione, la scala. Quel che resta del ciclo in
 Python non e' piu' traduzione, e' impalcatura — `config.py`, `main.py`,
 `componenti.py`, `dati.py` — e quella e' CANT-7, che non si porta: si
 riscrive.
+
+## Il fascicolo che nessuno leggeva
+
+Aperto `_merge` per capire cosa c'e' da riscrivere in CANT-7, e trovata una
+cosa che non cercavo.
+
+`Config.save()` scrive `fascicolo` nel file. `nova/fascicolo.py` dice
+all'utente, per iscritto, che il fascicolo «si puo' spostare da `fascicolo`
+in config.json». E `_merge` non lo leggeva: aveva un dizionario con dentro i
+sette nomi delle sezioni, piu' una riga a parte per `system_prompt`, e
+`fascicolo` non era ne' nell'uno ne' nell'altra. Provato su una
+configurazione vera: scritto `D:/i-miei-fatti`, riletto `''`.
+
+Chi sposta il fascicolo vede NOVA continuare a leggere quello vecchio. Non un
+errore, non un avviso: solo la cartella sbagliata, per sempre. E' la stessa
+famiglia del prompt di sistema che restava indietro di mesi e delle guardie
+che il demone non conosceva (D185) — qualcosa scritto in un posto e non
+applicato nell'altro.
+
+**La cura non e' stata aggiungere «fascicolo» all'elenco.** Quello era il
+difetto: un elenco scritto a mano, che il campo dopo avrebbe dimenticato allo
+stesso modo. Adesso i campi si chiedono alla classe, con due sole eccezioni
+dichiarate — la diagnostica, che non deve poter arrivare da fuori (un file
+salvato non deve poter raccontare a NOVA di aver avuto un errore che non ha
+avuto), e il prompt di sistema, che e' l'unico campo in cui il vuoto **non**
+vince.
+
+E c'e' l'altra meta': `test_configurazione_non_perde_niente.py` costruisce una
+configurazione in cui tutti e ottanta i campi hanno un valore riconoscibile,
+la salva, la rilegge e confronta campo per campo. Un campo che non torna e'
+un campo che l'utente puo' impostare e NOVA ignora.
+
+**Otto mutazioni, e le prime tre sono sopravvissute.** Tutte per lo stesso
+motivo, ed e' un motivo che vale la pena ricordare: la mia funzione che
+inventava valori «diversi» era **gentile**. Per le liste faceva
+`lista + ["provato"]`, per i dizionari `{**fabbrica, "provato": ...}`. Cioe'
+partiva gia' contenendo i predefiniti — e allora la regola che li fa tornare
+non veniva mai messa alla prova: il valore tornava uguale perche' non era mai
+partito diverso. Adesso sostituisce, e dentro ai dizionari mette anche **una
+chiave che la fabbrica ha gia'**, con un valore diverso: senza quella, una
+fusione scritta al contrario — la fabbrica sopra il salvato — passa liscia, e
+sarebbe un errore di una riga che cancella le scelte dell'utente a ogni
+avvio.
+
+Un dato di prova che assomiglia al predefinito e' un dato di prova che non
+prova niente.
+
+**Su CANT-7 vero e proprio.** Quello che ho fatto oggi e' la parte che si
+puo' fare adesso: le regole, provate, e il difetto che ci stava dentro.
+Riscrivere `config.py` in Rust non ancora — la tabella dice «va per ultima
+fra quelle di sostanza, quando si sa cosa deve tenere insieme», e oggi
+`nova-core::config` e' la configurazione del **demone**, che e' un'altra
+cosa. Ci sono gia' due fusioni di configurazione in giro (questa e quella del
+guscio, che va nella direzione opposta: il pannello sopra il salvato); la
+terza si scrive quando si sa quale delle due deve restare.
