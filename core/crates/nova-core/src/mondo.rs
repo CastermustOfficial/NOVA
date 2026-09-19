@@ -25,14 +25,68 @@ pub trait Esecutore: Send + Sync {
     async fn esegui(&self, nome: &str, argomenti: Value) -> Result<Value, String>;
 }
 
-/// Un gradino della scala: come si chiama, e a chi si parla.
+/// Un gradino della scala: come si chiama, e **come** ci si parla.
+///
+/// Non e' una struttura con dentro un campo «tipo»: sono due varianti, e la
+/// differenza e' che con due varianti un gradino sbagliato **non si scrive**.
+/// La scala mescola due mondi (D219) — a meta' si manda un corpo HTTP,
+/// all'altra meta' si lancia un processo — e con un campo `base_url` sempre
+/// presente costruire un gradino per «claude» con dentro un indirizzo
+/// inventato e' un attimo. Si scopre due fallimenti dopo, mentre l'utente
+/// aspetta, ed e' il momento peggiore.
 #[derive(Debug, Clone)]
-pub struct Gradino {
-    pub nome: String,
-    pub base_url: String,
-    pub modello: String,
-    pub intestazioni: Vec<(String, String)>,
-    pub in_casa: bool,
+pub enum Gradino {
+    /// Ci si parla in HTTP: `locale` e `api`.
+    Indirizzo {
+        nome: String,
+        base_url: String,
+        modello: String,
+        intestazioni: Vec<(String, String)>,
+        in_casa: bool,
+    },
+    /// Si lancia un processo: `claude` e le CLI dichiarate.
+    ///
+    /// Il turno non sa ancora farlo, e lo **dice**. Il ripiego silenzioso —
+    /// trattarlo come un indirizzo e vedere cosa succede — darebbe un guasto
+    /// di rete per un gradino che non ha mai avuto un indirizzo, cioe' la
+    /// diagnosi sbagliata con la faccia di quella giusta.
+    Processo { nome: String },
+}
+
+impl Gradino {
+    pub fn nome(&self) -> &str {
+        match self {
+            Gradino::Indirizzo { nome, .. } => nome,
+            Gradino::Processo { nome } => nome,
+        }
+    }
+
+    /// Costruisce il gradino giusto per quella specie.
+    ///
+    /// L'indirizzo e il modello si passano lo stesso per tutte e quattro,
+    /// perche' chi legge la configurazione ce li ha in mano comunque: qui si
+    /// decide se **contano**. Per un processo non contano, e buttarli via e'
+    /// meglio che tenerli e lasciar credere che servano a qualcosa.
+    pub fn nuovo(
+        nome: &str,
+        specie: nova_scala::Specie,
+        base_url: &str,
+        modello: &str,
+        intestazioni: Vec<(String, String)>,
+        in_casa: bool,
+    ) -> Gradino {
+        if specie.e_un_indirizzo() {
+            Gradino::Indirizzo {
+                nome: nome.to_string(),
+                base_url: base_url.to_string(),
+                modello: modello.to_string(),
+                intestazioni,
+                in_casa,
+            }
+        } else {
+            Gradino::Processo { nome: nome.to_string() }
+        }
+    }
 }
 
 /// Il mondo vero.
@@ -59,14 +113,24 @@ impl<'a> MondoVero<'a> {
         &self.gradini[self.gradino.min(self.gradini.len() - 1)]
     }
 
+    /// I dati del gradino corrente, se e' di quelli a cui si manda un corpo.
+    fn indirizzo_ora(&self) -> Option<(&str, &str, &str, &[(String, String)], bool)> {
+        match self.ora() {
+            Gradino::Indirizzo { nome, base_url, modello, intestazioni, in_casa } => {
+                Some((nome, base_url, modello, intestazioni, *in_casa))
+            }
+            Gradino::Processo { .. } => None,
+        }
+    }
+
     /// Il corpo della richiesta.
     ///
     /// Gli strumenti si mandano **solo se ce ne sono**: una lista vuota non
     /// e' «nessuno strumento», e' un campo in piu' che qualche fornitore
     /// rifiuta.
-    fn corpo(&self) -> Value {
+    fn corpo(&self, modello: &str) -> Value {
         let mut c = json!({
-            "model": self.ora().modello,
+            "model": modello,
             "messages": self.messaggi,
         });
         if !self.strumenti.is_empty() {
@@ -113,15 +177,26 @@ pub fn chiamata_da(v: &Value) -> Option<Chiamata> {
 #[async_trait]
 impl Mondo for MondoVero<'_> {
     async fn chiedi(&mut self) -> Result<Risposta, String> {
-        let g = self.ora().clone();
-        let corpo = self.corpo();
+        let Some((nome, base_url, modello, intestazioni, in_casa)) = self.indirizzo_ora()
+        else {
+            return Err(format!(
+                "«{}» non e' un indirizzo ma un processo da lanciare, e il turno non \
+                 sa ancora farlo. Scegli un cervello locale o una chiave API, oppure \
+                 usa quella CLI dal pannello.",
+                self.ora().nome()
+            ));
+        };
+        let (nome, base_url, modello) =
+            (nome.to_string(), base_url.to_string(), modello.to_string());
+        let intestazioni = intestazioni.to_vec();
+        let corpo = self.corpo(&modello);
         let r = chiedi(
             self.trasporto,
-            &g.base_url,
-            &g.intestazioni,
+            &base_url,
+            &intestazioni,
             &corpo,
-            &g.nome,
-            g.in_casa,
+            &nome,
+            in_casa,
         )
         .map_err(motivo_di)?;
 
@@ -167,7 +242,7 @@ impl Mondo for MondoVero<'_> {
                     "[nota di sistema] Non c'e' un gradino piu' alto di «{}» a cui \
                      delegare: prosegui come puoi, oppure spiega all'utente cosa ti \
                      blocca.",
-                    self.ora().nome
+                    self.ora().nome()
                 ),
             }));
             return;
@@ -190,7 +265,7 @@ impl Mondo for MondoVero<'_> {
             "content": format!(
                 "[nota di sistema] Passo a «{}» dopo {motivo}.\n\
                  Un assistente meno capace ci ha provato senza riuscirci.\n{contesto}",
-                self.ora().nome
+                self.ora().nome()
             ),
         }));
     }
@@ -284,13 +359,14 @@ mod prove {
             trasporto: t,
             esecutore: e,
             gradini: (0..quanti)
-                .map(|i| Gradino {
-                    nome: format!("g{i}"),
-                    base_url: "http://x".into(),
-                    modello: format!("m{i}"),
-                    intestazioni: vec![],
-                    in_casa: true,
-                })
+                .map(|i| Gradino::nuovo(
+                    &format!("g{i}"),
+                    nova_scala::Specie::Api,
+                    "http://x",
+                    &format!("m{i}"),
+                    vec![],
+                    true,
+                ))
                 .collect(),
             gradino: 0,
             messaggi: vec![json!({"role": "user", "content": "ciao"})],
@@ -408,6 +484,40 @@ mod prove {
         assert!(!nota.contains("- a"), "il piu' vecchio si lascia: {nota}");
         assert!(nota.contains("- b\n- c\n- d"), "e gli altri in ordine: {nota}");
         assert!(nota.contains("4 tentativi"), "ma il conto e' di tutti: {nota}");
+    }
+
+    #[tokio::test]
+    async fn un_gradino_che_e_un_processo_lo_dice_invece_di_provarci() {
+        // Il ripiego silenzioso - trattarlo come un indirizzo e vedere cosa
+        // succede - darebbe un guasto di rete per un gradino che un indirizzo
+        // non ce l'ha mai avuto: la diagnosi sbagliata con la faccia di
+        // quella giusta.
+        let t = Copione::con(&[dice("non dovrei arrivare qui", &[])]);
+        let e = Finge("x");
+        let mut m = mondo(&t, &e, 1);
+        m.gradini = vec![Gradino::nuovo(
+            "claude", nova_scala::Specie::Claude, "http://x", "m", vec![], false)];
+        match m.chiedi().await {
+            Err(motivo) => {
+                assert!(motivo.contains("processo"), "{motivo}");
+                assert!(motivo.contains("«claude»"), "{motivo}");
+                assert!(t.mandati.lock().unwrap().is_empty(),
+                        "non doveva mandare niente a nessuno");
+            }
+            Ok(_) => panic!("non poteva rispondere: non c'e' nessun indirizzo"),
+        }
+    }
+
+    #[tokio::test]
+    async fn per_una_cli_lindirizzo_si_butta_invece_di_tenerlo_li() {
+        // Tenerlo lascerebbe credere che serva a qualcosa.
+        let g = Gradino::nuovo(
+            "gemini", nova_scala::Specie::Cli, "http://inventato", "m", vec![], false);
+        assert!(matches!(g, Gradino::Processo { .. }), "{g:?}");
+        assert_eq!(g.nome(), "gemini");
+        let l = Gradino::nuovo(
+            "locale", nova_scala::Specie::Locale, "http://casa", "m", vec![], true);
+        assert!(matches!(l, Gradino::Indirizzo { .. }), "{l:?}");
     }
 
     #[tokio::test]
