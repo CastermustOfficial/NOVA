@@ -32,21 +32,32 @@ sys.path.insert(0, str(RADICE))
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 def powershell_parte() -> bool:
-    """C'e' **e** si avvia.
+    """C'e', si avvia, **e lo avvia NOVA**.
 
-    `which` non basta: su un agente macOS c'e' un `powershell` nel PATH che
-    punta a qualcosa che non esiste, quindi la prova passava questa porta e
-    moriva piu' avanti dentro `subprocess.run` con un FileNotFoundError - che
-    si legge come un difetto di NOVA invece che come l'assenza di PowerShell.
+    Tre versioni di questa porta, e le prime due non bastavano.
+
+    `shutil.which("powershell")` da solo no: su un agente macOS un
+    `powershell` nel PATH c'e', e la prova passava di qui per morire piu'
+    avanti dentro `subprocess.run` — che si legge come un difetto di NOVA
+    invece che come l'assenza di PowerShell.
+
+    Provare ad avviarlo **per conto proprio** nemmeno: lo si avviava con il
+    percorso assoluto trovato da `which`, e passava; NOVA invece lo chiama
+    per nome, e quella li' non partiva. Due domande diverse, e quella giusta
+    non era la mia.
+
+    Quindi si chiede a NOVA. Se `nova/powershell.py` non riesce ad eseguire
+    la cosa piu' semplice del mondo, qui non c'e' niente da provare — e
+    qualunque sia la ragione, e' la stessa che farebbe fallire tutto il
+    resto della prova.
     """
-    exe = shutil.which("powershell")
-    if exe is None:
+    if shutil.which("powershell") is None:
         return False
     try:
-        subprocess.run([exe, "-NoProfile", "-Command", "exit 0"],
-                       capture_output=True, timeout=60)
+        from nova import powershell as _ps
+        _ps.esegui("exit 0", timeout=60)
         return True
-    except OSError:
+    except Exception:                                       # noqa: BLE001
         return False
 
 
