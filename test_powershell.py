@@ -32,7 +32,7 @@ sys.path.insert(0, str(RADICE))
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 def powershell_parte() -> bool:
-    """C'e', si avvia, **e lo avvia NOVA**.
+    """Le shell di Windows ci sono, si avviano, **e le avvia NOVA**.
 
     Tre versioni di questa porta, e le prime due non bastavano.
 
@@ -51,7 +51,11 @@ def powershell_parte() -> bool:
     qualunque sia la ragione, e' la stessa che farebbe fallire tutto il
     resto della prova.
     """
-    if shutil.which("powershell") is None:
+    # E **anche `cmd`**: piu' avanti questa prova chiama `run_cmd`, e su un
+    # agente macOS PowerShell c'e' davvero mentre `cmd` no. Un quarto giro su
+    # questa porta, e ogni volta la stessa lezione: la porta deve chiedere
+    # tutto quello che la prova usa, non la prima cosa che viene in mente.
+    if shutil.which("powershell") is None or shutil.which("cmd") is None:
         return False
     try:
         from nova import powershell as _ps
@@ -62,8 +66,8 @@ def powershell_parte() -> bool:
 
 
 if not powershell_parte():
-    print("PowerShell non c'e' (o non parte) su questo sistema: "
-          "niente da provare qui.")
+    print("Le shell di Windows non ci sono (o non partono) su questo "
+          "sistema: niente da provare qui.")
     sys.exit(2)
 
 from nova import powershell  # noqa: E402
