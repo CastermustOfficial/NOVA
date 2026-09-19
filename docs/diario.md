@@ -7636,3 +7636,37 @@ e `test_niente_cresce_per_sempre.py` danno per scontato `C:\Users\` e
 `winreg`, e dovrebbero uscire 2 invece che 1. E' roba di CANT-9, ed e'
 esattamente la forma che CANT-9 ha: non codice sbagliato, codice che nessuna
 macchina diversa guarda mai.
+
+**E poi ho riscritto una cosa che c'era gia'.** Finita la finestra, sono
+passato al pezzo che sembrava gemello: cosa entra in conversazione quando il
+risultato di uno strumento e' troppo grosso. L'ho scritto in `nova-finestra`,
+col suo Python, le sue prove, il suo banco, sei mutazioni e sei prese. Poi
+`test_elenchi_gemelli.py` e' diventato rosso e ha detto perche': quella
+regola sta in `nova-strumenti::chiamate` da prima, con il suo banco
+(`test_strumenti_rust.py`) che la confronta gia'. Avevo duplicato, e in
+un'ora di lavoro non me n'ero accorto — la prova si', in un secondo. Buttato
+tutto.
+
+Di quell'ora restano tre cose che valevano, ma nel posto giusto.
+
+La prima: `versare_non_allunga_il_testo` accettava `LIMITE_RISULTATO + 40`.
+Il margine non serve — il costo dell'avviso si riserva sul numero piu' grande
+che l'avviso potra' contenere, quindi la sostituzione **non puo'** superare
+il limite. Uno spiraglio dove la garanzia e' netta vuol dire che il giorno in
+cui si rompe la prova resta verde. Adesso e' `<= LIMITE_RISULTATO`, e c'e'
+anche un giro su quattro limiti diversi.
+
+La seconda: nessuna prova diceva che della testa se ne tiene il **doppio**
+della coda. E' una scelta — l'inizio di un risultato porta la forma, la fine
+solo com'e' andata a finire — e la difendeva soltanto il banco contro il
+Python, cioe' cambiarla nei due posti nello stesso modo sarebbe rimasto verde
+ovunque. Adesso una prova la tiene ferma da sola.
+
+La terza, ed e' la piu' brutta. `test_strumenti_rust.py` esiste per accorgersi
+se le due teste divergono, e la meta' Python della regola se la **riscriveva
+dentro**: una terza copia. Era l'unica delle tre che non poteva accorgersi di
+niente — `agent.py` poteva cambiare sotto e la prova avrebbe continuato a dire
+«uguali», confrontando il Rust con la copia nel proprio corpo. Adesso
+`agent.py` espone `sostituzione_versata` — pura, fuori dalla classe, col
+mestiere del file lasciato dov'era — e la prova chiama quella. Provato
+mutando il Python: prima non se ne accorgeva, adesso diventa rossa.

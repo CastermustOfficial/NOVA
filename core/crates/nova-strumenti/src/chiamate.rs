@@ -365,11 +365,46 @@ mod prove {
 
     #[test]
     fn versare_non_allunga_il_testo() {
+        // Il margine di quaranta caratteri che c'era qui non serviva: il
+        // costo dell'avviso si riserva sul numero piu' grande che l'avviso
+        // potra' contenere, quindi la sostituzione **non puo'** superare il
+        // limite. Lasciare uno spiraglio dove la garanzia e' netta vuol dire
+        // che il giorno in cui si rompe la prova resta verde.
         let testo = "x".repeat(200_000);
         let fuori = versa(&testo, "C:\\r\\v\\a.txt", LIMITE_RISULTATO);
-        assert!(fuori.chars().count() <= LIMITE_RISULTATO + 40, "{}", fuori.chars().count());
+        assert!(fuori.chars().count() <= LIMITE_RISULTATO, "{}", fuori.chars().count());
         assert!(fuori.contains("Omessi "));
         assert!(fuori.contains("a.txt"));
+    }
+
+    #[test]
+    fn e_non_lo_allunga_mai_a_nessuna_misura() {
+        for limite in [300usize, 400, 1_000, 24_000] {
+            for lungo in [limite + 1, limite + 50, limite * 2, limite * 10] {
+                let fuori = versa(&"q".repeat(lungo), "C:\\r\\v\\a-b.txt", limite);
+                assert!(fuori.chars().count() <= limite,
+                        "limite {limite}, originale {lungo}: sono usciti {}",
+                        fuori.chars().count());
+            }
+        }
+    }
+
+    #[test]
+    fn della_testa_se_ne_tiene_il_doppio_della_coda() {
+        // Non e' meta' e meta': di un risultato di strumento l'inizio porta
+        // quasi sempre la forma - le intestazioni, lo schema, le prime righe
+        // di una tabella - e la fine solo come e' andata a finire. Due terzi
+        // e un terzo e' una **scelta**, e finora la difendeva soltanto il
+        // banco contro il Python: cambiarla qui e li' nello stesso modo
+        // sarebbe rimasto verde ovunque.
+        let testo: String = (0..60_000).map(|i| char::from(b'a' + (i % 26) as u8)).collect();
+        let fuori = versa(&testo, "C:\\r\\v\\a.txt", LIMITE_RISULTATO);
+        let (testa, resto) = fuori.split_once("\n\n[Omessi ").unwrap();
+        let coda = resto.split_once("]\n\n").unwrap().1;
+        let rapporto = testa.chars().count() as f64 / coda.chars().count() as f64;
+        assert!((1.9..2.1).contains(&rapporto),
+                "testa {} coda {}: rapporto {rapporto:.2}, doveva essere 2",
+                testa.chars().count(), coda.chars().count());
     }
 
     #[test]

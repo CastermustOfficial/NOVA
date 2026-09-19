@@ -212,7 +212,7 @@ print("\n=== Le guardie: dove si scrive, cosa non si esegue, quando si chiede ==
 # Non e' catalogazione: e' cosa NOVA puo' fare senza chiedere. In Python questa
 # guardia sbagliava in tre modi insieme, tutti e tre la stessa lezione gia'
 # scritta (D56) — vedi `nova/percorsi.py`.
-from nova.agent import SafetyContext  # noqa: E402
+from nova.agent import SafetyContext                          # noqa: E402
 from nova.config import Config  # noqa: E402
 from nova.tools.base import Risk  # noqa: E402
 
@@ -869,7 +869,7 @@ controlla("un corpo tagliato lo dichiara, invece di far credere di aver letto tu
 # rendere gli argomenti non e' cosmesi: quella stringa e' cio' che lo
 # strumento riceve, e `json.dumps` scrive `{"a": 1}` dove `serde_json`
 # scriverebbe `{"a":1}`.
-from nova.agent import Agent                                  # noqa: E402
+from nova.agent import Agent, sostituzione_versata            # noqa: E402
 
 TESTI_INLINE = [
     "",
@@ -935,20 +935,13 @@ controlla("il banco distingue davvero i separatori di Python",
           f"nessuno scenario con piu' di una chiave fra {len(_argomenti)}: "
           "la prova non prova niente")
 
-py_versa = []
-for testo, percorso in VERSATI:
-    def avviso_per(omessi, _p=percorso):
-        return (f"\n\n[Omessi {omessi} caratteri nel mezzo. Il risultato completo "
-                f"e' in {_p}. Leggilo con read_file, che accetta un "
-                f"intervallo di righe, oppure cercaci dentro con search_in_files.]\n\n")
-    spazio = Agent.LIMITE_RISULTATO - len(avviso_per(len(testo)))
-    if spazio <= 200:
-        py_versa.append(avviso_per(len(testo)).strip())
-    else:
-        testa = spazio * 2 // 3
-        coda = spazio - testa
-        py_versa.append(testo[:testa] + avviso_per(len(testo) - testa - coda) + testo[-coda:]
-                        if len(testo) > testa + coda else testo)
+# La regola la si chiede al Python vero, non se ne riscrive una copia qui:
+# questa prova esisteva apposta per accorgersi se le due teste divergono, e
+# scrivendosi la sua terza copia era l'unica delle tre che non poteva
+# accorgersi di niente - avrebbe detto «uguali» anche con `agent.py` cambiato
+# sotto.
+py_versa = [sostituzione_versata(testo, percorso, Agent.LIMITE_RISULTATO)
+            for testo, percorso in VERSATI]
 
 diverse = [f"{i}: rust {len(suo)}c vs python {len(py)}c"
            for i, (suo, py) in enumerate(zip(cia["versati"], py_versa)) if suo != py]
