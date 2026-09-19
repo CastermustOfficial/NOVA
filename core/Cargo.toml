@@ -12,6 +12,7 @@ members = [
     "crates/nova-pianificazione",
     "crates/nova-salita",
     "crates/nova-ciclo",
+    "crates/nova-finestra",
     "crates/nova-contesto",
     "crates/nova-cervelli",
     "crates/nova-mcp",
