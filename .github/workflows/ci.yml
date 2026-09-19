@@ -179,6 +179,9 @@ jobs:
       - name: Quel che serve da fuori
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12' 
       - name: Prove
         working-directory: core
         shell: bash
@@ -195,5 +198,52 @@ jobs:
             if [ -n "$perche" ]; then echo "::error::$perche"; fi
             exit 1
           fi
+
+      # Le prove Python **anche qui**, ed e' il punto di tutto CANT-9.
+      #
+      # Prima questo lavoro faceva solo `cargo test`, quindi di NOVA in Python
+      # su Linux e macOS non guardava niente nessuno. Il giorno in cui le si e'
+      # fatte girare davvero ne sono uscite tre rosse, e nessuna delle tre era
+      # una prova scritta male: `ruota_se_serve` **spostava una cartella**
+      # (su Windows una cartella misura zero byte e usciva da sola; altrove ne
+      # misura 4096), i percorsi protetti erano i quattro di Windows che
+      # cominciano per `C:\` — cioe' fuori da Windows NOVA non proteggeva
+      # niente — e due prove ponevano in windowsese domande che altrove non
+      # volevano dire niente.
+      #
+      # Tre difetti veri, invisibili per mesi perche' nessuna macchina diversa
+      # li guardava mai. Da qui in poi li guarda questa.
+      - name: Prove Python
+        shell: bash
+        run: |
+          set +e
+          falliti=()
+          saltate=()
+          for f in test_*.py; do
+            uscita=$(python "$f" 2>&1)
+            codice=$?
+            echo "$uscita"
+            if [ "$codice" -eq 2 ]; then
+              saltate+=("$f")
+            elif [ "$codice" -ne 0 ]; then
+              falliti+=("$f")
+              # La coda nell'annotazione: il log completo lo legge chi e'
+              # autenticato, l'annotazione la legge chiunque.
+              coda=$(echo "$uscita" | tail -12 | tr '\n' '/')
+              echo "::error::$f su ${{ matrix.sistema }}: $coda"
+            fi
+          done
+          quante=$(ls test_*.py | wc -l)
+          echo "riepilogo: $((quante - ${#falliti[@]} - ${#saltate[@]})) verdi, ${#falliti[@]} rosse, ${#saltate[@]} non provabili su $quante"
+          if [ ${#saltate[@]} -gt 0 ]; then
+            echo "::notice::saltate su ${{ matrix.sistema }} (serve una macchina vera o un banco costruito): ${saltate[*]}"
+          fi
+          if [ ${#falliti[@]} -gt 0 ]; then
+            echo "::error::prove Python rosse su ${{ matrix.sistema }}: ${falliti[*]}"
+            exit 1
+          fi
+          # Esplicito: se no il lavoro eredita il codice dell'ultima prova, e
+          # l'ultima in ordine alfabetico esce 2 perche' qui non si puo' fare.
+          exit 0
           verdi=$(grep -E '^test result: ok\.' /tmp/prove.log | sed -E 's/^test result: ok\. ([0-9]+) passed.*/\1/' | awk '{s+=$1} END {print s+0}')
           echo "riepilogo: $verdi prove verdi su ${{ matrix.sistema }}"

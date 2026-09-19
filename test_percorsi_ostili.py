@@ -203,18 +203,34 @@ print("\n=== Le cartelle che sincronizza qualcun altro ===")
 # che NOVA ci si installa dentro, e da li' partono dodici gigabyte verso il
 # cloud, nascono le copie in conflitto sul vault, e - la peggiore - i file
 # vengono «liberati» e restano in elenco come segnaposti vuoti.
+def perc(*pezzi: str) -> str:
+    """Un percorso fatto con il separatore di **questa** macchina.
+
+    I casi qui sotto erano scritti con le barre rovesce, e su Windows
+    funzionavano: `Path(...).parts` le divide e «OneDrive» viene fuori come
+    componente. Su Linux e macOS la barra rovescia non divide niente, quindi
+    l'intero percorso era **un solo componente** e nessun nome corrispondeva
+    mai: dieci casi su dieci rispondevano «non sincronizzata», e la prova
+    diventava rossa per il sistema su cui girava invece che per un difetto.
+    Il codice e' giusto - un utente Linux scrive `/home/x/OneDrive/...` - ed
+    era la prova a parlare solo windowsese. E' lo stesso inciampo gia' visto
+    in `nova-cartelle` dalla parte Rust.
+    """
+    return os.sep.join(pezzi)
+
+
 RICONOSCERE = [
-    (r"C:\Users\x\OneDrive\Documenti\NOVA", True),
-    (r"C:\Users\x\OneDrive - Acme Spa\NOVA", True),
-    (r"C:\Users\x\Dropbox\NOVA", True),
-    (r"C:\Users\x\Google Drive\modelli", True),
-    (r"C:\Users\x\iCloud Drive\NOVA", True),
+    (perc("C:", "Users", "x", "OneDrive", "Documenti", "NOVA"), True),
+    (perc("C:", "Users", "x", "OneDrive - Acme Spa", "NOVA"), True),
+    (perc("C:", "Users", "x", "Dropbox", "NOVA"), True),
+    (perc("C:", "Users", "x", "Google Drive", "modelli"), True),
+    (perc("C:", "Users", "x", "iCloud Drive", "NOVA"), True),
     # E quelle che NON vanno segnalate, o l'avviso diventa rumore.
-    (r"C:\Users\x\Documents\NOVA", False),
-    (r"C:\Users\x\onedrive vecchio backup\NOVA", False),
-    (r"C:\Users\x\Desktop\dropbox-export-2024\NOVA", False),
-    (r"D:\Modelli", False),
-    (r"C:\NOVA", False),
+    (perc("C:", "Users", "x", "Documents", "NOVA"), False),
+    (perc("C:", "Users", "x", "onedrive vecchio backup", "NOVA"), False),
+    (perc("C:", "Users", "x", "Desktop", "dropbox-export-2024", "NOVA"), False),
+    (perc("D:", "Modelli"), False),
+    (perc("C:", "NOVA"), False),
 ]
 sbagliate = [(p, atteso, cartelle.sincronizzata(p))
              for p, atteso in RICONOSCERE
@@ -222,14 +238,14 @@ sbagliate = [(p, atteso, cartelle.sincronizzata(p))
 controlla(f"{len(RICONOSCERE)} cartelle riconosciute o ignorate come si deve",
           not sbagliate, str(sbagliate[:2]))
 
-a = cartelle.avvertenza(r"C:\Users\x\OneDrive\NOVA")
+a = cartelle.avvertenza(perc("C:", "Users", "x", "OneDrive", "NOVA"))
 controlla("l'avvertenza nomina il servizio", "OneDrive" in a or "Onedrive" in a, a[:80])
 controlla("e dice tutte e tre le conseguenze",
           "conflitto" in a and "segnaposti" in a and "gigabyte" in a, a[:120])
 controlla("e non e' un divieto: propone, non impedisce",
           "Meglio" in a and "vietato" not in a.lower(), a[-60:])
 controlla("su una cartella normale non dice niente",
-          cartelle.avvertenza(r"D:\Modelli") == "")
+          cartelle.avvertenza(perc("D:", "Modelli")) == "")
 
 # E l'installatore la deve usare. Non si esegue: si legge.
 inst = (RADICE / "install.ps1").read_text(encoding="utf-8-sig")
@@ -253,20 +269,27 @@ print("\n=== Oltre i 260 caratteri ===")
 # valore di fabbrica e' spento. Su questa macchina e' acceso — quindi qui il
 # caso passa e sulla macchina di chiunque altro no. E' la forma esatta del «da
 # me funziona», e una prova che passa senza dirlo darebbe falsa sicurezza.
-import winreg                                                # noqa: E402
-lunghi = None
-try:
-    with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
-                        r"SYSTEM\CurrentControlSet\Control\FileSystem") as k:
-        lunghi = bool(winreg.QueryValueEx(k, "LongPathsEnabled")[0])
-except Exception:                                            # noqa: BLE001
-    lunghi = False
-print(f"  LongPathsEnabled su questa macchina: {lunghi} "
-      f"(il valore di fabbrica e' False)")
-controlla("si sa se questa macchina e' rappresentativa", lunghi is not None)
-if lunghi:
-    print("  -> il caso «percorso lungo» NON e' provato come lo vedrebbe")
-    print("     la maggioranza delle macchine. Resta da provare altrove.")
+# Il registro c'e' solo su Windows. Altrove non c'e' nessun MAX_PATH da
+# aggirare, quindi non c'e' niente da sapere: la domanda **non si pone**, e
+# far fallire la prova per questo vorrebbe dire dichiarare rotto un sistema su
+# cui va tutto bene.
+if os.name == "nt":
+    import winreg                                            # noqa: E402
+    lunghi = None
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                            r"SYSTEM\CurrentControlSet\Control\FileSystem") as k:
+            lunghi = bool(winreg.QueryValueEx(k, "LongPathsEnabled")[0])
+    except Exception:                                        # noqa: BLE001
+        lunghi = False
+    print(f"  LongPathsEnabled su questa macchina: {lunghi} "
+          f"(il valore di fabbrica e' False)")
+    controlla("si sa se questa macchina e' rappresentativa", lunghi is not None)
+    if lunghi:
+        print("  -> il caso «percorso lungo» NON e' provato come lo vedrebbe")
+        print("     la maggioranza delle macchine. Resta da provare altrove.")
+else:
+    print("  (niente MAX_PATH fuori da Windows: la domanda non si pone)")
 # Windows, senza il supporto ai percorsi lunghi, rifiuta oltre MAX_PATH. Il
 # punto non e' farlo funzionare per forza: e' che il rifiuto si capisca.
 with tempfile.TemporaryDirectory(prefix="nova-lungo-") as tmp:

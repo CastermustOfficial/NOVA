@@ -11,12 +11,8 @@
 //! scrivono come capita, e «DISKPART» e' `diskpart`.
 
 
-/// I percorsi in cui NOVA non scrive mai, qualunque cosa dica il modello.
-///
-/// Sono quelli di Windows perche' NOVA in Python vive li'. Il demone gira
-/// anche altrove e ne ha un secondo elenco per i sistemi Unix, che non ha un
-/// gemello da confrontare: e' dichiarato accanto a questo, non nascosto
-/// dentro la configurazione.
+/// I percorsi in cui NOVA non scrive mai su Windows, qualunque cosa dica
+/// il modello.
 pub static PERCORSI_PROTETTI: [&str; 4] = [
     "C:\\Windows",
     "C:\\Program Files",
@@ -41,11 +37,14 @@ pub static COMANDI_VIETATI: [&str; 8] = [
     "\\brm\\s+(?:-[a-z]+\\s+)*-[a-z]*(?:rf|fr)[a-z]*\\s+/",
 ];
 
-/// L'equivalente per i sistemi Unix, dove gira solo il demone.
+/// E quelli che non si toccano altrove.
 ///
-/// Non viene da Python — NOVA in Python e' di Windows — e quindi nessun
-/// banco lo confronta con niente. E' dichiarato qui, accanto all'altro,
-/// proprio perche' si veda che e' l'unico senza gemello.
+/// Viene da Python come l'altro, e per un motivo che e' costato: prima era
+/// dichiarato **solo** qui, con scritto accanto che era «l'unico senza
+/// gemello» perche' «NOVA in Python e' di Windows». Il risultato pratico non
+/// era che NOVA su Linux proteggesse meno — e' che non proteggeva niente:
+/// `guard_write` scorreva quattro percorsi che cominciano tutti per `C:\`,
+/// e su Linux nessun file sta dentro nessuno di quelli.
 pub static PERCORSI_PROTETTI_UNIX: [&str; 5] = [
     "/boot",
     "/etc",

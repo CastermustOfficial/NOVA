@@ -41,6 +41,7 @@ Le regole, ora, stanno qui:
 """
 from __future__ import annotations
 
+import stat
 from pathlib import Path
 
 #: Il tetto, uguale a quello che il registro del vault usa da sempre.
@@ -56,9 +57,17 @@ def ruota_se_serve(percorso: Path, massimo: int = MAX_BYTE) -> bool:
     """
     percorso = Path(percorso)
     try:
-        if percorso.stat().st_size < massimo:
-            return False
+        stato = percorso.stat()
     except OSError:
+        return False
+    # **Solo i file normali.** Su Windows una cartella misura zero byte,
+    # quindi finiva sotto il tetto e usciva di qui da sola; su Linux e macOS
+    # misura 4096, cioe' passava il controllo e arrivava al `replace`, che una
+    # cartella la **rinomina**. Bastava un percorso di registro configurato
+    # male perche' NOVA spostasse una cartella dell'utente senza dire niente,
+    # e su Windows non si sarebbe visto mai. Si chiede allo stesso `stat` che
+    # si e' gia' fatto: due domande separate sono due momenti diversi.
+    if not stat.S_ISREG(stato.st_mode) or stato.st_size < massimo:
         return False
     # `audit.1.jsonl`, non `audit.jsonl.1`: l'estensione resta in fondo,
     # quindi il file storico si apre ancora con cio' che apre gli altri. Su

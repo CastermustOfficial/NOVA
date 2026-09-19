@@ -489,16 +489,52 @@ class ModelConfig:
     max_tool_iterations: int = 12
 
 
+#: I percorsi che non si toccano, su Windows.
+PERCORSI_PROTETTI_WINDOWS = [
+    "C:\\Windows",
+    "C:\\Program Files",
+    "C:\\Program Files (x86)",
+    "C:\\ProgramData\\Microsoft",
+]
+
+#: E quelli che non si toccano altrove.
+#:
+#: Erano dichiarati **solo** dal lato Rust, con scritto accanto che erano
+#: «l'unico elenco senza gemello» perche' «NOVA in Python e' di Windows». Il
+#: risultato pratico non era che NOVA su Linux proteggeva meno: era che non
+#: proteggeva **niente**. `guard_write` scorreva `protected_paths`, e quei
+#: quattro percorsi cominciano tutti per `C:\`, che su Linux non e' dentro
+#: niente. Quindi `/etc`, `/boot`, `/sys` erano scrivibili quanto la cartella
+#: dei download, e da Windows non si sarebbe visto mai.
+#:
+#: E' la stessa forma di D185 vista dall'altra parte: la stessa guardia in
+#: due copie, e le due copie sanno cose diverse.
+PERCORSI_PROTETTI_UNIX = [
+    "/boot",
+    "/etc",
+    "/sys",
+    "/proc",
+    "/dev",
+]
+
+
+def _protetti() -> list[str]:
+    """Quelli di questo sistema.
+
+    Si sceglie qui e non a valle: una guardia che va scelta da chi la usa e'
+    una guardia che qualcuno dimentichera' di scegliere.
+    """
+    return PERCORSI_PROTETTI_WINDOWS if os.name == "nt" else PERCORSI_PROTETTI_UNIX
+
+
 @dataclass
 class SafetyConfig:
     autonomy: str = AUTONOMY_ASK_RISKY
     # scritture/cancellazioni consentite solo dentro questi percorsi (vuoto = ovunque)
     write_roots: list[str] = field(default_factory=list)
-    # percorsi sempre vietati in scrittura/cancellazione
-    protected_paths: list[str] = field(default_factory=lambda: [
-        "C:\\Windows", "C:\\Program Files", "C:\\Program Files (x86)",
-        "C:\\ProgramData\\Microsoft",
-    ])
+    # percorsi sempre vietati in scrittura/cancellazione, quelli di **questo**
+    # sistema: vedi PERCORSI_PROTETTI_WINDOWS e PERCORSI_PROTETTI_UNIX
+    protected_paths: list[str] = field(default_factory=lambda: list(_protetti()))
     # pattern vietati nei comandi shell (regex, case-insensitive)
     #
     # Questo elenco e' anche quello del demone: `nova-strumenti::predefiniti`

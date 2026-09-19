@@ -204,13 +204,39 @@ impl Cartella {
         let Ok(m) = std::fs::metadata(p) else {
             return;
         };
-        if !crate::deposito::ora_di_ruotare(m.len()) {
+        // Una riga sola, e vale la pena dire cosa **non** la copre: la
+        // decisione e' provata per intero in `si_ruota`, ma che qui le si
+        // passi `m.is_file()` e non `true` nessuna prova lo vede. Per
+        // vederlo servirebbe una cartella che da sola misura piu' di due
+        // megabyte, cioe' decine di migliaia di file creati a ogni giro.
+        // Resta scritto qui invece di far finta che sia coperto.
+        if !si_ruota(m.is_file(), m.len()) {
             return;
         }
         let precedente = p.with_extension("1.jsonl");
         let _ = std::fs::remove_file(&precedente);
         let _ = std::fs::rename(p, &precedente);
     }
+}
+
+/// Se questo va messo da parte.
+///
+/// **Solo i file normali**, e la riga esiste per questo. Su Windows una
+/// cartella misura zero byte, quindi finiva sotto il tetto e usciva da sola;
+/// su Linux e macOS ne misura 4096, cioe' passa il controllo e arriva al
+/// `rename` — che una cartella la **sposta**. Da Windows non si sarebbe visto
+/// mai, ed e' la stessa riga che dalla parte Python poteva spostare una
+/// cartella dell'utente senza dire niente a nessuno.
+///
+/// Prende i **due fatti** invece del `Metadata`, e non e' pedanteria. Con il
+/// `Metadata` in mano la prova puo' solo passargli una cartella vera, che su
+/// questo disco misura 4096 byte: sotto il tetto, quindi la risposta sarebbe
+/// «no» lo stesso anche togliendo il controllo sul tipo, e la mutazione
+/// resterebbe verde. Cosi' invece la domanda si puo' fare per intero — una
+/// cartella **oltre** il tetto — che e' esattamente il caso che si vuole
+/// escludere.
+pub fn si_ruota(e_un_file: bool, byte: u64) -> bool {
+    e_un_file && crate::deposito::ora_di_ruotare(byte)
 }
 
 #[cfg(test)]
@@ -322,6 +348,28 @@ mod prove {
         assert!(nuovo.contains("dopo") && nuovo.len() < 100, "non ha ruotato");
         let vecchio = std::fs::read_to_string(radice.join(".nova/registro.1.jsonl")).unwrap();
         assert_eq!(vecchio.len(), grosso.len(), "lo storico e' andato perso");
+        let _ = std::fs::remove_dir_all(&radice);
+    }
+
+    #[test]
+    fn una_cartella_non_si_ruota_mai_per_quanto_grossa_sia() {
+        let tetto = crate::deposito::MAX_REGISTRO_BYTE;
+        assert!(!si_ruota(false, tetto + 1), "una cartella non si mette da parte: la si sposterebbe");
+        assert!(!si_ruota(false, u64::MAX), "nemmeno enorme");
+        // E un file oltre il tetto deve dire di si', o le righe qui sopra
+        // sarebbero verdi perche' non ruota mai niente.
+        assert!(si_ruota(true, tetto + 1));
+        assert!(!si_ruota(true, 0), "e uno vuoto no");
+    }
+
+    #[test]
+    fn e_una_cartella_vera_passa_di_li_senza_essere_spostata() {
+        let radice = cartella_di_prova("cartella-non-si-sposta");
+        let c = Cartella::nuova(&radice);
+        let finto = radice.join(REGISTRO);
+        std::fs::create_dir_all(&finto).unwrap();
+        c.ruota_se_serve(&finto);
+        assert!(finto.is_dir(), "la cartella e' stata spostata");
         let _ = std::fs::remove_dir_all(&radice);
     }
 }
