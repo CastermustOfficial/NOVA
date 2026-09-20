@@ -8999,3 +8999,78 @@ le due meta' dicano la stessa cosa.
 
 Ventidue prove gemelle, ventidue verdi, zero saltate. Fino a stamattina erano
 zero eseguite.
+
+
+## Chi sa calcolare una somma, e a che prezzo
+
+Gio ha chiesto di Excel, e la risposta onesta era: NOVA lo legge e non lo
+scrive, il pezzo che scrive esiste e non lo chiama nessuno — e c'e' una cosa
+che non avevo mai misurato, solo scritto in una nota.
+
+**Nessuna libreria di `.xlsx` calcola le formule.** Non `umya`, non
+`openpyxl`, non `calamine`. Leggono il risultato che l'ultimo programma ha
+lasciato in cache, e quella cache e' vuota in ogni file scritto da un
+programma invece che da Excel. Quindi NOVA scrive `=SUM(A1:A10)`, rilegge, e
+vede la formula al posto del numero. E' lo stesso difetto che D253 ha chiuso
+in lettura, guardato dal lato di chi scrive.
+
+Prima di decidere sono andato a vedere come lo risolvono gli altri, e la
+prima fonte era qui in casa: la skill `xlsx` di Anthropic. Fa girare
+**LibreOffice in silenzio** — con una macro StarBasic infilata nel profilo
+utente — e ricalcola il file in posto. Funziona, e la documentazione e'
+onesta su tutto quello che va storto: le funzioni che LibreOffice non
+conosce diventano `#NAME?` nel file consegnato, i collegamenti a un altro
+file si perdono, e — la frase migliore di tutto il documento — «un ricalcolo
+verde dimostra che le formule si **valutano**, non che sono **giuste**».
+Quella me la sono portata via (D283).
+
+Poi ho cercato fuori, e ho trovato che il problema ha gia' una piccola
+letteratura: `spreadsheet-mcp` per gli agenti, `xlq` («agent-safe
+transactional runtime... with receipts, an undo journal, and byte-fidelity
+guarantees»), `xlsplice` («surgical edits to Excel packages with a byte-level
+guarantee»). Leggere quei titoli e' stato istruttivo per un motivo che non mi
+aspettavo: **sono tutti arrivati per conto loro alla stessa forma a cui siamo
+arrivati noi** — toccare chirurgicamente invece di ricostruire, tenere un
+giornale di cio' che si e' fatto, poter disfare. E' la prima volta che vedo
+le idee di questo progetto scritte da qualcun altro.
+
+Una di quelle strade era un motore di formule vero in Rust, `formualizer`.
+Quindi invece di sceglierlo leggendo, ho fatto quel che ha fatto
+`banco_documenti` per il `.docx`: un banco.
+
+**Quattro fogli, e i risultati.** I valori calcolati sono identici dalle due
+parti. La differenza e' tutta in cosa resta del foglio:
+
+- LibreOffice: due parti perse, quattro aggiunte, **undici su undici
+  cambiate**, un `theme1.xml` nuovo, il file da 6.985 a 9.010 byte.
+- Il motore in Rust: zero perse, zero aggiunte, **una parte su tredici**, da
+  6.985 a 7.015 byte.
+
+Sul foglio grosso — quattromila formule, un grafico, una regola di colore —
+0,66 secondi contro 1,8, e il motore girava in build di debug.
+
+E' D237 di nuovo, su un altro formato: **ricostruire perde, toccare no.**
+Trovare due volte la stessa forma, partendo da due domande diverse, mi ha
+convinto piu' di qualunque ragionamento (D281).
+
+**La cosa piu' interessante pero' e' come i due dicono di no.** Su
+`XLOOKUP`, LibreOffice scrive `#NAME?` dentro il file e torna «fatto»: un
+errore che sembra un dato. Il motore in Rust la calcola. E sulle funzioni che
+spandono su piu' celle — FILTER, UNIQUE, SORT — che nessuno dei due sa fare
+davvero, LibreOffice ne scrive tre `#NAME?` e il motore **rifiuta l'intero
+foglio senza scriverlo**.
+
+Per NOVA quello e' il verso giusto, ed e' la stessa frase che abbiamo gia'
+scritto due volte questa settimana: sul Cestino di un disco che non ce l'ha
+(«qui l'unica alternativa e' distruggere, e va detta, non fatta», D259) e sul
+file cambiato sotto («non ci scrivo sopra», D273). Quando non si puo' fare
+bene, si dice invece di fare male (D282).
+
+**Cosa non ho deciso.** Quale motore usi NOVA non e' una cosa che decido io
+con quattro fogli: `formualizer` e' alla 0.9, di un autore solo, e legarsi a
+un motore giovane per una cosa che tocca i file di qualcuno vuole una via di
+fuga. Il banco dice cosa costa ogni strada; la scelta e' di Gio. Quel che il
+banco dice con sicurezza e' che **non vanno messi a scelta dentro il codice**:
+il motore sta dietro un'interfaccia e ne esiste un secondo, che e' esattamente
+quel che fa `spreadsheet-mcp` — l'unico altro progetto che ha affrontato lo
+stesso problema per un agente.

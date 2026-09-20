@@ -2254,6 +2254,37 @@ era stata rimandata apposta — e da quando il guscio e' Tauri con
 l'interfaccia in HTML, non e' piu' «quali widget» ma «una quarta finestra del
 guscio?». Si risponde guardando, non scrivendo.
 
+
+**Excel: la domanda che restava, e un banco per rispondere.** CANT-10 aveva
+scelto la libreria (`umya`) e chiuso il cantiere, ma una cosa era rimasta
+aperta e scritta solo in una nota: **nessuna libreria di `.xlsx` calcola le
+formule**. Leggono la cache, e la cache e' vuota in ogni file scritto da un
+programma invece che da Excel. NOVA scrive `=SUM(A1:A10)`, rilegge, e vede la
+formula al posto del numero — lo stesso difetto che D253 ha chiuso in
+lettura, visto dal lato di chi scrive.
+
+Le strade erano due, e adesso c'e' un banco che le misura invece di
+sceglierle: `banco_fogli/`. Quattro fogli fatti apposta per essere difficili
+— formule di eta' diverse, una nota, un formato percentuale, un grafico, una
+formattazione condizionale, quattromila formule, e funzioni che nessun
+programma conosce.
+
+I numeri sono identici dalle due parti. La differenza e' **cosa resta del
+foglio di qualcuno**: LibreOffice in silenzio riscrive l'archivio intero —
+due parti perse, quattro aggiunte, undici su undici cambiate — mentre un
+motore in Rust tocca **una parte su tredici** e fa il giro su quattromila
+formule in due terzi di secondo contro un secondo e otto (D281). Ed e' lo
+stesso comportamento che D237 aveva gia' rifiutato per il `.docx`, trovato
+una seconda volta su un formato diverso.
+
+E i due modi di non farcela non sono lo stesso: uno scrive `#NAME?` dentro il
+file consegnato, l'altro rifiuta il foglio e non scrive niente (D282). Per un
+programma che tocca i documenti di qualcuno, il secondo e' il verso giusto.
+
+Resta un buco che nessuno dei due copre — FILTER, UNIQUE e SORT — e non e'
+un difetto delle librerie: quelle formule, scritte da fuori, non sono un
+foglio valido finche' Excel non le apre.
+
 ## Il cancello della beta
 
 Non e' una data, sono cinque frasi che devono essere vere insieme:

@@ -1,0 +1,14 @@
+[package]
+name = "banco-fogli"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Fuori dal workspace di proposito, come `banco_documenti`: `formualizer`
+# si porta dietro Arrow e mezzo mondo, e sono minuti di compilazione. Un
+# banco che si usa quando si decide non deve pesare su ogni `cargo test` di
+# chi non sta decidendo niente.
+[workspace]
+
+[dependencies]
+formualizer-workbook = { version = "0.9", features = ["xlsx-recalc"] }
