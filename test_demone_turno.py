@@ -390,7 +390,66 @@ try:
                                                   "usata", "secondi"},
                       str(sorted(dentro_archivio[0])))
 
-    print("\n9. e si puo' chiedere dalla riga di comando")
+    print("\n9. il demone dice prima se il turno lo sa fare")
+    with CoreClient(endpoint, timeout=20) as c:
+        pronto = c.request("agente/pronto", {})
+    # Serve a chi deve **scegliere la strada prima di imboccarla**: il
+    # guscio puo' mandare la domanda qui o alla meta' Python, e provare per
+    # poi ripiegare vorrebbe dire eseguire due volte gli strumenti di un
+    # turno morto a meta'.
+    controlla("con un cervello a indirizzo, e' pronto",
+              pronto.get("pronto") is True, str(pronto))
+    controlla("e dice anche di che scala si tratta",
+              isinstance(pronto.get("gradini"), list) and pronto["gradini"],
+              str(pronto))
+    controlla("senza motivi da dare, visto che va",
+              pronto.get("perche") == "", str(pronto))
+
+    # E con una scala che comincia con una CLI dice di no, **spiegando**.
+    # Si riscrive la configurazione e si richiede subito: se il demone la
+    # tenesse in mano dal suo avvio, questa risposta non cambierebbe, e chi
+    # cambia cervello dal pannello dovrebbe riavviare tutto per vederlo.
+    config = Path(casa) / "NOVA" / "config.json"
+    prima = config.read_text(encoding="utf-8")
+    dentro = json.loads(prima)
+    dentro["brains"]["cli"] = {"claude": {"comando": "claude"}}
+    dentro["brains"]["routing"]["scala"] = ["claude", "locale"]
+    dentro["brains"]["routing"]["tiers"]["claude"] = {"brain": "claude", "locale": True}
+    config.write_text(json.dumps(dentro, ensure_ascii=False), encoding="utf-8")
+    try:
+        with CoreClient(endpoint, timeout=20) as c:
+            con_cli = c.request("agente/pronto", {})
+    finally:
+        config.write_text(prima, encoding="utf-8")
+    controlla("con una CLI davanti, il turno non lo sa ancora fare",
+              con_cli.get("pronto") is False, str(con_cli))
+    controlla("e lo dice in una riga che si puo' leggere",
+              "claude" in (con_cli.get("perche") or ""), str(con_cli))
+    with CoreClient(endpoint, timeout=20) as c:
+        di_nuovo = c.request("agente/pronto", {})
+    controlla("e torna pronto appena la configurazione torna com'era",
+              di_nuovo.get("pronto") is True, str(di_nuovo))
+
+    print("\n10. dalla voce la domanda porta con se' come si risponde")
+    from nova.main import POSTILLA_VOCE                           # noqa: E402
+    with CoreClient(endpoint, timeout=60) as c:
+        c.request("agente/turno", {"testo": "dimmi che ore sono",
+                                   "sessione": "dallavoce", "voce": True})
+    dalla_voce = [m for m in ultimo_turno()["messages"]
+                  if m.get("role") == "user"][-1]["content"]
+    controlla("la postilla arriva al cervello, identica al Python",
+              dalla_voce.endswith(POSTILLA_VOCE),
+              f"...{dalla_voce[-120:]!r}")
+    controlla("e sta in coda, dopo la domanda",
+              dalla_voce.startswith("dimmi che ore sono"), dalla_voce[:80])
+    with CoreClient(endpoint, timeout=60) as c:
+        c.request("agente/turno", {"testo": "e adesso scrivendo",
+                                   "sessione": "dallatastiera"})
+    da_tastiera = [m for m in ultimo_turno()["messages"]
+                   if m.get("role") == "user"][-1]["content"]
+    controlla("e scrivendo no", "<voce>" not in da_tastiera, da_tastiera[-120:])
+
+    print("\n11. e si puo' chiedere dalla riga di comando")
     nome_cli = "nova.exe" if os.name == "nt" else "nova"
     cli = next((p for p in (RADICE / "core" / "target" / "release" / nome_cli,
                             RADICE / "core" / "target" / "debug" / nome_cli)

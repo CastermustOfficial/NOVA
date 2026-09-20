@@ -1,10 +1,20 @@
-//! Il ponte verso la parte Python: una domanda, una risposta.
+//! Dove va a finire una domanda: al demone, o alla meta' Python.
 //!
-//! Per ora e' un processo per messaggio (`nova --ask`). E' onesto e isolato —
-//! se il cervello va in crisi non si porta dietro il guscio — e il filo del
-//! discorso non si perde perche' la sessione di Claude Code sopravvive al
-//! processo, scritta su disco. Quando il ciclo dell'agente sara' in Rust
-//! questa funzione parlera' direttamente col demone.
+//! Sono due strade vere, e la scelta si fa **prima** di imboccarne una.
+//!
+//! - **Il demone.** Il turno gira dentro `novad`, in Rust: stessa
+//!   configurazione, stessi strumenti, stessa memoria, stesse procedure.
+//!   Niente processo per messaggio, niente interprete da accendere, e la
+//!   conversazione vive nel demone invece che in un file.
+//! - **`python -m nova --ask`.** Un processo per messaggio. Regge cose che
+//!   il turno in Rust non sa ancora fare — prima fra tutte un gradino che
+//!   e' una CLI da lanciare, tipo `claude`.
+//!
+//! Si chiede al demone `agente/pronto`, che costa quanto un ping, e si
+//! decide. **Non** si prova il turno per poi ripiegare: un turno che muore a
+//! meta' ha gia' eseguito degli strumenti, e rifarlo dall'altra parte li
+//! farebbe due volte. Con `NOVA_CERVELLO` si forza la strada: `demone` non
+//! ripiega mai, `python` non prova nemmeno.
 
 use std::collections::VecDeque;
 use std::io::{BufRead, BufReader, Read};
@@ -24,6 +34,16 @@ const MARCA_STATO: &str = "\u{1f}NOVA-STATO\u{1f}";
 /// Il processo del cervello mentre sta pensando. 0 = non sta pensando.
 static PENSANTE: AtomicU32 = AtomicU32::new(0);
 
+/// Quanti turni stanno girando **dentro il demone** adesso.
+///
+/// Non e' un doppione di `PENSANTE`: li' c'e' un pid da ammazzare, qui non
+/// c'e' niente da ammazzare perche' il turno non e' un processo del guscio.
+/// Serve lo stesso, e per una ragione sola: «ferma» deve poter rispondere
+/// «si', c'era qualcosa». Senza, chi preme ferma durante un turno del
+/// demone non si sente dire niente — e il silenzio, dopo aver chiesto di
+/// fermarsi, si legge come «non mi ha sentito».
+static NEL_DEMONE: AtomicU32 = AtomicU32::new(0);
+
 /// Ferma il cervello se sta ragionando. Ritorna true se c'era qualcosa da
 /// fermare.
 ///
@@ -32,9 +52,13 @@ static PENSANTE: AtomicU32 = AtomicU32::new(0);
 /// lascerebbe i figli a girare, ed e' esattamente il modo in cui «fermare»
 /// diventa una bugia.
 pub fn ferma_cervello() -> bool {
+    // Il turno del demone si ferma da solo: il demone ha gia' alzato la
+    // generazione dell'interruzione, ed e' proprio per questo che siamo
+    // qui. Qui si dice solo che c'era qualcosa che si e' fermato.
+    let nel_demone = NEL_DEMONE.load(Ordering::SeqCst) > 0;
     let pid = PENSANTE.swap(0, Ordering::SeqCst);
     if pid == 0 {
-        return false;
+        return nel_demone;
     }
     #[cfg(windows)]
     {
@@ -52,19 +76,105 @@ pub fn ferma_cervello() -> bool {
 
 /// Sta pensando adesso?
 pub fn sta_pensando() -> bool {
-    PENSANTE.load(Ordering::SeqCst) != 0
+    PENSANTE.load(Ordering::SeqCst) != 0 || NEL_DEMONE.load(Ordering::SeqCst) > 0
+}
+
+/// Quale strada prende una domanda.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Strada {
+    Demone,
+    Python,
+}
+
+/// Cosa ha chiesto l'utente con `NOVA_CERVELLO`.
+///
+/// E' una funzione a parte, e pura, perche' e' la sola parte di questa
+/// decisione che si puo' provare senza un demone acceso: il resto dipende
+/// da com'e' configurata la scala su quel PC.
+///
+/// - `demone` — usa il demone e basta. Se non e' pronto, e' un errore: e'
+///   il modo di accorgersi che la meta' Rust non copre ancora un caso,
+///   invece di scoprirlo fra sei mesi guardando i log.
+/// - `python` — non chiede nemmeno.
+/// - tutto il resto, vuoto compreso — si chiede al demone e si ripiega.
+pub fn imposizione(valore: &str) -> Option<Strada> {
+    match valore.trim().to_ascii_lowercase().as_str() {
+        "demone" | "daemon" | "rust" => Some(Strada::Demone),
+        "python" | "py" => Some(Strada::Python),
+        _ => None,
+    }
+}
+
+/// La strada, viste l'imposizione e la risposta del demone.
+///
+/// `pronto` e' `None` quando al demone non si e' potuto nemmeno chiedere.
+pub fn strada(imposta: Option<Strada>, pronto: Option<bool>) -> Result<Strada, String> {
+    match (imposta, pronto) {
+        (Some(Strada::Python), _) => Ok(Strada::Python),
+        (Some(Strada::Demone), Some(true)) => Ok(Strada::Demone),
+        (Some(Strada::Demone), Some(false)) => {
+            Err("NOVA_CERVELLO=demone, ma il demone non e' pronto a fare il turno".to_string())
+        }
+        (Some(Strada::Demone), None) => {
+            Err("NOVA_CERVELLO=demone, ma il demone non risponde".to_string())
+        }
+        (None, Some(true)) => Ok(Strada::Demone),
+        (None, _) => Ok(Strada::Python),
+    }
 }
 
 /// Manda una richiesta al cervello di NOVA e aspetta la risposta.
+///
 /// Con `dalla_voce` il cervello riceve anche l'istruzione su come si risponde
-/// a voce e sui marcatori di chiusura. Quel testo vive dalla parte Python, con
-/// il resto del prompt, e non entra ne' nella ricerca in memoria ne' in cio'
-/// che NOVA impara: qui passa solo la bandierina.
+/// a voce e sui marcatori di chiusura. Quel testo non entra ne' nella ricerca
+/// in memoria ne' in cio' che NOVA impara: da tutte e due le parti passa solo
+/// la bandierina, e la postilla viene attaccata alla fine della domanda.
 pub async fn chiedi(app: AppHandle, testo: String, dalla_voce: bool) -> Result<String, String> {
     let domanda = testo.trim().to_string();
     if domanda.is_empty() {
         return Ok(String::new());
     }
+    let imposta = imposizione(&std::env::var("NOVA_CERVELLO").unwrap_or_default());
+    // Al demone si chiede solo se ha senso chiederglielo: con `python`
+    // imposto, accenderlo per sentirsi dire una cosa che non si usera'
+    // sarebbe solo un ritardo prima di ogni risposta.
+    let pronto = if imposta == Some(Strada::Python) {
+        None
+    } else {
+        match crate::demone::pronto_al_turno().await {
+            Ok((si, perche)) => {
+                if !si && !perche.is_empty() {
+                    tracing::info!(perche = %perche, "il turno non lo fa il demone");
+                }
+                Some(si)
+            }
+            Err(e) => {
+                tracing::info!(errore = %e, "il demone non dice se e' pronto");
+                None
+            }
+        }
+    };
+    match strada(imposta, pronto)? {
+        Strada::Demone => {
+            // Gli avanzamenti li porta il bus: qui si aspetta e basta. Lo
+            // stato si spegne comunque vada, come dall'altra parte — un orb
+            // fermo sull'ultimo passo racconta una cosa che e' finita.
+            NEL_DEMONE.fetch_add(1, Ordering::SeqCst);
+            let esito = crate::demone::turno(&domanda, if dalla_voce { "voce" } else { "" }).await;
+            NEL_DEMONE.fetch_sub(1, Ordering::SeqCst);
+            let _ = app.emit("nova://passo", json!({ "testo": "" }));
+            esito.map_err(|e| e.to_string())
+        }
+        Strada::Python => chiedi_a_python(app, domanda, dalla_voce).await,
+    }
+}
+
+/// La strada vecchia: un processo per messaggio.
+async fn chiedi_a_python(
+    app: AppHandle,
+    domanda: String,
+    dalla_voce: bool,
+) -> Result<String, String> {
     tokio::task::spawn_blocking(move || {
         let radice = radice_progetto();
         let mut figlio = processo::comando(&eseguibile_python())
@@ -169,12 +279,31 @@ pub fn radice_progetto() -> std::path::PathBuf {
     std::env::current_dir().unwrap_or_default()
 }
 
-/// Taglia il filo del discorso.
+/// Taglia il filo del discorso, da tutte e due le parti.
 ///
-/// La continuita' fra un messaggio e l'altro sta in un file: la sessione di
-/// Claude Code sopravvive al processo perche' il suo identificativo e' scritto
-/// su disco. Cancellarlo e' il modo di dire «da qui si ricomincia».
+/// Sono due memorie diverse e vanno dimenticate tutte e due, perche' la
+/// strada puo' cambiare da un messaggio all'altro: dalla parte Python la
+/// continuita' sta in un file — la sessione di Claude Code sopravvive al
+/// processo perche' il suo identificativo e' scritto su disco — e dalla
+/// parte del demone sta in memoria, nell'agente.
+///
+/// Se il demone non risponde non e' un errore: un demone spento non ha
+/// niente da dimenticare, e dire di no a chi ha chiesto «ricominciamo»
+/// perche' la meta' che non stava rispondendo non era raggiungibile
+/// sarebbe la risposta sbagliata alla domanda giusta.
 pub fn dimentica() -> Result<(), String> {
+    for sessione in ["", "voce"] {
+        let s = sessione.to_string();
+        tauri::async_runtime::spawn(async move {
+            if let Err(e) = crate::demone::dimentica_sessione(&s).await {
+                tracing::debug!(errore = %e, "il demone non ha dimenticato");
+            }
+        });
+    }
+    dimentica_il_file()
+}
+
+fn dimentica_il_file() -> Result<(), String> {
     let base = if cfg!(windows) {
         std::env::var_os("APPDATA").map(std::path::PathBuf::from)
     } else {
@@ -185,5 +314,47 @@ pub fn dimentica() -> Result<(), String> {
         Ok(()) => Ok(()),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
         Err(e) => Err(e.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod prove {
+    use super::*;
+
+    #[test]
+    fn la_scelta_si_legge_dall_ambiente() {
+        assert_eq!(imposizione("demone"), Some(Strada::Demone));
+        assert_eq!(imposizione("  DEMONE "), Some(Strada::Demone));
+        assert_eq!(imposizione("rust"), Some(Strada::Demone));
+        assert_eq!(imposizione("python"), Some(Strada::Python));
+        assert_eq!(imposizione("py"), Some(Strada::Python));
+        assert_eq!(imposizione(""), None);
+        assert_eq!(imposizione("boh"), None);
+    }
+
+    #[test]
+    fn senza_imposizione_si_ripiega_sempre() {
+        assert_eq!(strada(None, Some(true)), Ok(Strada::Demone));
+        assert_eq!(strada(None, Some(false)), Ok(Strada::Python));
+        // Demone irraggiungibile: la domanda non si perde.
+        assert_eq!(strada(None, None), Ok(Strada::Python));
+    }
+
+    /// Chi impone il demone vuole **accorgersi** che non e' pronto.
+    ///
+    /// E' il motivo per cui questa variabile esiste: senza, la meta' Rust
+    /// puo' restare indietro per mesi senza che nessuno se ne accorga,
+    /// perche' ogni volta ripiega e risponde lo stesso.
+    #[test]
+    fn imporre_il_demone_non_ripiega_mai() {
+        assert_eq!(strada(Some(Strada::Demone), Some(true)), Ok(Strada::Demone));
+        assert!(strada(Some(Strada::Demone), Some(false)).is_err());
+        assert!(strada(Some(Strada::Demone), None).is_err());
+    }
+
+    #[test]
+    fn imporre_python_non_chiede_niente_a_nessuno() {
+        assert_eq!(strada(Some(Strada::Python), Some(true)), Ok(Strada::Python));
+        assert_eq!(strada(Some(Strada::Python), None), Ok(Strada::Python));
     }
 }

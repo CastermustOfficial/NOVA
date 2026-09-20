@@ -380,6 +380,38 @@ Come si lavora su questo PC:
 /// questa sessione non ho» — e rifiuta cose che sa fare benissimo. E'
 /// successo davvero, e la prova e' che in una sessione nuova, con lo stesso
 /// identico prompt, elencava correttamente la strada giusta.
+/// L'istruzione che si attacca in coda alla domanda quando arriva dal
+/// microfono.
+///
+/// Sta qui e non nel prompt di sistema apposta: il messaggio numero zero e'
+/// la regione su cui i fornitori tengono la cache, e la stessa sessione puo'
+/// ricevere un turno dalla voce e il successivo dalla chat. Metterla li'
+/// vorrebbe dire o rielaborare tutta la conversazione a ogni cambio, o
+/// leggere a voce alta un elenco puntato.
+///
+/// I tre marcatori non sono decorazione: sono come la voce capisce se deve
+/// restare in ascolto, sospendere o chiudere. Senza, ogni risposta lascia il
+/// microfono aperto.
+pub const POSTILLA_VOCE: &str = r#"
+
+<voce>
+Questa domanda arriva dal microfono e la tua risposta verra' letta ad alta voce.
+Rispondi come si parla: frasi brevi, niente elenchi puntati, niente markdown,
+niente blocchi di codice se non sono davvero il contenuto della risposta. Se
+servirebbe una risposta lunga, di' a voce il nocciolo.
+
+Ogni risposta a voce finisce SEMPRE, come ultima cosa e da sola su una riga, con
+uno di questi tre marcatori. Non e' opzionale: e' parte del formato.
+- [NOVA:APERTO]  la conversazione continua, resti in ascolto;
+- [NOVA:PAUSA]   l'utente vuole sospendere e riprendere piu' tardi;
+- [NOVA:FINE]    l'utente sta chiudendo, in qualunque modo lo dica.
+
+Non e' una lista di parole da riconoscere: giudica l'intenzione dell'ultima
+frase e scegli tu. Nel dubbio fra continuare e chiudere, un commiato (ciao,
+a dopo, grazie e basta, va bene cosi') e' [NOVA:FINE]. Il marcatore va per
+ultimo, da solo, e non si commenta mai.
+</voce>"#;
+
 pub const PROMEMORIA: &str = r#"
 
 <sei_nova>

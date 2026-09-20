@@ -2414,15 +2414,11 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
 1. ~~**Il turno nel demone.**~~ Fatto, nudo: chiedi, esegui, rileggi, con gli
    strumenti veri e le guardie vere (D294). Manca la memoria, mancano le
    procedure, mancano le regole operative nel prompt.
-2. **Il guscio chiama il demone** invece di lanciare `python -m nova --ask`.
-   Prima di toccarlo: `nova chiedi "..."` fa gia' quel giro dalla riga di
-   comando, cosi' il turno del demone si prova a mano senza rischiare la cosa
-   che l'utente vede. E il guscio adesso lo compila anche la CI (D298).
-   E' la mossa piu' piccola e quella che si sente di piu': niente avvio di un
-   interprete per messaggio, lo stato che scorre sul bus invece che su
-   stderr, e il tasto «ferma» che ferma un turno invece di uccidere un albero
-   di processi con `taskkill /T /F`. Resta il ripiego su Python finche' il
-   turno del demone non sa fare tutto.
+2. ~~**Il guscio chiama il demone**~~ invece di lanciare `python -m nova
+   --ask`. Fatto: niente interprete da accendere per messaggio, gli
+   avanzamenti che scorrono sul bus invece che su stderr, e la conversazione
+   che vive nel demone invece che in un file. Il ripiego su Python resta, e
+   la scelta si fa **prima** di imboccare una strada (D305, D306, D307).
 3. ~~**La memoria e le procedure dentro il turno.**~~ Fatto: tre crate
    attaccati in un colpo (`nova-nodi`, `nova-memoria`, `nova-ricette`). Il
    contesto che il demone compone e' **identico** a quello del Python — la
@@ -2467,6 +2463,32 @@ cosa e' successo davvero. Che la domanda sia arrivata al cervello, che lo
 strumento l'abbia eseguito il demone, che la sua risposta sia tornata in
 conversazione, che il prompt di sistema venga dal `config.json` di NOVA con i
 segnaposto sostituiti, e che il secondo turno veda il primo.
+
+**E adesso ci parla il guscio.** Fino a ieri ogni messaggio scritto nella
+chat accendeva un interprete Python, gli passava la domanda sulla riga di
+comando e ne leggeva la risposta su stdout. Funzionava, ed era onesto — se
+il cervello andava in crisi non si portava dietro la finestra — ma costava
+un processo per frase, teneva la continuita' del discorso in un file, e
+«ferma» voleva dire ammazzare un albero di processi con `taskkill /T /F`.
+
+Adesso il guscio chiede al demone, e la strada si sceglie **prima** di
+imboccarla: `agente/pronto` costa quanto un ping e dice se il turno in Rust
+si puo' fare con la scala che c'e' oggi in `config.json`. Se non si puo' —
+il primo gradino e' una CLI da lanciare, tipo `claude` — si passa dalla
+meta' Python come sempre. Provare e ripiegare sarebbe stato piu' semplice da
+scrivere e sbagliato da usare: un turno morto a meta' ha gia' eseguito degli
+strumenti, e rifarlo dall'altra parte li eseguirebbe due volte (D305).
+
+Quel che si vede: gli avanzamenti arrivano dal bus invece che da stderr, e
+quindi valgono anche per un turno partito dalla voce o da `nova chiedi`
+(D306); «ferma» ferma il turno dentro il demone, che e' lo stesso «ferma»
+di tutto il resto; e chi parla al microfono riceve la stessa postilla di
+prima, portata in Rust byte per byte (D307).
+
+Con `NOVA_CERVELLO` si forza la strada: `python` non chiede niente a
+nessuno, `demone` non ripiega mai. La seconda serve a noi, ed e' il motivo
+per cui esiste — senza, la meta' Rust puo' restare indietro per mesi mentre
+ogni singola domanda ripiega e risponde lo stesso.
 
 
 ## Il confine che tiene il kernel
