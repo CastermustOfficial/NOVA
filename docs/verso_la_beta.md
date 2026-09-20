@@ -2400,6 +2400,65 @@ restano li elenca `test_crate_attaccati.py`, ognuno con scritto cosa gli
 manca: e' anche la lista di cosa resta da fare.
 
 
+## Il piano per il Rust
+
+«L'obiettivo e' che sia praticamente solo Rust», ha detto Gio. Non e' una
+riscrittura da cominciare dal primo file: e' un ordine di mosse, e ognuna
+deve lasciare NOVA funzionante la sera in cui si fa.
+
+Il punto d'appoggio e' questo: **il turno**. Finche' un turno e' un processo
+Python, ogni pezzo portato in Rust resta una libreria che aspetta; dal
+momento in cui il turno gira nel demone, ogni pezzo portato ha un posto dove
+attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
+
+1. ~~**Il turno nel demone.**~~ Fatto, nudo: chiedi, esegui, rileggi, con gli
+   strumenti veri e le guardie vere (D294). Manca la memoria, mancano le
+   procedure, mancano le regole operative nel prompt.
+2. **Il guscio chiama il demone** invece di lanciare `python -m nova --ask`.
+   E' la mossa piu' piccola e quella che si sente di piu': niente avvio di un
+   interprete per messaggio, lo stato che scorre sul bus invece che su
+   stderr, e il tasto «ferma» che ferma un turno invece di uccidere un albero
+   di processi con `taskkill /T /F`. Resta il ripiego su Python finche' il
+   turno del demone non sa fare tutto.
+3. **La memoria e le procedure dentro il turno.** `nova-nodi`, `nova-memoria`
+   e `nova-ricette` sono gia' portati e provati: gli manca chi li chiami
+   prima di comporre la domanda. Qui si attaccano tre crate in un colpo.
+4. **Gli strumenti che al demone mancano.** Il registro delle capacita' ne ha
+   una parte; il Python ne ha cinquantasette. Ogni famiglia portata e' anche
+   un crate che si attacca: `nova-harness` per i documenti a pezzi,
+   `nova-docx` e `nova-fogli` per i file di lavoro, `nova-browser` +
+   `nova-cdp` per il browser.
+5. **Il prompt.** Le regole operative stanno in `nova/config.py` come testo, e
+   il turno del demone oggi manda solo cio' che l'utente ha in `config.json`.
+   E' l'ultima cosa da spostare, perche' finche' le due strade coesistono
+   devono dire la stessa cosa.
+6. **Quel che resta del Python** — l'installatore, il primo avvio, il
+   pannello delle impostazioni — si sposta quando il resto e' fermo, non
+   prima: e' la parte che si vede, e romperla si vede subito.
+
+La regola che tiene insieme le sei mosse: **nessuna cancella niente**. Il
+Python resta finche' il Rust non fa la stessa cosa, e la prova che lo dice e'
+un banco gemello o una prova che accende tutti e due. Una migrazione che
+spegne una strada prima che l'altra sia provata non e' una migrazione, e' una
+scommessa.
+
+**Il turno in casa, la prima mossa.** `agente/turno` prende una frase e
+restituisce una risposta, dentro il demone. Il cervello e' quello della
+configurazione di NOVA (D295), gli strumenti sono le capacita' del demone —
+le stesse che vede Claude Code, con le stesse guardie, in ordine stabile
+perche' i fornitori tengono la cache sulla prima regione della richiesta
+(D296) — e la conversazione resta aperta fra un turno e l'altro invece di
+nascere e morire con un processo.
+
+`test_demone_turno.py` lo prova per intero senza scaricare un modello: accende
+`novad` vero, gli mette davanti un cervello finto che risponde come llama.cpp
+— prima con una chiamata a uno strumento, poi con una frase — e guarda che
+cosa e' successo davvero. Che la domanda sia arrivata al cervello, che lo
+strumento l'abbia eseguito il demone, che la sua risposta sia tornata in
+conversazione, che il prompt di sistema venga dal `config.json` di NOVA con i
+segnaposto sostituiti, e che il secondo turno veda il primo.
+
+
 ## Il cancello della beta
 
 Non e' una data, sono cinque frasi che devono essere vere insieme:

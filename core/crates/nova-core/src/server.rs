@@ -19,6 +19,9 @@ pub struct Server {
     pub registry: Arc<Registry>,
     pub ctx: Arc<Ctx>,
     pub config: Arc<Config>,
+    /// Le conversazioni aperte: il turno vive qui, non in un processo che
+    /// nasce e muore a ogni messaggio.
+    pub agente: crate::agente::Agente,
     clients: AtomicUsize,
     spegnimento: Notify,
     chiuso: std::sync::atomic::AtomicBool,
@@ -30,6 +33,7 @@ impl Server {
             registry,
             ctx,
             config,
+            agente: crate::agente::Agente::default(),
             clients: AtomicUsize::new(0),
             spegnimento: Notify::new(),
             chiuso: std::sync::atomic::AtomicBool::new(false),
@@ -93,6 +97,36 @@ impl Server {
 
             "capabilities/call" => self.chiama(params, false).await,
             "tools/call" => self.chiama(params, true).await,
+
+            // Un turno intero, dentro il demone. **Non e' una capacita'**, ed
+            // e' una scelta: le capacita' si presentano al modello come
+            // strumenti, e uno strumento «fai un turno» e' un modello che
+            // chiama se stesso. Qui e' un metodo per chi sta **fuori** — il
+            // guscio, la riga di comando, NOVA lato Python.
+            "agente/turno" => {
+                let testo = params.get("testo").and_then(|v| v.as_str()).unwrap_or("");
+                let sessione = params
+                    .get("sessione")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let ricomincia = params
+                    .get("nuova")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                crate::agente::fai_un_turno(self, testo, sessione, ricomincia)
+                    .await
+                    .map_err(|e| (codes::CAPABILITY_FAILED, e.to_string()))
+            }
+
+            "agente/sessioni" => Ok(json!({ "aperte": self.agente.aperte().await })),
+
+            "agente/dimentica" => {
+                let nome = params
+                    .get("sessione")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or(crate::agente::SESSIONE_PREDEFINITA);
+                Ok(json!({ "dimenticata": self.agente.dimentica(nome).await }))
+            }
 
             "daemon/status" => {
                 let mut stato = json!({

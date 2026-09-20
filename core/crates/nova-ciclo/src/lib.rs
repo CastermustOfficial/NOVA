@@ -22,6 +22,10 @@
 use async_trait::async_trait;
 use nova_salita::{passi_finiti, serve_salire, Manopole as ManopoleSalita};
 
+/// Le manopole della salita, ri-esportate: chi costruisce un turno le deve
+/// riempire, e non deve dipendere da `nova-salita` solo per nominarle.
+pub use nova_salita::Manopole as ManopoleDiSalita;
+
 /// Una chiamata a uno strumento, come l'ha chiesta il modello.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Chiamata {
