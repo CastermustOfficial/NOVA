@@ -973,6 +973,7 @@ mole, non di difficolta'.
 | CANT-9 | **Mac e Linux, parita' piena** — *le prove Python girano in CI anche su Ubuntu e macOS, e sono **verdi** (D232). Il primo giro ha trovato cinque difetti che da Windows non si vedevano: una cartella che si spostava (D231), i percorsi protetti che fuori da Windows non proteggevano niente (D230), una prova che lasciava il mondo senza permessi (D233), una porta che chiedeva meta' di quel che serviva (D234) e una che misurava la velocita' della macchina (D235). Restano i tredici pezzi di `nova-platform` e l'avvio automatico* ~3.300 | Non e' in coda per caso: e' il primo cantiere che **non si puo' provare da qui**. Tutto il resto lo si vede su questa macchina; questo no, e la notte del 14 settembre ha mostrato cosa succede a scrivere codice che nessuna macchina diversa guarda mai. Va dopo il Rust perche' portare due volte le stesse cose - una in Python e una in Rust - e' l'unico modo garantito di finire con due comportamenti diversi |
 | CANT-10 | **I fogli di calcolo** | ~150 oggi | Il pubblico lo chiede, e oggi NOVA sa fare **meta' della meta'**: legge il testo delle celle di un `.xlsx`, in sola lettura, e non sa scrivere niente. Va dopo il Rust per la stessa ragione di CANT-9, e nasce direttamente come crate: un lettore-scrittore di fogli e' aritmetica e formati, cioe' esattamente il genere di cosa che si porta bene e si prova meglio |
 | CANT-11 | **NOVA parla MCP da un lato solo** | ~400 | `nova-mcp` dice di se': «il protocollo con cui NOVA **si apre** a un altro programma». E' vero, ed e' meta': NOVA sa farsi usare e non sa usare. Ogni volta che qualcosa esiste gia' come server MCP — pilotare Excel, un gestionale, un servizio interno — la scelta e' fra riscriverlo e rinunciarci, quando la terza strada e' parlarci. Va dopo i fogli perche' e' un **cancello**, non uno strumento: un server MCP di qualcun altro descrive i propri strumenti con parole sue, e quelle parole finiscono nel prompt. Aprire quella porta senza decidere prima chi puo' entrare vorrebbe dire far scrivere a un estraneo dentro la testa di NOVA |
+| CANT-12 | **Le decisioni che oggi sono euristiche** | ~0 righe nuove, molte da togliere | NOVA decide un mucchio di cose con liste di parole, soglie e regex: quale cervello serve, se una frase e' un fatto da ricordare, se un risultato e' pertinente, se una chiamata e' rischiosa. Ognuna di quelle e' un giudizio travestito da conto. Restano cosi' non per scelta ma perche' l'alternativa costava un giro di LLM per ogni domanda, cioe' secondi e soldi. I **modelli System One** cambiano quel conto. Sta in fondo perche' e' un cantiere che si **prepara** adesso e si chiude quando ci sara' qualcosa da misurare: prima si danno un nome alle decisioni e un secondo braccio, poi si sceglie cosa spostare — e si sceglie con un banco, non con le cifre di chi vende |
 
 Due cose che la tabella non dice.
 
@@ -1136,6 +1137,84 @@ Dice pero' due cose utili:
    la parte difficile, ed e' la stessa difficolta' del taglio del contesto: un
    foglio grosso non entra in un prompt, e decidere cosa mostrare e' una
    decisione, non un troncamento.
+### CANT-12 — Le decisioni che oggi sono euristiche
+
+NOVA e' piena di punti in cui **decide**, e quasi tutti decidono con liste di
+parole, soglie e espressioni regolari. Non per pigrizia: l'alternativa era
+chiedere a un LLM, e un LLM per ogni domandina vuol dire secondi di attesa e
+soldi, su una cosa che deve rispondere subito. Quindi si e' scritto un conto
+al posto di un giudizio, e il conto sbaglia dove i conti sbagliano.
+
+I **modelli System One** — un modello che non scrive testo ma risponde a
+domande tipizzate, con una probabilita' e una confidenza — cambiano quel
+conto. Non e' questo il posto per decidere se e quale usarne uno: e' il posto
+per scrivere **quali decisioni sono in gioco**, perche' quella e' la parte che
+vale a prescindere.
+
+#### Il censimento
+
+| Dove | Come decide oggi | Che domanda e' | Cosa dovrebbe uscire dal PC | Cosa costa sbagliare |
+|---|---|---|---|---|
+| `nova-scala::gradino_minimo` | liste di parole per categoria, piu' un numero minimo di allegati | **choice** fra i gradini | il testo del compito | salire quando non serve manda fuori casa roba che poteva restare; non salire lascia l'utente davanti a un muro |
+| `nova-salita::serve_salire` | conta fallimenti e passi | resta un conto: **sta bene com'e'** | niente | — |
+| `kb/memory.py::osserva` | `len(testo) >= 25 caratteri` | **noul**: «qui dentro c'e' un fatto durevole sull'utente?» | lo scambio, cioe' quanto di piu' personale ci sia | una soglia di lunghezza impara le frasi lunghe e inutili e butta «mi chiamo Gio» |
+| `kb/retrieval.py`, `nova-memoria` | somiglianza a vettori + parole | **score** di pertinenza per candidato | il pezzo di vault e la domanda | un richiamo sbagliato non si vede: il modello risponde sicuro su un contesto che non c'entra |
+| `ricette`, `procedure_da_secondi: 8` | ha impiegato piu' di otto secondi | **noul**: «valeva la fatica, questa?» | il racconto di cosa si e' fatto | l'archivio si riempie di procedure banali e propone quella sbagliata |
+| `Risk` per strumento | dichiarato una volta, statico | **score** sulla **chiamata**, non sullo strumento | il comando cosi' com'e' | `run_command("ls")` e `run_command("rm -rf /")` hanno oggi lo stesso rischio dichiarato |
+| `forme_riservate`, `nova-guasti::chiavi` | prefissi noti (`sk-`, `gsk_`, `AIza`) e regex | **noul**: «questo testo contiene una credenziale?» | **il segreto stesso: e qui la risposta e' no** | l'elenco sa solo quel che gli hanno detto (D185), ma chiederlo fuori vuol dire mandare fuori proprio la cosa da proteggere |
+| `nova-guasti::spiega` | corrispondenze su stringhe d'errore | **choice** fra le spiegazioni | il messaggio d'errore, che puo' contenere percorsi e nomi | un errore spiegato male manda l'utente a cercare dalla parte sbagliata |
+
+#### Il confine, che e' gia' deciso
+
+**Tutto tranne i segreti** (D236). Qualunque decisione qui sopra puo' essere
+presa fuori casa; quelle che riguardano credenziali e forme riservate no, e
+non per adesso: per sempre. Chiedere a un servizio esterno «questa e' una
+chiave?» vuol dire mandargli la chiave, e il costo e' esattamente il difetto
+che si voleva evitare. Se quella domanda si fara', si fara' al cervello **in
+casa**.
+
+E sopra tutto resta `solo_locale`, che non e' una preferenza fra le altre: e'
+la promessa che niente esce dal PC. Acceso, non esce niente — nemmeno le
+materie che di solito possono.
+
+Quel confine **non e' scritto qui**: e' scritto in `nova-decisioni`, in una
+forma che non si puo' aggirare distrattamente. `Fuori::prepara` e' l'unico
+modo di avere del materiale pronto a uscire, e da li' un segreto non si
+costruisce. Non c'e' un controllo da ricordarsi di fare piu' avanti, perche'
+piu' avanti non ci si arriva. Cinque mutazioni su cinque prese, compresa
+quella che fa uscire il segreto e quella che ignora `solo_locale`.
+
+#### Come si prepara il terreno
+
+Non scrivendo l'integrazione. Un pezzo di codice scritto contro un servizio
+che non si e' mai chiamato e' «da me funziona» in una forma nuova: non
+funziona nemmeno da me.
+
+Si prepara cosi', ed e' la stessa forma di tutto il resto che ha funzionato:
+
+1. **Le decisioni prendono un nome e un tipo.** Ognuna delle righe qui sopra
+   diventa una domanda dichiarata — scelta, punteggio, si'/no — con dentro
+   cosa si guarda e cosa si risponde. Finche' sono sparse dentro le funzioni
+   che le usano, non si possono ne' confrontare ne' sostituire.
+2. **Due bracci dietro lo stesso tratto.** Il primo e' l'euristica di oggi,
+   che resta e non si tocca. Il secondo e' vuoto, e aspetta. Il giorno in cui
+   c'e' qualcosa da chiamare, si attacca li' senza riscrivere niente.
+3. **Il banco prima della scelta.** Le due teste rispondono alle stesse
+   domande sugli stessi casi, e si guarda dove divergono. E' esattamente cio'
+   che si fa gia' fra Python e Rust, e per la stessa ragione: **due
+   implementazioni che concordano non sono due implementazioni verificate**,
+   ma due che divergono dicono dove guardare.
+4. **La misura e' nostra.** Chi vende un modello pubblica i propri numeri.
+   Questo progetto ha una regola sola su questo — misurato, non immaginato — e
+   vale anche qui: il banco misura latenza e accordo sui casi di NOVA, non su
+   quelli di chi vende.
+
+Il guadagno che non dipende da nessun fornitore: **al punto 1 si e' gia'
+vinto qualcosa**. Una decisione che oggi sta dentro un `if` diventa una cosa
+con un nome, provabile da sola e mutabile in una prova. Anche se il secondo
+braccio restasse vuoto per sempre, le euristiche sarebbero meglio provate di
+adesso.
+
 ### I pezzi piccoli che restano
 
 Non sono cantieri: sono cose che stanno in mezz'ora l'una, e che restano
