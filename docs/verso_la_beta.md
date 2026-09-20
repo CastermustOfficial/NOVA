@@ -2415,6 +2415,9 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    strumenti veri e le guardie vere (D294). Manca la memoria, mancano le
    procedure, mancano le regole operative nel prompt.
 2. **Il guscio chiama il demone** invece di lanciare `python -m nova --ask`.
+   Prima di toccarlo: `nova chiedi "..."` fa gia' quel giro dalla riga di
+   comando, cosi' il turno del demone si prova a mano senza rischiare la cosa
+   che l'utente vede. E il guscio adesso lo compila anche la CI (D298).
    E' la mossa piu' piccola e quella che si sente di piu': niente avvio di un
    interprete per messaggio, lo stato che scorre sul bus invece che su
    stderr, e il tasto «ferma» che ferma un turno invece di uccidere un albero

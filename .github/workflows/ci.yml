@@ -157,10 +157,13 @@ jobs:
   #
   # - `libasound2-dev`: cpal parla ad ALSA, e senza l'intestazione non si
   #   compila nemmeno `nova-voce`. Su macOS non serve, Core Audio c'e' gia';
-  # - `nova-shell` resta fuori: e' l'involucro Tauri e vuole gtk e webkit
-  #   installati. Non e' un difetto da scoprire, e' il pezzo che CANT-9 dovra'
-  #   portare davvero. Tenerlo fuori rende il lavoro onesto - dice cosa vale
-  #   gia' ovunque, senza far finta sul resto.
+  # - `nova-shell` **adesso c'e' anche lui**, su Linux. Era rimasto fuori
+  #   perche' e' l'involucro Tauri e vuole gtk e webkit; sono due pacchetti,
+  #   e il prezzo di non averli era che il guscio — cioe' l'unica parte di
+  #   NOVA che l'utente vede — era l'unico pezzo che nessuna macchina
+  #   guardava mai. Su macOS resta fuori: li' il guscio usa WebKit di sistema
+  #   e la compilazione e' un'altra storia, che si guardera' quando qualcuno
+  #   la provera' davvero.
   #
   # macOS invece non l'ha ancora guardato nessuno: se il primo giro e' rosso
   # li', e' esattamente il motivo per cui questo lavoro esiste.
@@ -178,7 +181,13 @@ jobs:
           workspaces: core
       - name: Quel che serve da fuori
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+        # `libasound2-dev` per cpal (la voce), gtk e webkit per il guscio
+        # Tauri. Misurati in un contenitore Ubuntu 24.04 prima di scriverli
+        # qui: con questi quattro `cargo check -p nova-shell` passa.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libgtk-3-dev \
+            libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -206,6 +215,27 @@ jobs:
             if [ -n "$rotte" ]; then echo "::error::prove Rust rosse su ${{ matrix.sistema }}: $rotte"; fi
             perche=$(grep "panicked at" /tmp/prove.log | head -5 | tr '\n' '|')
             if [ -n "$perche" ]; then echo "::error::$perche"; fi
+            exit 1
+          fi
+
+      # Il guscio, che e' l'unica parte di NOVA che l'utente vede.
+      #
+      # Sta in un passo suo e non dentro `cargo test` perche' il resto del
+      # lavoro gira anche su macOS, e li' il guscio non si compila ancora.
+      # `check` e non `build`: qui interessa che il codice sia vero — i
+      # `#[cfg]`, i tipi, le chiamate a Tauri — non avere un eseguibile che
+      # nessuno lancera'.
+      - name: Il guscio
+        if: runner.os == 'Linux'
+        working-directory: core
+        shell: bash
+        run: |
+          set +e
+          cargo check -p nova-shell --all-targets 2>&1 | tee /tmp/guscio.log
+          esito=${PIPESTATUS[0]}
+          if [ "$esito" -ne 0 ]; then
+            perche=$(grep -E "^error" /tmp/guscio.log | head -5 | tr '\n' '|')
+            echo "::error::il guscio non si compila: $perche"
             exit 1
           fi
 

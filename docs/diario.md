@@ -9510,3 +9510,31 @@ una scommessa.
 
 La mossa numero due e' piccola e si sentira' subito: il guscio che chiama il
 demone invece di lanciare un interprete per messaggio.
+
+## Due cose piccole, e una di queste apre una porta
+
+Dopo il turno nel demone ho fatto due lavori di contorno, e il secondo vale
+piu' del primo.
+
+**`nova chiedi "..."`.** Il turno del demone esisteva e lo sapeva chiamare
+solo una prova. Adesso c'e' un comando: la risposta va su stdout nuda — cosi'
+`nova chiedi ... > file` dentro ci trova la risposta e basta — e quel che
+sta intorno va su stderr. Serve a provarlo a mano prima di toccare il guscio,
+che e' la cosa che l'utente vede e la meno adatta a fare da banco di prova.
+
+**Il guscio adesso lo guarda una macchina.** `nova-shell` era l'unico pezzo
+escluso dalla CI, con accanto la ragione: «vuole gtk e webkit installati».
+Era vera e l'avevo scritta io. Oggi ho provato a installarli qui dentro per
+curiosita': quattro pacchetti, due minuti, e `cargo check -p nova-shell`
+passa.
+
+Quattro pacchetti. Il prezzo di non averli non era che il guscio non si
+compilasse in CI: era che **l'unica parte di NOVA che l'utente vede** non la
+guardava nessuna macchina a parte quella di chi scrive. E' esattamente la
+frase che sta nel documento della beta a proposito dei `#[cfg(windows)]` —
+«finche' nessuna macchina diversa guarda, quel codice non e' verde: e' non
+guardato» — applicata al pezzo piu' visibile di tutti, e non me n'ero accorto
+perche' la ragione per escluderlo suonava tecnica e sufficiente.
+
+Una ragione vera puo' essere una scusa lo stesso. La differenza si vede solo
+se ogni tanto la si prova.
