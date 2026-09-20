@@ -152,7 +152,10 @@ def sciogli(t: str) -> str:
 
 def elenco_rust(percorso: Path, nome: str) -> list[str] | None:
     testo = percorso.read_text(encoding="utf-8", errors="replace")
-    m = re.search(rf"pub (?:const|static) {nome}: \[&str; \d+\] = \[(.*?)\];",
+    # `=\s*\[` e non `= \[`: quando la riga e' lunga rustfmt manda a capo
+    # dopo l'uguale, e un estrattore che pretende lo spazio dice «non c'e'
+    # piu'» per una questione di impaginazione.
+    m = re.search(rf"pub (?:const|static) {nome}: \[&str; \d+\] =\s*\[(.*?)\];",
                   testo, re.S)
     if not m:
         return None
@@ -161,7 +164,7 @@ def elenco_rust(percorso: Path, nome: str) -> list[str] | None:
 
 def coppie_rust(percorso: Path, nome: str) -> list[tuple[str, str]] | None:
     testo = percorso.read_text(encoding="utf-8", errors="replace")
-    m = re.search(rf"pub (?:const|static) {nome}: \[\(&str, &str\); \d+\] = \[(.*?)\];",
+    m = re.search(rf"pub (?:const|static) {nome}: \[\(&str, &str\); \d+\] =\s*\[(.*?)\];",
                   testo, re.S)
     if not m:
         return None
@@ -205,6 +208,10 @@ GEMELLI = [
     ("nova-cartelle/src/lib.rs", "NOMI",
      lambda: dizionario("nova/cartelle.py", "NOMI"), True,
      "coppie: in Python e' un dizionario"),
+    ("nova-configurazione/src/lib.rs", "NON_SI_CARICANO",
+     lambda: costante("nova/config.py", "NON_SI_CARICANO"), True, ""),
+    ("nova-configurazione/src/lib.rs", "GUARDIE_CHE_SI_UNISCONO",
+     lambda: costante("nova/config.py", "GUARDIE_CHE_SI_UNISCONO"), True, ""),
 ]
 
 #: I **numeri** dichiarati da tutte e due le parti, che devono dire lo stesso.
@@ -293,7 +300,7 @@ controlla(f"e {generati} sono generati da un estrattore, quindi identici per "
 print("\n3. e i numeri dichiarati due volte dicono lo stesso")
 for percorso, nome, prendi, nota in NUMERI:
     testo = (CRATES / percorso).read_text(encoding="utf-8", errors="replace")
-    m = re.search(rf"pub const {nome}: [a-z0-9]+ = (\d+);", testo)
+    m = re.search(rf"pub const {nome}: [a-z0-9]+ =\s*(\d+);", testo)
     if not m:
         controlla(f"«{nome}» si trova in {percorso}", False,
                   "il cercatore non lo vede: o e' sparito o e' scritto in un altro modo")

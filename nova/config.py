@@ -704,6 +704,11 @@ class Config:
     # quelle salvate, per campo. Aggiungere qualcosa alla configurazione di
     # qualcuno senza dirlo e' l'altro modo di sbagliare.
     guardie_aggiunte: dict = field(default_factory=dict)
+    # non si serializza: le sezioni che nel file non erano oggetti e quindi
+    # sono rimaste di fabbrica. Prima non esisteva perche' non si arrivava
+    # fin qui: «"safety": "ciao"» in config.json faceva morire `load()` con
+    # un AttributeError, fuori da ogni try, e NOVA non partiva affatto.
+    sezioni_ignorate: list = field(default_factory=list)
 
     # ------------------------------------------------------------------
     @property
@@ -716,6 +721,7 @@ class Config:
         dati = asdict(self)
         dati.pop("errore_caricamento", None)
         dati.pop("guardie_aggiunte", None)
+        dati.pop("sezioni_ignorate", None)
         # newline esplicito e nessun BOM: il file lo rileggono anche altri
         # Di fianco e poi rinomina: qui dentro puo' esserci una chiave API, e
         # una configurazione troncata vuol dire NOVA che riparte come appena
@@ -734,7 +740,16 @@ class Config:
         try:
             # utf-8-sig, non utf-8: il Blocco note e PowerShell scrivono un BOM
             # in testa, e con «utf-8» json.loads muore sul primo carattere.
-            raw: dict[str, Any] = json.loads(path.read_text(encoding="utf-8-sig"))
+            testo = path.read_text(encoding="utf-8-sig")
+            # Un file vuoto non e' un file rotto: e' un file che non dice
+            # niente, come se non ci fosse. La differenza conta da quando
+            # NOVA non riscrive piu' un file che non ha saputo leggere: un
+            # config.json da zero byte — un salvataggio interrotto, un disco
+            # pieno — la lascerebbe altrimenti a lamentarsi per sempre di un
+            # file in cui non c'e' niente da recuperare.
+            if not testo.strip():
+                return cfg
+            raw: dict[str, Any] = json.loads(testo)
         except Exception as e:
             # Tornare ai default in silenzio significa perdere *tutta* la
             # configurazione — cervello attivo, gradini, autonomia, vault —
@@ -770,7 +785,8 @@ def _pulisci_cli(cfg: Config) -> None:
 #: Campi di `Config` che non stanno nel file e non si leggono da li'.
 #: Sono diagnostica: farli arrivare da fuori vorrebbe dire che un file
 #: salvato puo' raccontare a NOVA di aver avuto un errore che non ha avuto.
-NON_SI_CARICANO = ("errore_caricamento", "guardie_aggiunte")
+NON_SI_CARICANO = ("errore_caricamento", "guardie_aggiunte",
+                   "sezioni_ignorate")
 
 
 def _merge(cfg: Config, raw: dict[str, Any]) -> Config:
@@ -791,7 +807,16 @@ def _merge(cfg: Config, raw: dict[str, Any]) -> Config:
         attuale = getattr(cfg, campo.name)
         valore = raw[campo.name]
         if is_dataclass(attuale):
-            for k, v in (valore or {}).items():
+            # Una sezione che nel file non e' un oggetto si salta. Non e'
+            # pignoleria: `(valore or {}).items()` su «"safety": "ciao"»
+            # alza AttributeError, e `_merge` sta **fuori** dal try di
+            # `load()` — cioe' un carattere sbagliato in config.json non
+            # faceva tornare NOVA ai predefiniti, la faceva non partire.
+            if not isinstance(valore, dict):
+                if valore is not None:
+                    cfg.sezioni_ignorate.append(campo.name)
+                continue
+            for k, v in valore.items():
                 if not hasattr(attuale, k):
                     continue
                 predefinito = getattr(attuale, k)

@@ -1,0 +1,18 @@
+[package]
+name = "nova-configurazione"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Come si legge la configurazione di NOVA: cosa vince, cosa si unisce, cosa non si carica."
+
+[dependencies]
+serde_json = { workspace = true }
+
+[features]
+banco = []
+
+[[bin]]
+name = "banco-configurazione"
+path = "src/banco.rs"
+required-features = ["banco"]
