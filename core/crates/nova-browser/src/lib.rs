@@ -40,8 +40,24 @@ pub mod testo;
 
 use serde_json::{json, Value};
 
-/// La porta su cui NOVA parla col proprio browser.
-pub const PORTA: u16 = 9333;
+/// La porta su cui NOVA parla col proprio browser di **lavoro**.
+///
+/// Era 9333, e non corrispondeva a niente: il Python ne ha due — 9222 per il
+/// browser di lavoro e 9223 per quello delle ricerche — e questa era una
+/// terza inventata quando il crate e' nato. Non si era rotto niente perche'
+/// non la usava ancora nessuno; il giorno in cui il braccio in Rust si fosse
+/// attaccato avrebbe cercato un browser su una porta dove non c'e' nessuno,
+/// e l'errore sarebbe stato «non trovo il browser» invece di «porta
+/// sbagliata». E' la famiglia di D185: due copie, e le due copie sanno cose
+/// diverse.
+pub const PORTA: u16 = 9222;
+
+/// E quella del browser delle **ricerche**, che e' un altro.
+///
+/// Separati apposta: una ricerca apre e chiude schede in continuazione, e
+/// farlo nella finestra dove l'utente sta lavorando vuol dire vedersi
+/// scappare il posto sotto le mani.
+pub const PORTA_RICERCA: u16 = 9223;
 
 /// Un valore dentro il JavaScript, scritto come lo scrive `json.dumps`.
 ///
