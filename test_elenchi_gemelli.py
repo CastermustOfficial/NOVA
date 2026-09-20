@@ -212,6 +212,15 @@ GEMELLI = [
      lambda: costante("nova/config.py", "NON_SI_CARICANO"), True, ""),
     ("nova-configurazione/src/lib.rs", "GUARDIE_CHE_SI_UNISCONO",
      lambda: costante("nova/config.py", "GUARDIE_CHE_SI_UNISCONO"), True, ""),
+    ("nova-harness/src/lib.rs", "CODICE",
+     lambda: sorted(costante("nova/harness.py", "CODICE")), False,
+     "in Python e' un insieme: l'ordine non c'e'"),
+    ("nova-harness/src/lib.rs", "NON_GUARDARE",
+     lambda: sorted(costante("nova/harness.py", "NON_GUARDARE")), False,
+     "in Python e' un insieme: l'ordine non c'e'"),
+    ("nova-harness/src/lib.rs", "PRIMI",
+     lambda: costante("nova/harness.py", "PRIMI"), True,
+     "qui l'ordine **conta**: e' l'ordine in cui si sceglie da dove partire"),
 ]
 
 #: I **numeri** dichiarati da tutte e due le parti, che devono dire lo stesso.
@@ -250,6 +259,14 @@ ALTROVE = {
     # nell'ordine. Su Windows npm installa un `.cmd`, e cercare l'`.exe`
     # per primo vuol dire non trovarlo su una macchina dove c'e'.
     "CANDIDATI": "test_cervelli_rust.py",
+    # Tre elenchi che in Rust hanno un nome e in Python no: stanno dentro
+    # `A_RIGHE` e `LEGGIBILI`, oppure scritti a mano dentro un `if`.
+    # Confrontare i nomi non si puo'; il banco dell'harness confronta cosa
+    # **decidono** su diciotto nomi di file, ed e' piu' forte: se una voce
+    # mancasse da una parte, quel file si taglierebbe in due modi diversi.
+    "A_RIGHE_IN_PIU": "test_harness_rust.py",
+    "DOCUMENTI": "test_harness_rust.py",
+    "SENZA_ESTENSIONE": "test_harness_rust.py",
 }
 
 #: Elenchi che in Python non esistono, con il perche'. Restare qui e' una

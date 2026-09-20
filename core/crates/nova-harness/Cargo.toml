@@ -1,0 +1,19 @@
+[package]
+name = "nova-harness"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "L'harness: il documento fatto a pezzi, e la ricerca che torna una posizione."
+
+[dependencies]
+serde_json = { workspace = true }
+nova-ricette = { path = "../nova-ricette" }
+
+[features]
+banco = []
+
+[[bin]]
+name = "banco-harness"
+path = "src/banco.rs"
+required-features = ["banco"]
