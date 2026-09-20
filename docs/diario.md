@@ -8480,3 +8480,94 @@ segno, e se trova il segno rimette tutto prima di cominciare.
 
 Centouno confronti verdi, quattordici prove di unita', venti mutazioni su
 venti. CANT-10 e' chiuso.
+
+
+## Sei dei tredici pezzi, e una mutazione che ha ucciso le prove
+
+Seconda parte di CANT-9. La prima aveva portato le prove Python su Ubuntu e
+macOS; questa porta il codice. `nova-platform` aveva tredici funzioni che
+fuori da Windows dicevano onestamente «qui si fa in un altro modo». Sei ora
+fanno qualcosa.
+
+**Il Cestino, che e' il pezzo che conta.** La premessa N2 del progetto e'
+«prima la reversibilita', poi il permesso», e fuori da Windows il Cestino non
+c'era affatto: cancellare era cancellare. Adesso c'e' la specifica
+freedesktop su Linux — `~/.local/share/Trash`, con `files/` e `info/` — e
+`~/.Trash` su macOS.
+
+Leggendo la specifica ho imparato una cosa che non avevo mai visto scritta da
+nessuna parte, e che e' elegante: la scheda `.trashinfo` si scrive **prima**
+di spostare il file, e si apre con `O_EXCL`. Non e' pedanteria — quello *e'*
+il lucchetto. Due programmi che cestinano nello stesso istante due file con
+lo stesso nome non possono vincere tutti e due, perche' il secondo `O_EXCL`
+fallisce e prova il nome dopo. Scrivendo prima il file e poi la scheda si
+perderebbe la corsa e si sovrascriverebbe il file di qualcun altro (D260).
+
+E una regola che ho scritto prima del codice, perche' la tentazione era
+forte: **non si copia e poi si cancella**. Il Cestino e' un `rename`, cioe'
+un'operazione che riesce o non riesce. Copiare su un altro disco e poi
+cancellare l'originale sono due operazioni, e fra le due c'e' un momento in
+cui un disco pieno o un cavo staccato lasciano mezzo file e nessun originale.
+Quando il `rename` non si puo' fare e sul disco non si riesce ad aprire un
+cestino, la risposta e' «qui l'unica alternativa e' distruggere, e non lo
+faccio» (D259). E' la stessa frase che la meta' Windows scrive per i dischi
+di rete, arrivata per la stessa strada.
+
+Ho provato anche il caso che su Windows era un difetto vero: un file
+chiamato `L'anno scorso.txt`. Li' l'apostrofo rompeva la stringa PowerShell e
+il file non finiva nel Cestino (D130). Qui non si compone nessuna stringa, e
+adesso c'e' una prova che lo tiene vero.
+
+**I processi, e il modo di spegnere tutto che Windows non ha.** `kill` prende
+un intero con segno: `kill(0, ...)` lo manda a tutto il gruppo di chi chiama,
+`kill(-1, ...)` a ogni processo che l'utente puo' segnalare. Il tipo qui e'
+un `u32`, quindi i negativi non arrivano — ma lo zero si', e uno zero puo'
+venire da un campo vuoto, da un `parse` andato male con un `unwrap_or(0)`.
+E' l'equivalente Unix dell'asterisco che su Windows selezionava
+duecentonovantadue processi. Si rifiuta per nome, insieme al pid 1, che dentro
+un contenitore e' il contenitore stesso (D258).
+
+Poi ho fatto la cosa che faccio sempre: ho tolto quel controllo per vedere se
+una prova se ne accorgeva. Non e' passata rossa. Ha **ucciso il processo che
+eseguiva le prove** — `chiudi(0, true)` e' arrivato fino a `libc::kill(0,
+SIGKILL)`, e il gruppo di processi comprendeva anche la shell che aveva
+lanciato `cargo test`. Ho impiegato due giri a capire perche' il comando
+tornava con 137 invece che con un elenco di prove rosse. E' la dimostrazione
+piu' diretta che potessi avere, e non l'ho cercata.
+
+**Il resto.** Informazioni di sistema (`/proc`, `/sys`, `sysctl`), appunti,
+volume e notifiche. Due cose da dire. La prima: su Linux la memoria libera e'
+`MemAvailable`, non `MemFree` — `MemFree` e' quasi sempre vicino a zero
+perche' il sistema usa tutto quel che avanza per la cache, e dire «liberi 200
+MB» a chi ne ha otto giga disponibili vuol dire far rinunciare qualcuno a
+caricare un modello che ci starebbe benissimo (D261). La seconda: appunti,
+volume e notifiche li tiene l'ambiente grafico, e non c'e' modo di sapere
+quale c'e' se non provando. Si provano in ordine, e se non c'e' nessuno
+l'errore dice **quali** si sono cercati: «non disponibile» manda qualcuno a
+cercare un guasto, l'elenco gli dice cosa installare (D262). Wayland prima di
+X11, perche' su una sessione Wayland `xclip` spesso c'e' lo stesso — per
+Xwayland — e parla con gli appunti sbagliati.
+
+Anche qui una mutazione sopravvissuta ha detto piu' delle altre. Leggere il
+volume di `pactl` cercando «il primo pezzo che finisce per %» oppure «il
+secondo campo fra le barre» da' la stessa risposta su ogni uscita di `pactl`
+di oggi: la mutazione era equivalente, e nessuna prova poteva ucciderla
+senza inventarsi un input. Ma andando a guardare perche', ho trovato che i
+`pactl` piu' vecchi scrivono `Volume: 0: 50% 1: 50%`, senza nessuna barra — e
+quel formato non lo leggevo affatto. Sono proprio le macchine dove uno si
+aspetta che qualcosa non funzioni, quindi nessuno sarebbe andato a cercare
+qui.
+
+**Cosa resta di CANT-9, e perche'.** Tastiera, elenco delle finestre e albero
+di accessibilita'. Tutte e tre chiedono un ambiente grafico vero, e sono le
+uniche di questo cantiere che non si possono nemmeno *scrivere* onestamente
+da qui: un albero di accessibilita' buttato giu' senza una macchina su cui
+guardarlo produrrebbe un elenco di controlli plausibile e falso, cioe' la
+cosa peggiore — peggio del rifiuto onesto che c'e' adesso, che almeno dice
+quale API andra' usata. Piu' l'avvio automatico, che fuori da Windows vuol
+dire scrivere un installatore che non esiste.
+
+Sessantasette prove verdi in `nova-platform`, ventiquattro mutazioni:
+ventidue viste, una equivalente (e che ha portato a un difetto vero), e una
+che non si puo' provare qui perche' la differenza si vede solo su un disco
+con la riserva per l'amministratore.

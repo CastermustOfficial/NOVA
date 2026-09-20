@@ -2915,6 +2915,7 @@ name = "nova-platform"
 version = "0.1.1"
 dependencies = [
  "anyhow",
+ "libc",
  "serde",
  "serde_json",
  "tracing",

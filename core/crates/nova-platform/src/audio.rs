@@ -109,7 +109,14 @@ mod imp {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(all(not(windows), unix))]
+mod imp {
+    pub use crate::scrivania_unix::{
+        volume_imposta as imposta, volume_muto as muto, volume_stato as stato,
+    };
+}
+
+#[cfg(all(not(windows), not(unix)))]
 mod imp {
     use anyhow::{bail, Result};
 

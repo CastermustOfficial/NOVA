@@ -129,8 +129,8 @@ mod imp {
             // Il fumetto e' del sistema, ma la finestra e' nostra e il sistema
             // le manda messaggi: se non li si ritira, la coda si riempie e
             // Windows considera il processo bloccato.
-            let scade = std::time::Instant::now()
-                + std::time::Duration::from_millis(millisecondi as u64);
+            let scade =
+                std::time::Instant::now() + std::time::Duration::from_millis(millisecondi as u64);
             let mut msg = MSG::default();
             while std::time::Instant::now() < scade {
                 while PeekMessageW(&mut msg, None, 0, 0, PM_REMOVE).as_bool() {
@@ -149,7 +149,12 @@ mod imp {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(all(not(windows), unix))]
+mod imp {
+    pub use crate::scrivania_unix::notifica as mostra;
+}
+
+#[cfg(all(not(windows), not(unix)))]
 mod imp {
     use anyhow::{bail, Result};
 

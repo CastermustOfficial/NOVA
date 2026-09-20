@@ -256,6 +256,17 @@ ALTROVE = {
 #: dichiarazione, non una scappatoia: chi legge sa che quella riga non ha
 #: nessuno che la controlli dall'altra parte.
 SENZA_GEMELLO: dict[str, str] = {
+    # I tre elenchi di `scrivania_unix` sono nomi di **programmi esterni** —
+    # wl-copy, pactl, notify-send — che si provano in ordine finche' uno
+    # risponde. In Python non c'e' niente da confrontare, e non perche' «il
+    # Python e' di Windows» (quella frase e' gia' costata cara una volta,
+    # vedi sotto): e' che il Python gli appunti, il volume e le notifiche non
+    # li tocca affatto. Li chiede ai binari `nova-appunti`, `nova-volume` e
+    # `nova-notifica`, che sono questo stesso codice Rust. Un secondo elenco
+    # dall'altra parte non esiste perche' non esiste l'altra parte.
+    "APPUNTI": "nomi di programmi esterni; il Python passa da nova-appunti",
+    "VOLUME": "nomi di programmi esterni; il Python passa da nova-volume",
+    "NOTIFICHE": "nomi di programmi esterni; il Python passa da nova-notifica",
     # `PERCORSI_PROTETTI_UNIX` stava qui, con scritto «NOVA in Python e' di
     # Windows: questo elenco serve solo al demone». Era vero e costava caro:
     # NOVA in Python girava anche su Linux, e li' `guard_write` scorreva

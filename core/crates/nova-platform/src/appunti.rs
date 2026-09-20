@@ -125,15 +125,24 @@ mod imp {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(all(not(windows), unix))]
+mod imp {
+    pub use crate::scrivania_unix::{appunti_leggi as leggi, appunti_scrivi as scrivi};
+}
+
+#[cfg(all(not(windows), not(unix)))]
 mod imp {
     use anyhow::{anyhow, Result};
 
     pub fn leggi() -> Result<Option<String>> {
-        Err(anyhow!("gli appunti non sono implementati su questo sistema"))
+        Err(anyhow!(
+            "gli appunti non sono implementati su questo sistema"
+        ))
     }
     pub fn scrivi(_testo: &str) -> Result<()> {
-        Err(anyhow!("gli appunti non sono implementati su questo sistema"))
+        Err(anyhow!(
+            "gli appunti non sono implementati su questo sistema"
+        ))
     }
 }
 
@@ -188,9 +197,12 @@ mod prove {
 
         let mio = "NOVA prova appunti \u{e0}\u{e8}\u{e9} \u{1f600}";
         scrivi(mio).expect("scrittura");
-        assert_eq!(leggi().expect("lettura").as_deref(), Some(mio),
-                   "gli accenti e l'emoji devono tornare interi: l'emoji in \
-                    UTF-16 sono due unita', ed e' li' che si taglia chi conta male");
+        assert_eq!(
+            leggi().expect("lettura").as_deref(),
+            Some(mio),
+            "gli accenti e l'emoji devono tornare interi: l'emoji in \
+                    UTF-16 sono due unita', ed e' li' che si taglia chi conta male"
+        );
 
         scrivi("").expect("scrittura vuota");
         assert_eq!(leggi().expect("lettura").as_deref(), Some(""));
@@ -201,9 +213,25 @@ mod prove {
     }
 
     #[test]
-    #[cfg(not(windows))]
-    fn dove_non_ci_sono_lo_si_dice() {
-        assert!(leggi().is_err());
+    #[cfg(all(not(windows), unix))]
+    fn dove_non_ci_sono_si_dice_anche_cosa_manca() {
+        // Prima qui c'era solo `assert!(leggi().is_err())`, ed era giusto
+        // finche' fuori da Windows gli appunti non li leggeva nessuno.
+        // Adesso li legge `scrivania_unix`, e su una macchina senza
+        // ambiente grafico — la CI, per esempio — l'errore deve continuare a
+        // dire **quali** strumenti cercava: «non disponibile» manda
+        // qualcuno a cercare un guasto, l'elenco gli dice cosa installare.
+        match leggi() {
+            // Se un ambiente grafico c'e', la risposta e' una risposta.
+            Ok(_) => {}
+            Err(e) => {
+                let t = e.to_string();
+                assert!(
+                    t.contains("wl-copy") || t.contains("pbpaste"),
+                    "l'errore deve dire cosa manca: {t}"
+                );
+            }
+        }
     }
     #[test]
     fn si_riprova_ad_aprire_gli_appunti_ma_non_per_sempre() {
@@ -226,7 +254,9 @@ mod prove {
             .filter_map(pausa_apertura)
             .map(|d| d.as_millis() as u64)
             .sum();
-        assert!(totale <= 200, "{totale} ms di attesa e' troppo per un incolla");
+        assert!(
+            totale <= 200,
+            "{totale} ms di attesa e' troppo per un incolla"
+        );
     }
-
 }

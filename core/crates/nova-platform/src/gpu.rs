@@ -181,9 +181,8 @@ mod nvml {
     /// se', e' il genere di pulizia che costa un crash.
     fn modulo() -> Option<HMODULE> {
         static UNA_VOLTA: OnceLock<Option<usize>> = OnceLock::new();
-        let grezzo = UNA_VOLTA.get_or_init(|| unsafe {
-            LoadLibraryA(s!("nvml.dll")).ok().map(|m| m.0 as usize)
-        });
+        let grezzo = UNA_VOLTA
+            .get_or_init(|| unsafe { LoadLibraryA(s!("nvml.dll")).ok().map(|m| m.0 as usize) });
         grezzo.map(|p| HMODULE(p as *mut c_void))
     }
 
@@ -235,7 +234,7 @@ mod nvml {
 
 #[cfg(windows)]
 mod imp {
-    use super::{marca_da_venditore, libera_dedotta, Certezza, Scheda};
+    use super::{libera_dedotta, marca_da_venditore, Certezza, Scheda};
     use anyhow::{anyhow, Result};
     // `cast`, che chiede a un oggetto COM se sa fare anche l'altro mestiere,
     // vive nel trait: senza importarlo il metodo non esiste.
@@ -428,7 +427,10 @@ pub mod linux {
                 _ => continue,
             };
             let (libera, certezza) = match numero(&dev.join("mem_info_vram_used")) {
-                Some(usati) => (totale.saturating_sub(usati / (1024 * 1024)), Certezza::Misurata),
+                Some(usati) => (
+                    totale.saturating_sub(usati / (1024 * 1024)),
+                    Certezza::Misurata,
+                ),
                 None => (libera_dedotta(totale), Certezza::Dedotta),
             };
             fuori.push(Scheda {
@@ -437,7 +439,10 @@ pub mod linux {
                     .unwrap_or_else(|_| {
                         format!(
                             "scheda {}",
-                            carta.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()
+                            carta
+                                .file_name()
+                                .map(|n| n.to_string_lossy().into_owned())
+                                .unwrap_or_default()
                         )
                     }),
                 vram_totale_mb: totale,
@@ -556,7 +561,9 @@ mod prove {
             let kv_mb = 8192.0 * 0.12; // contesto da 8k, f16
             let disponibile = libera_mb * 0.96 - 900.0 - kv_mb;
             let per_strato = mb_modello / 63.0;
-            if disponibile <= per_strato { 0 } else {
+            if disponibile <= per_strato {
+                0
+            } else {
                 ((disponibile / per_strato).floor() as u32).min(62)
             }
         };
@@ -687,8 +694,14 @@ mod prove {
             "card0",
             &[
                 ("vendor", "0x1002"),
-                ("mem_info_vram_total", &(16u64 * 1024 * 1024 * 1024).to_string()),
-                ("mem_info_vram_used", &(2u64 * 1024 * 1024 * 1024).to_string()),
+                (
+                    "mem_info_vram_total",
+                    &(16u64 * 1024 * 1024 * 1024).to_string(),
+                ),
+                (
+                    "mem_info_vram_used",
+                    &(2u64 * 1024 * 1024 * 1024).to_string(),
+                ),
                 ("product_name", "Radeon RX 7800 XT\n"),
             ],
         );
@@ -711,7 +724,10 @@ mod prove {
             "card0",
             &[
                 ("vendor", "0x1002"),
-                ("mem_info_vram_total", &(8u64 * 1024 * 1024 * 1024).to_string()),
+                (
+                    "mem_info_vram_total",
+                    &(8u64 * 1024 * 1024 * 1024).to_string(),
+                ),
             ],
         );
         let s = linux::schede_da(&tmp);
@@ -733,7 +749,10 @@ mod prove {
             "card0",
             &[
                 ("vendor", "0x1002"),
-                ("mem_info_vram_total", &(8u64 * 1024 * 1024 * 1024).to_string()),
+                (
+                    "mem_info_vram_total",
+                    &(8u64 * 1024 * 1024 * 1024).to_string(),
+                ),
             ],
         );
         finto(
@@ -741,7 +760,10 @@ mod prove {
             "card0-DP-1",
             &[
                 ("vendor", "0x1002"),
-                ("mem_info_vram_total", &(8u64 * 1024 * 1024 * 1024).to_string()),
+                (
+                    "mem_info_vram_total",
+                    &(8u64 * 1024 * 1024 * 1024).to_string(),
+                ),
             ],
         );
         assert_eq!(linux::schede_da(&tmp).len(), 1);

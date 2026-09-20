@@ -100,13 +100,19 @@ mod imp {
     }
 }
 
-#[cfg(not(windows))]
+/// Fuori da Windows il Cestino c'e' ma si chiama in un altro modo: su Linux
+/// e' la specifica freedesktop, su macOS e' `~/.Trash`. Sta in
+/// `cestino_unix`, perche' li' c'e' una regola in piu' da spiegare — non si
+/// copia e poi si cancella.
+#[cfg(all(not(windows), unix))]
+mod imp {
+    pub use crate::cestino_unix::butta;
+}
+
+#[cfg(all(not(windows), not(unix)))]
 mod imp {
     use anyhow::{bail, Result};
 
-    /// Fuori da Windows il Cestino c'e' ma si chiama in un altro modo, e la
-    /// specifica (freedesktop.org Trash) e' un'altra cosa: si dice, non si
-    /// finge.
     pub fn butta(_percorso: &str) -> Result<()> {
         bail!("il Cestino di questo sistema non e' ancora implementato")
     }

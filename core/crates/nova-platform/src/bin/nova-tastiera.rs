@@ -32,7 +32,9 @@ fn fuoco_sbagliato(atteso: i64) -> Option<String> {
 
 fn main() {
     let a: Vec<String> = std::env::args().skip(1).collect();
-    let dove = a.iter().position(|x| x == "--dove")
+    let dove = a
+        .iter()
+        .position(|x| x == "--dove")
         .and_then(|i| a.get(i + 1))
         .and_then(|s| s.parse::<i64>().ok());
 

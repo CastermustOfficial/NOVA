@@ -46,24 +46,24 @@ pub struct Posa {
 #[cfg(windows)]
 mod imp {
     use super::{Posa, Schermo};
+    use crate::WindowInfo;
     use anyhow::{anyhow, Result};
     use windows::core::BOOL;
+    use windows::Win32::Foundation::MAX_PATH;
     use windows::Win32::Foundation::{HWND, LPARAM, RECT, TRUE};
     use windows::Win32::Graphics::Gdi::{
         EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITORINFO,
     };
-    use windows::Win32::UI::WindowsAndMessaging::{
-        EnumWindows, GetClassNameW, GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW,
-        GetWindowThreadProcessId, IsIconic, IsWindow,
-        IsWindowVisible, SetForegroundWindow, SetWindowPos, ShowWindow, HWND_BOTTOM,
-        MONITORINFOF_PRIMARY, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SW_RESTORE,
-    };
-    use windows::Win32::Foundation::MAX_PATH;
     use windows::Win32::System::Threading::{
         OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_FORMAT,
         PROCESS_QUERY_LIMITED_INFORMATION,
     };
-    use crate::WindowInfo;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        EnumWindows, GetClassNameW, GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW,
+        GetWindowThreadProcessId, IsIconic, IsWindow, IsWindowVisible, SetForegroundWindow,
+        SetWindowPos, ShowWindow, HWND_BOTTOM, MONITORINFOF_PRIMARY, SWP_NOACTIVATE, SWP_NOMOVE,
+        SWP_NOSIZE, SWP_NOZORDER, SW_RESTORE,
+    };
 
     /// Le due classi di finestra che sono **lo sfondo del desktop**.
     ///
@@ -119,7 +119,11 @@ mod imp {
             return String::new();
         }
         let intero = String::from_utf16_lossy(&buf[..n as usize]);
-        intero.rsplit(['\\', '/']).next().unwrap_or(&intero).to_string()
+        intero
+            .rsplit(['\\', '/'])
+            .next()
+            .unwrap_or(&intero)
+            .to_string()
     }
 
     /// Le finestre di primo livello visibili, con titolo e processo.
@@ -162,12 +166,7 @@ mod imp {
         }
     }
 
-    unsafe extern "system" fn raccogli(
-        h: HMONITOR,
-        _dc: HDC,
-        _r: *mut RECT,
-        dati: LPARAM,
-    ) -> BOOL {
+    unsafe extern "system" fn raccogli(h: HMONITOR, _dc: HDC, _r: *mut RECT, dati: LPARAM) -> BOOL {
         let elenco = &mut *(dati.0 as *mut Vec<Schermo>);
         let mut info = MONITORINFO {
             cbSize: std::mem::size_of::<MONITORINFO>() as u32,
@@ -292,7 +291,10 @@ mod imp {
     use anyhow::{bail, Result};
 
     pub fn schermi() -> Result<Vec<Schermo>> {
-        bail!("elenco degli schermi non ancora implementato per {}", std::env::consts::OS)
+        bail!(
+            "elenco degli schermi non ancora implementato per {}",
+            std::env::consts::OS
+        )
     }
 
     pub fn elenca() -> Result<Vec<crate::WindowInfo>> {
@@ -308,7 +310,10 @@ mod imp {
     }
 
     pub fn sposta(_handle: i64, _posa: &Posa) -> Result<()> {
-        bail!("spostamento finestre non ancora implementato per {}", std::env::consts::OS)
+        bail!(
+            "spostamento finestre non ancora implementato per {}",
+            std::env::consts::OS
+        )
     }
 }
 
@@ -354,6 +359,8 @@ pub fn schermo_di(x: i32, y: i32) -> Result<Option<Schermo>> {
 /// senza cambiare contesto; con uno solo non resta che stare dietro.
 pub fn schermo_di_lavoro() -> Result<Option<Schermo>> {
     let s = schermi()?;
-    Ok(s.iter().find(|m| !m.principale).cloned().or_else(|| s.first().cloned()))
+    Ok(s.iter()
+        .find(|m| !m.principale)
+        .cloned()
+        .or_else(|| s.first().cloned()))
 }
-

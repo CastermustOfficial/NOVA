@@ -97,8 +97,8 @@ mod imp {
     use windows::Win32::System::Power::{GetSystemPowerStatus, SYSTEM_POWER_STATUS};
     use windows::Win32::System::Registry::HKEY_LOCAL_MACHINE;
     use windows::Win32::System::SystemInformation::{
-        ComputerNamePhysicalDnsHostname, GetComputerNameExW, GetNativeSystemInfo,
-        GetTickCount64, GlobalMemoryStatusEx, MEMORYSTATUSEX, SYSTEM_INFO,
+        ComputerNamePhysicalDnsHostname, GetComputerNameExW, GetNativeSystemInfo, GetTickCount64,
+        GlobalMemoryStatusEx, MEMORYSTATUSEX, SYSTEM_INFO,
     };
 
     fn larga(s: &str) -> Vec<u16> {
@@ -120,7 +120,9 @@ mod imp {
     const WINDOWS_NT: &str = r"SOFTWARE\Microsoft\Windows NT\CurrentVersion";
 
     fn build_numero() -> u32 {
-        dal_registro(WINDOWS_NT, "CurrentBuildNumber").parse().unwrap_or(0)
+        dal_registro(WINDOWS_NT, "CurrentBuildNumber")
+            .parse()
+            .unwrap_or(0)
     }
     const PROCESSORE: &str = r"HARDWARE\DESCRIPTION\System\CentralProcessor\0";
 
@@ -148,11 +150,19 @@ mod imp {
             let w = larga(&s);
             let (mut totale, mut liberi) = (0u64, 0u64);
             let esito = unsafe {
-                GetDiskFreeSpaceExW(PCWSTR(w.as_ptr()), None, Some(&mut totale),
-                                    Some(&mut liberi))
+                GetDiskFreeSpaceExW(
+                    PCWSTR(w.as_ptr()),
+                    None,
+                    Some(&mut totale),
+                    Some(&mut liberi),
+                )
             };
             if esito.is_ok() {
-                fuori.push(Disco { radice: s, totale_byte: totale, liberi_byte: liberi });
+                fuori.push(Disco {
+                    radice: s,
+                    totale_byte: totale,
+                    liberi_byte: liberi,
+                });
             }
         }
         fuori
@@ -173,8 +183,7 @@ mod imp {
         Some(Batteria {
             percentuale: (s.BatteryLifePercent != NON_SO).then_some(s.BatteryLifePercent),
             alla_corrente: s.ACLineStatus == 1,
-            minuti_rimasti: (s.BatteryLifeTime != u32::MAX)
-                .then(|| s.BatteryLifeTime / 60),
+            minuti_rimasti: (s.BatteryLifeTime != u32::MAX).then(|| s.BatteryLifeTime / 60),
         })
     }
 
@@ -194,7 +203,11 @@ mod imp {
         let versione = dal_registro(WINDOWS_NT, "DisplayVersion");
 
         Ok(Sistema {
-            sistema: if versione.is_empty() { nome.clone() } else { format!("{nome} {versione}") },
+            sistema: if versione.is_empty() {
+                nome.clone()
+            } else {
+                format!("{nome} {versione}")
+            },
             build,
             pc: nome_pc(),
             cpu: dal_registro(PROCESSORE, "ProcessorNameString"),
@@ -208,7 +221,12 @@ mod imp {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(all(not(windows), unix))]
+mod imp {
+    pub use crate::sistema_unix::leggi;
+}
+
+#[cfg(all(not(windows), not(unix)))]
 mod imp {
     use super::Sistema;
     use anyhow::{bail, Result};
