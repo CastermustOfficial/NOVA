@@ -31,13 +31,45 @@
 
 pub mod dichiarazioni;
 
-pub use dichiarazioni::{PROTOCOLLO, STRUMENTI_JSON};
+pub use dichiarazioni::{PROTOCOLLO, STRUMENTI_JSON, VERSIONI_NOTE};
 
 use serde_json::{json, Value};
 
 /// Il nome e la versione che NOVA dichiara di se' a chi si collega.
 pub const NOME: &str = "nova";
 pub const VERSIONE: &str = "0.1.0";
+
+/// Quale versione del protocollo si risponde a chi ha chiesto `chiesta`.
+///
+/// **Si echeggia quella chiesta**, se la conosciamo; altrimenti la piu'
+/// recente che sappiamo parlare. Il modo di sbagliarlo e' rispondere sempre
+/// la stessa: chi ha chiesto altro si sente rispondere una versione che non
+/// ha nominato, e un client MCP a quel punto puo' mollare il collegamento
+/// senza un messaggio d'errore — il sintomo e' un modello senza strumenti e
+/// un registro che non dice niente.
+///
+/// Chiedere una versione che non esiste e chiedere niente sono lo stesso
+/// caso: in tutti e due non sappiamo cosa parla, e si dichiara la nostra.
+pub fn versione_concordata(chiesta: &str) -> &str {
+    match VERSIONI_NOTE.iter().find(|v| **v == chiesta) {
+        Some(v) => v,
+        None => PROTOCOLLO,
+    }
+}
+
+/// Il corpo della risposta a `initialize`.
+///
+/// Sta qui e non dentro `gestisci` perche' il demone risponde a `initialize`
+/// per conto suo — ha le sue capacita', il suo nome e la sua versione — e
+/// prima ne teneva una copia sua, con la stessa regola riscritta a mano.
+/// Delle tre stesure che c'erano, due sbagliavano.
+pub fn risultato_initialize(chiesta: &str, nome: &str, versione: &str, capacita: Value) -> Value {
+    json!({
+        "protocolVersion": versione_concordata(chiesta),
+        "capabilities": capacita,
+        "serverInfo": {"name": nome, "version": versione},
+    })
+}
 
 /// Chi sa davvero eseguire uno strumento.
 ///
@@ -71,23 +103,28 @@ pub const METODO_SCONOSCIUTO: i64 = -32601;
 
 /// Risponde a una richiesta. `None` vuol dire **non rispondere**.
 pub fn gestisci(richiesta: &Value, strumenti: &dyn Strumenti) -> Option<Value> {
-    let metodo = richiesta.get("method").and_then(Value::as_str).unwrap_or("");
+    let metodo = richiesta
+        .get("method")
+        .and_then(Value::as_str)
+        .unwrap_or("");
     let id = richiesta.get("id").cloned().unwrap_or(Value::Null);
 
     match metodo {
-        "initialize" => Some(ok(
-            &id,
-            json!({
-                "protocolVersion": PROTOCOLLO,
-                "capabilities": {"tools": {}},
-                "serverInfo": {"name": NOME, "version": VERSIONE},
-            }),
-        )),
+        "initialize" => {
+            let chiesta = richiesta
+                .get("params")
+                .and_then(|p| p.get("protocolVersion"))
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            Some(ok(
+                &id,
+                risultato_initialize(chiesta, NOME, VERSIONE, json!({"tools": {}})),
+            ))
+        }
         // Le notifiche non vogliono risposta.
         "notifications/initialized" | "notifications/cancelled" => None,
         "tools/list" => {
-            let elenco: Value =
-                serde_json::from_str(STRUMENTI_JSON).unwrap_or_else(|_| json!([]));
+            let elenco: Value = serde_json::from_str(STRUMENTI_JSON).unwrap_or_else(|_| json!([]));
             Some(ok(&id, json!({"tools": elenco})))
         }
         "tools/call" => {
@@ -102,7 +139,11 @@ pub fn gestisci(richiesta: &Value, strumenti: &dyn Strumenti) -> Option<Value> {
             let nome = nome_dato.as_str().unwrap_or("");
             let nome_scritto = come_str(&nome_dato);
             let argomenti = params.get("arguments").cloned().unwrap_or(json!({}));
-            let argomenti = if argomenti.is_null() { json!({}) } else { argomenti };
+            let argomenti = if argomenti.is_null() {
+                json!({})
+            } else {
+                argomenti
+            };
             if !strumenti.esiste(nome) {
                 return Some(errore(
                     &id,
@@ -150,8 +191,17 @@ pub fn gestisci(richiesta: &Value, strumenti: &dyn Strumenti) -> Option<Value> {
 /// non meritano lo stesso tono, e un permesso chiesto con lo stesso tono per
 /// tutto e' un permesso che si concede senza leggere.
 pub const PAROLE_PESANTI: [&str; 11] = [
-    "rm ", "rmdir", "del ", "remove-item", "format", "taskkill", "shutdown",
-    "reg delete", "drop ", "mkfs", "diskpart",
+    "rm ",
+    "rmdir",
+    "del ",
+    "remove-item",
+    "format",
+    "taskkill",
+    "shutdown",
+    "reg delete",
+    "drop ",
+    "mkfs",
+    "diskpart",
 ];
 
 /// Quanto pesa sbagliare questa chiamata.
@@ -172,11 +222,7 @@ pub fn rischio(strumento: &str, argomenti: &Value) -> &'static str {
 /// I valori degli argomenti messi in fila, come `" ".join(str(v) ...)`.
 fn valori_uniti(argomenti: &Value) -> String {
     match argomenti {
-        Value::Object(o) => o
-            .values()
-            .map(come_str)
-            .collect::<Vec<String>>()
-            .join(" "),
+        Value::Object(o) => o.values().map(come_str).collect::<Vec<String>>().join(" "),
         _ => String::new(),
     }
 }
@@ -234,9 +280,17 @@ fn ripeti(v: &Value) -> String {
 /// domanda, e' un'etichetta.
 pub fn in_chiaro(strumento: &str, argomenti: &Value) -> String {
     let vuoto = json!({});
-    let a = if argomenti.is_object() { argomenti } else { &vuoto };
+    let a = if argomenti.is_object() {
+        argomenti
+    } else {
+        &vuoto
+    };
     if strumento == "Bash" {
-        let comando = a.get("command").and_then(Value::as_str).unwrap_or("").trim();
+        let comando = a
+            .get("command")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim();
         let descrizione = a
             .get("description")
             .and_then(Value::as_str)
@@ -256,7 +310,10 @@ pub fn in_chiaro(strumento: &str, argomenti: &Value) -> String {
         }
     }
     let testo = crate::json_come_python(a);
-    format!("{strumento}: {}", testo.chars().take(400).collect::<String>())
+    format!(
+        "{strumento}: {}",
+        testo.chars().take(400).collect::<String>()
+    )
 }
 
 fn vero_per_python(v: &Value) -> bool {
@@ -317,13 +374,19 @@ fn scrivi(v: &Value, dentro: &mut String) {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Esito<'a> {
     /// Il demone non risponde: nessuno puo' autorizzare.
-    SenzaDemone { perche: &'a str },
+    SenzaDemone {
+        perche: &'a str,
+    },
     /// Il demone c'e' ma la domanda non e' arrivata.
-    NonChiesto { perche: &'a str },
+    NonChiesto {
+        perche: &'a str,
+    },
     Consentito,
     /// L'utente non ha risposto entro il tempo.
     Scaduto,
-    Negato { motivo: &'a str },
+    Negato {
+        motivo: &'a str,
+    },
 }
 
 /// La risposta che Claude Code si aspetta: un oggetto con `behavior`.
@@ -334,13 +397,11 @@ pub enum Esito<'a> {
 /// dall'utente — cioe' che un guasto di NOVA si trasforma in un permesso, ed
 /// e' esattamente la forma che non deve avere.
 pub fn risposta_permesso(esito: &Esito, argomenti: &Value) -> String {
-    let nega = |motivo: String| {
-        json_come_python(&json!({"behavior": "deny", "message": motivo}))
-    };
+    let nega = |motivo: String| json_come_python(&json!({"behavior": "deny", "message": motivo}));
     match esito {
-        Esito::Consentito => json_come_python(
-            &json!({"behavior": "allow", "updatedInput": argomenti}),
-        ),
+        Esito::Consentito => {
+            json_come_python(&json!({"behavior": "allow", "updatedInput": argomenti}))
+        }
         Esito::SenzaDemone { perche } => nega(format!(
             "NOVA non riesce a chiedere conferma (demone non raggiungibile: {perche})"
         )),
@@ -443,8 +504,11 @@ mod prove {
 
     #[test]
     fn initialize_dice_chi_e() {
-        let r = gestisci(&json!({"jsonrpc": "2.0", "id": 1, "method": "initialize"}), &Finti)
-            .unwrap();
+        let r = gestisci(
+            &json!({"jsonrpc": "2.0", "id": 1, "method": "initialize"}),
+            &Finti,
+        )
+        .unwrap();
         assert_eq!(r["result"]["protocolVersion"], PROTOCOLLO);
         assert_eq!(r["result"]["serverInfo"]["name"], "nova");
     }
@@ -456,8 +520,7 @@ mod prove {
         }
         // E nemmeno per dire che il metodo non esiste: senza `id` non c'e'
         // nessuno che aspetta una risposta, e mandargliela lo confonde.
-        assert!(gestisci(&json!({"jsonrpc": "2.0", "method": "mai_visto"}), &Finti)
-            .is_none());
+        assert!(gestisci(&json!({"jsonrpc": "2.0", "method": "mai_visto"}), &Finti).is_none());
         // Con l'id invece si risponde.
         let r = gestisci(
             &json!({"jsonrpc": "2.0", "id": 7, "method": "mai_visto"}),
@@ -512,9 +575,15 @@ mod prove {
     fn il_rischio_guarda_dentro_gli_argomenti() {
         assert_eq!(rischio("Read", &json!({"file_path": "a.txt"})), "safe");
         assert_eq!(rischio("Bash", &json!({"command": "ls"})), "moderate");
-        assert_eq!(rischio("Bash", &json!({"command": "diskpart /s x"})), "dangerous");
+        assert_eq!(
+            rischio("Bash", &json!({"command": "diskpart /s x"})),
+            "dangerous"
+        );
         // Anche uno strumento «sicuro» diventa pesante se gli argomenti lo sono.
-        assert_eq!(rischio("Read", &json!({"file_path": "shutdown.txt"})), "dangerous");
+        assert_eq!(
+            rischio("Read", &json!({"file_path": "shutdown.txt"})),
+            "dangerous"
+        );
         assert_eq!(rischio("MaiVisto", &json!({})), "moderate");
     }
 
@@ -525,8 +594,14 @@ mod prove {
             in_chiaro("Bash", &json!({"command": "ls", "description": "elenca"})),
             "elenca\nls"
         );
-        assert_eq!(in_chiaro("Write", &json!({"file_path": "a.txt"})), "Write: a.txt");
-        assert_eq!(in_chiaro("WebFetch", &json!({"url": "http://x"})), "WebFetch: http://x");
+        assert_eq!(
+            in_chiaro("Write", &json!({"file_path": "a.txt"})),
+            "Write: a.txt"
+        );
+        assert_eq!(
+            in_chiaro("WebFetch", &json!({"url": "http://x"})),
+            "WebFetch: http://x"
+        );
         // Un campo vuoto non conta: si passa al prossimo.
         assert_eq!(
             in_chiaro("Write", &json!({"file_path": "", "path": "b.txt"})),
@@ -541,8 +616,12 @@ mod prove {
         // La regola che conta: se non si e' potuto chiedere, si nega. Il
         // contrario vorrebbe dire che un demone spento autorizza tutto.
         for e in [
-            Esito::SenzaDemone { perche: "connessione rifiutata" },
-            Esito::NonChiesto { perche: "tempo scaduto" },
+            Esito::SenzaDemone {
+                perche: "connessione rifiutata",
+            },
+            Esito::NonChiesto {
+                perche: "tempo scaduto",
+            },
             Esito::Scaduto,
             Esito::Negato { motivo: "" },
         ] {
@@ -558,10 +637,7 @@ mod prove {
     fn i_due_no_si_distinguono() {
         // «Non ho potuto chiedere» e «ha detto di no» sono due cose diverse
         // per chi deve decidere se riprovare.
-        let guasto = risposta_permesso(
-            &Esito::SenzaDemone { perche: "x" },
-            &json!({}),
-        );
+        let guasto = risposta_permesso(&Esito::SenzaDemone { perche: "x" }, &json!({}));
         let negato = risposta_permesso(&Esito::Negato { motivo: "" }, &json!({}));
         assert!(guasto.contains("non riesce a chiedere conferma"));
         assert!(negato.contains("l'utente ha negato il permesso"));
@@ -591,5 +667,62 @@ mod prove {
     #[test]
     fn senza_file_il_contesto_resta_quello() {
         assert_eq!(allega("solo contesto", &[]), "solo contesto");
+    }
+
+    #[test]
+    fn la_versione_chiesta_si_echeggia_se_la_conosciamo() {
+        for v in VERSIONI_NOTE {
+            assert_eq!(versione_concordata(v), v);
+        }
+    }
+
+    #[test]
+    fn e_se_non_la_conosciamo_si_dichiara_la_nostra() {
+        assert_eq!(versione_concordata("2099-01-01"), PROTOCOLLO);
+        assert_eq!(versione_concordata(""), PROTOCOLLO);
+        assert_eq!(versione_concordata("1.0"), PROTOCOLLO);
+    }
+
+    #[test]
+    fn la_nostra_e_la_piu_recente_che_sappiamo_parlare() {
+        // Le date sono ISO, quindi l'ordine alfabetico e' l'ordine del tempo.
+        let mut ordinate = VERSIONI_NOTE;
+        ordinate.sort_unstable();
+        assert_eq!(
+            ordinate, VERSIONI_NOTE,
+            "VERSIONI_NOTE non e' in ordine di data"
+        );
+        assert_eq!(PROTOCOLLO, *VERSIONI_NOTE.last().unwrap());
+    }
+
+    #[test]
+    fn initialize_risponde_la_versione_del_client() {
+        let r = gestisci(
+            &json!({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                    "params": {"protocolVersion": "2024-11-05"}}),
+            &NessunoStrumento,
+        )
+        .expect("initialize vuole risposta");
+        assert_eq!(r["result"]["protocolVersion"], "2024-11-05");
+    }
+
+    #[test]
+    fn e_senza_params_dichiara_la_sua() {
+        let r = gestisci(
+            &json!({"jsonrpc": "2.0", "id": 1, "method": "initialize"}),
+            &NessunoStrumento,
+        )
+        .expect("initialize vuole risposta");
+        assert_eq!(r["result"]["protocolVersion"], PROTOCOLLO);
+    }
+
+    struct NessunoStrumento;
+    impl Strumenti for NessunoStrumento {
+        fn chiama(&self, _nome: &str, _argomenti: &Value) -> Result<String, String> {
+            Err("non esiste niente".into())
+        }
+        fn esiste(&self, _nome: &str) -> bool {
+            false
+        }
     }
 }

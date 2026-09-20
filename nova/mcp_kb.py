@@ -40,8 +40,6 @@ def _allega(contesto: str, file) -> str:
             break
     return "\n\n".join(pezzi)
 
-PROTOCOLLO = "2024-11-05"
-
 STRUMENTI = [
     {
         "name": "kb_search",
@@ -627,6 +625,93 @@ def _in_chiaro(strumento: str, argomenti: dict) -> str:
     return f"{strumento}: {testo[:400]}"
 
 
+# ------------------------------------------------------------ il protocollo
+#
+# Sta qui sopra `ServerKB` e non dentro, e non e' una questione di ordine: il
+# banco gemello prova **questo** codice, e per provarlo lo esegue da solo —
+# costruire `ServerKB` vorrebbe dire costruire il vault, il router e il
+# browser per provare delle buste JSON. Finche' il protocollo e' stato dentro
+# la classe, il banco ne teneva una sua copia riscritta a mano: confrontava il
+# Rust con un'imitazione del Python, e nessuno confrontava l'imitazione con
+# l'originale.
+
+# Le versioni del protocollo MCP che sappiamo parlare.
+VERSIONI_NOTE = ("2024-11-05", "2025-03-26", "2025-06-18")
+
+# Quella che NOVA dichiara quando non riconosce la versione chiesta: la piu'
+# recente che sappiamo parlare, come vuole la specifica.
+PROTOCOLLO = VERSIONI_NOTE[-1]
+
+
+def _ok(rid, risultato) -> dict:
+    return {"jsonrpc": "2.0", "id": rid, "result": risultato}
+
+
+def _errore(rid, codice, messaggio) -> dict:
+    return {"jsonrpc": "2.0", "id": rid, "error": {"code": codice, "message": messaggio}}
+
+
+def versione_concordata(chiesta: str) -> str:
+    """Quale versione si risponde a chi ha chiesto `chiesta`.
+
+    Si echeggia quella chiesta, se la conosciamo; altrimenti la nostra. Un
+    client MCP che si sente rispondere una versione che non ha nominato puo'
+    mollare il collegamento senza un messaggio d'errore, e il sintomo — un
+    modello senza nessuno strumento, un registro muto — non dice da dove
+    viene. Prima qui si rispondeva sempre la stessa, chiunque avesse chiesto.
+    """
+    return chiesta if chiesta in VERSIONI_NOTE else PROTOCOLLO
+
+
+def gestisci_busta(richiesta: dict, strumenti) -> dict | None:
+    """La busta di risposta, o `None` per «non rispondere».
+
+    `strumenti` sa due cose: se uno strumento `esiste` e come si `chiama`.
+    Chi ha i corpi li mette; qui c'e' solo il protocollo.
+
+    «Non rispondere» e' una risposta, ed e' quella che rompe i client quando
+    si sbaglia: una richiesta senza `id` e' una notifica, e a una notifica non
+    si risponde mai — nemmeno per dire che il metodo non esiste.
+    """
+    metodo = richiesta.get("method")
+    rid = richiesta.get("id")
+
+    if metodo == "initialize":
+        chiesta = (richiesta.get("params") or {}).get("protocolVersion") or ""
+        return _ok(rid, {
+            "protocolVersion": versione_concordata(chiesta),
+            "capabilities": {"tools": {}},
+            "serverInfo": {"name": "nova", "version": "0.1.0"},
+        })
+
+    if metodo in ("notifications/initialized", "notifications/cancelled"):
+        return None  # le notifiche non vogliono risposta
+
+    if metodo == "tools/list":
+        return _ok(rid, {"tools": STRUMENTI})
+
+    if metodo == "tools/call":
+        params = richiesta.get("params") or {}
+        nome = params.get("name")
+        argomenti = params.get("arguments") or {}
+        if not strumenti.esiste(nome):
+            return _errore(rid, -32601, f"strumento sconosciuto: {nome}")
+        try:
+            testo = strumenti.chiama(nome, argomenti)
+        except Exception as e:                                  # noqa: BLE001
+            return _ok(rid, {"content": [{"type": "text", "text": f"ERRORE: {e}"}],
+                             "isError": True})
+        return _ok(rid, {"content": [{"type": "text", "text": testo}]})
+
+    if metodo in ("resources/list", "prompts/list"):
+        chiave = "resources" if metodo.startswith("resources") else "prompts"
+        return _ok(rid, {chiave: []})
+
+    if rid is None:
+        return None
+    return _errore(rid, -32601, f"metodo non supportato: {metodo}")
+
+
 class ServerKB:
     def __init__(self, vault_path: str):
         from .kb import HashEmbedder, KBEngine, Vault
@@ -1127,38 +1212,24 @@ class ServerKB:
                dettagli=", ".join(r.get("file") or []))
         return f"consegnati a {selettore}: {', '.join(r.get('file') or [])}"
 
-    def gestisci(self, richiesta: dict) -> dict | None:
-        metodo = richiesta.get("method")
-        rid = richiesta.get("id")
+    def _funzioni(self) -> dict:
+        """Nome dello strumento -> il metodo che lo esegue.
 
-        if metodo == "initialize":
-            return _ok(rid, {
-                "protocolVersion": PROTOCOLLO,
-                "capabilities": {"tools": {}},
-                "serverInfo": {"name": "nova", "version": "0.1.0"},
-            })
-
-        if metodo in ("notifications/initialized", "notifications/cancelled"):
-            return None  # le notifiche non vogliono risposta
-
-        if metodo == "tools/list":
-            return _ok(rid, {"tools": STRUMENTI})
-
-        if metodo == "tools/call":
-            params = richiesta.get("params") or {}
-            nome = params.get("name")
-            argomenti = params.get("arguments") or {}
-            funzione = {
-                "kb_search": self.kb_search,
-                "kb_note": self.kb_note,
-                "delega": self.delega,
-                "modelli": self.modelli,
-                "chiedi_permesso": self.chiedi_permesso,
-                "web_apri": self.web_apri,
-                "web_trova": self.web_trova,
-                "web_leggi": self.web_leggi,
-                "web_click": self.web_click,
-                "web_scrivi": self.web_scrivi,
+        E' l'unico pezzo di `tools/call` che appartiene a questa classe: il
+        resto — le buste, gli errori, chi non risponde — sta in
+        `gestisci_busta`, che si puo' provare senza costruire un vault.
+        """
+        return {
+            "kb_search": self.kb_search,
+            "kb_note": self.kb_note,
+            "delega": self.delega,
+            "modelli": self.modelli,
+            "chiedi_permesso": self.chiedi_permesso,
+            "web_apri": self.web_apri,
+            "web_trova": self.web_trova,
+            "web_leggi": self.web_leggi,
+            "web_click": self.web_click,
+            "web_scrivi": self.web_scrivi,
             "harness_apri": self.harness_apri,
             "harness_cerca": self.harness_cerca,
             "harness_leggi": self.harness_leggi,
@@ -1182,31 +1253,16 @@ class ServerKB:
             "web_tabella": self.web_tabella,
             "web_incolla": self.web_incolla,
             "web_carica": self.web_carica,
-            }.get(nome)
-            if funzione is None:
-                return _errore(rid, -32601, f"strumento sconosciuto: {nome}")
-            try:
-                testo = funzione(**argomenti)
-            except Exception as e:
-                return _ok(rid, {"content": [{"type": "text", "text": f"ERRORE: {e}"}],
-                                 "isError": True})
-            return _ok(rid, {"content": [{"type": "text", "text": testo}]})
+        }
 
-        if metodo in ("resources/list", "prompts/list"):
-            chiave = "resources" if metodo.startswith("resources") else "prompts"
-            return _ok(rid, {chiave: []})
+    def esiste(self, nome) -> bool:
+        return nome in self._funzioni()
 
-        if rid is None:
-            return None
-        return _errore(rid, -32601, f"metodo non supportato: {metodo}")
+    def chiama(self, nome, argomenti: dict) -> str:
+        return self._funzioni()[nome](**argomenti)
 
-
-def _ok(rid, risultato) -> dict:
-    return {"jsonrpc": "2.0", "id": rid, "result": risultato}
-
-
-def _errore(rid, codice, messaggio) -> dict:
-    return {"jsonrpc": "2.0", "id": rid, "error": {"code": codice, "message": messaggio}}
+    def gestisci(self, richiesta: dict) -> dict | None:
+        return gestisci_busta(richiesta, self)
 
 
 def main(argv: list[str] | None = None) -> int:

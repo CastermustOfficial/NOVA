@@ -66,29 +66,23 @@ impl Server {
             // protocollo di NOVA, e confonderle costa caro: un client MCP che
             // si sente rispondere «1.0» — che come versione MCP non esiste —
             // molla il collegamento senza dire niente, e il modello si ritrova
-            // senza nessuno degli strumenti del demone. Qui si risponde a un
-            // client MCP: si echeggia la versione che ha chiesto, se la
-            // conosciamo, altrimenti la nostra.
-            "initialize" => {
-                const CONOSCIUTE: &[&str] = &["2024-11-05", "2025-03-26", "2025-06-18"];
-                let chiesta = params
+            // senza nessuno degli strumenti del demone.
+            //
+            // La regola — si echeggia la versione chiesta, se la conosciamo —
+            // sta in `nova_mcp`, dove la usa anche il server MCP di NOVA.
+            // Qui ne stava una seconda copia, e l'elenco delle versioni era
+            // una costante dentro una funzione: invisibile alla prova che
+            // confronta gli elenchi dei due linguaggi, cioe' proprio il
+            // nascondiglio che quella prova dichiara di cercare.
+            "initialize" => Ok(nova_mcp::risultato_initialize(
+                params
                     .get("protocolVersion")
                     .and_then(|v| v.as_str())
-                    .unwrap_or("");
-                let versione = if CONOSCIUTE.contains(&chiesta) {
-                    chiesta
-                } else {
-                    "2025-06-18"
-                };
-                Ok(json!({
-                    "protocolVersion": versione,
-                    "serverInfo": {
-                        "name": nova_proto::SERVER_NAME,
-                        "version": env!("CARGO_PKG_VERSION"),
-                    },
-                    "capabilities": { "tools": {}, "events": {} },
-                }))
-            }
+                    .unwrap_or(""),
+                nova_proto::SERVER_NAME,
+                env!("CARGO_PKG_VERSION"),
+                json!({ "tools": {}, "events": {} }),
+            )),
 
             "ping" => Ok(json!({ "pong": nova_proto::now_ms() })),
 
@@ -420,5 +414,69 @@ impl Server {
         }
         let _ = std::fs::remove_file(&percorso);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod prove {
+    use super::*;
+
+    fn demone() -> Arc<Server> {
+        crate::build(Config::default()).expect("il demone si costruisce")
+    }
+
+    async fn chiedi(metodo: &str, params: Value) -> Value {
+        let r = demone()
+            .dispatch(Request {
+                jsonrpc: "2.0".into(),
+                id: Some(json!(1)),
+                method: metodo.to_string(),
+                params: Some(params),
+            })
+            .await
+            .expect("con un id si risponde sempre");
+        serde_json::to_value(r).expect("la risposta e' JSON")
+    }
+
+    #[tokio::test]
+    async fn initialize_echeggia_la_versione_che_il_client_ha_chiesto() {
+        // Il demone risponde a client MCP veri: rispondere una versione che
+        // non hanno nominato e' il modo di farli andare via in silenzio.
+        for v in nova_mcp::VERSIONI_NOTE {
+            let r = chiedi("initialize", json!({ "protocolVersion": v })).await;
+            assert_eq!(r["result"]["protocolVersion"], v);
+        }
+    }
+
+    #[tokio::test]
+    async fn e_se_non_la_conosce_dichiara_la_sua() {
+        let r = chiedi("initialize", json!({ "protocolVersion": "1.0" })).await;
+        assert_eq!(r["result"]["protocolVersion"], nova_mcp::PROTOCOLLO);
+        let r = chiedi("initialize", json!({})).await;
+        assert_eq!(r["result"]["protocolVersion"], nova_mcp::PROTOCOLLO);
+    }
+
+    #[tokio::test]
+    async fn il_demone_dice_anche_gli_eventi_fra_le_sue_capacita() {
+        // Il demone non e' solo un server MCP: e' anche il bus. Se le
+        // capacita' dichiarate diventassero quelle di `nova_mcp`, chi si
+        // collega per ascoltare gli eventi non saprebbe di poterlo fare.
+        let r = chiedi("initialize", json!({})).await;
+        assert!(r["result"]["capabilities"]["tools"].is_object());
+        assert!(r["result"]["capabilities"]["events"].is_object());
+        assert_eq!(r["result"]["serverInfo"]["name"], nova_proto::SERVER_NAME);
+    }
+
+    #[tokio::test]
+    async fn a_una_notifica_non_si_risponde_mai() {
+        let niente = demone()
+            .dispatch(Request {
+                jsonrpc: "2.0".into(),
+                id: None,
+                method: "mai_sentito".into(),
+                params: None,
+            })
+            .await;
+        assert!(niente.is_none(), "risposto a chi non aspettava risposta");
     }
 }

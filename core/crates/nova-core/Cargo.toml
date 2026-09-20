@@ -16,6 +16,7 @@ nova-strumenti = { path = "../nova-strumenti" }
 # Erano scritte due volte — una in `nova/config.py` e una qui, piu' povera —
 # e quella qui perdeva tutto il file per un campo storto.
 nova-configurazione = { path = "../nova-configurazione" }
+nova-mcp = { path = "../nova-mcp" }
 nova-voce = { path = "../nova-voce" }
 # La decisione di cosa fare quando il modello non parte sta li', confrontata
 # col Python da un banco (D213). Qui c'e' solo il braccio che la esegue.

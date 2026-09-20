@@ -9157,3 +9157,92 @@ riga: centotrentuno confronti, verdi come prima — che era la condizione per
 poter cambiare quel crate senza paura.
 
 Un crate dei sedici e' attaccato. Ne restano quindici.
+
+## Il secondo filo: tre porte, e una sola aveva imparato
+
+Il crate dopo era `nova-mcp`: il porto in Rust del server MCP di NOVA, quello
+che Claude Code apre per leggere il vault. Scollegato come gli altri, 1.447
+righe, con il suo banco gemello verde.
+
+Cercando dove attaccarlo ho contato le porte. NOVA parla MCP da tre posti:
+`nova/mcp_kb.py` (il server vero, quello che gira), il demone — che espone le
+sue capacita' come strumenti MCP, cosi' Claude Code puo' collegarsi senza
+adattatori — e questo porto. Tre stesure della stessa busta d'apertura.
+
+La prima domanda che fa un client MCP e' `initialize`, e dentro c'e' la
+versione del protocollo che parla. Due delle tre rispondevano una costante,
+chiunque avesse chiesto. La terza, il demone, no:
+
+```rust
+// ... un client MCP che si sente rispondere «1.0» — che come versione MCP
+// non esiste — molla il collegamento senza dire niente, e il modello si
+// ritrova senza nessuno degli strumenti del demone.
+const CONOSCIUTE: &[&str] = &["2024-11-05", "2025-03-26", "2025-06-18"];
+```
+
+Quel commento e' il verbale di un guasto gia' successo. E il guasto non e'
+«il collegamento cade»: e' che cade **in silenzio**, e quello che si vede
+dall'altra parte e' un modello che non ha nessuno strumento e non sa dire
+perche'. Il demone se l'era preso e aveva imparato; le altre due porte no,
+perche' nessuno le aveva mai messe vicine.
+
+Ho spostato la regola in `nova-mcp` — si echeggia la versione chiesta se la
+conosciamo, altrimenti la piu' recente che sappiamo parlare, com'e' scritto
+nella specifica — e il demone adesso la chiama da li' invece di tenerne una
+copia. Una delle tre stesure ha smesso di esistere, e il crate e' attaccato a
+qualcosa che gira: `novad` acceso, `initialize` con `2024-11-05` dentro,
+risposta `2024-11-05`; con `1.0`, risposta `2025-06-18`. E le capacita'
+restano le sue, `tools` **e** `events`, che e' la ragione per cui il demone
+non puo' semplicemente rispondere quel che risponde `nova-mcp`.
+
+### E sotto c'erano due prove che non provavano
+
+**La prima.** Ho scritto l'elenco delle versioni come `pub const
+VERSIONI_NOTE: [&str; 3]` dentro `dichiarazioni.rs`, e ho eseguito
+`test_elenchi_gemelli.py` aspettandomi il rimprovero: quella prova conta
+tutti gli elenchi dei crate e pretende che ognuno sia gemellato col Python,
+delegato a un banco, o dichiarato senza gemello con scritto perche'. Verde,
+31 su 31.
+
+Perche' salta i file generati. E li riconosce da una riga nell'intestazione:
+«Generato da». Quel file diceva «Generato da `_estrai_mcp.py`, **poi
+mantenuto a mano**» — cioe' si dichiarava per meta' generato e per meta'
+scritto a mano, e la prova prendeva solo la prima meta' della frase. Era il
+nascondiglio perfetto, e la mia costante ci si era infilata al primo colpo
+senza che io lo volessi.
+
+Adesso l'elenco lo genera l'estrattore insieme alle dichiarazioni,
+l'intestazione dice «non si modifica a mano» e spiega che la prova degli
+elenchi si fida di quella riga, e il banco gemello **confronta le due liste**:
+se il Python cresce e nessuno rigenera, il banco lo dice e dice pure il
+comando (D288).
+
+**La seconda** e' peggiore. Il banco del protocollo — `test_mcp_rust.py` —
+aveva dentro una classe `FintoServer` con il commento «il `gestisci` vero,
+con i corpi degli strumenti sostituiti». Non era vero: era il `gestisci`
+**riscritto a mano**, quaranta righe ricopiate dal server. Il motivo c'era ed
+era buono — quello vero sta dentro `ServerKB`, che per esistere costruisce il
+vault, il router e il browser, e provare delle buste JSON non vale quel
+prezzo — ma il risultato e' che il banco confrontava il Rust con
+un'imitazione del Python, e l'imitazione non la confrontava nessuno. Il
+Python vero poteva cambiare e il banco restare verde.
+
+La cura era spostare il protocollo fuori dalla classe: `gestisci_busta(
+richiesta, strumenti)`, una funzione pura nello stesso blocco che il banco
+gia' esegue per prendersi le dichiarazioni. Il finto server e' rimasto, ma
+tiene solo i **corpi** degli strumenti — che e' davvero l'unica cosa che in
+una prova non si puo' costruire (D289).
+
+### La passata di mutazione
+
+Cinque guasti messi apposta, tutti e cinque rossi: il demone che ignora la
+versione chiesta, il demone che smette di dichiarare `events`, `PROTOCOLLO`
+che diventa la piu' vecchia invece della piu' recente, il Python che risponde
+alle notifiche, il Python che dice «esiste» a qualunque strumento. E una
+sesta che contava piu' delle altre: le due meta' d'accordo **sulla stessa cosa
+sbagliata**. «Le buste sono identiche» resta verde in quel caso — e' il modo
+in cui un banco gemello puo' mentire — quindi adesso il banco guarda anche
+cosa c'e' scritto dentro la busta, non solo che le due meta' scrivano lo
+stesso.
+
+Due crate dei sedici sono attaccati. Ne restano quattordici.

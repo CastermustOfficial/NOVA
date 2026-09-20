@@ -1,19 +1,38 @@
 //! Le trentatre' dichiarazioni degli strumenti che NOVA apre a un altro
 //! programma.
 //!
-//! **Generato da `_estrai_mcp.py`, poi mantenuto a mano.** Sono diciottomila
-//! caratteri di schema che Claude Code rilegge a ogni sessione e su cui
-//! sceglie quale strumento di NOVA usare: una parola diversa e' un
+//! **Generato da `_estrai_mcp.py`. Non si modifica a mano.** Sono
+//! ventitremila caratteri di schema che Claude Code rilegge a ogni sessione e
+//! su cui sceglie quale strumento di NOVA usare: una parola diversa e' un
 //! comportamento diverso che nessun tipo intercetta (D112). Ricopiarle
 //! sarebbe stato trentatre' occasioni di sbagliarne una.
+//!
+//! «Non a mano» non e' solo perche' l'estrattore riscrive il file intero: la
+//! prova degli elenchi gemelli **salta i file generati**, fidandosi di questa
+//! riga. Un elenco scritto a mano qui dentro sarebbe l'unico del progetto che
+//! non guarda nessuno.
 //!
 //! Si tengono come **testo**, non come struttura, per la stessa ragione per
 //! cui il banco degli strumenti interni confronta il testo e non l'albero:
 //! e' il testo che finisce nel prompt di chi riceve, e l'ordine delle chiavi
 //! ne fa parte.
 
-/// La versione del protocollo che NOVA dichiara.
-pub const PROTOCOLLO: &str = "2024-11-05";
+/// Le versioni del protocollo MCP che sappiamo parlare.
+///
+/// Servono a **rispondere la versione che il client ha chiesto**, quando la
+/// conosciamo. Non e' una gentilezza: un client MCP che si sente rispondere
+/// una versione diversa da quella che ha chiesto decide se restare, e
+/// qualcuno se ne va senza dire niente — con il risultato che il modello si
+/// ritrova senza nessuno degli strumenti e nessuno sa perche'.
+pub const VERSIONI_NOTE: [&str; 3] = ["2024-11-05", "2025-03-26", "2025-06-18"];
+
+/// La versione che NOVA dichiara quando non riconosce quella chiesta.
+///
+/// La specifica dice di rispondere con la piu' recente che si sa parlare, ed
+/// e' l'ultima di `VERSIONI_NOTE`. Le tre si distinguono per cose che NOVA
+/// non usa — NOVA apre degli strumenti e basta — quindi «saperla parlare» e'
+/// vero per tutte e tre.
+pub const PROTOCOLLO: &str = VERSIONI_NOTE[VERSIONI_NOTE.len() - 1];
 
 /// Le dichiarazioni, cosi' come le scrive il Python.
 pub const STRUMENTI_JSON: &str = r#"[

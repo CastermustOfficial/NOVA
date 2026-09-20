@@ -2310,6 +2310,41 @@ gemella tiene allineate col Python. Cambiano i nomi dei campi e una cosa sola
 di sostanza: un valore di un tipo che la fabbrica non ha resta fuori, perche'
 chi legge dentro una struttura tipata non puo' permetterselo (D284).
 
+**Il secondo filo: chi parla MCP, e con che versione.** `nova-mcp` e' il
+porto del server MCP di NOVA — quello che Claude Code apre per leggere il
+vault — ed era scollegato come gli altri. Attaccarlo ha fatto vedere che
+NOVA parla MCP da **tre** posti: `nova/mcp_kb.py`, il demone, e questo porto.
+
+Alla domanda d'apertura — «parlo la versione tale» — due dei tre rispondevano
+sempre la stessa, chiunque avesse chiesto. Il terzo, il demone, no: aveva
+imparato, e nel codice c'era il commento di quando qualcuno, sentendosi
+rispondere una versione che non aveva nominato, aveva chiuso il collegamento
+senza dire niente. Il sintomo di quel guasto e' un modello che si ritrova
+senza nessuno strumento e un registro che non spiega perche'.
+
+Adesso la regola sta in un posto solo (D287): si echeggia la versione chiesta
+se la conosciamo, altrimenti la piu' recente che sappiamo parlare, com'e'
+scritto nella specifica. Il demone la prende da li' — e una delle tre copie
+ha smesso di esistere.
+
+Sotto sono venuti fuori altri due buchi, tutti e due nelle prove e non nel
+codice, che e' il posto peggiore dove averli:
+
+- l'elenco delle versioni, messo a mano dentro `dichiarazioni.rs`, era
+  **invisibile** alla prova che conta tutti gli elenchi del progetto: quella
+  prova salta i file generati, e lo capisce da una riga nell'intestazione
+  (D288). Ora l'elenco lo genera l'estrattore, e il banco gemello confronta
+  le due liste invece di fidarsi della parola «generato»;
+- il banco del protocollo confrontava il Rust con un `gestisci` **riscritto a
+  mano** dentro il banco stesso, perche' quello vero stava dentro una classe
+  che per esistere costruisce il vault, il router e il browser. Cioe'
+  confrontava il Rust con un'imitazione del Python che nessuno confrontava
+  col Python (D289). Il protocollo e' uscito dalla classe: ora il banco
+  esegue quello vero.
+
+Crate attaccati: diciannove su trentacinque.
+
+
 ## Il cancello della beta
 
 Non e' una data, sono cinque frasi che devono essere vere insieme:

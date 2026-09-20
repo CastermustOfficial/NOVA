@@ -22,7 +22,6 @@ Esce 2 se il banco non e' costruito.
 import io
 import json
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -50,7 +49,9 @@ exec(SORGENTE[_i:_j], SPAZIO)
 STRUMENTI = SPAZIO["STRUMENTI"]
 _rischio = SPAZIO["_rischio"]
 _in_chiaro = SPAZIO["_in_chiaro"]
-PROTOCOLLO = re.search(r'PROTOCOLLO = "([^"]+)"', SORGENTE).group(1)
+PROTOCOLLO = SPAZIO["PROTOCOLLO"]
+VERSIONI_NOTE = SPAZIO["VERSIONI_NOTE"]
+gestisci_busta = SPAZIO["gestisci_busta"]
 
 passati = 0
 falliti: list[str] = []
@@ -82,6 +83,18 @@ ESPLODONO = ["esplode"]
 
 RICHIESTE = [
     {"jsonrpc": "2.0", "id": 1, "method": "initialize"},
+    # La versione del protocollo: si echeggia quella chiesta se la
+    # conosciamo, altrimenti si dichiara la nostra. Sono le buste su cui un
+    # client decide se restare collegato o andarsene senza dire niente.
+    {"jsonrpc": "2.0", "id": 12, "method": "initialize",
+     "params": {"protocolVersion": "2024-11-05"}},
+    {"jsonrpc": "2.0", "id": 13, "method": "initialize",
+     "params": {"protocolVersion": "2025-06-18"}},
+    {"jsonrpc": "2.0", "id": 14, "method": "initialize",
+     "params": {"protocolVersion": "2099-01-01"}},
+    {"jsonrpc": "2.0", "id": 15, "method": "initialize",
+     "params": {"protocolVersion": "1.0"}},
+    {"jsonrpc": "2.0", "id": 16, "method": "initialize", "params": {}},
     {"jsonrpc": "2.0", "method": "notifications/initialized"},
     {"jsonrpc": "2.0", "method": "notifications/cancelled"},
     {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
@@ -168,60 +181,29 @@ controlla(f"i {len(STRUMENTI)} strumenti sono identici ({len(atteso)} caratteri)
 
 
 class FintoServer:
-    """Il `gestisci` vero, con i corpi degli strumenti sostituiti.
+    """I soli **corpi** degli strumenti. Il protocollo e' quello vero.
 
     `ServerKB` costruisce il vault, il router e il browser: qui interessa il
-    **protocollo**, e i corpi si sostituiscono con quello che il caso dichiara.
+    protocollo, e per provarlo senza tutto quello serviva che il protocollo
+    stesse fuori dalla classe. Finche' non ci stava, questo banco ne teneva
+    una copia riscritta a mano — e confrontava il Rust con l'imitazione,
+    mentre l'imitazione non la confrontava nessuno.
     """
 
     def __init__(self, esistenti, esplodono):
         self._esistenti, self._esplodono = esistenti, esplodono
 
-    def _finto(self, nome):
-        def f(**argomenti):
-            if nome in self._esplodono:
-                raise RuntimeError(f"{nome} non ce l'ha fatta")
-            return (f"{nome} ha risposto con "
-                    f"{json.dumps(argomenti, ensure_ascii=False)}")
-        return f
+    def esiste(self, nome):
+        return nome in self._esistenti
+
+    def chiama(self, nome, argomenti):
+        if nome in self._esplodono:
+            raise RuntimeError(f"{nome} non ce l'ha fatta")
+        return (f"{nome} ha risposto con "
+                f"{json.dumps(argomenti, ensure_ascii=False)}")
 
     def gestisci(self, richiesta):
-        metodo = richiesta.get("method")
-        rid = richiesta.get("id")
-        if metodo == "initialize":
-            return _ok(rid, {"protocolVersion": PROTOCOLLO,
-                             "capabilities": {"tools": {}},
-                             "serverInfo": {"name": "nova", "version": "0.1.0"}})
-        if metodo in ("notifications/initialized", "notifications/cancelled"):
-            return None
-        if metodo == "tools/list":
-            return _ok(rid, {"tools": STRUMENTI})
-        if metodo == "tools/call":
-            params = richiesta.get("params") or {}
-            nome = params.get("name")
-            argomenti = params.get("arguments") or {}
-            if nome not in self._esistenti:
-                return _errore(rid, -32601, f"strumento sconosciuto: {nome}")
-            try:
-                testo = self._finto(nome)(**argomenti)
-            except Exception as e:                              # noqa: BLE001
-                return _ok(rid, {"content": [{"type": "text", "text": f"ERRORE: {e}"}],
-                                 "isError": True})
-            return _ok(rid, {"content": [{"type": "text", "text": testo}]})
-        if metodo in ("resources/list", "prompts/list"):
-            chiave = "resources" if metodo.startswith("resources") else "prompts"
-            return _ok(rid, {chiave: []})
-        if rid is None:
-            return None
-        return _errore(rid, -32601, f"metodo non supportato: {metodo}")
-
-
-def _ok(rid, risultato):
-    return {"jsonrpc": "2.0", "id": rid, "result": risultato}
-
-
-def _errore(rid, codice, messaggio):
-    return {"jsonrpc": "2.0", "id": rid, "error": {"code": codice, "message": messaggio}}
+        return gestisci_busta(richiesta, self)
 
 
 print("\n2. le buste, «non rispondere» compreso")
@@ -242,6 +224,25 @@ controlla("e una notifica con un metodo sconosciuto resta senza risposta",
           fuori["risposte"][RICHIESTE.index(
               {"jsonrpc": "2.0", "method": "mai_sentito"})] is None,
           "e' il caso che pianta i client: risposta a chi non aspetta")
+
+# Le due meta' possono anche essere d'accordo **sulla cosa sbagliata**: qui
+# si guarda cosa dice la busta, non solo che dicano lo stesso.
+versioni = {r["params"]["protocolVersion"]: ru["result"]["protocolVersion"]
+            for r, ru in zip(RICHIESTE, fuori["risposte"])
+            if r.get("method") == "initialize" and (r.get("params") or {}).get("protocolVersion")}
+sbagliate = [f"chiesta {c} -> risposta {d}" for c, d in versioni.items()
+             if (d != c if c in VERSIONI_NOTE else d != PROTOCOLLO)]
+controlla("la versione chiesta si echeggia, se la conosciamo", not sbagliate,
+          " | ".join(sbagliate))
+controlla("e quella che dichiariamo e' la piu' recente che sappiamo parlare",
+          PROTOCOLLO == max(VERSIONI_NOTE) == VERSIONI_NOTE[-1],
+          f"PROTOCOLLO={PROTOCOLLO} VERSIONI_NOTE={VERSIONI_NOTE}")
+controlla("le versioni note sono le stesse dalle due parti",
+          fuori["versioni"] == list(VERSIONI_NOTE)
+          and fuori["protocollo"] == PROTOCOLLO,
+          f"rust {fuori['versioni']} / {fuori['protocollo']} vs "
+          f"python {list(VERSIONI_NOTE)} / {PROTOCOLLO}  <- le dichiarazioni "
+          "Rust si rigenerano con `python _estrai_mcp.py`")
 
 print("\n3. il rischio e la domanda che l'utente legge")
 diverse = [f"{s_!r} {a}: rust {ru!r} vs python {_rischio(s_, a)!r}"
