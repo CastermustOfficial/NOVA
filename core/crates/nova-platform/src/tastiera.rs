@@ -26,8 +26,8 @@
 mod imp {
     use anyhow::{anyhow, Result};
     use windows::Win32::UI::Input::KeyboardAndMouse::{
-        SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP,
-        KEYEVENTF_UNICODE, VIRTUAL_KEY,
+        SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE,
+        VIRTUAL_KEY,
     };
 
     fn evento(unita: u16, su: bool) -> INPUT {
@@ -56,7 +56,11 @@ mod imp {
                 ki: KEYBDINPUT {
                     wVk: VIRTUAL_KEY(vk),
                     wScan: 0,
-                    dwFlags: if su { KEYEVENTF_KEYUP } else { Default::default() },
+                    dwFlags: if su {
+                        KEYEVENTF_KEYUP
+                    } else {
+                        Default::default()
+                    },
                     time: 0,
                     dwExtraInfo: 0,
                 },
@@ -186,21 +190,49 @@ pub use imp::{combinazione, scrivi, scrivi_dentro};
 
 /// I modificatori, col loro codice virtuale.
 pub const MODIFICATORI: &[(&str, u16)] = &[
-    ("ctrl", 0x11), ("control", 0x11), ("alt", 0x12), ("shift", 0x10),
-    ("win", 0x5B), ("windows", 0x5B),
+    ("ctrl", 0x11),
+    ("control", 0x11),
+    ("alt", 0x12),
+    ("shift", 0x10),
+    ("win", 0x5B),
+    ("windows", 0x5B),
 ];
 
 /// I tasti che hanno un nome invece di una lettera.
 pub const TASTI: &[(&str, u16)] = &[
-    ("enter", 0x0D), ("invio", 0x0D), ("return", 0x0D),
-    ("esc", 0x1B), ("escape", 0x1B),
-    ("tab", 0x09), ("space", 0x20), ("spazio", 0x20),
-    ("backspace", 0x08), ("delete", 0x2E), ("del", 0x2E), ("canc", 0x2E),
-    ("up", 0x26), ("down", 0x28), ("left", 0x25), ("right", 0x27),
-    ("home", 0x24), ("end", 0x23), ("pageup", 0x21), ("pagedown", 0x22),
-    ("insert", 0x2D), ("f1", 0x70), ("f2", 0x71), ("f3", 0x72), ("f4", 0x73),
-    ("f5", 0x74), ("f6", 0x75), ("f7", 0x76), ("f8", 0x77), ("f9", 0x78),
-    ("f10", 0x79), ("f11", 0x7A), ("f12", 0x7B),
+    ("enter", 0x0D),
+    ("invio", 0x0D),
+    ("return", 0x0D),
+    ("esc", 0x1B),
+    ("escape", 0x1B),
+    ("tab", 0x09),
+    ("space", 0x20),
+    ("spazio", 0x20),
+    ("backspace", 0x08),
+    ("delete", 0x2E),
+    ("del", 0x2E),
+    ("canc", 0x2E),
+    ("up", 0x26),
+    ("down", 0x28),
+    ("left", 0x25),
+    ("right", 0x27),
+    ("home", 0x24),
+    ("end", 0x23),
+    ("pageup", 0x21),
+    ("pagedown", 0x22),
+    ("insert", 0x2D),
+    ("f1", 0x70),
+    ("f2", 0x71),
+    ("f3", 0x72),
+    ("f4", 0x73),
+    ("f5", 0x74),
+    ("f6", 0x75),
+    ("f7", 0x76),
+    ("f8", 0x77),
+    ("f9", 0x78),
+    ("f10", 0x79),
+    ("f11", 0x7A),
+    ("f12", 0x7B),
 ];
 
 /// Traduce «ctrl+shift+esc» in modificatori e tasto finale.
@@ -254,7 +286,9 @@ pub fn capisci(tasti: &str) -> Result<(Vec<u16>, u16), String> {
     match finale {
         // Una combinazione di soli modificatori non e' una combinazione:
         // premerla vorrebbe dire tenere giu' ctrl e non fare niente.
-        None => Err(format!("«{tasti}» sono solo modificatori: manca il tasto da premere")),
+        None => Err(format!(
+            "«{tasti}» sono solo modificatori: manca il tasto da premere"
+        )),
         Some(f) => Ok((modificatori, f)),
     }
 }
@@ -283,7 +317,10 @@ mod prove {
 
     #[test]
     fn i_modificatori_ripetuti_non_si_ripetono() {
-        assert_eq!(capisci("ctrl+control+s").unwrap(), (vec![0x11], b'S' as u16));
+        assert_eq!(
+            capisci("ctrl+control+s").unwrap(),
+            (vec![0x11], b'S' as u16)
+        );
     }
 
     #[test]

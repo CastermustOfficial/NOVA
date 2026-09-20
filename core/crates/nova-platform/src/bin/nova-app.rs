@@ -11,7 +11,11 @@
 //! numero massimo se lo conta da se', e cosi' sa che l'ha fatto (D129).
 
 fn main() {
-    let filtro = std::env::args().skip(1).next().unwrap_or_default().to_lowercase();
+    let filtro = std::env::args()
+        .skip(1)
+        .next()
+        .unwrap_or_default()
+        .to_lowercase();
     for nome in nova_platform::applicazioni::installate() {
         if filtro.is_empty() || nome.to_lowercase().contains(&filtro) {
             println!("{nome}");

@@ -31,6 +31,12 @@ pub mod gpu;
 // Gli appunti, chiamati direttamente: niente processo, niente shell, niente
 // stringa da comporre. Vedi D130.
 pub mod appunti;
+/// Appunti, volume e notifiche su Linux e macOS. Li tiene l'ambiente
+/// grafico, e l'ambiente grafico e' un programma esterno: si provano gli
+/// strumenti noti in ordine, e se non ce n'e' nessuno si dice **quali** si
+/// sono cercati invece di dire «non disponibile» (D193).
+#[cfg(unix)]
+pub mod scrivania_unix;
 
 // Il volume, chiesto a Core Audio invece che simulato a colpi di tasto.
 pub mod audio;
@@ -41,6 +47,11 @@ pub mod notifiche;
 
 // Com'e' fatto il PC. Era la capacita' piu' cara di tutte: 1.543 ms.
 pub mod sistema;
+/// La meta' Unix: `/proc` e `/sys` su Linux, `sysctl` e `sw_vers` su macOS.
+/// Le regole di lettura stanno separate da quel che apre i file, perche' un
+/// Mac da qui non si puo' provare e il testo che risponde si' (D209).
+#[cfg(unix)]
+pub mod sistema_unix;
 
 // Il registro, letto in un posto solo: `sistema` ne aveva gia' una copia
 // privata, e alla seconda occorrenza si mette in comune (D62).
@@ -54,6 +65,10 @@ pub mod applicazioni;
 // elenca, si guarda, e si chiude **un pid** — non un modello di ricerca
 // (D141).
 pub mod processi;
+/// La meta' Unix: `/proc` su Linux, `ps` su macOS, e `kill` — che ha un modo
+/// di spegnere tutto che Windows non ha, e va rifiutato per nome (D258).
+#[cfg(unix)]
+pub mod processi_unix;
 
 // La tastiera. Qui la regola non e' tecnica: non si preme un tasto senza aver
 // prima guardato chi ha il fuoco, e la risposta nomina la finestra.
@@ -62,6 +77,12 @@ pub mod tastiera;
 // Il Cestino: cancellare in un modo che si puo' disfare. Premessa N2 —
 // prima la reversibilita', poi il permesso.
 pub mod cestino;
+/// La meta' Unix del Cestino: la specifica freedesktop su Linux, `~/.Trash`
+/// su macOS. Sta in un modulo suo perche' ha una regola in piu' da
+/// spiegare, e e' quella che protegge i dati di qualcuno: **non si copia e
+/// poi si cancella**.
+#[cfg(unix)]
+pub mod cestino_unix;
 
 // Se i byte di un file stanno qui o nel cloud. Serve prima di leggere un
 // modello da dodici gigabyte che una cartella sincronizzata puo' aver
@@ -146,9 +167,7 @@ impl UiQuery {
     }
 
     pub fn matches(&self, n: &UiNode) -> bool {
-        if !self.name.is_empty()
-            && !n.name.to_lowercase().contains(&self.name.to_lowercase())
-        {
+        if !self.name.is_empty() && !n.name.to_lowercase().contains(&self.name.to_lowercase()) {
             return false;
         }
         if !self.role.is_empty() && !n.role.eq_ignore_ascii_case(&self.role) {

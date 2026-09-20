@@ -42,8 +42,16 @@ fn main() {
             }
         };
         let mut righe = dentro.splitn(2, '\n');
-        titolo = righe.next().unwrap_or("NOVA").trim_end_matches('\r').to_string();
-        messaggio = righe.next().unwrap_or("").trim_end_matches('\n').to_string();
+        titolo = righe
+            .next()
+            .unwrap_or("NOVA")
+            .trim_end_matches('\r')
+            .to_string();
+        messaggio = righe
+            .next()
+            .unwrap_or("")
+            .trim_end_matches('\n')
+            .to_string();
         durata_file = a.get(2).and_then(|s| s.parse::<u32>().ok());
         let durata = durata_file.unwrap_or(20_000).clamp(1000, 30_000);
         if let Err(e) = nova_platform::notifiche::mostra(&titolo, &messaggio, durata) {

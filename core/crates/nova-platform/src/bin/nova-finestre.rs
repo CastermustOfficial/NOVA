@@ -45,7 +45,11 @@ fn main() {
         }
         return;
     }
-    let filtro = argomenti.first().cloned().unwrap_or_default().to_lowercase();
+    let filtro = argomenti
+        .first()
+        .cloned()
+        .unwrap_or_default()
+        .to_lowercase();
     let finestre = match nova_platform::finestre::elenca() {
         Ok(f) => f,
         Err(e) => {

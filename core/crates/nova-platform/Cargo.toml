@@ -11,6 +11,13 @@ serde_json.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
 
+# Fuori da Windows: chiudere un processo, misurare un disco, sapere quanto
+# e' grande una pagina di memoria. Sono tre chiamate di sistema, e farle
+# davvero e' meglio che leggere l'uscita di tre comandi — e' la stessa
+# ragione per cui qui dentro non si compone PowerShell (D130).
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.62"
 features = [

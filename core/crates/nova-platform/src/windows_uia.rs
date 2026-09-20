@@ -20,9 +20,9 @@ use windows::Win32::System::Variant::VARIANT;
 use windows::Win32::UI::Accessibility::{
     CUIAutomation, IUIAutomation, IUIAutomationElement, IUIAutomationInvokePattern,
     IUIAutomationLegacyIAccessiblePattern, IUIAutomationSelectionItemPattern,
-    IUIAutomationTogglePattern, IUIAutomationValuePattern, TreeScope_Children,
-    UIA_InvokePatternId, UIA_LegacyIAccessiblePatternId, UIA_SelectionItemPatternId,
-    TreeScope_Subtree, UIA_ControlTypePropertyId, UIA_TogglePatternId, UIA_ValuePatternId,
+    IUIAutomationTogglePattern, IUIAutomationValuePattern, TreeScope_Children, TreeScope_Subtree,
+    UIA_ControlTypePropertyId, UIA_InvokePatternId, UIA_LegacyIAccessiblePatternId,
+    UIA_SelectionItemPatternId, UIA_TogglePatternId, UIA_ValuePatternId,
 };
 
 use crate::{ElementRef, UiNode, UiQuery, UiTree, WindowInfo, WindowSel};
@@ -80,9 +80,8 @@ impl Uia {
                     match CoCreateInstance(&CUIAutomation, None, CLSCTX_INPROC_SERVER) {
                         Ok(a) => a,
                         Err(e) => {
-                            let _ = pronto_tx.send(Err(format!(
-                                "UI Automation non disponibile: {e}"
-                            )));
+                            let _ =
+                                pronto_tx.send(Err(format!("UI Automation non disponibile: {e}")));
                             return;
                         }
                     };
@@ -92,7 +91,9 @@ impl Uia {
             .map_err(|e| anyhow!("impossibile avviare il thread UIA: {e}"))?;
 
         match pronto_rx.recv() {
-            Ok(Ok(())) => Ok(Self { tx: Mutex::new(Some(tx)) }),
+            Ok(Ok(())) => Ok(Self {
+                tx: Mutex::new(Some(tx)),
+            }),
             Ok(Err(e)) => bail!(e),
             Err(_) => bail!("il thread UIA e' morto durante l'avvio"),
         }
@@ -331,7 +332,9 @@ unsafe fn cerca(
     let mut guardati = 0i32;
     for i in 0..quanti.min(MAX_ESAMINATI) {
         guardati += 1;
-        let Ok(el) = trovati.GetElement(i) else { continue };
+        let Ok(el) = trovati.GetElement(i) else {
+            continue;
+        };
         // Il nodo si costruisce senza percorso: calcolarlo per tutti sarebbe
         // il costo che stiamo evitando.
         let mut n = nodo(&el, Vec::new());
@@ -426,10 +429,19 @@ unsafe fn nodo(el: &IUIAutomationElement, path: Vec<u32>) -> UiNode {
         actions: azioni_probabili(&role),
         role,
         value: valore(el),
-        automation_id: if automation_id.is_empty() { None } else { Some(automation_id) },
+        automation_id: if automation_id.is_empty() {
+            None
+        } else {
+            Some(automation_id)
+        },
         enabled: el.CurrentIsEnabled().map(|b| b.as_bool()).unwrap_or(true),
         bounds: if rect.right > rect.left {
-            Some([rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top])
+            Some([
+                rect.left,
+                rect.top,
+                rect.right - rect.left,
+                rect.bottom - rect.top,
+            ])
         } else {
             None
         },
@@ -461,15 +473,13 @@ unsafe fn costruisci_albero(
     for (i, f) in figli(automation, el).into_iter().enumerate() {
         let mut p = path.clone();
         p.push(i as u32);
-        n.children.push(costruisci_albero(automation, &f, p, depth - 1));
+        n.children
+            .push(costruisci_albero(automation, &f, p, depth - 1));
     }
     n
 }
 
-unsafe fn risolvi(
-    automation: &IUIAutomation,
-    target: &ElementRef,
-) -> Result<IUIAutomationElement> {
+unsafe fn risolvi(automation: &IUIAutomation, target: &ElementRef) -> Result<IUIAutomationElement> {
     let mut corrente = elemento_finestra(automation, &target.window)?;
     for (livello, indice) in target.path.iter().enumerate() {
         let f = figli(automation, &corrente);
@@ -531,7 +541,11 @@ unsafe fn scrivi(automation: &IUIAutomation, target: &ElementRef, testo_nuovo: &
     let value: IUIAutomationValuePattern = pattern
         .cast()
         .map_err(|e| anyhow!("«{nome}» non e' un campo scrivibile: {e}"))?;
-    if value.CurrentIsReadOnly().map(|b| b.as_bool()).unwrap_or(false) {
+    if value
+        .CurrentIsReadOnly()
+        .map(|b| b.as_bool())
+        .unwrap_or(false)
+    {
         bail!("«{nome}» e' in sola lettura");
     }
     value

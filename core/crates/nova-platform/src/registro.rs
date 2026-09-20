@@ -34,15 +34,30 @@ mod imp {
         unsafe {
             // Prima chiamata: quanto e' lungo. Windows lo dice in **byte**,
             // e la stringa e' fatta di unita' da due: dividere e' obbligatorio.
-            if RegGetValueW(radice, PCWSTR(k.as_ptr()), PCWSTR(v.as_ptr()),
-                            RRF_RT_REG_SZ, None, None, Some(&mut quanti)).is_err()
+            if RegGetValueW(
+                radice,
+                PCWSTR(k.as_ptr()),
+                PCWSTR(v.as_ptr()),
+                RRF_RT_REG_SZ,
+                None,
+                None,
+                Some(&mut quanti),
+            )
+            .is_err()
             {
                 return None;
             }
             let mut buf = vec![0u16; (quanti as usize / 2) + 1];
-            if RegGetValueW(radice, PCWSTR(k.as_ptr()), PCWSTR(v.as_ptr()),
-                            RRF_RT_REG_SZ, None,
-                            Some(buf.as_mut_ptr() as *mut _), Some(&mut quanti)).is_err()
+            if RegGetValueW(
+                radice,
+                PCWSTR(k.as_ptr()),
+                PCWSTR(v.as_ptr()),
+                RRF_RT_REG_SZ,
+                None,
+                Some(buf.as_mut_ptr() as *mut _),
+                Some(&mut quanti),
+            )
+            .is_err()
             {
                 return None;
             }
@@ -74,8 +89,16 @@ mod imp {
             let mut buf = [0u16; 256];
             let mut quanti = buf.len() as u32;
             let esito: WIN32_ERROR = unsafe {
-                RegEnumKeyExW(aperta, i, Some(windows::core::PWSTR(buf.as_mut_ptr())),
-                              &mut quanti, None, None, None, None)
+                RegEnumKeyExW(
+                    aperta,
+                    i,
+                    Some(windows::core::PWSTR(buf.as_mut_ptr())),
+                    &mut quanti,
+                    None,
+                    None,
+                    None,
+                    None,
+                )
             };
             if esito == ERROR_NO_MORE_ITEMS {
                 break;

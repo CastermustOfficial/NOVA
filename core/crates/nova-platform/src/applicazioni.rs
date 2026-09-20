@@ -21,8 +21,14 @@
 /// applicazioni e non ha modo di sospettarlo.
 pub const RAMI: [(bool, &str); 3] = [
     (true, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
-    (true, r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
-    (false, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+    (
+        true,
+        r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
+    ),
+    (
+        false,
+        r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+    ),
 ];
 
 /// Mette in ordine e toglie i doppioni, **come li toglie PowerShell**: senza
@@ -46,7 +52,11 @@ pub fn installate() -> Vec<String> {
     use crate::registro::{sottochiavi, stringa, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
     let mut nomi = Vec::new();
     for (macchina, ramo) in RAMI {
-        let radice = if macchina { HKEY_LOCAL_MACHINE } else { HKEY_CURRENT_USER };
+        let radice = if macchina {
+            HKEY_LOCAL_MACHINE
+        } else {
+            HKEY_CURRENT_USER
+        };
         for chiave in sottochiavi(radice, ramo) {
             let dove = format!("{ramo}\\{chiave}");
             // Senza `DisplayName` non c'e' niente da mostrare: sono voci di

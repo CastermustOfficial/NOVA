@@ -51,15 +51,25 @@ mod imp {
 
     fn memoria(pid: u32) -> u64 {
         unsafe {
-            let Ok(h) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, false, pid)
-            else {
+            let Ok(h) = OpenProcess(
+                PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ,
+                false,
+                pid,
+            ) else {
                 return 0;
             };
             let mut c = PROCESS_MEMORY_COUNTERS::default();
-            let ok = GetProcessMemoryInfo(h, &mut c,
-                                          std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32);
+            let ok = GetProcessMemoryInfo(
+                h,
+                &mut c,
+                std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
+            );
             let _ = CloseHandle(h);
-            if ok.is_ok() { c.WorkingSetSize as u64 } else { 0 }
+            if ok.is_ok() {
+                c.WorkingSetSize as u64
+            } else {
+                0
+            }
         }
     }
 
@@ -74,7 +84,10 @@ mod imp {
             let mut fuori = Vec::new();
             if Process32FirstW(istantanea, &mut voce).is_ok() {
                 loop {
-                    let fine = voce.szExeFile.iter().position(|&c| c == 0)
+                    let fine = voce
+                        .szExeFile
+                        .iter()
+                        .position(|&c| c == 0)
                         .unwrap_or(voce.szExeFile.len());
                     let nome = String::from_utf16_lossy(&voce.szExeFile[..fine]);
                     // Il pid 0 e' il processo inattivo del sistema: esiste
@@ -154,7 +167,12 @@ fn chiedi_di_chiudere(pid: u32) -> anyhow::Result<usize> {
     Ok(quante)
 }
 
-#[cfg(not(windows))]
+#[cfg(all(not(windows), unix))]
+mod imp {
+    pub use crate::processi_unix::{chiudi, elenca};
+}
+
+#[cfg(all(not(windows), not(unix)))]
 mod imp {
     use super::Processo;
     use anyhow::{bail, Result};
@@ -186,11 +204,20 @@ mod prove {
     use super::{corrispondenti, Processo};
 
     fn finti() -> Vec<Processo> {
-        ["chrome.exe", "notepad.exe", "explorer.exe", "Chrome Helper.exe"]
-            .iter()
-            .enumerate()
-            .map(|(i, n)| Processo { pid: i as u32 + 10, nome: n.to_string(), memoria_byte: 0 })
-            .collect()
+        [
+            "chrome.exe",
+            "notepad.exe",
+            "explorer.exe",
+            "Chrome Helper.exe",
+        ]
+        .iter()
+        .enumerate()
+        .map(|(i, n)| Processo {
+            pid: i as u32 + 10,
+            nome: n.to_string(),
+            memoria_byte: 0,
+        })
+        .collect()
     }
 
     #[test]
@@ -213,7 +240,10 @@ mod prove {
         // davvero. Uno invece di 292 e' la risposta giusta; zero sarebbe
         // stata un'altra bugia.
         let p = finti();
-        assert!(corrispondenti(&p, "*").is_empty(), "qui nessuno ha l'asterisco nel nome");
+        assert!(
+            corrispondenti(&p, "*").is_empty(),
+            "qui nessuno ha l'asterisco nel nome"
+        );
         assert!(corrispondenti(&p, "?").is_empty());
         assert!(corrispondenti(&p, "[a-z]").is_empty());
 
@@ -222,8 +252,11 @@ mod prove {
             nome: "*strano.exe".into(),
             memoria_byte: 0,
         }];
-        assert_eq!(corrispondenti(&con_asterisco, "*").len(), 1,
-                   "chi ha l'asterisco nel nome si trova cercando un asterisco");
+        assert_eq!(
+            corrispondenti(&con_asterisco, "*").len(),
+            1,
+            "chi ha l'asterisco nel nome si trova cercando un asterisco"
+        );
     }
 
     #[test]
@@ -278,7 +311,10 @@ pub fn avvia(bersaglio: &str, argomenti: &str) -> anyhow::Result<()> {
         .map_err(|e| anyhow!("non riesco ad avviare «{bersaglio}»: {e}"))
 }
 
-#[cfg(not(windows))]
+#[cfg(all(not(windows), unix))]
+pub use crate::processi_unix::avvia;
+
+#[cfg(all(not(windows), not(unix)))]
 pub fn avvia(_bersaglio: &str, _argomenti: &str) -> anyhow::Result<()> {
     anyhow::bail!("avviare un programma qui si fa in un altro modo")
 }
