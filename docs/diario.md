@@ -8095,3 +8095,93 @@ resta aperto, e il primo guadagno arriva comunque — una decisione che oggi
 sta dentro un `if` diventa una cosa con un nome, provabile da sola. Anche se
 il secondo braccio restasse vuoto per sempre, le euristiche sarebbero meglio
 provate di adesso.
+
+## Le librerie dei documenti, provate invece che scelte
+
+CANT-8 e CANT-10 dipendono dalla stessa domanda — quali librerie Rust reggono
+i documenti veri — e quella domanda non si risponde leggendo la
+documentazione. Ho costruito tre documenti fatti apposta per essere difficili
+e ho guardato cosa restava dopo.
+
+Difficili vuol dire: un PDF **a due colonne**, perche' e' li' che un
+estrattore senza posizioni mescola tutto, con dentro una tabella e una parola
+su una seconda pagina. Un `.docx` con uno stile di titolo, grassetto e colore
+**in mezzo** a un paragrafo, un corsivo, un carattere piu' grande, e una
+tabella con il suo stile. Un `.xlsx` con formule, un formato percentuale,
+un'intestazione colorata e un secondo foglio. Ogni cosa e' li' perche' e'
+quella che si perde.
+
+**I fogli: `umya-spreadsheet`, e non c'e' partita.** Giro completo
+leggi-tocca-riscrivi: la formula `C2-B2` sopravvive, il formato `0.0%`
+sopravvive, il grassetto sopravvive, il secondo foglio c'e' ancora con dentro
+quello che c'era. `calamine` legge bene ma non scrive, quindi copre meta' di
+CANT-10.
+
+**Il `.docx`: la risposta e' «nessuna libreria», ed e' la cosa piu' utile
+della giornata.** `docx-rs` fa il giro a vuoto — legge e riscrive senza
+toccare niente — e quello che torna non e' il documento di prima:
+
+```text
+parti perse:    customXml/item1.xml, customXml/itemProps1.xml,
+                docProps/thumbnail.jpeg, word/stylesWithEffects.xml,
+                word/theme/theme1.xml, word/webSettings.xml
+parti aggiunte: docProps/custom.xml, word/comments.xml,
+                word/commentsExtended.xml, word/footnotes.xml
+parti cambiate: altre dieci
+byte:           36.976 -> 104.839
+```
+
+`theme1.xml` e' dove stanno i caratteri e i colori del documento. Perderlo
+vuol dire che il contratto di qualcuno si apre **diverso** da come lo aveva
+lasciato, e non lo dice nessuno. E lo stile `Normal` dei paragrafi sparisce.
+
+Non e' un difetto di quella libreria: e' che ricostruisce il pacchetto a
+partire dal proprio modello, e cio' che il modello non conosce non esiste.
+
+Allora ho provato l'altra strada, che e' quella che `harness_modifica.py` ha
+gia' scelto in Python: **un `.docx` e' uno zip di XML**. Si apre, si tocca
+solo `word/document.xml`, e ogni altra parte si ricopia byte per byte.
+
+```text
+parti perse:    nessuna
+parti aggiunte: nessuna
+parti cambiate: word/document.xml
+byte:           36.976 -> 36.709
+```
+
+Quel che non si guarda non si puo' rovinare. Ed e' **meglio** di python-docx,
+non solo pari: python-docx riscrive comunque le parti che tocca, qui non si
+tocca niente di quello che non serve.
+
+C'e' un pezzo che manca, e lo dico adesso invece di scoprirlo dopo: ho fatto
+una sostituzione di stringa dentro l'XML, e nei documenti veri Word spezza il
+testo di un paragrafo su piu' `<w:t>` — correttore, revisioni, cambi di
+lingua. La frase che si cerca puo' non stare tutta in un pezzo. E' esattamente
+il problema che python-docx risolve scrivendo nel **primo** pezzo e svuotando
+gli altri, e quell'algoritmo e' gia' scritto e gia' spiegato nel nostro
+codice: si porta, non si inventa.
+
+**Il PDF: serve *dove*, e questo decide.** `pdf-extract` da' il testo e sa
+dividerlo per pagina — «pagina 12» si puo' dire. Ma sul PDF a due colonne
+**mescola le due colonne nella stessa riga**. Misurato, non temuto: c'e' una
+riga del banco che lo chiede e risponde `true`. Allora «terzo blocco» non si
+puo' dire, e quella frase e' la funzione dell'harness.
+
+`mupdf` invece — la stessa libreria che sta sotto PyMuPDF, quindi le stesse
+risposte che NOVA da' oggi:
+
+```text
+blocco 1 a (72,118)-(291,133): "Il margine e' sceso al 12% per via dei costi"
+blocco 4 a (320,118)-(522,133): "Colonna destra: nota a margine che in un"
+```
+
+Le due colonne restano a x=72 e x=320. Il prezzo e' che si compila dai
+sorgenti C: minuti al primo giro, sette megabyte di binario in release. Per
+questo il banco sta **fuori dal workspace**, dietro una feature da accendere a
+mano — un costo che paga chi sta decidendo, non chi lancia le prove.
+
+**E il banco resta.** Sta in `banco_documenti/`, con dentro il programma che
+costruisce i tre documenti e quello che guarda cosa e' rimasto. Se fra sei
+mesi esce una libreria nuova, la domanda non si rifa' da capo: si aggiunge un
+binario e si rilancia. Una misura raccontata a voce invecchia; una misura che
+si rifa' in un comando no.
