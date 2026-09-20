@@ -72,14 +72,10 @@ SCOLLEGATI: dict[str, str] = {
                     "degli strumenti harness_*, che stanno in Python",
     "nova-mcp-cliente": "NOVA che usa un server MCP di qualcun altro: non c'e' "
                         "ancora il posto da cui si configurano quei server",
-    "nova-memoria": "BM25 e fusione dei ranking: il recupero vero lo fa il "
-                    "vault in Python",
-    "nova-nodi": "il nodo della memoria e la sua forma su disco: come sopra",
     "nova-pianificazione": "«quando tocca di nuovo». Oggi a far ripartire le "
                            "attivita' e' l'Utilita' di pianificazione di "
                            "Windows, che sopravvive al riavvio: attaccarlo qui "
                            "vuol dire decidere chi dei due comanda",
-    "nova-ricette": "ritrovare una procedura imparata: come sopra",
 }
 
 # ----------------------------------------------------------------- lettura

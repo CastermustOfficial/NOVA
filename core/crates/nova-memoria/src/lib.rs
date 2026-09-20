@@ -43,6 +43,10 @@ pub const STOPWORDS: &[&str] = &[
 // che si sbaglia non lascia traccia, perche' un nodo escluso non si vede.
 pub mod scelta;
 
+// L'embedding di casa: nessun modello, nessuna rete, e le stesse caselle
+// del Python — perche' il coseno decide quali ricordi entrano nel contesto.
+pub mod vettore;
+
 /// Un nodo della memoria, ridotto a cio' che serve per pesarlo.
 #[derive(Debug, Clone, Default)]
 pub struct Nodo {
@@ -276,6 +280,50 @@ pub fn testa_e_coda(corpo: &str, massimo: usize) -> String {
     let testa: String = corpo.chars().take(quanti_testa).collect();
     let coda: String = corpo.chars().skip(quanti - quanti_coda).collect();
     format!("{}\n[...]\n{}", testa.trim_end(), coda.trim_start())
+}
+
+/// Quanti caratteri di contesto si consegnano al modello, in tutto.
+///
+/// E' il `kb.max_context_chars` del Python. Oltre, non si tronca a meta' di
+/// un nodo: si **smette di aggiungerne**, perche' mezzo ricordo e' peggio di
+/// nessun ricordo — il modello lo legge come se fosse intero.
+pub const MAX_CONTESTO: usize = 2600;
+
+/// Un ricordo, pronto da mettere nel contesto.
+#[derive(Debug, Clone, Default)]
+pub struct Pezzo {
+    pub titolo: String,
+    pub tipo: String,
+    pub confidenza: f64,
+    pub corpo: String,
+}
+
+/// I ricordi scelti, nel testo che legge il modello.
+///
+/// L'intestazione dice tre cose e nessuna e' decorazione: **di cosa** parla
+/// il nodo, **che tipo** di cosa e' (un fatto, una preferenza, una persona) e
+/// **quanto ci si puo' contare**. Senza la confidenza il modello tratta un
+/// «forse» scritto sei mesi fa come una certezza di oggi.
+pub fn come_contesto(pezzi: &[Pezzo], max_caratteri: usize) -> String {
+    let mut fuori: Vec<String> = Vec::new();
+    let mut usati = 0usize;
+    for p in pezzi {
+        let corpo = testa_e_coda(p.corpo.trim(), MAX_CORPO_NEL_CONTESTO);
+        let blocco = format!(
+            "### {}  ({}, confidenza {:.1})\n{}",
+            p.titolo, p.tipo, p.confidenza, corpo
+        );
+        // Si conta in caratteri, come `len()` di Python: su un corpo pieno
+        // di accenti il conto in byte taglierebbe prima, e il contesto
+        // sarebbe piu' corto di qua che di la' per le stesse note.
+        let quanto = blocco.chars().count();
+        if usati + quanto > max_caratteri {
+            break;
+        }
+        usati += quanto;
+        fuori.push(blocco);
+    }
+    fuori.join("\n\n")
 }
 
 #[cfg(test)]

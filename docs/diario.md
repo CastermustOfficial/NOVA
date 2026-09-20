@@ -9538,3 +9538,50 @@ perche' la ragione per escluderlo suonava tecnica e sufficiente.
 
 Una ragione vera puo' essere una scusa lo stesso. La differenza si vede solo
 se ogni tanto la si prova.
+
+## La memoria entra nel turno, e l'md5 non e' un dettaglio
+
+Terza mossa del piano: memoria e procedure dentro il turno del demone. Tre
+crate portati e provati da mesi che aspettavano solo qualcuno che li
+chiamasse — `nova-nodi` per la forma del vault su disco, `nova-memoria` per
+BM25, la fusione e la scelta, `nova-ricette` per le procedure.
+
+Il collegamento vero e' poco codice: aprire la cartella, tenerla in memoria
+fra un turno e l'altro, rileggere solo i file cambiati. Tutto il resto era
+gia' li'. Perfino il testo che avvolge il contesto — «quello che gia' sai,
+guardalo prima di misurare, non ripeterlo all'utente come una novita'» —
+esisteva gia' in `nova_contesto::blocchi`, con dentro la ragione per cui va
+in coda alla domanda e non nel prompt di sistema.
+
+**Il pezzo che mancava davvero era l'embedding.** Il Python usa un
+«hashing trick»: niente modello, niente rete, una parola cade in una casella
+decisa da `hashlib.md5`. Trecentottantaquattro caselle, tre pesi — la parola
+intera, il suo prefisso di quattro lettere, la coppia con la parola prima.
+
+Si poteva scrivere «qualcosa di equivalente». Non va bene, e la ragione non
+e' pignoleria: il vettore da solo non lo legge nessuno. Si legge il suo
+coseno con gli altri, e quello decide **quali ricordi entrano nel contesto**.
+Due embedding diversi sono due NOVA che si ricordano cose diverse della
+stessa persona, e la differenza non si vede mai — si vede solo una risposta
+un po' peggiore, ogni tanto, senza che nessuno possa dire perche'.
+
+Quindi md5, che qui non serve a niente di crittografico: serve a cadere nella
+stessa casella. Il banco confronta i tredici vettori numero per numero, con
+tolleranza `1e-12`, e stampa la casella esatta dove i due divergerebbero. Due
+mutazioni — la casella spostata di uno, il peso del prefisso azzerato — e
+tutte e due rosse al primo giro.
+
+**E la prova che conta piu' di tutte** sta in `test_demone_turno.py`: il
+demone acceso riceve una domanda, e il blocco `<memoria>` che manda al
+cervello e' **carattere per carattere** quello che `KBEngine.contesto_per`
+comporrebbe sulla stessa cartella. Non «trova le stesse note»: dice le stesse
+parole, nello stesso ordine, con gli stessi tagli.
+
+Due cose sono rimaste fuori, e vanno dette. La prima: il demone **non impara**
+ancora. Legge la memoria e le procedure, non le scrive — a fine turno il
+Python chiede al modello «cosa vale la pena ricordare?» e il demone no. La
+seconda: le regole operative del prompt, che il Python aggiunge a runtime,
+al turno del demone non arrivano.
+
+Dieci crate su trentasei restano scollegati. Erano diciotto quando ho
+cominciato a contare — e anche il conto, allora, era sbagliato.

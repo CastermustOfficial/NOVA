@@ -133,9 +133,23 @@ TAGLI = [
     ("a capo dappertutto", "riga\n" * 400),
 ]
 
+#: Testi da trasformare in vettore. L'embedding decide **quali ricordi**
+#: entrano nel contesto, e un vettore da solo non si legge: o si confronta
+#: numero per numero, o non lo guarda nessuno. Ci sono dentro i casi che
+#: rompono: accenti, una parola sola, niente parole, forme della stessa
+#: parola (che il prefisso di quattro lettere deve avvicinare) e una coppia,
+#: che e' l'unico pezzo di contesto che un hash puo' avere.
+DA_VETTORIZZARE = [
+    "posta", "controlla la posta", "controllo la posta",
+    "come guardo la posta di lavoro", "carbonara senza panna",
+    "Però l'ora è tarda", "citta' e città", "il di a e", "", "...",
+    "RTX 4060 Ti", "posta posta posta", "una_parola_con_trattini_bassi",
+]
+
 dentro = json.dumps({"nodi": NODI, "domande": DOMANDE,
                      "fusioni": FUSIONI, "vettori": VETTORI,
                      "freschezza": FRESCHEZZA,
+                     "da_vettorizzare": DA_VETTORIZZARE,
                      "tagli": [[c, MAX_CORPO_NEL_CONTESTO]
                                for _, c in TAGLI]}, ensure_ascii=False)
 try:
@@ -384,6 +398,41 @@ else:
     # per arrivarci, anche se il risultato somiglia.
     controlla("stessi nodi, stesso ordine, stesso perche'", not diverse,
               " | ".join(diverse[:2]))
+
+print("\n=== L'embedding di casa: la stessa casella, lo stesso numero ===")
+# Il vettore non si legge: si legge il suo coseno con gli altri, e quello
+# decide quali ricordi entrano nel contesto. Due embedding che ordinano
+# diversamente sono due NOVA che si ricordano cose diverse della stessa
+# persona, e la differenza non si vede mai — si vede solo una risposta un
+# po' peggiore, ogni tanto, senza nessuno che possa dire perche'.
+from nova.kb.retrieval import HashEmbedder                        # noqa: E402
+
+emb = HashEmbedder()
+diversi = []
+for testo, suo in zip(DA_VETTORIZZARE, rust["vettorizzati"]):
+    mio = emb.embed(testo)
+    if len(suo) != len(mio):
+        diversi.append(f"{testo!r}: {len(suo)} caselle contro {len(mio)}")
+        continue
+    peggiore = max((abs(a - b) for a, b in zip(suo, mio)), default=0.0)
+    if peggiore > 1e-12:
+        dove = max(range(len(mio)), key=lambda k: abs(suo[k] - mio[k]))
+        diversi.append(f"{testo!r}: casella {dove}, {suo[dove]} contro {mio[dove]}")
+controlla(f"i {len(DA_VETTORIZZARE)} vettori sono identici, numero per numero",
+          not diversi, " | ".join(diversi[:2]))
+controlla("e il banco ha un testo senza parole",
+          any(not emb.tokenizza(t) if hasattr(emb, "tokenizza") else not tokenizza(t)
+              for t in DA_VETTORIZZARE),
+          "senza, la divisione per zero non e' provata")
+# E la prova che non guarda le due implementazioni ma il risultato: le forme
+# della stessa parola devono somigliarsi piu' di due parole diverse.
+i_a = DA_VETTORIZZARE.index("controlla la posta")
+i_b = DA_VETTORIZZARE.index("controllo la posta")
+i_c = DA_VETTORIZZARE.index("carbonara senza panna")
+controlla("e due forme della stessa parola restano vicine",
+          coseno(rust["vettorizzati"][i_a], rust["vettorizzati"][i_b])
+          > coseno(rust["vettorizzati"][i_a], rust["vettorizzati"][i_c]),
+          "il prefisso di quattro lettere non avvicina piu' niente")
 
 print(f"\n{passati}/{passati + len(falliti)} passati")
 for x in falliti:

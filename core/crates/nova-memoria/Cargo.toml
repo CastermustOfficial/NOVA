@@ -5,9 +5,17 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
-# Come nova-ricette: il nucleo non ha dipendenze. serde serve solo al banco
-# di confronto, che e' un binario a parte e si costruisce con `--features`.
+# Come nova-ricette: il nucleo non ha dipendenze sue. serde serve solo al
+# banco di confronto, che e' un binario a parte e si costruisce con
+# `--features`.
+#
+# L'eccezione e' md5, e la ragione non e' crittografica: l'embedding di casa
+# del Python sceglie la casella con `hashlib.md5`, e per cadere nella
+# **stessa** casella bisogna fare lo stesso conto. Due embedding diversi
+# sarebbero due NOVA che si ricordano cose diverse, e la differenza non si
+# vedrebbe mai — solo una risposta un po' peggiore, ogni tanto.
 [dependencies]
+md-5 = "0.11"
 serde = { workspace = true, features = ["derive"], optional = true }
 serde_json = { workspace = true, optional = true }
 

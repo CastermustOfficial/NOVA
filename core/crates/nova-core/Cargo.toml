@@ -20,6 +20,11 @@ nova-mcp = { path = "../nova-mcp" }
 # Il registro delle azioni: la forma della riga e le regole di ricerca sono
 # quelle di NOVA, con il Python di fronte e un banco che li confronta.
 nova-registro = { path = "../nova-registro" }
+# Le procedure imparate: il giudizio sta li', qui c'e' il disco.
+nova-ricette = { path = "../nova-ricette" }
+# La memoria: la forma su disco e il giudizio su chi entra nel contesto.
+nova-nodi = { path = "../nova-nodi" }
+nova-memoria = { path = "../nova-memoria" }
 nova-calendario = { path = "../nova-calendario" }
 nova-potatura = { path = "../nova-potatura" }
 nova-voce = { path = "../nova-voce" }

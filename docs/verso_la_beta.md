@@ -2423,9 +2423,13 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    stderr, e il tasto «ferma» che ferma un turno invece di uccidere un albero
    di processi con `taskkill /T /F`. Resta il ripiego su Python finche' il
    turno del demone non sa fare tutto.
-3. **La memoria e le procedure dentro il turno.** `nova-nodi`, `nova-memoria`
-   e `nova-ricette` sono gia' portati e provati: gli manca chi li chiami
-   prima di comporre la domanda. Qui si attaccano tre crate in un colpo.
+3. ~~**La memoria e le procedure dentro il turno.**~~ Fatto: tre crate
+   attaccati in un colpo (`nova-nodi`, `nova-memoria`, `nova-ricette`). Il
+   contesto che il demone compone e' **identico** a quello del Python — la
+   prova lo confronta con `KBEngine.contesto_per` sulla stessa cartella, e
+   l'embedding di casa e' stato portato fin dentro la scelta della casella
+   (D299, D300). Resta fuori l'**imparare**: a fine turno il demone legge
+   memoria e procedure, non le scrive.
 4. **Gli strumenti che al demone mancano.** Il registro delle capacita' ne ha
    una parte; il Python ne ha cinquantasette. Ogni famiglia portata e' anche
    un crate che si attacca: `nova-harness` per i documenti a pezzi,

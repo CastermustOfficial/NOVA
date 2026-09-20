@@ -23,10 +23,12 @@
 //! giornale per annullare, registro delle azioni. Un turno che passa di qui
 //! e' un turno sorvegliato per costruzione.
 //!
-//! Cosa **non** c'e' ancora, e va detto: la memoria (il vault), le procedure
-//! imparate, e le regole operative che il Python aggiunge al prompt a
-//! runtime. Il turno del demone oggi e' il giro nudo — chiedi, esegui,
-//! rileggi — con gli strumenti veri.
+//! Cosa c'e' e cosa no. Ci sono la **memoria** — il vault, con la stessa
+//! ricerca del Python fin dentro l'embedding — e le **procedure imparate**,
+//! tutte e due in coda alla domanda e non nel prompt di sistema. Non ci sono
+//! le regole operative che il Python aggiunge al prompt a runtime, e a fine
+//! turno il demone **non impara** ancora niente: memoria e procedure le
+//! legge, non le scrive.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -226,7 +228,18 @@ pub async fn fai_un_turno(
     // conversazione.
     s.gradini = gradini;
     s.misure = misure;
-    s.messaggi.push(json!({ "role": "user", "content": testo }));
+    // Quel che si sa gia' va **in coda alla domanda**, mai nel prompt di
+    // sistema: il messaggio numero zero e' la regione su cui i fornitori
+    // tengono la cache, e cambiarlo a ogni turno vuol dire rielaborare tutta
+    // la conversazione a ogni risposta.
+    //
+    // L'ordine — domanda, memoria, procedure — non e' scelto qui: sta in
+    // `nova_contesto::blocchi`, con scritto perche' l'istruzione resta
+    // l'ultima cosa letta.
+    let memoria = nova_contesto::blocchi::memoria(&server.memoria.contesto_per(testo, &cfg));
+    let procedure = crate::ricette::blocco_per(testo);
+    let contenuto = nova_contesto::blocchi::domanda(testo, &memoria, &procedure, "", "");
+    s.messaggi.push(json!({ "role": "user", "content": contenuto }));
 
     server
         .ctx

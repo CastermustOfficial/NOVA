@@ -22,6 +22,10 @@ pub struct Server {
     /// Le conversazioni aperte: il turno vive qui, non in un processo che
     /// nasce e muore a ogni messaggio.
     pub agente: crate::agente::Agente,
+    /// Il vault aperto. Uno solo per computer: due conversazioni leggono la
+    /// stessa memoria, e tenerne due copie vorrebbe dire rileggere mille
+    /// file per sapere la stessa cosa.
+    pub memoria: crate::memoria::Memoria,
     clients: AtomicUsize,
     spegnimento: Notify,
     chiuso: std::sync::atomic::AtomicBool,
@@ -34,6 +38,7 @@ impl Server {
             ctx,
             config,
             agente: crate::agente::Agente::default(),
+            memoria: crate::memoria::Memoria::default(),
             clients: AtomicUsize::new(0),
             spegnimento: Notify::new(),
             chiuso: std::sync::atomic::AtomicBool::new(false),
