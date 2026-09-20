@@ -2342,7 +2342,11 @@ codice, che e' il posto peggiore dove averli:
   col Python (D289). Il protocollo e' uscito dalla classe: ora il banco
   esegue quello vero.
 
-Crate attaccati: diciannove su trentacinque.
+Crate raggiunti dai binari pubblicati: **ventuno su trentacinque**. Il conto
+di prima — «diciassette, e diciotto morti» — seguiva le dipendenze da tre
+binari soli, e NOVA ne pubblica quindici: `nova-cartelle` e `nova-catalogo`
+hanno un binario loro e li chiama l'installatore. La correzione, e cosa ho
+sbagliato a misurare, stanno in `dove_ho_sbagliato.md`.
 
 
 ## Il cancello della beta

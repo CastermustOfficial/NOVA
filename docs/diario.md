@@ -9245,4 +9245,10 @@ in cui un banco gemello puo' mentire — quindi adesso il banco guarda anche
 cosa c'e' scritto dentro la busta, non solo che le due meta' scrivano lo
 stesso.
 
-Due crate dei sedici sono attaccati. Ne restano quattordici.
+Due crate sono attaccati. E il conto di quelli che restano era sbagliato:
+seguiva le dipendenze da tre binari, e NOVA ne pubblica quindici — c'e' un
+file apposta che li elenca, `core/binari.json`, e non mi e' venuto in mente
+mentre contavo. Rifatto da tutti e quindici: **ventuno raggiunti, quattordici
+no**. `nova-cartelle`, che stavo per attaccare, era gia' attaccato
+all'installatore. Sta in `dove_ho_sbagliato.md`, perche' il difetto non e' il
+numero: e' aver misurato una cosa e averne raccontata un'altra.
