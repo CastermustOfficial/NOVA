@@ -280,15 +280,31 @@ mod prove {
     mod tempo {
         pub struct Cartella(pub std::path::PathBuf);
         impl Cartella {
+            /// Un numero che non si ripete, e non l'orologio.
+            ///
+            /// Prima il nome della cartella veniva da `SystemTime::now()` in
+            /// nanosecondi. Su Linux due prove non prendono mai lo stesso
+            /// istante; su Windows l'orologio di sistema si muove a scatti di
+            /// una quindicina di millisecondi, e due prove che partono
+            /// insieme prendono **lo stesso nome** — poi la prima che
+            /// finisce cancella la cartella della seconda, che si ritrova il
+            /// suo `core.json` sparito da sotto e legge i predefiniti. La
+            /// prova che e' caduta diceva «`protected_paths` non tiene quel
+            /// che c'era», e la causa non c'entrava niente con la
+            /// configurazione.
+            fn prossimo() -> usize {
+                static CONTO: std::sync::atomic::AtomicUsize =
+                    std::sync::atomic::AtomicUsize::new(0);
+                CONTO.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            }
+
             pub fn nuova() -> Cartella {
                 let p = std::env::temp_dir().join(format!(
-                    "nova-core-config-{}-{:?}",
+                    "nova-core-config-{}-{}",
                     std::process::id(),
-                    std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap()
-                        .as_nanos()
+                    Self::prossimo()
                 ));
+                let _ = std::fs::remove_dir_all(&p);
                 std::fs::create_dir_all(&p).unwrap();
                 Cartella(p)
             }

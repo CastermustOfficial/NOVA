@@ -282,6 +282,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: core
+      # Il demone tira dentro `nova-voce`, e cpal parla ad ALSA: senza
+      # l'intestazione non si compila. Finche' qui si costruivano solo i
+      # banchi non serviva — nessuno di quelli arriva alla voce.
+      - name: Quel che serve da fuori
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

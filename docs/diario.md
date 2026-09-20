@@ -9373,3 +9373,52 @@ che non dipendesse dalla macchina.
 
 Tre crate attaccati, e uno nuovo che prima non c'era. Ne restano tredici, e
 chi sono lo dice una prova invece di una riga di diario che invecchia.
+
+## Tre rossi, e quello che mi hanno insegnato
+
+Il commit del terzo filo e' diventato rosso in tre posti, ed erano tre guasti
+diversi. Vale la pena scriverli tutti e tre, perche' solo uno era un errore
+di codice.
+
+**Windows: non compilava.** `GetTimeZoneInformation` esiste, ma
+`TIME_ZONE_ID_DAYLIGHT` in `windows-rs` non e' esportato — c'e' solo
+`TIME_ZONE_ID_INVALID`, e il valore giusto, 2, sta nella documentazione della
+funzione. Ho scritto un ramo `#[cfg(windows)]` e l'ho spedito senza
+compilarlo, il che e' come non averlo provato. E si poteva compilare qui:
+`rustup target add x86_64-pc-windows-msvc` e `cargo check -p nova-platform
+--target ...` danno lo stesso errore in meno di un minuto. Sta in
+`dove_ho_sbagliato.md`, con la regola per non rifarlo.
+
+**I gemelli: mancava ALSA.** Avevo chiesto a quel lavoro della CI di
+costruire anche `novad`, perche' la prova nuova accende il demone davvero. Il
+demone tira dentro `nova-voce`, e cpal parla ad ALSA: senza
+`libasound2-dev` non si compila. Non e' un difetto del codice, e' la regola
+che avevo gia' scritta nel documento della beta e non ho applicato:
+aggiungere un bersaglio a un lavoro vuol dire aggiungergli anche cio' che
+quel bersaglio si porta dietro.
+
+**macOS: una prova caduta che non c'entrava niente.** Questa e' la piu'
+istruttiva. Rossa `config::prove::le_guardie_di_fabbrica_tornano_dentro_tutte_e_due_le_liste`,
+su macOS e non su Linux, in un file che questo commit non ha toccato.
+
+Le cartelle di prova della configurazione si chiamavano
+`nova-core-config-<pid>-<nanosecondi>`. Su Linux due prove non prendono mai
+lo stesso istante. Su Windows l'orologio di sistema si muove a scatti di una
+quindicina di millisecondi, e su macOS le prove sono partite abbastanza
+vicine da bastare: due prove, **lo stesso nome**, e la prima che finisce
+cancella la cartella della seconda — che si ritrova il `core.json` sparito da
+sotto e legge i predefiniti. Il messaggio diceva «`protected_paths` non tiene
+quel che c'era», cioe' accusava esattamente la cosa che il primo filo aveva
+riparato.
+
+Quella corsa c'era gia' prima di oggi. Le nove prove nuove del registro hanno
+solo cambiato il momento in cui le altre partono, e l'hanno fatta uscire. Il
+nome adesso viene da un contatore, non dall'orologio: un contatore non si
+ripete per definizione, un orologio si ripete quando la macchina e' fatta in
+un altro modo.
+
+E' la terza volta in questo cantiere che un guasto si presenta come
+«qualcosa non c'entra niente»: il pid 0 che ammazzava la mia shell, il filtro
+che non filtrava, e adesso questo. Quando il messaggio accusa un pezzo che
+non hai toccato, la causa e' quasi sempre nel **contorno** — l'orologio, il
+filesystem, l'ordine — e non nel pezzo.

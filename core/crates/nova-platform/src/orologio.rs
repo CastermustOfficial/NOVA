@@ -34,14 +34,19 @@ pub fn fuso_secondi(istante: i64) -> i64 {
 
 #[cfg(windows)]
 pub fn fuso_secondi(_istante: i64) -> i64 {
-    use windows::Win32::System::Time::{
-        GetTimeZoneInformation, TIME_ZONE_ID_DAYLIGHT, TIME_ZONE_INFORMATION,
-    };
+    use windows::Win32::System::Time::{GetTimeZoneInformation, TIME_ZONE_INFORMATION};
+
+    /// Quel che risponde `GetTimeZoneInformation` quando e' in vigore l'ora
+    /// legale. E' scritto come numero perche' `windows-rs` esporta
+    /// `TIME_ZONE_ID_INVALID` e non gli altri due; il valore e' 2, e lo dice
+    /// la documentazione della funzione.
+    const ORA_LEGALE: u32 = 2;
+
     let mut z = TIME_ZONE_INFORMATION::default();
     // `Bias` e' quanti minuti bisogna **aggiungere** all'ora locale per
     // ottenere UTC: il segno e' al contrario di quello che serve qui.
     let quale = unsafe { GetTimeZoneInformation(&mut z) };
-    let dst = quale == TIME_ZONE_ID_DAYLIGHT;
+    let dst = quale == ORA_LEGALE;
     let extra = if dst { z.DaylightBias } else { z.StandardBias };
     -((z.Bias + extra) as i64) * 60
 }
