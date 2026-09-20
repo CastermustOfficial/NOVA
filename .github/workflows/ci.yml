@@ -295,12 +295,25 @@ jobs:
         shell: bash
         # I banchi si costruiscono in `release` perche' e' li' che le prove
         # Python li cercano - e perche' uno di loro macina centomila casi.
+        #
+        # **L'elenco lo dicono le prove stesse.** Ogni `test_*_rust.py` che
+        # non trova il suo binario stampa la riga esatta per costruirlo:
+        # `cargo build --release -p <crate>`. Si legge quella. Un elenco
+        # scritto a mano qui dentro dimenticherebbe la prova nuova, ed e'
+        # gia' successo al primo giro — due prove usano il binario del crate
+        # invece di un `banco-`, e restavano fuori (D229, D280).
         run: |
-          pacchetti=$(grep -l 'name = "banco-' crates/*/Cargo.toml \
+          chiesti=$(grep -ho '\-p [a-z0-9-]*' ../test_*_rust.py | sort -u | tr '\n' ' ')
+          echo "crate che le prove chiedono: $chiesti"
+          # Due passate e non una: `--features banco` su un crate che quella
+          # feature non ce l'ha non e' un avviso, e' un errore che ferma
+          # tutto. I crate col banco si costruiscono con la feature, gli
+          # altri senza.
+          col_banco=$(grep -l 'name = "banco-' crates/*/Cargo.toml \
                       | sed 's|crates/|-p |; s|/Cargo.toml||' | tr '\n' ' ')
-          echo "banchi: $pacchetti"
-          cargo build --release --features banco $pacchetti
-          ls target/release/banco-* | grep -v '\.d$' | wc -l
+          cargo build --release --features banco $col_banco
+          cargo build --release $chiesti
+          ls target/release/ | grep -E '^(banco-|nova-)' | grep -v '\.' | wc -l
       - name: I gemelli
         shell: bash
         env:
