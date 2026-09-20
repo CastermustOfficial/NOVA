@@ -739,6 +739,7 @@ nova/
   rotazione.py        nessun diario cresce per sempre: due MB, uno storico
   pianificazione.py   attivita' ricorrenti e sentinelle
   fascicolo.py        i fatti veri sull'utente: CV, esperienze, testi suoi
+  fogli.py            i fogli di calcolo: riferimenti, celle, come si rende
   harness.py          documenti e progetti: aprire, cercare, indicare
   harness_modifica.py proporre modifiche, e applicarle solo su richiesta
   harness_prova.py    i test del progetto: si applica se non peggiora

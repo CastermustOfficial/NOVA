@@ -1,0 +1,22 @@
+[package]
+name = "nova-fogli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "I fogli di calcolo: riferimenti, lettura e scrittura senza spogliare il file."
+
+[dependencies]
+# Scelta misurata sul banco, non letta nella documentazione (D239): regge il
+# giro leggi-tocca-riscrivi tenendo formule, formati, grassetti e fogli.
+umya-spreadsheet = "3.0"
+nova-componenti = { path = "../nova-componenti" }
+serde_json = { workspace = true }
+
+[features]
+banco = []
+
+[[bin]]
+name = "banco-fogli"
+path = "src/banco.rs"
+required-features = ["banco"]

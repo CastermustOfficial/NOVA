@@ -971,7 +971,7 @@ mole, non di difficolta'.
 | ~~CANT-7~~ | ~~**L'impalcatura**~~ — **fatto**: le guardie predefinite (D185); le **regole** di lettura della configurazione, provate da tutte e due le parti e con dentro quattro difetti in meno (D229, D248, D249, D250) — il crate e' `nova-configurazione`, col suo banco; la mappa dei dati e' `nova-dati` (D243, D244); il catalogo di cio' che si scarica e' `nova-componenti` (D245, D246, D247); la connessione a Chrome e' `nova-cdp`, ed era l'ultima scelta di libreria aperta di tutto il cantiere (D240, D241). `main.py` non si porta: i punti d'ingresso Rust ci sono gia' | ~1.800 | Non si porta: si **riscrive**, perche' meta' esiste solo per tenere insieme il Python. Andava per ultima fra quelle di sostanza, quando si sa cosa deve tenere insieme — e cosi' e' stato |
 | CANT-8 | **L'harness dei documenti** — *la strada e' scelta: **prima la logica, poi la finestra**. Le librerie sono provate (D237, D238, D239): `mupdf` per le posizioni nel PDF, `umya-spreadsheet` per i fogli, e per il `.docx` **nessuna libreria** — zip piu' una modifica chirurgica* | ~3.100, di cui **1.518 senza una riga di Qt** | Non e' «2.900 righe di finestra Qt»: solo `harness_finestra.py` tocca Qt, e di quelle 1.582 righe la parte Qt sono 164. `harness.py`, `harness_modifica.py`, `harness_prova.py` e `riparazione.py` si portano come qualunque altra cosa. La finestra e' un'altra domanda, e da quando il guscio e' Tauri con l'interfaccia in HTML, e' la domanda «una quarta finestra del guscio?» invece di «quali widget?» |
 | CANT-9 | **Mac e Linux, parita' piena** — *le prove Python girano in CI anche su Ubuntu e macOS, e sono **verdi** (D232). Il primo giro ha trovato cinque difetti che da Windows non si vedevano: una cartella che si spostava (D231), i percorsi protetti che fuori da Windows non proteggevano niente (D230), una prova che lasciava il mondo senza permessi (D233), una porta che chiedeva meta' di quel che serviva (D234) e una che misurava la velocita' della macchina (D235). Restano i tredici pezzi di `nova-platform` e l'avvio automatico* ~3.300 | Non e' in coda per caso: e' il primo cantiere che **non si puo' provare da qui**. Tutto il resto lo si vede su questa macchina; questo no, e la notte del 14 settembre ha mostrato cosa succede a scrivere codice che nessuna macchina diversa guarda mai. Va dopo il Rust perche' portare due volte le stesse cose - una in Python e una in Rust - e' l'unico modo garantito di finire con due comportamenti diversi |
-| CANT-10 | **I fogli di calcolo** — *la libreria e' scelta e provata: `umya-spreadsheet` regge il giro leggi-tocca-riscrivi tenendo formule, formati e fogli (D239)* | ~150 oggi | Il pubblico lo chiede, e oggi NOVA sa fare **meta' della meta'**: legge il testo delle celle di un `.xlsx`, in sola lettura, e non sa scrivere niente. Va dopo il Rust per la stessa ragione di CANT-9, e nasce direttamente come crate: un lettore-scrittore di fogli e' aritmetica e formati, cioe' esattamente il genere di cosa che si porta bene e si prova meglio |
+| ~~CANT-10~~ | ~~**I fogli di calcolo**~~ — **fatto**: `nova-fogli` legge **e** scrive. I riferimenti (`A1`, `$B$7`, `C10:A1` che e' la stessa area di `A1:C10`), la regola che decide se un valore e' un numero (D254), come si legge una cella con dentro un conto mai calcolato (D253), e la scrittura che non spoglia il file — formule, formati, grassetti e secondo foglio restano, provato su un `.xlsx` vero (D239, D255). Di riflesso, le due letture Python che davano due testi diversi dello stesso file sono diventate una (D256) | ~150 oggi | Il pubblico lo chiede, e NOVA sapeva fare **meta' della meta'**: leggeva il testo delle celle, in sola lettura. Nasceva direttamente come crate, ed e' andata cosi': aritmetica e formati, cioe' esattamente il genere di cosa che si porta bene e si prova meglio |
 | CANT-11 | **NOVA parla MCP da un lato solo** | ~400 | `nova-mcp` dice di se': «il protocollo con cui NOVA **si apre** a un altro programma». E' vero, ed e' meta': NOVA sa farsi usare e non sa usare. Ogni volta che qualcosa esiste gia' come server MCP — pilotare Excel, un gestionale, un servizio interno — la scelta e' fra riscriverlo e rinunciarci, quando la terza strada e' parlarci. Va dopo i fogli perche' e' un **cancello**, non uno strumento: un server MCP di qualcun altro descrive i propri strumenti con parole sue, e quelle parole finiscono nel prompt. Aprire quella porta senza decidere prima chi puo' entrare vorrebbe dire far scrivere a un estraneo dentro la testa di NOVA |
 | CANT-12 | **Le decisioni che oggi sono euristiche** | ~0 righe nuove, molte da togliere | NOVA decide un mucchio di cose con liste di parole, soglie e regex: quale cervello serve, se una frase e' un fatto da ricordare, se un risultato e' pertinente, se una chiamata e' rischiosa. Ognuna di quelle e' un giudizio travestito da conto. Restano cosi' non per scelta ma perche' l'alternativa costava un giro di LLM per ogni domanda, cioe' secondi e soldi. I **modelli System One** cambiano quel conto. Sta in fondo perche' e' un cantiere che si **prepara** adesso e si chiude quando ci sara' qualcosa da misurare: prima si danno un nome alle decisioni e un secondo braccio, poi si sceglie cosa spostare — e si sceglie con un banco, non con le cifre di chi vende |
 
@@ -2062,6 +2062,36 @@ sopravvissute valgono piu' delle sedici viste: sono le uniche che hanno detto
 qualcosa che non si sapeva gia'.
 
 Con questo pezzo CANT-7 e' chiuso.
+
+
+**CANT-10: i fogli, e la cella che si leggeva vuota.** NOVA sapeva fare meta'
+della meta': leggeva il testo delle celle di un `.xlsx`, in sola lettura, e
+non sapeva scrivere niente. `nova-fogli` e' il resto — con la libreria gia'
+scelta misurando invece che leggendo la documentazione (D239).
+
+La cosa che non mi aspettavo e' che la meta' che gia' c'era fosse rotta. Un
+`.xlsx` porta, per ogni cella con una formula, due cose: la formula, e il
+risultato dell'ultima volta che qualcuno l'ha calcolata. Nessuna libreria
+calcola niente — ne' `openpyxl` ne' `umya` — e quella cache e' **vuota in
+ogni file generato da un programma** invece che da Excel. Cioe' NOVA, davanti
+a un foglio scritto da un'altra macchina, leggeva celle vuote proprio dove
+stanno i totali, e non aveva modo di saperlo: `data_only=True` restituisce
+`None`, e `None` diventava la stringa vuota come una cella davvero vuota
+(D253).
+
+La decisione piu' delicata del cantiere invece e' la scrittura, ed e' una
+sola: **quando un valore e' un numero**. Scrivere in una cella il testo che
+un modello ha prodotto vuol dire deciderlo per ogni valore, e sbagliare e'
+silenzioso in tutti e due i versi — `007` che diventa `7`, un IBAN di sedici
+cifre che torna indietro arrotondato, contro un prezzo scritto come testo che
+da' un totale che non somma. Tre danni invisibili contro uno visibile: si
+sceglie quello visibile (D254).
+
+Per contorno, portare le regole in Rust ha mostrato che in Python ce n'erano
+due copie — lo strumento e il fascicolo, con due separatori, due limiti e due
+idee di riga vuota (D256). E la CI ha trovato una prova di `nova-componenti`
+verde qui e rossa su Windows: il codice andava su tutti e due i sistemi, la
+prova era scritta per uno solo (D257).
 
 ## Il cancello della beta
 

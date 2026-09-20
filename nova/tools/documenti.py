@@ -1,4 +1,4 @@
-"""Leggere documenti che non sono testo semplice.
+﻿"""Leggere documenti che non sono testo semplice.
 
 NOVA sapeva aprire un .txt e non una fattura in PDF: e' la lacuna che si
 incontra prima di tutte, perche' i documenti che contano sul computer di
@@ -100,30 +100,27 @@ def _docx(p: Path) -> str:
 
 
 def _xlsx(p: Path, foglio: str) -> str:
+    """Il contenuto di un foglio di calcolo, come testo.
+
+    Le regole — cosa si legge di una cella, come si rende una riga, dove ci
+    si ferma — stanno in `nova/fogli.py`, che le divide con il fascicolo e
+    col gemello Rust. Stavano qui e li' in due copie, con due separatori e
+    due limiti, e due letture dello stesso file davano due testi diversi.
+    """
     try:
-        import openpyxl
+        import openpyxl  # noqa: F401
     except ImportError:
         raise ToolError("per i fogli di calcolo serve openpyxl: pip install openpyxl")
-    # data_only: interessa il risultato, non la formula che lo produce.
-    wb = openpyxl.load_workbook(str(p), data_only=True, read_only=True)
-    nomi = wb.sheetnames
-    da_leggere = [foglio] if foglio else nomi
+    from .. import fogli as F
+    nomi = F.nomi_dei_fogli(p)
     if foglio and foglio not in nomi:
-        raise ToolError(f"in questo file non c'e' un foglio «{foglio}». Ci sono: {', '.join(nomi)}")
+        raise ToolError(F.foglio_che_non_ce(foglio, nomi))
+    da_leggere = [foglio] if foglio else nomi
     pezzi = []
     for nome in da_leggere:
-        ws = wb[nome]
-        righe = []
-        for r in ws.iter_rows(values_only=True):
-            celle = ["" if c is None else str(c) for c in r]
-            if any(c.strip() for c in celle):
-                righe.append(" | ".join(celle))
-            if len(righe) > 500:
-                righe.append("[...foglio troncato a 500 righe]")
-                break
-        if righe:
-            pezzi.append(f"--- foglio «{nome}» ---\n" + "\n".join(righe))
-    wb.close()
+        reso = F.rendi(nome, F.righe_di(p, nome))
+        if reso:
+            pezzi.append(reso)
     if not pezzi:
         raise ToolError(f"{p.name} e' vuoto")
     return _taglia("\n\n".join(pezzi))

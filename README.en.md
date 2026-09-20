@@ -749,6 +749,7 @@ nova/
   rotazione.py        no journal grows forever: two MB, one file of history
   pianificazione.py   recurring tasks and sentinels
   fascicolo.py        the true facts about the user: CV, experience, own texts
+  fogli.py            i fogli di calcolo: riferimenti, celle, come si rende
   harness.py          documents and projects: open, search, point at
   harness_modifica.py propose changes, and apply them only on request
   harness_prova.py    the project's tests: apply only if it doesn't worsen

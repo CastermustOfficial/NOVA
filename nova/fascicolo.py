@@ -112,17 +112,16 @@ def _da_docx(f: Path) -> str:
 
 
 def _da_xlsx(f: Path, righe_max: int = 300) -> str:
-    import openpyxl
-    w = openpyxl.load_workbook(str(f), data_only=True, read_only=True)
-    fuori = []
-    for foglio in w.worksheets:
-        fuori.append(f"# {foglio.title}")
-        for i, riga in enumerate(foglio.iter_rows(values_only=True)):
-            if i >= righe_max:
-                fuori.append("[...]")
-                break
-            fuori.append("\t".join("" if v is None else str(v) for v in riga))
-    return "\n".join(fuori)
+    """Il fascicolo legge i fogli con le stesse regole dello strumento.
+
+    Prima no: separatore diverso, limite diverso, e una cella con dentro un
+    conto mai calcolato che qui spariva del tutto (D253).
+    """
+    from . import fogli as F
+    come = F.Come(separatore="\t", righe_max=righe_max, salta_vuote=False)
+    pezzi = [F.rendi(nome, F.righe_di(f, nome, righe_max), come)
+             for nome in F.nomi_dei_fogli(f)]
+    return "\n".join(x for x in pezzi if x)
 
 
 def leggi(nome: str, caratteri: int = 8000) -> dict:

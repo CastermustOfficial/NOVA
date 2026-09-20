@@ -8413,3 +8413,70 @@ Centotrentuno confronti verdi, ventitre' prove di unita', diciotto mutazioni
 su diciotto. E CANT-7 e' chiuso: guardie, configurazione, dati, componenti,
 connessione a Chrome. `main.py` non si porta — i punti d'ingresso Rust ci
 sono gia'.
+
+
+## I fogli di calcolo, e una cella che si leggeva vuota
+
+CANT-10. NOVA sapeva fare meta' della meta': leggeva il testo delle celle di
+un `.xlsx`, in sola lettura, e non sapeva scrivere niente. La libreria era
+gia' scelta — `umya-spreadsheet`, misurata sul banco dei documenti e non
+scelta leggendo la documentazione (D239) — quindi la parte difficile non era
+quella.
+
+**La meta' che c'era gia' era rotta.** Un `.xlsx` porta, per ogni cella con
+una formula, due cose: la formula, e il risultato dell'ultima volta che
+qualcuno l'ha calcolata. Nessuna libreria calcola niente: leggono la cache. E
+la cache e' vuota in **ogni file generato da un programma** invece che da
+Excel — glielo ho chiesto a `openpyxl` costruendo un foglio con `=SUM(A1:A2)`
+dentro, e con `data_only=True` quella cella torna `None`.
+
+`None` diventava la stringa vuota. Cioe' NOVA, davanti a un bilancio
+generato da un gestionale, leggeva celle vuote proprio dove stanno i totali,
+e non aveva un modo al mondo di accorgersene: non c'era un errore, non c'era
+una differenza visibile fra «qui non c'e' niente» e «qui c'e' un conto che
+nessuno ha mai eseguito». Adesso, se il risultato non c'e' e una formula c'e',
+si legge la formula con l'uguale davanti: brutto e vero, invece che pulito e
+falso (D253).
+
+**La decisione del cantiere e' una sola: quando un valore e' un numero.**
+Scrivere in una cella quel che un modello ha prodotto vuol dire deciderlo per
+ogni valore, e sbagliare e' silenzioso in tutti e due i versi. Scritto come
+numero: `007` diventa `7`, `+39 02 1234` diventa un conto, un numero d'ordine
+di sedici cifre torna indietro arrotondato — oltre 2^53 un intero non ci sta
+esatto in un `f64`. Scritto come testo: il totale in fondo non somma.
+
+Tre danni invisibili contro uno visibile, e si sceglie quello visibile. La
+regola e' «un numero si scrive come numero solo quando scriverlo come numero
+non lo cambia», piu' l'apostrofo di Excel per chi vuole decidere da se'.
+`1.50` resta un numero: gli zeri in coda dopo la virgola sono un formato, non
+un altro valore (D254).
+
+E la scrittura non tocca il file al suo posto. `umya` riscrive tutto
+l'archivio, quindi una scrittura interrotta a meta' lascerebbe al posto del
+bilancio di qualcuno uno zip troncato che ha ancora il nome giusto: si scrive
+`.parte` di fianco e si rinomina, come per il vault e per la configurazione.
+Scrivere su un foglio che non c'e' e' un errore e non un invito a crearlo —
+`conti` invece di `Conti` produrrebbe un secondo foglio vuoto accanto a
+quello vero, e il totale in fondo continuerebbe a non vedere niente (D255).
+
+**Per contorno, due cose.** Le regole di lettura in Python erano in due
+copie — lo strumento e il fascicolo — con due separatori, due limiti di righe
+e due idee di riga vuota. Adesso stanno in `nova/fogli.py` e le usano tutti e
+due (D256).
+
+E la CI ha fatto il suo mestiere: `nova-componenti` aveva una prova verde qui
+e rossa su Windows. Il codice usa `join`, che su Windows mette il backslash,
+e il finto disco della prova confrontava stringhe scritte con le barre in
+avanti. Il difetto non era nel codice: era nella prova, ed e' lo stesso
+inciampo che aveva gia' preso `nova-cartelle`. Una prova scritta per un
+sistema solo e' una rete tesa dove i pesci non passano (D257).
+
+**E una cosa su come provo.** Il copione delle mutazioni e' stato ucciso da
+un timeout mentre il file era mutato, e il giro dopo ha preso quel file come
+se fosse buono. Se ne e' accorto `cargo test` in un secondo, ma e' fortuna:
+un copione che puo' lasciare il sorgente mutato e' un copione che puo' far
+finire una mutazione dentro un commit. Adesso lascia una copia intatta e un
+segno, e se trova il segno rimette tutto prima di cominciare.
+
+Centouno confronti verdi, quattordici prove di unita', venti mutazioni su
+venti. CANT-10 e' chiuso.
