@@ -261,3 +261,74 @@ jobs:
           exit 0
           verdi=$(grep -E '^test result: ok\.' /tmp/prove.log | sed -E 's/^test result: ok\. ([0-9]+) passed.*/\1/' | awk '{s+=$1} END {print s+0}')
           echo "riepilogo: $verdi prove verdi su ${{ matrix.sistema }}"
+  # I gemelli, che fino a oggi su questa CI non hanno mai girato.
+  #
+  # Ventuno prove `test_*_rust.py` mettono la meta' Python e la meta' Rust una
+  # di fronte all'altra. Escono 2 — «non provabile qui» — quando il banco non
+  # e' costruito, e nessun lavoro lo costruiva: quindi su ogni push quelle
+  # ventuno dicevano «saltata» e nessuno le eseguiva mai, tranne chi le
+  # lanciava a mano sulla propria macchina. Un metodo intero che riposava su
+  # una persona che si ricorda.
+  #
+  # Questo lavoro le costruisce e le esegue. E il primo giro ha gia' detto
+  # qualcosa: il proiettore multimodale si cercava con `glob`, che su Windows
+  # non distingue le maiuscole e su Linux si' — quindi un `MMPROJ-F16.GGUF`
+  # non si trovava, e NOVA restava cieca senza dirlo (D279).
+  gemelli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Dipendenze
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Costruisco i banchi
+        working-directory: core
+        shell: bash
+        # I banchi si costruiscono in `release` perche' e' li' che le prove
+        # Python li cercano - e perche' uno di loro macina centomila casi.
+        run: |
+          pacchetti=$(grep -l 'name = "banco-' crates/*/Cargo.toml \
+                      | sed 's|crates/|-p |; s|/Cargo.toml||' | tr '\n' ' ')
+          echo "banchi: $pacchetti"
+          cargo build --release --features banco $pacchetti
+          ls target/release/banco-* | grep -v '\.d$' | wc -l
+      - name: I gemelli
+        shell: bash
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          falliti=()
+          saltate=()
+          for f in test_*_rust.py; do
+            uscita=$(python "$f" 2>&1)
+            codice=$?
+            echo "$uscita"
+            if [ "$codice" -eq 2 ]; then
+              saltate+=("$f")
+            elif [ "$codice" -ne 0 ]; then
+              falliti+=("$f")
+              coda=$(echo "$uscita" | tail -12 | tr '\n' '/')
+              echo "::error::$f: $coda"
+            fi
+          done
+          quante=$(ls test_*_rust.py | wc -l)
+          echo "riepilogo: $((quante - ${#falliti[@]} - ${#saltate[@]})) gemelli verdi, ${#falliti[@]} rossi, ${#saltate[@]} non provabili su $quante"
+          # Qui «saltata» vuol dire che il banco serve una macchina vera - un
+          # Chrome acceso, un server MCP - non che non e' stato costruito.
+          if [ ${#saltate[@]} -gt 0 ]; then
+            echo "::notice::gemelli saltati (serve una macchina vera): ${saltate[*]}"
+          fi
+          if [ ${#falliti[@]} -gt 0 ]; then
+            echo "::error::gemelli rossi: ${falliti[*]}"
+            exit 1
+          fi
+          exit 0
