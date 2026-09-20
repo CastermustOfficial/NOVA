@@ -11,7 +11,10 @@ use clap::Parser;
 use nova_core::{avvia_servizi, build, Config};
 
 #[derive(Parser, Debug)]
-#[command(name = "novad", about = "Il demone di NOVA: bus, capacita', supervisione, RPC locale.")]
+#[command(
+    name = "novad",
+    about = "Il demone di NOVA: bus, capacita', supervisione, RPC locale."
+)]
 struct Args {
     /// Endpoint su cui ascoltare (named pipe su Windows, socket unix altrove).
     #[arg(long)]
@@ -48,6 +51,16 @@ async fn main() -> Result<()> {
         )
         .with_target(false)
         .init();
+
+    // Quel che la lettura ha da dire si dice **adesso**, non dentro
+    // `Config::load()`: li' l'avviso usciva prima che il logger esistesse, e
+    // non lo leggeva nessuno (D286). Sullo schermo e nel registro, perche'
+    // chi accende il demone a mano guarda lo schermo e chi lo trova acceso
+    // domani guarda il registro.
+    for riga in config.da_raccontare() {
+        eprintln!("[config] {riga}");
+        tracing::warn!("{riga}");
+    }
 
     if args.init {
         let p = config.save()?;

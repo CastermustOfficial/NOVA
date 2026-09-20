@@ -295,6 +295,13 @@ ALTROVE = {
 #: dichiarazione, non una scappatoia: chi legge sa che quella riga non ha
 #: nessuno che la controlli dall'altra parte.
 SENZA_GEMELLO: dict[str, str] = {
+    # La configurazione del demone e' un file suo (`core.json`), con uno
+    # schema suo: in Python non esiste niente da confrontare. Le **regole**
+    # di lettura pero' sono le stesse — vengono da `nova-configurazione`, e
+    # quelle il banco le confronta gia'. Qui restano solo i nomi dei campi,
+    # che sono di quel file e di nessun altro.
+    "GUARDIE": "sono i campi del core.json del demone, che in Python non c'e'",
+    "SENZA_QUESTI_NON_PARTE": "come sopra",
     # Le forme che, dentro la descrizione di uno strumento altrui, danno un
     # ordine invece di descrivere. In Python non c'e' niente da confrontare:
     # il cliente MCP esiste solo in Rust, ed e' nato dopo che il Python aveva

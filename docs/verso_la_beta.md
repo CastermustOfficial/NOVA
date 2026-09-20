@@ -2285,6 +2285,31 @@ Resta un buco che nessuno dei due copre — FILTER, UNIQUE e SORT — e non e'
 un difetto delle librerie: quelle formule, scritte da fuori, non sono un
 foglio valido finche' Excel non le apre.
 
+
+**Il primo filo: il demone legge la sua configurazione con le regole di
+NOVA.** Trentacinque crate, e il demone ne raggiungeva diciassette: gli altri
+erano decisioni portate e provate che non eseguiva nessuno. Questo e' il
+primo attaccato, ed e' stato scelto perche' e' piccolo — e perche' aprendolo
+si vedeva subito che non era solo un collegamento da fare.
+
+`nova-core::config` leggeva cosi': `serde_json::from_str(...).unwrap_or_default()`.
+Tre cose, tutte e tre silenziose.
+
+Un campo solo scritto male faceva perdere **tutto** il file. E tornare ai
+predefiniti li' vuol dire `write_roots` vuoto, cioe' il confinamento delle
+scritture che sparisce — per un campo che non c'entrava niente (D285).
+`protected_paths` si lasciava sostituire da un file salvato, mentre
+`forbidden_commands` si univa gia' ai predefiniti: due guardie nello stesso
+file con due comportamenti diversi. E l'unico avviso che diceva «ho ignorato
+la tua configurazione» era un `tracing::warn!` emesso **prima** che il logger
+esistesse — obbligatoriamente, perche' il livello del log sta nella
+configurazione. Non lo leggeva nessuno, mai (D286).
+
+Adesso le regole sono quelle di `nova-configurazione`, le stesse che la prova
+gemella tiene allineate col Python. Cambiano i nomi dei campi e una cosa sola
+di sostanza: un valore di un tipo che la fabbrica non ha resta fuori, perche'
+chi legge dentro una struttura tipata non puo' permetterselo (D284).
+
 ## Il cancello della beta
 
 Non e' una data, sono cinque frasi che devono essere vere insieme:

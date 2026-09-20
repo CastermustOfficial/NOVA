@@ -12,6 +12,10 @@ nova-platform = { path = "../nova-platform" }
 # qui dentro. nova-core e' l'unico che conosce tutti e due i lati: chi
 # chiede e chi sa fare (D130).
 nova-strumenti = { path = "../nova-strumenti" }
+# Le regole con cui un file salvato si applica sopra i valori di fabbrica.
+# Erano scritte due volte — una in `nova/config.py` e una qui, piu' povera —
+# e quella qui perdeva tutto il file per un campo storto.
+nova-configurazione = { path = "../nova-configurazione" }
 nova-voce = { path = "../nova-voce" }
 # La decisione di cosa fare quando il modello non parte sta li', confrontata
 # col Python da un banco (D213). Qui c'e' solo il braccio che la esegue.
