@@ -2824,11 +2824,14 @@ dependencies = [
  "nova-configurazione",
  "nova-contesto",
  "nova-mcp",
+ "nova-memoria",
  "nova-modelli",
+ "nova-nodi",
  "nova-platform",
  "nova-potatura",
  "nova-proto",
  "nova-registro",
+ "nova-ricette",
  "nova-scala",
  "nova-strumenti",
  "nova-voce",
@@ -2905,6 +2908,7 @@ dependencies = [
 name = "nova-memoria"
 version = "0.1.1"
 dependencies = [
+ "md-5",
  "serde",
  "serde_json",
 ]

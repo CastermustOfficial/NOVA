@@ -48,6 +48,11 @@ struct Dentro {
     /// altrove.
     #[serde(default)]
     scelte: Vec<ScenarioScelta>,
+    /// Testi da trasformare in vettore. E' la meta' che decide **quali
+    /// ricordi** entrano nel contesto, e il vettore da solo non si legge:
+    /// o si confronta numero per numero, o non lo guarda nessuno.
+    #[serde(default)]
+    da_vettorizzare: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -101,6 +106,7 @@ struct Fuori {
     coseni: Vec<f64>,
     tagli: Vec<String>,
     scelte: Vec<EsitoScelta>,
+    vettorizzati: Vec<Vec<f64>>,
 }
 
 /// Lo stesso ordine della libreria, non uno riscritto qui.
@@ -210,6 +216,11 @@ fn main() {
                     espansi_da_grafo: r.espansi_da_grafo,
                 }
             })
+            .collect(),
+        vettorizzati: dentro
+            .da_vettorizzare
+            .iter()
+            .map(|t| nova_memoria::vettore::vettore(t))
             .collect(),
     };
     match serde_json::to_string(&fuori) {

@@ -105,10 +105,27 @@ threading.Thread(target=server_finto.serve_forever, daemon=True).start()
 # ------------------------------------------------------ la configurazione
 casa = tempfile.mkdtemp(prefix="nova-turno-")
 (Path(casa) / "NOVA").mkdir(parents=True, exist_ok=True)
+# Un vault con due note: il turno deve ritrovare quella giusta e metterla in
+# coda alla domanda, con la stessa ricerca del Python — BM25, embedding di
+# casa, fusione, scelta.
+vault = Path(casa) / "vault"
+vault.mkdir(parents=True, exist_ok=True)
+(vault / "posta.md").write_text(
+    "---\ntitle: Come guardo la posta\ntipo: abitudine\nconfidenza: 0.9\n"
+    "tags: posta\naggiornato: 2026-09-01\n---\n\n"
+    "Ogni mattina apro Gmail e leggo le non lette. "
+    "La posta di lavoro sta in un altro account.\n", encoding="utf-8")
+(vault / "carbonara.md").write_text(
+    "---\ntitle: Carbonara\ntipo: fatto\nconfidenza: 0.8\n"
+    "tags: cucina\naggiornato: 2026-08-01\n---\n\n"
+    "Guanciale, uovo, pecorino. Niente panna.\n", encoding="utf-8")
+
 (Path(casa) / "NOVA" / "config.json").write_text(json.dumps({
     "system_prompt": "Sei NOVA di prova. Utente: {user}.",
     "server": {"host": "127.0.0.1", "port": porta},
     "model": {"max_tool_iterations": 4},
+    "kb": {"vault_path": str(vault), "top_k": 5, "max_context_chars": 2600,
+           "min_confidence": 0.25},
     "brains": {
         "active": "locale",
         "routing": {
@@ -118,6 +135,24 @@ casa = tempfile.mkdtemp(prefix="nova-turno-")
         },
     },
 }, ensure_ascii=False), encoding="utf-8")
+
+# Una procedura gia' imparata: il turno deve ripescarla e metterla in coda
+# alla domanda, con lo stesso giudizio di somiglianza del Python.
+import nova.ricette as _ric                                      # noqa: E402
+
+PROCEDURA = {
+    "id": "abc123",
+    "titolo": "Controllo posta Gmail",
+    "procedura": "apri il browser su gmail e leggi le ultime tre",
+    "parole": _ric._parole("controlla la posta su gmail"),
+    "parole_passi": _ric._parole("apri browser gmail leggi ultime"),
+    "parole_alias": [],
+    "strumenti": ["web_apri"],
+    "usata": 4,
+    "ultimo_uso": 1788000000.0,
+}
+(Path(casa) / "NOVA" / "ricette.json").write_text(
+    json.dumps([PROCEDURA], ensure_ascii=False), encoding="utf-8")
 
 endpoint = (rf"\\.\pipe\nova-turno-{os.getpid()}" if os.name == "nt"
             else str(Path(casa) / "nova.sock"))
@@ -190,14 +225,74 @@ try:
     controlla("con i segnaposto sostituiti",
               "{user}" not in sistema.get("content", ""), sistema.get("content", ""))
 
-    print("\n5. la conversazione resta fra un turno e l'altro")
+    print("\n5. quel che ha gia' imparato torna in coda alla domanda")
+    with CoreClient(endpoint, timeout=60) as c:
+        c.request("agente/turno", {"testo": "controlla la posta su gmail",
+                                   "sessione": "procedure"})
+    domanda_procedure = [m for m in ricevute[-2]["messages"] if m.get("role") == "user"][-1]
+    testo_domanda = domanda_procedure.get("content", "")
+    controlla("la procedura simile e' stata ripescata",
+              "<gia_fatto>" in testo_domanda and "Controllo posta Gmail" in testo_domanda,
+              testo_domanda[:200])
+    controlla("con il tono dell'appunto, non dell'ordine",
+              "PROPOSTE" in testo_domanda and "Scarta senza pensarci" in testo_domanda,
+              testo_domanda[:200])
+    controlla("e il blocco sta in coda alla domanda, non nel prompt di sistema",
+              testo_domanda.startswith("controlla la posta su gmail")
+              and "<gia_fatto>" not in ricevute[-2]["messages"][0].get("content", ""),
+              testo_domanda[:80])
+
+    # E quello che il Python direbbe per la stessa domanda, parola per parola.
+    prima = os.environ.get("APPDATA")
+    os.environ["APPDATA"] = casa
+    try:
+        import importlib
+        importlib.reload(_ric)
+        atteso = _ric.blocco("controlla la posta su gmail")
+    finally:
+        if prima is None:
+            os.environ.pop("APPDATA", None)
+        else:
+            os.environ["APPDATA"] = prima
+        importlib.reload(_ric)
+    # Il blocco delle procedure e' l'ultima cosa del messaggio — davanti puo'
+    # esserci quello della memoria — e dev'essere identico a quello che il
+    # Python comporrebbe per la stessa domanda.
+    controlla("e dice esattamente quello che direbbe il Python",
+              testo_domanda.endswith(atteso) and bool(atteso),
+              f"rust {testo_domanda[-120:]!r} vs python {atteso[-120:]!r}")
+
+    print("\n6. e quel che sa gia' arriva dalla memoria")
+    with CoreClient(endpoint, timeout=60) as c:
+        c.request("agente/turno", {"testo": "come guardo la posta",
+                                   "sessione": "memoria"})
+    domanda_memoria = [m for m in ricevute[-2]["messages"] if m.get("role") == "user"][-1]
+    testo_memoria = domanda_memoria.get("content", "")
+    controlla("la nota giusta e' nel contesto",
+              "<memoria>" in testo_memoria and "Gmail" in testo_memoria,
+              testo_memoria[:200])
+    controlla("e quella che non c'entra no",
+              "Guanciale" not in testo_memoria, testo_memoria[:300])
+
+    # E quello che il Python troverebbe per la stessa domanda, parola per
+    # parola: la ricerca e' la stessa fin dentro l'embedding.
+    from nova.kb.store import Vault                                # noqa: E402
+    from nova.kb.retrieval import KBEngine                         # noqa: E402
+    motore = KBEngine(Vault(str(vault)))
+    atteso_memoria = motore.contesto_per("come guardo la posta", top_k=5)
+    dentro_tag = testo_memoria.split("<memoria>\n", 1)[-1].rsplit("\n</memoria>", 1)[0]
+    controlla("e dice esattamente quello che direbbe il Python",
+              dentro_tag.endswith(atteso_memoria) and bool(atteso_memoria),
+              f"rust {dentro_tag[-120:]!r} vs python {atteso_memoria[-120:]!r}")
+
+    print("\n7. la conversazione resta fra un turno e l'altro")
     controlla("il secondo turno vede il primo",
               r2.get("righe_conversazione", 0) > r.get("righe_conversazione", 0),
               f"{r.get('righe_conversazione')} -> {r2.get('righe_conversazione')}")
     controlla("la sessione e' quella predefinita",
               sessioni.get("aperte") == ["principale"], str(sessioni))
     controlla("e si puo' buttare", dimenticata.get("dimenticata") is True, str(dimenticata))
-    print("\n6. e si puo' chiedere dalla riga di comando")
+    print("\n8. e si puo' chiedere dalla riga di comando")
     nome_cli = "nova.exe" if os.name == "nt" else "nova"
     cli = next((p for p in (RADICE / "core" / "target" / "release" / nome_cli,
                             RADICE / "core" / "target" / "debug" / nome_cli)
