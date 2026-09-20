@@ -552,3 +552,36 @@ portando lo stesso codice in Rust: il gemello aveva un campo `errore` che
 nessuno usava, me ne sono chiesto il perche', e sono andato a guardare chi
 usava quello Python. Portare una cosa in un'altra lingua e' finora il modo
 piu' affidabile che ho di rileggere davvero quello che ho gia' scritto.
+
+## Ho contato i crate morti guardando una porta sola
+
+«Iniziamo dal filo» e' cominciato con un conto: trentacinque crate, il demone
+ne raggiunge diciassette, quindi diciotto non li esegue nessuno. Quel conto
+l'ho scritto nel diario, nel documento della beta e in due messaggi di
+commit.
+
+Era sbagliato, e per un motivo che avrei dovuto vedere subito: ho seguito le
+dipendenze a partire da **tre** binari — il demone, la riga di comando, il
+guscio — e ho chiamato «morto» tutto il resto. Ma NOVA pubblica quindici
+eseguibili, e sono scritti in un file apposta, `core/binari.json`, che esiste
+proprio perche' quell'elenco stava sparso in tre posti e si disallineava.
+L'ho letto e l'ho usato piu' volte; non mi e' venuto in mente mentre
+contavo.
+
+Rifatto il conto da tutti e quindici: **ventuno raggiunti, quattordici no**.
+`nova-cartelle` e `nova-catalogo`, che avevo messo fra i morti, hanno un
+binario loro e li chiama l'installatore — c'e' scritto nella prima riga del
+loro banco, «lo chiama l'installatore al posto di `python -c`».
+
+Cosa ne porto via. Il difetto non e' il numero: e' che ho misurato una cosa
+(«chi raggiunge il demone») e l'ho raccontata come un'altra («chi esegue
+qualcosa»), senza dire quale delle due stavo guardando. Se avessi scritto la
+domanda per intero — «raggiungibile **da quali** binari?» — la risposta
+avrebbe avuto bisogno dell'elenco dei binari, e l'elenco dei binari esiste.
+Un conto senza il suo metodo scritto accanto e' un'opinione con dentro una
+cifra.
+
+E vale la pena notare da dove e' saltato fuori: non da una prova, ma dal
+crate dopo. Cercando dove attaccare `nova-cartelle` ho trovato che era gia'
+attaccato. Il lavoro di attaccare i crate sta correggendo il conto che l'ha
+fatto cominciare.
