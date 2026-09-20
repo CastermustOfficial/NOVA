@@ -1,0 +1,5 @@
+# I fogli si costruiscono con `prepara.py`: tenerli nel progetto vorrebbe
+# dire versionare degli zip binari che cambiano a ogni giro.
+fogli/
+target/
+Cargo.lock
