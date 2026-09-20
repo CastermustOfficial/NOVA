@@ -313,8 +313,13 @@ jobs:
                       | sed 's|crates/|-p |; s|/Cargo.toml||' | tr '\n' ' ')
           cargo build --release --features banco $col_banco
           cargo build --release $chiesti
-          ls target/release/ | grep -E '^(banco-|nova-)' | grep -v '\.' | wc -l
-      - name: I gemelli
+          # E il demone: `test_demone_*.py` lo accende davvero e gli parla.
+          # Senza, quelle prove escono 2 — «non provabile qui» — e la cosa
+          # che provano (il demone scrive nel registro di NOVA, e NOVA la
+          # rilegge) non la guarderebbe nessuna macchina.
+          cargo build --release --bin novad
+          ls target/release/ | grep -E '^(banco-|nova|novad)' | grep -v '\.' | wc -l
+      - name: I gemelli, e il demone acceso
         shell: bash
         env:
           QT_QPA_PLATFORM: offscreen
@@ -326,7 +331,7 @@ jobs:
           set +e
           falliti=()
           saltate=()
-          for f in test_*_rust.py; do
+          for f in test_*_rust.py test_demone_*.py; do
             uscita=$(python "$f" 2>&1)
             codice=$?
             echo "$uscita"
@@ -338,7 +343,7 @@ jobs:
               echo "::error::$f: $coda"
             fi
           done
-          quante=$(ls test_*_rust.py | wc -l)
+          quante=$(ls test_*_rust.py test_demone_*.py | wc -l)
           echo "riepilogo: $((quante - ${#falliti[@]} - ${#saltate[@]})) gemelli verdi, ${#falliti[@]} rossi, ${#saltate[@]} non provabili su $quante"
           # Qui «saltata» vuol dire che il banco serve una macchina vera - un
           # Chrome acceso, un server MCP - non che non e' stato costruito.

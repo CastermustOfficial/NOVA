@@ -2818,6 +2818,7 @@ version = "0.1.1"
 dependencies = [
  "anyhow",
  "async-trait",
+ "nova-calendario",
  "nova-cervelli",
  "nova-ciclo",
  "nova-configurazione",
@@ -2825,7 +2826,9 @@ dependencies = [
  "nova-mcp",
  "nova-modelli",
  "nova-platform",
+ "nova-potatura",
  "nova-proto",
+ "nova-registro",
  "nova-scala",
  "nova-strumenti",
  "nova-voce",
@@ -2885,6 +2888,7 @@ dependencies = [
 name = "nova-mcp"
 version = "0.1.1"
 dependencies = [
+ "nova-pitone",
  "serde",
  "serde_json",
 ]
@@ -2918,6 +2922,7 @@ name = "nova-nodi"
 version = "0.1.1"
 dependencies = [
  "nova-guasti",
+ "nova-potatura",
  "serde",
  "serde_json",
 ]
@@ -2934,6 +2939,9 @@ dependencies = [
 [[package]]
 name = "nova-pitone"
 version = "0.1.1"
+dependencies = [
+ "serde_json",
+]
 
 [[package]]
 name = "nova-platform"
@@ -2948,6 +2956,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "nova-potatura"
+version = "0.1.1"
+
+[[package]]
 name = "nova-proto"
 version = "0.1.1"
 dependencies = [
@@ -2960,6 +2972,8 @@ name = "nova-registro"
 version = "0.1.1"
 dependencies = [
  "nova-calendario",
+ "nova-guasti",
+ "nova-pitone",
  "serde",
  "serde_json",
 ]

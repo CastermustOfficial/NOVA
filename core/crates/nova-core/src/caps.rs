@@ -297,6 +297,20 @@ impl Capability for FsWriteCap {
         } else {
             format!("creato {}", path.to_string_lossy())
         };
+        // Quel che si annulla sta nel giornale e basta: e' l'altra domanda,
+        // «come si torna indietro», e si risponde da sola. Quel che **non**
+        // si annulla e' precisamente la materia del registro delle azioni:
+        // qui dentro finisce una scrittura di cui non si e' potuta tenere la
+        // copia di prima, cioe' un file dell'utente sovrascritto per sempre.
+        if !annullabile {
+            crate::registro::annota(
+                &cosa,
+                &path.to_string_lossy(),
+                "senza la copia di prima: non si torna indietro",
+                "file",
+                "",
+            );
+        }
         let id = crate::giornale::annota("fs.write", &cosa, inversa).ok();
         ctx.bus
             .emit("fs.written", json!({ "path": path.to_string_lossy() }));
@@ -430,6 +444,28 @@ impl Capability for ShellExecCap {
         ctx.bus.emit(
             "shell.executed",
             json!({ "command": comando, "code": esito.status.code() }),
+        );
+
+        // **Ogni** comando lascia una riga nel registro delle azioni, non solo
+        // quelli che sembrano pesanti. Due ragioni. La prima e' che «sembrano»
+        // e' un giudizio: `Remove-Item` si riconosce, `python pulisci.py` no,
+        // e un registro che tiene solo cio' che si riconosce da' l'idea
+        // sbagliata di essere completo. La seconda e' che un comando non si
+        // annulla per costruzione — il demone non sa cosa ha fatto — ed e'
+        // esattamente cio' che questo registro promette di annotare.
+        //
+        // Il comando finisce nei dettagli, e li' passa dal mascheramento: una
+        // riga di comando porta volentieri un `Authorization: Bearer`.
+        crate::registro::annota(
+            "eseguito un comando",
+            &arg_str_opt(&args, "cwd").unwrap_or_default(),
+            &comando,
+            "comando",
+            &esito
+                .status
+                .code()
+                .map(|c| c.to_string())
+                .unwrap_or_else(|| "interrotto".into()),
         );
         Ok(json!({
             "code": esito.status.code().unwrap_or(-1),

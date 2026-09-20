@@ -261,3 +261,143 @@ pub fn riservato_per_provenienza(strumenti: &[String]) -> bool {
 pub fn e_riservato(testo: &str) -> bool {
     perche_non_si_salva(testo).is_some()
 }
+
+// ------------------------------------------- l'etichetta senza il valore
+
+/// Le parole che, nel **nome** di un campo, dicono che il contenuto e' un
+/// segreto anche se preso da solo non lo sembra.
+///
+/// Serve a chi ha l'etichetta e il valore in due posti diversi. Il registro
+/// delle azioni scrive «scritto in #password» in un campo e «Tramonto2026!»
+/// in un altro: guardati uno per volta non sono niente — il secondo e' una
+/// parola con dentro un anno — e guardati insieme sono una credenziale.
+///
+/// Si cercano dentro il testo **senza separatori**, cosi' `api key`,
+/// `api_key`, `api-key` e `apikey` sono la stessa etichetta. Il prezzo e' che
+/// ogni tanto si riconosce un'etichetta che non c'era; il guadagno e' che non
+/// se ne perde una scritta in un modo che non avevo previsto, e in questo
+/// mestiere le due cose non si pagano uguale.
+pub const ETICHETTE_DI_SEGRETO: [&str; 17] = [
+    "password",
+    "passwd",
+    "pwd",
+    "passphrase",
+    "token",
+    "secret",
+    "segreto",
+    "bearer",
+    "authorization",
+    "credenziale",
+    "credenziali",
+    "api key",
+    "private key",
+    "seed phrase",
+    "chiave api",
+    "chiave privata",
+    "chiave segreta",
+];
+
+/// Le etichette che si cercano **intere**.
+///
+/// `pin` e `otp` sono tre lettere che capitano dentro parole qualunque —
+/// «spingere», «pinza», «optare» — e cercarle come le altre vorrebbe dire
+/// buttare i dettagli di mezzo registro. Sono anche le uniche due per cui la
+/// parte Python chiede il confine di parola.
+pub const ETICHETTE_INTERE: [&str; 2] = ["pin", "otp"];
+
+/// Anche `parola d'ordine` si dice in piu' modi, e l'apostrofo sparisce con
+/// gli altri separatori: chi si fa dettare non sempre lo mette.
+fn senza_separatori(t: &str) -> String {
+    t.chars()
+        .filter(|c| !matches!(c, ' ' | '\t' | '_' | '-' | '\'' | '\u{2019}'))
+        .collect()
+}
+
+fn e_di_parola(c: char) -> bool {
+    c.is_alphanumeric() || c == '_'
+}
+
+fn parola_intera(dove: &str, cosa: &str) -> bool {
+    let mut da = 0;
+    while let Some(i) = dove[da..].find(cosa) {
+        let inizio = da + i;
+        let fine = inizio + cosa.len();
+        let prima = dove[..inizio].chars().next_back();
+        let dopo = dove[fine..].chars().next();
+        if !prima.is_some_and(e_di_parola) && !dopo.is_some_and(e_di_parola) {
+            return true;
+        }
+        da = inizio + 1;
+    }
+    false
+}
+
+/// Se questo testo e' il **nome** di qualcosa che contiene un segreto.
+pub fn etichetta_di_segreto(testo: &str) -> bool {
+    let basso = testo.to_lowercase();
+    let compatto = senza_separatori(&basso);
+    if ETICHETTE_DI_SEGRETO
+        .iter()
+        .any(|e| compatto.contains(&senza_separatori(e)))
+    {
+        return true;
+    }
+    // «parola d'ordine», «parola di ordine», «parola d ordine»: la stessa
+    // cosa detta in tre modi, e senza separatori due di quei tre coincidono.
+    if compatto.contains("paroladordine") || compatto.contains("paroladiordine") {
+        return true;
+    }
+    ETICHETTE_INTERE.iter().any(|p| parola_intera(&basso, p))
+}
+
+#[cfg(test)]
+mod prove_etichette {
+    use super::*;
+
+    #[test]
+    fn il_nome_del_campo_basta() {
+        for t in [
+            "password",
+            "scritto in #password",
+            "API_KEY",
+            "api-key",
+            "apikey",
+            "la Chiave Privata",
+            "seed phrase",
+            "parola d'ordine",
+            "parola di ordine",
+            "token di accesso",
+        ] {
+            assert!(
+                etichetta_di_segreto(t),
+                "«{t}» doveva annunciare un segreto"
+            );
+        }
+    }
+
+    #[test]
+    fn e_le_parole_di_tre_lettere_si_cercano_intere() {
+        assert!(etichetta_di_segreto("il PIN della carta"));
+        assert!(etichetta_di_segreto("otp"));
+        // Senza il confine di parola questi butterebbero i dettagli di mezzo
+        // registro.
+        assert!(!etichetta_di_segreto("spingere il pulsante"));
+        assert!(!etichetta_di_segreto("una pinza"));
+        assert!(!etichetta_di_segreto("optare per l'altro"));
+    }
+
+    #[test]
+    fn una_riga_qualunque_non_annuncia_niente() {
+        for t in [
+            "premuto «Invia»",
+            "aperto il PDF",
+            "eseguito un comando",
+            "",
+        ] {
+            assert!(
+                !etichetta_di_segreto(t),
+                "«{t}» non annuncia nessun segreto"
+            );
+        }
+    }
+}

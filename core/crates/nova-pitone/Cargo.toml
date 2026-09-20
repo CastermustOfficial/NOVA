@@ -5,3 +5,8 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 description = "Le abitudini di Python che il porto deve rispettare: dove finisce una riga, cos'e' uno spazio."
+
+[dependencies]
+# Il JSON scritto come lo scrive Python: due separatori, e la differenza fra
+# «identiche» e «si somigliano» quando due meta' scrivono sullo stesso file.
+serde_json = { workspace = true }

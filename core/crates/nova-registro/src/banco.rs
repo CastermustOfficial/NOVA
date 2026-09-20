@@ -7,7 +7,9 @@
 
 use std::io::Read;
 
-use nova_registro::{cerca, data_italiana, giorno, racconta, riassunto, Filtro, Riga};
+use nova_registro::{
+    cerca, data_italiana, giorno, racconta, riassunto, riga_da_scrivere, Filtro, Riga, Scritta,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
@@ -49,6 +51,11 @@ struct Dentro {
     oggi: String,
     #[serde(default)]
     date: Vec<String>,
+    /// Righe da **scrivere**: l'altra meta' del registro. Il `quando` si
+    /// passa da fuori, cosi' il confronto con il Python e' letterale invece
+    /// che «uguale a meno dell'orologio».
+    #[serde(default)]
+    da_scrivere: Vec<RigaIn>,
 }
 
 #[derive(Serialize)]
@@ -60,6 +67,9 @@ struct Fuori {
     riassunto: (usize, Vec<(String, usize)>, String, String),
     giorni: Vec<String>,
     italiane: Vec<String>,
+    /// Per ognuna: la riga JSON, mascherata e tagliata, come finirebbe in
+    /// coda al file.
+    scritte: Vec<String>,
 }
 
 fn main() {
@@ -106,6 +116,22 @@ fn main() {
         giorni: dentro.date.iter().map(|d| giorno(d, &dentro.oggi)).collect(),
         italiane: dentro.date.iter()
             .map(|d| data_italiana(&d.chars().take(10).collect::<String>()))
+            .collect(),
+        scritte: dentro
+            .da_scrivere
+            .iter()
+            .map(|r| {
+                riga_da_scrivere(
+                    &Scritta {
+                        azione: &r.azione,
+                        dove: &r.dove,
+                        dettagli: &r.dettagli,
+                        tipo: &r.tipo,
+                        esito: &r.esito,
+                    },
+                    &r.quando,
+                )
+            })
             .collect(),
     };
     match serde_json::to_string(&fuori) {

@@ -220,6 +220,124 @@ pub fn racconta(righe: &[&Riga], oggi: &str) -> String {
     fuori.join("\n")
 }
 
+// ----------------------------------------------------- scrivere una riga
+
+/// Quanto si tiene di ciascun campo. Gli stessi tagli della parte Python:
+/// una riga che si allarga a piacere trasforma un registro in un deposito.
+pub const MAX_AZIONE: usize = 200;
+pub const MAX_DOVE: usize = 300;
+pub const MAX_DETTAGLI: usize = 300;
+pub const MAX_ESITO: usize = 200;
+
+/// Cosa resta al posto dei dettagli quando il campo annuncia una credenziale.
+pub const NON_REGISTRATO: &str = "[non registrato: il campo contiene una credenziale]";
+
+/// Il tipo con cui si annota di default: la sorgente automatica sono gli
+/// strumenti che cambiano il mondo attraverso il browser.
+pub const TIPO_PREDEFINITO: &str = "browser";
+
+/// Una riga da scrivere, prima che qualcuno la mascheri e la tagli.
+#[derive(Debug, Clone, Default)]
+pub struct Scritta<'a> {
+    pub azione: &'a str,
+    pub dove: &'a str,
+    pub dettagli: &'a str,
+    /// Vuoto vuol dire [`TIPO_PREDEFINITO`].
+    pub tipo: &'a str,
+    /// Vuoto vuol dire che la chiave `esito` non compare affatto.
+    pub esito: &'a str,
+}
+
+/// I primi `quanti` **caratteri**, non byte.
+///
+/// Python taglia le stringhe per caratteri. Tagliare per byte qui vorrebbe
+/// dire spezzare una lettera accentata a meta' e scrivere nel registro una
+/// riga che non e' piu' testo valido — su un file che si apre il giorno in
+/// cui si vuole sapere cosa e' successo.
+fn primi(t: &str, quanti: usize) -> String {
+    t.chars().take(quanti).collect()
+}
+
+/// I dettagli mascherati, o sostituiti del tutto se il campo li annuncia.
+///
+/// Il caso che il filtro per forme non prende: NOVA compila un modulo di
+/// accesso e scrive «scritto in #password» nell'azione e «Tramonto2026!» nei
+/// dettagli. Uno per volta non sono niente — il secondo e' una parola con
+/// dentro un anno — e insieme sono una credenziale. Saper compilare un modulo
+/// e' una cosa che NOVA deve fare; il prezzo e' che il registro di quelle
+/// azioni non conserva cio' che ha scritto.
+pub fn dettagli_sicuri(azione: &str, dove: &str, dettagli: &str) -> String {
+    if nova_guasti::guardiano::etichetta_di_segreto(azione)
+        || nova_guasti::guardiano::etichetta_di_segreto(dove)
+    {
+        return NON_REGISTRATO.to_string();
+    }
+    primi(&nova_guasti::chiavi::senza_chiavi(dettagli), MAX_DETTAGLI)
+}
+
+/// La riga JSON da mettere in coda al registro, `\n` escluso.
+///
+/// **Tutto quello che passa di qui passa dal filtro**, senza eccezioni: nel
+/// registro finisce anche il testo che NOVA *scrive* nei campi, e ci
+/// finiscono le righe di comando, che portano volentieri un
+/// `Authorization: Bearer`. Si maschera qui e non nei posti che annotano, per
+/// la stessa ragione per cui il vault si chiude su `upsert`: la porta e' una
+/// sola, e un chiamante che si dimentica non e' un'ipotesi, e' una certezza.
+///
+/// `quando` si passa da fuori — e' l'unica cosa qui dentro che dipende
+/// dall'orologio, e passandola si puo' provare quel che esce.
+pub fn riga_da_scrivere(s: &Scritta, quando: &str) -> String {
+    let tipo = if s.tipo.is_empty() {
+        TIPO_PREDEFINITO
+    } else {
+        s.tipo
+    };
+    let mut riga = serde_json::Map::new();
+    riga.insert("quando".into(), quando.into());
+    riga.insert("tipo".into(), tipo.into());
+    riga.insert(
+        "azione".into(),
+        primi(&nova_guasti::chiavi::senza_chiavi(s.azione), MAX_AZIONE).into(),
+    );
+    riga.insert(
+        "dove".into(),
+        primi(&nova_guasti::chiavi::senza_chiavi(s.dove), MAX_DOVE).into(),
+    );
+    riga.insert(
+        "dettagli".into(),
+        dettagli_sicuri(s.azione, s.dove, s.dettagli).into(),
+    );
+    if !s.esito.is_empty() {
+        riga.insert(
+            "esito".into(),
+            primi(&nova_guasti::chiavi::senza_chiavi(s.esito), MAX_ESITO).into(),
+        );
+    }
+    // `json.dumps(..., ensure_ascii=False)`, separatori compresi: la riga
+    // **e'** il testo che resta sul disco, e il file lo scrivono tutte e due
+    // le meta'. Due spazi di differenza non cambiano cosa vuol dire e
+    // cambiano cosa c'e' scritto.
+    nova_pitone::json_come_python(&serde_json::Value::Object(riga))
+}
+
+/// Una riga letta dal file, riportata alla forma su cui si cerca.
+///
+/// Una riga che non si legge non ferma la lettura delle altre: un registro
+/// con dentro una riga storta e' comunque il registro, e chi lo apre lo apre
+/// per sapere cosa e' successo, non per sapere che c'e' una riga storta.
+pub fn riga_letta(testo: &str) -> Option<Riga> {
+    let v: serde_json::Value = serde_json::from_str(testo).ok()?;
+    let campo = |k: &str| v.get(k).and_then(|x| x.as_str()).unwrap_or("").to_string();
+    Some(Riga {
+        quando: campo("quando"),
+        tipo: campo("tipo"),
+        azione: campo("azione"),
+        dove: campo("dove"),
+        dettagli: campo("dettagli"),
+        esito: campo("esito"),
+    })
+}
+
 #[cfg(test)]
 mod prove {
     use super::*;

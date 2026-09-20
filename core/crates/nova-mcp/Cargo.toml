@@ -8,6 +8,7 @@ description = "Il protocollo con cui NOVA si apre a un altro programma: JSON-RPC
 
 [dependencies]
 # Il protocollo **e'** JSON: qui non e' una comodita', e' la materia.
+nova-pitone = { path = "../nova-pitone" }
 serde_json = { workspace = true }
 serde = { workspace = true, features = ["derive"], optional = true }
 

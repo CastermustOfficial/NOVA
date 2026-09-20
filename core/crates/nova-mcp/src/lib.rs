@@ -328,39 +328,13 @@ fn vero_per_python(v: &Value) -> bool {
 }
 
 /// `json.dumps(x, ensure_ascii=False)`: separatori `, ` e `: `.
-pub fn json_come_python(v: &Value) -> String {
-    let mut fuori = String::new();
-    scrivi(v, &mut fuori);
-    fuori
-}
-
-fn scrivi(v: &Value, dentro: &mut String) {
-    match v {
-        Value::Object(o) => {
-            dentro.push('{');
-            for (i, (k, val)) in o.iter().enumerate() {
-                if i > 0 {
-                    dentro.push_str(", ");
-                }
-                dentro.push_str(&Value::String(k.clone()).to_string());
-                dentro.push_str(": ");
-                scrivi(val, dentro);
-            }
-            dentro.push('}');
-        }
-        Value::Array(a) => {
-            dentro.push('[');
-            for (i, val) in a.iter().enumerate() {
-                if i > 0 {
-                    dentro.push_str(", ");
-                }
-                scrivi(val, dentro);
-            }
-            dentro.push(']');
-        }
-        altro => dentro.push_str(&altro.to_string()),
-    }
-}
+///
+/// Non sta piu' qui: e' un'abitudine di Python come le altre, e la seconda
+/// volta che e' servita — il registro delle azioni scrive una riga JSON che
+/// deve uscire **identica** a quella del Python — stava dentro il crate del
+/// protocollo MCP. Chi ne aveva bisogno avrebbe tirato dentro quello, o si
+/// sarebbe riscritto i due separatori (D62).
+pub use nova_pitone::json_come_python;
 
 // ------------------------------------------------------------- permessi
 

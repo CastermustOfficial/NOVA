@@ -93,6 +93,13 @@ pub use nuvola::segnaposto;
 pub mod finestre;
 pub use finestre::{schermi, schermo_di, schermo_di_lavoro, sposta, Posa, Schermo};
 
+// Che ore sono per chi guarda l'orologio. Il fuso e' una domanda di sistema,
+// come tutte quelle che qui dentro hanno una risposta diversa per ogni OS, e
+// serve al registro delle azioni: quel file lo scrivono tutte e due le meta'
+// di NOVA, e una delle due scrive l'ora di casa.
+pub mod orologio;
+pub use orologio::fuso_secondi;
+
 #[cfg(windows)]
 mod windows_uia;
 

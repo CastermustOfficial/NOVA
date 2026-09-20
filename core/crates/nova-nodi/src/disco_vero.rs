@@ -213,7 +213,7 @@ impl Cartella {
         if !si_ruota(m.is_file(), m.len()) {
             return;
         }
-        let precedente = p.with_extension("1.jsonl");
+        let precedente = nova_potatura::precedente(p);
         let _ = std::fs::remove_file(&precedente);
         let _ = std::fs::rename(p, &precedente);
     }
@@ -236,7 +236,7 @@ impl Cartella {
 /// cartella **oltre** il tetto — che e' esattamente il caso che si vuole
 /// escludere.
 pub fn si_ruota(e_un_file: bool, byte: u64) -> bool {
-    e_un_file && crate::deposito::ora_di_ruotare(byte)
+    nova_potatura::si_ruota(e_un_file, byte)
 }
 
 #[cfg(test)]
