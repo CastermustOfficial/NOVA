@@ -2543,6 +2543,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "nova-componenti"
+version = "0.1.1"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "nova-contesto"
 version = "0.1.1"
 dependencies = [

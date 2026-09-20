@@ -1,0 +1,19 @@
+[package]
+name = "nova-componenti"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Cosa serve a ogni funzione di NOVA, cosa c'e' gia', e con che disciplina si procura."
+
+[dependencies]
+serde = { workspace = true, features = ["derive"], optional = true }
+serde_json = { workspace = true, optional = true }
+
+[features]
+banco = ["dep:serde", "dep:serde_json"]
+
+[[bin]]
+name = "banco-componenti"
+path = "src/banco.rs"
+required-features = ["banco"]
