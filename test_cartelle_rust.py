@@ -62,26 +62,58 @@ def rust(casi: list[tuple[str, str]]) -> list[dict]:
     return [json.loads(x) for x in r.stdout.splitlines() if x.strip()]
 
 
-PERCORSI = [
-    r"C:\Users\gio\OneDrive\Documenti\NOVA",
-    r"C:\Users\gio\OneDrive - Acme\Documenti\NOVA",
-    r"C:\Users\gio\Dropbox\NOVA",
-    r"C:\Users\gio\Google Drive\NOVA",
-    r"C:\Users\gio\GoogleDrive\NOVA",
-    r"C:\Users\gio\Il mio Drive\NOVA",
-    r"C:\Users\gio\My Drive\NOVA",
-    r"C:\Users\gio\iCloud Drive\NOVA",
-    r"C:\Users\gio\Nextcloud\NOVA",
-    r"C:\Users\gio\Creative Cloud Files\NOVA",
-    # e i falsi allarmi che la prima versione dava
-    r"C:\backup\dropbox-export-2024\modelli",
-    r"C:\vecchio-dropbox\modelli",
-    r"C:\onedrive_backup\modelli",
-    r"C:\Users\gio\NOVA\runtime\modelli",
-    r"D:\modelli",
-    r"C:\Users\gio\Documenti\NOVA",
+# I percorsi si scrivono **nel modo del sistema su cui si gira**, e non e'
+# pignoleria di stile: una stringa come «C:\Users\gio\Dropbox\NOVA» su Linux
+# non ha componenti — il backslash li' non separa niente — quindi Dropbox non
+# si riconosce e le due meta' vanno d'accordo sul niente. La prova passava per
+# questo, e passava senza provare la cosa che deve provare. E' lo stesso
+# inciampo che aveva gia' preso le prove di `nova-cartelle` e quelle di
+# `nova-componenti` (D209, D257): il codice va su tutti e due i sistemi, le
+# **prove** erano scritte per uno solo.
+CASA = Path(r"C:\Users\gio") if os.name == "nt" else Path("/home/gio")
+ALTROVE = Path(r"C:\backup") if os.name == "nt" else Path("/backup")
+DISCO = Path("D:\\") if os.name == "nt" else Path("/dati")
+
+
+def q(*pezzi) -> str:
+    """Un percorso scritto come lo scrive questo sistema."""
+    return str(Path(*pezzi))
+
+
+SINCRONIZZATE = [
+    q(CASA, "OneDrive", "Documenti", "NOVA"),
+    q(CASA, "OneDrive - Acme", "Documenti", "NOVA"),
+    q(CASA, "Dropbox", "NOVA"),
+    q(CASA, "Google Drive", "NOVA"),
+    q(CASA, "GoogleDrive", "NOVA"),
+    q(CASA, "Il mio Drive", "NOVA"),
+    q(CASA, "My Drive", "NOVA"),
+    q(CASA, "iCloud Drive", "NOVA"),
+    q(CASA, "Nextcloud", "NOVA"),
+    q(CASA, "Creative Cloud Files", "NOVA"),
+]
+# I falsi allarmi che la prima versione dava. Un falso allarme e' peggio del
+# silenzio: la seconda volta non lo legge piu' nessuno.
+FINTE = [
+    q(ALTROVE, "dropbox-export-2024", "modelli"),
+    q(ALTROVE, "vecchio-dropbox", "modelli"),
+    q(ALTROVE, "onedrive_backup", "modelli"),
+]
+NORMALI = [
+    q(CASA, "NOVA", "runtime", "modelli"),
+    q(DISCO, "modelli"),
+    q(CASA, "Documenti", "NOVA"),
     "",
 ]
+# E le scritture **dell'altro** sistema. Cosa debbano dare dipende da dove si
+# gira — su Windows anche la barra in avanti separa, su Linux il backslash no
+# — e qui non si pretende un esito: si pretende che le due meta' dicano la
+# stessa cosa, qualunque sia.
+ALTRO_SISTEMA = [
+    "/home/gio/Dropbox/NOVA" if os.name == "nt" else r"C:\Users\gio\Dropbox\NOVA",
+    "/home/gio/OneDrive - Acme/x" if os.name == "nt" else r"C:\Users\gio\OneDrive - Acme\x",
+]
+PERCORSI = SINCRONIZZATE + FINTE + NORMALI + ALTRO_SISTEMA
 COSE = ["i modelli", "il vault"]
 
 print(f"\n=== {len(PERCORSI)} percorsi x {len(COSE)} usi ===")
@@ -105,19 +137,22 @@ controlla(f"tutti i {len(casi)} casi coincidono, testo compreso",
 print("\n=== E i comportamenti attesi, decisi a mano ===")
 per_nome = {p: r for (p, c), r in zip(casi, risposte) if c == "i modelli"}
 controlla("OneDrive aziendale viene riconosciuto",
-          per_nome[r"C:\Users\gio\OneDrive - Acme\Documenti\NOVA"]["servizio"] != "")
+          per_nome[q(CASA, "OneDrive - Acme", "Documenti", "NOVA")]["servizio"] != "",
+          per_nome[q(CASA, "OneDrive - Acme", "Documenti", "NOVA")]["servizio"])
+controlla(f"e tutte e {len(SINCRONIZZATE)} le sincronizzate lo sono",
+          all(per_nome[x]["servizio"] for x in SINCRONIZZATE),
+          ", ".join(x for x in SINCRONIZZATE if not per_nome[x]["servizio"]))
 controlla("una cartella normale non dice niente",
-          per_nome[r"D:\modelli"]["servizio"] == ""
-          and per_nome[r"D:\modelli"]["avvertenza"] == "")
+          all(per_nome[x]["servizio"] == "" and per_nome[x]["avvertenza"] == ""
+              for x in NORMALI),
+          ", ".join(x for x in NORMALI if per_nome[x]["servizio"]))
 # Il falso allarme e' peggio del silenzio: la seconda volta non lo legge piu'
 # nessuno, e allora non protegge nemmeno quando ha ragione.
-for finto in (r"C:\backup\dropbox-export-2024\modelli",
-              r"C:\vecchio-dropbox\modelli",
-              r"C:\onedrive_backup\modelli"):
+for finto in FINTE:
     controlla(f"nessun falso allarme su {Path(finto).parent.name}",
               per_nome[finto]["servizio"] == "", per_nome[finto]["servizio"])
 
-avviso = per_nome[r"C:\Users\gio\Dropbox\NOVA"]["avvertenza"]
+avviso = per_nome[q(CASA, "Dropbox", "NOVA")]["avvertenza"]
 controlla("l'avvertenza nomina tutte e tre le conseguenze",
           "gigabyte" in avviso and "conflitto" in avviso and "segnaposti" in avviso,
           avviso[:100])

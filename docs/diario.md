@@ -8958,3 +8958,44 @@ l'ho costruito» (D280).
 
 Trovare un difetto e' una giornata buona. Trovare il motivo per cui quel
 difetto ha potuto restare li' e' una giornata migliore.
+
+
+## E due delle ventuno non erano nemmeno nell'elenco
+
+Seguito immediato. Il lavoro `gemelli` costruiva i crate che hanno un binario
+`banco-`, e due prove ne usano uno che non si chiama cosi': `nova-cartelle` e
+`nova-catalogo` hanno il binario del crate, non un banco. Restavano fuori, e
+dicevano «saltata» come prima.
+
+L'elenco adesso lo dicono **le prove stesse**: ogni `test_*_rust.py` che non
+trova il suo binario stampa la riga esatta per costruirlo — `cargo build
+--release -p <crate>` — e il lavoro legge quella. Un elenco scritto a mano nel
+file della CI avrebbe dimenticato la prova nuova, ed e' letteralmente il
+difetto che D229 racconta, spostato di un piano.
+
+**E costruendole, `test_cartelle_rust.py` e' diventata rossa.** Quattro
+controlli su quindici. Non perche' le due meta' non andassero d'accordo — su
+quello erano perfettamente d'accordo, trentaquattro casi su trentaquattro — ma
+perche' erano d'accordo **sul niente**.
+
+I percorsi della prova erano scritti tutti cosi': `C:\Users\gio\Dropbox\NOVA`.
+Su Linux quella stringa non ha componenti, perche' il backslash li' non separa
+niente: e' un nome di file solo, lungo e strano. Quindi Dropbox non si
+riconosceva, la meta' Python e la meta' Rust rispondevano tutte e due «nessun
+servizio», il confronto passava, e i quattro controlli scritti a mano — quelli
+che dicono «OneDrive aziendale viene riconosciuto» — fallivano.
+
+E' la terza volta oggi che inciampo nella stessa cosa, e comincia a essere una
+forma con un nome: **il codice va su tutti e due i sistemi, le prove erano
+scritte per uno solo**. Era gia' successo alle prove di `nova-componenti`
+(D257) e, mesi fa, a quelle di `nova-cartelle` stesse. Il fastidio in piu'
+qui e' che la prova non era rossa: era *vuota*. Passava senza provare la cosa
+per cui esiste.
+
+Adesso i percorsi si costruiscono con `Path`, quindi si scrivono nel modo del
+sistema su cui si gira, e ci sono in piu' due casi con la scrittura
+dell'**altro** sistema — dove non si pretende un esito, si pretende solo che
+le due meta' dicano la stessa cosa.
+
+Ventidue prove gemelle, ventidue verdi, zero saltate. Fino a stamattina erano
+zero eseguite.
