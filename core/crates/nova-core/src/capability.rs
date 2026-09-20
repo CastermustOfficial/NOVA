@@ -11,7 +11,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use async_trait::async_trait;
 use nova_proto::CapabilityInfo;
-use serde_json::Value;
+use serde_json::{json, Value};
 
 use crate::bus::Bus;
 use crate::config::Config;
@@ -98,6 +98,40 @@ impl Registry {
 
     pub fn is_empty(&self) -> bool {
         self.caps.is_empty()
+    }
+
+    /// Traduce il registro nella forma che vogliono le API compatibili
+    /// OpenAI: `{"type": "function", "function": {...}}`.
+    ///
+    /// E' la stessa lista degli strumenti MCP con un'altra busta intorno. Due
+    /// elenchi sarebbero due NOVA con strumenti diversi a seconda di chi
+    /// chiede, e la differenza si scoprirebbe il giorno in cui uno dei due
+    /// non sa fare una cosa che l'altro fa.
+    pub fn as_openai_tools(&self) -> Vec<Value> {
+        let mut fuori: Vec<Value> = self
+            .list()
+            .into_iter()
+            .map(|i| {
+                json!({
+                    "type": "function",
+                    "function": {
+                        "name": nome_mcp(&i.name),
+                        "description": i.description,
+                        "parameters": i.schema,
+                    }
+                })
+            })
+            .collect();
+        // In ordine, sempre lo stesso: la prima regione della richiesta e'
+        // quella su cui i fornitori tengono la cache, e un elenco che cambia
+        // ordine a ogni turno la butta via ogni volta.
+        fuori.sort_by(|a, b| {
+            a["function"]["name"]
+                .as_str()
+                .unwrap_or("")
+                .cmp(b["function"]["name"].as_str().unwrap_or(""))
+        });
+        fuori
     }
 
     /// Traduce il registro in tool MCP, cosi' Claude Code puo' usarlo com'e'.

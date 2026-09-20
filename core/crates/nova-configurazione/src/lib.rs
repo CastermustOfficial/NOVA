@@ -31,6 +31,9 @@
 //! **La diagnostica non arriva da fuori.** Un file salvato non deve poter
 //! raccontare a NOVA di aver avuto un errore che non ha avuto.
 
+pub mod dove;
+pub use dove::{leggi_da, percorso};
+
 use serde_json::{Map, Value};
 
 /// I campi che non stanno nel file e non si leggono da li'.

@@ -9422,3 +9422,91 @@ E' la terza volta in questo cantiere che un guasto si presenta come
 che non filtrava, e adesso questo. Quando il messaggio accusa un pezzo che
 non hai toccato, la causa e' quasi sempre nel **contorno** — l'orologio, il
 filesystem, l'ordine — e non nel pezzo.
+
+## Il turno viene a casa
+
+«L'obiettivo e' che sia praticamente solo Rust, c'e' da fare. Prendi le
+decisioni piu' efficienti ed efficaci.»
+
+La prima decisione e' stata smettere di tirare fili uno alla volta e
+guardare la mappa. Ho fatto mappare un turno intero dalla parte Python — da
+quando l'utente scrive a quando riceve la risposta — e la cosa che salta
+fuori non e' un elenco di pezzi da portare: e' **dove** vanno portati.
+
+Un turno di NOVA, oggi, e' un processo Python intero. Il guscio Tauri lancia
+`python -m nova --ask <testo>`, quello importa mezzo mondo, fa il giro,
+stampa la risposta su stdout e muore. Tre conseguenze che non si vedono:
+
+- **le approvazioni non funzionano.** Chiedere «posso?» vuole qualcuno che
+  resti in piedi fra la domanda e la risposta. Quel processo non ha nemmeno
+  lo stdin collegato: con un'autonomia diversa da «fai pure» la domanda
+  finisce in un EOF;
+- **lo stato scorre su stderr**, con un marcatore dentro le righe per
+  distinguerlo dal resto;
+- **il tasto ferma** non ferma un turno: fa `taskkill /PID /T /F` sull'intero
+  albero di processi, perche' non c'e' niente di piu' fine a cui chiedere.
+
+E intanto, in Rust, il ciclo del turno esisteva gia'. `nova-ciclo` — chiedi,
+esegui, rileggi, sali di gradino quando si sbaglia — con le sue prove contro
+un cervello finto. `MondoVero` dentro il demone, con la rete, il taglio della
+conversazione, la salita. Scritti, provati, e chiamati da nessuno.
+
+Ho collegato quel motore. `agente/turno`: una frase entra, una risposta esce,
+e in mezzo c'e' il demone.
+
+### Le due decisioni che contano
+
+**Non e' una capacita', e' un metodo.** Le capacita' del demone si
+presentano al modello come strumenti MCP. Se «fai un turno» fosse una di
+quelle, il modello potrebbe chiamarla — cioe' chiamare se stesso, con una
+conversazione dentro l'altra e nessun fondo. E' un metodo RPC per chi sta
+fuori: il guscio, la riga di comando, NOVA lato Python.
+
+**Legge la configurazione di NOVA, non una sua.** Il demone ha gia' un file
+suo, `core.json`, ed e' per le cose sue: endpoint, autonomia, guardie. Quali
+cervelli, in che ordine, con che chiave, con che prompt — quello sta in
+`config.json`, dove l'ha scritto l'utente. Due configurazioni dei cervelli
+sarebbero due NOVA sulla stessa macchina che rispondono in modo diverso,
+senza nessun modo di sapere quale delle due ti sta parlando.
+
+E i gradini si rileggono **a ogni turno**: chi cambia cervello nel pannello
+vuole che valga adesso, non alla prossima conversazione.
+
+### La prova che non ha bisogno di un modello
+
+`test_demone_turno.py` accende `novad` davvero e gli mette davanti un
+cervello finto: un server HTTP di venti righe che risponde come llama.cpp —
+prima con una chiamata a uno strumento scelto fra quelli che il demone gli
+ha offerto, poi con una frase. Nessun modello da scaricare, nessuna rete,
+tutto vero tranne l'intelligenza.
+
+Quattordici controlli, e i due che mi interessavano di piu' sono quelli che
+guardano il **corpo della richiesta**: gli strumenti offerti sono le
+capacita' del demone (quindi con le guardie), e sono in ordine alfabetico
+stabile — perche' i fornitori tengono la cache sulla prima regione della
+richiesta, e un elenco che cambia ordine a ogni turno la butta via ogni
+volta. Non si rompe niente: diventa lento per sempre, che e' il difetto di
+cui ci si accorge peggio (l'ho gia' scritto per il taglio della
+conversazione, ed e' la stessa trappola da un'altra porta).
+
+### Una cosa che ho scoperto scrivendo
+
+`ureq` e' sincrono, e una risposta di un modello di casa puo' metterci
+minuti. Aspettarla dentro un compito asincrono vuol dire tenere occupato un
+filo dello scheduler per tutto quel tempo — e finche' e' occupato il demone
+non risponde a nessun altro. Nemmeno al «fermati», che e' esattamente la
+cosa che uno vuole poter fare mentre un modello ci sta mettendo troppo.
+`block_in_place` toglie quel compito dallo scheduler. Nelle prove, che
+girano su un runtime a filo singolo, si chiama la rete e basta: li' non c'e'
+nessuno scheduler da liberare, e chiedere di liberarlo e' un panico.
+
+### Il piano, scritto
+
+Sei mosse, in `verso_la_beta.md`, con la regola che le tiene insieme:
+**nessuna cancella niente**. Il Python resta finche' il Rust non fa la stessa
+cosa, e a dirlo e' un banco gemello o una prova che accende tutti e due.
+Spegnere una strada prima che l'altra sia provata non e' una migrazione, e'
+una scommessa.
+
+La mossa numero due e' piccola e si sentira' subito: il guscio che chiama il
+demone invece di lanciare un interprete per messaggio.
