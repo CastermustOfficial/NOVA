@@ -31,6 +31,21 @@ fn stato_da_evento(topic: &str, dati: &Value) -> Option<&'static str> {
         // dentro la finestra PyQt, cioe' quella che di solito e' chiusa.
         "proc.gave_up" => Some("allarme"),
         "approvazione.richiesta" => Some("chiedo"),
+        // Il turno dentro il demone. Finche' girava in un processo a parte
+        // questi due non esistevano e l'orb li imparava da `stato.cambiato`;
+        // adesso che il turno e' qui dentro, l'orb li sente da chi li vive.
+        "agente.stato" => match dati.get("fase").and_then(|f| f.as_str()) {
+            Some("penso") => Some("penso"),
+            Some("finito") => Some("quiete"),
+            _ => None,
+        },
+        "agente.strumento" => match dati.get("stato").and_then(|s| s.as_str()) {
+            Some("inizio") => Some("agisco"),
+            // A strumento finito si torna a pensare, non a quiete: il turno
+            // non e' finito, sta rileggendo quello che gli e' tornato.
+            Some("fine") => Some("penso"),
+            _ => None,
+        },
         "approvazione.decisa" | "approvazione.scaduta" => Some("quiete"),
         // Sveglia vuol dire che l'orecchio e' aperto sul serio: chi guarda
         // l'orb deve poter capire da li' se puo' parlare senza dire il nome.
@@ -39,6 +54,41 @@ fn stato_da_evento(topic: &str, dati: &Value) -> Option<&'static str> {
             Some("dormiente") | Some("in_pausa") => Some("spento"),
             _ => None,
         },
+        _ => None,
+    }
+}
+
+/// Da evento del demone a riga di stato accanto all'orb.
+///
+/// E' la stessa cosa che la meta' Python scrive su stderr marcata: «Sto
+/// pensando...», «Apro il portale delle offerte». Di uno strumento si
+/// preferisce la descrizione al nome — `fs.write` e' per il modello, «Scrive
+/// un file» e' per chi legge — e quando la descrizione non c'e' si dice il
+/// nome, che e' meglio di niente.
+fn passo_da_evento(topic: &str, dati: &Value) -> Option<String> {
+    match topic {
+        "agente.stato" => match dati.get("fase").and_then(|f| f.as_str()) {
+            Some("penso") => Some("Sto pensando...".to_string()),
+            Some("finito") => Some(String::new()),
+            _ => None,
+        },
+        "agente.strumento" if dati.get("stato").and_then(|s| s.as_str()) == Some("inizio") => {
+            let nome = dati.get("nome").and_then(|n| n.as_str()).unwrap_or("");
+            let desc = dati
+                .get("descrizione")
+                .and_then(|d| d.as_str())
+                .unwrap_or("")
+                .trim();
+            if desc.is_empty() {
+                Some(format!("Eseguo {nome}..."))
+            } else {
+                Some(format!("{desc}..."))
+            }
+        }
+        // `agente.imparato` **non** e' un passo, ed e' una tentazione:
+        // arriva a turno finito, quando la risposta e' gia' sullo schermo.
+        // Scriverlo accanto all'orb vorrebbe dire riaccendere una riga di
+        // stato che nessuno spegnera' piu', perche' dopo non succede altro.
         _ => None,
     }
 }
@@ -77,7 +127,7 @@ async fn giro(app: &AppHandle, endpoint: &str) -> anyhow::Result<()> {
     let (lettore, mut scrittore) = tokio::io::split(stream);
     let sottoscrizione = json!({
         "jsonrpc": "2.0", "id": 1, "method": "events/subscribe",
-        "params": { "topics": ["stato.*", "approvazione.*", "proc.*", "voce.*", "ui.chat", "azione.*", "fs.cambiato"] }
+        "params": { "topics": ["stato.*", "approvazione.*", "proc.*", "voce.*", "ui.chat", "azione.*", "fs.cambiato", "agente.*"] }
     });
     scrittore.write_all(sottoscrizione.to_string().as_bytes()).await?;
     scrittore.write_all(b"\n").await?;
@@ -105,6 +155,13 @@ async fn giro(app: &AppHandle, endpoint: &str) -> anyhow::Result<()> {
         // insieme se parli mentre NOVA sta ancora pensando.
         if topic == "voce.fase" {
             let _ = app.emit("nova://fase", dati.clone());
+        }
+        // Gli avanzamenti del turno. Passano di qui e non dalla connessione
+        // che ha chiesto il turno apposta: cosi' valgono anche per un turno
+        // partito dalla voce o dalla riga di comando, e chi guarda l'orb
+        // vede cosa sta succedendo comunque sia cominciato.
+        if let Some(testo) = passo_da_evento(topic, &dati) {
+            let _ = app.emit("nova://passo", json!({ "testo": testo }));
         }
         // NOVA chiede la chat. Serve quando a voce non si puo' rispondere:
         // un link, un percorso, un testo da incollare. Prima poteva solo
@@ -179,4 +236,76 @@ async fn giro(app: &AppHandle, endpoint: &str) -> anyhow::Result<()> {
     let _ = app.emit("nova://demone", json!({"collegato": false}));
     let _ = app.emit("nova://stato", json!({"stato": "spento"}));
     Ok(())
+}
+
+#[cfg(test)]
+mod prove {
+    use super::*;
+
+    #[test]
+    fn il_turno_del_demone_muove_l_orb() {
+        let f = |fase: &str| stato_da_evento("agente.stato", &json!({ "fase": fase }));
+        assert_eq!(f("penso"), Some("penso"));
+        assert_eq!(f("finito"), Some("quiete"));
+        assert_eq!(f("boh"), None);
+        let s = |stato: &str| stato_da_evento("agente.strumento", &json!({ "stato": stato }));
+        assert_eq!(s("inizio"), Some("agisco"));
+        // Finito uno strumento il turno non e' finito: sta rileggendo.
+        assert_eq!(s("fine"), Some("penso"));
+    }
+
+    #[test]
+    fn di_uno_strumento_si_legge_la_frase_non_il_nome() {
+        let d = json!({ "nome": "fs.write", "stato": "inizio", "descrizione": "Scrive un file" });
+        assert_eq!(
+            passo_da_evento("agente.strumento", &d),
+            Some("Scrive un file...".to_string())
+        );
+    }
+
+    /// Senza descrizione si dice il nome: peggio della frase, molto meglio
+    /// di una riga vuota mentre NOVA sta facendo qualcosa.
+    #[test]
+    fn senza_frase_si_dice_il_nome() {
+        let d = json!({ "nome": "fs.write", "stato": "inizio" });
+        assert_eq!(
+            passo_da_evento("agente.strumento", &d),
+            Some("Eseguo fs.write...".to_string())
+        );
+        let vuota = json!({ "nome": "fs.write", "stato": "inizio", "descrizione": "   " });
+        assert_eq!(
+            passo_da_evento("agente.strumento", &vuota),
+            Some("Eseguo fs.write...".to_string())
+        );
+    }
+
+    #[test]
+    fn a_strumento_finito_non_si_scrive_niente() {
+        let d = json!({ "nome": "fs.write", "stato": "fine", "ok": true });
+        assert_eq!(passo_da_evento("agente.strumento", &d), None);
+    }
+
+    /// A turno finito la riga si **spegne**. Un passo che resta acceso
+    /// racconta una cosa che non sta piu' succedendo.
+    #[test]
+    fn a_turno_finito_la_riga_si_spegne() {
+        assert_eq!(
+            passo_da_evento("agente.stato", &json!({ "fase": "finito" })),
+            Some(String::new())
+        );
+        assert_eq!(
+            passo_da_evento("agente.stato", &json!({ "fase": "penso" })),
+            Some("Sto pensando...".to_string())
+        );
+    }
+
+    /// Cio' che si impara arriva quando la risposta e' gia' letta: se
+    /// diventasse un passo, resterebbe acceso per sempre.
+    #[test]
+    fn quello_che_impara_non_e_un_passo() {
+        assert_eq!(
+            passo_da_evento("agente.imparato", &json!({ "procedura": "x" })),
+            None
+        );
+    }
 }

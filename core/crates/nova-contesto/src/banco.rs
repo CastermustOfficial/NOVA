@@ -230,6 +230,7 @@ fn main() {
             ("PROMPT_PREDEFINITO".into(), testi::PROMPT_PREDEFINITO.into()),
             ("REGOLE_OPERATIVE".into(), testi::REGOLE_OPERATIVE.into()),
             ("PROMEMORIA".into(), testi::PROMEMORIA.into()),
+            ("POSTILLA_VOCE".into(), testi::POSTILLA_VOCE.into()),
         ],
         memorie: d.memorie.iter().map(|c| blocchi::memoria(c)).collect(),
         identita: vec![

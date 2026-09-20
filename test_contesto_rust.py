@@ -360,10 +360,12 @@ fuori2 = rust({"prompt": PROMPT, "lingue": LINGUE_PROVATE, "memorie": MEMORIE,
                "sfilature": SFILATURE, "quante_sfilate": QUANTE_SFILATE})
 
 print("\n-- i testi estratti, carattere per carattere --")
+from nova.main import POSTILLA_VOCE
 py_testi = {"INIZIO_REGOLE": INIZIO_REGOLE,
             "PROMPT_PREDEFINITO": DEFAULT_SYSTEM_PROMPT,
             "REGOLE_OPERATIVE": REGOLE_OPERATIVE,
-            "PROMEMORIA": PROMEMORIA}
+            "PROMEMORIA": PROMEMORIA,
+            "POSTILLA_VOCE": POSTILLA_VOCE}
 for nome, ru in fuori2["testi"]:
     py = py_testi[nome]
     primo = next((i for i, (a, b) in enumerate(zip(ru, py)) if a != b),

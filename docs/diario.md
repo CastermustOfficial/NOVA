@@ -9702,3 +9702,81 @@ Adesso guarda solo la prima riga dell'ultimo messaggio dell'utente, che e'
 la domanda vera. Due giri di fila verdi, e quel che resta e' una lezione
 piccola: quando una prova e' intermittente, la prima cosa da chiedersi non e'
 «cosa e' instabile» ma «cosa sto cambiando mentre guardo».
+
+## Il guscio smette di accendere Python a ogni frase
+
+La seconda mossa del piano, e quella che si sente di piu' perche' e' quella
+che l'utente tocca con le dita. Finora ogni messaggio scritto nella chat
+faceva questo: accendi un interprete Python, passagli la domanda sulla riga
+di comando, leggi la risposta su stdout, ammazza tutto. Per frase.
+
+Adesso il guscio chiede al demone. Il turno e' lo stesso `agente/turno` che
+c'era gia' e che `nova chiedi` usava da giorni: la parte nuova non e' il
+turno, e' **la scelta**.
+
+### Scegliere prima invece di provare
+
+La strada facile era: prova il turno in Rust, e se fallisce rifallo in
+Python. L'ho scartata, ed e' la decisione di cui sono piu' contento di
+questa giornata. Un turno non e' una funzione pura: a meta' ha gia' aperto
+un browser, scritto un file, mandato un comando. Un ripiego dopo il
+fallimento non rifa' la domanda — la rifa' **con gli effetti gia' fatti una
+volta**. «Cancella i file temporanei» eseguito due volte e' ancora
+innocente; «manda la mail» no.
+
+Quindi il demone risponde a una domanda nuova, `agente/pronto`, che costa
+quanto un ping: legge la configurazione, costruisce la scala dei cervelli e
+guarda com'e' fatto il **primo** gradino. Non se ce n'e' uno buono da
+qualche parte — il primo, perche' il turno parte sempre dal basso e sale
+solo se qualcosa va storto. Se il primo e' una CLI da lanciare (`claude`),
+il turno in Rust non sa ancora farlo, lo dice in una riga leggibile, e il
+guscio passa dalla parte Python come ha sempre fatto.
+
+La prova che mi piace di piu' e' quella che riscrive `config.json` a demone
+acceso e richiede subito: se la configurazione restasse in mano al demone
+dal suo avvio, la risposta non cambierebbe — e chi cambia cervello dal
+pannello dovrebbe riavviare tutto per accorgersene.
+
+### `NOVA_CERVELLO=demone`
+
+C'e' una variabile che vieta il ripiego. Serve a noi, non all'utente, e il
+motivo e' che un ripiego silenzioso e' un modo perfetto di non accorgersi di
+niente: se ogni domanda che il Rust non sa fare scivola in Python e risponde
+lo stesso, fra sei mesi la meta' Rust puo' essere ferma a oggi senza che
+nessuno se ne sia accorto. Con la variabile alzata, quel caso diventa un
+errore in faccia. E' il contrario di un interruttore di comodo: e' un modo
+di farsi male apposta, dove fa meno danno.
+
+### Gli avanzamenti li porta il bus
+
+La tentazione era farli tornare indietro sulla connessione che ha chiesto il
+turno — e' li' che si sta aspettando, no? No: cosi' li vedrebbe **solo** chi
+ha chiesto, e un turno partito dalla voce lascerebbe l'orb fermo mentre NOVA
+lavora. Il guscio una connessione al bus ce l'ha gia' aperta per tutto il
+resto; basta sottoscrivere `agente.*` e gli avanzamenti valgono comunque sia
+cominciato il turno.
+
+Di uno strumento adesso si legge la frase e non il nome — «Scrive un file»,
+non `fs.write`. Il nome e' quello che il modello chiama, la frase e' quella
+che legge una persona, e il demone le ha tutte e due in mano nell'istante in
+cui parte: bastava metterle tutte e due nell'evento.
+
+Una cosa che ho scritto e poi tolto: `agente.imparato` come avanzamento.
+Sembrava un bel dettaglio — «metto via quello che ho imparato» — ed e' una
+trappola. Arriva a risposta gia' letta, cioe' quando non succede piu'
+niente: accenderebbe una riga di stato che nessuno spegnerebbe mai piu'.
+
+### La postilla della voce, portata di la'
+
+Chi parla al microfono riceve in coda alla domanda un'istruzione in piu':
+rispondi come si parla, e chiudi con uno dei tre marcatori. Era solo Python.
+L'ho portata in `nova_contesto::testi`, e il banco del contesto la confronta
+con quella Python **carattere per carattere** come fa gia' per le altre
+quattro: 924 caratteri identici. Se un giorno qualcuno ne cambia una sola,
+la prova lo dice il giorno stesso invece che quando la voce smette di
+chiudersi da sola.
+
+Sta in coda alla domanda e non nel prompt di sistema, e non e' un dettaglio
+di stile: il messaggio numero zero e' la regione su cui i fornitori tengono
+la cache, e la stessa sessione puo' ricevere un turno dalla voce e il
+successivo dalla chat.

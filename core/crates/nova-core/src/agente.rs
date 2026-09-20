@@ -117,9 +117,14 @@ impl Esecutore for EsecutoreDemone {
             return Err(format!("«{nome}» non e' una capacita' di questo demone"));
         };
         let inizio = std::time::Instant::now();
+        // Anche la descrizione, non solo il nome. Chi guarda l'orb deve
+        // leggere «Scrive un file», non «fs.write»: il nome e' per il
+        // modello, la frase e' per la persona. Si prende dal registro qui,
+        // che e' l'unico posto dove sono tutt'e due in mano insieme.
+        let info = cap.info();
         self.server.ctx.bus.emit(
             "agente.strumento",
-            json!({ "nome": nome, "stato": "inizio" }),
+            json!({ "nome": nome, "stato": "inizio", "descrizione": info.description }),
         );
         // Lo stesso avvolgimento del resto del demone: cosi' il «fermati»
         // ferma anche uno strumento partito dentro un turno.
@@ -192,12 +197,46 @@ fn sistema(cfg: &Value) -> String {
     crate::dalla_configurazione::con_segnaposto(&scritto, &utente, &adesso, &casa)
 }
 
+/// Il turno, il demone lo sa fare **adesso**?
+///
+/// Serve a chi deve **scegliere una strada prima di imboccarla**: il guscio
+/// puo' mandare la domanda qui dentro oppure alla meta' Python, e deve
+/// deciderlo prima, non dopo. Provare e ripiegare sarebbe peggio che
+/// inutile: un turno fallito a meta' ha gia' eseguito degli strumenti, e
+/// rifarlo dall'altra parte vuol dire farli **due volte**.
+///
+/// Si guarda il **primo** gradino, non se ce n'e' uno buono da qualche
+/// parte: il turno parte sempre dal basso (`gradino: 0`) e sale solo se
+/// qualcosa va storto. Una scala che comincia con una CLI e prosegue con un
+/// indirizzo non e' una scala su cui il turno puo' cominciare.
+pub fn pronto(_server: &Arc<Server>) -> Value {
+    let cfg = nova_configurazione::dove::leggi();
+    let conf = crate::dalla_configurazione::scala(&cfg);
+    let recapiti = crate::dalla_configurazione::recapiti(&cfg, &|n| std::env::var(n).ok());
+    let gradini = crate::mondo::scala_vera(&conf, &recapiti);
+    let nomi: Vec<String> = gradini.iter().map(|g| g.nome().to_string()).collect();
+    let (pronto, perche) = match gradini.first() {
+        None => (false, "non c'e' nessun cervello configurato".to_string()),
+        Some(g) if g.indirizzo().is_some() => (true, String::new()),
+        Some(g) => (
+            false,
+            format!(
+                "il primo gradino «{}» e' un processo da lanciare, e il turno \
+                 non sa ancora farlo",
+                g.nome()
+            ),
+        ),
+    };
+    json!({ "pronto": pronto, "perche": perche, "gradini": nomi })
+}
+
 /// Un turno intero, dalla frase dell'utente alla risposta.
 pub async fn fai_un_turno(
     server: &Arc<Server>,
     testo: &str,
     nome_sessione: &str,
     ricomincia: bool,
+    dalla_voce: bool,
 ) -> Result<Value> {
     if testo.trim().is_empty() {
         return Err(anyhow!("un turno senza domanda non ha niente da fare"));
@@ -238,7 +277,16 @@ pub async fn fai_un_turno(
     // l'ultima cosa letta.
     let memoria = nova_contesto::blocchi::memoria(&server.memoria.contesto_per(testo, &cfg));
     let procedure = crate::ricette::blocco_per(testo);
-    let contenuto = nova_contesto::blocchi::domanda(testo, &memoria, &procedure, "", "");
+    // La postilla della voce e' un'istruzione per il cervello e basta: non
+    // entra nella ricerca in memoria e non viene imparata. Per questo si
+    // attacca qui, in coda alla domanda, e non al testo che gira per il
+    // resto del turno.
+    let postilla = if dalla_voce {
+        nova_contesto::testi::POSTILLA_VOCE
+    } else {
+        ""
+    };
+    let contenuto = nova_contesto::blocchi::domanda(testo, &memoria, &procedure, "", postilla);
     s.messaggi
         .push(json!({ "role": "user", "content": contenuto }));
 
@@ -414,7 +462,9 @@ mod prove {
     #[tokio::test]
     async fn una_domanda_vuota_non_e_un_turno() {
         let server = crate::build(crate::config::Config::default()).unwrap();
-        let e = fai_un_turno(&server, "   ", "", false).await.unwrap_err();
+        let e = fai_un_turno(&server, "   ", "", false, false)
+            .await
+            .unwrap_err();
         assert!(e.to_string().contains("senza domanda"));
     }
 

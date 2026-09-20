@@ -118,10 +118,18 @@ impl Server {
                     .get("nuova")
                     .and_then(|v| v.as_bool())
                     .unwrap_or(false);
-                crate::agente::fai_un_turno(self, testo, sessione, ricomincia)
+                let dalla_voce = params
+                    .get("voce")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                crate::agente::fai_un_turno(self, testo, sessione, ricomincia, dalla_voce)
                     .await
                     .map_err(|e| (codes::CAPABILITY_FAILED, e.to_string()))
             }
+
+            // Cheap, e apposta: chi sta fuori deve poter scegliere la
+            // strada **prima** di mandare la domanda. Vedi `agente::pronto`.
+            "agente/pronto" => Ok(crate::agente::pronto(self)),
 
             "agente/sessioni" => Ok(json!({ "aperte": self.agente.aperte().await })),
 

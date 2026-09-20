@@ -7,6 +7,13 @@
 //! una pagina diventa un problema di sistema.
 //!
 //! Quindi: elenco esplicito. Cio' che non e' scritto qui non si puo' chiamare.
+//!
+//! L'elenco vale per **le pagine**, non per il guscio: [`chiama`] lo
+//! controlla, [`metodo`] no. Non e' una scappatoia — e' la stessa regola
+//! guardata dal lato giusto. Chi passa da `chiama` e' del JavaScript che un
+//! domani puo' rompersi; chi passa da `metodo` e' codice Rust di questo
+//! binario. Se i due condividessero l'elenco, l'unico modo di far chiamare
+//! `agente/turno` al guscio sarebbe aprirlo anche alle pagine.
 
 use anyhow::{anyhow, Context, Result};
 use serde_json::{json, Value};
@@ -102,6 +109,33 @@ pub async fn chiama(capacita: &str, args: Value) -> Result<Value> {
             "«{capacita}» non e' fra le capacita' che l'interfaccia puo' chiedere"
         ));
     }
+    metodo(
+        "capabilities/call",
+        json!({ "name": capacita, "args": args }),
+        ATTESA_CAPACITA,
+    )
+    .await
+}
+
+/// Quanto si aspetta una capacita' qualunque: sono cose corte, e se non
+/// tornano e' perche' qualcosa si e' incastrato.
+const ATTESA_CAPACITA: u64 = 120;
+
+/// Quanto si aspetta un turno intero. E' lo stesso quarto d'ora che dentro
+/// il demone aspetta il modello (`nova_core::agente::ATTESA_RISPOSTA`): un
+/// guscio che molla prima lascerebbe il turno a girare da solo, con gli
+/// strumenti gia' partiti e nessuno a leggerne la risposta.
+const ATTESA_TURNO: u64 = 1000;
+
+/// Un metodo qualunque del demone, senza elenco di consentite.
+///
+/// La differenza con [`chiama`] non e' tecnica, e' **chi chiama**: qui ci
+/// arriva solo codice Rust del guscio, che e' nostro; li' ci arriva del
+/// JavaScript di una pagina, che un domani puo' rompersi o essere ingannato.
+/// Per questo l'elenco sta di la' e non qui: metterlo in comune vorrebbe
+/// dire o aprire le pagine ai metodi dell'agente, o chiudere all'agente le
+/// cose che gli servono.
+async fn metodo(nome: &str, params: Value, secondi: u64) -> Result<Value> {
     let endpoint = nova_proto::endpoint_default();
     let stream = match connetti(&endpoint).await {
         Ok(s) => s,
@@ -116,15 +150,25 @@ pub async fn chiama(capacita: &str, args: Value) -> Result<Value> {
     };
     let (lettore, mut scrittore) = tokio::io::split(stream);
     let richiesta = json!({
-        "jsonrpc": "2.0", "id": 1, "method": "capabilities/call",
-        "params": { "name": capacita, "args": args }
+        "jsonrpc": "2.0", "id": 1, "method": nome, "params": params
     });
     scrittore.write_all(richiesta.to_string().as_bytes()).await?;
     scrittore.write_all(b"\n").await?;
     scrittore.flush().await?;
 
     let mut righe = BufReader::new(lettore).lines();
-    while let Some(riga) = righe.next_line().await? {
+    let scadenza = std::time::Duration::from_secs(secondi);
+    loop {
+        // Un tetto di attesa c'e' comunque: senza, una connessione che resta
+        // aperta e muta tiene il guscio appeso per sempre, e per chi guarda
+        // e' identico a NOVA che sta pensando.
+        let riga = match tokio::time::timeout(scadenza, righe.next_line()).await {
+            Ok(r) => match r? {
+                Some(l) => l,
+                None => break,
+            },
+            Err(_) => return Err(anyhow!("il demone non ha risposto entro {secondi}s")),
+        };
         let v: Value = match serde_json::from_str(&riga) {
             Ok(v) => v,
             Err(_) => continue,
@@ -143,4 +187,53 @@ pub async fn chiama(capacita: &str, args: Value) -> Result<Value> {
         return Ok(v.get("result").cloned().unwrap_or(json!({})));
     }
     Err(anyhow!("nessuna risposta dal demone"))
+}
+
+/// Il demone sa fare un turno adesso?
+///
+/// Si chiede **prima** di mandare la domanda, e costa quanto un ping: legge
+/// la configurazione e guarda com'e' fatto il primo gradino. La strada
+/// alternativa — provare il turno e ripiegare se fallisce — sarebbe peggio
+/// che inutile, perche' un turno che muore a meta' ha gia' eseguito degli
+/// strumenti: rifarlo dall'altra parte li farebbe **due volte**.
+pub async fn pronto_al_turno() -> Result<(bool, String)> {
+    let r = metodo("agente/pronto", json!({}), ATTESA_CAPACITA).await?;
+    Ok((
+        r.get("pronto").and_then(Value::as_bool).unwrap_or(false),
+        r.get("perche")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
+    ))
+}
+
+/// Un turno intero dentro il demone.
+///
+/// Gli avanzamenti non tornano da qui: viaggiano sul bus (`agente.*`) e li
+/// raccoglie [`crate::bus`], che sulla sua connessione c'e' gia'. Farli
+/// tornare anche di qua vorrebbe dire due strade per la stessa notizia, e
+/// chi guarda l'orb vedrebbe ogni passo due volte quando un turno parte
+/// dalla voce invece che dalla chat.
+pub async fn turno(testo: &str, sessione: &str) -> Result<String> {
+    let r = metodo(
+        "agente/turno",
+        json!({ "testo": testo, "sessione": sessione }),
+        ATTESA_TURNO,
+    )
+    .await?;
+    Ok(r.get("risposta")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string())
+}
+
+/// Taglia il filo del discorso dalla parte del demone.
+pub async fn dimentica_sessione(sessione: &str) -> Result<()> {
+    metodo(
+        "agente/dimentica",
+        json!({ "sessione": sessione }),
+        ATTESA_CAPACITA,
+    )
+    .await
+    .map(|_| ())
 }
