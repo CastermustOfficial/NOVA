@@ -585,3 +585,40 @@ E vale la pena notare da dove e' saltato fuori: non da una prova, ma dal
 crate dopo. Cercando dove attaccare `nova-cartelle` ho trovato che era gia'
 attaccato. Il lavoro di attaccare i crate sta correggendo il conto che l'ha
 fatto cominciare.
+
+## Ho scritto codice per Windows e l'ho spedito senza compilarlo
+
+Il demone doveva scrivere l'ora locale, e il fuso e' una domanda di sistema:
+`localtime_r` su unix, `GetTimeZoneInformation` su Windows. Ho scritto tutti
+e due i rami, ho eseguito le prove su Linux — verdi — e ho spedito.
+
+Il ramo Windows non compilava. `TIME_ZONE_ID_DAYLIGHT` in `windows-rs` non
+esiste come costante esportata: c'e' `TIME_ZONE_ID_INVALID` e basta, e il
+valore giusto (2) sta nella documentazione della funzione. Tre parole, e il
+lavoro Rust della CI e' diventato rosso senza nemmeno arrivare alle prove.
+
+La parte che conta non e' l'errore: e' che **si poteva vedere prima, qui**.
+
+```
+rustup target add x86_64-pc-windows-msvc
+cargo check -p nova-platform --target x86_64-pc-windows-msvc
+```
+
+Due comandi, meno di un minuto il secondo, e l'errore esce identico a quello
+della CI. Non vale per tutto il progetto — `nova-core` tira dentro `ring`,
+che e' C e non si compila da qui — ma vale **esattamente per il crate dove
+sta il codice per piattaforma**, cioe' l'unico posto dove serve.
+
+La regola che me ne accorgo e' piccola: quando tocco un `#[cfg(windows)]` o
+un `#[cfg(unix)]` dentro `nova-platform`, prima di spedire eseguo quel
+`cargo check` per l'altro sistema. Scrivere codice che nessuna macchina qui
+guarda e' la stessa cosa che scriverlo e non provarlo, e il documento della
+beta lo dice gia' per la CI: «prima si accende la luce, poi si guarda».
+
+E una seconda cosa, dallo stesso rosso. Il lavoro dei gemelli e' diventato
+rosso anche lui, e non per colpa del codice: gli avevo chiesto di costruire
+il demone — perche' la prova nuova lo accende davvero — e su quella macchina
+mancava `libasound2-dev`. Il demone tira dentro la voce, la voce parla ad
+ALSA. Era scritto nel documento della beta, a proposito di un altro lavoro
+della CI, e non mi e' venuto in mente: **aggiungere un bersaglio a un lavoro
+vuol dire aggiungergli anche cio' che quel bersaglio si porta dietro**.
