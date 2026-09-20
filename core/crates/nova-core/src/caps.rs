@@ -46,21 +46,22 @@ pub fn register_builtins(reg: &mut Registry) {
     reg.add(Arc::new(OsservaTogliCap));
 }
 
+/// Il percorso come lo intende chi l'ha scritto.
+///
+/// Qui c'era una seconda versione di questa funzione, e faceva **meno**:
+/// `%VAR%` solo su Windows, `~/` solo altrove. Quindi `fs.read` con
+/// `~/Documenti/x` falliva su Windows mentre `fs.search` con lo stesso
+/// percorso funzionava — due strumenti della stessa famiglia che capiscono
+/// due linguaggi diversi, che per chi scrive la domanda e' inspiegabile.
+///
+/// Adesso e' la stessa di `file_disco`, cioe' la stessa che usa NOVA lato
+/// Python, provata da un banco: `~`, `%VAR%` e `$VAR` sciolti tutti e tre
+/// dappertutto, perche' il modello scrive quello che ha visto scritto da
+/// qualche parte.
 fn espandi(p: &str) -> PathBuf {
-    let mut s = p.to_string();
-    if cfg!(windows) {
-        // %VAR% alla Windows
-        while let (Some(i), Some(j)) = (s.find('%'), s[1..].find('%').map(|j| j + 1)) {
-            let nome = &s[i + 1..j];
-            let valore = std::env::var(nome).unwrap_or_default();
-            s = format!("{}{}{}", &s[..i], valore, &s[j + 1..]);
-        }
-    } else if let Some(resto) = s.strip_prefix("~/") {
-        if let Ok(home) = std::env::var("HOME") {
-            s = format!("{home}/{resto}");
-        }
-    }
-    PathBuf::from(s)
+    nova_strumenti::file_disco::Percorso::nuovo(p)
+        .map(|x| x.scritto)
+        .unwrap_or_else(|_| PathBuf::from(p))
 }
 
 // ---------------------------------------------------------------- demone

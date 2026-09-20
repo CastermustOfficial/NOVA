@@ -152,12 +152,24 @@ fn motivi(cfg: &Config) -> Vec<String> {
 mod tests {
     use super::*;
 
+    /// Le guardie del solo `core.json`, senza andare a leggere il
+    /// `config.json` di chi sta eseguendo la prova.
+    ///
+    /// Non e' pignoleria: `from_config` legge davvero il file dell'utente, e
+    /// su una macchina con NOVA installata una prova che dichiara
+    /// `write_roots = ["/tmp/dati"]` si troverebbe l'incastro con le
+    /// cartelle vere di quella persona. Una prova che cambia risposta a
+    /// seconda di chi la lancia non prova niente.
+    fn solo_del_demone(cfg: &Config) -> Policy {
+        Policy::con_quelle_di_nova(cfg, &serde_json::json!({}))
+    }
+
     #[test]
     fn i_percorsi_protetti_bloccano_le_scritture() {
         let mut cfg = Config::default();
         cfg.protected_paths = vec![if cfg!(windows) { r"C:\Windows" } else { "/etc" }.into()];
         cfg.write_roots.clear();
-        let policy = Policy::from_config(&cfg);
+        let policy = solo_del_demone(&cfg);
         let dentro = if cfg!(windows) {
             r"C:\Windows\System32\x.dll"
         } else {
@@ -180,7 +192,7 @@ mod tests {
         };
         cfg.protected_paths.clear();
         cfg.write_roots = vec![dentro.into()];
-        let policy = Policy::from_config(&cfg);
+        let policy = solo_del_demone(&cfg);
         assert!(policy
             .check_write(Path::new(&format!("{dentro}/x.txt")))
             .is_ok());
@@ -200,7 +212,7 @@ mod tests {
         };
         cfg.protected_paths = vec![prot.into()];
         cfg.write_roots.clear();
-        let policy = Policy::from_config(&cfg);
+        let policy = solo_del_demone(&cfg);
         assert!(policy
             .check_write(Path::new(&format!("{prot}/x.txt")))
             .is_err());
@@ -211,13 +223,13 @@ mod tests {
 
     #[test]
     fn i_comandi_distruttivi_sono_bloccati() {
-        let policy = Policy::from_config(&Config::default());
+        let policy = solo_del_demone(&Config::default());
         assert!(policy.check_command("diskpart /s script.txt").is_err());
         assert!(policy.check_command("Get-Process").is_ok());
     }
     #[test]
     fn le_opzioni_innocue_non_scattano() {
-        let policy = Policy::from_config(&Config::default());
+        let policy = solo_del_demone(&Config::default());
         // `\bformat\s+[a-z]:` non tocca ne' `-Format o` ne' `Format-Table`.
         assert!(policy.check_command("Get-Date -Format o").is_ok());
         assert!(policy.check_command("Get-ChildItem | Format-Table").is_ok());
@@ -232,7 +244,7 @@ mod tests {
         // eventi, cioe' toglie la traccia di quello che e' successo. Nessuna
         // delle due era nell'elenco del demone, ed erano tutte e due in
         // quello di NOVA (D185).
-        let policy = Policy::from_config(&Config::default());
+        let policy = solo_del_demone(&Config::default());
         assert!(policy.check_command("cipher /w:C").is_err());
         assert!(policy.check_command("wevtutil cl System").is_err());
     }
@@ -243,7 +255,7 @@ mod tests {
         // scelta dell'utente: e' un elenco congelato.
         let mut cfg = Config::default();
         cfg.forbidden_commands = vec!["mia regola".into()];
-        let policy = Policy::from_config(&cfg);
+        let policy = solo_del_demone(&cfg);
         assert!(policy
             .check_command("vssadmin delete shadows /all")
             .is_err());
@@ -254,7 +266,7 @@ mod tests {
     fn una_regola_scritta_male_non_spegne_le_altre() {
         let mut cfg = Config::default();
         cfg.forbidden_commands = vec!["(".into()];
-        let policy = Policy::from_config(&cfg);
+        let policy = solo_del_demone(&cfg);
         assert!(policy.check_command("diskpart /s x").is_err());
         assert!(policy.check_command("Get-Process").is_ok());
     }
