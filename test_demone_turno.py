@@ -197,6 +197,21 @@ try:
     controlla("la sessione e' quella predefinita",
               sessioni.get("aperte") == ["principale"], str(sessioni))
     controlla("e si puo' buttare", dimenticata.get("dimenticata") is True, str(dimenticata))
+    print("\n6. e si puo' chiedere dalla riga di comando")
+    nome_cli = "nova.exe" if os.name == "nt" else "nova"
+    cli = next((p for p in (RADICE / "core" / "target" / "release" / nome_cli,
+                            RADICE / "core" / "target" / "debug" / nome_cli)
+                if p.is_file()), None)
+    if cli is None:
+        print("  (la riga di comando non e' costruita: salto)")
+    else:
+        fuori = subprocess.run(
+            [str(cli), "--endpoint", endpoint, "chiedi", "una", "domanda", "qualunque"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+        controlla("«nova chiedi» stampa la risposta e basta",
+                  fuori.returncode == 0 and fuori.stdout.strip().startswith("Fatto."),
+                  f"uscita {fuori.returncode}: {fuori.stdout[:120]!r} / {fuori.stderr[:120]!r}")
+
 finally:
     try:
         with CoreClient(endpoint, timeout=5) as c:

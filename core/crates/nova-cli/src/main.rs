@@ -1,5 +1,6 @@
 //! Client da riga di comando per nova-core.
 //!
+//!     nova chiedi "che ore sono?"
 //!     nova status
 //!     nova caps
 //!     nova call fs.list '{"path":"C:\\Users"}'
@@ -45,6 +46,24 @@ enum Cmd {
         #[arg(long)]
         stdin: bool,
     },
+    /// Chiedi qualcosa a NOVA: il turno intero, dentro il demone.
+    ///
+    ///   nova chiedi "che ore sono?"
+    ///   nova chiedi --nuova "ricominciamo"
+    ///   nova chiedi --sessione lavoro "riprendiamo da ieri"
+    Chiedi {
+        /// La domanda. Piu' parole si uniscono con uno spazio, cosi' non
+        /// serve ricordarsi le virgolette sotto PowerShell.
+        testo: Vec<String>,
+        /// In quale conversazione. Ognuna ha la sua memoria del discorso.
+        #[arg(long)]
+        sessione: Option<String>,
+        /// Butta quel che si erano detti e ricomincia.
+        #[arg(long)]
+        nuova: bool,
+    },
+    /// Le conversazioni aperte nel demone.
+    Sessioni,
     /// Resta in ascolto degli eventi. Senza argomenti ascolta tutto.
     Watch { topics: Vec<String> },
     /// Ponte stdio <-> demone, per collegare Claude Code come server MCP.
@@ -98,6 +117,53 @@ async fn main() -> Result<()> {
             .await?;
             println!("{}", serde_json::to_string_pretty(&r)?);
         }
+        Cmd::Chiedi {
+            testo,
+            sessione,
+            nuova,
+        } => {
+            let domanda = testo.join(" ");
+            if domanda.trim().is_empty() {
+                return Err(anyhow!("e la domanda?"));
+            }
+            let r = chiamata_singola(
+                &endpoint,
+                "agente/turno",
+                json!({
+                    "testo": domanda,
+                    "sessione": sessione.unwrap_or_default(),
+                    "nuova": nuova,
+                }),
+            )
+            .await?;
+            // La risposta si stampa nuda: e' cio' che si legge, e quel che
+            // sta intorno — quanti strumenti, che gradino — va su stderr,
+            // cosi' `nova chiedi ... > file` dentro ci trova la risposta e
+            // basta.
+            println!("{}", r.get("risposta").and_then(|v| v.as_str()).unwrap_or(""));
+            if let Some(esito) = r.get("esito").and_then(|v| v.as_str()) {
+                if esito != "risposto" {
+                    eprintln!("[{esito}]");
+                }
+            }
+        }
+
+        Cmd::Sessioni => {
+            let r = chiamata_singola(&endpoint, "agente/sessioni", json!({})).await?;
+            let aperte: Vec<&str> = r
+                .get("aperte")
+                .and_then(|v| v.as_array())
+                .map(|a| a.iter().filter_map(|x| x.as_str()).collect())
+                .unwrap_or_default();
+            if aperte.is_empty() {
+                println!("nessuna conversazione aperta");
+            } else {
+                for nome in aperte {
+                    println!("{nome}");
+                }
+            }
+        }
+
         Cmd::Watch { topics } => {
             let topics = if topics.is_empty() { vec!["*".to_string()] } else { topics };
             osserva(&endpoint, topics).await?;
