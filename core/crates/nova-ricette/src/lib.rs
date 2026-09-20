@@ -54,6 +54,11 @@ pub const SOGLIA_FUSIONE: f64 = 0.75;
 /// dall'ultima riuscita.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Ricetta {
+    /// Come si chiama questa procedura per chi la collega: un'automazione
+    /// nata da qui la ritrova cosi'. **Viaggia con la procedura**, anche
+    /// quando due si fondono: chi sopravvive tiene il suo, e chi la
+    /// collegava non resta orfano in silenzio.
+    pub id: String,
     pub parole: Vec<String>,
     pub parole_alias: Vec<String>,
     pub parole_passi: Vec<String>,
@@ -62,6 +67,17 @@ pub struct Ricetta {
     pub titolo: String,
     pub procedura: String,
     pub strumenti: Vec<String>,
+    /// Quando e' nata. Non serve a proporre — serve a dire all'utente da
+    /// quanto NOVA sa fare una cosa, e a sciogliere i pari merito quando si
+    /// butta il troppo.
+    pub creata: f64,
+    /// La domanda che l'ha fatta nascere, tagliata. E' cio' che si mostra a
+    /// chi guarda l'elenco delle procedure: un titolo di tre parole non
+    /// basta a riconoscere la propria richiesta.
+    pub innesco: String,
+    /// Quanto ci era voluto la prima volta, in secondi. E' il numero che
+    /// dice se valeva la pena impararla.
+    pub secondi: f64,
 }
 
 /// Toglie gli accenti come fa `unicodedata.normalize("NFKD", ...)` seguito
@@ -255,6 +271,165 @@ pub fn proponi(elenco: &[Ricetta], domanda: &str, quante: usize) -> Vec<(usize, 
     });
     punteggi.truncate(quante);
     punteggi
+}
+
+/// Quante procedure si tengono in archivio.
+///
+/// Oltre, si buttano le meno usate: un archivio che cresce all'infinito
+/// diventa rumore, e il rumore fa **proporre la procedura sbagliata** — che
+/// e' peggio che non proporne nessuna.
+pub const MASSIME: usize = 60;
+
+/// Sopra questa somiglianza, due procedure sono la stessa e si rinforza
+/// quella che c'e' invece di aprirne un'altra.
+///
+/// Si misura **sul verso migliore**: un doppione e' quasi sempre una
+/// versione piu' ricca della stessa cosa, e nel verso povero->ricco il
+/// punteggio crolla.
+pub const SOGLIA_DOPPIONE: f64 = 0.65;
+
+/// Quanto si tiene dei passi. Caratteri, non byte.
+pub const MASSIMO_PROCEDURA: usize = 1200;
+
+/// Quanto si tiene dell'innesco, cioe' della domanda che l'ha fatta nascere.
+pub const MASSIMO_INNESCO: usize = 200;
+
+/// Com'e' finita una registrazione: quale procedura, e se e' nata adesso.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Registrata {
+    /// Ne e' nata una nuova, in fondo all'elenco.
+    Nuova(usize),
+    /// Ne esisteva gia' una uguale, e si e' rinforzata.
+    Rinforzata(usize),
+}
+
+impl Registrata {
+    pub fn dove(&self) -> usize {
+        match self {
+            Registrata::Nuova(i) | Registrata::Rinforzata(i) => *i,
+        }
+    }
+}
+
+/// I primi `quanti` caratteri, come li taglia Python.
+fn primi(t: &str, quanti: usize) -> String {
+    t.chars().take(quanti).collect()
+}
+
+/// Mette da parte una procedura, o **rinforza** quella che c'e' gia'.
+///
+/// «Rinforza» vuol dire: la stessa richiesta rifatta aggiorna i passi con
+/// l'ultima versione riuscita e alza il contatore. I passi vecchi si buttano
+/// di proposito — se la strada e' cambiata, quella buona e' l'ultima.
+///
+/// Tre cose che sembrano dettagli e non lo sono, tutte e tre prese dal
+/// Python riga per riga:
+///
+/// - **il doppione si cerca nei due versi** e vince il punteggio migliore:
+///   nel verso povero->ricco crolla, e due versioni della stessa procedura
+///   resterebbero separate a dividersi il contatore;
+/// - **la durata e' una media mobile** in cui l'ultima misura pesa quanto
+///   tutte le precedenti insieme: una volta lenta per colpa della rete non
+///   deve marchiare la procedura per sempre;
+/// - **quando si supera il tetto** si buttano le meno usate, e a parita' le
+///   piu' vecchie. Il taglio e' in coda a un ordinamento crescente, quindi
+///   l'archivio che resta e' riordinato: e' cosi' anche di la'.
+pub fn registra(
+    elenco: &mut Vec<Ricetta>,
+    domanda: &str,
+    titolo: &str,
+    procedura: &str,
+    strumenti: &[String],
+    secondi: f64,
+    alias: &[String],
+    adesso: f64,
+    id_nuovo: &str,
+) -> Option<Registrata> {
+    let procedura = procedura.trim();
+    if procedura.is_empty() {
+        // Una procedura vuota non serve a niente, e archiviarla vorrebbe
+        // dire proporre il nulla la prossima volta.
+        return None;
+    }
+    let parole_nuove = parole(&format!("{domanda} {titolo}"));
+    let peso = rarita(elenco);
+    let come_ricetta = Ricetta {
+        parole: parole_nuove.clone(),
+        ..Default::default()
+    };
+    let gia = elenco.iter().position(|r| {
+        let a = somiglianza(&parole_nuove, r, &peso);
+        let b = somiglianza(&r.parole, &come_ricetta, &peso);
+        a.max(b) >= SOGLIA_DOPPIONE
+    });
+
+    let dove = match gia {
+        Some(i) => {
+            let r = &mut elenco[i];
+            r.procedura = primi(procedura, MASSIMO_PROCEDURA);
+            if !titolo.is_empty() {
+                r.titolo = titolo.to_string();
+            }
+            r.parole = unione(&r.parole, &parole_nuove);
+            r.parole_passi = ordinate(&parole(procedura));
+            if !alias.is_empty() {
+                r.parole_alias = unione(&r.parole_alias, &parole(&alias.join(" ")));
+            }
+            r.usata += 1;
+            r.ultimo_uso = adesso;
+            if !strumenti.is_empty() {
+                r.strumenti = unione(&r.strumenti, strumenti);
+            }
+            if secondi != 0.0 {
+                // Media mobile: l'ultima misura pesa quanto tutte le
+                // precedenti messe insieme.
+                let prima = if r.secondi == 0.0 { secondi } else { r.secondi };
+                r.secondi = ((prima + secondi) / 2.0 * 10.0).round() / 10.0;
+            }
+            Registrata::Rinforzata(i)
+        }
+        None => {
+            elenco.push(Ricetta {
+                id: id_nuovo.to_string(),
+                parole: parole_nuove,
+                parole_passi: ordinate(&parole(procedura)),
+                parole_alias: ordinate(&parole(&alias.join(" "))),
+                usata: 1,
+                ultimo_uso: adesso,
+                creata: adesso,
+                titolo: if titolo.is_empty() {
+                    primi(domanda, 60)
+                } else {
+                    titolo.to_string()
+                },
+                innesco: primi(domanda, MASSIMO_INNESCO),
+                procedura: primi(procedura, MASSIMO_PROCEDURA),
+                strumenti: ordinate(strumenti),
+                secondi: (secondi * 10.0).round() / 10.0,
+            });
+            Registrata::Nuova(elenco.len() - 1)
+        }
+    };
+
+    *elenco = unisci(elenco, SOGLIA_FUSIONE);
+    if elenco.len() > MASSIME {
+        // Le meno usate, e a parita' le piu' vecchie.
+        elenco.sort_by(|a, b| {
+            (a.usata, a.ultimo_uso)
+                .partial_cmp(&(b.usata, b.ultimo_uso))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        let da = elenco.len() - MASSIME;
+        elenco.drain(..da);
+    }
+    Some(dove)
+}
+
+fn ordinate(v: &[String]) -> Vec<String> {
+    let mut fuori: Vec<String> = v.to_vec();
+    fuori.sort();
+    fuori.dedup();
+    fuori
 }
 
 // Il testo che le procedure mettono in bocca al modello: sta accanto al suo

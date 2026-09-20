@@ -62,10 +62,23 @@ def controlla(nome, condizione, dettaglio=""):
         print(f"  [NO ] {nome}  {dettaglio}")
 
 
+import os as _os                                                  # noqa: E402
 from nova.core_client import CoreClient                          # noqa: E402
 
 # ----------------------------------------------------- il cervello finto
 ricevute: list[dict] = []
+imparate: list[str] = []
+
+
+def ultimo_turno() -> dict:
+    """L'ultima richiesta che e' **un turno**.
+
+    A turno finito il demone ne fa un'altra, di servizio, per ricostruire la
+    procedura: arriva sullo stesso cervello e finisce nello stesso elenco.
+    Si riconosce perche' un turno porta gli strumenti e quella no — ed e' la
+    stessa differenza che conta davvero, non un dettaglio di questa prova.
+    """
+    return [r for r in ricevute if r.get("tools")][-1]
 
 
 class Cervello(BaseHTTPRequestHandler):
@@ -76,15 +89,50 @@ class Cervello(BaseHTTPRequestHandler):
         corpo = json.loads(self.rfile.read(n).decode("utf-8"))
         ricevute.append(corpo)
         strumenti = [t["function"]["name"] for t in corpo.get("tools", [])]
-        # Primo giro: si chiede uno strumento vero fra quelli offerti.
-        if not any(m.get("role") == "tool" for m in corpo["messages"]):
+        testo_entrata = " ".join(str(m.get("content") or "") for m in corpo["messages"])
+        # La domanda di servizio che il demone fa a turno finito: non e' un
+        # turno, e' una chiamata isolata senza strumenti.
+        if "Ricostruisci da questo la procedura" in testo_entrata:
+            imparate.append(testo_entrata)
+            # Il titolo segue la domanda: due turni diversi imparano due
+            # procedure diverse, come farebbe un modello vero.
+            fra = testo_entrata.split('RICHIESTA: "', 1)[-1].split('"', 1)[0]
+            risposta = json.dumps({"choices": [{"message": {
+                "role": "assistant",
+                # Volutamente lontana dalla procedura gia' in archivio: se
+                # somigliasse, le due si fonderebbero — ed e' giusto che
+                # succeda, ma qui si sta provando l'imparare, non la fusione.
+                "content": f"Procedura per {fra[:40]}\n"
+                           "1. chiedi al demone le informazioni di sistema\n"
+                           "2. riassumi quante CPU e quanta memoria\n"
+                           "3. dillo in una riga",
+            }}]}).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(risposta)))
+            self.end_headers()
+            self.wfile.write(risposta)
+            return
+        # Si chiede uno strumento solo se la domanda lo nomina. Serve a
+        # questa prova: un turno che usa uno strumento fa scattare
+        # l'imparare, e l'imparare **riscrive l'archivio delle procedure** —
+        # cioe' proprio il file che le sezioni sotto stanno confrontando col
+        # Python. Un cervello finto che chiede sempre uno strumento rendeva
+        # questa prova una corsa contro il proprio effetto collaterale.
+        # Solo la **domanda**, cioe' la prima riga dell'ultimo messaggio
+        # dell'utente: tutto il resto e' quel che NOVA ci attacca — memoria e
+        # procedure — e li' dentro la parola «strumento» compare da sola.
+        domande = [m for m in corpo["messages"] if m.get("role") == "user"]
+        prima_riga = (domande[-1].get("content") or "").split("\n", 1)[0] if domande else ""
+        vuole_strumento = "strumento" in prima_riga.lower()
+        if vuole_strumento and not any(m.get("role") == "tool" for m in corpo["messages"]):
             quale = "sys_info" if "sys_info" in strumenti else strumenti[0]
             messaggio = {"role": "assistant", "content": "",
                          "tool_calls": [{"id": "c1", "type": "function",
                                          "function": {"name": quale, "arguments": "{}"}}]}
         else:
-            ultimo = [m for m in corpo["messages"] if m.get("role") == "tool"][-1]
-            visto = "os" in (ultimo.get("content") or "")
+            usati = [m for m in corpo["messages"] if m.get("role") == "tool"]
+            visto = bool(usati) and "os" in (usati[-1].get("content") or "")
             messaggio = {"role": "assistant",
                          "content": f"Fatto. Lo strumento ha risposto: {'si' if visto else 'boh'}."}
         risposta = json.dumps({"choices": [{"message": messaggio}]}).encode("utf-8")
@@ -125,7 +173,10 @@ vault.mkdir(parents=True, exist_ok=True)
     "server": {"host": "127.0.0.1", "port": porta},
     "model": {"max_tool_iterations": 4},
     "kb": {"vault_path": str(vault), "top_k": 5, "max_context_chars": 2600,
-           "min_confidence": 0.25},
+           "min_confidence": 0.25,
+           # soglia a zero: qui un turno dura millesimi, e aspettare otto
+           # secondi per provare che impara sarebbe provare l'orologio.
+           "procedure": True, "procedure_da_secondi": 0},
     "brains": {
         "active": "locale",
         "routing": {
@@ -227,9 +278,12 @@ try:
 
     print("\n5. quel che ha gia' imparato torna in coda alla domanda")
     with CoreClient(endpoint, timeout=60) as c:
+        # Nella sessione gia' avviata: li' il cervello finto risponde senza
+        # chiedere strumenti, quindi il turno non fa scattare l'imparare —
+        # e l'archivio resta quello che questa prova ha scritto.
         c.request("agente/turno", {"testo": "controlla la posta su gmail",
-                                   "sessione": "procedure"})
-    domanda_procedure = [m for m in ricevute[-2]["messages"] if m.get("role") == "user"][-1]
+                                   "sessione": "principale"})
+    domanda_procedure = [m for m in ultimo_turno()["messages"] if m.get("role") == "user"][-1]
     testo_domanda = domanda_procedure.get("content", "")
     controlla("la procedura simile e' stata ripescata",
               "<gia_fatto>" in testo_domanda and "Controllo posta Gmail" in testo_domanda,
@@ -258,15 +312,19 @@ try:
     # Il blocco delle procedure e' l'ultima cosa del messaggio — davanti puo'
     # esserci quello della memoria — e dev'essere identico a quello che il
     # Python comporrebbe per la stessa domanda.
+    primo = next((k for k in range(min(len(testo_domanda), len(atteso)))
+                  if testo_domanda[-len(atteso):][k] != atteso[k]), None)
     controlla("e dice esattamente quello che direbbe il Python",
               testo_domanda.endswith(atteso) and bool(atteso),
-              f"rust {testo_domanda[-120:]!r} vs python {atteso[-120:]!r}")
+              f"primo diverso a {primo}: rust "
+              f"{testo_domanda[-len(atteso):][max(0, (primo or 0) - 40):(primo or 0) + 60]!r} "
+              f"vs python {atteso[max(0, (primo or 0) - 40):(primo or 0) + 60]!r}")
 
     print("\n6. e quel che sa gia' arriva dalla memoria")
     with CoreClient(endpoint, timeout=60) as c:
         c.request("agente/turno", {"testo": "come guardo la posta",
-                                   "sessione": "memoria"})
-    domanda_memoria = [m for m in ricevute[-2]["messages"] if m.get("role") == "user"][-1]
+                                   "sessione": "principale"})
+    domanda_memoria = [m for m in ultimo_turno()["messages"] if m.get("role") == "user"][-1]
     testo_memoria = domanda_memoria.get("content", "")
     controlla("la nota giusta e' nel contesto",
               "<memoria>" in testo_memoria and "Gmail" in testo_memoria,
@@ -292,7 +350,47 @@ try:
     controlla("la sessione e' quella predefinita",
               sessioni.get("aperte") == ["principale"], str(sessioni))
     controlla("e si puo' buttare", dimenticata.get("dimenticata") is True, str(dimenticata))
-    print("\n8. e si puo' chiedere dalla riga di comando")
+    print("\n8. e a turno finito impara la procedura")
+    with CoreClient(endpoint, timeout=60) as c:
+        c.request("agente/turno", {"testo": "usa uno strumento e dimmi com'e' andata",
+                                   "sessione": "imparare"})
+    # L'archivio non c'era: il primo turno ha usato uno strumento, quindi
+    # c'era qualcosa da imparare. Il demone non fa aspettare nessuno — impara
+    # dopo aver risposto — quindi qui si aspetta lui.
+    archivio = Path(casa) / "NOVA" / "ricette.json"
+    scadenza = time.time() + 15
+    while time.time() < scadenza and not archivio.is_file():
+        time.sleep(0.3)
+    controlla("ha chiesto al modello di ricostruire i passi", bool(imparate),
+              "nessuna richiesta di procedura e' arrivata al cervello")
+    controlla("e ha scritto l'archivio dove lo legge NOVA", archivio.is_file(),
+              str(list((Path(casa) / "NOVA").glob("*"))))
+    if archivio.is_file():
+        dentro_archivio = json.loads(archivio.read_text(encoding="utf-8"))
+        # Se la procedura imparata somiglia a una che c'era, le due si
+        # fondono — ed e' giusto. Quel che non deve succedere e' che
+        # l'identificativo cambi: un'automazione nata da quella procedura la
+        # ritrova cosi', e un id nuovo la lascerebbe orfana in silenzio.
+        controlla("e l'identificativo di quella che c'era sopravvive",
+                  any(r.get("id") == "abc123" for r in dentro_archivio),
+                  json.dumps([r.get("id") for r in dentro_archivio]))
+        controlla("con dentro la procedura imparata",
+                  any(r.get("titolo", "").startswith("Procedura per")
+                      for r in dentro_archivio),
+                  json.dumps(dentro_archivio, ensure_ascii=False)[:200])
+        controlla("e il Python la rilegge com'e'",
+                  bool(_ric.carica()) if _os.environ.get("APPDATA") == casa else True,
+                  "l'archivio non si rilegge dall'altra parte")
+        # La forma del file e' quella che scrive il Python: stesse chiavi.
+        if dentro_archivio:
+            controlla("nella stessa forma che scrive il Python",
+                      set(dentro_archivio[0]) >= {"id", "titolo", "innesco", "procedura",
+                                                  "parole", "parole_passi", "parole_alias",
+                                                  "strumenti", "creata", "ultimo_uso",
+                                                  "usata", "secondi"},
+                      str(sorted(dentro_archivio[0])))
+
+    print("\n9. e si puo' chiedere dalla riga di comando")
     nome_cli = "nova.exe" if os.name == "nt" else "nova"
     cli = next((p for p in (RADICE / "core" / "target" / "release" / nome_cli,
                             RADICE / "core" / "target" / "debug" / nome_cli)

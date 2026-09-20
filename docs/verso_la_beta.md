@@ -2428,8 +2428,11 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    contesto che il demone compone e' **identico** a quello del Python — la
    prova lo confronta con `KBEngine.contesto_per` sulla stessa cartella, e
    l'embedding di casa e' stato portato fin dentro la scelta della casella
-   (D299, D300). Resta fuori l'**imparare**: a fine turno il demone legge
-   memoria e procedure, non le scrive.
+   (D299, D300). E adesso il demone **impara** anche: a turno finito
+   ricostruisce la procedura e la archivia, con le stesse regole del Python
+   e senza far aspettare nessuno, perche' lui resta acceso (D303). Resta
+   fuori l'imparare della **memoria**: i fatti durevoli che finiscono nel
+   vault li estrae ancora solo il Python.
 4. **Gli strumenti che al demone mancano.** Il registro delle capacita' ne ha
    una parte; il Python ne ha cinquantasette. Ogni famiglia portata e' anche
    un crate che si attacca: `nova-harness` per i documenti a pezzi,
