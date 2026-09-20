@@ -218,6 +218,18 @@ GEMELLI = [
     ("nova-harness/src/lib.rs", "NON_GUARDARE",
      lambda: sorted(costante("nova/harness.py", "NON_GUARDARE")), False,
      "in Python e' un insieme: l'ordine non c'e'"),
+    ("nova-harness/src/prova.rs", "SOTTO_RUST",
+     lambda: costante("nova/harness_prova.py", "SOTTO_RUST"), True,
+     "l'ordine e' quello in cui si guarda: un progetto con due Rust dentro "
+     "prende prima quello che il progetto dichiara per primo"),
+    ("nova-harness/src/prova.rs", "DICHIARANO_PYTEST",
+     lambda: costante("nova/harness_prova.py", "DICHIARANO_PYTEST"), True, ""),
+    ("nova-harness/src/prova.rs", "PER_PYTHON",
+     lambda: costante("nova/harness_prova.py", "PER_PYTHON"), True,
+     "qui l'ordine **conta**: pytest se c'e', se no gli script"),
+    ("nova-harness/src/prova.rs", "LINGUA",
+     lambda: dizionario("nova/harness_prova.py", "LINGUA"), True,
+     "coppie: in Python e' un dizionario"),
     ("nova-harness/src/modifica.rs", "SU_UN_TESTO",
      lambda: sorted(costante("nova/harness_modifica.py", "AZIONI_TESTO")), True,
      "in Python e' un insieme, e in Rust e' gia' in ordine: l'ordine e' "

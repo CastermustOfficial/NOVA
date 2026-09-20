@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """Il verificatore: si applica solo se i test restano verdi.
 
 E' il pezzo che trasforma l'harness da un buon posto per leggere a un posto
@@ -40,10 +40,18 @@ from .guasti import spiega
 # Oltre questo, non si aspetta piu': una suite che non finisce e' un guasto
 # suo, non un motivo per lasciare l'utente fermo.
 ATTESA_S = 300
+#: Le sottocartelle in cui si guarda se c'e' un secondo progetto Rust.
+SOTTO_RUST = ("core", "rust", "src-tauri")
+#: I file che, se ci sono, vogliono dire «questo progetto usa pytest».
+DICHIARANO_PYTEST = ("pytest.ini", "tox.ini", "setup.cfg")
 # Quanto output si tiene. La coda, non la testa: l'errore sta in fondo.
 CODA_RIGHE = 40
-NON_GUARDARE = {".git", "node_modules", "target", "__pycache__", "venv",
-                ".venv", "build", "dist", "runtime", "salvagente"}
+# Qui c'era un secondo `NON_GUARDARE`, diverso da quello di `harness.py` e
+# **mai usato da nessuno**. E' la forma peggiore di una lista doppia: finche'
+# non la usa nessuno non si rompe niente, e il giorno che qualcuno la usasse
+# le due meta' darebbero due risposte diverse alla stessa domanda — che e'
+# esattamente come `vssadmin` passava dal demone e veniva fermato da NOVA
+# (D185). Se servisse di nuovo, si importa quello di `harness.py`.
 
 
 @dataclass
@@ -91,7 +99,7 @@ def scopri(radice: str | Path) -> list[Banco]:
 
     if (r / "Cargo.toml").is_file():
         banchi.append(Banco("cargo", ["cargo", "test"], r))
-    for sotto in ("core", "rust", "src-tauri"):
+    for sotto in SOTTO_RUST:
         if (r / sotto / "Cargo.toml").is_file():
             banchi.append(Banco(f"cargo ({sotto})", ["cargo", "test"], r / sotto))
 
@@ -104,7 +112,7 @@ def scopri(radice: str | Path) -> list[Banco]:
 
     # pytest solo se il progetto lo dichiara: eseguirlo dove non c'e'
     # significa raccogliere file che non erano pensati per lui.
-    dichiarato = any((r / n).is_file() for n in ("pytest.ini", "tox.ini", "setup.cfg"))
+    dichiarato = any((r / n).is_file() for n in DICHIARANO_PYTEST)
     if not dichiarato and (r / "pyproject.toml").is_file():
         try:
             dichiarato = "pytest" in (r / "pyproject.toml").read_text(
@@ -223,19 +231,38 @@ def racconta(esito: dict) -> str:
         pezzi.append(f"{len(esito['cadute'])} cadute")
     if esito["saltate"]:
         pezzi.append(f"{len(esito['saltate'])} non provabili qui")
-    return f"{', '.join(pezzi)} in {esito['durata_s']}s ({esito['comando']})"
+    # L'arrotondamento si fa **qui** e non solo quando si salva: cosi' la
+    # riga e' la stessa chiunque abbia riempito il dizionario, e non dipende
+    # da quante cifre ci ha messo dentro chi l'ha costruito.
+    return (f"{', '.join(pezzi)} in {round(esito['durata_s'], 1)}s "
+            f"({esito['comando']})")
 
 
 # Che banco serve per il file che si e' toccato. Provare la suite Rust
 # perche' si e' cambiata una riga di Python e' tempo buttato, e su un
 # progetto grosso e' tanto tempo.
-_LINGUA = {
-    ".rs": "cargo",
-    ".py": ("pytest", "script"),
-    ".js": "npm", ".ts": "npm", ".jsx": "npm", ".tsx": "npm",
-    ".vue": "npm", ".svelte": "npm",
+LINGUA = {
     ".go": "go",
+    ".js": "npm",
+    ".jsx": "npm",
+    ".rs": "cargo",
+    ".svelte": "npm",
+    ".ts": "npm",
+    ".tsx": "npm",
+    ".vue": "npm",
 }
+#: Il `.py` ne vuole due, in ordine: pytest se c'e', se no gli script.
+#: Stava dentro `LINGUA` come unico valore a due voci, e quel «unico» e'
+#: quel che rendeva la tabella impossibile da confrontare con la meta' Rust.
+PER_PYTHON = ("pytest", "script")
+
+
+def famiglie_per(estensione: str) -> tuple[str, ...]:
+    """Quali famiglie di banco vanno bene per un file di questa lingua."""
+    if estensione == ".py":
+        return PER_PYTHON
+    quale = LINGUA.get(estensione)
+    return (quale,) if quale else ()
 
 
 def scegli(radice: str | Path, file: str | Path = "") -> Banco | None:
@@ -245,9 +272,8 @@ def scegli(radice: str | Path, file: str | Path = "") -> Banco | None:
         return None
     if not file:
         return banchi[0]
-    voluto = _LINGUA.get(Path(file).suffix.lower())
-    if voluto:
-        nomi = (voluto,) if isinstance(voluto, str) else voluto
+    nomi = famiglie_per(Path(file).suffix.lower())
+    if nomi:
         for nome in nomi:
             for b in banchi:
                 if b.nome.split()[0] == nome:
