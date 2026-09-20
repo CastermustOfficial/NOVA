@@ -1,0 +1,20 @@
+[package]
+name = "nova-docx"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Modificare un .docx senza spogliarlo: zip piu' una modifica chirurgica."
+
+[dependencies]
+# Uno zip, e basta. Per modificare un `.docx` **non** serve una libreria di
+# `.docx`: misurato sul banco dei documenti (D237).
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[features]
+banco = []
+
+[[bin]]
+name = "banco-docx"
+path = "src/banco.rs"
+required-features = ["banco"]

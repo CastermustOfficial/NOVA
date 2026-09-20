@@ -8797,3 +8797,64 @@ sui file senza rientri.
 
 Centoquarantacinque confronti verdi, trentasette prove di unita', sedici
 mutazioni su sedici.
+
+
+## La chirurgia sul .docx, che era una misura e adesso e' codice
+
+Terzo pezzo di CANT-8, e il piu' soddisfacente.
+
+D237 dice che per modificare un `.docx` non serve una libreria di `.docx`.
+L'avevo scritto dopo aver misurato: `docx-rs` fa il giro a vuoto — legge e
+riscrive senza toccare niente — e intanto perde `theme1.xml` (i caratteri e i
+colori del documento), `customXml/`, `webSettings.xml` e lo stile `Normal`, e
+il file passa da 37 a 105 kB. Non e' un difetto di quella libreria: e' cosa
+succede a **ricostruire** un documento a partire dal proprio modello. Tutto
+quel che il modello non conosce non viene ricostruito.
+
+Adesso quella misura e' un crate. `nova-docx` apre lo zip, tocca **solo**
+`word/document.xml`, e ricopia ogni altra parte byte per byte. Quel che non si
+guarda non si puo' rovinare.
+
+**La cosa su cui ho dovuto trattenermi.** Dentro `document.xml` serviva
+trovare i paragrafi, e la tentazione era mettere un parser XML. Non c'e', e
+non ci deve essere. C'e' uno scanner che sa dire dove comincia e dove finisce
+un elemento con un certo nome, contando aperture e chiusure. Basta, perche'
+tutto quel che si fa e' sostituire testo dentro elementi che esistono gia': non
+si crea struttura, non si sposta niente, non si riordina. Un parser vero
+servirebbe per fare di piu' — e fare di piu' e' esattamente la cosa che ha
+spogliato il documento nel giro col `docx-rs` (D275).
+
+Due dettagli dello scanner che non sono dettagli. `<w:p` non deve combaciare
+con `<w:pPr`, che e' il contenitore delle proprieta' e sta dentro **ogni**
+paragrafo: confonderli vuol dire trovare il doppio dei paragrafi, e meta' non
+sono paragrafi. E un `<w:p/>` vuoto va contato lo stesso, se no i numeri
+slittano e `p3` indica un altro paragrafo — che e' la stessa cosa che D270 e
+D274 hanno gia' chiuso due volte, da due lati diversi. Comincio a pensare che
+«i numeri dei blocchi sono i numeri veri» sia l'invariante piu' fragile di
+tutto questo cantiere.
+
+**Il testo nuovo va tutto nella prima porzione**, e le altre si svuotano. E'
+quel che fa `python-docx`, e non e' un ripiego: le porzioni esistono perche'
+hanno formattazioni diverse — una parola in grassetto e' una porzione sua — e
+distribuire un testo nuovo fra porzioni vecchie vorrebbe dire indovinare quale
+pezzo va in grassetto. Nella prima, il paragrafo prende la formattazione con
+cui **cominciava**: l'unica scelta che non inventa niente (D276).
+
+**La prova.** Non gira su XML scritto da me. Costruisce un `.docx` vero con
+`python-docx` — titolo con stile, un paragrafo con una parola in grassetto in
+mezzo, una tabella, caratteri da proteggere — lo fa modificare al Rust, e poi
+va a contare. Diciassette parti dello zip prima, diciassette dopo, le stesse.
+Lo stile c'e'. Il grassetto c'e'. La tabella e' intatta. Il file non e'
+raddoppiato. Ed e' esattamente il controllo che il banco fece una volta e che
+adesso si rifa' da solo a ogni giro.
+
+Dodici mutazioni, due sopravvissute. Una era una prova che verificava la cosa
+giusta nel modo sbagliato: guardavo che l'elemento trovato *contenesse* la
+parola dentro quello annidato, e quello e' vero anche se trovo l'elemento
+sbagliato. L'altra era un caso che non provavo affatto: chiedere di riscrivere
+una parte che nel documento non c'e'. Dire «fatto» li' vuol dire che chi
+chiama crede di aver modificato il documento e non se ne accorge finche' non
+lo riapre.
+
+Sedici confronti verdi contro un documento vero, tredici prove di unita',
+dodici mutazioni su dodici.
