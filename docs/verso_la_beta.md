@@ -972,7 +972,7 @@ mole, non di difficolta'.
 | CANT-8 | **L'harness dei documenti** — *la strada e' scelta: **prima la logica, poi la finestra**. Le librerie sono provate (D237, D238, D239): `mupdf` per le posizioni nel PDF, `umya-spreadsheet` per i fogli, e per il `.docx` **nessuna libreria** — zip piu' una modifica chirurgica* | ~3.100, di cui **1.518 senza una riga di Qt** | Non e' «2.900 righe di finestra Qt»: solo `harness_finestra.py` tocca Qt, e di quelle 1.582 righe la parte Qt sono 164. `harness.py`, `harness_modifica.py`, `harness_prova.py` e `riparazione.py` si portano come qualunque altra cosa. La finestra e' un'altra domanda, e da quando il guscio e' Tauri con l'interfaccia in HTML, e' la domanda «una quarta finestra del guscio?» invece di «quali widget?» |
 | CANT-9 | **Mac e Linux, parita' piena** — *le prove Python girano in CI anche su Ubuntu e macOS, e sono **verdi** (D232). Il primo giro ha trovato cinque difetti che da Windows non si vedevano: una cartella che si spostava (D231), i percorsi protetti che fuori da Windows non proteggevano niente (D230), una prova che lasciava il mondo senza permessi (D233), una porta che chiedeva meta' di quel che serviva (D234) e una che misurava la velocita' della macchina (D235). Poi sei dei tredici pezzi di `nova-platform`: il **Cestino** secondo la specifica freedesktop (D259, D260), i **processi** — con un modo di spegnere tutto che Windows non ha (D258) — le **informazioni di sistema** (D261), e appunti, volume e notifiche (D262). Restano quelli che chiedono un ambiente grafico vero: **tastiera, finestre e l'albero di accessibilita'**, piu' l'avvio automatico, che qui vuol dire scrivere un installatore che non c'e'* | ~3.300 | Non e' in coda per caso: e' il primo cantiere che **non si puo' provare da qui**. Quel che resta e' esattamente la parte che non si puo' nemmeno scrivere onestamente da qui: un albero di accessibilita' scritto senza una macchina su cui guardarlo produrrebbe un elenco di controlli plausibile e falso, che e' peggio del rifiuto onesto che c'e' adesso |
 | ~~CANT-10~~ | ~~**I fogli di calcolo**~~ — **fatto**: `nova-fogli` legge **e** scrive. I riferimenti (`A1`, `$B$7`, `C10:A1` che e' la stessa area di `A1:C10`), la regola che decide se un valore e' un numero (D254), come si legge una cella con dentro un conto mai calcolato (D253), e la scrittura che non spoglia il file — formule, formati, grassetti e secondo foglio restano, provato su un `.xlsx` vero (D239, D255). Di riflesso, le due letture Python che davano due testi diversi dello stesso file sono diventate una (D256) | ~150 oggi | Il pubblico lo chiede, e NOVA sapeva fare **meta' della meta'**: leggeva il testo delle celle, in sola lettura. Nasceva direttamente come crate, ed e' andata cosi': aritmetica e formati, cioe' esattamente il genere di cosa che si porta bene e si prova meglio |
-| CANT-11 | **NOVA parla MCP da un lato solo** | ~400 | `nova-mcp` dice di se': «il protocollo con cui NOVA **si apre** a un altro programma». E' vero, ed e' meta': NOVA sa farsi usare e non sa usare. Ogni volta che qualcosa esiste gia' come server MCP — pilotare Excel, un gestionale, un servizio interno — la scelta e' fra riscriverlo e rinunciarci, quando la terza strada e' parlarci. Va dopo i fogli perche' e' un **cancello**, non uno strumento: un server MCP di qualcun altro descrive i propri strumenti con parole sue, e quelle parole finiscono nel prompt. Aprire quella porta senza decidere prima chi puo' entrare vorrebbe dire far scrivere a un estraneo dentro la testa di NOVA |
+| ~~CANT-11~~ | ~~**NOVA parla MCP da un lato solo**~~ — **fatto**: `nova-mcp-cliente`. Non e' un tubo, e' un **cancello**, e le regole sono cinque: un server si dichiara e non si scopre (D263), le parole di un estraneo si citano e cio' che comanda si dice invece di toglierlo di nascosto (D264), i nomi portano davanti quello del server (D265), uno strumento altrui non e' mai «sicuro» (D266), e quel che entra ha una misura (D267). Provato contro un server MCP vero, che ha trovato un difetto che nessuna prova scritta a mano aveva trovato (D268) | ~400 | `nova-mcp` diceva di se': «il protocollo con cui NOVA **si apre** a un altro programma». Era vero, ed era meta': NOVA sapeva farsi usare e non sapeva usare. Andava dopo i fogli perche' e' un cancello e non uno strumento — e infatti il codice del tubo e' un terzo, il resto e' chi puo' entrare |
 | CANT-12 | **Le decisioni che oggi sono euristiche** | ~0 righe nuove, molte da togliere | NOVA decide un mucchio di cose con liste di parole, soglie e regex: quale cervello serve, se una frase e' un fatto da ricordare, se un risultato e' pertinente, se una chiamata e' rischiosa. Ognuna di quelle e' un giudizio travestito da conto. Restano cosi' non per scelta ma perche' l'alternativa costava un giro di LLM per ogni domanda, cioe' secondi e soldi. I **modelli System One** cambiano quel conto. Sta in fondo perche' e' un cantiere che si **prepara** adesso e si chiude quando ci sara' qualcosa da misurare: prima si danno un nome alle decisioni e un secondo braccio, poi si sceglie cosa spostare — e si sceglie con un banco, non con le cifre di chi vende |
 
 Due cose che la tabella non dice.
@@ -2127,6 +2127,33 @@ produrrebbe un elenco di controlli plausibile e falso, che e' peggio del
 rifiuto onesto che c'e' adesso. Piu' l'avvio automatico, che fuori da Windows
 vuol dire un installatore che non esiste: `install.ps1` e' PowerShell da cima
 a fondo.
+
+
+**CANT-11: NOVA che usa, e il cancello che decide chi entra.** `nova-mcp`
+diceva di se': «il protocollo con cui NOVA si apre a un altro programma». Era
+vero ed era meta'. Adesso c'e' l'altra: ogni volta che una cosa esiste gia'
+come server MCP — pilotare Excel, un gestionale, un servizio interno — la
+scelta era fra riscriverla e rinunciarci.
+
+Il codice del tubo e' un terzo del crate. Il resto e' il cancello, e la
+ragione sta in una frase: **un server MCP descrive i propri strumenti con
+parole sue, e quelle parole finiscono nel prompt di NOVA**. Non «in teoria» —
+la descrizione di uno strumento e' testo libero che arriva da un processo che
+non e' nostro, e il modello la legge come legge tutto il resto.
+
+Cinque regole, ognuna contro un modo preciso di entrare: si dichiara e non si
+scopre (D263), si cita e non si obbedisce — e cio' che comanda si **dice**
+invece di toglierlo di nascosto, perche' toglierlo vuol dire che l'attacco
+riesce a meta' (D264), i nomi portano davanti quello del server cosi' che un
+`Bash` altrui non copra il nostro (D265), niente di altrui e' mai «sicuro»
+(D266), e tutto quel che entra ha una misura (D267).
+
+E il banco contro un server MCP vero — non un finto — ha trovato la cosa che
+nessuna prova scritta a mano aveva trovato: chiamare uno strumento che non
+esiste tornava «riuscito». Nel protocollo l'errore dello strumento arriva
+come una risposta riuscita con `isError` acceso, e guardare solo il livello
+del protocollo vuol dire leggere «non conosco questo strumento» come un
+risultato valido (D268).
 
 ## Il cancello della beta
 

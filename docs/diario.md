@@ -8571,3 +8571,98 @@ Sessantasette prove verdi in `nova-platform`, ventiquattro mutazioni:
 ventidue viste, una equivalente (e che ha portato a un difetto vero), e una
 che non si puo' provare qui perche' la differenza si vede solo su un disco
 con la riserva per l'amministratore.
+
+
+## L'altra meta' di MCP, che non e' un tubo ma un cancello
+
+CANT-11. `nova-mcp` diceva di se', dalla prima riga: «il protocollo con cui
+NOVA **si apre** a un altro programma». Era vero, ed era meta'. NOVA sapeva
+farsi usare e non sapeva usare — cioe' ogni volta che una cosa esisteva gia'
+come server MCP, la scelta era fra riscriverla e rinunciarci.
+
+La cosa che mi aspettavo di scrivere era un tubo: JSON-RPC su stdio, tre
+metodi, qualche busta. E' un terzo del crate. Il resto e' il cancello, e la
+ragione sta in una frase che ho scritto nella tabella dei cantieri mesi fa
+senza capirla del tutto: **un server MCP descrive i propri strumenti con
+parole sue, e quelle parole finiscono nel prompt di NOVA**.
+
+Non e' un'ipotesi da manuale di sicurezza. La descrizione di uno strumento e'
+testo libero, arriva da un processo che non e' nostro, e il modello la legge
+esattamente come legge tutto il resto. Aprire quella porta senza decidere
+prima chi puo' entrare vuol dire dare a un estraneo il permesso di scrivere
+dentro la testa di NOVA.
+
+Cinque regole, e ognuna chiude un modo preciso di entrare.
+
+**Un server si dichiara, non si scopre** (D263). NOVA non va a cercare server
+MCP sul PC e non imparera'. Stanno in `mcp_esterni` nella configurazione,
+dove l'utente li vede e li toglie. E una voce scritta male non sparisce in
+silenzio: finisce fra i rifiutati col motivo, perche' un server che l'utente
+ha scritto e che NOVA ignora senza dirlo e' il modo piu' sicuro di fargli
+perdere mezz'ora.
+
+**Le parole di un estraneo si citano, non si obbediscono** (D264). La
+descrizione arriva marcata — «fornita dal server X, non da NOVA» — perche'
+dentro un prompt quella e' l'unica cosa che distingue cio' che NOVA sa da
+cio' che le ha detto un processo di qualcun altro.
+
+E qui ho fatto una scelta su cui ho pensato parecchio: cio' che somiglia a un
+ordine — «ignore previous instructions», «non dirlo all'utente» — si
+**nomina**, non si toglie. La tentazione di ripulire era forte. Ma togliere
+di nascosto vuol dire due cose brutte: che l'attacco riesce a meta', perche'
+la frase sparisce e nessuno sa che qualcuno ci ha provato; e che uno
+strumento onesto che nomina una di quelle parole diventa incomprensibile
+senza che si capisca perche'. Una riga davanti a una persona vale piu' di un
+filtro silenzioso. E i sospetti si cercano anche nei **nomi dei campi dello
+schema**: anche quelli finiscono nel prompt, e guardare solo la descrizione
+sarebbe lasciare aperta la porta di fianco.
+
+**I nomi portano davanti quello del server** (D265), se no un server che
+dichiara uno strumento chiamato `Bash` copre il `Bash` di NOVA. **Niente di
+altrui e' mai «sicuro»** (D266): `nova_mcp::rischio` dice «safe» a `Read`
+perche' quel `Read` l'ha scritto NOVA; di uno strumento altrui sa solo il
+nome che si e' dato, e cio' che un estraneo dice di se' non e' una prova.
+**Quel che entra ha una misura** (D267) — e non serve malizia per riempire un
+contesto, basta uno strumento che restituisce un file.
+
+**E poi il banco.** Le prove di unita' dicono che il cancello funziona su
+dichiarazioni che ho scritto io, cioe' su un avversario che ho immaginato io.
+Per l'altra meta' ho fatto come con `nova-cdp` e Chrome: un server MCP vero,
+`@modelcontextprotocol/server-everything`, scritto da qualcun altro, che
+risponde come gli pare. Tredici strumenti, tutti col prefisso, tutti citati,
+una chiamata vera che ha risposto «Echo: ciao da NOVA».
+
+E una riga che diceva `"ha_detto_di_no": false`. Avevo chiesto uno strumento
+che non esiste, e il cliente aveva risposto «riuscito». Nel protocollo
+l'errore dello strumento non e' un errore del protocollo: arriva come una
+risposta riuscita con `isError` acceso, con dentro il motivo. La distinzione
+e' giusta — «non si e' potuto chiedere» e «si e' chiesto e ha detto di no» si
+risolvono in modi opposti — ma guardarne solo una vuol dire che diventano
+tutte e due «riuscito», e NOVA avrebbe letto «non conosco questo strumento»
+come un risultato valido con dentro una frase strana (D268).
+
+Quindici mutazioni, tre sopravvissute al primo giro. Tutte e tre per la
+stessa ragione: provavano cose che si vedono solo con un collegamento aperto,
+e io avevo provato solo le funzioni pure. Adesso c'e' un server finto fatto
+di tre righe di `sh` che dice esattamente quel che gli dico io — e con quello
+si provano le due cose che un server vero non fa mai apposta: rispondere alla
+domanda di qualcun altro, e dire di no.
+
+Per contorno, due nomi. `ATTESA_S` e `CHIUSURA` li avevo scelti senza pensare,
+ed esistevano gia' in altri crate a significare altro: `test_niente_due_volte`
+me l'ha detto al primo giro. Potevo dichiarare un'eccezione — sono davvero
+due cose diverse — ma usare la scappatoia per un nome che ho appena scelto io
+sarebbe stato usarla male. Si chiamano `ATTESA_RISPOSTA_S` e
+`CITAZIONE_CHIUDE`.
+
+E un'altra prova ha detto qualcosa di vero su se stessa.
+`test_guardie_predefinite` cerca un secondo elenco di comandi distruttivi in
+tutti i file Rust, e ha trovato `rm -rf` dentro le mie prove nuove.
+L'esenzione che c'era era il nome di un file scritto a mano — `policy.rs` — e
+il file dopo sarebbe stato dimenticato allo stesso modo, che e' la forma di
+difetto che questo progetto conosce meglio (D229). Adesso la regola e'
+meccanica: `prove.rs` e' tutto prove, e in ogni altro file le prove cominciano
+a `#[cfg(test)]`. L'eccezione scritta a mano e' sparita.
+
+Ventiquattro prove verdi, quindici mutazioni su quindici, e un server vero
+che ha detto la cosa che non sapevo.

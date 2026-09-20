@@ -154,17 +154,27 @@ print("\n3. e non esiste un secondo elenco")
 # `nova-mcp` e' l'eccezione dichiarata: le sue parole pesanti rispondono a
 # un'altra domanda — «quanto e' rischiosa questa chiamata», non «si puo'
 # fare» — e vengono anche loro dal Python, dalle regole del protocollo.
-# `nova-mcp` e' l'eccezione dichiarata: le sue parole pesanti rispondono a
-# un'altra domanda — «quanto e' rischiosa questa chiamata», non «si puo'
-# fare» — e vengono anche loro dal Python, dalle regole del protocollo.
 ECCEZIONI = {"predefiniti.rs", "banco.rs"}
 SPIE = ["vssadmin", "bcdedit", "wevtutil", "cipher /w", "rm -rf"]
 altrove = []
 for f in sorted(CRATES.glob("*/src/**/*.rs")):
     if f.name in ECCEZIONI or "nova-mcp" in f.parts:
         continue
-    for i, riga in enumerate(f.read_text(encoding="utf-8", errors="replace")
-                             .splitlines(), 1):
+    # Le prove che **provano** le guardie dichiarano cosa dev'essere
+    # bloccato: non sono un secondo elenco da cui leggerlo. Prima qui c'era
+    # il nome di un file scritto a mano (`policy.rs`), e il file dopo
+    # sarebbe stato dimenticato allo stesso modo — la forma di difetto che
+    # questo progetto conosce meglio (D229). Adesso la regola e' meccanica:
+    # un file che si chiama `prove.rs` e' tutto prove, e in ogni altro file
+    # le prove cominciano a `#[cfg(test)]` e arrivano in fondo.
+    if f.name == "prove.rs":
+        continue
+    righe = f.read_text(encoding="utf-8", errors="replace").splitlines()
+    for n, r in enumerate(righe):
+        if r.strip().startswith("#[cfg(test)]"):
+            righe = righe[:n]
+            break
+    for i, riga in enumerate(righe, 1):
         # I commenti raccontano la storia, ed e' giusto che la raccontino:
         # quello che conta e' che il nome non compaia dentro **del codice**.
         # (Riconoscere le stringhe con un'espressione regolare non funziona:
@@ -176,9 +186,6 @@ for f in sorted(CRATES.glob("*/src/**/*.rs")):
         for spia in SPIE:
             if spia in riga.lower():
                 altrove.append(f"{f.relative_to(CRATES)}:{i} «{spia}»")
-# Le prove che *provano* le guardie sono un caso a parte: dichiarano cosa
-# dev'essere bloccato, non un secondo elenco da cui leggerlo.
-altrove = [x for x in altrove if "policy.rs" not in x]
 controlla("nessun altro file dichiara un comando distruttivo", not altrove,
           " | ".join(altrove[:3]))
 

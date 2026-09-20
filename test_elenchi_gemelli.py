@@ -256,6 +256,12 @@ ALTROVE = {
 #: dichiarazione, non una scappatoia: chi legge sa che quella riga non ha
 #: nessuno che la controlli dall'altra parte.
 SENZA_GEMELLO: dict[str, str] = {
+    # Le forme che, dentro la descrizione di uno strumento altrui, danno un
+    # ordine invece di descrivere. In Python non c'e' niente da confrontare:
+    # il cliente MCP esiste solo in Rust, ed e' nato dopo che il Python aveva
+    # smesso di crescere. Il giorno che il Python ne avesse una copia, questo
+    # elenco va tolto da qui e messo fra i gemelli.
+    "FRASI_CHE_COMANDANO": "il cliente MCP esiste solo in Rust",
     # I tre elenchi di `scrivania_unix` sono nomi di **programmi esterni** —
     # wl-copy, pactl, notify-send — che si provano in ordine finche' uno
     # risponde. In Python non c'e' niente da confrontare, e non perche' «il
