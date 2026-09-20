@@ -8917,3 +8917,44 @@ niente, perche' quella funzione nessuno la chiamava.
 
 Duecentoquarantuno confronti verdi, cinquantasei prove di unita', sedici
 mutazioni su sedici.
+
+
+## I gemelli non giravano
+
+Ho fatto una cosa che non avevo mai fatto: costruire **tutti** i banchi in una
+volta e lanciare tutte le prove gemelle di fila su questa macchina.
+
+Ventuno prove `test_*_rust.py`. Diciannove verdi, due «non provabili qui», e
+una rossa: `test_modelli_rust.py`, sul proiettore multimodale.
+
+Il caso era questo: una cartella con dentro `modello.gguf`,
+`MMPROJ-F16.GGUF` e `note.txt`. Il Rust trovava il proiettore, il Python no.
+La ragione e' che `Path.glob("*mmproj*.gguf")` su Windows non distingue le
+maiuscole — lo fa il filesystem, non Python — e su Linux si'.
+
+Il danno e' esattamente quello che questo progetto teme di piu'. Su Linux
+NOVA non trova il proiettore, quindi non passa `--mmproj` a llama-server,
+quindi ogni immagine viene rifiutata con un 500 — e nessuno lo dice. Il
+modello «non vede» e sembra una scelta. E' il terzo difetto di questa forma
+dopo i percorsi protetti (D230) e la prova di `nova-componenti` (D257): il
+codice andava su tutti e due i sistemi, il **comportamento del sistema sotto**
+no (D279).
+
+**Ma la cosa vera l'ho trovata dopo, ed e' peggio.** Perche' quella prova non
+era gia' rossa? Perche' non l'aveva mai eseguita nessuno. Le prove gemelle
+escono 2 — «non provabile qui» — quando il banco Rust non e' costruito, e
+nessun lavoro della CI lo costruiva. A ogni push, ventuno prove dicevano
+«saltata» e il riepilogo lo scriveva pure, in chiaro, in fondo al log.
+
+Cioe': il metodo su cui si regge meta' di questo progetto — due meta' che si
+guardano — girava **solo quando me ne ricordavo io**. Che e' precisamente la
+cosa che `test_niente_due_volte` e `test_elenchi_gemelli` esistono per non
+chiedere a nessuno.
+
+Adesso c'e' un lavoro `gemelli` sulla CI: costruisce i banchi di tutti i crate
+che ne hanno uno e li esegue. Li' dentro «saltata» torna a voler dire quel che
+deve volere dire — serve un Chrome acceso, serve un server MCP — e non «non
+l'ho costruito» (D280).
+
+Trovare un difetto e' una giornata buona. Trovare il motivo per cui quel
+difetto ha potuto restare li' e' una giornata migliore.

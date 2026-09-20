@@ -382,11 +382,25 @@ def proiettore_accanto(percorso_modello: str) -> Path | None:
     Torna `None` anche quando il percorso e' vuoto o illeggibile, perche' il
     chiamante deve poter fare una domanda sola — «vede?» — senza doversi
     difendere da un disco che non risponde.
+
+    Il nome si guarda **senza maiuscole**, e non e' pignoleria: `glob` su
+    Windows non le distingue (lo fa il filesystem) e su Linux si'. Un
+    `MMPROJ-F16.GGUF` — e i repository li distribuiscono anche cosi' — si
+    trovava sul PC di chi sviluppa e non si trovava su Linux, dove NOVA
+    restava cieca **senza dirlo**: nessun errore, nessun avviso, solo
+    `--mmproj` che non viene passato e ogni immagine rifiutata con un 500 da
+    llama-server. L'ha visto il banco dei modelli, il giorno in cui e' stato
+    eseguito su una macchina che non e' Windows (D279).
     """
     try:
         cartella = Path(percorso_modello).parent
-        return next((f for f in sorted(cartella.glob("*mmproj*.gguf"))
-                     if f.is_file()), None)
+        trovati = sorted(
+            (f for f in cartella.iterdir()
+             if f.is_file() and "mmproj" in f.name.lower()
+             and f.name.lower().endswith(".gguf")),
+            key=lambda f: f.name,
+        )
+        return trovati[0] if trovati else None
     except Exception:                                       # noqa: BLE001
         return None
 
