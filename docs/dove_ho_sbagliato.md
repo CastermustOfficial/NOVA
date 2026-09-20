@@ -682,3 +682,52 @@ autorizzava anche `C:\dati-altrui`. E' il difetto che il commento di
 rimasto qui, cioe' proprio nel processo che esegue. Adesso il controllo dei
 percorsi passa per `Guardie` come gia' faceva quello dei comandi: una sola
 implementazione, provata da tutte e due le parti.
+
+## E il banco gemello dipendeva dal computer su cui girava
+
+Corollario del difetto qui sopra, scoperto facendolo. La prova nuova — lo
+spostamento sopra una destinazione che esiste — passava qui e diventava rossa
+sulla CI, e non per il codice: il Cestino. Dalla mia parte `send2trash` non
+funziona, quindi il Python si fermava come il Rust; sull'agente della CI
+funziona, quindi il Python spostava e il Rust si fermava. Due risposte
+diverse per due computer diversi, lette dal banco come un difetto del
+porting.
+
+Il Cestino e' l'unica cosa di quella famiglia che dipende dal sistema, e il
+Rust la teneva gia' dietro un tratto (`Sistema`) apposta — solo che il banco
+ci passava `SenzaSistema`, cioe' «il Cestino non c'e' mai», mentre dall'altra
+parte c'era quello vero. Adesso tutte e due ne ricevono uno **finto e
+identico**: sposta in `.cestino` accanto. E' meglio anche per un'altra
+ragione: con `SenzaSistema` il caso in cui il Cestino **funziona** non si
+confrontava mai.
+
+La regola: **in un banco gemello, cio' che dipende dal sistema si mette
+finto da tutte e due le parti.** Se una meta' lo ha vero e l'altra no, il
+banco smette di confrontare due porting e comincia a confrontare due
+computer.
+
+E una cosa in piu', uscita da li'. Mettere il Cestino finto dentro il corpus
+ha fatto emergere una divergenza che c'era da sempre: `search_files` non
+torna i risultati nello stesso ordine. Il Rust ordina per nome a ogni
+livello, il Python li prende nell'ordine del filesystem; col corpus di prima
+coincidevano per caso. Non si aggiusta facendo copiare al Rust l'ordine
+dell'altro — quello dipende dal filesystem, cioe' cambia da macchina a
+macchina — e ordinare e' il comportamento giusto. Per ora il caso nuovo sta
+in fondo all'elenco delle operazioni, dopo le ricerche, e la divergenza resta
+scritta qui invece di essere riscoperta fra sei mesi.
+
+## E, sempre dallo stesso filone, due modi di capire un percorso
+
+Dentro `caps.rs` c'era una seconda `espandi`, scritta a mano, che faceva
+**meno** di quella vera: `%VAR%` solo su Windows, `~/` solo altrove. Quindi
+`fs.read` con `~/Documenti/x` falliva su Windows mentre `fs.search` con lo
+stesso percorso funzionava — due strumenti della stessa famiglia che
+capiscono due linguaggi diversi. Per chi scrive la domanda e' inspiegabile,
+e il modello quei percorsi li scrive come li ha visti scritti da qualche
+parte.
+
+Adesso e' la stessa di `file_disco`, cioe' la stessa che usa NOVA lato
+Python, provata da un banco. Tre buchi in un giorno, tutti della stessa
+forma: **la stessa cosa scritta due volte in due posti**. Comincio a
+pensare che valga la pena cercarla di proposito invece di aspettare di
+inciamparci.

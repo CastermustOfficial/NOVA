@@ -562,15 +562,6 @@ OPERAZIONI = [
      {"che": "sposta", "da": "{B}/copia.txt", "a": "{B}/spostata.txt"}),
     ("move_path", {"source": "{B}/spostata.txt", "destination": "{B}/nota.txt"},
      {"che": "sposta", "da": "{B}/spostata.txt", "a": "{B}/nota.txt"}),
-    # Spostare SOPRA qualcosa che c'e' gia'. E' il caso che mancava, ed e'
-    # quello in cui si perde un file: chi ha chiesto di spostare non ha
-    # chiesto di distruggere la destinazione. Le due meta' devono rifiutare
-    # allo stesso modo quando il Cestino non c'e' — e qui non c'e', da
-    # nessuna delle due parti.
-    ("move_path", {"source": "{B}/nota.txt", "destination": "{B}/docs/relazione.md",
-                   "overwrite": True},
-     {"che": "sposta", "da": "{B}/nota.txt", "a": "{B}/docs/relazione.md",
-      "sovrascrivi": True}),
     ("delete_path", {"path": "{B}/spostata.txt", "permanent": True},
      {"che": "cancella", "dove": "{B}/spostata.txt", "per_sempre": True}),
     ("search_files", {"root": "{B}", "pattern": "*.md"},
@@ -587,6 +578,17 @@ OPERAZIONI = [
      {"che": "setaccia", "dove": "{B}", "testo": "cercata", "modello": "**/*.md"}),
     ("search_in_files", {"root": "{B}", "query": "non-c-e-mai-stato"},
      {"che": "setaccia", "dove": "{B}", "testo": "non-c-e-mai-stato"}),
+    # **Ultima di proposito.** Spostare SOPRA qualcosa che c'e' gia' e' il
+    # caso che mancava, ed e' quello in cui si perde un file: chi ha chiesto
+    # di spostare non ha chiesto di distruggere la destinazione, che infatti
+    # finisce nel Cestino. Sta in fondo perche' il Cestino finto lascia una
+    # cartella `.cestino` dentro il corpus, e le ricerche qui sopra
+    # confrontano **l'ordine** in cui i file escono: una cartella in piu' a
+    # meta' elenco cambierebbe quello che si sta confrontando.
+    ("move_path", {"source": "{B}/nota.txt", "destination": "{B}/docs/relazione.md",
+                   "overwrite": True},
+     {"che": "sposta", "da": "{B}/nota.txt", "a": "{B}/docs/relazione.md",
+      "sovrascrivi": True}),
 ]
 
 py_base = Path(tempfile.mkdtemp(prefix="nova-corpi-py-"))
@@ -602,10 +604,35 @@ try:
             return {k: con(base, v) for k, v in x.items()}
         return x
 
-    miei = []
-    ctx = GuardiaAperta()
-    for nome, args, _ in OPERAZIONI:
-        miei.append(run_tool(nome, con(py_base, args), ctx))
+    # Il Cestino e' l'unica cosa di questa famiglia che dipende dal sistema,
+    # e sulle macchine di prova non e' la stessa: qui dentro non c'e', su un
+    # agente della CI `send2trash` funziona. Una meta' che ci riesce e una
+    # che no non e' una differenza fra i due porting, e' una differenza fra
+    # due computer — e il banco la leggerebbe come un difetto.
+    #
+    # Quindi tutt'e due ne ricevono uno finto e identico: sposta in
+    # `.cestino` accanto. Cosi' si confronta anche il caso in cui il Cestino
+    # **funziona**, che con `SenzaSistema` da una parte non si vedeva mai.
+    import nova.tools.files as _files
+
+    def cestino_finto(t):
+        try:
+            dentro = Path(t).parent / ".cestino"
+            dentro.mkdir(parents=True, exist_ok=True)
+            Path(t).rename(dentro / Path(t).name)
+            return True
+        except OSError:
+            return False
+
+    vero_cestino = _files._nel_cestino
+    _files._nel_cestino = cestino_finto
+    try:
+        miei = []
+        ctx = GuardiaAperta()
+        for nome, args, _ in OPERAZIONI:
+            miei.append(run_tool(nome, con(py_base, args), ctx))
+    finally:
+        _files._nel_cestino = vero_cestino
 
     r = subprocess.run([str(BINARIO)], input=json.dumps({
         # Un solo istante serve qui: tutti i file del corpus hanno la stessa
@@ -627,13 +654,18 @@ try:
 
     # Lo spostamento sopra una destinazione che esiste va guardato anche
     # **nel merito**, non solo «uguali»: se un giorno tutte e due le meta'
-    # ricominciassero a sovrascrivere senza dirlo, resterebbero uguali e
-    # questa prova passerebbe lo stesso. Qui il Cestino non c'e' da nessuna
-    # delle due parti, quindi la risposta giusta e' fermarsi.
+    # ricominciassero a sovrascrivere in silenzio, resterebbero uguali e
+    # questa prova passerebbe lo stesso. Quel che deve succedere e' che la
+    # destinazione **non sparisca**: finisce nel Cestino, e di li' si
+    # recupera.
     for (nome, args, _), mio in zip(OPERAZIONI, miei):
         if nome == "move_path" and args.get("overwrite"):
-            controlla("spostare sopra un file, senza Cestino, si rifiuta",
-                      "Cestino" in mio and "mi fermo" in mio, mio[:200])
+            controlla("spostare sopra un file riesce", mio.startswith("Spostato:"),
+                      mio[:200])
+    recuperabile = py_base / "docs" / ".cestino" / "relazione.md"
+    controlla("e la destinazione non e' sparita: e' nel Cestino",
+              recuperabile.is_file(),
+              str(sorted(x.name for x in (py_base / "docs").glob("*"))))
 
     diverse = []
     for (nome, args, _), mio, suo in zip(OPERAZIONI, miei, suoi):

@@ -222,6 +222,33 @@ impl Argomenti for DaJson {
     }
 }
 
+/// Un Cestino finto, identico a quello che il Python monta per la prova:
+/// sposta in `.cestino` accanto. Serve a confrontare anche il caso in cui
+/// il Cestino **funziona**, che con `SenzaSistema` non si vedeva mai.
+struct Cestinetto;
+
+impl file_disco::Sistema for Cestinetto {
+    fn nel_cestino(&self, percorso: &std::path::Path) -> bool {
+        let Some(padre) = percorso.parent() else {
+            return false;
+        };
+        let dentro = padre.join(".cestino");
+        if std::fs::create_dir_all(&dentro).is_err() {
+            return false;
+        }
+        let Some(nome) = percorso.file_name() else {
+            return false;
+        };
+        std::fs::rename(percorso, dentro.join(nome)).is_ok()
+    }
+
+    fn apri(&self, _percorso: &std::path::Path) -> Result<(), String> {
+        Err("aprire un file con l'applicazione predefinita non e' \
+             implementato su questo sistema"
+            .into())
+    }
+}
+
 fn main() {
     let mut testo = String::new();
     if std::io::Read::read_to_string(&mut std::io::stdin(), &mut testo).is_err() {
@@ -294,7 +321,12 @@ fn main() {
         operazioni: {
             let g = Guardie::nuove(&d.protetti, &d.radici, &d.vietati,
                                    Autonomia::dal_nome(&d.autonomia));
-            let sistema = SenzaSistema;
+            // Lo stesso Cestino finto del Python: sposta in `.cestino`
+            // accanto. `SenzaSistema` qui non andava bene — vuol dire «il
+            // Cestino non c'e' mai», e dall'altra parte su certe macchine
+            // c'e'. Due meta' che dipendono dal computer su cui gira la
+            // prova non si possono confrontare.
+            let sistema = Cestinetto;
             d.operazioni.iter().map(|op| {
                 let esito = match op {
                     Operazione::Elenca { dove, modello, nascosti } =>
