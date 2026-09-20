@@ -9074,3 +9074,86 @@ banco dice con sicurezza e' che **non vanno messi a scelta dentro il codice**:
 il motore sta dietro un'interfaccia e ne esiste un secondo, che e' esattamente
 quel che fa `spreadsheet-mcp` — l'unico altro progetto che ha affrontato lo
 stesso problema per un agente.
+
+
+## Il primo filo, e cosa c'era attaccato dall'altra parte
+
+«Iniziamo dal filo», ha detto Gio. Trentacinque crate, il demone ne
+raggiungeva diciassette, e gli altri erano decisioni portate e provate che non
+eseguiva nessuno. Ho cominciato dal piu' piccolo: la configurazione.
+
+Mi aspettavo mezz'ora di collegamento. Aprendo `nova-core::config` ho trovato
+questa riga:
+
+```rust
+serde_json::from_str(&testo).unwrap_or_else(|e| {
+    tracing::warn!(errore = %e, "configurazione illeggibile, uso i default");
+    Self::default()
+})
+```
+
+Tre cose, in tre righe.
+
+**La prima.** `from_str` fallisce su **tutto** il file se un campo solo ha il
+tipo sbagliato. E tornare ai predefiniti qui non e' neutro: il predefinito di
+`write_roots` e' vuoto, e `write_roots` vuoto vuol dire «non confinare le
+scritture». Quindi un `"shell_timeout_s": "ciao"` — un campo che non c'entra
+niente — toglieva il confinamento delle scritture. In silenzio (D285).
+
+**La seconda.** `protected_paths` si lasciava sostituire da un file salvato.
+`forbidden_commands` no: `policy.rs` lo unisce gia' ai predefiniti, con un
+commento che spiega benissimo perche' («una configurazione salvata prima che
+l'elenco crescesse non e' una scelta dell'utente, e' un elenco che si e'
+congelato»). Due guardie nello stesso file, una unita e una no, con la ragione
+giusta scritta accanto a una sola delle due. E' D185 un'altra volta.
+
+**La terza e' la mia preferita.** L'avviso c'era. Diceva la cosa giusta. Ed
+era emesso **prima che il logger esistesse** — non per distrazione, per
+necessita': il livello del log sta nella configurazione, quindi la
+configurazione si legge per prima. Quel `warn!` finiva nel vuoto, a ogni
+avvio, da sempre (D286).
+
+Adesso la lettura non parla: quel che e' successo torna nei campi — `errore_caricamento`,
+`campi_ignorati`, `guardie_aggiunte` — e lo dice `main` quando c'e' un posto
+dove dirlo. Sullo schermo per chi accende il demone a mano, nel registro per
+chi lo trova acceso domani.
+
+**Una cosa che ho dovuto decidere, e che non e' scontata.** Le regole di
+`nova-configurazione` sono nate per il `config.json` di NOVA, dove le guardie
+stanno dentro `safety`. Il demone le tiene in cima e le chiama in un altro
+modo. Riscrivere la regola per il secondo schema sarebbe stato il modo di
+farle divergere — cioe' esattamente il difetto per cui quel crate esiste.
+Quindi le regole adesso prendono **dove guardare** (`Regole`, `Guardie`), e i
+nomi dei campi sono del chiamante.
+
+C'e' una differenza vera fra i due, pero', e l'ho lasciata accesa da una parte
+sola: `tipi_fermi`. Un valore di un tipo che la fabbrica non ha resta fuori.
+Per il demone e' obbligatorio, perche' converte dentro una struttura tipata.
+Per NOVA in Python e' spento, perche' li' un tipo sbagliato non fa fallire la
+lettura — fa fallire qualcosa dopo, lontano dalla causa. **E' un difetto anche
+quello**, ma e' un altro, e chiuderlo vuol dire cambiare tutte e due le meta'
+insieme o farle divergere. Sta scritto nel codice, con dentro il numero della
+decisione, perche' non diventi un'omissione (D284).
+
+**Le mutazioni.** Dieci, otto viste al primo giro. Le due sopravvissute erano
+tutte e due sul controllo dei tipi, e tutte e due mi hanno detto qualcosa.
+
+Una era un controllo che avevo messo per scrupolo — «un nulla esplicito
+diventa un tipo sbagliato?» — e ha trovato un buco vero: scrivevo
+`!valore.is_null()` per non denunciare i `null`, ma poi il `null` finiva
+**dentro** il campo, e `serde` lo rifiutava, e si perdeva di nuovo tutta la
+configurazione. Cioe' avevo chiuso il difetto per le stringhe e lo avevo
+lasciato aperto per i nulla.
+
+L'altra diceva che un intero e un decimale erano lo stesso tipo. Nella
+docstring avevo scritto che lo sono, «e distinguerli vorrebbe dire rifiutare
+configurazioni oneste». Sono andato a misurare invece di crederci: `serde`
+rifiuta un `42.0` dove va un intero. Quindi non distinguerli non e' tollerante,
+e' rimandare il rifiuto al momento in cui costa tutto il file. Docstring
+riscritta al contrario.
+
+Dieci su dieci, alla fine. E il gemello col Python non si e' mosso di una
+riga: centotrentuno confronti, verdi come prima — che era la condizione per
+poter cambiare quel crate senza paura.
+
+Un crate dei sedici e' attaccato. Ne restano quindici.

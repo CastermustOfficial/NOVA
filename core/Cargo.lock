@@ -2820,6 +2820,7 @@ dependencies = [
  "async-trait",
  "nova-cervelli",
  "nova-ciclo",
+ "nova-configurazione",
  "nova-contesto",
  "nova-modelli",
  "nova-platform",

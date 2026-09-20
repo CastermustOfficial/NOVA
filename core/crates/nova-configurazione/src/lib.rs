@@ -48,6 +48,79 @@ pub const SEZIONE_GUARDIE: &str = "safety";
 /// niente da cui accorgersene.
 pub const NON_SI_SVUOTA: &str = "system_prompt";
 
+/// Dove stanno, in una configurazione, le liste che si uniscono.
+///
+/// Le **regole** di lettura sono le stesse per chiunque; i nomi dei campi no.
+/// NOVA tiene le sue guardie dentro `safety`; il demone le tiene in cima e le
+/// chiama in un altro modo. Scrivere due volte la stessa regola per due
+/// schemi diversi sarebbe il modo di farle divergere — ed e' esattamente il
+/// difetto che questo crate e' nato per chiudere (D185, D229).
+#[derive(Debug, Clone, Copy)]
+pub struct Guardie<'a> {
+    /// La sezione che le contiene, oppure `None` se stanno al primo livello.
+    pub sezione: Option<&'a str>,
+    pub campi: &'a [&'a str],
+}
+
+impl Guardie<'static> {
+    /// Quelle di NOVA, dentro `safety`.
+    pub const DI_NOVA: Guardie<'static> = Guardie {
+        sezione: Some(SEZIONE_GUARDIE),
+        campi: &GUARDIE_CHE_SI_UNISCONO,
+    };
+}
+
+/// Le regole con cui un salvato si applica sopra la fabbrica.
+///
+/// Sono le stesse per chiunque; cambiano i nomi dei campi e una cosa sola di
+/// sostanza, `tipi_fermi`, che dipende da **chi legge**.
+#[derive(Debug, Clone, Copy)]
+pub struct Regole<'a> {
+    pub guardie: Guardie<'a>,
+    /// I campi in cui il vuoto **non** vince.
+    pub non_si_svuota: &'a [&'a str],
+    /// Se un valore di un tipo che la fabbrica non ha resta fuori.
+    ///
+    /// Per chi legge dentro una struttura tipata — il demone — dev'essere
+    /// accesa: un `"shell_timeout_s": "ciao"` fa fallire la conversione di
+    /// **tutta** la configurazione, e si torna ai predefiniti perdendo anche
+    /// i campi scritti bene. Per NOVA in Python e' spenta, perche' li' un
+    /// tipo sbagliato non fa fallire la lettura: fa fallire qualcosa dopo,
+    /// lontano dalla causa. E' un difetto anche quello, ma e' un altro, e
+    /// chiuderlo vuol dire cambiare tutte e due le meta' insieme — se no le
+    /// due risposte divergono, che e' la cosa che questo crate esiste per
+    /// impedire (D284).
+    pub tipi_fermi: bool,
+}
+
+impl Regole<'static> {
+    /// Quelle di NOVA in Python, che la prova gemella tiene ferme.
+    pub const DI_NOVA: Regole<'static> = Regole {
+        guardie: Guardie::DI_NOVA,
+        non_si_svuota: &[NON_SI_SVUOTA],
+        tipi_fermi: false,
+    };
+}
+
+/// Che forma ha questo valore, per dire se due sono dello stesso tipo.
+///
+/// **Un intero e un decimale sono due forme diverse**, e non per pedanteria:
+/// `serde` rifiuta un `42.0` dove va un intero, e quel rifiuto arriva dopo —
+/// quando si converte **tutta** la configurazione, che e' esattamente il
+/// modo di perderla che questo controllo esiste per chiudere. Meglio
+/// scartare il campo e dirlo.
+fn forma(v: &Value) -> u8 {
+    match v {
+        Value::Null => 0,
+        Value::Bool(_) => 1,
+        Value::Number(n) if n.is_f64() => 2,
+        Value::Number(_) => 3,
+        Value::String(_) => 4,
+        Value::Array(_) => 5,
+        Value::Object(_) => 6,
+    }
+}
+
 /// Cosa NOVA ha rimesso nell'elenco delle guardie, e in che campo.
 ///
 /// Aggiungere qualcosa alla configurazione di qualcuno **senza dirlo** e'
@@ -82,8 +155,18 @@ pub struct Lettura {
     pub errore: String,
 }
 
-/// Il salvato sopra i valori di fabbrica.
+/// Il salvato sopra i valori di fabbrica, con le regole di NOVA.
 pub fn applica(predefinito: &Value, salvato: &Value) -> (Value, Rapporto) {
+    applica_con(predefinito, salvato, &Regole::DI_NOVA)
+}
+
+/// Il salvato sopra i valori di fabbrica, dicendo dove guardare.
+///
+/// `non_si_svuota` sono i campi in cui il vuoto **non** vince. Per NOVA e' il
+/// prompt di sistema; per un altro schema saranno altri — ma la ragione e'
+/// sempre quella: un campo svuotato da un salvataggio andato male non e' una
+/// scelta di nessuno, e lasciarlo vincere toglie qualcosa in silenzio.
+pub fn applica_con(predefinito: &Value, salvato: &Value, regole: &Regole) -> (Value, Rapporto) {
     let mut fuori = predefinito.clone();
     let mut ignorate: Vec<String> = Vec::new();
     let (Some(dentro), Some(sopra)) = (fuori.as_object_mut(), salvato.as_object()) else {
@@ -111,7 +194,19 @@ pub fn applica(predefinito: &Value, salvato: &Value) -> (Value, Rapporto) {
                 continue;
             }
             dentro.insert(campo, sezione(&attuale, valore));
-        } else if campo == NON_SI_SVUOTA {
+        } else if regole.tipi_fermi && valore.is_null() && !attuale.is_null() {
+            // Un nulla e' «non detto», non «detto male»: resta quel che c'e'
+            // di fabbrica, e non si spaventa nessuno. Infilarlo davvero
+            // dentro un campo tipato farebbe fallire la conversione di tutta
+            // la configurazione — cioe' proprio quel che c'e' qui sotto.
+            continue;
+        } else if regole.tipi_fermi && !attuale.is_null() && forma(&attuale) != forma(valore) {
+            // Un tipo che la fabbrica non ha non entra: e' lo stesso
+            // difetto della sezione che non e' un oggetto, un piano piu'
+            // giu'. Chi legge dentro una struttura tipata, senza questo,
+            // perde **tutta** la configurazione per un campo solo.
+            ignorate.push(campo.clone());
+        } else if regole.non_si_svuota.contains(&campo.as_str()) {
             if !vuoto(valore) {
                 dentro.insert(campo, valore.clone());
             }
@@ -119,7 +214,7 @@ pub fn applica(predefinito: &Value, salvato: &Value) -> (Value, Rapporto) {
             dentro.insert(campo, valore.clone());
         }
     }
-    let aggiunte = guardie_non_si_perdono(&mut fuori, predefinito);
+    let aggiunte = guardie_non_si_perdono(&mut fuori, predefinito, &regole.guardie);
     (fuori, Rapporto { aggiunte, ignorate })
 }
 
@@ -162,23 +257,28 @@ fn vuoto(v: &Value) -> bool {
 }
 
 /// I predefiniti delle guardie si **aggiungono**, non si lasciano sostituire.
-fn guardie_non_si_perdono(config: &mut Value, fabbrica: &Value) -> Vec<Aggiunta> {
+fn guardie_non_si_perdono(
+    config: &mut Value,
+    fabbrica: &Value,
+    guardie: &Guardie,
+) -> Vec<Aggiunta> {
     let mut aggiunte = Vec::new();
-    for campo in GUARDIE_CHE_SI_UNISCONO {
-        let di_fabbrica: Vec<String> = fabbrica
-            .get(SEZIONE_GUARDIE)
-            .and_then(|s| s.get(campo))
-            .and_then(Value::as_array)
-            .map(|a| {
-                a.iter()
-                    .filter_map(|x| x.as_str().map(str::to_string))
-                    .collect()
-            })
-            .unwrap_or_default();
-        let Some(suoi_val) = config
-            .get_mut(SEZIONE_GUARDIE)
-            .and_then(|s| s.get_mut(campo))
-        else {
+    for campo in guardie.campi {
+        let di_fabbrica: Vec<String> = match guardie.sezione {
+            Some(s) => fabbrica.get(s).and_then(|x| x.get(campo)),
+            None => fabbrica.get(campo),
+        }
+        .and_then(Value::as_array)
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default();
+        let Some(suoi_val) = (match guardie.sezione {
+            Some(s) => config.get_mut(s).and_then(|x| x.get_mut(campo)),
+            None => config.get_mut(campo),
+        }) else {
             continue;
         };
         let suoi: Vec<String> = suoi_val
@@ -231,12 +331,17 @@ pub fn pulisci_cli(config: &mut Value) {
     }
 }
 
-/// La configurazione, letta da quel che c'e' sul file.
+/// La configurazione, letta da quel che c'e' sul file, con le regole di NOVA.
+pub fn leggi(predefinito: &Value, testo: &str) -> Lettura {
+    leggi_con(predefinito, testo, &Regole::DI_NOVA)
+}
+
+/// La configurazione, letta con le regole che le si danno.
 ///
 /// Il BOM si toglie: il Blocco note e PowerShell lo scrivono in testa, e un
 /// parser che ci muore sopra fa perdere **tutta** la configurazione per una
 /// codifica.
-pub fn leggi(predefinito: &Value, testo: &str) -> Lettura {
+pub fn leggi_con(predefinito: &Value, testo: &str, regole: &Regole) -> Lettura {
     let pulito = testo.trim_start_matches('\u{feff}');
     if pulito.trim().is_empty() {
         return Lettura {
@@ -262,7 +367,9 @@ pub fn leggi(predefinito: &Value, testo: &str) -> Lettura {
             errore: "il contenuto non e' un oggetto JSON".to_string(),
         };
     }
-    let (mut config, rapporto) = applica(predefinito, &salvato);
+    let (mut config, rapporto) = applica_con(predefinito, &salvato, regole);
+    // Su uno schema che non ha `brains` non fa niente: il costo di
+    // chiamarla sempre e' zero, e una riga in meno da ricordarsi.
     pulisci_cli(&mut config);
     Lettura {
         config,
@@ -400,6 +507,58 @@ mod prove {
             &json!({"safety": {"protected_paths": ["/mio"]}}),
         );
         assert_eq!(c["safety"]["protected_paths"][0], "/mio");
+    }
+
+    #[test]
+    fn le_stesse_regole_valgono_per_uno_schema_diverso() {
+        // Il demone tiene le sue guardie **in cima** e le chiama in un altro
+        // modo. La regola e' la stessa; scriverla due volte sarebbe il modo
+        // di farla divergere — che e' il difetto per cui questo crate esiste.
+        let fabbrica = json!({
+            "endpoint": "\\\\.\\pipe\\nova",
+            "protected_paths": ["/etc", "/boot"],
+            "forbidden_commands": ["diskpart", "mkfs"],
+            "write_roots": [],
+        });
+        let regole = Regole {
+            guardie: Guardie {
+                sezione: None,
+                campi: &["protected_paths", "forbidden_commands"],
+            },
+            non_si_svuota: &["endpoint"],
+            tipi_fermi: true,
+        };
+        let (c, r) = applica_con(
+            &fabbrica,
+            &json!({"protected_paths": ["/mio"], "endpoint": ""}),
+            &regole,
+        );
+        let p = c["protected_paths"].as_array().unwrap();
+        assert_eq!(p[0], "/mio", "quel che c'era viene prima");
+        assert!(p.iter().any(|x| x == "/etc"), "e i predefiniti tornano");
+        assert_eq!(r.aggiunte.len(), 1);
+        assert_eq!(r.aggiunte[0].campo, "protected_paths");
+        // E un endpoint svuotato non vince: il demone resterebbe senza porta.
+        assert_eq!(c["endpoint"], fabbrica["endpoint"]);
+        // Mentre `write_roots` vuoto e' una scelta e vince.
+        let (c, _) = applica_con(&fabbrica, &json!({"write_roots": []}), &regole);
+        assert_eq!(c["write_roots"], json!([]));
+        // E un campo di un tipo che la fabbrica non ha resta fuori, invece
+        // di far fallire la conversione di tutta la configurazione.
+        let (c, r) = applica_con(
+            &fabbrica,
+            &json!({"protected_paths": "non una lista", "endpoint": "\\\\.\\pipe\\mio"}),
+            &regole,
+        );
+        assert_eq!(
+            c["protected_paths"], fabbrica["protected_paths"],
+            "resta di fabbrica"
+        );
+        assert_eq!(
+            c["endpoint"], "\\\\.\\pipe\\mio",
+            "e il resto del file si legge lo stesso"
+        );
+        assert_eq!(r.ignorate, vec!["protected_paths".to_string()]);
     }
 
     #[test]
