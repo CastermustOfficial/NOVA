@@ -17,6 +17,7 @@ pub mod capability;
 pub mod caps;
 pub mod caps_approvazione;
 pub mod agente;
+pub mod caps_file;
 pub mod caps_registro;
 pub mod dalla_configurazione;
 pub mod caps_segreti;
@@ -89,6 +90,7 @@ pub fn build(config: Config) -> Result<Arc<Server>> {
     let mut registry = Registry::new();
     caps::register_builtins(&mut registry);
     caps_ui::register(&mut registry);
+    caps_file::register(&mut registry);
     caps_registro::register(&mut registry);
     caps_approvazione::register(&mut registry);
     caps_voce::register(&mut registry);

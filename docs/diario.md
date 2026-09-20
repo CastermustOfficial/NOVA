@@ -9780,3 +9780,94 @@ Sta in coda alla domanda e non nel prompt di sistema, e non e' un dettaglio
 di stile: il messaggio numero zero e' la regione su cui i fornitori tengono
 la cache, e la stessa sessione puo' ricevere un turno dalla voce e il
 successivo dalla chat.
+
+## Gli strumenti sui file entrano nel demone, e due buchi vengono a galla
+
+Il turno in Rust gira, il guscio ci parla, e adesso serve che abbia delle
+mani. La famiglia piu' usata e' quella sui file, e la sorpresa e' stata
+aprirla: i corpi c'erano gia' tutti. `nova-strumenti::file_disco` sa
+elencare, leggere, scrivere, modificare, creare cartelle, spostare, copiare,
+cancellare, cercare per nome e cercare dentro — con un banco gemello che li
+confronta col Python operazione per operazione.
+
+Quindi il lavoro non era portare gli strumenti. Era attaccarli, e aggiungere
+le tre cose che il demone ha e la cassetta non puo' avere: le guardie vere
+dell'utente, il giornale, il Cestino. Otto capacita' nuove, e nessuna riga di
+logica sui file riscritta.
+
+Poi, aprendo, sono usciti due buchi. Nessuno dei due si vedeva da fuori, e
+tutti e due erano li' da mesi.
+
+### Il primo: il banco era verde e una meta' distruggeva file
+
+`move_path` con `overwrite=true` su una destinazione che esiste: il Python
+manda nel Cestino quello che c'era, poi sposta. Il Rust faceva `rename`
+sopra. Il file di destinazione spariva per sempre.
+
+Il banco confrontava trentuno operazioni ed era verde, perche' lo
+spostamento sopra un file c'era **solo senza** `overwrite` — il caso in cui
+le due meta' si comportano uguale, cioe' si rifiutano tutte e due. La lezione
+me la sono scritta in `dove_ho_sbagliato.md` e la ripeto qui perche' e'
+generale: di ogni parametro che cambia il verso di un'azione — `overwrite`,
+`permanent`, `replace_all` — vanno provati tutti e due i valori. Sono pochi e
+si contano, e sono esattamente i posti dove una meta' puo' diventare
+distruttiva mentre l'altra no.
+
+La prova nuova non si limita a dire «uguali»: guarda **nel merito** che lo
+spostamento sopra un file, senza Cestino, si fermi. Se un giorno tutte e due
+ricominciassero a sovrascrivere in silenzio resterebbero uguali, e una prova
+che confronta e basta passerebbe lo stesso.
+
+### Il secondo: l'utente aveva scritto le guardie in un file che il demone non legge
+
+Questo e' peggio, ed e' il piu' istruttivo della giornata. `config.json` ha
+`safety.write_roots`: e' quello che si scrive dal pannello. `core.json` ha un
+`write_roots` suo, ed e' quello che legge il demone. L'utente quel file non
+l'ha mai visto.
+
+Finche' il demone non toccava i file erano due elenchi che non si
+incontravano, e nessuno dei due era *sbagliato*. Nel momento in cui
+`fs.delete` e' entrato nel demone sono diventati due risposte alla stessa
+domanda, e la risposta che contava — quella del processo che esegue — non
+era quella che l'utente aveva dato.
+
+E' la terza volta: D56 per i percorsi, D185 per i comandi, adesso questa.
+La forma e' sempre identica, e ormai la riconosco: **due elenchi della stessa
+cosa in due posti**. Non divergono per un errore, divergono perche' nessuno
+li guarda insieme.
+
+Adesso valgono tutti e due. La regola del come non era ovvia e mi ci sono
+fermato un po': per i divieti si uniscono — piu' divieti, piu' stretto — ma
+per le cartelle **autorizzate** no. Unire due elenchi di cartelle autorizzate
+autorizza *di piu'* di ciascuno dei due, cioe' il contrario di quello che si
+aspetta chi scrive una guardia. Li' resta l'incastro: si scrive dove tutti e
+due dicono di si'. E se non c'e' incastro, non si scrive da nessuna parte —
+detto con un posto che non esiste, non con una lista vuota, perche' una
+lista vuota qui vorrebbe dire «ovunque».
+
+Dentro al demone c'era anche un terzo pezzo dello stesso difetto: un
+`check_write` scritto a mano che confrontava i prefissi **senza
+separatore**. Autorizzare `C:\dati` autorizzava anche `C:\dati-altrui`. Il
+commento di `guardie.rs` racconta quel difetto come gia' corretto dall'altra
+parte, un anno fa; era rimasto qui, nel processo che esegue. Adesso i
+percorsi passano per `Guardie` come gia' facevano i comandi.
+
+### Tornare indietro, e dirlo quando non si puo'
+
+La parte che mi piace di piu' e' la piu' noiosa da scrivere: ogni capacita'
+che tocca il disco dichiara cosa succede se l'utente cambia idea.
+
+- Modificare conserva il contenuto di prima: si annulla.
+- Creare una cartella si annulla — ma solo se e' rimasta vuota. Se dentro nel
+  frattempo ci e' finito qualcosa, l'annullamento si ferma e lo dice, invece
+  di portarsi via anche quello.
+- Una cartella che c'era gia' **non entra nel giornale**. Offrire di
+  «annullarne la creazione» vorrebbe dire offrire di cancellare una cartella
+  dell'utente che NOVA non ha mai creato.
+- Spostare si annulla. Se la destinazione era occupata, quel che c'era e' nel
+  Cestino, e la risposta lo dice: annullare rimette a posto solo la cosa
+  spostata.
+- Copiare su niente si annulla; copiare **sopra** qualcosa no, e quella riga
+  finisce nel registro delle azioni — che e' precisamente la sua materia.
+- Cancellare non si annulla da qui. Nel Cestino si recupera dal Cestino; per
+  sempre e' per sempre, e va nel registro.

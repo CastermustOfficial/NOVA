@@ -562,6 +562,15 @@ OPERAZIONI = [
      {"che": "sposta", "da": "{B}/copia.txt", "a": "{B}/spostata.txt"}),
     ("move_path", {"source": "{B}/spostata.txt", "destination": "{B}/nota.txt"},
      {"che": "sposta", "da": "{B}/spostata.txt", "a": "{B}/nota.txt"}),
+    # Spostare SOPRA qualcosa che c'e' gia'. E' il caso che mancava, ed e'
+    # quello in cui si perde un file: chi ha chiesto di spostare non ha
+    # chiesto di distruggere la destinazione. Le due meta' devono rifiutare
+    # allo stesso modo quando il Cestino non c'e' — e qui non c'e', da
+    # nessuna delle due parti.
+    ("move_path", {"source": "{B}/nota.txt", "destination": "{B}/docs/relazione.md",
+                   "overwrite": True},
+     {"che": "sposta", "da": "{B}/nota.txt", "a": "{B}/docs/relazione.md",
+      "sovrascrivi": True}),
     ("delete_path", {"path": "{B}/spostata.txt", "permanent": True},
      {"che": "cancella", "dove": "{B}/spostata.txt", "per_sempre": True}),
     ("search_files", {"root": "{B}", "pattern": "*.md"},
@@ -615,6 +624,16 @@ try:
         b = str(base)
         return (testo.replace(b, "{B}").replace(b.replace("\\", "/"), "{B}")
                 .replace("\\", "/"))
+
+    # Lo spostamento sopra una destinazione che esiste va guardato anche
+    # **nel merito**, non solo «uguali»: se un giorno tutte e due le meta'
+    # ricominciassero a sovrascrivere senza dirlo, resterebbero uguali e
+    # questa prova passerebbe lo stesso. Qui il Cestino non c'e' da nessuna
+    # delle due parti, quindi la risposta giusta e' fermarsi.
+    for (nome, args, _), mio in zip(OPERAZIONI, miei):
+        if nome == "move_path" and args.get("overwrite"):
+            controlla("spostare sopra un file, senza Cestino, si rifiuta",
+                      "Cestino" in mio and "mi fermo" in mio, mio[:200])
 
     diverse = []
     for (nome, args, _), mio, suo in zip(OPERAZIONI, miei, suoi):

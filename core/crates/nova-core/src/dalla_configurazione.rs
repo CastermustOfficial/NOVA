@@ -326,3 +326,34 @@ mod prove {
         );
     }
 }
+
+/// Le guardie che l'utente ha scritto nel `config.json` di NOVA.
+///
+/// Esistono perche' il demone ne aveva delle **sue**, in `core.json`, e
+/// l'utente non le ha mai viste: il pannello che apre scrive nell'altro
+/// file. Finche' il demone non faceva niente sui file, erano due elenchi
+/// che non si incontravano; adesso che gli strumenti sui file stanno qui,
+/// due elenchi sono due risposte alla stessa domanda — ed e' la cosa che
+/// questo progetto ha gia' pagato due volte (D185).
+///
+/// Le due meta' non si mescolano: si applicano **tutte e due**. Vedi
+/// `nova_strumenti::guardie::radici_in_comune`.
+pub fn guardie_di_nova(cfg: &Value) -> (Vec<String>, Vec<String>, Vec<String>) {
+    let sicurezza = cfg.get("safety");
+    let elenco = |chiave: &str| -> Vec<String> {
+        sicurezza
+            .and_then(|s| s.get(chiave))
+            .and_then(|v| v.as_array())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    (
+        elenco("protected_paths"),
+        elenco("write_roots"),
+        elenco("forbidden_command_patterns"),
+    )
+}

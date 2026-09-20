@@ -307,7 +307,7 @@ fn main() {
                         file_disco::modifica(&g, dove, vecchio, nuovo, *tutte),
                     Operazione::Cartella { dove } => file_disco::crea_cartella(&g, dove),
                     Operazione::Sposta { da, a, sovrascrivi } =>
-                        file_disco::sposta(&g, da, a, *sovrascrivi),
+                        file_disco::sposta(&g, &sistema, da, a, *sovrascrivi),
                     Operazione::Copia { da, a } => file_disco::copia(&g, da, a),
                     Operazione::Cancella { dove, per_sempre } =>
                         file_disco::cancella(&g, &sistema, dove, *per_sempre),

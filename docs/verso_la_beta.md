@@ -2429,11 +2429,12 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    e senza far aspettare nessuno, perche' lui resta acceso (D303). Resta
    fuori l'imparare della **memoria**: i fatti durevoli che finiscono nel
    vault li estrae ancora solo il Python.
-4. **Gli strumenti che al demone mancano.** Il registro delle capacita' ne ha
-   una parte; il Python ne ha cinquantasette. Ogni famiglia portata e' anche
-   un crate che si attacca: `nova-harness` per i documenti a pezzi,
-   `nova-docx` e `nova-fogli` per i file di lavoro, `nova-browser` +
-   `nova-cdp` per il browser.
+4. **Gli strumenti che al demone mancano.** Comincia: la famiglia dei
+   **file** e' attaccata tutta (D308), e non riscrivendola — i corpi stanno
+   gia' in `nova-strumenti`, confrontati col Python da un banco. Restano le
+   altre: `nova-harness` per i documenti a pezzi, `nova-docx` e `nova-fogli`
+   per i file di lavoro, `nova-browser` + `nova-cdp` per il browser, e le
+   famiglie senza crate — memoria, sistema, web.
 5. **Il prompt.** Le regole operative stanno in `nova/config.py` come testo, e
    il turno del demone oggi manda solo cio' che l'utente ha in `config.json`.
    E' l'ultima cosa da spostare, perche' finche' le due strade coesistono
@@ -2489,6 +2490,37 @@ Con `NOVA_CERVELLO` si forza la strada: `python` non chiede niente a
 nessuno, `demone` non ripiega mai. La seconda serve a noi, ed e' il motivo
 per cui esiste — senza, la meta' Rust puo' restare indietro per mesi mentre
 ogni singola domanda ripiega e risponde lo stesso.
+
+
+## Le mani sul disco, e chi dice dove si puo' mettere
+
+Il turno in Rust ha gli strumenti sui file: otto capacita' nuove, e nessuna
+riga di logica riscritta — i corpi stanno in `nova-strumenti::file_disco` e
+un banco gemello li confronta col Python operazione per operazione. Quel che
+si e' aggiunto qui e' cio' che il demone ha e la cassetta non puo' avere: le
+guardie della configurazione dell'utente, il giornale (come si torna
+indietro) e il Cestino (D308).
+
+Aprendo questa famiglia sono venuti a galla due difetti che erano li' da
+mesi, e valgono piu' delle otto capacita'.
+
+**Uno**: `sposta` con `overwrite` faceva `rename` sopra la destinazione, che
+spariva per sempre; dall'altra parte quel file andava nel Cestino. Il banco
+era verde perche' provava lo spostamento sopra un file **solo senza**
+`overwrite`, cioe' il caso in cui le due meta' si rifiutano tutte e due.
+
+**Due**: le guardie. `config.json` — quello del pannello — e `core.json` —
+quello del demone — avevano ciascuno il proprio `write_roots`. Chi scriveva
+«solo in Documenti» nel pannello non era protetto dal processo che esegue.
+Adesso valgono insieme: i divieti si uniscono, le cartelle autorizzate si
+incastrano, e senza incastro non si scrive da nessuna parte (D309). Dentro
+al demone c'era anche un `check_write` scritto a mano che confrontava i
+prefissi senza separatore: autorizzare `C:\dati` autorizzava
+`C:\dati-altrui`. Adesso i percorsi passano per `Guardie`, come gia'
+facevano i comandi.
+
+`test_demone_file.py` accende il demone vero e, per ogni azione, chiede due
+cose: cosa ha fatto, e cosa succede se l'utente cambia idea (D310).
 
 
 ## Il confine che tiene il kernel

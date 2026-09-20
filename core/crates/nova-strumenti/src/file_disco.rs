@@ -387,7 +387,19 @@ pub fn crea_cartella(g: &Guardie, percorso: &str) -> Esito {
 }
 
 // ------------------------------------------------------- spostare, copiare
-pub fn sposta(g: &Guardie, da: &str, a: &str, sovrascrivi: bool) -> Esito {
+/// Sposta o rinomina.
+///
+/// Il sistema serve per una ragione sola, e non e' un dettaglio: **chi
+/// chiede di spostare non ha chiesto di distruggere cio' che c'era**. Con
+/// `sovrascrivi` la destinazione che esiste gia' va nel Cestino prima che
+/// sopra ci arrivi l'altra, cosi' se era la cosa sbagliata si recupera.
+///
+/// Questa funzione qui non ce l'aveva, e faceva `rename` sopra: il file di
+/// destinazione spariva per sempre, senza che niente lo dicesse. Dall'altra
+/// parte, in Python, la regola c'era da sempre. Il banco non se n'e'
+/// accorto perche' provava solo il caso **senza** `sovrascrivi`, dove le
+/// due meta' si comportano uguale (vedi `docs/dove_ho_sbagliato.md`).
+pub fn sposta(g: &Guardie, sistema: &dyn Sistema, da: &str, a: &str, sovrascrivi: bool) -> Esito {
     let s = Percorso::nuovo(da)?;
     let d = Percorso::nuovo(a)?;
     // Tutte e due: si perde un file tanto dalla parte da cui parte quanto da
@@ -397,11 +409,20 @@ pub fn sposta(g: &Guardie, da: &str, a: &str, sovrascrivi: bool) -> Esito {
     if !s.scritto.exists() {
         return Err(format!("{} non esiste", s.testo()));
     }
-    if d.scritto.exists() && !sovrascrivi {
-        return Err(format!(
-            "{} esiste gia'; usa overwrite=true per sovrascrivere",
-            d.testo()
-        ));
+    if d.scritto.exists() {
+        if !sovrascrivi {
+            return Err(format!(
+                "{} esiste gia'; usa overwrite=true per sovrascrivere",
+                d.testo()
+            ));
+        }
+        if !sistema.nel_cestino(&d.scritto) {
+            return Err(format!(
+                "{} esiste e non riesco a metterlo nel Cestino: mi fermo invece \
+                 di cancellarlo per sempre. Spostalo o eliminalo tu, poi riprova.",
+                d.testo()
+            ));
+        }
     }
     if let Some(cartella) = d.scritto.parent() {
         std::fs::create_dir_all(cartella).map_err(|e| e.to_string())?;
