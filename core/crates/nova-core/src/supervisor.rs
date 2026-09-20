@@ -114,8 +114,10 @@ impl Supervisor {
         let segnale = avviato.clone();
         let pid_task = pid.clone();
         tokio::spawn(async move {
-            sup.ciclo_di_vita(spec, pid_task, running, restarts, rese, arreso_da, last_exit, stop_rx, segnale)
-                .await;
+            sup.ciclo_di_vita(
+                spec, pid_task, running, restarts, rese, arreso_da, last_exit, stop_rx, segnale,
+            )
+            .await;
         });
 
         // aspetta il primo avvio per poter restituire un pid vero
@@ -191,7 +193,11 @@ impl Supervisor {
             // acceso quando si e' arreso deve potersi spegnere da solo.
             let era_in_resa = arreso_da.swap(0, Ordering::Relaxed);
             if era_in_resa != 0 {
-                let giu_per = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0).saturating_sub(era_in_resa);
+                let giu_per = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0)
+                    .saturating_sub(era_in_resa);
                 tracing::info!(processo = %spec.name, giu_per_s = giu_per, "ripreso dopo la resa");
                 self.bus.emit(
                     "proc.recovered",
@@ -249,7 +255,13 @@ impl Supervisor {
                 // proprio quella che il progetto rende sacrificabile — quindi il
                 // modello poteva restare giu' per sempre senza un testimone.
                 let quante = rese.fetch_add(1, Ordering::Relaxed) + 1;
-                arreso_da.store(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0), Ordering::Relaxed);
+                arreso_da.store(
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_secs())
+                        .unwrap_or(0),
+                    Ordering::Relaxed,
+                );
                 running.store(false, Ordering::Relaxed);
                 tracing::error!(
                     processo = %spec.name,
@@ -285,10 +297,14 @@ impl Supervisor {
                 );
                 continue;
             }
-            self.bus
-                .emit("proc.restarting", json!({ "name": spec.name, "tentativo": n }));
-            tokio::time::sleep(std::time::Duration::from_millis(RITARDO_RIAVVIO_MS * n as u64))
-                .await;
+            self.bus.emit(
+                "proc.restarting",
+                json!({ "name": spec.name, "tentativo": n }),
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(
+                RITARDO_RIAVVIO_MS * n as u64,
+            ))
+            .await;
         }
     }
 
@@ -369,11 +385,21 @@ impl Supervisor {
                     },
                     running: e.running.load(Ordering::Relaxed),
                     restarts: e.restarts.load(Ordering::Relaxed),
-                    last_exit: if uscita == i32::MIN { None } else { Some(uscita) },
+                    last_exit: if uscita == i32::MIN {
+                        None
+                    } else {
+                        Some(uscita)
+                    },
                     rese: e.rese.load(Ordering::Relaxed),
                     arreso_da_s: match e.arreso_da.load(Ordering::Relaxed) {
                         0 => None,
-                        t => Some((std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)).saturating_sub(t)),
+                        t => Some(
+                            (std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .map(|d| d.as_secs())
+                                .unwrap_or(0))
+                            .saturating_sub(t),
+                        ),
                     },
                     program: e.program.clone(),
                     args: e.args.clone(),

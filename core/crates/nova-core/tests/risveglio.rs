@@ -8,8 +8,14 @@ use nova_core::caps_voce::dopo_il_risveglio;
 
 #[test]
 fn riconosce_le_forme_vere() {
-    assert_eq!(dopo_il_risveglio("Nova, che ore sono?", "nova").as_deref(), Some("che ore sono"));
-    assert_eq!(dopo_il_risveglio("nova apri i progetti", "nova").as_deref(), Some("apri i progetti"));
+    assert_eq!(
+        dopo_il_risveglio("Nova, che ore sono?", "nova").as_deref(),
+        Some("che ore sono")
+    );
+    assert_eq!(
+        dopo_il_risveglio("nova apri i progetti", "nova").as_deref(),
+        Some("apri i progetti")
+    );
     assert_eq!(dopo_il_risveglio("NOVA.", "nova").as_deref(), Some(""));
     // come l'ha scritta whisper davvero, stasera
     assert_eq!(
@@ -26,7 +32,10 @@ fn tollera_le_lettere_di_troppo_davanti() {
         dopo_il_risveglio("Innova, chi e orisono?", "nova").as_deref(),
         Some("chi e orisono")
     );
-    assert_eq!(dopo_il_risveglio("Anova apri i progetti", "nova").as_deref(), Some("apri i progetti"));
+    assert_eq!(
+        dopo_il_risveglio("Anova apri i progetti", "nova").as_deref(),
+        Some("apri i progetti")
+    );
     // Due lettere e' il confine: da tre in su non si passa.
     assert!(dopo_il_risveglio("rinnova l'abbonamento", "nova").is_none());
     assert!(dopo_il_risveglio("si rinnova da solo", "nova").is_none());

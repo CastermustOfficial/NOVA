@@ -17,7 +17,9 @@ use nova_platform::{ElementRef, UiQuery, UiTree, WindowSel};
 use nova_proto::{CapabilityInfo, Risk};
 use serde_json::{json, Value};
 
-use crate::capability::{arg_bool, arg_str, arg_str_opt, arg_u64, schema, Capability, Ctx, Registry};
+use crate::capability::{
+    arg_bool, arg_str, arg_str_opt, arg_u64, schema, Capability, Ctx, Registry,
+};
 
 pub fn register(reg: &mut Registry) {
     reg.add(Arc::new(UiWindowsCap));
@@ -52,7 +54,11 @@ fn finestra(args: &Value) -> Result<WindowSel> {
 fn percorso(args: &Value) -> Vec<u32> {
     args.get("path")
         .and_then(|v| v.as_array())
-        .map(|a| a.iter().filter_map(|x| x.as_u64().map(|n| n as u32)).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_u64().map(|n| n as u32))
+                .collect()
+        })
         .unwrap_or_default()
 }
 
@@ -155,11 +161,26 @@ impl Capability for UiFindCap {
             risk: Risk::Safe,
             category: "ui".into(),
             schema: schema_finestra(&[
-                ("name", json!({ "type": "string", "description": "Pezzo del nome visibile" })),
-                ("role", json!({ "type": "string", "description": "button, edit, menuitem, listitem, checkbox, ..." })),
-                ("automation_id", json!({ "type": "string", "description": "Identificatore stabile, se lo conosci" })),
-                ("actionable", json!({ "type": "boolean", "description": "Solo elementi su cui si puo' agire" })),
-                ("limit", json!({ "type": "integer", "description": "Quanti risultati (default 20)" })),
+                (
+                    "name",
+                    json!({ "type": "string", "description": "Pezzo del nome visibile" }),
+                ),
+                (
+                    "role",
+                    json!({ "type": "string", "description": "button, edit, menuitem, listitem, checkbox, ..." }),
+                ),
+                (
+                    "automation_id",
+                    json!({ "type": "string", "description": "Identificatore stabile, se lo conosci" }),
+                ),
+                (
+                    "actionable",
+                    json!({ "type": "boolean", "description": "Solo elementi su cui si puo' agire" }),
+                ),
+                (
+                    "limit",
+                    json!({ "type": "integer", "description": "Quanti risultati (default 20)" }),
+                ),
             ]),
         }
     }
@@ -174,8 +195,7 @@ impl Capability for UiFindCap {
             actionable: arg_bool(&args, "actionable", false),
         };
         let limit = arg_u64(&args, "limit", 20) as usize;
-        let trovati =
-            tokio::task::spawn_blocking(move || ui.find(&sel, &query, limit)).await??;
+        let trovati = tokio::task::spawn_blocking(move || ui.find(&sel, &query, limit)).await??;
         Ok(json!({ "found": trovati.len(), "elements": trovati }))
     }
 }
@@ -216,12 +236,30 @@ impl Capability for UiAttendiCap {
             risk: Risk::Safe,
             category: "ui".into(),
             schema: schema_finestra(&[
-                ("name", json!({ "type": "string", "description": "Pezzo del nome visibile" })),
-                ("role", json!({ "type": "string", "description": "button, edit, document, hyperlink, ..." })),
-                ("automation_id", json!({ "type": "string", "description": "Identificatore stabile, se lo conosci" })),
-                ("actionable", json!({ "type": "boolean", "description": "Solo elementi su cui si puo' agire" })),
-                ("secondi", json!({ "type": "number", "description": "Quanto aspettare al massimo (predefinito 15, tetto 120)" })),
-                ("sparisca", json!({ "type": "boolean", "description": "Aspetta che se ne vada invece che compaia" })),
+                (
+                    "name",
+                    json!({ "type": "string", "description": "Pezzo del nome visibile" }),
+                ),
+                (
+                    "role",
+                    json!({ "type": "string", "description": "button, edit, document, hyperlink, ..." }),
+                ),
+                (
+                    "automation_id",
+                    json!({ "type": "string", "description": "Identificatore stabile, se lo conosci" }),
+                ),
+                (
+                    "actionable",
+                    json!({ "type": "boolean", "description": "Solo elementi su cui si puo' agire" }),
+                ),
+                (
+                    "secondi",
+                    json!({ "type": "number", "description": "Quanto aspettare al massimo (predefinito 15, tetto 120)" }),
+                ),
+                (
+                    "sparisca",
+                    json!({ "type": "boolean", "description": "Aspetta che se ne vada invece che compaia" }),
+                ),
             ]),
         }
     }
@@ -243,7 +281,10 @@ impl Capability for UiAttendiCap {
         }
         let sparisca = arg_bool(&args, "sparisca", false);
         let limite = std::time::Duration::from_secs_f64(
-            args.get("secondi").and_then(|v| v.as_f64()).unwrap_or(15.0).clamp(0.5, 120.0),
+            args.get("secondi")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(15.0)
+                .clamp(0.5, 120.0),
         );
 
         let inizio = std::time::Instant::now();
@@ -306,7 +347,14 @@ impl Capability for UiAttendiCap {
                 let ui3 = ui.clone();
                 let sel3 = sel.clone();
                 let vicini = tokio::task::spawn_blocking(move || {
-                    ui3.find(&sel3, &UiQuery { actionable: true, ..Default::default() }, 12)
+                    ui3.find(
+                        &sel3,
+                        &UiQuery {
+                            actionable: true,
+                            ..Default::default()
+                        },
+                        12,
+                    )
                 })
                 .await?
                 .unwrap_or_default();
@@ -384,12 +432,24 @@ impl Capability for SpostaCap {
             risk: Risk::Moderate,
             category: "ui".into(),
             schema: schema_finestra(&[
-                ("x", json!({ "type": "integer", "description": "Coordinata virtuale; con «schermo» non serve" })),
-                ("y", json!({ "type": "integer", "description": "Coordinata virtuale" })),
+                (
+                    "x",
+                    json!({ "type": "integer", "description": "Coordinata virtuale; con «schermo» non serve" }),
+                ),
+                (
+                    "y",
+                    json!({ "type": "integer", "description": "Coordinata virtuale" }),
+                ),
                 ("larghezza", json!({ "type": "integer" })),
                 ("altezza", json!({ "type": "integer" })),
-                ("schermo", json!({ "type": "integer", "description": "Indice da sys.schermi: la finestra riempie la sua area di lavoro" })),
-                ("dietro", json!({ "type": "boolean", "description": "Mandala in fondo alla pila (predefinito falso)" })),
+                (
+                    "schermo",
+                    json!({ "type": "integer", "description": "Indice da sys.schermi: la finestra riempie la sua area di lavoro" }),
+                ),
+                (
+                    "dietro",
+                    json!({ "type": "boolean", "description": "Mandala in fondo alla pila (predefinito falso)" }),
+                ),
             ]),
         }
     }
@@ -422,8 +482,14 @@ impl Capability for SpostaCap {
         let mut posa = nova_platform::Posa {
             x: args.get("x").and_then(|v| v.as_i64()).map(|v| v as i32),
             y: args.get("y").and_then(|v| v.as_i64()).map(|v| v as i32),
-            larghezza: args.get("larghezza").and_then(|v| v.as_i64()).map(|v| v as i32),
-            altezza: args.get("altezza").and_then(|v| v.as_i64()).map(|v| v as i32),
+            larghezza: args
+                .get("larghezza")
+                .and_then(|v| v.as_i64())
+                .map(|v| v as i32),
+            altezza: args
+                .get("altezza")
+                .and_then(|v| v.as_i64())
+                .map(|v| v as i32),
             dietro: arg_bool(&args, "dietro", false),
         };
         if let Some(i) = args.get("schermo").and_then(|v| v.as_u64()) {
@@ -485,10 +551,9 @@ where
             .and_then(|r| r.ok())
             .flatten();
         if dopo.map(|d| d.handle) != Some(handle) {
-            let _ = tokio::task::spawn_blocking(move || {
-                nova_platform::finestre::porta_avanti(handle)
-            })
-            .await;
+            let _ =
+                tokio::task::spawn_blocking(move || nova_platform::finestre::porta_avanti(handle))
+                    .await;
             tracing::debug!(finestra = %w.title, "rimesso il primo piano dov'era");
         }
     }
@@ -516,7 +581,10 @@ impl Capability for UiClickCap {
 
     async fn call(&self, args: Value, ctx: &Ctx) -> Result<Value> {
         let ui = albero(ctx)?;
-        let target = ElementRef { window: finestra(&args)?, path: percorso(&args) };
+        let target = ElementRef {
+            window: finestra(&args)?,
+            path: percorso(&args),
+        };
         let descrizione = format!("{:?}", target.path);
         senza_rubare_il_fuoco(async move {
             tokio::task::spawn_blocking(move || ui.invoke(&target)).await??;
@@ -546,11 +614,17 @@ impl Capability for UiSetTextCap {
             risk: Risk::Dangerous,
             category: "ui".into(),
             schema: schema_elemento(&[
-                ("text", json!({ "type": "string", "description": "Testo da inserire" })),
-                ("segreto", json!({
-                    "type": "string",
-                    "description": "Nome di una credenziale in segreti.elenco: si scrive il suo valore",
-                })),
+                (
+                    "text",
+                    json!({ "type": "string", "description": "Testo da inserire" }),
+                ),
+                (
+                    "segreto",
+                    json!({
+                        "type": "string",
+                        "description": "Nome di una credenziale in segreti.elenco: si scrive il suo valore",
+                    }),
+                ),
             ]),
         }
     }
@@ -563,15 +637,17 @@ impl Capability for UiSetTextCap {
         let (testo, da_archivio) = match arg_str_opt(&args, "segreto") {
             Some(nome) if !nome.trim().is_empty() => {
                 let n = nome.trim().to_string();
-                let v = tokio::task::spawn_blocking(move || {
-                    crate::caps_segreti::valore_per_uso(&n)
-                })
-                .await??;
+                let v =
+                    tokio::task::spawn_blocking(move || crate::caps_segreti::valore_per_uso(&n))
+                        .await??;
                 (v, Some(nome.trim().to_string()))
             }
             _ => (arg_str(&args, "text")?, None),
         };
-        let target = ElementRef { window: finestra(&args)?, path: percorso(&args) };
+        let target = ElementRef {
+            window: finestra(&args)?,
+            path: percorso(&args),
+        };
         let quanti = testo.chars().count();
         senza_rubare_il_fuoco(async move {
             tokio::task::spawn_blocking(move || ui.set_value(&target, &testo)).await??;
@@ -595,8 +671,7 @@ impl Capability for UiFocusCap {
     fn info(&self) -> CapabilityInfo {
         CapabilityInfo {
             name: "ui.focus".into(),
-            description: "Porta il fuoco su un elemento, per esempio prima di digitare."
-                .into(),
+            description: "Porta il fuoco su un elemento, per esempio prima di digitare.".into(),
             risk: Risk::Moderate,
             category: "ui".into(),
             schema: schema_elemento(&[]),
@@ -605,7 +680,10 @@ impl Capability for UiFocusCap {
 
     async fn call(&self, args: Value, ctx: &Ctx) -> Result<Value> {
         let ui = albero(ctx)?;
-        let target = ElementRef { window: finestra(&args)?, path: percorso(&args) };
+        let target = ElementRef {
+            window: finestra(&args)?,
+            path: percorso(&args),
+        };
         tokio::task::spawn_blocking(move || ui.focus(&target)).await??;
         Ok(json!({ "focused": true }))
     }
@@ -634,14 +712,27 @@ impl Capability for ChatCap {
             risk: Risk::Safe,
             category: "ui".into(),
             schema: schema(&[
-                ("messaggio", "string", "Cosa scrivere nella chat aprendola", false),
-                ("chiudi", "boolean", "true per chiuderla invece di aprirla", false),
+                (
+                    "messaggio",
+                    "string",
+                    "Cosa scrivere nella chat aprendola",
+                    false,
+                ),
+                (
+                    "chiudi",
+                    "boolean",
+                    "true per chiuderla invece di aprirla",
+                    false,
+                ),
             ]),
         }
     }
 
     async fn call(&self, args: Value, ctx: &Ctx) -> Result<Value> {
-        let chiudi = args.get("chiudi").and_then(|v| v.as_bool()).unwrap_or(false);
+        let chiudi = args
+            .get("chiudi")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         let messaggio = arg_str_opt(&args, "messaggio").unwrap_or_default();
         // Il demone non ha finestre: chiede al guscio, che ce le ha. Se il
         // guscio non e' in piedi l'evento cade nel vuoto, e va detto — un

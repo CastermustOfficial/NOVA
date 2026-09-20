@@ -81,7 +81,8 @@ impl Sessione {
     /// conversazione che per aggiungere una riga ha bisogno di mezzo
     /// programma non si prova senza mezzo programma.
     pub fn chiede(&mut self, domanda: &str) {
-        self.messaggi.push(json!({"role": "user", "content": domanda}));
+        self.messaggi
+            .push(json!({"role": "user", "content": domanda}));
     }
 
     /// Quanti messaggi ci sono, prompt di sistema compreso.
@@ -97,9 +98,7 @@ mod prove {
 
     fn scala(quanti: usize) -> Vec<Gradino> {
         (0..quanti)
-            .map(|i| {
-                Gradino::nuovo(&format!("g{i}"), Specie::Api, "http://x", "m", vec![], true)
-            })
+            .map(|i| Gradino::nuovo(&format!("g{i}"), Specie::Api, "http://x", "m", vec![], true))
             .collect()
     }
 
@@ -122,7 +121,10 @@ mod prove {
         for i in 0..10 {
             s.chiede(&format!("domanda {i}"));
             s.ricomincia();
-            assert_eq!(s.messaggi[0], zero, "il messaggio numero zero e' cambiato al giro {i}");
+            assert_eq!(
+                s.messaggi[0], zero,
+                "il messaggio numero zero e' cambiato al giro {i}"
+            );
         }
     }
 
@@ -187,7 +189,10 @@ mod prove {
             "di messaggi di sistema ce n'e' uno solo, ed e' il primo",
         );
         let dentro = s.messaggi[1]["content"].as_str().unwrap();
-        assert!(dentro.starts_with("che ore sono"), "la domanda resta la prima cosa");
+        assert!(
+            dentro.starts_with("che ore sono"),
+            "la domanda resta la prima cosa"
+        );
         assert!(dentro.contains("<memoria>"));
     }
 

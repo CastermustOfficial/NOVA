@@ -13,9 +13,9 @@
 //! la cosa piu' facile da sbagliare di tutto questo file: un messaggio `tool`
 //! senza il suo `tool_calls` e le API la rifiutano, e il turno muore.
 
+use crate::sessione::Sessione;
 use async_trait::async_trait;
 use nova_ciclo::{Andata, Chiamata, Mondo, Risposta};
-use crate::sessione::Sessione;
 use serde_json::{json, Value};
 
 use nova_cervelli::rete::{chiedi, Trasporto};
@@ -85,7 +85,9 @@ impl Gradino {
                 in_casa,
             }
         } else {
-            Gradino::Processo { nome: nome.to_string() }
+            Gradino::Processo {
+                nome: nome.to_string(),
+            }
         }
     }
 }
@@ -158,7 +160,9 @@ pub struct Recapiti {
 pub fn scala_vera(cfg: &nova_scala::Configurazione, r: &Recapiti) -> Vec<Gradino> {
     let mut fuori: Vec<Gradino> = Vec::new();
     for nome in nova_scala::scala(cfg) {
-        let Some(t) = cfg.gradino(&nome) else { continue };
+        let Some(t) = cfg.gradino(&nome) else {
+            continue;
+        };
         if cfg.solo_locale && !t.locale {
             continue;
         }
@@ -169,7 +173,11 @@ pub fn scala_vera(cfg: &nova_scala::Configurazione, r: &Recapiti) -> Vec<Gradino
         };
         // Il modello scritto sul gradino vince su quello di scorta: e' il
         // posto in cui l'utente lo dice, e dirlo li' deve servire a qualcosa.
-        let modello = if t.model.trim().is_empty() { modello_di_scorta } else { &t.model };
+        let modello = if t.model.trim().is_empty() {
+            modello_di_scorta
+        } else {
+            &t.model
+        };
         fuori.push(Gradino::nuovo(
             &t.nome,
             specie,
@@ -232,9 +240,13 @@ impl<'a> MondoVero<'a> {
     /// I dati del gradino corrente, se e' di quelli a cui si manda un corpo.
     fn indirizzo_ora(&self) -> Option<(&str, &str, &str, &[(String, String)], bool)> {
         match self.ora()? {
-            Gradino::Indirizzo { nome, base_url, modello, intestazioni, in_casa } => {
-                Some((nome, base_url, modello, intestazioni, *in_casa))
-            }
+            Gradino::Indirizzo {
+                nome,
+                base_url,
+                modello,
+                intestazioni,
+                in_casa,
+            } => Some((nome, base_url, modello, intestazioni, *in_casa)),
             Gradino::Processo { .. } => None,
         }
     }
@@ -279,8 +291,16 @@ impl<'a> MondoVero<'a> {
             .messaggi
             .iter()
             .map(|m| nova_contesto::Messaggio {
-                ruolo: m.get("role").and_then(Value::as_str).unwrap_or("").to_string(),
-                contenuto: m.get("content").and_then(Value::as_str).unwrap_or("").to_string(),
+                ruolo: m
+                    .get("role")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string(),
+                contenuto: m
+                    .get("content")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string(),
             })
             .collect();
         let (rimasti, conto) = nova_contesto::taglia(
@@ -311,7 +331,6 @@ impl<'a> MondoVero<'a> {
         }
         self.sessione.messaggi = fuori;
     }
-
 }
 
 /// Perche' il cervello non ha risposto, in una frase.
@@ -322,7 +341,10 @@ impl<'a> MondoVero<'a> {
 pub fn motivo_di(e: nova_cervelli::rete::Errore) -> String {
     use nova_cervelli::rete::Errore::*;
     match e {
-        LimiteUso { messaggio, riprova_fra_s } => {
+        LimiteUso {
+            messaggio,
+            riprova_fra_s,
+        } => {
             let minuti = std::cmp::max(1, (riprova_fra_s + 59) / 60);
             format!("{messaggio} Riprovo fra circa {minuti} minuti.")
         }
@@ -357,8 +379,7 @@ impl Mondo for MondoVero<'_> {
                         Apri il pannello dei cervelli e scegline almeno uno."
                 .to_string());
         }
-        let Some((nome, base_url, modello, intestazioni, in_casa)) = self.indirizzo_ora()
-        else {
+        let Some((nome, base_url, modello, intestazioni, in_casa)) = self.indirizzo_ora() else {
             return Err(format!(
                 "«{}» non e' un indirizzo ma un processo da lanciare, e il turno non \
                  sa ancora farlo. Scegli un cervello locale o una chiave API, oppure \
@@ -393,7 +414,10 @@ impl Mondo for MondoVero<'_> {
             msg["tool_calls"] = Value::Array(r.tool_calls.clone());
         }
         self.sessione.messaggi.push(msg);
-        Ok(Risposta { contenuto: r.contenuto, chiamate })
+        Ok(Risposta {
+            contenuto: r.contenuto,
+            chiamate,
+        })
     }
 
     async fn esegui(&mut self, c: &Chiamata) -> (Andata, String) {
@@ -464,7 +488,9 @@ impl Mondo for MondoVero<'_> {
                 return;
             }
         }
-        self.sessione.messaggi.push(json!({ "role": "user", "content": nota }));
+        self.sessione
+            .messaggi
+            .push(json!({ "role": "user", "content": nota }));
     }
 
     fn consegna(&mut self, testo: &str) {
@@ -495,16 +521,20 @@ mod prove {
     }
 
     impl Trasporto for Copione {
-        fn posta(&self, _url: &str, _int: &[(String, String)], corpo: &str)
-            -> Result<Esito, Muto>
-        {
-            self.mandati.lock().unwrap().push(
-                serde_json::from_str(corpo).unwrap_or(Value::Null));
+        fn posta(&self, _url: &str, _int: &[(String, String)], corpo: &str) -> Result<Esito, Muto> {
+            self.mandati
+                .lock()
+                .unwrap()
+                .push(serde_json::from_str(corpo).unwrap_or(Value::Null));
             let mut r = self.risposte.lock().unwrap();
             if r.is_empty() {
                 return Err(Muto::Connessione);
             }
-            Ok(Esito { codice: 200, corpo: r.remove(0), riprova_fra: None })
+            Ok(Esito {
+                codice: 200,
+                corpo: r.remove(0),
+                riprova_fra: None,
+            })
         }
     }
 
@@ -525,11 +555,13 @@ mod prove {
         let tc: Vec<Value> = chiamate
             .iter()
             .enumerate()
-            .map(|(i, (n, a))| json!({
-                "id": format!("c{i}"),
-                "type": "function",
-                "function": { "name": n, "arguments": a }
-            }))
+            .map(|(i, (n, a))| {
+                json!({
+                    "id": format!("c{i}"),
+                    "type": "function",
+                    "function": { "name": n, "arguments": a }
+                })
+            })
             .collect();
         let mut m = json!({ "role": "assistant", "content": contenuto });
         if !tc.is_empty() {
@@ -547,14 +579,16 @@ mod prove {
         let mut s = Sessione::nuova(
             "sistema",
             (0..quanti)
-                .map(|i| Gradino::nuovo(
-                    &format!("g{i}"),
-                    nova_scala::Specie::Api,
-                    "http://x",
-                    &format!("m{i}"),
-                    vec![],
-                    true,
-                ))
+                .map(|i| {
+                    Gradino::nuovo(
+                        &format!("g{i}"),
+                        nova_scala::Specie::Api,
+                        "http://x",
+                        &format!("m{i}"),
+                        vec![],
+                        true,
+                    )
+                })
                 .collect(),
         );
         s.messaggi = vec![json!({"role": "user", "content": "ciao"})];
@@ -615,7 +649,9 @@ mod prove {
         assert_eq!(andata, Andata::Fallita);
         assert_eq!(motivo, "non trovo il file");
         assert!(m.sessione.messaggi.last().unwrap()["content"]
-            .as_str().unwrap().starts_with("ERRORE"));
+            .as_str()
+            .unwrap()
+            .starts_with("ERRORE"));
     }
 
     #[tokio::test]
@@ -645,7 +681,10 @@ mod prove {
         m.annota("\n\n[nota di sistema] stai girando");
         let ultimo = m.sessione.messaggi.last().unwrap();
         assert_eq!(ultimo["role"], "tool");
-        assert!(ultimo["content"].as_str().unwrap().starts_with("il risultato"));
+        assert!(ultimo["content"]
+            .as_str()
+            .unwrap()
+            .starts_with("il risultato"));
         assert!(ultimo["content"].as_str().unwrap().contains("stai girando"));
     }
 
@@ -658,7 +697,10 @@ mod prove {
         m.sali(&["uno".into(), "due".into()]).await;
         assert_eq!(m.gradino, 1);
         assert_eq!(m.sessione.deleghe, 1);
-        let nota = m.sessione.messaggi.last().unwrap()["content"].as_str().unwrap().to_string();
+        let nota = m.sessione.messaggi.last().unwrap()["content"]
+            .as_str()
+            .unwrap()
+            .to_string();
         assert!(nota.contains("«g1»"), "{nota}");
         assert!(nota.contains("2 tentativi falliti"), "{nota}");
         assert!(nota.contains("- uno") && nota.contains("- due"), "{nota}");
@@ -673,7 +715,10 @@ mod prove {
         m.sali(&[]).await;
         assert_eq!(m.gradino, 0, "non c'era dove salire");
         assert_eq!(m.sessione.deleghe, 0);
-        let nota = m.sessione.messaggi.last().unwrap()["content"].as_str().unwrap().to_string();
+        let nota = m.sessione.messaggi.last().unwrap()["content"]
+            .as_str()
+            .unwrap()
+            .to_string();
         assert!(nota.contains("Non c'e' un gradino piu' alto"), "{nota}");
     }
 
@@ -683,11 +728,21 @@ mod prove {
         let e = Finge("x");
         let mut sess = sessione(2);
         let mut m = mondo(&t, &e, &mut sess);
-        m.sali(&["a".into(), "b".into(), "c".into(), "d".into()]).await;
-        let nota = m.sessione.messaggi.last().unwrap()["content"].as_str().unwrap().to_string();
+        m.sali(&["a".into(), "b".into(), "c".into(), "d".into()])
+            .await;
+        let nota = m.sessione.messaggi.last().unwrap()["content"]
+            .as_str()
+            .unwrap()
+            .to_string();
         assert!(!nota.contains("- a"), "il piu' vecchio si lascia: {nota}");
-        assert!(nota.contains("- b\n- c\n- d"), "e gli altri in ordine: {nota}");
-        assert!(nota.contains("4 tentativi"), "ma il conto e' di tutti: {nota}");
+        assert!(
+            nota.contains("- b\n- c\n- d"),
+            "e gli altri in ordine: {nota}"
+        );
+        assert!(
+            nota.contains("4 tentativi"),
+            "ma il conto e' di tutti: {nota}"
+        );
     }
 
     #[tokio::test]
@@ -701,13 +756,21 @@ mod prove {
         let mut sess = sessione(1);
         let mut m = mondo(&t, &e, &mut sess);
         m.sessione.gradini = vec![Gradino::nuovo(
-            "claude", nova_scala::Specie::Claude, "http://x", "m", vec![], false)];
+            "claude",
+            nova_scala::Specie::Claude,
+            "http://x",
+            "m",
+            vec![],
+            false,
+        )];
         match m.chiedi().await {
             Err(motivo) => {
                 assert!(motivo.contains("processo"), "{motivo}");
                 assert!(motivo.contains("«claude»"), "{motivo}");
-                assert!(t.mandati.lock().unwrap().is_empty(),
-                        "non doveva mandare niente a nessuno");
+                assert!(
+                    t.mandati.lock().unwrap().is_empty(),
+                    "non doveva mandare niente a nessuno"
+                );
             }
             Ok(_) => panic!("non poteva rispondere: non c'e' nessun indirizzo"),
         }
@@ -717,11 +780,23 @@ mod prove {
     async fn per_una_cli_lindirizzo_si_butta_invece_di_tenerlo_li() {
         // Tenerlo lascerebbe credere che serva a qualcosa.
         let g = Gradino::nuovo(
-            "gemini", nova_scala::Specie::Cli, "http://inventato", "m", vec![], false);
+            "gemini",
+            nova_scala::Specie::Cli,
+            "http://inventato",
+            "m",
+            vec![],
+            false,
+        );
         assert!(matches!(g, Gradino::Processo { .. }), "{g:?}");
         assert_eq!(g.nome(), "gemini");
         let l = Gradino::nuovo(
-            "locale", nova_scala::Specie::Locale, "http://casa", "m", vec![], true);
+            "locale",
+            nova_scala::Specie::Locale,
+            "http://casa",
+            "m",
+            vec![],
+            true,
+        );
         assert!(matches!(l, Gradino::Indirizzo { .. }), "{l:?}");
     }
 
@@ -735,7 +810,11 @@ mod prove {
         let f = Finge("x");
         let mut sess = sessione(1);
         let mut m = mondo(&c, &f, &mut sess);
-        m.sessione.misure = Misure { tetto: 8, fondo: 6, disponibili: 0 };
+        m.sessione.misure = Misure {
+            tetto: 8,
+            fondo: 6,
+            disponibili: 0,
+        };
         m.sessione.messaggi = vec![json!({"role": "system", "content": "s"})];
         for i in 0..8 {
             m.sessione.messaggi.push(json!({
@@ -748,17 +827,30 @@ mod prove {
             }));
         }
         m.taglia();
-        assert!(m.sessione.messaggi.len() < 17, "doveva tagliare: {} messaggi", m.sessione.messaggi.len());
+        assert!(
+            m.sessione.messaggi.len() < 17,
+            "doveva tagliare: {} messaggi",
+            m.sessione.messaggi.len()
+        );
         // Non basta che non manchi niente a cio' che e' rimasto: deve essere
         // rimasto qualcosa da controllare, o questa prova non guarda niente.
-        assert!(m.sessione.messaggi.iter().any(|x| x["role"] == "assistant"), "nessun assistente sopravvissuto");
-        assert!(m.sessione.messaggi.iter().any(|x| x["role"] == "tool"), "nessuna risposta di strumento sopravvissuta");
+        assert!(
+            m.sessione.messaggi.iter().any(|x| x["role"] == "assistant"),
+            "nessun assistente sopravvissuto"
+        );
+        assert!(
+            m.sessione.messaggi.iter().any(|x| x["role"] == "tool"),
+            "nessuna risposta di strumento sopravvissuta"
+        );
         for msg in &m.sessione.messaggi {
             if msg["role"] == "assistant" {
                 assert!(msg.get("tool_calls").is_some(), "chiamate perse: {msg}");
             }
             if msg["role"] == "tool" {
-                assert!(msg.get("tool_call_id").is_some(), "identificativo perso: {msg}");
+                assert!(
+                    msg.get("tool_call_id").is_some(),
+                    "identificativo perso: {msg}"
+                );
             }
         }
     }
@@ -813,7 +905,10 @@ mod prove {
     fn un_gradino_non_elencato_si_accoda_invece_di_sparire() {
         let c = config(
             &["locale"],
-            &[("locale", "locale", "", true), ("aggiunto_a_mano", "api", "x", false)],
+            &[
+                ("locale", "locale", "", true),
+                ("aggiunto_a_mano", "api", "x", false),
+            ],
         );
         let s = scala_vera(&c, &recapiti());
         let nomi: Vec<&str> = s.iter().map(Gradino::nome).collect();
@@ -836,8 +931,14 @@ mod prove {
                          if base_url == "http://127.0.0.1:8080" && modello == "gemma"));
         assert!(matches!(&s[1], Gradino::Indirizzo { base_url, modello, .. }
                          if base_url == "https://api.esempio.com" && modello == "gpt-di-serie"));
-        assert!(matches!(s[2], Gradino::Processo { .. }), "claude e' un processo, non un indirizzo");
-        assert!(matches!(s[3], Gradino::Processo { .. }), "una CLI dichiarata e' un processo");
+        assert!(
+            matches!(s[2], Gradino::Processo { .. }),
+            "claude e' un processo, non un indirizzo"
+        );
+        assert!(
+            matches!(s[3], Gradino::Processo { .. }),
+            "una CLI dichiarata e' un processo"
+        );
     }
 
     #[test]
@@ -850,13 +951,31 @@ mod prove {
 
     #[test]
     fn la_chiave_va_solo_dove_serve_e_solo_nelle_intestazioni() {
-        let c = config(&["l", "a"], &[("l", "locale", "", true), ("a", "api", "", false)]);
+        let c = config(
+            &["l", "a"],
+            &[("l", "locale", "", true), ("a", "api", "", false)],
+        );
         let s = scala_vera(&c, &recapiti());
-        let Gradino::Indirizzo { intestazioni: casa, .. } = &s[0] else { panic!() };
-        let Gradino::Indirizzo { intestazioni: fuori, .. } = &s[1] else { panic!() };
-        assert!(casa.iter().all(|(k, _)| k != "Authorization"),
-                "un server in casa non chiede chiavi, e mandarne una vuota e' peggio");
-        assert!(fuori.iter().any(|(k, v)| k == "Authorization" && v == "Bearer sk-segretissima"));
+        let Gradino::Indirizzo {
+            intestazioni: casa, ..
+        } = &s[0]
+        else {
+            panic!()
+        };
+        let Gradino::Indirizzo {
+            intestazioni: fuori,
+            ..
+        } = &s[1]
+        else {
+            panic!()
+        };
+        assert!(
+            casa.iter().all(|(k, _)| k != "Authorization"),
+            "un server in casa non chiede chiavi, e mandarne una vuota e' peggio"
+        );
+        assert!(fuori
+            .iter()
+            .any(|(k, v)| k == "Authorization" && v == "Bearer sk-segretissima"));
         // E da nessun'altra parte: il nome del gradino e l'indirizzo li legge
         // il modello nei messaggi d'errore.
         for g in &s {
@@ -888,7 +1007,10 @@ mod prove {
         let s = scala_vera(&c, &recapiti());
         assert_eq!(s.len(), 1);
         assert_eq!(s[0].nome(), "locale");
-        assert_eq!(scala_vera(&nova_scala::Configurazione::default(), &recapiti()).len(), 1);
+        assert_eq!(
+            scala_vera(&nova_scala::Configurazione::default(), &recapiti()).len(),
+            1
+        );
     }
 
     #[tokio::test]
@@ -902,7 +1024,10 @@ mod prove {
         let mut m = mondo(&c, &f, &mut sess);
         let motivo = m.chiedi().await.expect_err("non doveva riuscire");
         assert!(motivo.contains("nessun cervello"), "{motivo}");
-        assert!(c.mandati.lock().unwrap().is_empty(), "non doveva mandare niente a nessuno");
+        assert!(
+            c.mandati.lock().unwrap().is_empty(),
+            "non doveva mandare niente a nessuno"
+        );
     }
 
     #[tokio::test]
@@ -930,10 +1055,18 @@ mod prove {
             m.chiedi().await.expect("secondo turno");
         }
 
-        assert_eq!(sess.quanti(), 5, "sistema, domanda, risposta, domanda, risposta");
+        assert_eq!(
+            sess.quanti(),
+            5,
+            "sistema, domanda, risposta, domanda, risposta"
+        );
         let mandati = c.mandati.lock().unwrap();
         let secondo = mandati[1]["messages"].as_array().unwrap();
-        assert_eq!(secondo.len(), 4, "il secondo turno non ha portato con se' il primo");
+        assert_eq!(
+            secondo.len(),
+            4,
+            "il secondo turno non ha portato con se' il primo"
+        );
         assert_eq!(secondo[1]["content"], "come mi chiamo");
         assert_eq!(secondo[2]["content"], "ciao Gio");
     }
@@ -979,7 +1112,11 @@ mod prove {
                     for dove_tool in [1usize, 3, 7, 11] {
                         let mut sess = sessione(1);
                         let mut m = mondo(&c, &f, &mut sess);
-                        m.sessione.misure = Misure { tetto, fondo, disponibili };
+                        m.sessione.misure = Misure {
+                            tetto,
+                            fondo,
+                            disponibili,
+                        };
                         m.sessione.messaggi = vec![json!({"role": "system", "content": "s"})];
                         for i in 0..24 {
                             let tool = i % dove_tool == 0;
@@ -1003,8 +1140,9 @@ mod prove {
                             // Ogni riga sopravvissuta deve essere una riga di
                             // prima, intera o accorciata da quella stessa.
                             let sua = prima.iter().position(|p| {
-                                p == testo || (testo.contains("[...tagliati ")
-                                    && p.starts_with(&testo[..40.min(testo.len())]))
+                                p == testo
+                                    || (testo.contains("[...tagliati ")
+                                        && p.starts_with(&testo[..40.min(testo.len())]))
                             });
                             assert!(sua.is_some(), "una riga non viene da nessuna di prima");
                             let i = sua.unwrap();
@@ -1031,17 +1169,31 @@ mod prove {
         let f = Finge("x");
         let mut sess = sessione(1);
         let mut m = mondo(&c, &f, &mut sess);
-        m.sessione.misure = Misure { tetto: 60, fondo: 40, disponibili: 2_000 };
+        m.sessione.misure = Misure {
+            tetto: 60,
+            fondo: 40,
+            disponibili: 2_000,
+        };
         m.sessione.messaggi = vec![
             json!({"role": "system", "content": "s"}),
             json!({"role": "tool", "tool_call_id": "c0", "content": "F".repeat(50_000)}),
         ];
         m.taglia();
-        assert_eq!(m.sessione.messaggi.len(), 2, "con due righe non c'e' niente da togliere");
+        assert_eq!(
+            m.sessione.messaggi.len(),
+            2,
+            "con due righe non c'e' niente da togliere"
+        );
         let testo = m.sessione.messaggi[1]["content"].as_str().unwrap();
-        assert!(testo.contains("[...tagliati "), "riscrittura persa: un taglio silenzioso fa credere che il file finisca li'");
+        assert!(
+            testo.contains("[...tagliati "),
+            "riscrittura persa: un taglio silenzioso fa credere che il file finisca li'"
+        );
         assert!(testo.len() < 50_000);
-        assert_eq!(m.sessione.messaggi[1]["tool_call_id"], "c0", "e il resto della riga resta");
+        assert_eq!(
+            m.sessione.messaggi[1]["tool_call_id"], "c0",
+            "e il resto della riga resta"
+        );
     }
 
     #[tokio::test]
@@ -1051,16 +1203,28 @@ mod prove {
         let f = Finge("x");
         let mut sess = sessione(1);
         let mut m = mondo(&c, &f, &mut sess);
-        m.sessione.misure = Misure { tetto: 60, fondo: 40, disponibili: 400 };
+        m.sessione.misure = Misure {
+            tetto: 60,
+            fondo: 40,
+            disponibili: 400,
+        };
         m.sessione.messaggi = vec![json!({"role": "system", "content": "s"})];
         for i in 0..10 {
-            m.sessione.messaggi.push(json!({"role": "user", "content": format!("{i}{}", "z".repeat(4_000))}));
+            m.sessione
+                .messaggi
+                .push(json!({"role": "user", "content": format!("{i}{}", "z".repeat(4_000))}));
         }
         m.chiedi().await.expect("doveva rispondere");
         let mandati = c.mandati.lock().unwrap();
         let quanti = mandati[0]["messages"].as_array().unwrap().len();
-        assert!(quanti < 11, "ne ha mandati {quanti}: non ha tagliato prima di chiedere");
-        assert_eq!(mandati[0]["messages"][0]["role"], "system", "la testa resta la testa");
+        assert!(
+            quanti < 11,
+            "ne ha mandati {quanti}: non ha tagliato prima di chiedere"
+        );
+        assert_eq!(
+            mandati[0]["messages"][0]["role"], "system",
+            "la testa resta la testa"
+        );
     }
 
     #[tokio::test]

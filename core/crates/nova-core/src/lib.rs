@@ -12,21 +12,21 @@
 //! seguire l'albero di accessibilita' (UIA / AX / AT-SPI), l'osservazione
 //! (ETW / EndpointSecurity / eBPF) e gli snapshot (VSS / APFS / overlayfs).
 
-pub mod caps_segreti;
-pub mod caps_sistema;
-pub mod segreti;
 pub mod bus;
 pub mod capability;
 pub mod caps;
 pub mod caps_approvazione;
+pub mod caps_segreti;
+pub mod caps_sistema;
 pub mod caps_ui;
 pub mod caps_voce;
+pub mod config;
 pub mod giornale;
 pub mod interruzione;
 pub mod osserva;
-pub mod risveglio;
-pub mod config;
 pub mod policy;
+pub mod risveglio;
+pub mod segreti;
 pub mod server;
 pub mod supervisor;
 // Accendere il modello locale: il giro sopra al supervisore, con la decisione
@@ -104,7 +104,11 @@ pub async fn avvia_servizi(server: &Arc<Server>) {
             name: s.name.clone(),
             program: s.program.clone(),
             args: s.args.clone(),
-            cwd: if s.cwd.is_empty() { None } else { Some(s.cwd.clone()) },
+            cwd: if s.cwd.is_empty() {
+                None
+            } else {
+                Some(s.cwd.clone())
+            },
             restart: s.restart,
             capture_output: s.capture_output,
         };

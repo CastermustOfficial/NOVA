@@ -25,7 +25,7 @@
 //! buttato senza lasciare traccia: un microfono aperto tutto il giorno non
 //! deve diventare un registro di quello che si dice in casa.
 
-use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, Ordering};
 use std::sync::{Arc, OnceLock};
 
 use serde_json::json;
@@ -98,7 +98,11 @@ pub fn fase() -> u8 {
 /// dormire. Prima si tornava sempre a 'quiete' e l'orb sembrava inattivo
 /// anche mentre ascoltava: non si capiva quando parlare.
 pub fn stato_a_riposo() -> &'static str {
-    if fase() == SVEGLIA { "ascolto" } else { "spento" }
+    if fase() == SVEGLIA {
+        "ascolto"
+    } else {
+        "spento"
+    }
 }
 
 pub fn ferma() {
@@ -141,11 +145,19 @@ fn e_una_fermata(testo: &str) -> bool {
     let normale = ripulito.split_whitespace().collect::<Vec<_>>().join(" ");
     matches!(
         normale.as_str(),
-        "ferma" | "fermati" | "ferma tutto" | "fermo" | "stop" | "annulla"
-            | "basta" | "lascia stare" | "lascia perdere" | "smetti" | "interrompi"
+        "ferma"
+            | "fermati"
+            | "ferma tutto"
+            | "fermo"
+            | "stop"
+            | "annulla"
+            | "basta"
+            | "lascia stare"
+            | "lascia perdere"
+            | "smetti"
+            | "interrompi"
     )
 }
-
 
 /// Quanto silenzio chiude una frase.
 ///
@@ -207,17 +219,19 @@ pub fn avvia(
             let silenzio = silenzio_per(fase_ora);
             let parole_prima = s.turni_di_parola.load(Ordering::SeqCst);
 
-            let esito = tokio::task::spawn_blocking(move || -> anyhow::Result<Option<(String, f32)>> {
-                let a = nova_voce::ascolta_con_attesa(mic.as_deref(), 8.0, 20.0, silenzio, 16_000)?;
-                if !a.ha_parlato || a.campioni.is_empty() {
-                    tracing::debug!(picco = a.picco, "giro a vuoto");
-                    return Ok(None);
-                }
-                let mut t = nova_voce::Trascrittore::nuovo(&cartella, "it")?;
-                t.glossario = vec![glossario];
-                Ok(Some((t.trascrivi(&a.campioni, a.frequenza)?, a.picco)))
-            })
-            .await;
+            let esito =
+                tokio::task::spawn_blocking(move || -> anyhow::Result<Option<(String, f32)>> {
+                    let a =
+                        nova_voce::ascolta_con_attesa(mic.as_deref(), 8.0, 20.0, silenzio, 16_000)?;
+                    if !a.ha_parlato || a.campioni.is_empty() {
+                        tracing::debug!(picco = a.picco, "giro a vuoto");
+                        return Ok(None);
+                    }
+                    let mut t = nova_voce::Trascrittore::nuovo(&cartella, "it")?;
+                    t.glossario = vec![glossario];
+                    Ok(Some((t.trascrivi(&a.campioni, a.frequenza)?, a.picco)))
+                })
+                .await;
 
             // Se NOVA ha parlato mentre questo pezzo veniva registrato, il
             // pezzo contiene la sua voce: si butta senza trascriverlo.
@@ -241,8 +255,12 @@ pub fn avvia(
                     }
                     // Il testo solo a «debug»: a livello normale si vede che
                     // c'e' stato del parlato, non cosa diceva.
-                    tracing::info!(picco, caratteri = testo.chars().count(),
-                                   fase = nome_fase(fase_ora), "parlato");
+                    tracing::info!(
+                        picco,
+                        caratteri = testo.chars().count(),
+                        fase = nome_fase(fase_ora),
+                        "parlato"
+                    );
                     tracing::debug!(testo = %testo, "trascritto");
 
                     // Prima di ogni altra cosa: e' una richiesta di fermarsi? Va vista qui,
@@ -253,7 +271,11 @@ pub fn avvia(
                         tracing::info!(quante, "fermata chiesta a voce");
                         crate::caps_voce::annuncia(
                             bus.clone(),
-                            if quante > 0 { "Va bene, mi fermo." } else { "Non stavo facendo niente." },
+                            if quante > 0 {
+                                "Va bene, mi fermo."
+                            } else {
+                                "Non stavo facendo niente."
+                            },
                         )
                         .await;
                         continue;

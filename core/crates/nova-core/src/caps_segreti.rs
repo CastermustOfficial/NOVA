@@ -23,7 +23,9 @@ use async_trait::async_trait;
 use nova_proto::{CapabilityInfo, Risk};
 use serde_json::{json, Value};
 
-use crate::capability::{arg_bool, arg_str, arg_str_opt, arg_u64, schema, Capability, Ctx, Registry};
+use crate::capability::{
+    arg_bool, arg_str, arg_str_opt, arg_u64, schema, Capability, Ctx, Registry,
+};
 use crate::segreti::{self, Voce};
 
 pub fn register(reg: &mut Registry) {
@@ -51,14 +53,19 @@ impl Capability for ElencoCap {
                 .into(),
             risk: Risk::Safe,
             category: "segreti".into(),
-            schema: schema(&[
-                ("cerca", "string", "Filtra per nome, servizio, utente o categoria", false),
-            ]),
+            schema: schema(&[(
+                "cerca",
+                "string",
+                "Filtra per nome, servizio, utente o categoria",
+                false,
+            )]),
         }
     }
 
     async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
-        let ago = arg_str_opt(&args, "cerca").unwrap_or_default().to_lowercase();
+        let ago = arg_str_opt(&args, "cerca")
+            .unwrap_or_default()
+            .to_lowercase();
         let tutte = tokio::task::spawn_blocking(segreti::elenco).await??;
         let scelte: Vec<_> = tutte
             .into_iter()
@@ -113,13 +120,33 @@ impl Capability for SalvaCap {
             risk: Risk::Moderate,
             category: "segreti".into(),
             schema: schema(&[
-                ("nome", "string", "Come richiamarla, es. «gmail.giova»", true),
-                ("valore", "string", "La password; vuoto = non toccarla", false),
+                (
+                    "nome",
+                    "string",
+                    "Come richiamarla, es. «gmail.giova»",
+                    true,
+                ),
+                (
+                    "valore",
+                    "string",
+                    "La password; vuoto = non toccarla",
+                    false,
+                ),
                 ("servizio", "string", "Gmail, Amazon, la banca...", false),
                 ("utente", "string", "L'indirizzo o il nome utente", false),
                 ("url", "string", "Dove si usa", false),
-                ("categoria", "string", "posta, banca, lavoro, svago...", false),
-                ("note", "string", "Quello che serve ricordare e non e' segreto", false),
+                (
+                    "categoria",
+                    "string",
+                    "posta, banca, lavoro, svago...",
+                    false,
+                ),
+                (
+                    "note",
+                    "string",
+                    "Quello che serve ricordare e non e' segreto",
+                    false,
+                ),
             ]),
         }
     }
@@ -161,7 +188,12 @@ impl Capability for GeneraCap {
                 ("utente", "string", "Con quale utente", false),
                 ("url", "string", "Dove si usa", false),
                 ("categoria", "string", "posta, banca, lavoro...", false),
-                ("mostra", "boolean", "true per riceverla comunque (evita, se puoi)", false),
+                (
+                    "mostra",
+                    "boolean",
+                    "true per riceverla comunque (evita, se puoi)",
+                    false,
+                ),
             ]),
         }
     }
@@ -238,9 +270,12 @@ impl Capability for OrdineCap {
                 .into(),
             risk: Risk::Safe,
             category: "segreti".into(),
-            schema: schema(&[
-                ("vecchia_dopo_giorni", "integer", "Oltre quanti giorni e' «vecchia» (predefinito 365)", false),
-            ]),
+            schema: schema(&[(
+                "vecchia_dopo_giorni",
+                "integer",
+                "Oltre quanti giorni e' «vecchia» (predefinito 365)",
+                false,
+            )]),
         }
     }
 
@@ -249,8 +284,16 @@ impl Capability for OrdineCap {
         let tutte = tokio::task::spawn_blocking(segreti::elenco).await??;
         let nome = |s: &segreti::Scheda| s.nome.clone();
 
-        let ripetute: Vec<String> = tutte.iter().filter(|s| s.ripetuta_in > 0).map(nome).collect();
-        let deboli: Vec<String> = tutte.iter().filter(|s| s.robustezza <= 1).map(nome).collect();
+        let ripetute: Vec<String> = tutte
+            .iter()
+            .filter(|s| s.ripetuta_in > 0)
+            .map(nome)
+            .collect();
+        let deboli: Vec<String> = tutte
+            .iter()
+            .filter(|s| s.robustezza <= 1)
+            .map(nome)
+            .collect();
         let vecchie: Vec<String> = tutte
             .iter()
             .filter(|s| s.aggiornato > 0 && s.giorni_fa > soglia)
@@ -320,7 +363,9 @@ fn servizio_da(u: &str, url: &str) -> String {
     let senza_schema = url.rsplit("://").next().unwrap_or("");
     let da_url: String = senza_schema.split('/').next().unwrap_or("").to_string();
     let dominio = if da_url.is_empty() {
-        u.split_once('@').map(|(_, d)| d.to_string()).unwrap_or_default()
+        u.split_once('@')
+            .map(|(_, d)| d.to_string())
+            .unwrap_or_default()
     } else {
         da_url
     };
@@ -396,9 +441,15 @@ fn interpreta(testo: &str) -> (Vec<Letta>, Vec<usize>) {
 /// L'indirizzo dentro una riga, se c'è.
 fn indirizzo(riga: &str) -> Option<String> {
     riga.split(|c: char| c.is_whitespace() || matches!(c, ',' | ';' | '|'))
-        .map(|t| t.trim_matches(|c: char| !c.is_alphanumeric() && c != '@' && c != '.' && c != '_' && c != '-' && c != '+'))
+        .map(|t| {
+            t.trim_matches(|c: char| {
+                !c.is_alphanumeric() && c != '@' && c != '.' && c != '_' && c != '-' && c != '+'
+            })
+        })
         .find(|t| {
-            let Some((testa, coda)) = t.split_once('@') else { return false };
+            let Some((testa, coda)) = t.split_once('@') else {
+                return false;
+            };
             !testa.is_empty() && coda.contains('.') && coda.len() >= 4
         })
         .map(str::to_string)
@@ -425,7 +476,10 @@ fn leggi_blocco(righe: &[&str]) -> Option<Letta> {
         }
     }
     let prendi = |chiavi: &[&str]| -> String {
-        chiavi.iter().find_map(|k| campi.get(*k).cloned()).unwrap_or_default()
+        chiavi
+            .iter()
+            .find_map(|k| campi.get(*k).cloned())
+            .unwrap_or_default()
     };
     let per_etichetta = prendi(&["password", "pass", "pwd", "psw", "chiave"]);
     if !per_etichetta.is_empty() {
@@ -446,7 +500,13 @@ fn leggi_blocco(righe: &[&str]) -> Option<Letta> {
                     .unwrap_or_else(|| servizio_da(&utente, &url))
             }
         };
-        return Some(Letta { servizio, utente, valore: per_etichetta, url, note: String::new() });
+        return Some(Letta {
+            servizio,
+            utente,
+            valore: per_etichetta,
+            url,
+            note: String::new(),
+        });
     }
 
     // Strada 2: la posizione. L'indirizzo è il perno.
@@ -463,7 +523,11 @@ fn leggi_blocco(righe: &[&str]) -> Option<Letta> {
         }
         return Some(Letta {
             servizio: ripulisci_titolo(righe[0]),
-            utente: if righe.len() == 3 { righe[1].trim().to_string() } else { String::new() },
+            utente: if righe.len() == 3 {
+                righe[1].trim().to_string()
+            } else {
+                String::new()
+            },
             valore,
             url: String::new(),
             note: String::new(),
@@ -521,7 +585,13 @@ fn leggi_blocco(righe: &[&str]) -> Option<Letta> {
         String::new()
     };
 
-    Some(Letta { servizio, utente, valore, url: String::new(), note })
+    Some(Letta {
+        servizio,
+        utente,
+        valore,
+        url: String::new(),
+        note,
+    })
 }
 
 /// Un'intestazione ripulita: «Posta del lavoro:» -> «Posta del lavoro».
@@ -549,8 +619,18 @@ impl Capability for ImportaCap {
             category: "segreti".into(),
             schema: schema(&[
                 ("percorso", "string", "Il file da leggere", true),
-                ("prova", "boolean", "true (predefinito) guarda e basta; false importa", false),
-                ("prefisso", "string", "Anteposto ai nomi, es. «vecchie» -> vecchie.gmail", false),
+                (
+                    "prova",
+                    "boolean",
+                    "true (predefinito) guarda e basta; false importa",
+                    false,
+                ),
+                (
+                    "prefisso",
+                    "string",
+                    "Anteposto ai nomi, es. «vecchie» -> vecchie.gmail",
+                    false,
+                ),
             ]),
         }
     }
@@ -597,10 +677,16 @@ impl Capability for ImportaCap {
                     doppioni += 1;
                     continue;
                 }
-                let base = if l.servizio.is_empty() { "sconosciuto".to_string() }
-                           else { l.servizio.to_lowercase().replace(' ', "-") };
-                let mut nome = if prefisso.is_empty() { base.clone() }
-                               else { format!("{}.{}", prefisso.trim(), base) };
+                let base = if l.servizio.is_empty() {
+                    "sconosciuto".to_string()
+                } else {
+                    l.servizio.to_lowercase().replace(' ', "-")
+                };
+                let mut nome = if prefisso.is_empty() {
+                    base.clone()
+                } else {
+                    format!("{}.{}", prefisso.trim(), base)
+                };
                 let mut n = 2;
                 while !nomi_usati.insert(nome.clone()) {
                     nome = format!("{nome}-{n}");

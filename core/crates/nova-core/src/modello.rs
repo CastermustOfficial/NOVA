@@ -90,13 +90,21 @@ pub async fn accendi(r: &Richiesta, chi: &dyn Tentativo) -> Result<Acceso> {
         let attesa = avvio::attesa_del_tentativo(i == 0, r.attesa_s);
         let (esito, coda) = chi.prova(*ngl, attesa).await;
         if esito == Esito::Pronto {
-            return Ok(Acceso { ngl: *ngl, tentativi: i });
+            return Ok(Acceso {
+                ngl: *ngl,
+                tentativi: i,
+            });
         }
         // Spento **prima** di decidere: se si scende di un gradino, quello di
         // sopra non deve restare a tenersi la memoria che serve al prossimo.
         chi.spegni().await;
         match avvio::dopo_un_tentativo(esito, &coda, r.auto, i < ultimo_indice) {
-            Prossimo::Acceso => return Ok(Acceso { ngl: *ngl, tentativi: i }),
+            Prossimo::Acceso => {
+                return Ok(Acceso {
+                    ngl: *ngl,
+                    tentativi: i,
+                })
+            }
             Prossimo::Arrenditi(p) => {
                 return Err(anyhow!("il modello non e' partito: {p}"));
             }
@@ -108,7 +116,9 @@ pub async fn accendi(r: &Richiesta, chi: &dyn Tentativo) -> Result<Acceso> {
     }
     // La scala e' finita senza che nessuno si arrendesse: capita solo se
     // l'ultimo gradino ha detto «riprova», e sotto non c'e' piu' niente.
-    Err(anyhow!("il modello non e' partito, e la scala e' finita: {perche}"))
+    Err(anyhow!(
+        "il modello non e' partito, e la scala e' finita: {perche}"
+    ))
 }
 
 /// Il tentativo vero: il supervisore del demone avvia, e si chiede al server
@@ -124,12 +134,7 @@ pub struct ColSupervisore<'a> {
 impl Tentativo for ColSupervisore<'_> {
     async fn prova(&self, ngl: i64, attesa_s: u64) -> (Esito, String) {
         let pro = self.proiettore.as_ref().map(Path::new);
-        let riga = avvio::argomenti(
-            Path::new(&self.binario),
-            &self.impostazioni,
-            ngl,
-            pro,
-        );
+        let riga = avvio::argomenti(Path::new(&self.binario), &self.impostazioni, ngl, pro);
         let cartella = Path::new(&self.binario)
             .parent()
             .map(|p| p.display().to_string());
@@ -231,7 +236,10 @@ mod prove {
         fn con(risposte: Vec<(Esito, &str)>) -> Self {
             Finto {
                 risposte: Mutex::new(
-                    risposte.into_iter().map(|(e, c)| (e, c.to_string())).collect(),
+                    risposte
+                        .into_iter()
+                        .map(|(e, c)| (e, c.to_string()))
+                        .collect(),
                 ),
                 chiesti: Mutex::new(Vec::new()),
                 spegnimenti: Mutex::new(0),
@@ -269,8 +277,16 @@ mod prove {
     #[tokio::test]
     async fn al_primo_colpo_non_si_spegne_niente() {
         let f = Finto::con(vec![(Esito::Pronto, "")]);
-        let a = accendi(&richiesta(vec![30, 24, 18], true), &f).await.unwrap();
-        assert_eq!(a, Acceso { ngl: 30, tentativi: 0 });
+        let a = accendi(&richiesta(vec![30, 24, 18], true), &f)
+            .await
+            .unwrap();
+        assert_eq!(
+            a,
+            Acceso {
+                ngl: 30,
+                tentativi: 0
+            }
+        );
         assert_eq!(*f.spegnimenti.lock().unwrap(), 0);
     }
 
@@ -281,8 +297,16 @@ mod prove {
             (Esito::Morto, "ggml: out of memory"),
             (Esito::Pronto, ""),
         ]);
-        let a = accendi(&richiesta(vec![30, 24, 18], true), &f).await.unwrap();
-        assert_eq!(a, Acceso { ngl: 18, tentativi: 2 });
+        let a = accendi(&richiesta(vec![30, 24, 18], true), &f)
+            .await
+            .unwrap();
+        assert_eq!(
+            a,
+            Acceso {
+                ngl: 18,
+                tentativi: 2
+            }
+        );
         // Due gradini falliti, due spegnimenti: chi non ce l'ha fatta non
         // resta acceso a tenersi la memoria del prossimo.
         assert_eq!(*f.spegnimenti.lock().unwrap(), 2);
@@ -296,10 +320,16 @@ mod prove {
             (Esito::Morto, "error: unknown argument: --pippo"),
             (Esito::Pronto, ""),
         ]);
-        let e = accendi(&richiesta(vec![30, 24, 18], true), &f).await.unwrap_err();
+        let e = accendi(&richiesta(vec![30, 24, 18], true), &f)
+            .await
+            .unwrap_err();
         assert!(e.to_string().contains("unknown argument"), "{e}");
         assert!(!e.to_string().to_lowercase().contains("memoria"), "{e}");
-        assert_eq!(f.chiesti.lock().unwrap().len(), 1, "ha provato piu' di una volta");
+        assert_eq!(
+            f.chiesti.lock().unwrap().len(),
+            1,
+            "ha provato piu' di una volta"
+        );
     }
 
     #[tokio::test]
@@ -309,7 +339,9 @@ mod prove {
             (Esito::Morto, ""),
             (Esito::Pronto, ""),
         ]);
-        accendi(&richiesta(vec![30, 24, 18], true), &f).await.unwrap();
+        accendi(&richiesta(vec![30, 24, 18], true), &f)
+            .await
+            .unwrap();
         let chiesti = f.chiesti.lock().unwrap().clone();
         assert_eq!(chiesti[0], (30, 600));
         assert_eq!(chiesti[1], (24, avvio::ATTESA_DOPO_IL_PRIMO_S));
@@ -319,7 +351,9 @@ mod prove {
     #[tokio::test]
     async fn senza_auto_si_prova_una_volta_sola() {
         let f = Finto::con(vec![(Esito::Morto, "ggml: out of memory")]);
-        let e = accendi(&richiesta(vec![30, 24, 18], false), &f).await.unwrap_err();
+        let e = accendi(&richiesta(vec![30, 24, 18], false), &f)
+            .await
+            .unwrap_err();
         assert_eq!(f.chiesti.lock().unwrap().len(), 1, "{e}");
     }
 
