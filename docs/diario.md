@@ -8035,3 +8035,63 @@ che lasciava il mondo storto, e due di prove che facevano domande che
 altrove non volevano dire niente.
 
 Nessuno dei cinque si vedeva da Windows. Questa e' CANT-9.
+
+## Un cantiere che si apre, e una porta che si chiude prima
+
+Gio mi ha segnalato una cosa che non e' ancora pubblica: i modelli **System
+One** — un modello che non scrive testo ma risponde a domande tipizzate, con
+una probabilita' e una confidenza, in un decimo di secondo e a un prezzo che
+non e' quello di un LLM.
+
+Prima di entusiasmarmi ho fatto la domanda che serve: **a NOVA cosa
+cambierebbe?** E la risposta non sta nel prodotto, sta nel nostro codice.
+
+NOVA decide un mucchio di cose, e quasi tutte le decide con liste di parole,
+soglie e espressioni regolari. Quale cervello serve per un compito: liste di
+parole. Se una frase e' un fatto da ricordare: `len(testo) >= 25`. Se una
+procedura vale la pena di essere salvata: ha impiegato piu' di otto secondi.
+Quanto e' rischiosa una chiamata: dichiarato una volta per strumento, quindi
+`run_command("ls")` e `run_command("rm -rf /")` rischiano uguale.
+
+Ognuna di quelle e' un **giudizio travestito da conto**. E non sono li' per
+pigrizia: l'alternativa era un giro di modello per ogni domandina, cioe'
+secondi e soldi su cose che devono rispondere subito. Se quel conto cambia,
+cambia cosa e' ragionevole chiedere.
+
+Ho messo il censimento in `verso_la_beta.md`, ed e' CANT-12. Ma la cosa che
+ho scritto **per prima** non e' il censimento: e' il confine.
+
+**Un modello che decide meglio decide fuori dal PC.** E NOVA e' un progetto
+che dice, di se stesso, che l'utente e' il padrone della propria macchina. Se
+si comincia a mandare fuori roba per farla giudicare, la domanda «cosa esce»
+non e' un dettaglio di implementazione: e' la cosa.
+
+Gio ha deciso: **tutto tranne i segreti**. E' un confine largo e coerente con
+il resto — chi vuole una macchina che fa tutto accetta che tutto passi di
+li' — con una eccezione che non si tocca: chiedere a qualcun altro «questa e'
+una chiave?» vuol dire mandargli la chiave, e nessuna qualita' di risposta
+ripaga quel costo.
+
+E qui viene la parte che mi interessava di piu'. Quel confine **non l'ho
+scritto in un documento**. Un confine scritto in un documento non lo
+controlla nessuno: e' la stessa famiglia dei due elenchi che sapevano cose
+diverse (D185) e della regola «grep prima di scrivere» che non e' servita
+un'ora dopo averla scritta. Sta in `nova-decisioni`, e ha la forma che ha
+funzionato con i gradini: **cio' che non deve uscire non si puo'
+costruire**. `Fuori::prepara` e' l'unico modo di avere del materiale pronto a
+partire, e da li' un segreto non esce — non perche' c'e' un controllo, ma
+perche' non c'e' niente da controllare piu' avanti. Piu' avanti non ci si
+arriva.
+
+Cinque mutazioni, cinque prese: il segreto che esce, `solo_locale` ignorato,
+la materia del segreto cambiata sotto, il testo mutilato in uscita. La sesta
+— togliere una decisione dall'elenco — non compila nemmeno, e va benissimo
+cosi'.
+
+**Cosa non ho fatto, e apposta.** Non ho scritto una riga di integrazione. Un
+pezzo di codice scritto contro un servizio che non si e' mai chiamato e' «da
+me funziona» in una forma nuova: non funziona nemmeno da me. Il cantiere
+resta aperto, e il primo guadagno arriva comunque — una decisione che oggi
+sta dentro un `if` diventa una cosa con un nome, provabile da sola. Anche se
+il secondo braccio restasse vuoto per sempre, le euristiche sarebbero meglio
+provate di adesso.

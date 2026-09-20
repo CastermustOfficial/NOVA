@@ -1,0 +1,9 @@
+[package]
+name = "nova-decisioni"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Quali giudizi NOVA da', su che materia, e cosa di quella materia puo' uscire dal PC."
+
+[dependencies]

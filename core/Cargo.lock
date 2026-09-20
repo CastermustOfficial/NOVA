@@ -2559,6 +2559,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "nova-decisioni"
+version = "0.1.1"
+
+[[package]]
 name = "nova-guasti"
 version = "0.1.1"
 dependencies = [
