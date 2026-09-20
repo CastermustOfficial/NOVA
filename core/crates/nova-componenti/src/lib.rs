@@ -204,9 +204,20 @@ mod prove {
         }
     }
 
+    /// Un finto disco su cui ci sono questi file e basta.
+    ///
+    /// I separatori si normalizzano, e non e' pignoleria di stile: `join`
+    /// su Windows mette il backslash, e un elenco scritto con le barre in
+    /// avanti non riconosceva piu' niente. Questa prova era verde qui e
+    /// rossa sulla CI, ed e' lo stesso inciampo che aveva gia' preso le
+    /// prove di `nova-cartelle` (D209): il codice va su tutti e due i
+    /// sistemi, le **prove** erano scritte per uno solo.
     fn cosa_c_e(elenco: &[&str]) -> impl Fn(&Path) -> bool {
-        let s: HashSet<String> = elenco.iter().map(|x| x.to_string()).collect();
-        move |p: &Path| s.contains(&p.display().to_string())
+        fn dritto(s: &str) -> String {
+            s.replace('\\', "/")
+        }
+        let s: HashSet<String> = elenco.iter().map(|x| dritto(x)).collect();
+        move |p: &Path| s.contains(&dritto(&p.display().to_string()))
     }
 
     #[test]

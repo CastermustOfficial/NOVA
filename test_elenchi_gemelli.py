@@ -232,6 +232,14 @@ NUMERI = [
     ("nova-browser/src/lib.rs", "PORTA_RICERCA",
      lambda: numero("nova/cerca.py", "PORTA"),
      "e quella del browser delle ricerche, che e' un altro"),
+    ("nova-fogli/src/lib.rs", "RIGHE_MAX",
+     lambda: numero("nova/fogli.py", "RIGHE_MAX"),
+     "dove ci si ferma leggendo un foglio: se le due meta' si fermassero in "
+     "due punti diversi, lo stesso file darebbe due testi diversi"),
+    ("nova-fogli/src/lib.rs", "CIFRE_ESATTE",
+     lambda: numero("nova/fogli.py", "CIFRE_ESATTE"),
+     "quante cifre stanno in un numero senza cambiarlo: da qui dipende se un "
+     "IBAN resta un IBAN o diventa un conto arrotondato"),
 ]
 
 #: Elenchi che un altro banco confronta gia', col nome della prova che lo fa.
