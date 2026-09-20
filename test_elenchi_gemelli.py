@@ -73,6 +73,14 @@ def costante(dove: str, nome: str):
     raise KeyError(f"{nome} non trovato in {dove}")
 
 
+def numero(dove: str, nome: str) -> int:
+    """Una costante di modulo che e' un numero, letta dall'albero."""
+    for n in albero(dove).body:
+        if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == nome:
+            return int(ast.literal_eval(n.value))
+    raise KeyError(f"{nome} non trovato in {dove}")
+
+
 def attributo_di_classe(dove: str, classe: str, nome: str):
     for c in albero(dove).body:
         if isinstance(c, ast.ClassDef) and c.name == classe:
@@ -199,6 +207,26 @@ GEMELLI = [
      "coppie: in Python e' un dizionario"),
 ]
 
+#: I **numeri** dichiarati da tutte e due le parti, che devono dire lo stesso.
+#:
+#: Questa parte e' nata da una porta. `nova-browser` diceva `PORTA = 9333` e
+#: il Python ne ha due — 9222 per il browser di lavoro, 9223 per quello delle
+#: ricerche — quindi quel 9333 non corrispondeva a niente. Non si era rotto
+#: niente perche' non la usava ancora nessuno: il giorno in cui il braccio in
+#: Rust si fosse attaccato avrebbe cercato un browser dove non c'e' nessuno, e
+#: l'errore sarebbe stato «non trovo il browser».
+#:
+#: Gli elenchi li si confrontava gia'; i numeri no, e un numero sbagliato non
+#: si vede in un diff piu' di quanto si veda una voce mancante.
+NUMERI = [
+    ("nova-browser/src/lib.rs", "PORTA",
+     lambda: numero("nova/browser.py", "PORTA"),
+     "la porta del browser di lavoro"),
+    ("nova-browser/src/lib.rs", "PORTA_RICERCA",
+     lambda: numero("nova/cerca.py", "PORTA"),
+     "e quella del browser delle ricerche, che e' un altro"),
+]
+
 #: Elenchi che un altro banco confronta gia', col nome della prova che lo fa.
 ALTROVE = {
     "GUARDANO_LO_SCHERMO": "test_guasti_rust.py",
@@ -262,7 +290,18 @@ controlla("nessun elenco dichiarato senza gemello, senza banco e senza motivo",
 controlla(f"e {generati} sono generati da un estrattore, quindi identici per "
           "costruzione", generati > 0)
 
-print("\n3. chi dice «lo confronta un altro» lo confronta davvero")
+print("\n3. e i numeri dichiarati due volte dicono lo stesso")
+for percorso, nome, prendi, nota in NUMERI:
+    testo = (CRATES / percorso).read_text(encoding="utf-8", errors="replace")
+    m = re.search(rf"pub const {nome}: [a-z0-9]+ = (\d+);", testo)
+    if not m:
+        controlla(f"«{nome}» si trova in {percorso}", False,
+                  "il cercatore non lo vede: o e' sparito o e' scritto in un altro modo")
+        continue
+    suo, py = int(m.group(1)), prendi()
+    controlla(f"«{nome}» {nota}", suo == py, f"Rust {suo}, Python {py}")
+
+print("\n4. chi dice «lo confronta un altro» lo confronta davvero")
 bugiardi = [f"{n}: {p} non lo nomina" for n, p in ALTROVE.items()
             if not (RADICE / p).is_file()
             or n not in (RADICE / p).read_text(encoding="utf-8", errors="replace")]

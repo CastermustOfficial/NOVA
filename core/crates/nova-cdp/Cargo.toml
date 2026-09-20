@@ -1,0 +1,25 @@
+[package]
+name = "nova-cdp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Parlare al browser nella sua lingua: le schede e la connessione."
+
+[dependencies]
+serde_json = { workspace = true }
+# Bloccante, non asincrona, e apposta: questo pezzo lo chiamano processi che
+# nascono e muoiono a ogni richiesta, e una connessione che sopravvive al
+# processo non esiste.
+tungstenite = "0.28"
+ureq = "2"
+
+[features]
+# Il banco che parla a un Chrome vero: si accende a mano, perche' senza un
+# browser acceso non prova niente.
+banco = []
+
+[[bin]]
+name = "banco-cdp"
+path = "src/banco.rs"
+required-features = ["banco"]

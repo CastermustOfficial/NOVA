@@ -17,6 +17,7 @@ members = [
     "crates/nova-cervelli",
     "crates/nova-mcp",
     "crates/nova-browser",
+    "crates/nova-cdp",
     "crates/nova-catalogo",
     "crates/nova-cartelle",
     "crates/nova-nodi",

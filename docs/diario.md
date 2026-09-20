@@ -8185,3 +8185,64 @@ costruisce i tre documenti e quello che guarda cosa e' rimasto. Se fra sei
 mesi esce una libreria nuova, la domanda non si rifa' da capo: si aggiunge un
 binario e si rilancia. Una misura raccontata a voce invecchia; una misura che
 si rifa' in un comando no.
+
+## L'ultima libreria, scelta contro un browser vero
+
+«Il client websocket per il browser: e' l'unica scelta di libreria rimasta
+aperta di tutto il cantiere.» Stava scritta cosi' fra i pezzi piccoli, e si
+poteva chiudere leggendo due pagine di documentazione. L'ho chiusa avviando un
+Chrome.
+
+`tungstenite`, bloccante. Bloccante non e' una scorciatoia: e' la forma del
+problema, e il Python lo dice di se' — «questo modulo viene chiamato da
+processi che nascono e muoiono a ogni richiesta, e una connessione che
+sopravvive al processo non esiste».
+
+Il banco fa quello che fa NOVA: chiede l'elenco delle schede, si attacca a
+una pagina, manda `Runtime.evaluate`, ne manda **due di fila** sulla stessa
+connessione (il caso per cui la sessione esiste, e quello in cui si sbaglia a
+riconoscere la risposta), e chiede un metodo inventato per vedere che il
+rifiuto si legga. Cinque verdi contro Chrome 141.
+
+**E una cosa che si e' vista solo perche' il browser era vero.** Il primo
+tentativo ha preso 403. Da Chrome 111 la connessione al CDP viene rifiutata
+se l'origine non e' fra quelle dichiarate all'avvio, e NOVA il browser lo
+avvia da se' con `--remote-allow-origins=http://127.0.0.1`. Quindi:
+
+```text
+Chrome avviato come lo avvia NOVA
+  con Origin: http://127.0.0.1  -> risponde
+  senza Origin                  -> 403 Forbidden
+```
+
+Sbagliarla in una delle due direzioni non da' un errore che si capisce: da' un
+browser che non si comanda. E il messaggio grezzo — `Http(Response { status:
+403, version: HTTP/1.1 })` — manda a cercare dalla parte sbagliata. Adesso
+quel 403 ha una frase sua, che dice cosa fare, ed e' provata avviando un
+Chrome **senza** quel flag apposta per vederla comparire.
+
+## E una porta che non esisteva
+
+Aprendo `nova-browser` per capire dove mettere il trasporto, ho letto:
+
+```rust
+pub const PORTA: u16 = 9333;
+```
+
+Il Python ne ha due: 9222 per il browser di lavoro e 9223 per quello delle
+ricerche, separati apposta — una ricerca apre e chiude schede in
+continuazione, e farlo nella finestra dove l'utente sta lavorando vuol dire
+vedersi scappare il posto sotto le mani. Quel 9333 non corrispondeva a
+nessuna delle due, non era usato da nessuno e non era spiegato da nessuna
+parte. Un valore inventato quando il crate e' nato, e mai riconciliato.
+
+Non si era rotto niente **perche' non la usava ancora nessuno**. Il giorno in
+cui il braccio in Rust si fosse attaccato avrebbe cercato un browser su una
+porta dove non c'e' nessuno, e l'errore sarebbe stato «non trovo il browser»
+invece di «porta sbagliata»: due ore a cercare dalla parte sbagliata.
+
+`test_elenchi_gemelli.py` esiste apposta per questa famiglia di difetti, e non
+l'ha preso: confrontava gli **elenchi** e non i numeri. Un numero sbagliato in
+un diff non si vede piu' di quanto si veda una voce mancante. Adesso confronta
+anche quelli, e rimettendo 9333 diventa rosso con scritto «Rust 9333, Python
+9222».
