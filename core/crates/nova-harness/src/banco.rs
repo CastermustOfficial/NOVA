@@ -5,6 +5,7 @@
 //! altrove (D238). Quello che deve coincidere e' come si decide dove finisce
 //! un blocco, quali file di un progetto si guardano, e quale blocco risponde
 //! a una domanda — perche' e' li' che NOVA dice «lo trovi a pagina 12».
+use nova_harness::modifica::*;
 use nova_harness::*;
 use serde_json::{json, Value};
 
@@ -39,6 +40,37 @@ fn blocchi_da(d: &Value) -> Vec<Blocco> {
                     stile: String::new(),
                     riquadro: None,
                     righe: None,
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn modifiche_da(d: &Value) -> Vec<Pronta> {
+    d.get("modifiche")
+        .and_then(Value::as_array)
+        .map(|a| {
+            a.iter()
+                .map(|m| Pronta {
+                    azione: Azione::da(m.get("azione").and_then(Value::as_str).unwrap_or(""))
+                        .unwrap_or(Azione::Sostituisci),
+                    blocco: m
+                        .get("blocco")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string(),
+                    testo: m
+                        .get("testo")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string(),
+                    prima: m
+                        .get("prima")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string(),
+                    righe: m.get("righe").and_then(Value::as_u64).map(|x| x as u32),
+                    pagina: None,
                 })
                 .collect()
         })
@@ -137,6 +169,60 @@ fn rispondi(riga: &str) -> Value {
             let (testo, quanti) = fino_a(&b, numero(&d, "caratteri", 4000) as usize);
             json!({"testo": testo, "quanti": quanti})
         }
+        "controlla" => {
+            let chieste: Vec<Chiesta> = d
+                .get("chieste")
+                .and_then(Value::as_array)
+                .map(|a| {
+                    a.iter()
+                        .map(|c| Chiesta {
+                            azione: c.get("azione").and_then(Value::as_str).unwrap_or("").into(),
+                            blocco: c.get("blocco").and_then(Value::as_str).unwrap_or("").into(),
+                            testo: c.get("testo").and_then(Value::as_str).unwrap_or("").into(),
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            let mut b = blocchi_da(&d);
+            // Il banco passa anche `righe`, che serve a decidere dove
+            // finisce un blocco.
+            if let Some(a) = d.get("blocchi").and_then(Value::as_array) {
+                for (i, v) in a.iter().enumerate() {
+                    b[i].righe = v.get("righe").and_then(Value::as_u64).map(|x| x as u32);
+                }
+            }
+            match controlla(&chieste, &b, &testo_di(&d, "estensione")) {
+                Ok(p) => json!({"pronte": p.iter().map(|x| json!({
+                    "azione": x.azione.nome(), "blocco": x.blocco,
+                    "testo": x.testo, "prima": x.prima, "righe": x.righe,
+                })).collect::<Vec<_>>()}),
+                Err(g) => json!({ "guai": g }),
+            }
+        }
+        "rifai" => {
+            let modifiche = modifiche_da(&d);
+            let righe: Vec<String> = testo_di(&d, "contenuto")
+                .lines()
+                .map(str::to_string)
+                .collect();
+            let marche = Marche {
+                nuovo: testo_di(&d, "nuovo"),
+                vecchio: testo_di(&d, "vecchio"),
+            };
+            let (fuori, fatte, saltate) = rifai(&righe, &modifiche, &marche);
+            json!({
+                "righe": fuori,
+                "fatte": fatte,
+                "saltate": saltate.iter()
+                    .map(|s| json!({"blocco": s.blocco, "perche": s.perche}))
+                    .collect::<Vec<_>>(),
+            })
+        }
+        "corta" => {
+            json!({ "testo": corta(&testo_di(&d, "testo"), numero(&d, "quanto", 220) as usize) })
+        }
+        "si_riscrive" => json!({ "si": si_riscrive(&testo_di(&d, "estensione")) }),
+        "inizio" => json!({ "riga": inizio(&testo_di(&d, "blocco")) }),
         altro => json!({ "errore_banco": format!("non so fare «{altro}»") }),
     }
 }

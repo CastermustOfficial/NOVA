@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """NOVA scrive dentro il documento, ma non di nascosto.
 
 Il pezzo che mancava all'harness era questo: fin qui NOVA sapeva leggere e
@@ -287,8 +287,28 @@ def _rileggi(sessione: str, f: Path) -> None:
     harness._salva(stato)
 
 
+def _e_ancora_quello(righe: list[str], i: int, fine: int, prima: str) -> bool:
+    """Se quel che c'e' adesso e' ancora quel che c'era quando si e' proposto.
+
+    **Questo controllo mancava.** La proposta si valida contro i blocchi letti
+    quando il documento e' stato aperto, e si applica anche mezz'ora dopo. Se
+    in mezzo qualcuno ha toccato il file — l'utente, un altro programma, un
+    `git pull` — le righe a quel numero vogliono dire un'altra cosa, e NOVA ci
+    scriveva sopra **senza dire niente**: la modifica finiva in un punto a
+    caso del testo di qualcuno, e la copia `.prima` conteneva gia' la versione
+    sbagliata.
+
+    Il confronto e' sul contenuto e non sulla data: una data cambia anche
+    quando il testo e' lo stesso — basta un salvataggio senza modifiche — e
+    fermarsi per quello vorrebbe dire dire di no a chi non ha cambiato niente
+    (D273).
+    """
+    adesso = " ".join(" ".join(righe[i:fine]).split())
+    return adesso == " ".join((prima or "").split())
+
+
 def _rifai(righe: list[str], modifiche: list[dict],
-           nuovo: str = "", vecchio: str = "") -> tuple[list[str], int]:
+           nuovo: str = "", vecchio: str = "") -> tuple[list[str], int, list[dict]]:
     """Le righe come saranno. Con le marche, come si vedono prima.
 
     Lo stesso codice serve l'anteprima e l'applicazione, e non per pigrizia:
@@ -297,6 +317,10 @@ def _rifai(righe: list[str], modifiche: list[dict],
     a chi deve premere il bottone. Con le marche in coda alle righe - una per
     cio' che arriva, una per cio' che se ne va - il testo e' lo stesso, e chi
     lo disegna sa cosa colorare.
+
+    Torna anche **cosa non si e' potuto fare, e perche'**: prima le modifiche
+    che non si applicavano sparivano in silenzio, e l'unico segno era un
+    numero piu' basso di quello che si era chiesto.
     """
     # Si lavora dal fondo verso l'alto: cosi' gli indici delle modifiche
     # ancora da fare restano quelli calcolati all'apertura.
@@ -304,9 +328,18 @@ def _rifai(righe: list[str], modifiche: list[dict],
                       reverse=True)
     anteprima = bool(nuovo or vecchio)
     fatte = 0
+    saltate = []
     for m in ordinate:
         i = _inizio(m["blocco"])
-        if i is None or i >= len(righe):
+        if i is None:
+            saltate.append({"blocco": m["blocco"],
+                            "perche": f"«{m['blocco']}» non e' un punto di un "
+                                      f"file a righe"})
+            continue
+        if i >= len(righe):
+            saltate.append({"blocco": m["blocco"],
+                            "perche": f"il file adesso ha {len(righe)} righe e "
+                                      f"«{m['blocco']}» non c'e' piu'"})
             continue
         # Quante righe occupa il blocco lo sa il blocco: nei documenti a
         # paragrafi si arriva fino alla riga vuota; nel codice il blocco e'
@@ -318,6 +351,12 @@ def _rifai(righe: list[str], modifiche: list[dict],
             fine = i
             while fine < len(righe) and righe[fine].strip():
                 fine += 1
+        if not _e_ancora_quello(righe, i, fine, m.get("prima", "")):
+            saltate.append({"blocco": m["blocco"],
+                            "perche": f"in «{m['blocco']}» adesso c'e' scritto "
+                                      f"un'altra cosa: il file e' cambiato da "
+                                      f"quando ho proposto, e non ci scrivo sopra"})
+            continue
         nuove = [r + nuovo for r in (m["testo"] or "").splitlines()] \
             if m["testo"] else []
         vecchie = [righe[k] + vecchio for k in range(i, fine)]
@@ -333,21 +372,31 @@ def _rifai(righe: list[str], modifiche: list[dict],
             righe[i:i] = nuove + [""]
         elif m["azione"] == "dopo":
             righe[fine:fine] = [""] + nuove
+        else:
+            saltate.append({"blocco": m["blocco"],
+                            "perche": f"«{m['azione']}» non si fa dentro un "
+                                      f"file a righe"})
+            continue
         fatte += 1
-    return righe, fatte
+    return righe, fatte, saltate
 
 
 def anteprima_testo(f: Path, modifiche: list[dict],
                     nuovo: str, vecchio: str) -> str:
     """Il documento come sarebbe, con le marche su cio' che cambia."""
-    righe, _ = _rifai(f.read_text(encoding="utf-8").splitlines(),
-                      modifiche, nuovo, vecchio)
+    righe, _, _ = _rifai(harness.righe_di(f.read_text(encoding="utf-8")),
+                         modifiche, nuovo, vecchio)
     return "\n".join(righe)
 
 
 def _applica_testo(f: Path, modifiche: list[dict]) -> int:
-    righe, fatte = _rifai(f.read_text(encoding="utf-8").splitlines(),
-                          modifiche)
+    righe, fatte, saltate = _rifai(
+        harness.righe_di(f.read_text(encoding="utf-8")), modifiche)
+    if saltate:
+        # Una modifica che non si applica non sparisce in silenzio. Se il
+        # file e' cambiato sotto, applicare le altre vorrebbe dire scrivere
+        # meta' di quel che si e' mostrato: non si scrive niente.
+        raise ValueError("; ".join(x["perche"] for x in saltate))
     testo = "\n".join(righe)
     if not testo.endswith("\n"):
         testo += "\n"

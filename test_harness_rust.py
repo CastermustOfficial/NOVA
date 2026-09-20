@@ -106,6 +106,11 @@ for n, r in zip(NOMI, risposte):
 print("\n=== il codice si taglia per righe uguale ===")
 CODICI = [
     "uno\n\n\ndue   \n\ntre",
+    # Un salto pagina non e' un a capo: un editor, `wc -l` e un compilatore
+    # contano i `\n`, e se l'harness ne contasse di piu' i suoi numeri di
+    # blocco non sarebbero piu' i numeri di riga di nessuno.
+    "riga uno\nriga\x0cdue\nriga tre",
+    "con\r\nfine riga di Windows\r\n",
     "def f():\n    return 1\n",
     "",
     "\n\n \n\t\n",
@@ -128,6 +133,8 @@ for i, (c, r) in enumerate(zip(CODICI, risposte)):
 print("\n=== e il testo per paragrafi ===")
 TESTI = [
     "primo\nancora\n\nsecondo\n\n\nterzo",
+    "paragrafo con\x0cun salto pagina dentro\n\naltro",
+    "riga\r\nwindows\r\n\r\naltro paragrafo\r\n",
     "uno\n\ndue",
     "   \n\n  ",
     "",
@@ -241,6 +248,130 @@ controlla("e il file enorme non c'e'", "enorme.py" not in r["albero"])
 r = chiedi([{"tipo": "da_dove_si_parte", "albero": suo}])[0]
 mio = next((x for x in H.PRIMI if x in suo), suo[0] if suo else None)
 controlla(f"si parte da {mio!r}", r["quale"] == mio, f"rust {r['quale']}")
+
+# -- le proposte di modifica ----------------------------------------------
+print("\n=== e le modifiche si controllano uguale ===")
+from nova import harness_modifica as M                        # noqa: E402
+
+BLOCCHI_M = [
+    {"id": "r0", "pagina": None, "testo": "uno", "righe": 1},
+    {"id": "r1", "pagina": None, "testo": "due", "righe": 1},
+    {"id": "t0r0", "pagina": None, "testo": "a | b", "righe": None},
+]
+CASI = [
+    (".md", [{"azione": "sostituisci", "blocco": "r0", "testo": "UNO"}]),
+    (".md", [{"azione": "", "blocco": "r0", "testo": "UNO"}]),
+    (".md", [{"azione": "elimina", "blocco": "r0", "testo": ""}]),
+    (".md", [{"azione": "inventata", "blocco": "r0", "testo": "x"}]),
+    (".md", [{"azione": "sostituisci", "blocco": "r99", "testo": "x"}]),
+    (".md", [{"azione": "sostituisci", "blocco": "r1", "testo": "   "}]),
+    (".pdf", [{"azione": "sostituisci", "blocco": "r0", "testo": "x"}]),
+    (".pdf", [{"azione": "evidenzia", "blocco": "r0", "testo": ""}]),
+    (".docx", [{"azione": "prima", "blocco": "t0r0", "testo": "x"}]),
+    (".docx", [{"azione": "sostituisci", "blocco": "t0r0", "testo": "x | y"}]),
+    (".md", []),
+    (".md", [{"azione": "sostituisci", "blocco": "r0", "testo": "va bene"},
+             {"azione": "inventata", "blocco": "r0", "testo": "x"},
+             {"azione": "sostituisci", "blocco": "r99", "testo": "x"}]),
+]
+risposte = chiedi([{"tipo": "controlla", "chieste": c, "blocchi": BLOCCHI_M,
+                    "estensione": e} for e, c in CASI])
+for (est, chieste), r in zip(CASI, risposte):
+    per_id = {b["id"]: b for b in BLOCCHI_M}
+    lecite = M.AZIONI_PDF if est == ".pdf" else M.AZIONI_TESTO
+    guai, pronte = [], []
+    if not chieste:
+        guai = ["nessuna modifica da proporre"]
+    for n, m in enumerate(chieste):
+        azione = (m.get("azione") or "sostituisci").strip().lower()
+        blocco = (m.get("blocco") or "").strip()
+        testo = m.get("testo") or ""
+        if azione not in lecite:
+            guai.append(f"modifica {n + 1}: su un {est} si puo' fare "
+                        f"{', '.join(sorted(lecite))}, non «{azione}»")
+            continue
+        if blocco not in per_id:
+            guai.append(f"modifica {n + 1}: il blocco «{blocco}» non "
+                        f"esiste in questo documento")
+            continue
+        if azione not in M.SENZA_TESTO and not testo.strip():
+            guai.append(f"modifica {n + 1}: manca il testo")
+            continue
+        if est == ".docx" and azione in ("prima", "dopo") and blocco.startswith("t"):
+            guai.append(f"modifica {n + 1}: dentro una tabella si sostituisce "
+                        f"la riga, non se ne aggiungono")
+            continue
+        pronte.append({"azione": azione, "blocco": blocco, "testo": testo,
+                       "prima": per_id[blocco]["testo"],
+                       "righe": per_id[blocco].get("righe")})
+    if guai:
+        controlla(f"{est} {len(chieste)} chieste -> {len(guai)} guai",
+                  r.get("guai") == guai, f"rust {r.get('guai')} py {guai}")
+    else:
+        suo = [{k: v for k, v in p.items()} for p in r.get("pronte", [])]
+        controlla(f"{est} {len(chieste)} chieste -> pronte",
+                  suo == pronte, f"rust {suo} py {pronte}")
+
+# -- e il documento diventa lo stesso documento ----------------------------
+print("\n=== e il documento diventa lo stesso documento ===")
+RIFAI = [
+    ("uno\ndue\ntre",
+     [{"azione": "sostituisci", "blocco": "r1", "testo": "DUE", "prima": "due", "righe": 1}]),
+    ("a\nb\nc\nd",
+     [{"azione": "sostituisci", "blocco": "r0", "testo": "A\nA2", "prima": "a", "righe": 1},
+      {"azione": "sostituisci", "blocco": "r3", "testo": "D", "prima": "d", "righe": 1}]),
+    ("uno\n\ndue",
+     [{"azione": "elimina", "blocco": "r0", "testo": "", "prima": "uno", "righe": 1}]),
+    ("import a\nimport b\n",
+     [{"azione": "elimina", "blocco": "r0", "testo": "", "prima": "import a", "righe": 1}]),
+    ("corpo", [{"azione": "prima", "blocco": "r0", "testo": "titolo", "prima": "corpo", "righe": 1}]),
+    ("corpo", [{"azione": "dopo", "blocco": "r0", "testo": "coda", "prima": "corpo", "righe": 1}]),
+    ("prima riga\nseconda riga\n\naltro",
+     [{"azione": "sostituisci", "blocco": "r0", "testo": "RIFATTO",
+       "prima": "prima riga seconda riga", "righe": None}]),
+    # Il file cambiato sotto: non si scrive sopra, e si dice.
+    ("uno\nqualcun altro ha scritto qui\ntre",
+     [{"azione": "sostituisci", "blocco": "r1", "testo": "DUE", "prima": "due", "righe": 1}]),
+    ("uno\n  due   \ntre",
+     [{"azione": "sostituisci", "blocco": "r1", "testo": "DUE", "prima": "due", "righe": 1}]),
+    ("uno", [{"azione": "sostituisci", "blocco": "r5", "testo": "x", "prima": "sei", "righe": 1}]),
+    ("uno", [{"azione": "sostituisci", "blocco": "p3", "testo": "x", "prima": "y", "righe": None}]),
+]
+for marche in [("", ""), ("[+]", "[-]")]:
+    risposte = chiedi([{"tipo": "rifai", "contenuto": c, "modifiche": m,
+                        "nuovo": marche[0], "vecchio": marche[1]}
+                       for c, m in RIFAI])
+    for (c, m), r in zip(RIFAI, risposte):
+        mie, fatte, saltate = M._rifai(H.righe_di(c), [dict(x) for x in m],
+                                       marche[0], marche[1])
+        ok = (r["righe"] == mie and r["fatte"] == fatte
+              and r["saltate"] == saltate)
+        controlla(f"{c[:20]!r} marche={bool(marche[0])}", ok,
+                  f"rust {r['righe']}/{r['fatte']}/{r['saltate']} "
+                  f"py {mie}/{fatte}/{saltate}")
+
+print("\n=== e gli estratti dell'anteprima ===")
+ESTRATTI = [("corto", 100), ("  con   spazi \n dentro ", 100),
+            ("abcdefgh", 5), ("à" * 10, 4), ("", 10), ("x" * 300, 220)]
+risposte = chiedi([{"tipo": "corta", "testo": t, "quanto": q} for t, q in ESTRATTI])
+for (t, q), r in zip(ESTRATTI, risposte):
+    controlla(f"{t[:14]!r} a {q}", r["testo"] == M._corta(t, q),
+              f"rust {r['testo']!r} py {M._corta(t, q)!r}")
+
+print("\n=== e dove si sa riscrivere ===")
+DOVE = [".md", ".txt", ".py", ".rs", ".html", ".gitignore", ".markdown",
+        ".pdf", ".docx", ".xlsx", ".png", ""]
+risposte = chiedi([{"tipo": "si_riscrive", "estensione": e} for e in DOVE])
+for e, r in zip(DOVE, risposte):
+    controlla(f"{e!r}", r["si"] == (e in M.SCRIVIBILI),
+              f"rust {r['si']} py {e in M.SCRIVIBILI}")
+
+print("\n=== e il numero di riga di un blocco ===")
+BLOCCHI_N = ["r0", "r123", "p3", "t0r1", "r", "rx", ""]
+risposte = chiedi([{"tipo": "inizio", "blocco": b} for b in BLOCCHI_N])
+for b, r in zip(BLOCCHI_N, risposte):
+    controlla(f"{b!r}", r["riga"] == M._inizio(b),
+              f"rust {r['riga']} py {M._inizio(b)}")
 
 # -- che questa prova sappia accorgersi di qualcosa ------------------------
 print("\n=== e questa prova sa accorgersi di una differenza ===")
