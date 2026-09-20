@@ -9,7 +9,7 @@ use std::io::Read;
 
 use nova_mcp::{
     allega, gestisci, in_chiaro, rischio, risposta_permesso, Allegato, Esito, Strumenti,
-    STRUMENTI_JSON,
+    PROTOCOLLO, STRUMENTI_JSON, VERSIONI_NOTE,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -25,7 +25,10 @@ impl Strumenti for Finti {
         if self.esplodono.iter().any(|x| x == nome) {
             return Err(format!("{nome} non ce l'ha fatta"));
         }
-        Ok(format!("{nome} ha risposto con {}", nova_mcp::json_come_python(argomenti)))
+        Ok(format!(
+            "{nome} ha risposto con {}",
+            nova_mcp::json_come_python(argomenti)
+        ))
     }
     fn esiste(&self, nome: &str) -> bool {
         self.esistenti.iter().any(|x| x == nome)
@@ -84,6 +87,11 @@ struct Fuori {
     /// con se stesso.
     strumenti: String,
     risposte_permesso: Vec<String>,
+    /// Le versioni del protocollo che questa meta' dice di sapere parlare.
+    /// Si confrontano con quelle del Python: sono generate da li', e una
+    /// cosa generata resta uguale solo finche' qualcuno lo verifica.
+    versioni: Vec<String>,
+    protocollo: String,
 }
 
 fn main() {
@@ -158,6 +166,8 @@ fn main() {
                 risposta_permesso(&e, argomenti)
             })
             .collect(),
+        versioni: VERSIONI_NOTE.iter().map(|v| v.to_string()).collect(),
+        protocollo: PROTOCOLLO.to_string(),
     };
 
     match serde_json::to_string(&fuori) {

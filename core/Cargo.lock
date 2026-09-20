@@ -2822,6 +2822,7 @@ dependencies = [
  "nova-ciclo",
  "nova-configurazione",
  "nova-contesto",
+ "nova-mcp",
  "nova-modelli",
  "nova-platform",
  "nova-proto",
