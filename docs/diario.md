@@ -9585,3 +9585,68 @@ al turno del demone non arrivano.
 
 Dieci crate su trentasei restano scollegati. Erano diciotto quando ho
 cominciato a contare — e anche il conto, allora, era sbagliato.
+
+## Un revisore, e la metà che aveva ragione
+
+Gio mi ha girato la proposta di un revisore: il modello genera solo un grafo
+dichiarativo di transizioni di stato, il runtime Rust ne verifica
+matematicamente le invarianti prima di toccare qualunque risorsa, e poi lo
+esegue dentro una sandbox kernel-level monouso con permessi a scadenza.
+
+La prima cosa da fare con una proposta così è separarla in due.
+
+**La parte che non regge**, e non per pignoleria: o il linguaggio del piano è
+ristretto abbastanza da essere verificabile — e allora NOVA smette di poter
+fare quel che la sua prima premessa dice che deve poter fare — oppure è
+espressivo quanto serve, e la verifica delle invarianti su comandi arbitrari
+è indecidibile. Quel che resta verificabile non è il piano: è l'impronta.
+Quali percorsi, quali comandi, quali indirizzi. Ed è esattamente ciò che
+`check_write` e `comando_permesso` guardano già.
+
+**La parte che aveva ragione**, e che fa male leggere perché è vera: quelle
+guardie valgono solo **prima**. Sono controlli dentro il processo che decide.
+Quello che le supera parte con tutti i privilegi dell'utente, e da lì in poi
+NOVA non lo trattiene più. Un comando che la regex non ha riconosciuto può
+scrivere ovunque arrivi chi l'ha lanciato. È sicurezza applicativa, e il
+revisore l'ha chiamata col suo nome.
+
+Quindi l'ho chiusa. Su Linux c'è Landlock dal 5.13: un processo dichiara cosa
+gli serve, il kernel gli toglie tutto il resto, e la restrizione non si
+allenta nemmeno da dentro — nemmeno se il programma è malevolo, nemmeno se è
+root. Tre chiamate di sistema, nessuna libreria in più: `nova-platform`
+parla già a libc.
+
+### Le due cose che ho imparato scrivendolo
+
+**La prima l'ha detta una prova rossa.** La seconda prova che ho scritto —
+«dentro il recinto i programmi partono e leggono» — è caduta con un messaggio
+che non mi aspettavo: `sh: 1: cannot create /dev/null: Permission denied`. Un
+processo che non può scrivere su `/dev/null` non è confinato: è rotto, e lo
+scopre nel modo peggiore, perché `2> /dev/null` sta in mezza scrittura di
+shell del mondo. I dispositivi standard non sono dati di nessuno, sono i tubi
+con cui i programmi lavorano, e stanno dentro il recinto per forza.
+
+**La seconda è la cartella temporanea**, ed è la parte del revisore che mi ha
+convinto di più una volta tradotta in pratica. Un comando confinato che non
+ha *nessun* posto dove appoggiare un file fallisce in modi che non somigliano
+a un problema di permessi: un archivio che non si scompatta, un compilatore
+senza intermedio. Quindi ogni comando riceve una cartella sua, dentro il
+recinto, che nasce con lui e muore con lui. «Sandbox monouso con permessi a
+scadenza immediata», in pratica, è questo.
+
+### Dove non c'è, si dice
+
+La regola che mi sono dato è quella di sempre, e qui conta più che altrove:
+il recinto si stringe su ciò che **l'utente ha già dichiarato**, cioè
+`write_roots`. Dove quella riga non c'è, non si stringe niente — inventare un
+confine vorrebbe dire decidere al posto suo quali cartelle sono sue, che è la
+presunzione che NOVA rifiuta ovunque.
+
+E la risposta del demone dichiara sempre com'è andata, anche quando il
+recinto non c'è: su Windows, per ora, non c'è. Un confine che si crede di
+avere e non si ha è peggio di un confine che manca — e una prova verde che
+non ha provato niente è esattamente il modo in cui ci si crede. Per questo la
+prova, dove Landlock non esiste, si dichiara saltata invece di passare.
+
+Windows è la prossima mossa di questo filone: token ristretto e job object,
+che è un decimo del lavoro di AppContainer e copre il caso vero.

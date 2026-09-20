@@ -427,6 +427,25 @@ impl Capability for ShellExecCap {
             .stderr(Stdio::piped())
             .stdin(Stdio::null());
 
+        // Il recinto: quel che l'utente ha dichiarato scrivibile lo impone il
+        // kernel, non una nostra stringa. Senza `write_roots` non c'e'
+        // recinto — inventarlo qui vorrebbe dire decidere al posto suo quali
+        // cartelle sono sue — e il risultato lo dice invece di lasciarlo
+        // credere.
+        //
+        // Dentro il recinto ci va anche una cartella temporanea **di questo
+        // comando**: nasce adesso, e' l'unico posto scrivibile che il comando
+        // non ha dovuto chiedere, e muore con lui. Senza, la meta' dei
+        // programmi che scrivono un file d'appoggio fallirebbe.
+        let scratch = crate::recinto_comando::cartella_effimera();
+        let recinto = crate::recinto_comando::prepara(ctx, scratch.as_deref());
+        if let Some(t) = scratch.as_deref() {
+            for chiave in ["TMPDIR", "TEMP", "TMP"] {
+                cmd.env(chiave, t);
+            }
+        }
+        crate::recinto_comando::applica(&mut cmd, &recinto);
+
         // Senza questo, interrompere il comando libera chi ha chiesto ma
         // lascia il processo a girare di nascosto: «fermare» diventerebbe
         // una bugia. Il supervisor lo fa gia' per i suoi figli.
@@ -467,10 +486,16 @@ impl Capability for ShellExecCap {
                 .map(|c| c.to_string())
                 .unwrap_or_else(|| "interrotto".into()),
         );
+        if let Some(t) = scratch.as_deref() {
+            // «A scadenza immediata»: la cartella del comando muore col
+            // comando. Se resta qualcosa dentro, resta sul disco di nessuno.
+            let _ = std::fs::remove_dir_all(t);
+        }
         Ok(json!({
             "code": esito.status.code().unwrap_or(-1),
             "stdout": String::from_utf8_lossy(&esito.stdout),
             "stderr": String::from_utf8_lossy(&esito.stderr),
+            "recinto": recinto.come_si_racconta(),
         }))
     }
 }

@@ -303,6 +303,13 @@ ALTROVE = {
 #: dichiarazione, non una scappatoia: chi legge sa che quella riga non ha
 #: nessuno che la controlli dall'altra parte.
 SENZA_GEMELLO: dict[str, str] = {
+    # I dispositivi che restano scrivibili dentro il recinto del kernel. In
+    # Python non c'e' niente da confrontare: il recinto e' una cosa che fa il
+    # sistema operativo, e dalla parte Python non esiste affatto. Non sono
+    # dati di nessuno — sono i tubi con cui i programmi lavorano: un processo
+    # che non puo' scrivere su /dev/null non e' confinato, e' rotto.
+    "DISPOSITIVI": "sono i tubi del sistema dentro il recinto del kernel, e "
+                   "in Python il recinto non esiste",
     # La configurazione del demone e' un file suo (`core.json`), con uno
     # schema suo: in Python non esiste niente da confrontare. Le **regole**
     # di lettura pero' sono le stesse — vengono da `nova-configurazione`, e
