@@ -1,0 +1,19 @@
+[package]
+name = "nova-mcp-cliente"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "NOVA che usa un server MCP di qualcun altro, e il cancello che decide chi entra."
+
+[dependencies]
+serde_json = { workspace = true }
+nova-mcp = { path = "../nova-mcp" }
+
+[features]
+banco = []
+
+[[bin]]
+name = "banco-mcp-cliente"
+path = "src/banco.rs"
+required-features = ["banco"]

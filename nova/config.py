@@ -698,6 +698,13 @@ class Config:
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
     # Dove NOVA trova i fatti veri sull'utente. Vuoto = Documenti/NOVA/fascicolo.
     fascicolo: str = ""
+    # I server MCP di qualcun altro che NOVA puo' usare. Vuoto di fabbrica, e
+    # non per prudenza generica: un server MCP descrive i propri strumenti
+    # con parole sue, e quelle parole finiscono nel prompt. Un server trovato
+    # da solo sarebbe uno sconosciuto con il permesso di scrivere dentro la
+    # testa di NOVA, e nessuno gliel'ha dato. Si **dichiarano** qui, uno per
+    # voce: {"nome", "comando", "argomenti": [...], "cartella"} (D263).
+    mcp_esterni: list = field(default_factory=list)
     # non si serializza: dice se il file su disco e' stato ignorato e perche'
     errore_caricamento: str = ""
     # non si serializza: quali guardie di fabbrica sono state riaggiunte a
