@@ -8246,3 +8246,53 @@ l'ha preso: confrontava gli **elenchi** e non i numeri. Un numero sbagliato in
 un diff non si vede piu' di quanto si veda una voce mancante. Adesso confronta
 anche quelli, e rimettendo 9333 diventa rosso con scritto «Rust 9333, Python
 9222».
+
+## «Dove sono i miei dati», in Rust
+
+Secondo pezzo di CANT-7. `dati.py` e' l'elenco che risponde alla domanda che
+decide se qualcuno lascia installato un programma che gli legge la posta e gli
+tiene le password: che cos'e', dove sta, quanto pesa, e **cosa succede se lo
+cancelli** — l'ultima e' quella che nessuno scrive mai, ed e' la sola che
+permetta di fare pulizia senza paura.
+
+La cosa da non fare era ovvia leggendo il Python, perche' ce l'ha scritto
+dentro: «ogni percorso lo dice il modulo che ci scrive, non questa mappa». Una
+mappa con la propria copia dei percorsi prima o poi diverge, e qui divergere
+vuol dire indicare a chi cerca i suoi dati un file che non c'e'. Quindi il
+crate non tiene percorsi: li prende da fuori, e ha tutto il resto — la misura,
+il racconto, il rendiconto, e «sta dentro questa cartella?».
+
+Il resto e' poco e conta molto. Lo stesso file lo raccontano **tre** posti: la
+chat, il rendiconto che l'installatore stampa mentre disinstalla, e il
+pannello. Tre misure diverse dello stesso file non sono un dettaglio estetico,
+sono tre programmi che sembrano non essersi parlati — ed e' gia' successo, con
+quindici gigabyte di differenza, perche' uno dei due elenchi aggiungeva il
+modello scaricato e l'altro no.
+
+Allora le soglie e i decimali sono **quelli**, arrotondamento compreso. I
+numeri li ho chiesti al Python invece di dedurli:
+
+```text
+          1023 -> 1023 B        1_048_575 -> 1024 kB
+          1024 -> 1 kB          1_048_576 -> 1.0 MB
+          1536 -> 2 kB      1_073_741_823 -> 1024.0 MB
+```
+
+Quel `1536 -> 2 kB` e' arrotondato, non troncato, e sembra una pedanteria
+finche' non si guarda cosa vuol dire un'unita' di differenza fra due elenchi
+che parlano dello stesso file.
+
+Cinquantuno casi nel banco, fitti intorno alle tre soglie, che e' dove si
+sbaglia. Sei mutazioni, sei prese da tutte e due — le prove del crate e il
+banco contro il Python: il troncamento al posto dell'arrotondamento, un
+decimale in piu' sui megabyte, «sta dentro» guardato a lettere invece che a
+pezzi (che e' il buco per cui `/casa/NOVA-vecchio` starebbe dentro
+`/casa/NOVA`), il «1 file» scritto anche quando e' uno solo, la frase finale
+che sparisce, e i posti inesistenti che entrano nel rendiconto.
+
+Quella sulla frase finale merita una riga. Il racconto finisce dicendo cosa
+esce dal PC — «mai le credenziali, che il modello non vede in nessun caso» — e
+non e' decorazione: sapere **dove** stanno i propri dati serve a poco se non
+si sa anche **se escono**. Sta nel crate e non in un'interfaccia perche' chi
+la legge da PowerShell durante una disinstallazione ha lo stesso diritto di
+leggerla di chi apre il pannello.

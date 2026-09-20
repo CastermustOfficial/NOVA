@@ -1,0 +1,19 @@
+[package]
+name = "nova-dati"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "«Dove sono i miei dati?»: l'elenco, quanto pesa, e cosa succede se lo cancelli."
+
+[dependencies]
+serde = { workspace = true, features = ["derive"], optional = true }
+serde_json = { workspace = true, optional = true }
+
+[features]
+banco = ["dep:serde", "dep:serde_json"]
+
+[[bin]]
+name = "banco-dati"
+path = "src/banco.rs"
+required-features = ["banco"]
