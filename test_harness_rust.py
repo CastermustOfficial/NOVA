@@ -373,6 +373,178 @@ for b, r in zip(BLOCCHI_N, risposte):
     controlla(f"{b!r}", r["riga"] == M._inizio(b),
               f"rust {r['riga']} py {M._inizio(b)}")
 
+# -- il verificatore -------------------------------------------------------
+print("\n=== e come si prova un progetto si riconosce uguale ===")
+from nova import harness_prova as P                           # noqa: E402
+
+SEGNI = [
+    {"ha_cargo": True},
+    {"cargo_sotto": ["core"]},
+    {"script_soli": ["test_a.py", "test_b.py"]},
+    {"dichiara_pytest": True, "script_soli": ["test_a.py"]},
+    {"ha_cargo": True, "cargo_sotto": ["core"], "npm_prova": True,
+     "ha_go": True, "dichiara_pytest": True},
+    {"npm_prova": True},
+    {},
+]
+PER_FILE = [".rs", ".py", ".ts", ".go", ".md", ".docx", ""]
+risposte = chiedi([{"tipo": "scopri", "radice": "/progetto", "python": "py",
+                    "segni": g, "estensione": e}
+                   for g in SEGNI for e in PER_FILE])
+i = 0
+for g in SEGNI:
+    # La parte Python guarda il disco; qui si ricostruisce la stessa
+    # decisione dagli stessi segni, che e' cio' che deve coincidere.
+    attesi = []
+    if g.get("ha_cargo"):
+        attesi.append(("cargo", ["cargo", "test"], "/progetto"))
+    for sotto in g.get("cargo_sotto", []):
+        attesi.append((f"cargo ({sotto})", ["cargo", "test"], f"/progetto/{sotto}"))
+    if g.get("npm_prova"):
+        attesi.append(("npm", ["npm", "test", "--silent"], "/progetto"))
+    if g.get("ha_go"):
+        attesi.append(("go", ["go", "test", "./..."], "/progetto"))
+    if g.get("dichiara_pytest"):
+        attesi.append(("pytest", ["py", "-m", "pytest", "-q"], "/progetto"))
+    if g.get("script_soli") and not g.get("dichiara_pytest"):
+        attesi.append(("script", ["py"], "/progetto"))
+    for e in PER_FILE:
+        r = risposte[i]; i += 1
+        suoi = [(b["nome"], b["comando"], b["dove"]) for b in r["banchi"]]
+        if e == PER_FILE[0]:
+            controlla(f"{g} -> {len(attesi)} banchi", suoi == attesi,
+                      f"rust {suoi} py {attesi}")
+        # E la scelta: la stessa che fa `famiglie_per` dall'altra parte.
+        nomi = P.famiglie_per(e)
+        if not e:
+            atteso = attesi[0][0] if attesi else None
+        elif nomi:
+            atteso = next((b[0] for x in nomi for b in attesi
+                           if b[0].split()[0] == x), None)
+        else:
+            atteso = None
+        controlla(f"  {e or '(nessun file)'} -> {atteso}",
+                  r["scelto"] == atteso, f"rust {r['scelto']} py {atteso}")
+
+# E su progetti **veri**: si costruiscono sul disco, e si confronta quel che
+# `harness_prova.scopri` trova con quel che trova il Rust dagli stessi segni.
+# Senza questo pezzo, il confronto sarebbe fra il Rust e una riscrittura
+# della regola dentro questa prova — cioe' fra me e me.
+print("\n=== e su un progetto vero che sta sul disco ===")
+PROGETTI = [
+    ("solo-rust", {"Cargo.toml": "[package]\nname='x'\n"}),
+    ("rust-in-core", {"core/Cargo.toml": "[package]\nname='x'\n"}),
+    ("script", {"test_uno.py": "import sys\nsys.exit(0)\n",
+                "test_due.py": "import sys\nsys.exit(0)\n",
+                "test_non_script.py": "def test_x():\n    assert True\n"}),
+    ("pytest-e-script", {"pytest.ini": "[pytest]\n",
+                         "test_uno.py": "import sys\nsys.exit(0)\n"}),
+    ("npm", {"package.json": '{"scripts": {"test": "vitest run"}}'}),
+    ("npm-senza-test", {"package.json": '{"scripts": {"build": "x"}}'}),
+    ("vuoto", {"README.md": "niente\n"}),
+    ("tutto", {"Cargo.toml": "[package]\nname='x'\n",
+               "core/Cargo.toml": "[package]\nname='y'\n",
+               "package.json": '{"scripts": {"test": "x"}}',
+               "go.mod": "module x\n",
+               "pyproject.toml": "[tool.pytest.ini_options]\n"}),
+]
+for nome, file in PROGETTI:
+    base = CARTELLA / "progetti" / nome
+    for rel, contenuto in file.items():
+        f = base / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(contenuto, encoding="utf-8", newline="\n")
+    base.mkdir(parents=True, exist_ok=True)
+    suoi = P.scopri(base)
+    segni = {
+        "ha_cargo": (base / "Cargo.toml").is_file(),
+        "cargo_sotto": [x for x in ("core", "rust", "src-tauri")
+                        if (base / x / "Cargo.toml").is_file()],
+        "npm_prova": bool((base / "package.json").is_file()
+                          and P._script_di_test(base / "package.json")),
+        "ha_go": (base / "go.mod").is_file(),
+        "dichiara_pytest": any(b.nome == "pytest" for b in suoi),
+        "script_soli": sorted(f.name for f in base.glob("test_*.py")
+                              if P._standalone(f)),
+    }
+    r = chiedi([{"tipo": "scopri", "radice": str(base).replace("\\", "/"),
+                 "python": sys.executable, "segni": segni, "estensione": ""}])[0]
+    miei = [(b.nome, b.comando, str(b.dove).replace("\\", "/"), b.pezzi)
+            for b in suoi]
+    suoi_rs = [(b["nome"], b["comando"], b["dove"], b["pezzi"])
+               for b in r["banchi"]]
+    controlla(f"progetto «{nome}»: {len(miei)} banchi", suoi_rs == miei,
+              f"rust {suoi_rs} py {miei}")
+
+print("\n=== e lo script di test di un package.json ===")
+PACCHETTI = ['{"scripts": {"test": "vitest run"}}', '{"scripts": {"build": "x"}}',
+             '{"name": "x"}', "{non json", "", '\ufeff{"scripts":{"test":"x"}}']
+risposte = chiedi([{"tipo": "script_di_test", "contenuto": c} for c in PACCHETTI])
+for c, r in zip(PACCHETTI, risposte):
+    f = CARTELLA / "package.json"
+    f.write_text(c, encoding="utf-8", newline="")
+    controlla(f"{c[:26]!r}", r["comando"] == P._script_di_test(f),
+              f"rust {r['comando']!r} py {P._script_di_test(f)!r}")
+
+print("\n=== e cosa e' uno script da eseguire ===")
+SCRIPT = ["import sys\nsys.exit(1 if falliti else 0)\n", "raise SystemExit(2)",
+          "def test_uno():\n    assert True\n", "", "# sys.exit( in un commento"]
+risposte = chiedi([{"tipo": "e_uno_script", "contenuto": c} for c in SCRIPT])
+for c, r in zip(SCRIPT, risposte):
+    f = CARTELLA / "test_finto.py"
+    f.write_text(c, encoding="utf-8", newline="")
+    controlla(f"{c[:26]!r}", r["si"] == P._standalone(f),
+              f"rust {r['si']} py {P._standalone(f)}")
+
+print("\n=== e i codici di uscita vogliono dire la stessa cosa ===")
+for codice in [0, 1, 2, 124, 126, 127, 255]:
+    r = chiedi([{"tipo": "come_e_andata", "codice": codice}])[0]
+    atteso = "passata" if codice == 0 else ("saltata" if codice == 2 else "caduta")
+    controlla(f"uscita {codice} -> {atteso}", r["come"] == atteso, f"rust {r['come']}")
+
+print("\n=== e della coda si tiene la coda ===")
+LUNGA = "".join(f"riga {i}\n" for i in range(100))
+CODE = [(LUNGA, 3), (LUNGA, 40), ("corta", 40), ("  \n  ", 40), ("", 5)]
+risposte = chiedi([{"tipo": "coda", "uscita": u, "righe": n} for u, n in CODE])
+for (u, n), r in zip(CODE, risposte):
+    mio = "\n".join(u.strip().splitlines()[-n:])
+    controlla(f"{len(u)} caratteri, ultime {n}", r["testo"] == mio,
+              f"rust {r['testo'][:40]!r} py {mio[:40]!r}")
+
+print("\n=== e il confronto fra prima e dopo ===")
+def esito(passate, cadute, saltate, provabile=True, motivo=""):
+    return {"provabile": provabile, "banco": "script", "comando": "py (3 file)",
+            "passate": passate, "cadute": cadute, "saltate": saltate,
+            "motivo": motivo, "durata_s": 12.34}
+
+CONFRONTI = [
+    (esito(["a", "b"], ["c"], []), esito(["a", "b"], ["c"], [])),
+    (esito(["a", "b"], [], []), esito(["a"], ["b"], [])),
+    (esito(["a"], ["b"], []), esito(["a", "b"], [], [])),
+    (esito(["a"], [], []), esito(["a"], [], [])),
+    (esito(["a"], [], []), esito([], [], [], provabile=False, motivo="manca cargo")),
+    (esito([], [], [], provabile=False, motivo="boh"), esito(["a"], ["b"], [])),
+    (esito([], [], []), esito([], [f"t{i}" for i in range(30)], [])),
+    (esito(["a"], ["b"], []), esito(["a"], ["c"], [])),
+    # «Non provabile» con delle cadute dentro non dovrebbe succedere, e
+    # infatti chi costruisce un esito non le mette insieme. Ma un esito puo'
+    # arrivare da un file scritto da una versione di prima, e li' perdonare
+    # una caduta per colpa di un «non provabile» vorrebbe dire applicare una
+    # modifica che rompe qualcosa.
+    (esito([], ["b"], [], provabile=False, motivo="boh"), esito(["a"], ["b"], [])),
+]
+risposte = chiedi([{"tipo": "confronta", "prima": a, "dopo": b, "durata_s": 12.34}
+                   for a, b in CONFRONTI])
+for (a, b), r in zip(CONFRONTI, risposte):
+    mio = P.confronta(a, b)
+    ok = (r["verdetto"] == mio["verdetto"]
+          and r["nuove_cadute"] == mio["nuove_cadute"]
+          and r["guarite"] == mio.get("guarite", [])
+          and r["racconto"] == mio["racconto"]
+          and r["racconto_dopo"] == P.racconta(b))
+    controlla(f"{mio['verdetto']}: {mio['racconto'][:40]}", ok,
+              f"rust {r} py {mio} / {P.racconta(b)!r}")
+
 # -- che questa prova sappia accorgersi di qualcosa ------------------------
 print("\n=== e questa prova sa accorgersi di una differenza ===")
 r = chiedi([{"tipo": "per_righe", "contenuto": "uno\n\ndue"}])[0]

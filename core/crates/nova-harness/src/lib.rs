@@ -558,5 +558,9 @@ pub fn in_json(b: &Blocco) -> Value {
 /// un documento diventa quel che sara'.
 pub mod modifica;
 
+/// Il verificatore: come si prova un progetto, e cosa vuol dire che una
+/// modifica non lo ha peggiorato.
+pub mod prova;
+
 #[cfg(test)]
 mod prove;

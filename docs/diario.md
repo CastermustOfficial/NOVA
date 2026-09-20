@@ -8858,3 +8858,62 @@ lo riapre.
 
 Sedici confronti verdi contro un documento vero, tredici prove di unita',
 dodici mutazioni su dodici.
+
+
+## Il verificatore, e una lista morta che nessuno usava
+
+Quarto pezzo di CANT-8, e con questo la logica dell'harness e' finita: le
+1.518 righe che non toccano Qt sono portate.
+
+Il verificatore e' il pezzo che trasforma l'harness da un buon posto per
+leggere a un posto dove si puo' programmare. Senza, NOVA propone una modifica
+al codice e l'utente deve fidarsi: leggere il diff e decidere. Va bene per tre
+righe, non va bene per un file che non si conosce.
+
+Le due decisioni c'erano gia' e sono buone, e le ho portate senza cambiarle.
+**Non «e' verde», ma «e' peggio di prima»**: se la suite era gia' rossa,
+«verde dopo» e' irraggiungibile e «rosso dopo» non dice niente — si starebbe
+rifiutando una modifica buona per colpa di un guasto che c'era prima (D277).
+E **come si prova un progetto non si indovina, si riconosce**: pytest solo se
+il progetto lo dichiara, perche' eseguirlo dove non c'e' vuol dire
+raccogliere file che non erano pensati per lui e dichiararli rossi.
+
+Una cosa l'ho aggiunta, ed e' venuta da una mutazione sopravvissuta: se
+**prima** non si e' potuto provare, non si sa cosa cadeva gia'. Il codice
+partiva da «niente era rotto», che e' il verso giusto, ma nessuna prova lo
+diceva — e la mutazione che toglieva quel ramo passava verde. Non e' uno
+stato che possa succedere oggi, perche' chi costruisce un esito non mette
+insieme «non provabile» e «queste sono cadute». Ma un esito puo' arrivare da
+un file scritto da una versione di prima, e li' perdonare una caduta per
+colpa di un «non provabile» vorrebbe dire applicare una modifica che rompe
+qualcosa. Adesso c'e' una prova che lo tiene fermo.
+
+**La lista morta.** Aprendo `harness_prova.py` ho trovato un secondo
+`NON_GUARDARE` — diverso da quello di `harness.py`, con dentro `runtime` e
+`salvagente` che l'altro non ha — e mai usato da nessuno. E' la forma peggiore
+di una lista doppia: finche' non la usa nessuno non si rompe niente, e il
+giorno che qualcuno la usasse le due meta' darebbero due risposte diverse alla
+stessa domanda. E' letteralmente come `vssadmin` passava dal demone e veniva
+fermato da NOVA (D185). L'ho tolta.
+
+**E tre liste che erano letterali dentro una funzione.** `("core", "rust",
+"src-tauri")`, `("pytest.ini", "tox.ini", "setup.cfg")` e il valore a due voci
+dentro `_LINGUA` vivevano scritti a mano in mezzo al codice, e
+`test_elenchi_gemelli` mi ha chiesto conto della meta' Rust che invece aveva
+dei nomi. Potevo dichiararle senza gemello; le ho battezzate anche in Python.
+`_LINGUA` in particolare aveva un unico valore a due voci — quello del `.py` —
+ed era proprio quell'«unico» a rendere la tabella impossibile da confrontare:
+adesso c'e' `LINGUA` con valori tutti uguali e `PER_PYTHON` a parte, e la
+funzione `famiglie_per` che le mette insieme. Si confronta, e si legge meglio.
+
+**E il banco adesso guarda progetti veri.** La prima versione confrontava il
+Rust con una riscrittura della regola dentro la prova stessa — cioe' me con
+me. Adesso costruisce otto progetti sul disco (uno con solo Cargo, uno col
+Rust in `core/`, uno con degli script, uno con pytest *e* degli script, uno
+con `package.json` senza script `test`...) e confronta quel che trova
+`harness_prova.scopri` con quel che trova il Rust. E' stata una mutazione a
+dirmelo: togliendo `and not dichiarato` dalla parte Python non succedeva
+niente, perche' quella funzione nessuno la chiamava.
+
+Duecentoquarantuno confronti verdi, cinquantasei prove di unita', sedici
+mutazioni su sedici.

@@ -6,6 +6,7 @@
 //! un blocco, quali file di un progetto si guardano, e quale blocco risponde
 //! a una domanda — perche' e' li' che NOVA dice «lo trovi a pagina 12».
 use nova_harness::modifica::*;
+use nova_harness::prova::{self, Esito, Segni};
 use nova_harness::*;
 use serde_json::{json, Value};
 
@@ -223,6 +224,92 @@ fn rispondi(riga: &str) -> Value {
         }
         "si_riscrive" => json!({ "si": si_riscrive(&testo_di(&d, "estensione")) }),
         "inizio" => json!({ "riga": inizio(&testo_di(&d, "blocco")) }),
+        "scopri" => {
+            let g = d.get("segni").cloned().unwrap_or(json!({}));
+            let stringhe = |chiave: &str| -> Vec<String> {
+                g.get(chiave)
+                    .and_then(Value::as_array)
+                    .map(|a| {
+                        a.iter()
+                            .filter_map(|x| x.as_str().map(str::to_string))
+                            .collect()
+                    })
+                    .unwrap_or_default()
+            };
+            let vero = |chiave: &str| g.get(chiave).and_then(Value::as_bool).unwrap_or(false);
+            let segni = Segni {
+                ha_cargo: vero("ha_cargo"),
+                cargo_sotto: stringhe("cargo_sotto"),
+                npm_prova: vero("npm_prova"),
+                ha_go: vero("ha_go"),
+                dichiara_pytest: vero("dichiara_pytest"),
+                script_soli: stringhe("script_soli"),
+            };
+            let radice = std::path::PathBuf::from(testo_di(&d, "radice"));
+            let banchi = prova::scopri(&radice, &segni, &testo_di(&d, "python"));
+            let scelto = prova::scegli(&banchi, &testo_di(&d, "estensione"));
+            json!({
+                "banchi": banchi.iter().map(|b| json!({
+                    "nome": b.nome, "comando": b.comando,
+                    "dove": b.dove.to_string_lossy().replace('\\', "/"),
+                    "pezzi": b.pezzi, "descrizione": b.descrizione(),
+                })).collect::<Vec<_>>(),
+                "scelto": scelto.map(|b| b.nome.clone()),
+            })
+        }
+        "script_di_test" => json!({ "comando": prova::script_di_test(&testo_di(&d, "contenuto")) }),
+        "e_uno_script" => json!({ "si": prova::e_uno_script(&testo_di(&d, "contenuto")) }),
+        "come_e_andata" => json!({
+            "come": match prova::come_e_andata(d.get("codice").and_then(Value::as_i64).unwrap_or(0) as i32) {
+                prova::Andata::Passata => "passata",
+                prova::Andata::Caduta => "caduta",
+                prova::Andata::NonProvabileQui => "saltata",
+            }
+        }),
+        "coda" => json!({
+            "testo": prova::coda(&testo_di(&d, "uscita"), numero(&d, "righe", 40) as usize)
+        }),
+        "confronta" => {
+            let leggi = |chiave: &str| -> Esito {
+                let v = d.get(chiave).cloned().unwrap_or(json!({}));
+                let lista = |k: &str| -> Vec<String> {
+                    v.get(k)
+                        .and_then(Value::as_array)
+                        .map(|a| {
+                            a.iter()
+                                .filter_map(|x| x.as_str().map(str::to_string))
+                                .collect()
+                        })
+                        .unwrap_or_default()
+                };
+                Esito {
+                    provabile: v.get("provabile").and_then(Value::as_bool).unwrap_or(false),
+                    banco: v.get("banco").and_then(Value::as_str).unwrap_or("").into(),
+                    comando: v
+                        .get("comando")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .into(),
+                    passate: lista("passate"),
+                    cadute: lista("cadute"),
+                    saltate: lista("saltate"),
+                    motivo: v.get("motivo").and_then(Value::as_str).unwrap_or("").into(),
+                }
+            };
+            let prima = leggi("prima");
+            let dopo = leggi("dopo");
+            let g = prova::confronta(&prima, &dopo);
+            json!({
+                "verdetto": g.verdetto.nome(),
+                "nuove_cadute": g.nuove_cadute,
+                "guarite": g.guarite,
+                "racconto": g.racconto,
+                "racconto_dopo": prova::racconta(
+                    &dopo,
+                    d.get("durata_s").and_then(Value::as_f64).unwrap_or(0.0)
+                ),
+            })
+        }
         altro => json!({ "errore_banco": format!("non so fare «{altro}»") }),
     }
 }
