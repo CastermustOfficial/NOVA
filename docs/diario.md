@@ -8978,9 +8978,9 @@ controlli su quindici. Non perche' le due meta' non andassero d'accordo — su
 quello erano perfettamente d'accordo, trentaquattro casi su trentaquattro — ma
 perche' erano d'accordo **sul niente**.
 
-I percorsi della prova erano scritti tutti cosi': `C:\Users\gio\Dropbox\NOVA`.
-Su Linux quella stringa non ha componenti, perche' il backslash li' non separa
-niente: e' un nome di file solo, lungo e strano. Quindi Dropbox non si
+I percorsi della prova erano scritti tutti alla maniera di Windows, con i
+backslash. Su Linux una stringa cosi' non ha componenti, perche' li' il
+backslash non separa niente: e' un nome di file solo, lungo e strano. Quindi Dropbox non si
 riconosceva, la meta' Python e la meta' Rust rispondevano tutte e due «nessun
 servizio», il confronto passava, e i quattro controlli scritti a mano — quelli
 che dicono «OneDrive aziendale viene riconosciuto» — fallivano.
