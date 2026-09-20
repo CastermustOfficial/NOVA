@@ -8296,3 +8296,50 @@ non e' decorazione: sapere **dove** stanno i propri dati serve a poco se non
 si sa anche **se escono**. Sta nel crate e non in un'interfaccia perche' chi
 la legge da PowerShell durante una disinstallazione ha lo stesso diritto di
 leggerla di chi apre il pannello.
+
+## Il catalogo dei componenti
+
+Terzo pezzo di CANT-7. `componenti.py` chiude un difetto che si legge in una
+riga: «il pannello sapeva **scegliere** e non sapeva **procurare**». Chi
+passava la voce a Kokoro senza averne i file vedeva il menu cambiare e la voce
+restare muta, e l'unico posto capace di scaricare qualcosa era
+l'installatore — cioe' ogni ripensamento costava una reinstallazione.
+
+Le regole dello scaricare sono tre, e ognuna e' scritta per un modo di
+sbagliare. Si scarica **di fianco, non sopra**: il file arriva come `.parte` e
+prende il suo nome solo a scaricamento finito, cosi' una connessione che cade
+lascia spazzatura riconoscibile invece di un file valido a meta' che il
+programma caricherebbe volentieri. Si **dichiara quanto pesa prima di
+cominciare**, perche' 800 MB su una connessione lenta sono una decisione. E ci
+si **puo' fermare**.
+
+Portandole ho guardato meglio due dettagli che in Python sono una riga.
+
+**Il `.parte` si aggiunge, non sostituisce.** `modello.onnx.parte`, non
+`modello.parte`. Con la sostituzione, due pezzi con lo stesso nome e
+estensioni diverse si litigano lo stesso file temporaneo. In Rust la
+tentazione e' forte perche' `with_extension` esiste ed e' li' pronta: la
+mutazione che la usa fa diventare rosse sia le prove che il banco.
+
+**Uno zip ha una prova che non e' la sua cartella.** Per uno zip il `dove` e'
+una cartella, e una cartella c'e' sempre: guardare quella vuol dire dire
+«presente» a chi non ha niente dentro. C'e' una prova che passa tutto il
+catalogo e pretende che ogni pezzo da estrarre dichiari il suo file di prova,
+cosi' un componente nuovo che se la dimentica non passa inosservato.
+
+E due cose che erano gia' giuste e vale la pena ricordare perche' sono
+generose verso chi installa: un file **equivalente** gia' sul disco conta
+(chi ha `ggml-small.bin` non scarica `ggml-base.bin`, sono mezzo giga per
+niente), e il totale somma **solo cio' che manca** — dire «350 MB» a chi ne
+ha gia' due terzi e' il modo di far rinunciare qualcuno che avrebbe finito in
+un minuto.
+
+**Il catalogo non e' generato da un estrattore**, al contrario delle guardie,
+e vale la pena dire perche': le guardie sono liste di stringhe, questo e' un
+albero con dentro percorsi che le due parti compongono in modo diverso. Un
+estrattore avrebbe dovuto sapere **come** si compongono i percorsi, cioe'
+sapere i percorsi — che e' esattamente cio' che D243 dice di non fare. Quindi
+un banco li confronta voce per voce, percorsi compresi: qui i percorsi sono
+parte del dato condiviso, non la mappa di dove NOVA scrive.
+
+Sette mutazioni, sette prese da tutte e due le parti.
