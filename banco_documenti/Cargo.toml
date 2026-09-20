@@ -1,0 +1,24 @@
+[package]
+name = "banco-documenti"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Fuori dal workspace di proposito: `mupdf-sys` compila MuPDF dai sorgenti C,
+# e sono minuti. Un banco che si usa quando si decide non deve pesare su ogni
+# `cargo test` di chi non sta decidendo niente.
+[workspace]
+
+[dependencies]
+umya-spreadsheet = "3.0"
+docx-rs = "0.4"
+pdf-extract = "0.10"
+zip = "2"
+
+[dependencies.mupdf]
+version = "0.5"
+optional = true
+
+[features]
+# Acceso a mano: `cargo run --features posizioni --bin pdf_con_posizioni`
+posizioni = ["dep:mupdf"]

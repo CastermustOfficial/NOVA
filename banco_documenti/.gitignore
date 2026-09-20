@@ -1,0 +1,4 @@
+# I documenti si rifanno con `python3 prepara.py`: sono il dato, non il
+# codice, e un .docx binario in cronologia non si legge in un diff.
+documenti/
+target/
