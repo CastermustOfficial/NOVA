@@ -35,6 +35,15 @@ impl Policy {
         }
     }
 
+    /// Le cartelle in cui l'utente ha detto che si puo' scrivere.
+    ///
+    /// Serve a chi deve **imporre** quel confine invece di controllarlo: il
+    /// recinto del kernel attorno a un comando si costruisce da qui, cosi'
+    /// la regola e la sua applicazione vengono dallo stesso posto.
+    pub fn write_roots(&self) -> &[PathBuf] {
+        &self.write_roots
+    }
+
     /// Vale per scritture, modifiche e cancellazioni.
     pub fn check_write(&self, path: &Path) -> Result<()> {
         let target = normalizza(path);

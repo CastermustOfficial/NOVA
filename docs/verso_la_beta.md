@@ -2466,6 +2466,53 @@ conversazione, che il prompt di sistema venga dal `config.json` di NOVA con i
 segnaposto sostituiti, e che il secondo turno veda il primo.
 
 
+## Il confine che tiene il kernel
+
+Un revisore ha proposto una cosa grossa: che il modello generi solo un grafo
+dichiarativo di transizioni, che il runtime ne verifichi «matematicamente» le
+invarianti, e che l'esecuzione avvenga dentro una sandbox del kernel monouso
+con permessi a scadenza.
+
+Metà di quella proposta non regge com'è scritta, e vale la pena dire quale.
+Un linguaggio di piano abbastanza ristretto da essere verificabile è un
+linguaggio in cui NOVA smette di essere il boss finale del PC — che è la
+premessa N1; uno abbastanza espressivo da fare quel che NOVA fa oggi non è
+verificabile, e la «verifica matematica» torna a essere un elenco di
+controlli come quelli che ci sono già. La cosa verificabile davvero non è il
+piano: è **l'impronta** — quali percorsi, quali comandi — e quella si può sia
+controllare prima sia **imporre** dopo.
+
+L'altra metà invece aveva ragione piena, ed è stata fatta. Fino a ieri le
+guardie di NOVA vivevano tutte dentro il processo che decide: confronti di
+percorsi, espressioni regolari sui comandi. Servono a dire di no **prima**.
+Dopo non servivano a niente — quel che passava il controllo girava con tutti
+i privilegi dell'utente, e un comando che la regola non aveva riconosciuto
+poteva scrivere ovunque.
+
+Adesso `shell.exec` parte dentro un recinto che tiene il kernel (D301). Su
+Linux è Landlock: il processo dichiara cosa gli serve, il kernel gli toglie
+tutto il resto, e la restrizione non si allenta nemmeno da dentro. Il
+confine si costruisce da `write_roots`, cioè dalla riga in cui l'utente ha
+già detto dove NOVA può scrivere; dove quella riga non c'è, **non si stringe
+niente** e la risposta lo dichiara (D302).
+
+E la «sandbox monouso» del revisore c'è, nella forma che serve davvero: ogni
+comando riceve una cartella temporanea sua, dentro il recinto, che nasce con
+lui e muore con lui. Senza, un comando confinato che deve appoggiare un file
+intermedio fallisce in modi che non somigliano a un problema di permessi.
+
+La prova non dice «la funzione torna Ok»: accende il demone vero, gli fa
+eseguire un comando che prova a scrivere in due posti — uno dichiarato, uno
+no — e pretende che il secondo **non ci riesca**, con il rifiuto che arriva
+dal sistema. Dove il recinto non esiste (Windows, per ora, o un kernel
+vecchio) la prova si dichiara saltata invece di passare per finta.
+
+Cosa resta: **Windows**. Lì il recinto si fa con un token ristretto e un job
+object, e AppContainer è il gradino sopra; è la prossima mossa di questo
+filone, e fino ad allora la risposta del demone dice, a chi la legge, che su
+Windows il confine è ancora solo quello della policy.
+
+
 ## Il cancello della beta
 
 Non e' una data, sono cinque frasi che devono essere vere insieme:
