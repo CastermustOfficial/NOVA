@@ -93,7 +93,10 @@ pub fn ferma(bus: &crate::bus::Bus) -> usize {
     // mentre l'ultima cosa stava gia' finendo. Ma non si annuncia come se
     // avesse fermato qualcosa.
     if quante > 0 {
-        bus.emit("stato.cambiato", json!({ "stato": crate::risveglio::stato_a_riposo() }));
+        bus.emit(
+            "stato.cambiato",
+            json!({ "stato": crate::risveglio::stato_a_riposo() }),
+        );
         tracing::info!(quante, "interrotto");
     }
     quante
@@ -218,7 +221,9 @@ mod prove {
         assert_eq!(bene.unwrap(), "intatto");
 
         let male = interrompibile(async { Err::<(), _>(anyhow::anyhow!("caduta vera")) }).await;
-        assert!(male.unwrap_err().to_string().contains("caduta vera"),
-                "l'errore originale non deve essere sostituito da «interrotto»");
+        assert!(
+            male.unwrap_err().to_string().contains("caduta vera"),
+            "l'errore originale non deve essere sostituito da «interrotto»"
+        );
     }
 }

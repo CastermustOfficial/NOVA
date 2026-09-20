@@ -157,7 +157,9 @@ pub fn arg_str_opt(args: &Value, chiave: &str) -> Option<String> {
 }
 
 pub fn arg_bool(args: &Value, chiave: &str, default: bool) -> bool {
-    args.get(chiave).and_then(|v| v.as_bool()).unwrap_or(default)
+    args.get(chiave)
+        .and_then(|v| v.as_bool())
+        .unwrap_or(default)
 }
 
 pub fn arg_u64(args: &Value, chiave: &str, default: u64) -> u64 {
@@ -167,7 +169,11 @@ pub fn arg_u64(args: &Value, chiave: &str, default: u64) -> u64 {
 pub fn arg_vec_str(args: &Value, chiave: &str) -> Vec<String> {
     args.get(chiave)
         .and_then(|v| v.as_array())
-        .map(|a| a.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str().map(|s| s.to_string()))
+                .collect()
+        })
         .unwrap_or_default()
 }
 

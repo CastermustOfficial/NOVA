@@ -41,11 +41,17 @@ impl Policy {
         for prot in &self.protected {
             let p = normalizza(prot);
             if target == p || target.starts_with(&p) {
-                bail!("percorso protetto dalla policy del demone: {}", path.display());
+                bail!(
+                    "percorso protetto dalla policy del demone: {}",
+                    path.display()
+                );
             }
         }
         if !self.write_roots.is_empty() {
-            let dentro = self.write_roots.iter().any(|r| target.starts_with(&normalizza(r)));
+            let dentro = self
+                .write_roots
+                .iter()
+                .any(|r| target.starts_with(&normalizza(r)));
             if !dentro {
                 bail!(
                     "scrittura consentita solo dentro {:?}: {}",
@@ -106,7 +112,6 @@ fn normalizza(p: &Path) -> String {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -117,7 +122,11 @@ mod tests {
         cfg.protected_paths = vec![if cfg!(windows) { r"C:\Windows" } else { "/etc" }.into()];
         cfg.write_roots.clear();
         let policy = Policy::from_config(&cfg);
-        let dentro = if cfg!(windows) { r"C:\Windows\System32\x.dll" } else { "/etc/passwd" };
+        let dentro = if cfg!(windows) {
+            r"C:\Windows\System32\x.dll"
+        } else {
+            "/etc/passwd"
+        };
         assert!(policy.check_write(Path::new(dentro)).is_err());
     }
 
@@ -156,7 +165,9 @@ mod tests {
         let mut cfg = Config::default();
         cfg.forbidden_commands = vec!["mia regola".into()];
         let policy = Policy::from_config(&cfg);
-        assert!(policy.check_command("vssadmin delete shadows /all").is_err());
+        assert!(policy
+            .check_command("vssadmin delete shadows /all")
+            .is_err());
         assert!(policy.check_command("mia regola").is_err());
     }
 

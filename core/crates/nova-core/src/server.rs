@@ -71,8 +71,15 @@ impl Server {
             // conosciamo, altrimenti la nostra.
             "initialize" => {
                 const CONOSCIUTE: &[&str] = &["2024-11-05", "2025-03-26", "2025-06-18"];
-                let chiesta = params.get("protocolVersion").and_then(|v| v.as_str()).unwrap_or("");
-                let versione = if CONOSCIUTE.contains(&chiesta) { chiesta } else { "2025-06-18" };
+                let chiesta = params
+                    .get("protocolVersion")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let versione = if CONOSCIUTE.contains(&chiesta) {
+                    chiesta
+                } else {
+                    "2025-06-18"
+                };
                 Ok(json!({
                     "protocolVersion": versione,
                     "serverInfo": {
@@ -205,10 +212,7 @@ impl Server {
         let esito = if richiesta.name.starts_with("azione.") {
             cap.call(richiesta.args.clone(), &self.ctx).await
         } else {
-            crate::interruzione::interrompibile(
-                cap.call(richiesta.args.clone(), &self.ctx),
-            )
-            .await
+            crate::interruzione::interrompibile(cap.call(richiesta.args.clone(), &self.ctx)).await
         };
         let durata = inizio.elapsed().as_millis() as u64;
 
@@ -307,12 +311,11 @@ impl Server {
             let req: Request = match serde_json::from_str(&riga) {
                 Ok(r) => r,
                 Err(e) => {
-                    let risp = Response::err(
-                        None,
-                        codes::PARSE_ERROR,
-                        format!("JSON non valido: {e}"),
-                    );
-                    let _ = tx.send(serde_json::to_string(&risp).unwrap_or_default()).await;
+                    let risp =
+                        Response::err(None, codes::PARSE_ERROR, format!("JSON non valido: {e}"));
+                    let _ = tx
+                        .send(serde_json::to_string(&risp).unwrap_or_default())
+                        .await;
                     continue;
                 }
             };
@@ -355,7 +358,9 @@ impl Server {
         use tokio::net::windows::named_pipe::ServerOptions;
 
         let nome = self.config.endpoint.clone();
-        let mut server = ServerOptions::new().first_pipe_instance(true).create(&nome)?;
+        let mut server = ServerOptions::new()
+            .first_pipe_instance(true)
+            .create(&nome)?;
         tracing::info!(endpoint = %nome, "in ascolto");
 
         loop {

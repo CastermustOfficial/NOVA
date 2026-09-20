@@ -69,7 +69,11 @@ async fn apri(nome_voce: &str) -> Result<Arc<Voce>> {
     let p = percorsi();
     // La stringa deve *appartenere* al compito: il riferimento in prestito non
     // sopravvivrebbe all'uscita da questa funzione.
-    let scelta = if nome_voce.is_empty() { "im_nicola".to_string() } else { nome_voce.to_string() };
+    let scelta = if nome_voce.is_empty() {
+        "im_nicola".to_string()
+    } else {
+        nome_voce.to_string()
+    };
     // Il caricamento blocca: fuori dal runtime asincrono, altrimenti mezzo
     // secondo di ONNX ferma tutto il demone.
     let costruita = tokio::task::spawn_blocking(move || Voce::apri(&p, &scelta, "it"))
@@ -94,7 +98,10 @@ fn attesa_scarico() -> Option<std::time::Duration> {
     // vero sta nella configurazione dell'utente, cioe' dove il pannello lo
     // scrive. Un'impostazione che vive solo in una variabile d'ambiente non
     // e' impostabile: e' un appunto per chi conosce il codice.
-    if let Some(v) = std::env::var("NOVA_SCARICA_VOCE_DOPO").ok().and_then(|v| v.parse::<u64>().ok()) {
+    if let Some(v) = std::env::var("NOVA_SCARICA_VOCE_DOPO")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+    {
         return (v > 0).then(|| std::time::Duration::from_secs(v));
     }
     let secondi = configurazione_utente()
@@ -112,7 +119,9 @@ fn percorso_configurazione() -> Option<std::path::PathBuf> {
     } else {
         std::env::var_os("XDG_CONFIG_HOME")
             .map(std::path::PathBuf::from)
-            .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".config")))?
+            .or_else(|| {
+                std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".config"))
+            })?
     };
     Some(base.join("NOVA").join("config.json"))
 }
@@ -142,7 +151,9 @@ fn avvia_scarico() {
         tokio::spawn(async {
             loop {
                 tokio::time::sleep(std::time::Duration::from_secs(30)).await;
-                let Some(limite) = attesa_scarico() else { continue };
+                let Some(limite) = attesa_scarico() else {
+                    continue;
+                };
                 let m = motore();
                 let scaduto = {
                     let ultimo = m.ultimo_uso.lock().await;
@@ -186,7 +197,10 @@ fn percorsi_ascolto() -> std::path::PathBuf {
             return candidato;
         }
     }
-    std::env::current_dir().unwrap_or_default().join("runtime").join("ascolto")
+    std::env::current_dir()
+        .unwrap_or_default()
+        .join("runtime")
+        .join("ascolto")
 }
 
 fn parola_di_risveglio() -> String {
@@ -296,7 +310,11 @@ fn scelta_ascolto() -> SceltaAscolto {
     SceltaAscolto {
         scribe: stringa(&cfg, "stt_engine") == "elevenlabs",
         chiave: stringa(&cfg, "api_key"),
-        lingua: if lingua.is_empty() { "it".to_string() } else { lingua },
+        lingua: if lingua.is_empty() {
+            "it".to_string()
+        } else {
+            lingua
+        },
     }
 }
 
@@ -345,7 +363,11 @@ fn scelta_voce() -> SceltaVoce {
         modello_remoto: stringa(&cfg, "tts_model_cloud"),
         voce_locale: {
             let v = stringa(&cfg, "tts_voce_locale");
-            if v.is_empty() { "im_nicola".to_string() } else { v }
+            if v.is_empty() {
+                "im_nicola".to_string()
+            } else {
+                v
+            }
         },
     }
 }
@@ -362,13 +384,20 @@ fn quota_finita() -> &'static std::sync::atomic::AtomicBool {
 /// Testo -> altoparlanti, col motore scelto e il ripiego se non ce la fa.
 ///
 /// Ritorna quanto e' durato e chi ha parlato.
-async fn pronuncia(bus: &crate::bus::Bus, testo: &str, voce_chiesta: &str) -> Result<(f32, &'static str)> {
+async fn pronuncia(
+    bus: &crate::bus::Bus,
+    testo: &str,
+    voce_chiesta: &str,
+) -> Result<(f32, &'static str)> {
     let scelta = scelta_voce();
     let ordinato = std::sync::atomic::Ordering::SeqCst;
 
     if scelta.elevenlabs && !quota_finita().load(ordinato) {
         let cliente = nova_voce::ElevenLabs::nuovo(
-            &scelta.chiave, &scelta.voce_remota, &scelta.modello_remoto);
+            &scelta.chiave,
+            &scelta.voce_remota,
+            &scelta.modello_remoto,
+        );
         if cliente.utilizzabile() {
             let da_dire = testo.to_string();
             let esito = tokio::task::spawn_blocking(move || cliente.parla(&da_dire))
@@ -384,23 +413,32 @@ async fn pronuncia(bus: &crate::bus::Bus, testo: &str, voce_chiesta: &str) -> Re
                     // Il ripiego si dice: se la voce cambia di colpo e nessuno
                     // spiega perche', sembra un guasto.
                     tracing::warn!(errore = %e, "ElevenLabs non ce l'ha fatta, passo alla voce locale");
-                    bus.emit("voce.ripiego", json!({
-                        "da": "elevenlabs", "a": "locale",
-                        "quota_finita": finita, "motivo": format!("{e}"),
-                    }));
+                    bus.emit(
+                        "voce.ripiego",
+                        json!({
+                            "da": "elevenlabs", "a": "locale",
+                            "quota_finita": finita, "motivo": format!("{e}"),
+                        }),
+                    );
                 }
             }
         } else {
             tracing::warn!("ElevenLabs scelto ma manca la chiave o la voce: uso quella locale");
-            bus.emit("voce.ripiego", json!({
-                "da": "elevenlabs", "a": "locale", "quota_finita": false,
-                "motivo": "manca la chiave o l'identificativo della voce",
-            }));
+            bus.emit(
+                "voce.ripiego",
+                json!({
+                    "da": "elevenlabs", "a": "locale", "quota_finita": false,
+                    "motivo": "manca la chiave o l'identificativo della voce",
+                }),
+            );
         }
     }
 
-    let nome = if voce_chiesta.trim().is_empty() { scelta.voce_locale.clone() }
-               else { voce_chiesta.trim().to_string() };
+    let nome = if voce_chiesta.trim().is_empty() {
+        scelta.voce_locale.clone()
+    } else {
+        voce_chiesta.trim().to_string()
+    };
     let voce = apri(&nome).await?;
     *motore().ultimo_uso.lock().await = Some(std::time::Instant::now());
     let da_dire = testo.to_string();
@@ -497,7 +535,10 @@ pub async fn annuncia(bus: crate::bus::Bus, testo: &str) {
     bus.emit("stato.cambiato", json!({"stato": "parlo"}));
     let esito = pronuncia(&bus, testo, "").await;
     crate::risveglio::chiudi_bocca();
-    bus.emit("stato.cambiato", json!({"stato": crate::risveglio::stato_a_riposo()}));
+    bus.emit(
+        "stato.cambiato",
+        json!({"stato": crate::risveglio::stato_a_riposo()}),
+    );
     if let Err(e) = esito {
         tracing::warn!(errore = %e, "annuncio fallito");
     }
@@ -513,7 +554,14 @@ pub async fn annuncia(bus: crate::bus::Bus, testo: &str) {
 /// come leggere tutto il resto.
 pub fn saluto_di_risveglio() -> String {
     configurazione_utente()
-        .and_then(|c| Some(c.get("voice")?.get("saluto_risveglio")?.as_str()?.to_string()))
+        .and_then(|c| {
+            Some(
+                c.get("voice")?
+                    .get("saluto_risveglio")?
+                    .as_str()?
+                    .to_string(),
+            )
+        })
         .filter(|s| !s.trim().is_empty())
         .unwrap_or_else(|| "Nova \u{e8} operativo.".to_string())
 }
@@ -609,12 +657,22 @@ impl Capability for TrascriviCap {
 
         ctx.bus.emit("stato.cambiato", json!({"stato": "ascolto"}));
         let esito = tokio::task::spawn_blocking(move || -> Result<(nova_voce::Ascolto, String)> {
-            let a = nova_voce::ascolta_con_attesa(scelto.as_deref(), attesa, massimo, silenzio, 16_000)?;
+            let a = nova_voce::ascolta_con_attesa(
+                scelto.as_deref(),
+                attesa,
+                massimo,
+                silenzio,
+                16_000,
+            )?;
             if !a.ha_parlato {
                 return Ok((a, String::new()));
             }
             let (testo, da) = trascrivi_con_ripiego(
-                &cartella, &a.campioni, a.frequenza, vec![parola_di_risveglio()])?;
+                &cartella,
+                &a.campioni,
+                a.frequenza,
+                vec![parola_di_risveglio()],
+            )?;
             if da == "locale" {
                 tracing::debug!("trascritto in locale");
             }
@@ -628,7 +686,10 @@ impl Capability for TrascriviCap {
         let parola = parola_di_risveglio();
         let comando = dopo_il_risveglio(&testo, &parola);
         if comando.is_some() {
-            ctx.bus.emit("voce.risveglio", json!({"testo": testo, "comando": comando}));
+            ctx.bus.emit(
+                "voce.risveglio",
+                json!({"testo": testo, "comando": comando}),
+            );
         }
         Ok(json!({
             "pronto": true,
@@ -733,8 +794,18 @@ impl Capability for ParlaCap {
             category: "voce".into(),
             schema: schema(&[
                 ("testo", "string", "Cosa dire", true),
-                ("voce", "string", "im_nicola | if_sara (predefinita: im_nicola)", false),
-                ("aspetta", "boolean", "Se falso ritorna subito e parla per conto suo", false),
+                (
+                    "voce",
+                    "string",
+                    "im_nicola | if_sara (predefinita: im_nicola)",
+                    false,
+                ),
+                (
+                    "aspetta",
+                    "boolean",
+                    "Se falso ritorna subito e parla per conto suo",
+                    false,
+                ),
             ]),
         }
     }
@@ -745,7 +816,10 @@ impl Capability for ParlaCap {
             return Ok(json!({"detto": false, "motivo": "niente da dire"}));
         }
         let nome = arg_str_opt(&args, "voce").unwrap_or_default();
-        let aspetta = args.get("aspetta").and_then(|v| v.as_bool()).unwrap_or(true);
+        let aspetta = args
+            .get("aspetta")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
 
         // L'orb deve diventare magenta *mentre* parla, non dopo: chi guarda
         // lo schermo capisce dallo stato, non dal testo.
@@ -762,14 +836,20 @@ impl Capability for ParlaCap {
                     tracing::warn!(errore = %e, "non sono riuscito a parlare");
                 }
                 crate::risveglio::chiudi_bocca();
-                bus.emit("stato.cambiato", json!({"stato": crate::risveglio::stato_a_riposo()}));
+                bus.emit(
+                    "stato.cambiato",
+                    json!({"stato": crate::risveglio::stato_a_riposo()}),
+                );
             });
             return Ok(json!({"detto": true, "in_corso": true}));
         }
 
         let esito = pronuncia(&bus, &testo, &nome).await;
         crate::risveglio::chiudi_bocca();
-        ctx.bus.emit("stato.cambiato", json!({"stato": crate::risveglio::stato_a_riposo()}));
+        ctx.bus.emit(
+            "stato.cambiato",
+            json!({"stato": crate::risveglio::stato_a_riposo()}),
+        );
         let (durata, chi) = esito?;
         Ok(json!({
             "detto": true, "durata_s": durata,

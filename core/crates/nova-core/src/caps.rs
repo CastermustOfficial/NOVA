@@ -102,7 +102,8 @@ impl Capability for SysInfoCap {
     fn info(&self) -> CapabilityInfo {
         CapabilityInfo {
             name: "sys.info".into(),
-            description: "Informazioni sulla macchina: sistema operativo, architettura, host, utente.".into(),
+            description:
+                "Informazioni sulla macchina: sistema operativo, architettura, host, utente.".into(),
             risk: Risk::Safe,
             category: "sys".into(),
             schema: schema(&[]),
@@ -210,7 +211,12 @@ impl Capability for FsWriteCap {
             schema: schema(&[
                 ("path", "string", "Percorso del file", true),
                 ("content", "string", "Contenuto da scrivere", true),
-                ("append", "boolean", "Aggiungi in coda invece di sovrascrivere", false),
+                (
+                    "append",
+                    "boolean",
+                    "Aggiungi in coda invece di sovrascrivere",
+                    false,
+                ),
             ]),
         }
     }
@@ -292,7 +298,8 @@ impl Capability for FsWriteCap {
             format!("creato {}", path.to_string_lossy())
         };
         let id = crate::giornale::annota("fs.write", &cosa, inversa).ok();
-        ctx.bus.emit("fs.written", json!({ "path": path.to_string_lossy() }));
+        ctx.bus
+            .emit("fs.written", json!({ "path": path.to_string_lossy() }));
         Ok(json!({
             "path": path.to_string_lossy(),
             "bytes": contenuto.len(),
@@ -383,7 +390,13 @@ impl Capability for ShellExecCap {
 
         let mut cmd = if cfg!(windows) {
             let mut c = tokio::process::Command::new("powershell");
-            c.args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command"]);
+            c.args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+            ]);
             c.arg(&comando);
             c
         } else {
@@ -396,7 +409,9 @@ impl Capability for ShellExecCap {
                 cmd.current_dir(espandi(&dir));
             }
         }
-        cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).stdin(Stdio::null());
+        cmd.stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .stdin(Stdio::null());
 
         // Senza questo, interrompere il comando libera chi ha chiesto ma
         // lascia il processo a girare di nascosto: «fermare» diventerebbe
@@ -407,12 +422,10 @@ impl Capability for ShellExecCap {
         // sono i job object di Windows, ed e' una questione aperta.
         cmd.kill_on_drop(true);
 
-        let esito = tokio::time::timeout(
-            std::time::Duration::from_secs(timeout.max(1)),
-            cmd.output(),
-        )
-        .await
-        .map_err(|_| anyhow!("comando interrotto dopo {timeout}s"))??;
+        let esito =
+            tokio::time::timeout(std::time::Duration::from_secs(timeout.max(1)), cmd.output())
+                .await
+                .map_err(|_| anyhow!("comando interrotto dopo {timeout}s"))??;
 
         ctx.bus.emit(
             "shell.executed",
@@ -464,7 +477,8 @@ impl Capability for ProcSpawnCap {
             restart: arg_bool(&args, "restart", false),
             capture_output: arg_bool(&args, "capture_output", true),
         };
-        ctx.policy.check_command(&format!("{} {}", spec.program, spec.args.join(" ")))?;
+        ctx.policy
+            .check_command(&format!("{} {}", spec.program, spec.args.join(" ")))?;
         let pid = ctx.supervisor.spawn(spec).await?;
         Ok(json!({ "pid": pid }))
     }
@@ -623,7 +637,11 @@ impl Capability for ServiceStartCap {
             name: spec_cfg.name.clone(),
             program: spec_cfg.program.clone(),
             args: spec_cfg.args.clone(),
-            cwd: if spec_cfg.cwd.is_empty() { None } else { Some(spec_cfg.cwd.clone()) },
+            cwd: if spec_cfg.cwd.is_empty() {
+                None
+            } else {
+                Some(spec_cfg.cwd.clone())
+            },
             restart: spec_cfg.restart,
             capture_output: spec_cfg.capture_output,
         };
@@ -751,7 +769,6 @@ impl Capability for ModelloSpegniCap {
 }
 
 // -------------------------------------------------------------------- bus
-
 
 struct BusPublishCap;
 
@@ -923,7 +940,8 @@ impl Capability for AnnullaUltimoCap {
             .ok_or_else(|| anyhow!("non c'e' niente da annullare"))?;
         let cosa = voce.cosa.clone();
         let fatto = crate::giornale::annulla(voce.id)?;
-        ctx.bus.emit("annullato", json!({ "id": voce.id, "cosa": cosa }));
+        ctx.bus
+            .emit("annullato", json!({ "id": voce.id, "cosa": cosa }));
         Ok(json!({ "id": voce.id, "era": cosa, "fatto": fatto }))
     }
 }
@@ -948,7 +966,9 @@ impl Capability for AnnullaUnoCap {
 
     async fn anteprima(&self, args: Value, _ctx: &Ctx) -> Option<Result<Value>> {
         let id = arg_u64(&args, "id", 0);
-        let voce = crate::giornale::elenco(usize::MAX).into_iter().find(|v| v.id == id);
+        let voce = crate::giornale::elenco(usize::MAX)
+            .into_iter()
+            .find(|v| v.id == id);
         Some(match voce {
             Some(v) if v.annullata => Ok(json!({
                 "disferei_la_numero": id, "cosa": v.cosa,
@@ -968,7 +988,9 @@ impl Capability for AnnullaUnoCap {
     async fn call(&self, args: Value, ctx: &Ctx) -> Result<Value> {
         let id = arg_u64(&args, "id", 0);
         if id == 0 {
-            return Err(anyhow!("serve il numero dell'operazione: lo trovi con annulla.elenco"));
+            return Err(anyhow!(
+                "serve il numero dell'operazione: lo trovi con annulla.elenco"
+            ));
         }
         let fatto = crate::giornale::annulla(id)?;
         ctx.bus.emit("annullato", json!({ "id": id }));
@@ -995,15 +1017,33 @@ impl Capability for OsservaCartellaCap {
             category: "osserva".into(),
             schema: schema(&[
                 ("cartella", "string", "Quale cartella guardare", true),
-                ("filtro", "string", "Solo i file cosi', es. *.pdf. Vuoto = tutti", false),
-                ("reazione", "string", "Cosa deve fare NOVA quando succede. Vuoto = solo avvisare", false),
-                ("una_volta", "boolean", "Smette dopo il primo (predefinito: no)", false),
+                (
+                    "filtro",
+                    "string",
+                    "Solo i file cosi', es. *.pdf. Vuoto = tutti",
+                    false,
+                ),
+                (
+                    "reazione",
+                    "string",
+                    "Cosa deve fare NOVA quando succede. Vuoto = solo avvisare",
+                    false,
+                ),
+                (
+                    "una_volta",
+                    "boolean",
+                    "Smette dopo il primo (predefinito: no)",
+                    false,
+                ),
             ]),
         }
     }
 
     async fn anteprima(&self, args: Value, _ctx: &Ctx) -> Option<Result<Value>> {
-        let cartella = match arg_str(&args, "cartella") { Ok(c) => c, Err(e) => return Some(Err(e)) };
+        let cartella = match arg_str(&args, "cartella") {
+            Ok(c) => c,
+            Err(e) => return Some(Err(e)),
+        };
         let p = espandi(&cartella);
         Some(Ok(json!({
             "guarderei": p.to_string_lossy(),

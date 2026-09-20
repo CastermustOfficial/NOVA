@@ -86,7 +86,10 @@ fn corrisponde(nome: &str, filtro: &str) -> bool {
 pub fn osserva(bus: crate::bus::Bus, o: Osservazione) -> Result<u64> {
     let cartella = PathBuf::from(&o.cartella);
     if !cartella.is_dir() {
-        return Err(anyhow!("«{}» non e' una cartella che posso guardare", o.cartella));
+        return Err(anyhow!(
+            "«{}» non e' una cartella che posso guardare",
+            o.cartella
+        ));
     }
     let id = stato().prossimo.fetch_add(1, Ordering::SeqCst);
     let mut o = o;
@@ -178,7 +181,10 @@ fn annunciati() -> &'static Mutex<std::collections::HashSet<(u64, String)>> {
 }
 
 fn gia_annunciato(id: u64, nome: &str) -> bool {
-    annunciati().lock().unwrap().contains(&(id, nome.to_string()))
+    annunciati()
+        .lock()
+        .unwrap()
+        .contains(&(id, nome.to_string()))
 }
 
 fn segna_annunciato(id: u64, nome: &str) {

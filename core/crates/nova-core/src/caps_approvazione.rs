@@ -31,7 +31,9 @@ use nova_proto::{CapabilityInfo, Risk};
 use serde_json::{json, Value};
 use tokio::sync::{Mutex, Notify};
 
-use crate::capability::{arg_bool, arg_str, arg_str_opt, arg_u64, schema, Capability, Ctx, Registry};
+use crate::capability::{
+    arg_bool, arg_str, arg_str_opt, arg_u64, schema, Capability, Ctx, Registry,
+};
 
 /// Oltre questo, chi ha chiesto rinuncia da solo. Un'attesa infinita
 /// bloccherebbe Claude per sempre se l'interfaccia non c'e' piu'.
@@ -109,11 +111,31 @@ impl Capability for ChiediCap {
             risk: Risk::Safe,
             category: "approvazione".into(),
             schema: schema(&[
-                ("strumento", "string", "Che cosa vuole fare (nome dell'azione)", true),
-                ("dettaglio", "string", "In chiaro: cosa succede se acconsenti", false),
+                (
+                    "strumento",
+                    "string",
+                    "Che cosa vuole fare (nome dell'azione)",
+                    true,
+                ),
+                (
+                    "dettaglio",
+                    "string",
+                    "In chiaro: cosa succede se acconsenti",
+                    false,
+                ),
                 ("rischio", "string", "safe | moderate | dangerous", false),
-                ("origine", "string", "chi chiede: «utente» (predefinito) o «prova»", false),
-                ("timeout_s", "integer", "Quanto aspettare prima di rinunciare", false),
+                (
+                    "origine",
+                    "string",
+                    "chi chiede: «utente» (predefinito) o «prova»",
+                    false,
+                ),
+                (
+                    "timeout_s",
+                    "integer",
+                    "Quanto aspettare prima di rinunciare",
+                    false,
+                ),
             ]),
         }
     }
@@ -157,7 +179,8 @@ impl Capability for ChiediCap {
         }
         // Chi ascolta il bus (l'interfaccia, la voce) si sveglia subito invece
         // di scoprirlo al prossimo giro di interrogazione.
-        ctx.bus.emit("approvazione.richiesta", richiesta.come_json());
+        ctx.bus
+            .emit("approvazione.richiesta", richiesta.come_json());
         s.campanello.notify_waiters();
 
         let scadenza = tokio::time::Instant::now() + Duration::from_secs(attesa);
@@ -185,8 +208,10 @@ impl Capability for ChiediCap {
             if tokio::time::timeout_at(scadenza, sveglia).await.is_err() {
                 let mut mappa = s.richieste.lock().await;
                 mappa.remove(&id);
-                ctx.bus
-                    .emit("approvazione.scaduta", json!({"id": id, "strumento": strumento}));
+                ctx.bus.emit(
+                    "approvazione.scaduta",
+                    json!({"id": id, "strumento": strumento}),
+                );
                 return Ok(json!({
                     "esito": "scaduto",
                     "motivo": format!("nessuna risposta entro {attesa} secondi"),
@@ -240,7 +265,12 @@ impl Capability for RispondiCap {
             category: "approvazione".into(),
             schema: schema(&[
                 ("id", "string", "Identificativo della richiesta", true),
-                ("consenti", "boolean", "true per consentire, false per negare", true),
+                (
+                    "consenti",
+                    "boolean",
+                    "true per consentire, false per negare",
+                    true,
+                ),
                 ("motivo", "string", "Perche', se hai negato", false),
             ]),
         }

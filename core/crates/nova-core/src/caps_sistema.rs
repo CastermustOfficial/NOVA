@@ -111,8 +111,11 @@ mod prove {
     fn la_notifica_non_fa_aspettare_chi_la_chiede() {
         let t = std::time::Instant::now();
         let _ = notifica(&Sistema, "NOVA", "prova");
-        assert!(t.elapsed() < std::time::Duration::from_millis(500),
-                "consegnare una notifica ha richiesto {:?}", t.elapsed());
+        assert!(
+            t.elapsed() < std::time::Duration::from_millis(500),
+            "consegnare una notifica ha richiesto {:?}",
+            t.elapsed()
+        );
     }
 
     #[test]
@@ -123,6 +126,9 @@ mod prove {
         let _ = volume(&s, None, Some(false));
         // Questa invece non dipende dalla macchina: la richiesta vuota si
         // rifiuta prima di parlare col sistema.
-        assert_eq!(volume(&s, None, None).unwrap_err(), "serve 'level' o 'mute'");
+        assert_eq!(
+            volume(&s, None, None).unwrap_err(),
+            "serve 'level' o 'mute'"
+        );
     }
 }

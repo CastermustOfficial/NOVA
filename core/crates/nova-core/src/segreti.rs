@@ -112,9 +112,9 @@ pub fn percorso() -> Result<PathBuf> {
 #[cfg(windows)]
 mod cassa {
     use anyhow::{anyhow, Result};
-    use windows::Win32::Foundation::{HLOCAL, LocalFree};
+    use windows::Win32::Foundation::{LocalFree, HLOCAL};
     use windows::Win32::Security::Cryptography::{
-        CryptProtectData, CryptUnprotectData, CRYPT_INTEGER_BLOB, CRYPTPROTECT_UI_FORBIDDEN,
+        CryptProtectData, CryptUnprotectData, CRYPTPROTECT_UI_FORBIDDEN, CRYPT_INTEGER_BLOB,
     };
 
     /// Entropia aggiuntiva: senza, qualunque programma che gira come questo
@@ -185,11 +185,17 @@ mod cassa {
 mod cassa {
     use anyhow::{bail, Result};
     pub fn cifra(_c: &[u8]) -> Result<Vec<u8>> {
-        bail!("archivio delle credenziali non ancora implementato per {}: \
-               va scritto sopra il portachiavi di sistema", std::env::consts::OS)
+        bail!(
+            "archivio delle credenziali non ancora implementato per {}: \
+               va scritto sopra il portachiavi di sistema",
+            std::env::consts::OS
+        )
     }
     pub fn decifra(_c: &[u8]) -> Result<Vec<u8>> {
-        bail!("archivio delle credenziali non ancora implementato per {}", std::env::consts::OS)
+        bail!(
+            "archivio delle credenziali non ancora implementato per {}",
+            std::env::consts::OS
+        )
     }
 }
 
@@ -198,11 +204,17 @@ mod cassa {
 fn carica() -> Result<Archivio> {
     let p = percorso()?;
     if !p.exists() {
-        return Ok(Archivio { versione: versione_corrente(), voci: Vec::new() });
+        return Ok(Archivio {
+            versione: versione_corrente(),
+            voci: Vec::new(),
+        });
     }
     let cifrato = std::fs::read(&p)?;
     if cifrato.is_empty() {
-        return Ok(Archivio { versione: versione_corrente(), voci: Vec::new() });
+        return Ok(Archivio {
+            versione: versione_corrente(),
+            voci: Vec::new(),
+        });
     }
     let chiaro = cassa::decifra(&cifrato)?;
     Ok(serde_json::from_slice(&chiaro)?)
@@ -234,10 +246,18 @@ pub fn robustezza(v: &str) -> u8 {
         return 0;
     }
     let mut famiglie = 0u8;
-    if v.chars().any(|c| c.is_ascii_lowercase()) { famiglie += 1; }
-    if v.chars().any(|c| c.is_ascii_uppercase()) { famiglie += 1; }
-    if v.chars().any(|c| c.is_ascii_digit()) { famiglie += 1; }
-    if v.chars().any(|c| !c.is_alphanumeric()) { famiglie += 1; }
+    if v.chars().any(|c| c.is_ascii_lowercase()) {
+        famiglie += 1;
+    }
+    if v.chars().any(|c| c.is_ascii_uppercase()) {
+        famiglie += 1;
+    }
+    if v.chars().any(|c| c.is_ascii_digit()) {
+        famiglie += 1;
+    }
+    if v.chars().any(|c| !c.is_alphanumeric()) {
+        famiglie += 1;
+    }
     let per_lunghezza = match n {
         0..=7 => 0,
         8..=11 => 1,
@@ -246,7 +266,9 @@ pub fn robustezza(v: &str) -> u8 {
         _ => 4,
     };
     let per_varieta = famiglie.saturating_sub(1);
-    per_lunghezza.min(per_varieta.max(if n >= 20 { 3 } else { 0 })).min(4)
+    per_lunghezza
+        .min(per_varieta.max(if n >= 20 { 3 } else { 0 }))
+        .min(4)
 }
 
 fn scheda(v: &Voce, quante_volte: &HashMap<&str, usize>) -> Scheda {
