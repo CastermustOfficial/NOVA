@@ -622,3 +622,63 @@ mancava `libasound2-dev`. Il demone tira dentro la voce, la voce parla ad
 ALSA. Era scritto nel documento della beta, a proposito di un altro lavoro
 della CI, e non mi e' venuto in mente: **aggiungere un bersaglio a un lavoro
 vuol dire aggiungergli anche cio' che quel bersaglio si porta dietro**.
+
+## Il banco gemello passava, e una meta' distruggeva file
+
+`file_disco::sposta` e `move_path` sono la stessa funzione in due lingue, e
+un banco le confronta operazione per operazione. Il banco era verde. Con
+`overwrite=true` su una destinazione che esiste gia', il Python manda nel
+Cestino quello che c'era e poi sposta; il Rust faceva `rename` sopra, e il
+file di destinazione spariva **per sempre**, senza che niente lo dicesse.
+
+Il banco non se n'e' accorto per una ragione precisa, e vale la pena
+scriverla: fra le trentuno operazioni provate c'era uno spostamento sopra un
+file esistente **senza** `overwrite`, dove le due meta' si comportano uguale
+(si rifiutano). Il caso con `overwrite` non c'era. Un banco gemello prova i
+casi che gli si danno, e quelli che non gli si danno non li prova: la
+copertura non arriva dal fatto che le due meta' vengono confrontate, arriva
+da quali casi si scelgono.
+
+La regola che me ne accorgo: **di ogni parametro che cambia il verso di
+un'azione — `overwrite`, `permanent`, `replace_all`, `force` — vanno provati
+tutti e due i valori.** Sono pochi, si contano, e sono esattamente i posti
+dove una meta' puo' diventare distruttiva mentre l'altra no.
+
+E un corollario, sul come si prova: la verifica nuova non si limita a dire
+«le due meta' dicono la stessa cosa». Guarda anche **nel merito** che lo
+spostamento sopra un file, senza Cestino disponibile, si fermi. Se un giorno
+tutte e due ricominciassero a sovrascrivere in silenzio, resterebbero uguali
+e la prova del confronto passerebbe lo stesso.
+
+## Le guardie dell'utente e quelle del demone erano due elenchi diversi
+
+`config.json` ha `safety.write_roots` e `safety.protected_paths`: e' quello
+che l'utente scrive dal pannello. `core.json` ha `write_roots` e
+`protected_paths` suoi: e' quello che legge il demone, e l'utente non l'ha
+mai visto.
+
+Finche' il demone non toccava i file erano due elenchi che non si
+incontravano. Nel momento in cui gli strumenti sui file sono entrati nel
+demone, sono diventati due risposte alla stessa domanda — e chi aveva
+scritto «NOVA puo' scrivere solo in Documenti» nel pannello **non era
+protetto** dal processo che esegue.
+
+E' la terza volta che questo progetto paga lo stesso conto: era D56 per i
+percorsi, D185 per i comandi vietati, e qui di nuovo. La forma e' sempre la
+stessa — due elenchi della stessa cosa, in due posti, che divergono senza
+che nessuno se ne accorga perche' nessuno dei due e' *sbagliato*.
+
+Adesso valgono tutti e due, e la regola del come non e' ovvia: per i divieti
+si uniscono (piu' divieti = piu' stretto), per le **cartelle autorizzate**
+no. Unire due elenchi di cartelle autorizzate autorizza *di piu'* di
+ciascuno dei due — cioe' il verso opposto a quello che chi scrive una
+guardia si aspetta. Li' resta l'incastro: si scrive dove tutti e due dicono
+di si', e se non c'e' incastro non si scrive da nessuna parte.
+
+Dentro al demone, poi, c'era un secondo `check_write` scritto a mano che
+confrontava i prefissi **senza separatore**: autorizzare `C:\dati`
+autorizzava anche `C:\dati-altrui`. E' il difetto che il commento di
+`guardie.rs` racconta come «gia' corretto dall'altra parte» — e che era
+rimasto qui, cioe' proprio nel processo che esegue. Adesso il controllo dei
+percorsi passa per `Guardie` come gia' faceva quello dei comandi: una sola
+implementazione, provata da tutte e due le parti.

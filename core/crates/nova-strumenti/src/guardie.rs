@@ -124,6 +124,7 @@ fn come_repr(s: &str) -> String {
 }
 
 /// Le regole di sicurezza, gia' compilate.
+#[derive(Clone)]
 pub struct Guardie {
     protetti: Vec<String>,
     radici: Vec<String>,
@@ -160,6 +161,47 @@ impl Divieto {
         }
     }
 }
+
+/// Le cartelle autorizzate quando **due elenchi devono valere tutti e due**.
+///
+/// Serve quando le stesse guardie arrivano da due file diversi e nessuno dei
+/// due ha ragione da solo: si scrive dove tutti e due dicono di si'. Mettere
+/// insieme i due elenchi sarebbe il verso sbagliato — due elenchi uniti
+/// autorizzano **di piu'** di ciascuno dei due, e chi ne ha scritto uno
+/// credeva di stringere.
+///
+/// Un elenco vuoto vuol dire «tutto il disco», quindi non restringe niente e
+/// il risultato e' l'altro. Con tutti e due pieni resta l'incastro: ogni
+/// cartella di un elenco che stia dentro una dell'altro, e viceversa. Sono
+/// alberi, quindi l'incastro di due alberi e' fatto dei rami piu' profondi.
+pub fn radici_in_comune(a: &[String], b: &[String]) -> Vec<String> {
+    if a.is_empty() {
+        return b.to_vec();
+    }
+    if b.is_empty() {
+        return a.to_vec();
+    }
+    let mut fuori: Vec<String> = Vec::new();
+    for x in a.iter().chain(b.iter()) {
+        let in_a = a.iter().any(|r| dentro(x, r));
+        let in_b = b.iter().any(|r| dentro(x, r));
+        if in_a && in_b && !fuori.iter().any(|g| g == x) {
+            fuori.push(x.clone());
+        }
+    }
+    // Nessun incastro non e' «tutto il disco»: e' «da nessuna parte», e va
+    // detto con un elenco che non contiene niente di scrivibile invece che
+    // con uno vuoto, che vorrebbe dire il contrario.
+    if fuori.is_empty() {
+        fuori.push(NESSUN_POSTO.to_string());
+    }
+    fuori
+}
+
+/// Il nome che non e' un posto. Quando due elenchi di cartelle autorizzate
+/// non hanno niente in comune, la risposta e' «da nessuna parte», e una
+/// lista vuota direbbe l'opposto.
+pub const NESSUN_POSTO: &str = "\u{0}nessun-posto-autorizzato";
 
 impl Guardie {
     pub fn nuove(
@@ -366,5 +408,58 @@ mod prove {
         assert!(g.puo_scrivere(r"D:\fuori\x.txt", Some(r"C:\dati\x.txt")).is_ok(),
                 "e vale anche al contrario: se la destinazione e' dentro, va bene");
         assert!(g.puo_scrivere(r"D:\fuori\x.txt", None).is_err());
+    }
+}
+
+#[cfg(test)]
+mod prove_in_comune {
+    use super::*;
+
+    #[test]
+    fn un_elenco_vuoto_non_restringe_niente() {
+        assert_eq!(
+            radici_in_comune(&[], &["/a".into()]),
+            vec!["/a".to_string()]
+        );
+        assert_eq!(
+            radici_in_comune(&["/a".into()], &[]),
+            vec!["/a".to_string()]
+        );
+        assert_eq!(radici_in_comune(&[], &[]), Vec::<String>::new());
+    }
+
+    /// Il verso che conta: due elenchi insieme autorizzano **meno**, non di
+    /// piu'. Unirli sarebbe il contrario, e chi ne ha scritto uno credeva di
+    /// stringere.
+    #[test]
+    fn di_due_elenchi_resta_l_incastro() {
+        let a = vec!["/casa".to_string()];
+        let b = vec!["/casa/lavoro".to_string()];
+        assert_eq!(
+            radici_in_comune(&a, &b),
+            vec!["/casa/lavoro".to_string()],
+            "il ramo piu' profondo, non la radice"
+        );
+    }
+
+    #[test]
+    fn senza_niente_in_comune_non_si_scrive_da_nessuna_parte() {
+        let g = Guardie::nuove(
+            &[],
+            &radici_in_comune(&["/casa".into()], &["/altrove".into()]),
+            &[],
+            Autonomia::ChiediSeRischioso,
+        );
+        assert!(g.puo_scrivere("/casa/x.txt", None).is_err());
+        assert!(g.puo_scrivere("/altrove/x.txt", None).is_err());
+    }
+
+    /// E un nome che comincia uguale non entra dalla finestra.
+    #[test]
+    fn una_cartella_che_somiglia_non_entra_nell_incastro() {
+        let comuni = radici_in_comune(&["/casa/lavoro".into()], &["/casa/lavoro".into()]);
+        let g = Guardie::nuove(&[], &comuni, &[], Autonomia::ChiediSeRischioso);
+        assert!(g.puo_scrivere("/casa/lavoro/x.txt", None).is_ok());
+        assert!(g.puo_scrivere("/casa/lavoro-altrui/x.txt", None).is_err());
     }
 }

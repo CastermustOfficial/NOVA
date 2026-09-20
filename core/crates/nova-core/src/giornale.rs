@@ -42,6 +42,11 @@ pub enum Inversa {
     RipristinaFile { percorso: String, copia: String },
     /// Il file non c'era: annullare vuol dire toglierlo.
     CancellaFile { percorso: String },
+    /// La cartella non c'era: annullare vuol dire toglierla, **se e'
+    /// ancora vuota**. Se nel frattempo ci e' finito dentro qualcosa,
+    /// toglierla vorrebbe dire cancellare roba che nessuno ha chiesto di
+    /// cancellare: meglio dirlo e fermarsi.
+    CancellaCartella { percorso: String },
     /// Rimette qualcosa dov'era.
     Sposta { da: String, a: String },
     /// Si sa cosa e' successo, ma non come tornare indietro.
@@ -161,6 +166,18 @@ pub fn elenco(quante: usize) -> Vec<Voce> {
 }
 
 /// Disfa una voce. Ritorna cosa e' stato fatto.
+/// Butta la copia messa da parte per un'operazione che poi non si e' fatta.
+///
+/// Senza, ogni tentativo fallito lascia dietro di se' una copia intera del
+/// file che stava per cambiare: su un file grosso, e su un modello che ci
+/// riprova, e' il disco che si riempie per operazioni che non sono mai
+/// avvenute.
+pub fn butta_copia(inversa: &Inversa) {
+    if let Inversa::RipristinaFile { copia, .. } = inversa {
+        let _ = std::fs::remove_file(copia);
+    }
+}
+
 pub fn annulla(id: u64) -> Result<String> {
     let mut voci = leggi();
     let posizione = voci
@@ -185,6 +202,24 @@ pub fn annulla(id: u64) -> Result<String> {
                 std::fs::remove_file(&percorso)?;
             }
             format!("tolto {percorso}, che prima non esisteva")
+        }
+        Inversa::CancellaCartella { percorso } => {
+            let p = std::path::Path::new(&percorso);
+            if !p.exists() {
+                format!("{percorso} non c'e' gia' piu'")
+            } else {
+                let vuota = std::fs::read_dir(p)
+                    .map(|mut d| d.next().is_none())
+                    .unwrap_or(false);
+                if !vuota {
+                    return Err(anyhow!(
+                        "dentro «{percorso}» adesso c'e' qualcosa: non la tolgo, \
+                         perche' toglierei anche quello. Svuotala e riprova."
+                    ));
+                }
+                std::fs::remove_dir(p)?;
+                format!("tolta {percorso}, che prima non esisteva")
+            }
         }
         Inversa::Sposta { da, a } => {
             std::fs::rename(&da, &a)?;

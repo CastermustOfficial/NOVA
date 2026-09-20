@@ -14,7 +14,6 @@ use nova_strumenti::predefiniti;
 use crate::config::Config;
 
 pub struct Policy {
-    protected: Vec<PathBuf>,
     write_roots: Vec<PathBuf>,
     /// La stessa guardia che usa NOVA lato Python, non una seconda scritta
     /// qui: `Guardie` compila i motivi come espressioni regolari senza
@@ -23,16 +22,68 @@ pub struct Policy {
     /// con in piu' una regola sua — «conta solo dove starebbe un comando» —
     /// che dall'altra parte non esisteva: due meccanismi sullo stesso
     /// elenco, cioe' due risposte diverse alla stessa domanda (D185).
+    ///
+    /// Adesso ci passano anche **i percorsi**, per la stessa ragione e con
+    /// un anno di ritardo. Qui accanto c'era un secondo controllo scritto a
+    /// mano che confrontava i prefissi **senza separatore**: autorizzare
+    /// `C:\dati` autorizzava anche `C:\dati-altrui`. E' precisamente il
+    /// difetto che il commento di `guardie` racconta come gia' corretto
+    /// dall'altra parte — e che era rimasto qui, nel processo che esegue.
     guardie: Guardie,
 }
 
 impl Policy {
     pub fn from_config(cfg: &Config) -> Self {
-        Self {
-            protected: cfg.protected_paths.iter().map(PathBuf::from).collect(),
-            write_roots: cfg.write_roots.iter().map(PathBuf::from).collect(),
-            guardie: Guardie::nuove(&[], &[], &motivi(cfg), Autonomia::ChiediSeRischioso),
+        Self::con_quelle_di_nova(cfg, &nova_configurazione::dove::leggi())
+    }
+
+    /// Le guardie del demone **piu'** quelle che l'utente ha scritto nel
+    /// `config.json` di NOVA.
+    ///
+    /// Il demone ha le sue, in `core.json`. L'utente non ha mai visto quel
+    /// file: il pannello che apre scrive nell'altro. Finche' il demone non
+    /// toccava i file, erano due elenchi che non si incontravano; adesso che
+    /// gli strumenti sui file stanno qui, chi scrive «NOVA puo' scrivere
+    /// solo in Documenti» nel pannello si aspetta che valga — e fino a
+    /// ieri non valeva.
+    ///
+    /// I due elenchi **non si uniscono**: valgono tutti e due. Per i
+    /// percorsi protetti e per i comandi vietati e' la stessa cosa (piu'
+    /// divieti = piu' stretto); per le cartelle autorizzate no, e unirli
+    /// sarebbe il verso sbagliato — vedi `radici_in_comune`.
+    pub fn con_quelle_di_nova(cfg: &Config, nova: &serde_json::Value) -> Self {
+        let (protetti_nova, radici_nova, motivi_nova) =
+            crate::dalla_configurazione::guardie_di_nova(nova);
+        let mut protetti = cfg.protected_paths.clone();
+        for p in protetti_nova {
+            if !protetti.contains(&p) {
+                protetti.push(p);
+            }
         }
+        let mut vietati = motivi(cfg);
+        for m in motivi_nova {
+            if !vietati.contains(&m) {
+                vietati.push(m);
+            }
+        }
+        let radici = nova_strumenti::guardie::radici_in_comune(&cfg.write_roots, &radici_nova);
+        Self {
+            // Il recinto del kernel si costruisce da queste: sono le stesse
+            // che valgono per il controllo, non un secondo elenco.
+            write_roots: radici.iter().map(PathBuf::from).collect(),
+            guardie: Guardie::nuove(&protetti, &radici, &vietati, Autonomia::ChiediSeRischioso),
+        }
+    }
+
+    /// Le guardie, per chi le vuole passare a un corpo che le chiede.
+    ///
+    /// Gli strumenti sui file di `nova_strumenti::file_disco` prendono le
+    /// guardie come **primo argomento**, apposta: un permesso che si puo'
+    /// dimenticare si dimentica. Darle da qui vuol dire che il demone e
+    /// NOVA lato Python chiedono alla stessa guardia, non a due che si
+    /// somigliano.
+    pub fn guardie(&self) -> &Guardie {
+        &self.guardie
     }
 
     /// Le cartelle in cui l'utente ha detto che si puo' scrivere.
@@ -45,31 +96,23 @@ impl Policy {
     }
 
     /// Vale per scritture, modifiche e cancellazioni.
+    ///
+    /// Il percorso risolto si passa perche' **e' obbligatorio pensarci**:
+    /// sui soli nomi una giunzione porta dentro una cartella protetta senza
+    /// che niente scatti. Chi non riesce a risolvere resta con la difesa sui
+    /// nomi, che e' meno e non e' niente.
     pub fn check_write(&self, path: &Path) -> Result<()> {
-        let target = normalizza(path);
-        for prot in &self.protected {
-            let p = normalizza(prot);
-            if target == p || target.starts_with(&p) {
-                bail!(
-                    "percorso protetto dalla policy del demone: {}",
-                    path.display()
-                );
-            }
+        let scritto = path.display().to_string();
+        let risolto = path.canonicalize().ok().map(|p| {
+            p.display()
+                .to_string()
+                .trim_start_matches(r"\\?\")
+                .to_string()
+        });
+        match self.guardie.puo_scrivere(&scritto, risolto.as_deref()) {
+            Ok(()) => Ok(()),
+            Err(d) => bail!("{}", d.messaggio()),
         }
-        if !self.write_roots.is_empty() {
-            let dentro = self
-                .write_roots
-                .iter()
-                .any(|r| target.starts_with(&normalizza(r)));
-            if !dentro {
-                bail!(
-                    "scrittura consentita solo dentro {:?}: {}",
-                    self.write_roots,
-                    path.display()
-                );
-            }
-        }
-        Ok(())
     }
 
     /// Se questo comando si puo' eseguire.
@@ -105,22 +148,6 @@ fn motivi(cfg: &Config) -> Vec<String> {
     fuori
 }
 
-/// Confronto robusto: minuscole su Windows, separatori uniformi.
-fn normalizza(p: &Path) -> String {
-    let s = p
-        .canonicalize()
-        .unwrap_or_else(|_| p.to_path_buf())
-        .to_string_lossy()
-        .replace('/', "\\")
-        .trim_start_matches(r"\\?\")
-        .to_string();
-    if cfg!(windows) {
-        s.to_lowercase()
-    } else {
-        s
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -137,6 +164,49 @@ mod tests {
             "/etc/passwd"
         };
         assert!(policy.check_write(Path::new(dentro)).is_err());
+    }
+
+    /// Il buco che stava qui: i prefissi si confrontavano **senza
+    /// separatore**, quindi autorizzare una cartella autorizzava anche
+    /// quella col nome che comincia uguale. Dall'altra parte era gia'
+    /// corretto da un anno; qui no, e qui e' il processo che esegue.
+    #[test]
+    fn una_cartella_autorizzata_non_ne_autorizza_una_che_le_somiglia() {
+        let mut cfg = Config::default();
+        let (dentro, accanto) = if cfg!(windows) {
+            (r"C:\dati", r"C:\dati-altrui")
+        } else {
+            ("/tmp/dati", "/tmp/dati-altrui")
+        };
+        cfg.protected_paths.clear();
+        cfg.write_roots = vec![dentro.into()];
+        let policy = Policy::from_config(&cfg);
+        assert!(policy
+            .check_write(Path::new(&format!("{dentro}/x.txt")))
+            .is_ok());
+        assert!(policy
+            .check_write(Path::new(&format!("{accanto}/x.txt")))
+            .is_err());
+    }
+
+    /// E il verso opposto: una cartella protetta non protegge la vicina.
+    #[test]
+    fn e_una_protetta_non_ne_protegge_una_che_le_somiglia() {
+        let mut cfg = Config::default();
+        let (prot, accanto) = if cfg!(windows) {
+            (r"C:\segreti", r"C:\segreti-miei")
+        } else {
+            ("/tmp/segreti", "/tmp/segreti-miei")
+        };
+        cfg.protected_paths = vec![prot.into()];
+        cfg.write_roots.clear();
+        let policy = Policy::from_config(&cfg);
+        assert!(policy
+            .check_write(Path::new(&format!("{prot}/x.txt")))
+            .is_err());
+        assert!(policy
+            .check_write(Path::new(&format!("{accanto}/x.txt")))
+            .is_ok());
     }
 
     #[test]
