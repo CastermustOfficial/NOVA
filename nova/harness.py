@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """Nova Harness — il posto dove il lavoro si deposita.
 
 La chat e' dove si parla; l'harness e' dove il lavoro sta. Alla chat il
@@ -171,8 +171,29 @@ def _blocchi_righe(f: Path) -> list[dict]:
     return fuori
 
 
+def _estensione(nome: str) -> str:
+    """L'estensione di un nome di file, col punto, in minuscolo.
+
+    **Non** `Path.suffix`, e la differenza non e' teorica: per Python
+    `Path(".gitignore").suffix` e' la stringa vuota — un nome che comincia
+    per punto e' tutto nome. Cosi' `.gitignore` stava dentro `CODICE`, cioe'
+    dentro `LEGGIBILI`, e l'harness lo dichiarava apribile — ma `_albero` lo
+    saltava sempre e `_leggi_documento` rispondeva «non so aprire un file
+    senza estensione». Un elenco che dice una cosa e un dispacciamento che ne
+    fa un'altra: il difetto si vedeva solo mettendo le due meta' una di
+    fronte all'altra (D269).
+    """
+    solo = nome.replace("\\", "/").rsplit("/", 1)[-1]
+    punto = solo.rfind(".")
+    # Il punto in prima posizione e «nessun punto» stanno insieme, ed e'
+    # voluto: un nome che comincia per punto e' tutto estensione.
+    if punto <= 0:
+        return solo.lower()
+    return solo[punto:].lower()
+
+
 def _leggi_documento(f: Path) -> list[dict]:
-    est = f.suffix.lower()
+    est = _estensione(f.name)
     if est == ".docx":
         return _blocchi_docx(f)
     if est == ".pdf":
@@ -201,7 +222,7 @@ def _albero(radice: Path) -> list[str]:
             continue
         if not f.is_file():
             continue
-        if f.suffix.lower() not in LEGGIBILI and f.name not in ("Makefile",):
+        if _estensione(f.name) not in LEGGIBILI and f.name not in ("Makefile",):
             continue
         try:
             if f.stat().st_size > FILE_MAX:

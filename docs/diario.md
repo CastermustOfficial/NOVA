@@ -8666,3 +8666,73 @@ a `#[cfg(test)]`. L'eccezione scritta a mano e' sparita.
 
 Ventiquattro prove verdi, quindici mutazioni su quindici, e un server vero
 che ha detto la cosa che non sapevo.
+
+
+## L'harness, primo pezzo: dove finisce un blocco
+
+CANT-8 e' il cantiere piu' grosso rimasto, e la cosa giusta e' farlo a pezzi
+come CANT-3. Questo e' il primo: il **taglio** e la **ricerca**.
+
+L'harness e' il posto dove NOVA dice «lo trovi a pagina 12, terzo blocco», e
+quella e' una promessa forte: o quel blocco contiene quella cosa o non la
+contiene, e chi legge puo' andare a controllare. E' la stessa medicina del
+fascicolo — i fatti vengono da un posto reale — applicata alla lettura invece
+che alla scrittura. Tutto il resto discende da li': i blocchi esistono per
+**indicare**, e un modo di dividere un documento che non produce punti
+indicabili non serve a niente.
+
+`nova-harness` non apre nessun file, e la separazione e' voluta. Il taglio in
+blocchi e' una **decisione**; aprire un `.docx` e' un'operazione, e quale
+libreria la fa e' gia' stato deciso misurando (D237, D238). Tenerle distinte
+permette due cose: provare la decisione senza avere il file, e cambiare
+libreria senza ridiscutere il taglio.
+
+Tre regole che a leggerle sembrano dettagli.
+
+**Il nome di un blocco e' il numero di riga vero, e non slitta** (D270). Le
+righe vuote non diventano blocchi — non c'e' niente da indicare — ma il
+numero del blocco dopo resta quello del file. Rinumerare sarebbe piu'
+ordinato e vorrebbe dire che l'errore di un compilatore e il blocco
+dell'harness parlano di due righe diverse. Vale anche per i paragrafi di un
+`.docx`: un paragrafo vuoto non e' un blocco, ma `p2` resta il terzo
+paragrafo.
+
+**A pari punteggio vince chi viene prima nel documento** (D271). E' stabile
+dalle due parti, e non e' un caso dell'implementazione: una risposta che
+cambia ordine fra due domande identiche fa dubitare anche della parte giusta.
+
+**Un blocco non si riporta a meta'** (D272). Quando lo spazio finisce,
+l'ultimo blocco non entra troncato: non entra. Un blocco tagliato dice una
+cosa che il documento non dice, ed e' il contrario esatto di quel che serve
+in un posto il cui mestiere e' «o c'e' o non c'e'».
+
+**Quel che ha trovato il banco.** `.gitignore` sta dentro `CODICE`, quindi
+dentro `LEGGIBILI`: l'harness lo dichiarava apribile. Non lo era mai. Per
+Python `Path(".gitignore").suffix` e' la stringa vuota — un nome che comincia
+per punto e' tutto nome — quindi `_albero` lo saltava sempre e
+`_leggi_documento` rispondeva «non so aprire un file senza estensione». Un
+elenco che dice una cosa e un dispacciamento che ne fa un'altra, e nessuna
+delle due meta' poteva accorgersene da sola: l'elenco era giusto, il codice
+era giusto, era il pezzo fra i due a non esistere (D269).
+
+E la ricerca non ha una sua idea di somiglianza: usa quella delle ricette —
+contenimento, radice, trigrammi. Non e' per risparmiare righe. E' che la
+tolleranza ai refusi deve valere anche qui: chi cerca «Calhanoglu» scritto
+storto lo trova lo stesso, e due tolleranze diverse nello stesso programma
+sono due programmi.
+
+Venti mutazioni, quattro sopravvissute al primo giro, e le quattro erano
+istruttive in due modi diversi. Due erano **equivalenti**: un ramo che
+scrivevo come caso a parte — «un nome che comincia per punto» — dava
+esattamente la stessa risposta del caso generale, dalle due parti. Non era un
+difetto: era codice che sembrava decidere qualcosa e non decideva niente, e
+la mutazione me l'ha fatto notare. Le altre due erano prove troppo gentili:
+sceglievo da dove partire in un albero in cui l'ordine dell'elenco e quello
+dei file coincidevano, e confrontavo punteggi che stavano tutti in due
+decimali. Bastava un caso dove i due ordini si separano e un punteggio da
+0,3333.
+
+Ottantadue confronti verdi, diciannove prove di unita', venti mutazioni su
+venti. Restano tre pezzi: aprire davvero i file, le proposte di modifica —
+con la modifica chirurgica al `.docx`, che e' il premio di D237 — e il banco
+delle prove.
