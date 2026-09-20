@@ -554,5 +554,9 @@ pub fn in_json(b: &Blocco) -> Value {
     })
 }
 
+/// Le proposte di modifica: quel che si puo' chiedere a un blocco, e come
+/// un documento diventa quel che sara'.
+pub mod modifica;
+
 #[cfg(test)]
 mod prove;

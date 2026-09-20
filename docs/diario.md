@@ -8736,3 +8736,64 @@ Ottantadue confronti verdi, diciannove prove di unita', venti mutazioni su
 venti. Restano tre pezzi: aprire davvero i file, le proposte di modifica —
 con la modifica chirurgica al `.docx`, che e' il premio di D237 — e il banco
 delle prove.
+
+
+## La proposta, e due modi di scrivere nel posto sbagliato
+
+Secondo pezzo di CANT-8. Toccare un documento e' l'azione che non si annulla
+da se', quindi nell'harness non esiste una funzione che modifichi e basta:
+c'e' una **proposta**, che sta in un file accanto alla sessione e non tocca
+niente, e un'**applicazione**, che l'utente chiede dopo aver visto cosa
+cambia.
+
+La cosa migliore di questo pezzo c'era gia', e l'ho solo portata: l'anteprima
+e l'applicazione sono lo stesso codice, con due marche opzionali in coda alle
+righe — una per cio' che arriva, una per cio' che se ne va. Un'anteprima
+calcolata a parte prima o poi mostra qualcosa di diverso da quel che poi
+succede, ed e' il modo piu' sicuro di far perdere fiducia a chi deve premere
+il bottone.
+
+Poi ho trovato due modi, tutti e due silenziosi, di scrivere la modifica nel
+posto sbagliato.
+
+**Il primo: il file cambiato sotto.** La proposta si controlla contro i
+blocchi letti quando il documento e' stato *aperto*. L'applicazione arriva
+dopo — un minuto, mezz'ora — e rilegge il file da capo per applicarla. Se in
+mezzo qualcuno ha toccato quel file — l'utente in un editor, un altro
+programma, un `git pull` — la riga numero 12 non e' piu' quella su cui la
+proposta era stata fatta. E NOVA ci scriveva sopra **senza dire niente**. La
+copia `.prima` c'era, ma conteneva gia' la versione modificata da qualcun
+altro, quindi non riportava indietro alla versione che l'utente si aspettava.
+
+Adesso ogni modifica si porta dietro cosa c'era, e se li' non c'e' piu'
+quello, non si scrive. E non si scrive **niente**, nemmeno le modifiche che
+andrebbero ancora bene: applicare meta' di quel che si e' mostrato in
+anteprima e' peggio che non applicare, perche' chi guarda il file dopo non ha
+modo di sapere quale meta'. Il confronto e' sul contenuto e non sulla data —
+una data cambia anche quando il testo e' lo stesso, e dire di no a chi non ha
+cambiato niente sarebbe un altro modo di sbagliare (D273).
+
+**Il secondo l'ha trovato il banco, e mi e' piaciuto.** Una prova falliva su
+`"import a\\nimport b\\n"`: il Rust dava due righe, il Python tre. Era la mia
+prova scritta male — usavo `split("\\n")` invece di `splitlines()` — ma
+andando a guardare la differenza fra le due ho trovato una cosa vera:
+`str.splitlines()` in Python taglia anche sul **salto pagina** (`\\x0c`),
+sulla tabulazione verticale e su mezza dozzina di confini Unicode.
+
+Un `.txt` con dentro un salto pagina — ce ne sono, nei documenti vecchi e in
+certi sorgenti C — diventava quattro righe dove il file ne ha tre. E da li' in
+giu' ogni numero di blocco era slittato di uno: `r12` non era piu' la riga 12
+per nessuno tranne che per l'harness. Che e' esattamente cio' che D270 dice
+che non deve succedere, scritto due giorni fa. Un editor, `wc -l` e un
+compilatore contano i `\\n`: adesso li contiamo anche noi (D274).
+
+Sedici mutazioni, due sopravvissute. Una era davvero equivalente; l'altra era
+una prova troppo gentile, e per ucciderla e' servito il caso vero — una riga
+di codice **indentata**. Il blocco di una riga di codice tiene
+l'indentazione (in Python quella *e'* il senso della riga), quindi il «prima»
+arriva con gli spazi davanti, e vanno schiacciati anche loro prima di
+confrontare. Senza quel caso, il confronto sembrava giusto e funzionava solo
+sui file senza rientri.
+
+Centoquarantacinque confronti verdi, trentasette prove di unita', sedici
+mutazioni su sedici.

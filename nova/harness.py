@@ -134,8 +134,32 @@ def _blocchi_pdf(f: Path) -> list[dict]:
     return fuori
 
 
+def righe_di(testo: str) -> list[str]:
+    """Le righe di un file, contate come le conta chiunque altro.
+
+    **Non** `str.splitlines()`, e la differenza non e' teorica: `splitlines`
+    in Python taglia anche sul salto pagina (`\x0c`), sulla tabulazione
+    verticale e su mezza dozzina di confini Unicode. Un `.txt` con dentro un
+    salto pagina — ce ne sono, nei documenti vecchi e in certi sorgenti C —
+    diventava quattro righe dove il file ne ha tre, e da li' in giu' **ogni**
+    numero di blocco era slittato di uno: `r12` non era piu' la riga 12 per
+    nessuno tranne che per l'harness. E `_rifai` scriveva la modifica una
+    riga piu' su di dove si era mostrata.
+
+    Un editor, `wc -l` e un compilatore contano i `\n`. Contiamo quelli
+    (D274).
+    """
+    if not testo:
+        return []
+    righe = testo.split("\n")
+    # Un file che finisce con un a capo non ha una riga vuota in fondo.
+    if righe and righe[-1] == "":
+        righe.pop()
+    return [r[:-1] if r.endswith("\r") else r for r in righe]
+
+
 def _blocchi_testo(f: Path) -> list[dict]:
-    righe = f.read_text(encoding="utf-8", errors="replace").splitlines()
+    righe = righe_di(f.read_text(encoding="utf-8", errors="replace"))
     fuori, buffer, inizio = [], [], 0
     for i, r in enumerate(righe):
         if r.strip():
@@ -163,8 +187,8 @@ def _blocchi_righe(f: Path) -> list[dict]:
     per blocco e' anche l'unita' con cui si legge un errore: file, riga.
     """
     fuori = []
-    for i, r in enumerate(f.read_text(encoding="utf-8",
-                                      errors="replace").splitlines()):
+    for i, r in enumerate(righe_di(f.read_text(encoding="utf-8",
+                                               errors="replace"))):
         if r.strip():
             fuori.append({"id": f"r{i}", "pagina": None, "testo": r.rstrip(),
                           "stile": "", "riquadro": None, "righe": 1})

@@ -969,7 +969,7 @@ mole, non di difficolta'.
 | ~~CANT-5~~ | ~~**Il server MCP**~~ — **fatto**: il protocollo, le trentatre' dichiarazioni, il rischio, la domanda in chiaro, gli allegati e la risposta al permesso. I corpi degli strumenti appartengono ai cantieri che chiamano | ~1.290 | Protocollo, quindi traducibile senza scelte — ma le **buste** hanno una regola che rompe i client quando si sbaglia (D175, D176) |
 | ~~CANT-6~~ | ~~**Il browser e la ricerca**~~ — **fatto**, per la parte traducibile: i nove copioni che girano nella pagina, il confine fra argomento e codice, la scelta della scheda, cosa di una pagina e' testo, e i due raschiatori del motore. Quel che resta e' avviare Chrome e tenere la connessione: processi e rete, e appartiene a CANT-7 | ~760 | Nessuna scelta di interfaccia, ma il pezzo dove il confine fra argomento e codice conta piu' che altrove: quel testo lo esegue un interprete che non e' nostro (D178). Ed e' il cantiere in cui il banco ha trovato un difetto vero, non una differenza di porto (D181) |
 | ~~CANT-7~~ | ~~**L'impalcatura**~~ — **fatto**: le guardie predefinite (D185); le **regole** di lettura della configurazione, provate da tutte e due le parti e con dentro quattro difetti in meno (D229, D248, D249, D250) — il crate e' `nova-configurazione`, col suo banco; la mappa dei dati e' `nova-dati` (D243, D244); il catalogo di cio' che si scarica e' `nova-componenti` (D245, D246, D247); la connessione a Chrome e' `nova-cdp`, ed era l'ultima scelta di libreria aperta di tutto il cantiere (D240, D241). `main.py` non si porta: i punti d'ingresso Rust ci sono gia' | ~1.800 | Non si porta: si **riscrive**, perche' meta' esiste solo per tenere insieme il Python. Andava per ultima fra quelle di sostanza, quando si sa cosa deve tenere insieme — e cosi' e' stato |
-| CANT-8 | **L'harness dei documenti** — *la strada e' scelta: **prima la logica, poi la finestra**. Le librerie sono provate (D237, D238, D239). **Primo pezzo fatto**: `nova-harness` — come un documento si divide in blocchi (righe per il codice, paragrafi per il testo, paragrafi e tabelle per il `.docx`, pezzi col riquadro per il PDF), quali file di un progetto si guardano, e come si decide quale blocco risponde a una domanda (D270, D271, D272). Il banco ha trovato un'estensione dichiarata apribile che non lo era mai (D269). Restano: aprire davvero i file, le **proposte di modifica** con la modifica chirurgica al `.docx`, e il banco delle prove* | ~3.100, di cui **1.518 senza una riga di Qt** | Non e' «2.900 righe di finestra Qt»: solo `harness_finestra.py` tocca Qt, e di quelle 1.582 righe la parte Qt sono 164. La finestra e' un'altra domanda, e da quando il guscio e' Tauri con l'interfaccia in HTML, e' la domanda «una quarta finestra del guscio?» invece di «quali widget?» |
+| CANT-8 | **L'harness dei documenti** — *la strada e' scelta: **prima la logica, poi la finestra**. Le librerie sono provate (D237, D238, D239). **Due pezzi fatti**: `nova-harness` — come un documento si divide in blocchi, quali file di un progetto si guardano, come si decide quale blocco risponde (D269, D270, D271, D272); e `nova-harness::modifica` — la proposta che non tocca niente, l'anteprima e l'applicazione che sono lo stesso codice, e il rifiuto di scrivere sopra un file cambiato sotto (D273, D274). Restano: aprire davvero i file, la modifica chirurgica al `.docx`, e il banco delle prove* | ~3.100, di cui **1.518 senza una riga di Qt** | Non e' «2.900 righe di finestra Qt»: solo `harness_finestra.py` tocca Qt, e di quelle 1.582 righe la parte Qt sono 164. La finestra e' un'altra domanda, e da quando il guscio e' Tauri con l'interfaccia in HTML, e' la domanda «una quarta finestra del guscio?» invece di «quali widget?» |
 | CANT-9 | **Mac e Linux, parita' piena** — *le prove Python girano in CI anche su Ubuntu e macOS, e sono **verdi** (D232). Il primo giro ha trovato cinque difetti che da Windows non si vedevano: una cartella che si spostava (D231), i percorsi protetti che fuori da Windows non proteggevano niente (D230), una prova che lasciava il mondo senza permessi (D233), una porta che chiedeva meta' di quel che serviva (D234) e una che misurava la velocita' della macchina (D235). Poi sei dei tredici pezzi di `nova-platform`: il **Cestino** secondo la specifica freedesktop (D259, D260), i **processi** — con un modo di spegnere tutto che Windows non ha (D258) — le **informazioni di sistema** (D261), e appunti, volume e notifiche (D262). Restano quelli che chiedono un ambiente grafico vero: **tastiera, finestre e l'albero di accessibilita'**, piu' l'avvio automatico, che qui vuol dire scrivere un installatore che non c'e'* | ~3.300 | Non e' in coda per caso: e' il primo cantiere che **non si puo' provare da qui**. Quel che resta e' esattamente la parte che non si puo' nemmeno scrivere onestamente da qui: un albero di accessibilita' scritto senza una macchina su cui guardarlo produrrebbe un elenco di controlli plausibile e falso, che e' peggio del rifiuto onesto che c'e' adesso |
 | ~~CANT-10~~ | ~~**I fogli di calcolo**~~ — **fatto**: `nova-fogli` legge **e** scrive. I riferimenti (`A1`, `$B$7`, `C10:A1` che e' la stessa area di `A1:C10`), la regola che decide se un valore e' un numero (D254), come si legge una cella con dentro un conto mai calcolato (D253), e la scrittura che non spoglia il file — formule, formati, grassetti e secondo foglio restano, provato su un `.xlsx` vero (D239, D255). Di riflesso, le due letture Python che davano due testi diversi dello stesso file sono diventate una (D256) | ~150 oggi | Il pubblico lo chiede, e NOVA sapeva fare **meta' della meta'**: leggeva il testo delle celle, in sola lettura. Nasceva direttamente come crate, ed e' andata cosi': aritmetica e formati, cioe' esattamente il genere di cosa che si porta bene e si prova meglio |
 | ~~CANT-11~~ | ~~**NOVA parla MCP da un lato solo**~~ — **fatto**: `nova-mcp-cliente`. Non e' un tubo, e' un **cancello**, e le regole sono cinque: un server si dichiara e non si scopre (D263), le parole di un estraneo si citano e cio' che comanda si dice invece di toglierlo di nascosto (D264), i nomi portano davanti quello del server (D265), uno strumento altrui non e' mai «sicuro» (D266), e quel che entra ha una misura (D267). Provato contro un server MCP vero, che ha trovato un difetto che nessuna prova scritta a mano aveva trovato (D268) | ~400 | `nova-mcp` diceva di se': «il protocollo con cui NOVA **si apre** a un altro programma». Era vero, ed era meta': NOVA sapeva farsi usare e non sapeva usare. Andava dopo i fogli perche' e' un cancello e non uno strumento — e infatti il codice del tubo e' un terzo, il resto e' chi puo' entrare |
@@ -2184,6 +2184,33 @@ l'elenco dei file apribili, ma `Path(".gitignore").suffix` in Python e' la
 stringa vuota — quindi l'albero lo saltava sempre e aprirlo rispondeva «non
 so aprire un file senza estensione». Un elenco che dice una cosa e un
 dispacciamento che ne fa un'altra (D269).
+
+
+**CANT-8, secondo pezzo: la proposta, e due modi di scrivere nel posto
+sbagliato.** Toccare un documento e' l'azione che non si annulla da se',
+quindi nell'harness non esiste una funzione che modifichi e basta: esiste una
+proposta, che non tocca niente, e un'applicazione, che si chiede dopo aver
+visto cosa cambia. L'anteprima e l'applicazione sono **lo stesso codice** —
+un'anteprima calcolata a parte prima o poi mostra qualcosa di diverso da quel
+che poi succede, ed e' il modo piu' sicuro di far perdere fiducia a chi deve
+premere il bottone.
+
+Portandolo in Rust sono venuti fuori due modi, tutti e due silenziosi, di
+scrivere la modifica nel posto sbagliato.
+
+Il primo: la proposta si controlla contro i blocchi letti quando il documento
+e' stato **aperto**, e si applica anche mezz'ora dopo. Se in mezzo qualcuno
+ha toccato il file, le righe a quel numero vogliono dire un'altra cosa — e
+NOVA ci scriveva sopra senza dire niente, con la copia `.prima` che conteneva
+gia' la versione sbagliata. Adesso ogni modifica si porta dietro cosa c'era,
+e se non c'e' piu' non si scrive niente: applicare meta' di quel che si e'
+mostrato e' peggio che non applicare (D273).
+
+Il secondo: `str.splitlines()` in Python taglia anche sul salto pagina. Un
+`.txt` con dentro un `\x0c` diventava quattro righe dove il file ne ha tre, e
+da li' in giu' ogni numero di blocco era slittato di uno. `r12` non era piu'
+la riga 12 per nessuno tranne che per l'harness — e proprio D270 dice che
+dev'esserlo (D274).
 
 ## Il cancello della beta
 
