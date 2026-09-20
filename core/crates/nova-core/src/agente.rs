@@ -239,7 +239,8 @@ pub async fn fai_un_turno(
     let memoria = nova_contesto::blocchi::memoria(&server.memoria.contesto_per(testo, &cfg));
     let procedure = crate::ricette::blocco_per(testo);
     let contenuto = nova_contesto::blocchi::domanda(testo, &memoria, &procedure, "", "");
-    s.messaggi.push(json!({ "role": "user", "content": contenuto }));
+    s.messaggi
+        .push(json!({ "role": "user", "content": contenuto }));
 
     server
         .ctx
@@ -264,9 +265,20 @@ pub async fn fai_un_turno(
         strumenti,
         consegnato: Vec::new(),
     };
+    let inizio = std::time::Instant::now();
+    let righe_prima = mondo.sessione.messaggi.len();
     let fine = turno(&mut mondo, &mano).await;
     let consegnato = mondo.consegnato.clone();
     let gradino = mondo.gradino;
+    let durata = inizio.elapsed().as_secs_f64();
+    // Quanti strumenti ha usato davvero: si contano le risposte tornate in
+    // conversazione, non le chiamate chieste. Un modello che ne chiede uno
+    // che non esiste non ha usato niente.
+    let strumenti_usati: Vec<String> = s.messaggi[righe_prima.min(s.messaggi.len())..]
+        .iter()
+        .filter(|m| m.get("role").and_then(Value::as_str) == Some("tool"))
+        .filter_map(|m| m.get("name").and_then(Value::as_str).map(str::to_string))
+        .collect();
     let quante_righe = s.messaggi.len();
     drop(s);
 
@@ -283,6 +295,12 @@ pub async fn fai_un_turno(
     if matches!(fine, Fine::Rotto(_)) {
         return Err(anyhow!("{risposta}"));
     }
+
+    // Imparare non fa aspettare nessuno. Dalla parte Python il processo
+    // moriva subito dopo la risposta, quindi l'estrazione della procedura
+    // andava attesa fino a trenta secondi con un filo apposta; il demone
+    // resta acceso, e puo' semplicemente farlo dopo.
+    impara_dopo(server, &cfg, testo, &risposta, &strumenti_usati, durata);
     Ok(json!({
         "risposta": risposta,
         "esito": esito,
@@ -292,6 +310,101 @@ pub async fn fai_un_turno(
         "strumenti_offerti": quanti_strumenti,
         "righe_conversazione": quante_righe,
     }))
+}
+
+/// Quel che si impara a turno finito: per ora, le procedure.
+///
+/// Si decide con le stesse regole del Python — procedure attive, il turno
+/// sopra la soglia di secondi, almeno uno strumento usato — e poi si chiede
+/// al **modello** di ricostruire i passi. La richiesta gli si **passa**: una
+/// chiamata isolata non ha memoria del turno appena finito, e chiedergli
+/// «cosa hai fatto?» era chiedere a chi non c'era.
+fn impara_dopo(
+    server: &Arc<Server>,
+    cfg: &Value,
+    domanda: &str,
+    risposta: &str,
+    strumenti: &[String],
+    secondi: f64,
+) {
+    let attive = cfg
+        .get("kb")
+        .and_then(|k| k.get("procedure"))
+        .and_then(Value::as_bool)
+        .unwrap_or(true);
+    let soglia = cfg
+        .get("kb")
+        .and_then(|k| k.get("procedure_da_secondi"))
+        .and_then(Value::as_i64)
+        .unwrap_or(8);
+    if nova_ricette::imparare::si_registra(attive, secondi, soglia, false, strumenti.len()).is_err()
+    {
+        return;
+    }
+    let richiesta = nova_ricette::imparare::richiesta(domanda, risposta, strumenti);
+    let gradini = {
+        let cfg = cfg.clone();
+        let conf = crate::dalla_configurazione::scala(&cfg);
+        let recapiti = crate::dalla_configurazione::recapiti(&cfg, &|n| std::env::var(n).ok());
+        crate::mondo::scala_vera(&conf, &recapiti)
+    };
+    let domanda = domanda.to_string();
+    let strumenti = strumenti.to_vec();
+    let server = server.clone();
+    tokio::spawn(async move {
+        let Some(testo) = crate::agente::chiedi_e_basta(&gradini, &richiesta).await else {
+            return;
+        };
+        match nova_ricette::imparare::leggi(&testo) {
+            Ok(letta) => {
+                let adesso = nova_platform::orologio::adesso() as f64;
+                let titolo = tokio::task::spawn_blocking(move || {
+                    crate::ricette::archivia(&letta, &domanda, &strumenti, secondi, adesso)
+                })
+                .await
+                .ok()
+                .flatten();
+                if let Some(t) = titolo {
+                    server
+                        .ctx
+                        .bus
+                        .emit("agente.imparato", json!({ "procedura": t }));
+                    tracing::info!(procedura = %t, "procedura archiviata");
+                }
+            }
+            Err(perche) => {
+                // Perche' non si e' imparato si dice: tre guasti diversi
+                // avevano lo stesso sintomo — l'archivio che resta vuoto.
+                tracing::info!(?perche, "niente da archiviare da questo turno");
+            }
+        }
+    });
+}
+
+/// Una domanda sola al primo gradino, senza strumenti e senza conversazione.
+///
+/// E' il `semplice()` del Python: serve a chiedere al modello un lavoro di
+/// servizio — ricostruire una procedura, estrarre un fatto — e non deve
+/// toccare la conversazione dell'utente ne' avere strumenti in mano.
+pub async fn chiedi_e_basta(gradini: &[crate::mondo::Gradino], richiesta: &str) -> Option<String> {
+    let gradino = gradini.iter().find(|g| g.indirizzo().is_some())?;
+    let (base_url, modello, intestazioni, in_casa) = gradino.indirizzo()?;
+    let trasporto = ReteNelDemone(Rete::nuova(ATTESA_COLLEGAMENTO, ATTESA_RISPOSTA));
+    let corpo = json!({
+        "model": modello,
+        "messages": [{ "role": "user", "content": richiesta }],
+        "max_tokens": 400,
+    });
+    let r = nova_cervelli::rete::chiedi(
+        &trasporto,
+        base_url,
+        intestazioni,
+        &corpo,
+        gradino.nome(),
+        in_casa,
+    )
+    .ok()?;
+    Some(r.contenuto)
 }
 
 #[cfg(test)]

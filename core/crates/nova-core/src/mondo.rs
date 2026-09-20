@@ -55,6 +55,23 @@ pub enum Gradino {
 }
 
 impl Gradino {
+    /// I dati per parlarci, se e' di quelli a cui si manda un corpo.
+    ///
+    /// Serve a chi deve fare **una domanda sola** — ricostruire una
+    /// procedura, estrarre un fatto — senza costruire un turno intero.
+    pub fn indirizzo(&self) -> Option<(&str, &str, &[(String, String)], bool)> {
+        match self {
+            Gradino::Indirizzo {
+                base_url,
+                modello,
+                intestazioni,
+                in_casa,
+                ..
+            } => Some((base_url, modello, intestazioni, *in_casa)),
+            Gradino::Processo { .. } => None,
+        }
+    }
+
     pub fn nome(&self) -> &str {
         match self {
             Gradino::Indirizzo { nome, .. } => nome,

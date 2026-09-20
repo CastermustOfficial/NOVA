@@ -20,6 +20,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Deserialize)]
 struct RicettaIn {
     #[serde(default)]
+    id: String,
+    #[serde(default)]
     parole: Vec<String>,
     #[serde(default)]
     parole_alias: Vec<String>,
@@ -35,11 +37,20 @@ struct RicettaIn {
     procedura: String,
     #[serde(default)]
     strumenti: Vec<String>,
+    #[serde(default)]
+    creata: f64,
+    #[serde(default)]
+    innesco: String,
+    #[serde(default)]
+    secondi: f64,
 }
 
-/// Una ricetta come esce dalla fusione: si confronta campo per campo.
+/// Una ricetta come esce dalla fusione o da una registrazione: si confronta
+/// campo per campo, perche' un archivio giusto con un contatore sbagliato
+/// propone la stessa cosa con la sicurezza sbagliata.
 #[derive(Serialize)]
 struct RicettaFuori {
+    id: String,
     parole: Vec<String>,
     parole_alias: Vec<String>,
     parole_passi: Vec<String>,
@@ -48,6 +59,9 @@ struct RicettaFuori {
     titolo: String,
     procedura: String,
     strumenti: Vec<String>,
+    creata: f64,
+    innesco: String,
+    secondi: f64,
 }
 
 #[derive(Deserialize)]
@@ -62,6 +76,37 @@ struct PropostaIn {
     somiglianza: f64,
     #[serde(default)]
     ha_automazione: bool,
+}
+
+/// Un archivio, e le procedure da registrarci sopra una dopo l'altra.
+#[derive(Deserialize)]
+struct ScenarioRegistra {
+    #[serde(default)]
+    archivio: Vec<RicettaIn>,
+    #[serde(default)]
+    passi: Vec<PassoRegistra>,
+}
+
+#[derive(Deserialize)]
+struct PassoRegistra {
+    #[serde(default)]
+    domanda: String,
+    #[serde(default)]
+    titolo: String,
+    #[serde(default)]
+    procedura: String,
+    #[serde(default)]
+    strumenti: Vec<String>,
+    #[serde(default)]
+    secondi: f64,
+    #[serde(default)]
+    alias: Vec<String>,
+    /// L'orologio si passa da fuori: qui dentro non ce n'e' uno.
+    #[serde(default)]
+    adesso: f64,
+    /// E l'identificativo di una procedura nuova pure: il caso non si prova.
+    #[serde(default)]
+    id_nuovo: String,
 }
 
 #[derive(Deserialize)]
@@ -87,6 +132,10 @@ struct Dentro {
     /// Archivi da fondere, ognuno con la sua soglia.
     #[serde(default)]
     fusioni: Vec<(Vec<RicettaIn>, f64)>,
+    /// Registrazioni da fare in fila su un archivio di partenza: e' la meta'
+    /// che **scrive**, e finora il banco guardava solo quella che legge.
+    #[serde(default)]
+    registrazioni: Vec<ScenarioRegistra>,
     /// (attive, secondi, soglia, agentico, quanti strumenti).
     #[serde(default)]
     decisioni: Vec<(bool, f64, i64, bool, usize)>,
@@ -121,6 +170,8 @@ struct Fuori {
     lette: Vec<(Option<(String, String, Vec<String>)>, String)>,
     righe: Vec<Vec<String>>,
     fusioni: Vec<Vec<RicettaFuori>>,
+    /// Per ogni scenario: l'archivio com'e' rimasto.
+    registrazioni: Vec<Vec<RicettaFuori>>,
     /// Le soglie, dette da questa parte.
     ///
     /// Non si vedono da nessuno degli scenari: il banco le passa da fuori,
@@ -131,6 +182,7 @@ struct Fuori {
 
 fn come_ricetta(r: &RicettaIn) -> Ricetta {
     Ricetta {
+        id: r.id.clone(),
         parole: r.parole.clone(),
         parole_alias: r.parole_alias.clone(),
         parole_passi: r.parole_passi.clone(),
@@ -139,11 +191,15 @@ fn come_ricetta(r: &RicettaIn) -> Ricetta {
         titolo: r.titolo.clone(),
         procedura: r.procedura.clone(),
         strumenti: r.strumenti.clone(),
+        creata: r.creata,
+        innesco: r.innesco.clone(),
+        secondi: r.secondi,
     }
 }
 
 fn come_fuori(r: Ricetta) -> RicettaFuori {
     RicettaFuori {
+        id: r.id,
         parole: r.parole,
         parole_alias: r.parole_alias,
         parole_passi: r.parole_passi,
@@ -152,6 +208,9 @@ fn come_fuori(r: Ricetta) -> RicettaFuori {
         titolo: r.titolo,
         procedura: r.procedura,
         strumenti: r.strumenti,
+        creata: r.creata,
+        innesco: r.innesco,
+        secondi: r.secondi,
     }
 }
 
@@ -173,6 +232,7 @@ fn main() {
         .ricette
         .into_iter()
         .map(|r| Ricetta {
+            id: r.id,
             parole: r.parole,
             parole_alias: r.parole_alias,
             parole_passi: r.parole_passi,
@@ -181,6 +241,9 @@ fn main() {
             titolo: r.titolo,
             procedura: r.procedura,
             strumenti: r.strumenti,
+            creata: r.creata,
+            innesco: r.innesco,
+            secondi: r.secondi,
         })
         .collect();
     let fuori = Fuori {
@@ -260,6 +323,27 @@ fn main() {
             .map(|(a, soglia)| {
                 let e: Vec<Ricetta> = a.iter().map(come_ricetta).collect();
                 nova_ricette::unisci(&e, *soglia).into_iter().map(come_fuori).collect()
+            })
+            .collect(),
+        registrazioni: dentro
+            .registrazioni
+            .iter()
+            .map(|s| {
+                let mut archivio: Vec<Ricetta> = s.archivio.iter().map(come_ricetta).collect();
+                for p in &s.passi {
+                    nova_ricette::registra(
+                        &mut archivio,
+                        &p.domanda,
+                        &p.titolo,
+                        &p.procedura,
+                        &p.strumenti,
+                        p.secondi,
+                        &p.alias,
+                        p.adesso,
+                        &p.id_nuovo,
+                    );
+                }
+                archivio.into_iter().map(come_fuori).collect()
             })
             .collect(),
     };

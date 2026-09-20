@@ -27,7 +27,7 @@
 //! potente e' il mezzo, piu' chi lo impugna e' responsabile: il mezzo resta
 //! potente, e qui si da' a chi lo impugna un modo di limitarlo sul serio.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// I dispositivi che restano scrivibili sempre.
 ///
@@ -79,6 +79,7 @@ impl Recinto {
 #[cfg(target_os = "linux")]
 mod linux {
     use super::*;
+    use std::path::Path;
 
     // I numeri delle tre chiamate di sistema. Non sono in `libc` per tutte
     // le architetture, e sono fissi da quando Landlock esiste.

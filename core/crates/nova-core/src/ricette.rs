@@ -43,7 +43,7 @@ pub fn percorso() -> PathBuf {
 /// Un archivio illeggibile non deve impedire a NOVA di lavorare: si riparte
 /// da vuoto, com'e' scritto anche dall'altra parte. Perdere le procedure e'
 /// spiacevole; non rispondere affatto e' peggio.
-pub fn leggi() -> Vec<(String, Ricetta)> {
+pub fn leggi() -> Vec<Ricetta> {
     leggi_da(&percorso())
 }
 
@@ -58,7 +58,7 @@ fn stringhe(v: &Value, chiave: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
-pub fn leggi_da(p: &std::path::Path) -> Vec<(String, Ricetta)> {
+pub fn leggi_da(p: &std::path::Path) -> Vec<Ricetta> {
     let Ok(testo) = std::fs::read_to_string(p) else {
         return Vec::new();
     };
@@ -66,31 +66,35 @@ pub fn leggi_da(p: &std::path::Path) -> Vec<(String, Ricetta)> {
         return Vec::new();
     };
     voci.iter()
-        .map(|v| {
-            (
-                v.get("id")
-                    .and_then(Value::as_str)
-                    .unwrap_or("")
-                    .to_string(),
-                Ricetta {
-                    parole: stringhe(v, "parole"),
-                    parole_alias: stringhe(v, "parole_alias"),
-                    parole_passi: stringhe(v, "parole_passi"),
-                    usata: v.get("usata").and_then(Value::as_i64).unwrap_or(1),
-                    ultimo_uso: v.get("ultimo_uso").and_then(Value::as_f64).unwrap_or(0.0),
-                    titolo: v
-                        .get("titolo")
-                        .and_then(Value::as_str)
-                        .unwrap_or("")
-                        .to_string(),
-                    procedura: v
-                        .get("procedura")
-                        .and_then(Value::as_str)
-                        .unwrap_or("")
-                        .to_string(),
-                    strumenti: stringhe(v, "strumenti"),
-                },
-            )
+        .map(|v| Ricetta {
+            id: v
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+            parole: stringhe(v, "parole"),
+            parole_alias: stringhe(v, "parole_alias"),
+            parole_passi: stringhe(v, "parole_passi"),
+            usata: v.get("usata").and_then(Value::as_i64).unwrap_or(1),
+            ultimo_uso: v.get("ultimo_uso").and_then(Value::as_f64).unwrap_or(0.0),
+            titolo: v
+                .get("titolo")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+            procedura: v
+                .get("procedura")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+            strumenti: stringhe(v, "strumenti"),
+            creata: v.get("creata").and_then(Value::as_f64).unwrap_or(0.0),
+            innesco: v
+                .get("innesco")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+            secondi: v.get("secondi").and_then(Value::as_f64).unwrap_or(0.0),
         })
         .collect()
 }
@@ -125,8 +129,7 @@ pub fn blocco_per(domanda: &str) -> String {
     if archivio.is_empty() {
         return String::new();
     }
-    let solo: Vec<Ricetta> = archivio.iter().map(|(_, r)| r.clone()).collect();
-    let scelte = nova_ricette::proponi(&solo, domanda, QUANTE);
+    let scelte = nova_ricette::proponi(&archivio, domanda, QUANTE);
     if scelte.is_empty() {
         return String::new();
     }
@@ -134,17 +137,122 @@ pub fn blocco_per(domanda: &str) -> String {
     let proposte: Vec<Proposta> = scelte
         .iter()
         .map(|(i, punteggio)| {
-            let (id, r) = &archivio[*i];
+            let r = &archivio[*i];
             Proposta {
                 titolo: r.titolo.clone(),
                 procedura: r.procedura.clone(),
                 usata: r.usata,
                 somiglianza: nova_ricette::blocco::arrotonda2(*punteggio),
-                ha_automazione: gia_automatiche.iter().any(|x| x == id),
+                ha_automazione: gia_automatiche.iter().any(|x| *x == r.id),
             }
         })
         .collect();
     nova_ricette::blocco::blocco(&proposte)
+}
+
+// ------------------------------------------------------- imparare e scrivere
+
+/// L'identificativo di una procedura nuova.
+///
+/// Il Python usa `uuid4().hex[:8]`, cioe' otto cifre esadecimali a caso. Qui
+/// non serve il caso: serve che due procedure non si prendano lo stesso
+/// nome. Si mescolano l'orologio, il processo e un contatore con FNV-1a —
+/// sedici righe invece di una dipendenza, e un identificativo che si puo'
+/// rifare uguale in una prova.
+pub fn identificativo(seme: u64) -> String {
+    const INIZIO: u64 = 0xcbf2_9ce4_8422_2325;
+    const PRIMO: u64 = 0x100_0000_01b3;
+    let mut h = INIZIO;
+    for b in seme.to_le_bytes() {
+        h ^= b as u64;
+        h = h.wrapping_mul(PRIMO);
+    }
+    format!("{:08x}", (h >> 32) as u32)
+}
+
+fn seme_di_adesso() -> u64 {
+    static CONTO: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let n = CONTO.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let t = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0);
+    t ^ (std::process::id() as u64).rotate_left(21) ^ n.rotate_left(42)
+}
+
+/// Scrive l'archivio dove lo legge il Python, **di fianco e poi rinomina**.
+///
+/// Un'interruzione a meta' lascerebbe un JSON troncato, cioe' tutte le
+/// procedure perse insieme: e' la stessa scrittura atomica dell'altra parte,
+/// per la stessa ragione.
+pub fn scrivi(archivio: &[Ricetta]) -> std::io::Result<()> {
+    scrivi_in(&percorso(), archivio)
+}
+
+pub fn scrivi_in(dove: &std::path::Path, archivio: &[Ricetta]) -> std::io::Result<()> {
+    if let Some(d) = dove.parent() {
+        std::fs::create_dir_all(d)?;
+    }
+    let voci: Vec<Value> = archivio.iter().map(come_json).collect();
+    // `indent=1` e le chiavi nell'ordine in cui le scrive il Python: il file
+    // lo aprono tutte e due le meta', e anche un occhio umano.
+    let mut fuori = Vec::new();
+    let formato = serde_json::ser::PrettyFormatter::with_indent(b" ");
+    let mut ser = serde_json::Serializer::with_formatter(&mut fuori, formato);
+    serde::Serialize::serialize(&Value::Array(voci), &mut ser).map_err(std::io::Error::other)?;
+    let parte = dove.with_extension("json.parte");
+    std::fs::write(&parte, &fuori)?;
+    std::fs::rename(&parte, dove)
+}
+
+fn come_json(r: &Ricetta) -> Value {
+    let mut m = serde_json::Map::new();
+    m.insert("id".into(), r.id.clone().into());
+    m.insert("titolo".into(), r.titolo.clone().into());
+    m.insert("innesco".into(), r.innesco.clone().into());
+    m.insert("procedura".into(), r.procedura.clone().into());
+    m.insert("parole".into(), r.parole.clone().into());
+    m.insert("parole_passi".into(), r.parole_passi.clone().into());
+    m.insert("parole_alias".into(), r.parole_alias.clone().into());
+    m.insert("strumenti".into(), r.strumenti.clone().into());
+    m.insert("creata".into(), r.creata.into());
+    m.insert("ultimo_uso".into(), r.ultimo_uso.into());
+    m.insert("usata".into(), r.usata.into());
+    m.insert("secondi".into(), r.secondi.into());
+    Value::Object(m)
+}
+
+/// Registra quel che il modello ha ricostruito, e riscrive l'archivio.
+///
+/// Torna il titolo di cio' che e' stato archiviato, o `None` se non c'era
+/// niente da archiviare. Gli identificativi di chi c'era gia' **non
+/// cambiano**: un'automazione nata da una procedura la ritrova per
+/// identificativo, e rinominarla la scollegherebbe in silenzio.
+pub fn archivia(
+    letta: &nova_ricette::imparare::Letta,
+    domanda: &str,
+    strumenti: &[String],
+    secondi: f64,
+    adesso: f64,
+) -> Option<String> {
+    let mut archivio = leggi();
+    nova_ricette::registra(
+        &mut archivio,
+        domanda,
+        &letta.titolo,
+        &letta.procedura,
+        strumenti,
+        secondi,
+        &letta.alias,
+        adesso,
+        &identificativo(seme_di_adesso()),
+    )?;
+    let titolo = letta.titolo.clone();
+    if let Err(e) = scrivi(&archivio) {
+        tracing::warn!(errore = %e, "non ho potuto scrivere l'archivio delle procedure");
+        return None;
+    }
+    Some(titolo)
 }
 
 #[cfg(test)]
@@ -200,9 +308,9 @@ mod prove {
         );
         let lette = leggi_da(&f);
         assert_eq!(lette.len(), 1);
-        assert_eq!(lette[0].0, "abc123");
-        assert_eq!(lette[0].1.usata, 3);
-        assert_eq!(lette[0].1.titolo, "Controllo posta");
+        assert_eq!(lette[0].id, "abc123");
+        assert_eq!(lette[0].usata, 3);
+        assert_eq!(lette[0].titolo, "Controllo posta");
         let _ = std::fs::remove_dir_all(&d);
     }
 
@@ -219,8 +327,8 @@ mod prove {
         );
         let lette = leggi_da(&f);
         assert_eq!(lette.len(), 1);
-        assert_eq!(lette[0].1.usata, 1, "senza contatore vale una volta");
-        assert!(lette[0].1.parole_alias.is_empty());
+        assert_eq!(lette[0].usata, 1, "senza contatore vale una volta");
+        assert!(lette[0].parole_alias.is_empty());
         let _ = std::fs::remove_dir_all(&d);
     }
 }

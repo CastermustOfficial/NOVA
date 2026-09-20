@@ -9650,3 +9650,55 @@ prova, dove Landlock non esiste, si dichiara saltata invece di passare.
 
 Windows è la prossima mossa di questo filone: token ristretto e job object,
 che è un decimo del lavoro di AppContainer e copre il caso vero.
+
+## Il demone impara, e una prova che si mordeva la coda
+
+Quarta mossa: a turno finito, il demone ricostruisce la procedura e la
+archivia. Il giudizio c'era gia' tutto in `nova-ricette` — quando vale la
+pena chiedere, il testo esatto da mandare al modello, come si legge la
+risposta — e mancava solo la meta' che **scrive**: `registra`, cioe' il
+doppione cercato nei due versi, la media mobile dei secondi, il tetto a
+sessanta con il taglio delle meno usate. Portata, e confrontata col Python
+su cinque scenari: stesso archivio, campo per campo.
+
+Una cosa che il demone fa meglio, e non per bravura: **non fa aspettare
+nessuno**. Dalla parte Python il processo muore subito dopo la risposta,
+quindi l'estrazione della procedura va attesa con un filo apposta e un tetto
+di trenta secondi — e quel che non fa in tempo si perde. Il demone resta
+acceso: risponde, e impara dopo.
+
+### L'identificativo che sarebbe sparito in silenzio
+
+Il primo porto teneva l'`id` delle procedure **fuori** dalla `Ricetta`, in
+una mappa accanto, e dopo la fusione lo riassegnava per titolo. Sembrava
+prudente. Non lo e': due procedure che si fondono cambiano titolo — la
+sopravvissuta prende quello dell'ultima riuscita — quindi l'identificativo
+sarebbe cambiato, e un'automazione nata da quella procedura l'avrebbe persa
+di vista senza che nessuno dicesse niente.
+
+Dalla parte Python non succede, e non perche' qualcuno ci abbia pensato: la
+fusione tiene il **dizionario** che sopravvive, e l'id e' dentro. La
+struttura giusta rende impossibile la dimenticanza. Ho messo l'`id` dentro
+la `Ricetta`, e la prova adesso guarda che sopravviva alla fusione.
+
+### E la prova che si mordeva la coda
+
+`test_demone_turno.py` ha cominciato a fallire a intermittenza, e la causa e'
+bella: **la prova provocava l'effetto collaterale che stava misurando**. Il
+cervello finto chiedeva uno strumento al primo giro di ogni conversazione;
+un turno con uno strumento fa scattare l'imparare; l'imparare **riscrive
+l'archivio delle procedure** — cioe' proprio il file che la sezione dopo
+confrontava col Python. Fra il momento in cui il demone lo leggeva e quello
+in cui lo leggeva il Python, il demone lo aveva cambiato.
+
+La prima cura e' stata dire al cervello finto di chiedere uno strumento solo
+quando la domanda lo nomina. Ed e' fallita ancora — per un motivo che mi ha
+fatto ridere: guardavo la parola «strumento» in **tutto** il testo in
+arrivo, e li' dentro c'e' anche il blocco delle procedure che NOVA attacca
+alla domanda, che dice «uno strumento che non risponde». La prova si
+autoavverava attraverso il proprio oggetto.
+
+Adesso guarda solo la prima riga dell'ultimo messaggio dell'utente, che e'
+la domanda vera. Due giri di fila verdi, e quel che resta e' una lezione
+piccola: quando una prova e' intermittente, la prima cosa da chiedersi non e'
+«cosa e' instabile» ma «cosa sto cambiando mentre guardo».

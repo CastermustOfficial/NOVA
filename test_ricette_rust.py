@@ -493,6 +493,122 @@ controlla("e una coppia identica in tutto tranne l'ordine",
               and a[0]["ultimo_uso"] == a[1]["ultimo_uso"] for a, _ in FUSIONI),
           "senza, la stabilita' dell'ordinamento non e' provata")
 
+print("\n=== E la meta' che SCRIVE: registrare una procedura ===")
+# Finora il banco guardava solo la meta' che legge — quali procedure si
+# propongono e come si raccontano. La meta' che scrive decide cosa resta
+# nell'archivio, e sbagliarla vuol dire proporre per sempre la cosa
+# sbagliata: un doppione che si divide il contatore non arriva mai alle tre
+# volte che fanno scattare il suggerimento dell'automazione.
+import os as _os                                                  # noqa: E402
+import tempfile as _tempfile                                      # noqa: E402
+
+ADESSO = 1788000000.0
+
+REGISTRAZIONI = [
+    # una nuova su archivio vuoto
+    {"archivio": [],
+     "passi": [{"domanda": "controlla la posta su gmail", "titolo": "Controllo posta",
+                "procedura": "apri gmail\nleggi le non lette",
+                "strumenti": ["web_apri"], "secondi": 12.0, "alias": [],
+                "adesso": ADESSO, "id_nuovo": "aaaa0001"}]},
+    # la stessa richiesta due volte: si rinforza, non si sdoppia
+    {"archivio": [],
+     "passi": [{"domanda": "controlla la posta su gmail", "titolo": "Controllo posta",
+                "procedura": "apri gmail\nleggi", "strumenti": ["web_apri"],
+                "secondi": 12.0, "alias": [], "adesso": ADESSO,
+                "id_nuovo": "aaaa0002"},
+               {"domanda": "controlla le mail su gmail", "titolo": "Controllo posta Gmail",
+                "procedura": "apri gmail\nleggi le ultime tre",
+                "strumenti": ["web_leggi"], "secondi": 6.0, "alias": [],
+                "adesso": ADESSO + 3600, "id_nuovo": "aaaa0003"}]},
+    # una procedura vuota non si registra
+    {"archivio": [],
+     "passi": [{"domanda": "fai qualcosa", "titolo": "Niente", "procedura": "   ",
+                "strumenti": [], "secondi": 0.0, "alias": [], "adesso": ADESSO,
+                "id_nuovo": "aaaa0004"}]},
+    # due cose diverse restano due
+    {"archivio": [],
+     "passi": [{"domanda": "controlla la posta", "titolo": "Posta",
+                "procedura": "apri gmail", "strumenti": [], "secondi": 9.0,
+                "alias": [], "adesso": ADESSO, "id_nuovo": "aaaa0005"},
+               {"domanda": "spegni le luci del salotto", "titolo": "Luci",
+                "procedura": "chiama il ponte e spegni", "strumenti": [],
+                "secondi": 4.0, "alias": [], "adesso": ADESSO + 60,
+                "id_nuovo": "aaaa0006"}]},
+    # con gli alias, che pesano meno delle parole
+    {"archivio": [],
+     "passi": [{"domanda": "manda il cv", "titolo": "Candidatura",
+                "procedura": "apri il sito\ncarica il pdf", "strumenti": ["web_carica"],
+                "secondi": 40.0, "alias": ["curriculum", "candidatura"],
+                "adesso": ADESSO, "id_nuovo": "aaaa0007"}]},
+]
+
+esito5 = subprocess.run([str(BINARIO)], input=json.dumps({
+    "registrazioni": REGISTRAZIONI,
+}, ensure_ascii=False), capture_output=True, text=True, encoding="utf-8",
+    errors="replace", timeout=60)
+if esito5.returncode != 0:
+    print(f"  il banco Rust si e' fermato: {esito5.stderr.strip()[:300]}")
+    sys.exit(1)
+u5 = json.loads(esito5.stdout)
+
+# `id` compreso: viaggia con la procedura anche quando due si fondono, ed e'
+# il filo con cui un'automazione ritrova quella da cui e' nata. Se si
+# perdesse in una fusione, l'automazione resterebbe orfana in silenzio.
+CAMPI_SCRITTI = ["id", "parole", "parole_alias", "parole_passi", "usata", "titolo",
+                 "procedura", "strumenti", "innesco", "secondi"]
+diverse = []
+for i, (scenario, ru) in enumerate(zip(REGISTRAZIONI, u5["registrazioni"])):
+    # Il Python scrive su disco: gli si da' una cartella che nasce e muore
+    # qui, e si chiama la sua `registra` vera con il suo orologio finto.
+    with _tempfile.TemporaryDirectory() as tmp:
+        prima = _os.environ.get("APPDATA")
+        _os.environ["APPDATA"] = tmp
+        try:
+            import importlib
+            importlib.reload(ricette)
+            ricette.salva(json.loads(json.dumps(scenario["archivio"])))
+            for passo in scenario["passi"]:
+                ricette.time.time = lambda q=passo["adesso"]: q
+                # L'identificativo di la' e' `uuid4().hex[:8]`, cioe' il
+                # caso: glielo si impone, se no il confronto guarderebbe due
+                # numeri a caso e non cosa NOVA scrive.
+                ricette.uuid.uuid4 = (lambda q=passo["id_nuovo"]:
+                                      type("U", (), {"hex": q + "0" * 24})())
+                try:
+                    ricette.registra(passo["domanda"], passo["titolo"],
+                                     passo["procedura"], passo["strumenti"],
+                                     passo["secondi"], passo["alias"])
+                except ValueError:
+                    pass              # procedura vuota: di la' torna None
+            py = ricette.carica()
+        finally:
+            if prima is None:
+                _os.environ.pop("APPDATA", None)
+            else:
+                _os.environ["APPDATA"] = prima
+            importlib.reload(ricette)
+    suo = [{k: r[k] for k in CAMPI_SCRITTI} for r in ru]
+    loro = [{k: r.get(k, "" if isinstance(r.get(k), str) else 0) for k in CAMPI_SCRITTI}
+            for r in py]
+    if suo != loro:
+        primo = next((k for k in range(min(len(suo), len(loro))) if suo[k] != loro[k]), None)
+        diverse.append(f"scenario {i}: rust {len(suo)} voci vs python {len(loro)}"
+                       + (f", prima diversa a {primo}: "
+                          f"{ {k: v for k, v in suo[primo].items() if v != loro[primo].get(k)} } vs "
+                          f"{ {k: loro[primo].get(k) for k in suo[primo] if suo[primo][k] != loro[primo].get(k)} }"
+                          if primo is not None else ""))
+controlla(f"le {len(REGISTRAZIONI)} registrazioni lasciano lo stesso archivio",
+          not diverse, " | ".join(diverse[:2]))
+controlla("il banco ha un caso che rinforza invece di sdoppiare",
+          any(len(r) == 1 and r[0]["usata"] == 2 for r in u5["registrazioni"]),
+          "senza, il doppione non e' provato")
+controlla("e uno in cui due cose diverse restano due",
+          any(len(r) == 2 for r in u5["registrazioni"]),
+          "senza, la soglia del doppione potrebbe fondere tutto")
+controlla("una procedura vuota non entra in archivio",
+          u5["registrazioni"][2] == [], str(u5["registrazioni"][2])[:120])
+
 print(f"\n{passati}/{passati + len(falliti)} passati")
 for x in falliti:
     print("  FALLITO:", x)
