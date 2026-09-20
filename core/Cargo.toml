@@ -22,6 +22,7 @@ members = [
     "crates/nova-cartelle",
     "crates/nova-dati",
     "crates/nova-componenti",
+    "crates/nova-configurazione",
     "crates/nova-nodi",
     "crates/nova-strumenti",
     "crates/nova-guasti",

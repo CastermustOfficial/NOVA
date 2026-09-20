@@ -520,3 +520,35 @@ C'e' anche una cosa da dire a favore del progetto, e conta quanto il resto:
 tutte e due le volte se n'e' accorta una prova. La prima `test_elenchi_gemelli.py`,
 in un secondo dopo un'ora. La seconda nessuna — l'ho vista io, ma solo perche'
 stavolta ho guardato prima di scrivere, che e' esattamente la regola nuova.
+
+## Ho scritto una diagnostica e non l'ho collegata a niente
+
+`Config.errore_caricamento` esiste da mesi. Nella sua docstring c'e' scritto,
+parola per parola: «Si riparte dai default per non impedire l'avvio, ma
+l'errore resta scritto e l'interfaccia lo mostra». L'ho letta piu' volte
+senza pensarci, perche' era una frase che descriveva una cosa ragionevole.
+
+Oggi ho cercato chi legge quel campo. Nessuno. Il campo si scrive e basta.
+
+E' peggio di non averlo scritto affatto, per due motivi. Il primo e' che una
+riga di documentazione che afferma un fatto falso rende **piu' difficile**
+trovare il difetto: chi apre `config.py` per chiedersi «e se il file non si
+legge?» trova una risposta, e smette di cercare. Il secondo e' che in questo
+caso il silenzio non era neutro. Finche' nessuno mostrava l'errore, nessuno
+si chiedeva nemmeno cosa succedesse **dopo**: e quello che succedeva dopo era
+che `_prepare_config` riscriveva il file illeggibile con i predefiniti, cioe'
+cancellava la configurazione — chiave API compresa — di chiunque avesse un
+`config.json` con una virgola di troppo (D250). Un difetto grosso, tenuto
+invisibile da una diagnostica che sembrava esserci.
+
+La forma generale e' una che in questo documento c'e' gia', ma da un'altra
+faccia: **un campo scritto e mai letto e' morto, e la docstring che dice chi
+lo legge non e' una prova che qualcuno lo legga**. La regola meccanica che me
+ne accorgo — `grep` del nome del campo, non del nome della funzione — e'
+piccola e va fatta quando si scrive la docstring, non dopo.
+
+Vale la pena notare che questo non l'ha trovato una prova. L'ho trovato
+portando lo stesso codice in Rust: il gemello aveva un campo `errore` che
+nessuno usava, me ne sono chiesto il perche', e sono andato a guardare chi
+usava quello Python. Portare una cosa in un'altra lingua e' finora il modo
+piu' affidabile che ho di rileggere davvero quello che ho gia' scritto.

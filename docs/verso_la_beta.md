@@ -964,11 +964,11 @@ mole, non di difficolta'.
 |---|---|---|---|
 | ~~CANT-1~~ | ~~**Il vault su disco**~~ — **fatto** | ~660 | Era il seguito diretto di `nova-nodi`, ed e' stato il primo pezzo scritto contro un tratto invece che sopra il filesystem nudo: e' quello che apre la strada a tutti gli altri. Ha ripagato prima di essere finito — la scrittura delle note dell'utente non era atomica (D102) — e ha portato dentro anche il guardiano dei segreti (D109, D110) |
 | ~~CANT-2~~ | ~~**Gli strumenti**~~ — **fatto**, per la parte traducibile: dichiarazioni, guardie, formato, i corpi dei file, la shell, i tasti, le pagine, la **scelta** di cosa ricordare, e i quindici strumenti che chiedono davvero alla piattaforma. Quel che resta in `nova/tools/` appartiene ad altri cantieri, file per file (D150) | ~2.570 | Sono la meta' di NOVA che tocca il PC, ed e' esattamente quella che in Python costa di piu' in dipendenze. Tanti pezzi piccoli e indipendenti: si e' portato uno strumento per volta senza fermare niente |
-| CANT-3 | **Il ciclo dell'agente e i cervelli** — *tutto cio' che decide: fatto — il contesto, il prompt, i blocchi, le immagini, le procedure, i guasti, cosa si dice a un cervello che vive fuori, e i tre modi di non farcela (D213, D216, D217). Il **giro** e' un crate suo, `nova-ciclo`, provato con un mondo finto, e il braccio che lo attacca ai cervelli e agli strumenti veri e' `nova-core::mondo`. Il **taglio della conversazione** — il pezzo piu' delicato di tutto il progetto — era gia' in Rust da prima (`nova-contesto`, col suo banco) e adesso e' **attaccato**: `mondo` taglia prima di chiedere e si rimette da se' i campi che il taglio non guarda (D221, D222, D223). Chi tiene la conversazione fra un turno e l'altro e' `nova-core::sessione` (D226), e chi costruisce la scala dalla configurazione e' `mondo::scala_vera` (D227, D228). **Chiuso** per la parte che gli spettava: quel che resta del ciclo in Python e' impalcatura, cioe' CANT-7* | ~2.200 | E' il pezzo che davvero libera dal Python, ma va dopo gli strumenti: un ciclo che chiama strumenti Python non ha liberato niente. Dentro c'era la parte piu' delicata di tutto il progetto — il taglio del contesto a token, che se sbaglia perde pezzi di conversazione senza dirlo: **fatta**, ed e' stata la prima cosa a uscire da `agent.py` invece che l'ultima |
+| ~~CANT-3~~ | ~~**Il ciclo dell'agente e i cervelli**~~ — *tutto cio' che decide: fatto — il contesto, il prompt, i blocchi, le immagini, le procedure, i guasti, cosa si dice a un cervello che vive fuori, e i tre modi di non farcela (D213, D216, D217). Il **giro** e' un crate suo, `nova-ciclo`, provato con un mondo finto, e il braccio che lo attacca ai cervelli e agli strumenti veri e' `nova-core::mondo`. Il **taglio della conversazione** — il pezzo piu' delicato di tutto il progetto — era gia' in Rust da prima (`nova-contesto`, col suo banco) e adesso e' **attaccato**: `mondo` taglia prima di chiedere e si rimette da se' i campi che il taglio non guarda (D221, D222, D223). Chi tiene la conversazione fra un turno e l'altro e' `nova-core::sessione` (D226), e chi costruisce la scala dalla configurazione e' `mondo::scala_vera` (D227, D228). **Chiuso** per la parte che gli spettava: quel che resta del ciclo in Python e' impalcatura, cioe' CANT-7* | ~2.200 | E' il pezzo che davvero libera dal Python, ma va dopo gli strumenti: un ciclo che chiama strumenti Python non ha liberato niente. Dentro c'era la parte piu' delicata di tutto il progetto — il taglio del contesto a token, che se sbaglia perde pezzi di conversazione senza dirlo: **fatta**, ed e' stata la prima cosa a uscire da `agent.py` invece che l'ultima |
 | ~~CANT-4~~ | ~~**Lanciare il modello locale**~~ — **fatto**: le decisioni (la riga di comando, la scala, i sei modi di dire «non ci sta»), il **giro** (cosa si fa quando non parte, D213; quanto si aspetta, D214) e chi lo esegue — `modello.accendi` nel demone, che avvia, aspetta la salute, legge il registro e scende di gradino da se' (D215). Quel che resta in Python e' il ripiego per chi non ha i binari, e muore con il resto | ~690 | Il calcolo degli strati era gia' in `nova-modelli`; restava il pezzo dove le decisioni si vedono poco e costano molto — la riga di comando, la scala dei layer, l'unico errore che vale la pena riprovare (D173) |
 | ~~CANT-5~~ | ~~**Il server MCP**~~ — **fatto**: il protocollo, le trentatre' dichiarazioni, il rischio, la domanda in chiaro, gli allegati e la risposta al permesso. I corpi degli strumenti appartengono ai cantieri che chiamano | ~1.290 | Protocollo, quindi traducibile senza scelte — ma le **buste** hanno una regola che rompe i client quando si sbaglia (D175, D176) |
 | ~~CANT-6~~ | ~~**Il browser e la ricerca**~~ — **fatto**, per la parte traducibile: i nove copioni che girano nella pagina, il confine fra argomento e codice, la scelta della scheda, cosa di una pagina e' testo, e i due raschiatori del motore. Quel che resta e' avviare Chrome e tenere la connessione: processi e rete, e appartiene a CANT-7 | ~760 | Nessuna scelta di interfaccia, ma il pezzo dove il confine fra argomento e codice conta piu' che altrove: quel testo lo esegue un interprete che non e' nostro (D178). Ed e' il cantiere in cui il banco ha trovato un difetto vero, non una differenza di porto (D181) |
-| CANT-7 | **L'impalcatura** — *le guardie predefinite: fatte; le **regole** di lettura della configurazione: provate, e con dentro un difetto in meno (D229); config, main, dati, componenti: da riscrivere* | ~1.800 | Non si porta: si **riscrive**, perche' meta' esiste solo per tenere insieme il Python. `nova-core::config` ne ha gia' un pezzo. Va per ultima fra quelle di sostanza, quando si sa cosa deve tenere insieme |
+| ~~CANT-7~~ | ~~**L'impalcatura**~~ — **fatto**: le guardie predefinite (D185); le **regole** di lettura della configurazione, provate da tutte e due le parti e con dentro quattro difetti in meno (D229, D248, D249, D250) — il crate e' `nova-configurazione`, col suo banco; la mappa dei dati e' `nova-dati` (D243, D244); il catalogo di cio' che si scarica e' `nova-componenti` (D245, D246, D247); la connessione a Chrome e' `nova-cdp`, ed era l'ultima scelta di libreria aperta di tutto il cantiere (D240, D241). `main.py` non si porta: i punti d'ingresso Rust ci sono gia' | ~1.800 | Non si porta: si **riscrive**, perche' meta' esiste solo per tenere insieme il Python. Andava per ultima fra quelle di sostanza, quando si sa cosa deve tenere insieme — e cosi' e' stato |
 | CANT-8 | **L'harness dei documenti** — *la strada e' scelta: **prima la logica, poi la finestra**. Le librerie sono provate (D237, D238, D239): `mupdf` per le posizioni nel PDF, `umya-spreadsheet` per i fogli, e per il `.docx` **nessuna libreria** — zip piu' una modifica chirurgica* | ~3.100, di cui **1.518 senza una riga di Qt** | Non e' «2.900 righe di finestra Qt»: solo `harness_finestra.py` tocca Qt, e di quelle 1.582 righe la parte Qt sono 164. `harness.py`, `harness_modifica.py`, `harness_prova.py` e `riparazione.py` si portano come qualunque altra cosa. La finestra e' un'altra domanda, e da quando il guscio e' Tauri con l'interfaccia in HTML, e' la domanda «una quarta finestra del guscio?» invece di «quali widget?» |
 | CANT-9 | **Mac e Linux, parita' piena** — *le prove Python girano in CI anche su Ubuntu e macOS, e sono **verdi** (D232). Il primo giro ha trovato cinque difetti che da Windows non si vedevano: una cartella che si spostava (D231), i percorsi protetti che fuori da Windows non proteggevano niente (D230), una prova che lasciava il mondo senza permessi (D233), una porta che chiedeva meta' di quel che serviva (D234) e una che misurava la velocita' della macchina (D235). Restano i tredici pezzi di `nova-platform` e l'avvio automatico* ~3.300 | Non e' in coda per caso: e' il primo cantiere che **non si puo' provare da qui**. Tutto il resto lo si vede su questa macchina; questo no, e la notte del 14 settembre ha mostrato cosa succede a scrivere codice che nessuna macchina diversa guarda mai. Va dopo il Rust perche' portare due volte le stesse cose - una in Python e una in Rust - e' l'unico modo garantito di finire con due comportamenti diversi |
 | CANT-10 | **I fogli di calcolo** — *la libreria e' scelta e provata: `umya-spreadsheet` regge il giro leggi-tocca-riscrivi tenendo formule, formati e fogli (D239)* | ~150 oggi | Il pubblico lo chiede, e oggi NOVA sa fare **meta' della meta'**: legge il testo delle celle di un `.xlsx`, in sola lettura, e non sa scrivere niente. Va dopo il Rust per la stessa ragione di CANT-9, e nasce direttamente come crate: un lettore-scrittore di fogli e' aritmetica e formati, cioe' esattamente il genere di cosa che si porta bene e si prova meglio |
@@ -1227,7 +1227,7 @@ e' verificata oggi, non ricordata.
 | **L'orb non cambia mai faccia** | `nova-shell/src/main.rs:165` | `stato_orb` esiste ed e' registrato fra i comandi (riga 322), e **nessuno lo chiama**: non compare in nessuna pagina dell'interfaccia. NOVA che pensa e NOVA che aspetta si vedono uguali |
 | **Il modo di passare la domanda a una CLI** | `impostazioni.html:905` | `prompt: 'argomento'` e' scritto dentro un valore predefinito e non e' un campo: chi aggiunge una CLI che vuole la domanda sullo standard input non ha modo di dirlo dal pannello |
 | **L'etichetta di Gemini gia' salvata** | la configurazione di chi ce l'ha | La voce nuova - «Gemini (licenza enterprise o chiave API)» - arriva solo a chi installa da adesso. Sovrascriverla vorrebbe dire cancellare una scelta che l'utente **puo'** aver fatto, visto che dal pannello l'etichetta si cambia. Per chi ce l'ha gia', la verita' la dice la prova |
-| **Il client websocket per il browser** | nessun crate, ancora | E' l'unica scelta di libreria rimasta aperta di tutto il cantiere. Serve a CANT-7, perche' parlare a Chrome in CDP vuol dire tenere aperta una connessione - e finche' non c'e', quella meta' del browser resta in Python |
+| ~~Il client websocket per il browser~~ | `tungstenite`, in `nova-cdp` | **Scelta e misurata** contro un Chrome vero (D241): era l'ultima scelta di libreria rimasta aperta di tutto il cantiere. Bloccante e non async, perche' il CDP e' domanda-risposta e una sola connessione alla volta. E ha trovato una cosa che nessuna lettura della documentazione avrebbe dato: da Chrome 111 la connessione viene rifiutata con 403 se l'origine non e' fra quelle permesse (D240) |
 ### Da dove si riprende
 
 Scritto qui e non in una chat, perche' una chat finisce e questo file no.
@@ -2027,6 +2027,41 @@ generato, gemellato o dichiarato senza gemello con scritto perche' (D186). Il
 valore non e' il confronto di oggi: e' che un elenco nuovo non possa entrare
 senza dire da che parte sta.
 
+
+
+**CANT-7, quarto pezzo: la configurazione letta da tutte e due le parti — e
+quattro modi di perderla.** Le regole di lettura erano gia' provate dalla
+parte Python (D229). Scriverne il gemello in Rust e poi metterli uno di
+fronte all'altro su cento file di configurazione plausibili e sgangherati ha
+trovato quello che nessuna delle due meta' trovava da sola.
+
+Il piu' grosso non e' una differenza fra i due: e' una cosa che la parte
+Python faceva e nessuno aveva mai chiesto a nessuno di fare. `"safety":
+"ciao"` in `config.json` — un carattere sbagliato, un incollato male — non
+riportava NOVA ai predefiniti. Alzava `AttributeError` dentro `_merge`, che
+sta **fuori** dal riparo di `load()`: NOVA non partiva affatto. Un file che
+l'utente puo' aprire e correggere a mano, e che se sbaglia non degrada
+niente, spegne tutto (D248).
+
+Poi, uno dietro l'altro, altri tre. Un `config.json` da zero byte veniva
+letto come «illeggibile» invece che come «vuoto» (D249). Una configurazione
+che non si era saputa leggere veniva **riscritta** con i predefiniti al primo
+avvio — cioe' cancellata, chiave API compresa, proprio mentre si diceva
+all'utente che c'era un problema (D250). E `errore_caricamento` esisteva da
+mesi con scritto accanto «l'interfaccia lo mostra»: non lo mostrava nessuno.
+Adesso lo stampa l'avvio, insieme all'elenco delle sezioni saltate.
+
+Il quarto l'ha trovato la disciplina delle mutazioni, non la prova. Su
+diciotto difetti messi apposta nel codice, due sono passati verdi. Uno era la
+prova che si accecava da sola: toglieva i campi di diagnostica da tutte e due
+le parti prima di confrontarli, e fra quelli c'era proprio la regola «la
+diagnostica non arriva da fuori» (D251). L'altro era una CLI svuotata che non
+arriva sempre come `null` — puo' arrivare come falso, zero o stringa vuota, e
+il Python lo sapeva mentre il gemello lo indovinava (D252). Le due mutazioni
+sopravvissute valgono piu' delle sedici viste: sono le uniche che hanno detto
+qualcosa che non si sapeva gia'.
+
+Con questo pezzo CANT-7 e' chiuso.
 
 ## Il cancello della beta
 

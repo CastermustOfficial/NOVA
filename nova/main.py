@@ -1,4 +1,4 @@
-"""Punto di ingresso di NOVA."""
+﻿"""Punto di ingresso di NOVA."""
 from __future__ import annotations
 
 import argparse
@@ -66,8 +66,22 @@ def _prepare_config(reconfigure: bool = False) -> Config:
     # confronto e' uguale, e il file non nasceva affatto: NOVA girava senza
     # mai scriversi una configurazione da aprire e correggere. Lo ha visto la
     # CI, che e' l'unica macchina spoglia che questo progetto abbia.
-    if asdict(cfg) != prima or not CONFIG_PATH.exists():
+    if cfg.errore_caricamento:
+        # Il file c'e' ma non si e' letto, quindi `cfg` sono i predefiniti.
+        # Salvarli qui sopra vorrebbe dire cancellare la configurazione
+        # dell'utente — chiave API compresa — per un BOM o una virgola di
+        # troppo, e cancellarla **proprio mentre** gli si dice che c'e' un
+        # problema. Il file rotto resta dov'e': si puo' ancora aprire e
+        # correggere a mano, e la chiave e' ancora li' dentro.
+        print("[config] " + cfg.errore_caricamento)
+        print("[config] parto dai valori di fabbrica e NON riscrivo il file: "
+              f"quello che c'e' in {CONFIG_PATH} resta com'e', cosi' lo puoi "
+              "correggere (o recuperarci la chiave).")
+    elif asdict(cfg) != prima or not CONFIG_PATH.exists():
         cfg.save()
+    for sezione in cfg.sezioni_ignorate:
+        print(f"[config] la sezione «{sezione}» nel file non e' un oggetto: "
+              "ho tenuto i valori di fabbrica per quella e basta.")
     for n in notes:
         print("[setup]", n)
     return cfg

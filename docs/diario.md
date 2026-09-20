@@ -8343,3 +8343,73 @@ un banco li confronta voce per voce, percorsi compresi: qui i percorsi sono
 parte del dato condiviso, non la mappa di dove NOVA scrive.
 
 Sette mutazioni, sette prese da tutte e due le parti.
+
+
+## La configurazione, e quattro modi di perderla
+
+Ultimo pezzo di CANT-7. Le regole di lettura le avevo gia' provate dalla
+parte Python qualche giorno fa, e ne era uscito un difetto: `fascicolo` che
+si scriveva e non si leggeva mai (D229). Oggi il gemello in Rust —
+`nova-configurazione` — e il banco che mette le due meta' una di fronte
+all'altra su un centinaio di file di configurazione, plausibili e
+sgangherati.
+
+Il confronto e' su **tutta** la configurazione, ogni volta. Non e'
+pignoleria: un elenco di campi scritto a mano e' esattamente la cosa che ha
+fatto sparire `fascicolo`, e una prova che guardasse solo i campi a cui ho
+pensato io ripeterebbe lo stesso errore un piano piu' su.
+
+**Il difetto che non era una differenza.** Il primo caso storto che ho
+scritto — `"safety": "ciao"` — non ha prodotto due risultati diversi. Ha
+prodotto un'eccezione. `_merge` fa `(valore or {}).items()` su una stringa, e
+`_merge` sta **fuori** dal `try` di `load()`: NOVA non partiva. Non tornava
+ai predefiniti, non diceva niente, non partiva. Un file che l'utente puo'
+aprire e correggere a mano, e in cui un carattere di troppo non degrada una
+sezione ma spegne tutto (D248).
+
+E tirando quel filo ne sono venuti altri tre, tutti sullo stesso tema: cosa
+succede a una configurazione che non si e' saputa leggere.
+
+Un `config.json` da zero byte — un salvataggio interrotto, un disco pieno —
+veniva letto come «rotto» invece che come «vuoto» (D249). La differenza
+sembrava accademica finche' non ho sistemato la terza: `_prepare_config`
+ricarica, completa e **salva**. Su un file illeggibile `cfg` sono i
+predefiniti, quindi quel salvataggio cancella la configurazione di qualcuno
+— chiave API compresa — per una virgola di troppo. E la cancella proprio nel
+momento in cui gli si sta dicendo che c'e' un problema, cioe' nel momento in
+cui pensava di poterla ancora recuperare (D250). Adesso il file rotto resta
+dov'e'. Ma questo rende necessaria la seconda: se «rotto» vuol dire «non ti
+riscrivo sopra», un file vuoto trattato come rotto lascerebbe NOVA a
+lamentarsi per sempre di un file in cui non c'e' niente da recuperare.
+
+La quarta e' che `errore_caricamento` esiste da mesi, con scritto accanto
+nella sua stessa docstring «l'interfaccia lo mostra». Ho cercato chi lo
+legge: nessuno. Una diagnostica scritta e mai mostrata e' peggio di una
+diagnostica che non c'e', perche' chi legge il codice crede di essere
+coperto. Ora la stampa l'avvio, insieme all'elenco delle sezioni saltate.
+
+**Le due mutazioni che hanno detto qualcosa.** Diciotto difetti messi apposta
+nel codice, sedici visti. Le due sopravvissute valgono piu' delle sedici.
+
+La prima: il banco toglieva i campi di diagnostica da tutte e due le parti
+prima di confrontarli — ed e' li' dentro che vive la regola «la diagnostica
+non arriva da fuori». La prova si accecava esattamente sul punto che doveva
+guardare, e sarebbe rimasta verde mentre un file salvato raccontava a NOVA di
+aver avuto un errore che non aveva avuto. Adesso quei campi si confrontano
+**con la fabbrica**, non fra loro (D251).
+
+La seconda: dal pannello una CLI svuotata non arriva sempre come `null`. Puo'
+arrivare come falso, come zero, come stringa vuota. Il Python lo sapeva
+(`if not v`); il gemello lo faceva per caso, e riducendolo al solo `null`
+nessuna prova se ne accorgeva (D252).
+
+Per contorno, l'estrattore di `test_elenchi_gemelli.py` cercava `= [` con lo
+spazio: la costante nuova era lunga, rustfmt l'ha mandata a capo dopo
+l'uguale, e la prova ha detto «non c'e' piu'». Falso allarme, ma e' un
+estrattore che perde un elenco per una questione di impaginazione, quindi
+adesso tollera l'a capo.
+
+Centotrentuno confronti verdi, ventitre' prove di unita', diciotto mutazioni
+su diciotto. E CANT-7 e' chiuso: guardie, configurazione, dati, componenti,
+connessione a Chrome. `main.py` non si porta — i punti d'ingresso Rust ci
+sono gia'.
