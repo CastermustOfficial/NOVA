@@ -79,6 +79,10 @@ features = [
     "Win32_System_SystemInformation",
     "Win32_System_Power",
     "Win32_System_Registry",
+    # Il fuso orario in vigore adesso: senza, il registro delle azioni
+    # scritto dal demone avrebbe ogni riga sbagliata di un'ora o due, e
+    # nessun errore da nessuna parte.
+    "Win32_System_Time",
 ]
 
 # Una risposta sola alla domanda «quanta memoria video c'e'»: la usano

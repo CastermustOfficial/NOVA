@@ -608,7 +608,11 @@ pub const STATO_ARCHIVIATO: &str = "archiviato";
 pub const STATO_ATTIVO: &str = "attivo";
 
 /// Quanto puo' crescere il registro delle azioni prima che si ricominci.
-pub const MAX_REGISTRO_BYTE: u64 = 2 * 1024 * 1024;
+///
+/// Il tetto non e' di questo crate: e' la stessa regola che vale per ogni
+/// diario di NOVA, e sta in `nova-potatura`. Qui resta il nome con cui il
+/// vault la chiama da sempre.
+pub use nova_potatura::MAX_BYTE as MAX_REGISTRO_BYTE;
 
 /// Il conto di cosa c'e' nel vault.
 #[derive(Debug, Default, PartialEq)]
@@ -825,10 +829,9 @@ impl Deposito {
 ///
 /// Un file solo di storico, poi si ricomincia. Ogni salvataggio e ogni
 /// ricerca scrivono una riga: senza rotazione il file cresce per sempre, e
-/// non c'e' nessuno che lo poti.
-pub fn ora_di_ruotare(quanto_e_grosso: u64) -> bool {
-    quanto_e_grosso >= MAX_REGISTRO_BYTE
-}
+/// non c'e' nessuno che lo poti. La soglia la decide `nova-potatura`, che e'
+/// dove quella decisione vale per tutti i diari.
+pub use nova_potatura::ora_di_ruotare;
 
 #[cfg(test)]
 mod prove {

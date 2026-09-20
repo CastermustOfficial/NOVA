@@ -13,6 +13,10 @@ description = "Il nodo della memoria e la sua forma su disco: markdown piu' fron
 # questa direzione e non nell'altra: `nova-guasti` non deve sapere che esiste
 # un vault.
 nova-guasti = { path = "../nova-guasti" }
+# La potatura dei diari: due megabyte e uno storico. E' la stessa regola per
+# il registro del vault e per quello delle azioni, e una regola sola non puo'
+# stare dentro uno dei due (D73).
+nova-potatura = { path = "../nova-potatura" }
 serde = { workspace = true, features = ["derive"], optional = true }
 serde_json = { workspace = true, optional = true }
 

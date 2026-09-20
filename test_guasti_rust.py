@@ -459,6 +459,60 @@ controlla("e uno che somiglia ma non e' quello",
                       for x in s) for s in PROVENIENZE),
           "senza, un confronto per prefisso passerebbe uguale")
 
+print("\n7. l'etichetta senza il valore: quando il nome del campo basta")
+# Il registro delle azioni scrive l'etichetta in un campo e il valore in un
+# altro — «scritto in #password» e «Tramonto2026!» — e guardati uno per volta
+# non sono niente. Chi li rimette insieme e' questa domanda, e adesso la fa
+# anche il demone: se le due meta' rispondessero diverso, la stessa riga
+# resterebbe scoperta da una parte e coperta dall'altra.
+from nova.forme_riservate import etichetta_di_segreto as py_etichetta  # noqa: E402
+
+ETICHETTE = [
+    "password", "PASSWORD", "scritto in #password", "passwd", "pwd",
+    "passphrase", "parola d'ordine", "parola di ordine", "parola d ordine",
+    "il PIN della carta", "otp", "token di accesso", "Bearer",
+    "authorization", "secret", "segreto", "credenziale", "credenziali",
+    "api key", "api_key", "api-key", "apikey", "API Key",
+    "chiave api", "chiave privata", "chiave segreta",
+    "private key", "private_key", "privatekey",
+    "seed phrase", "seedphrase",
+    # e quelle che NON devono scattare
+    "premuto «Invia»", "aperto il PDF", "eseguito un comando",
+    "spingere il pulsante", "una pinza", "optare per l'altro",
+    "scritto in #email", "consegnati file a #curriculum", "",
+]
+
+_suo3 = rust({"etichette": ETICHETTE})
+suo3 = _suo3["etichette"]
+scoperte = [t for t, ru in zip(ETICHETTE, suo3) if py_etichetta(t) and not ru]
+controlla("il Rust riconosce ogni etichetta che riconosce il Python",
+          not scoperte, str(scoperte[:3]))
+
+# La direzione conta, come per il mascheramento: riconoscerne una in piu'
+# butta dei dettagli che si potevano tenere, riconoscerne una in meno lascia
+# una credenziale nel registro. Le differenze si dicono lo stesso, perche' una
+# differenza che nessuno vede diventa una divergenza.
+in_piu = [t for t, ru in zip(ETICHETTE, suo3) if ru and not py_etichetta(t)]
+print(f"  il Rust ne riconosce {len(in_piu)} in piu' del Python: {in_piu}")
+controlla("e non ne riconosce di piu' su una riga qualunque",
+          all(t in ("", "parola d ordine") or py_etichetta(t)
+              for t in in_piu),
+          f"{in_piu}  <- qui butta dei dettagli che il Python tiene")
+controlla("il banco ha etichette che non devono scattare",
+          sum(1 for t in ETICHETTE if not py_etichetta(t)) >= 5,
+          "senza, «non scatta mai» passerebbe uguale")
+# ETICHETTE_DI_SEGRETO e ETICHETTE_INTERE: l'elenco stesso, non un campione.
+# In Python non c'e' un elenco da confrontare — c'e' una sola espressione
+# regolare — quindi si chiede la cosa che conta: che ogni voce dichiarata di
+# la' il Python la riconosca. Una inventata solo in Rust cadrebbe qui.
+sconosciute = [e for e in _suo3["etichette_note"] if not py_etichetta(e)]
+controlla(f"le {len(_suo3['etichette_note'])} etichette dichiarate in Rust le "
+          "conosce anche il Python", not sconosciute, str(sconosciute[:3]))
+controlla("e le tre lettere si cercano intere",
+          not py_etichetta("spingere il pulsante")
+          and not suo3[ETICHETTE.index("spingere il pulsante")],
+          "«pin» dentro «spingere» butta i dettagli di mezzo registro")
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")

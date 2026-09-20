@@ -79,8 +79,6 @@ SCOLLEGATI: dict[str, str] = {
                            "attivita' e' l'Utilita' di pianificazione di "
                            "Windows, che sopravvive al riavvio: attaccarlo qui "
                            "vuol dire decidere chi dei due comanda",
-    "nova-registro": "cercare nel registro delle azioni che non si annullano: "
-                     "il file lo scrive il Python",
     "nova-ricette": "ritrovare una procedura imparata: come sopra",
 }
 

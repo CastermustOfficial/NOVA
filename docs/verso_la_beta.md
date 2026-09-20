@@ -2349,6 +2349,57 @@ hanno un binario loro e li chiama l'installatore. La correzione, e cosa ho
 sbagliato a misurare, stanno in `dove_ho_sbagliato.md`.
 
 
+**Il terzo filo: cosa ha fatto il demone mentre non guardavi.** `nova-registro`
+e' il porto del registro delle azioni che non si annullano — candidature
+inviate, moduli compilati, click su un pulsante. Cercando dove attaccarlo e'
+venuta fuori una cosa piu' grossa del collegamento: **il demone non ci
+scriveva niente**.
+
+Il demone e' il pezzo di NOVA che gira quando non c'e' nessuno a guardare, ed
+e' quello che esegue `shell.exec`, cioe' un comando qualunque nella shell del
+sistema. Di quel comando restava un evento sul bus — che muore col processo —
+e nel suo giornale, che pero' e' un'altra cosa: il giornale serve ad
+**annullare**, e la domanda «come torno indietro» non e' la domanda «cosa e'
+successo». Chi chiedeva a NOVA «cosa hai fatto?» riceveva meta' della storia
+senza sapere che era meta' (D290).
+
+Adesso ogni comando lascia una riga nello **stesso file** che scrive il
+Python, e ogni vuol dire ogni: distinguere i comandi «pesanti» dagli altri e'
+un giudizio che sbaglia — `Remove-Item` si riconosce, `python pulisci.py` no —
+e un registro che tiene solo cio' che riconosce sembra completo e non lo e'.
+Ci finisce anche una `fs.write` di cui non si e' potuta conservare la copia di
+prima, che e' esattamente un file di qualcuno sovrascritto per sempre.
+
+Tre cose sono venute dietro, e nessuna delle tre era prevista:
+
+- **il mascheramento.** Una riga di comando porta volentieri un
+  `Authorization: Bearer`, e il registro e' un file che resta. Il filtro
+  esisteva gia' in Rust ed era gia' confrontato col Python; gli mancava il
+  pezzo che riconosce l'**etichetta** quando il valore sta in un altro campo —
+  «scritto in #password» in uno e «Tramonto2026!» nell'altro. Adesso c'e', e
+  il banco lo confronta su trentanove nomi di campo in una direzione sola: il
+  Rust non puo' riconoscerne **meno**;
+- **la potatura.** Due megabyte e uno storico: la regola stava dentro il
+  vault, e il demone avrebbe dovuto tirarsi dentro il vault o riscriversela.
+  E' andata in un crate suo, e la prova che la sorveglia adesso **conta le
+  copie** invece di guardare un file solo (D291);
+- **il fuso orario.** Il Python scrive l'ora dell'orologio di casa. Un demone
+  che scrivesse UTC sullo stesso file non darebbe nessun errore: darebbe righe
+  sbagliate di un'ora, e chi rilegge la propria giornata non ha modo di
+  accorgersene (D292).
+
+E c'e' una prova nuova che non c'era mai stata: `test_demone_registro.py`
+**accende il demone vero**, gli fa eseguire un comando con dentro una chiave
+finta, e pretende che la riga sia nel file di NOVA, che il Python la rilegga e
+la racconti con le stesse parole, e che la chiave non ci sia. Finora nessuna
+prova aveva mai acceso `novad`.
+
+Crate raggiunti dai binari: **ventitre' su trentasei** — trentasei perche' i
+crate sono uno di piu', `nova-potatura`, nato da questo filo. I tredici che
+restano li elenca `test_crate_attaccati.py`, ognuno con scritto cosa gli
+manca: e' anche la lista di cosa resta da fare.
+
+
 ## Il cancello della beta
 
 Non e' una data, sono cinque frasi che devono essere vere insieme:

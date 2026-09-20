@@ -17,6 +17,11 @@ nova-strumenti = { path = "../nova-strumenti" }
 # e quella qui perdeva tutto il file per un campo storto.
 nova-configurazione = { path = "../nova-configurazione" }
 nova-mcp = { path = "../nova-mcp" }
+# Il registro delle azioni: la forma della riga e le regole di ricerca sono
+# quelle di NOVA, con il Python di fronte e un banco che li confronta.
+nova-registro = { path = "../nova-registro" }
+nova-calendario = { path = "../nova-calendario" }
+nova-potatura = { path = "../nova-potatura" }
 nova-voce = { path = "../nova-voce" }
 # La decisione di cosa fare quando il modello non parte sta li', confrontata
 # col Python da un banco (D213). Qui c'e' solo il braccio che la esegue.

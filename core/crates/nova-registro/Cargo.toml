@@ -7,11 +7,17 @@ license.workspace = true
 
 [dependencies]
 nova-calendario = { path = "../nova-calendario" }
+# Cosa **e'** un segreto si decide in un posto solo: la riga che si scrive qui
+# passa dallo stesso filtro dei messaggi d'errore e del vault (D73).
+nova-guasti = { path = "../nova-guasti" }
+# Il registro **e'** JSON, una riga per fatto: qui non e' una comodita', e'
+# la materia. Per questo non sta dietro la feature del banco.
+nova-pitone = { path = "../nova-pitone" }
+serde_json = { workspace = true }
 serde = { workspace = true, features = ["derive"], optional = true }
-serde_json = { workspace = true, optional = true }
 
 [features]
-banco = ["dep:serde", "dep:serde_json"]
+banco = ["dep:serde"]
 
 [[bin]]
 name = "banco-registro"

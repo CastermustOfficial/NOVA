@@ -9252,3 +9252,124 @@ mentre contavo. Rifatto da tutti e quindici: **ventuno raggiunti, quattordici
 no**. `nova-cartelle`, che stavo per attaccare, era gia' attaccato
 all'installatore. Sta in `dove_ho_sbagliato.md`, perche' il difetto non e' il
 numero: e' aver misurato una cosa e averne raccontata un'altra.
+
+## Il terzo filo: cosa ha fatto il demone mentre non guardavi
+
+Gio ha scelto: «continua il filo, registro e ricette». Ho preso il registro.
+
+`nova-registro` e' il porto in Rust del registro delle azioni che non si
+annullano, e il crate lo dice bene in testa: «il primo che tocca la promessa
+su cui NOVA sta in piedi — cio' che non si annulla, si annota». Cercavo dove
+attaccarlo. Ho aperto `shell.exec` nel demone per vedere se aveva senso
+annotare li', e ho trovato questo:
+
+```rust
+ctx.bus.emit("shell.executed", json!({ "command": comando, ... }));
+```
+
+Un evento sul bus. Il bus e' in memoria e muore col processo. Nient'altro.
+
+Il demone e' il pezzo che gira quando non c'e' nessuno a guardare — e'
+scritto nella sua stessa documentazione, «il demone possiede i processi
+lunghi: se la finestra muore il modello resta caricato» — ed e' quello che
+esegue un comando qualunque nella shell del sistema. Di tutto quello che fa
+non restava una riga leggibile da nessuna parte.
+
+«Ma il giornale?» Il giornale del demone c'e' e funziona, e non e' questo:
+serve ad **annullare**. «Come torno indietro» e «cosa e' successo» sembrano
+la stessa domanda finche' non si prova a rispondere alla seconda con la
+risposta della prima — e allora si scopre che nel giornale ci sono solo le
+cose che si possono disfare, con dentro il modo di disfarle, e che tutto il
+resto non c'e'.
+
+Quindi il filo non era un collegamento: era un buco.
+
+### Ogni comando, non quelli che sembrano pesanti
+
+La tentazione era annotare solo i comandi che sembrano pericolosi — l'elenco
+esiste gia', `PAROLE_PESANTI`, e sta li' a due crate di distanza. Non l'ho
+fatto, per una ragione che vale la pena scrivere: `Remove-Item` si
+riconosce, `python pulisci.py` no. Un registro che tiene solo cio' che sa
+riconoscere non e' un registro incompleto: e' un registro che **sembra
+completo**, e chi lo legge conclude che il resto non e' successo.
+
+E poi un comando, per costruzione, non si annulla: il demone non sa cosa ha
+fatto. E' precisamente la materia di questo file.
+
+### Poi si scoprono le tre cose che mancavano
+
+**Il mascheramento.** Una riga di comando porta volentieri un
+`Authorization: Bearer`, e questo e' un file che resta sul disco. Il filtro
+in Rust c'era. Gli mancava pero' il pezzo che dalla parte Python si chiama
+`etichetta_di_segreto`, cioe' la domanda «questo e' il *nome* di un campo che
+contiene un segreto?». Serve per il caso che le forme da sole non prendono:
+«scritto in #password» in un campo e «Tramonto2026!» nell'altro. Uno per
+volta non sono niente — il secondo e' una parola con dentro un anno.
+
+L'ho portato, e il banco lo confronta adesso su trentanove nomi di campo, in
+una direzione sola: **il Rust non puo' riconoscerne meno**. Riconoscerne una
+in piu' butta dei dettagli che si potevano tenere; riconoscerne una in meno
+lascia una credenziale sul disco. Le due cose non si pagano uguale.
+
+**La potatura.** Due megabyte e uno storico. Dalla parte Python la regola
+sta in un posto solo da quando quattro copie avevano quattro tetti diversi —
+due megabyte veri, due megabyte da fruttivendolo, mezzo megabyte, e uno che
+lo storico lo buttava (D72, D73). Dalla parte Rust stava dentro `nova-nodi`,
+cioe' dentro il vault, e a me serviva per un file che col vault non c'entra
+niente. Le strade erano due: tirarsi dentro tremila righe di vault, o
+riscrivere le tre righe. La seconda e' esattamente come nascono le quattro
+copie.
+
+Ho fatto la terza: un crate suo, `nova-potatura`, e il vault ci passa. E la
+prova che sorveglia la regola non guarda piu' un file: **conta le copie** in
+tutti i crate, e un secondo tetto scritto a mano da qualche parte la fa
+diventare rossa. La prima volta che l'ho eseguita ha accusato il lettore
+audio, che ha un tetto di 32 MB sulla risposta — `32 * 1024 * 1024` contiene
+`2 * 1024 * 1024`. Aveva ragione a guardare e torto ad accusare, ed e'
+costato una riga.
+
+**Il fuso orario.** Questa e' la piu' insidiosa delle tre. Il Python scrive
+`datetime.now()`, cioe' l'ora dell'orologio di chi sta davanti al computer.
+Il demone in Rust non aveva **nessun** modo di sapere che ora fosse in Italia:
+`nova-calendario` dice di se', in testa, «niente fusi, di proposito: un fuso
+e' una domanda di piattaforma», e in `nova-platform` la risposta non c'era.
+
+Un demone che scrive UTC sullo stesso file non da' nessun errore. Ogni riga
+e' soltanto sbagliata di un'ora — due d'estate — e chi rilegge la propria
+giornata non ha nessun modo di accorgersene. L'ho aggiunta in
+`nova-platform`, chiedendola **per quell'istante** e non per adesso: una riga
+scritta a luglio non deve cambiare ora perche' la si rilegge a dicembre.
+
+La prova, invece, il fuso lo **passa**. La prima stesura rifaceva lo stesso
+conto della funzione, e su una macchina regolata su UTC — cioe' la CI — non
+avrebbe distinto niente da un demone che scrive Greenwich. Ora dice
+`quando(0, 3600) == "1970-01-01T01:00:00"`, e lo dice uguale dappertutto.
+
+### La prova che accende il demone
+
+Ce n'era bisogno, e non c'era mai stata: in centoquattro prove, nessuna
+accendeva `novad`. `test_demone_registro.py` lo avvia davvero, con `APPDATA`
+spostato in una cartella che nasce e muore con la prova, gli fa eseguire un
+comando che contiene una chiave finta, e pretende quattro cose: che la riga
+sia nel file **di NOVA** e non in uno suo, che il Python la rilegga, che la
+racconti con le **stesse identiche parole** del demone, e che la chiave non
+sia sul disco. Sette controlli, tutti verdi, e il lavoro della CI adesso
+costruisce `novad` apposta per eseguirla.
+
+Il confronto delle parole e' quello che mi soddisfa di piu': il racconto —
+«oggi», «ieri», le date in italiano — esce uguale carattere per carattere
+dalle due meta'. Non perche' ho ricopiato bene: perche' le regole stanno in
+un crate solo, e il banco le confronta.
+
+### La passata di mutazione
+
+Otto guasti messi apposta, otto rossi: la potatura che pota un byte piu'
+tardi, la potatura che sposta una cartella, i dettagli che non si mascherano,
+l'etichetta che non basta piu', il demone che smette di annotare, lo storico
+che non si legge piu', «pin» cercato dentro «spingere», e l'ora di Greenwich
+al posto di quella di casa. L'ultimo, per essere rosso, ha avuto bisogno di
+`TZ=Europe/Rome`: e' stato il momento in cui ho riscritto la prova in modo
+che non dipendesse dalla macchina.
+
+Tre crate attaccati, e uno nuovo che prima non c'era. Ne restano tredici, e
+chi sono lo dice una prova invece di una riga di diario che invecchia.

@@ -25,6 +25,7 @@ Ora la regola sta in `nova/rotazione.py` e questa prova sorveglia due cose:
 E poi che la regola faccia cio' che dice, potatura e accorpamento compresi.
 """
 import ast
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -301,25 +302,48 @@ controlla("il registro delle azioni non ha un tetto suo",
           "novantasettemila byte di differenza non li nota nessuno")
 
 print("\n== e il gemello in Rust dice la stessa cosa ==")
-#: Il deposito dei nodi pota il proprio registro per conto suo, in Rust, e
-#: lo faceva gia' prima che questa regola avesse un nome. Non e' codice
-#: condiviso — sono due programmi — quindi l'unica cosa che li tiene uguali
+#: Dalla parte Rust la regola sta in `nova-potatura`, e ci sta per la stessa
+#: ragione per cui di qua sta in `nova/rotazione.py`: prima era dentro il
+#: vault, e chiunque altro dovesse potare un file avrebbe tirato dentro tutto
+#: il vault oppure — piu' probabile — si sarebbe riscritto le tre righe.
+#: Sono due programmi, non codice condiviso: l'unica cosa che li tiene uguali
 #: e' che qualcuno li confronti (D186).
-rs = (RADICE / "core" / "crates" / "nova-nodi" / "src")
-deposito = (rs / "deposito.rs").read_text(encoding="utf-8-sig")
-disco = (rs / "disco_vero.rs").read_text(encoding="utf-8-sig")
+CRATES = RADICE / "core" / "crates"
+potatura = (CRATES / "nova-potatura" / "src" / "lib.rs").read_text(encoding="utf-8-sig")
 controlla("il Rust ha lo stesso tetto",
-          "MAX_REGISTRO_BYTE: u64 = 2 * 1024 * 1024;" in deposito,
+          "MAX_BYTE: u64 = 2 * 1024 * 1024;" in potatura,
           "il tetto di la' non e' piu' due megabyte veri")
 controlla("il Rust pota da qui in su, non da qui in poi",
-          "quanto_e_grosso >= MAX_REGISTRO_BYTE" in deposito,
+          "byte >= MAX_BYTE" in potatura,
           "un `>` invece di un `>=` fa potare un byte piu' tardi di qua")
 controlla("il Rust mette il numero prima dell'estensione",
-          'with_extension("1.jsonl")' in disco,
+          'with_extension(format!("1.{est}"))' in potatura,
           "le due grafie del file storico sono tornate diverse")
 controlla("il Rust tiene un solo precedente",
-          "remove_file(&precedente)" in disco and "rename(p, &precedente)" in disco,
+          "remove_file(&vecchio)" in potatura and "rename(p, &vecchio)" in potatura,
           "di la' lo storico si accumula o non si sostituisce")
+controlla("e nemmeno il Rust sposta una cartella",
+          "e_un_file && ora_di_ruotare(byte)" in potatura,
+          "senza quel controllo un percorso sbagliato sposta una cartella")
+
+#: E che nessun altro crate se la riscriva. E' il difetto che ha fatto nascere
+#: `nova/rotazione.py` — quattro copie con quattro tetti — visto dall'altra
+#: lingua: un secondo tetto in Rust non darebbe nessun errore.
+copie = []
+for f in sorted(CRATES.glob("*/src/**/*.rs")):
+    if f.parts[-3] == "nova-potatura":
+        continue
+    testo = f.read_text(encoding="utf-8-sig", errors="replace")
+    dove = f.relative_to(CRATES)
+    # `(?<!\d)`: `32 * 1024 * 1024` e' il tetto del lettore audio, non un
+    # secondo tetto di potatura — e senza quel pezzo questa prova lo accusava.
+    if (re.search(r"(?<!\d)2 \* 1024 \* 1024", testo)
+            or "2_097_152" in testo or "2_000_000" in testo):
+        copie.append(f"un tetto suo in {dove}")
+    if 'with_extension("1.' in testo:
+        copie.append(f"il nome dello storico a mano in {dove}")
+controlla("nessun altro crate si riscrive la potatura", not copie,
+          " | ".join(copie) + "  <- usa nova_potatura" if copie else "")
 
 print(f"\n{passati} passate, {len(falliti)} fallite")
 for n in falliti:

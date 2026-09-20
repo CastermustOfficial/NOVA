@@ -173,6 +173,107 @@ controlla("e i pari merito sono in ordine alfabetico",
           [t[0] for t in tipi if t[1] == 1] == sorted(t[0] for t in tipi if t[1] == 1),
           str(tipi))
 
+print("\n5. la riga che si scrive e' la stessa riga")
+# Finora il banco confrontava solo la meta' che **legge**. La meta' che
+# scrive era tutta in Python, e adesso non piu': il demone annota le cose che
+# fa quando non lo guarda nessuno, sullo stesso file. Due modi di scrivere la
+# stessa riga sono due registri che a leggerli sembrano uno.
+#
+# Il confronto e' letterale, carattere per carattere: la riga **e'** il testo
+# che resta sul disco.
+import tempfile                                                  # noqa: E402
+
+DA_SCRIVERE = [
+    {"azione": "inviata candidatura", "dove": "https://lavoro.it/offerte/44",
+     "dettagli": "Bianchi srl", "tipo": "browser", "esito": "ok"},
+    # tipo vuoto: di qua e di la' deve diventare lo stesso
+    {"azione": "riavviato il demone", "dove": "", "dettagli": "", "tipo": "",
+     "esito": ""},
+    # una chiave nei dettagli: non deve restare in chiaro da nessuna delle due
+    {"azione": "eseguito un comando", "dove": "C:\\lavoro",
+     "dettagli": "curl -H 'Authorization: Bearer sk-abcdefghijklmnopqrst' https://x.it",
+     "tipo": "comando", "esito": "0"},
+    # l'etichetta in un campo e il valore nell'altro: e' il caso che le forme
+    # da sole non prendono
+    {"azione": "scritto in #password", "dove": "https://banca.it/accesso",
+     "dettagli": "Tramonto2026!", "tipo": "browser", "esito": ""},
+    {"azione": "premuto «Invia»", "dove": "#modulo",
+     "dettagli": "perché città, così", "tipo": "browser", "esito": "ok"},
+    # accenti e taglio: 400 caratteri accentati sono 800 byte, e tagliare per
+    # byte spezzerebbe una lettera a meta'
+    {"azione": "à" * 400, "dove": "è" * 400, "dettagli": "ì" * 400,
+     "tipo": "documento", "esito": "ò" * 400},
+    # virgolette, a capo e barre rovesciate: il JSON deve uscire uguale
+    {"azione": 'ha detto "ciao"', "dove": "C:\\x\\y",
+     "dettagli": "prima riga\nseconda riga\tterza", "tipo": "sistema",
+     "esito": "ok"},
+    {"azione": "", "dove": "", "dettagli": "", "tipo": "", "esito": ""},
+]
+
+with tempfile.TemporaryDirectory() as tmp:
+    os.environ["APPDATA"] = tmp
+    # `percorso()` legge APPDATA a ogni chiamata: qui il registro e' un file
+    # che nasce e muore con questa prova.
+    for c in DA_SCRIVERE:
+        reg.annota(c["azione"], dove=c["dove"], dettagli=c["dettagli"],
+                   tipo=c["tipo"] or "browser", esito=c["esito"])
+    righe_py = reg.percorso().read_text(encoding="utf-8").splitlines()
+
+controlla(f"il Python ha scritto tutte e {len(DA_SCRIVERE)} le righe",
+          len(righe_py) == len(DA_SCRIVERE),
+          f"{len(righe_py)} righe su {len(DA_SCRIVERE)}")
+
+# L'unico campo che dipende dall'orologio si passa al Rust, cosi' quel che
+# resta si confronta carattere per carattere.
+quando = [json.loads(r)["quando"] for r in righe_py]
+scritte = json.loads(subprocess.run(
+    [str(BINARIO)],
+    input=json.dumps({"righe": [], "filtri": [], "oggi": OGGI,
+                      "da_scrivere": [dict(c, quando=q)
+                                      for c, q in zip(DA_SCRIVERE, quando)]},
+                     ensure_ascii=False),
+    capture_output=True, text=True, encoding="utf-8", errors="replace",
+    timeout=60).stdout)["scritte"]
+
+diverse = []
+for c, py, rs in zip(DA_SCRIVERE, righe_py, scritte):
+    if py != rs:
+        primo = next((k for k, (a, b) in enumerate(zip(py, rs)) if a != b),
+                     min(len(py), len(rs)))
+        diverse.append(f"{c['azione'][:20]!r} a {primo}: "
+                       f"python {py[primo:primo + 40]!r} vs rust {rs[primo:primo + 40]!r}")
+controlla(f"le {len(DA_SCRIVERE)} righe scritte sono identiche", not diverse,
+          " | ".join(diverse[:2]))
+
+# E le prove che non si fidano di nessuna delle due meta': quello che non
+# deve restare sul disco, da nessuna parte.
+SEGRETI = ["sk-abcdefghijklmnopqrst", "Tramonto2026!"]
+rimasti = [(s_, dove) for s_ in SEGRETI
+           for dove, testo in (("python", "\n".join(righe_py)),
+                               ("rust", "\n".join(scritte)))
+           if s_ in testo]
+controlla("nessuno dei due lascia un segreto nel registro", not rimasti,
+          str(rimasti))
+controlla("e il campo che annuncia una credenziale perde i dettagli, non la riga",
+          all("[non registrato" in r[3] and "scritto in #password" in r[3]
+              for r in [[None, None, None, righe_py[3]]]),
+          righe_py[3][:160])
+
+# Il taglio: per caratteri, non per byte. Se fosse per byte, quattrocento
+# lettere accentate finirebbero tagliate a meta' della lettera.
+tagliata = json.loads(righe_py[5])
+controlla("i campi si tagliano per caratteri",
+          len(tagliata["azione"]) == 200 and len(tagliata["dove"]) == 300
+          and len(tagliata["dettagli"]) == 300 and len(tagliata["esito"]) == 200,
+          str({k: len(v) for k, v in tagliata.items()}))
+controlla("e quel che esce e' ancora testo valido",
+          all(json.loads(r) for r in scritte if r),
+          "una riga del Rust non si rilegge come JSON")
+controlla("senza esito la chiave non c'e' affatto",
+          "esito" not in json.loads(righe_py[1])
+          and "esito" not in json.loads(scritte[1]),
+          f"{righe_py[1]} | {scritte[1]}")
+
 print(f"\n{passati}/{passati + len(falliti)} passati")
 for x in falliti:
     print("  FALLITO:", x)

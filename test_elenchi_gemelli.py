@@ -276,6 +276,14 @@ NUMERI = [
 #: Elenchi che un altro banco confronta gia', col nome della prova che lo fa.
 ALTROVE = {
     "GUARDANO_LO_SCHERMO": "test_guasti_rust.py",
+    # Le parole che nel nome di un campo annunciano un segreto. In Python
+    # sono un'unica espressione regolare con dentro alternanze annidate
+    # (`chiave\s+(?:api|privata|segreta)`), che spezzata per «|» non torna
+    # un elenco. Il banco dei guasti le confronta su trentanove nomi di
+    # campo, e in una direzione sola: il Rust non puo' riconoscerne **meno**,
+    # perche' quelle che non riconosce restano scritte nel registro.
+    "ETICHETTE_DI_SEGRETO": "test_guasti_rust.py",
+    "ETICHETTE_INTERE": "test_guasti_rust.py",
     # I nomi con cui si cerca Claude nel PATH: il banco dei cervelli li
     # confronta con quelli che il Python chiede davvero a `shutil.which`,
     # nell'ordine. Su Windows npm installa un `.cmd`, e cercare l'`.exe`

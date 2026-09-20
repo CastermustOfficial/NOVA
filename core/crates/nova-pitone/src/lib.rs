@@ -93,3 +93,78 @@ mod prove {
         assert_eq!(senza_bianchi("\u{200b}a"), "\u{200b}a");
     }
 }
+
+// ------------------------------------------------------------- il JSON
+
+use serde_json::Value;
+
+/// `json.dumps(x, ensure_ascii=False)`: separatori `, ` e `: `.
+///
+/// `serde_json::to_string` scrive `{"a":1}`, Python `{"a": 1}`. Non cambia
+/// cosa vuol dire — chi lo rilegge ottiene la stessa cosa — e cambia il
+/// **testo**, che e' quello che finisce nel registro delle azioni e nel
+/// prompt di chi riceve una risposta MCP. Dove le due meta' scrivono sullo
+/// stesso file, o dove un banco confronta carattere per carattere, i due
+/// spazi sono la differenza fra «identiche» e «si somigliano».
+pub fn json_come_python(v: &Value) -> String {
+    let mut fuori = String::new();
+    scrivi(v, &mut fuori);
+    fuori
+}
+
+fn scrivi(v: &Value, dentro: &mut String) {
+    match v {
+        Value::Object(o) => {
+            dentro.push('{');
+            for (i, (k, val)) in o.iter().enumerate() {
+                if i > 0 {
+                    dentro.push_str(", ");
+                }
+                dentro.push_str(&Value::String(k.clone()).to_string());
+                dentro.push_str(": ");
+                scrivi(val, dentro);
+            }
+            dentro.push('}');
+        }
+        Value::Array(a) => {
+            dentro.push('[');
+            for (i, val) in a.iter().enumerate() {
+                if i > 0 {
+                    dentro.push_str(", ");
+                }
+                scrivi(val, dentro);
+            }
+            dentro.push(']');
+        }
+        altro => dentro.push_str(&altro.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod prove_json {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn i_separatori_sono_quelli_di_python() {
+        assert_eq!(
+            json_come_python(&json!({"a": 1, "b": [1, 2]})),
+            r#"{"a": 1, "b": [1, 2]}"#
+        );
+    }
+
+    #[test]
+    fn gli_accenti_restano_accenti() {
+        // `ensure_ascii=False`: «perche'» non diventa \u00e9.
+        assert_eq!(json_come_python(&json!("perché")), "\"perché\"");
+    }
+
+    #[test]
+    fn e_quel_che_va_protetto_resta_protetto() {
+        assert_eq!(json_come_python(&json!("a\nb")), "\"a\\nb\"");
+        assert_eq!(
+            json_come_python(&json!("dice \"ciao\"")),
+            "\"dice \\\"ciao\\\"\""
+        );
+    }
+}

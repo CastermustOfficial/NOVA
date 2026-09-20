@@ -60,6 +60,9 @@ struct Dentro {
     /// Elenchi di strumenti usati in un turno: il turno va ricordato coperto?
     #[serde(default)]
     provenienze: Vec<Vec<String>>,
+    /// Nomi di campo: annunciano un segreto oppure no?
+    #[serde(default)]
+    etichette: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -80,6 +83,14 @@ struct Fuori {
     /// da una parte sola, un banco che prova solo dei casi se ne accorge solo
     /// se per caso quel caso c'era (D113).
     guardano_lo_schermo: Vec<String>,
+    /// Per ogni nome di campo: dice che il valore e' un segreto?
+    etichette: Vec<bool>,
+    /// `ETICHETTE_DI_SEGRETO` e `ETICHETTE_INTERE`, l'elenco stesso: il
+    /// Python ne ha una sola, ed e' un'espressione regolare. Confrontare i
+    /// nomi non si puo'; chiedere che ogni voce dichiarata qui il Python la
+    /// riconosca si', ed e' cio' che impedisce a questa meta' di inventarsi
+    /// un'etichetta che dall'altra parte non esiste.
+    etichette_note: Vec<String>,
 }
 
 fn main() {
@@ -164,6 +175,16 @@ fn main() {
             .collect(),
         guardano_lo_schermo: nova_guasti::guardiano::GUARDANO_LO_SCHERMO
             .iter()
+            .map(|s| s.to_string())
+            .collect(),
+        etichette: d
+            .etichette
+            .iter()
+            .map(|t| nova_guasti::guardiano::etichetta_di_segreto(t))
+            .collect(),
+        etichette_note: nova_guasti::guardiano::ETICHETTE_DI_SEGRETO
+            .iter()
+            .chain(nova_guasti::guardiano::ETICHETTE_INTERE.iter())
             .map(|s| s.to_string())
             .collect(),
     };
