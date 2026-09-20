@@ -306,6 +306,11 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
+          # `shell: bash` su GitHub vuol dire `bash -eo pipefail`: senza
+          # questo, la **prima** prova che esce diversa da zero — compreso
+          # il 2 di «non provabile qui» — fa morire il passo prima di
+          # arrivare al riepilogo. E' successo al primo giro.
+          set +e
           falliti=()
           saltate=()
           for f in test_*_rust.py; do
