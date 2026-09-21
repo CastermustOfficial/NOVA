@@ -43,6 +43,22 @@ impl Esito {
     }
 }
 
+/// Se a questo punto ci si ferma invece di rispondere.
+///
+/// E' una funzione a parte, e minuscola, per una ragione precisa: e' **il**
+/// confine, e va fissato con numeri esatti. Dentro `giudica` le probabilita'
+/// arrivano da un esponenziale e da una divisione, e sul confine quelle cadono
+/// da una parte o dall'altra dell'ultimo bit a seconda della macchina — quindi
+/// una prova che passi di li' non puo' inchiodare la semantica di `>=`. Qui si'.
+///
+/// Due condizioni, e la seconda non e' implicata dalla prima: con una sola via
+/// d'uscita una quota oltre la meta' la mette gia' in testa da sola, ma con tre
+/// — i numeri — possono sommare oltre la soglia restando ciascuna sotto a chi
+/// guida. Quello non e' una risposta, e' un pareggio mal letto.
+pub fn ci_si_ferma(prima_e_speciale: bool, indisponibile: f64, soglia: f64) -> bool {
+    prima_e_speciale || indisponibile >= soglia
+}
+
 /// Legge i logit delle lettere e ne fa un giudizio.
 ///
 /// I logit arrivano **nell'ordine dei candidati**, uno per lettera. Se sono di
@@ -114,7 +130,11 @@ pub fn giudica(domanda: &Domanda, logit: &[f64], temperatura: f64) -> Result<Esi
     // Ci si ferma se ha vinto una via d'uscita, **oppure** se le vie d'uscita
     // insieme superano la soglia: una risposta che vince con il 40% mentre il
     // 45% dice «non lo so» non e' una risposta, e' un pareggio mal letto.
-    if prima.speciale() || indisponibile >= politica.massimo_indisponibile {
+    if ci_si_ferma(
+        prima.speciale(),
+        indisponibile,
+        politica.massimo_indisponibile,
+    ) {
         // Fuori scala e informazione mancante sono due cose diverse e si
         // distinguono da chi ha preso piu' probabilita'.
         let giudizio = if sotto + sopra > non_basta {
@@ -292,6 +312,22 @@ mod prove {
             "{:?}",
             e.giudizio
         );
+    }
+
+    /// Il confine, con numeri esatti e senza passare da un esponenziale.
+    ///
+    /// Sul confine le probabilita' calcolate cadono di qua o di la' dell'ultimo
+    /// bit a seconda della macchina, quindi una prova che le faccia calcolare
+    /// non inchioda `>=`. Qui i numeri si scrivono, e la semantica e' fissata.
+    #[test]
+    fn sulla_soglia_esatta_ci_si_ferma() {
+        assert!(ci_si_ferma(false, 0.5, 0.5), "sulla soglia ci si ferma");
+        assert!(!ci_si_ferma(false, 0.25, 0.5), "sotto si risponde");
+        assert!(ci_si_ferma(false, 0.75, 0.5));
+        // Una via d'uscita in testa ferma comunque, qualunque sia la soglia.
+        assert!(ci_si_ferma(true, 0.0, 1.0));
+        assert!(!ci_si_ferma(false, 0.999, 1.0));
+        assert!(ci_si_ferma(false, 1.0, 1.0));
     }
 
     #[test]

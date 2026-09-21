@@ -60,7 +60,7 @@ pub mod probabilita;
 
 pub use candidati::{candidati, Candidato, ABBASTANZA, FUORI_SOPRA, FUORI_SOTTO};
 pub use domanda::{Ancora, Domanda, Opzione, Politica};
-pub use giudica::{giudica, Esito};
+pub use giudica::{ci_si_ferma, giudica, Esito};
 pub use lettere::{lettera, posizione, LETTERE, MASSIMI_CANDIDATI};
 pub use probabilita::{morbido, senza_prioria, statistiche, Statistiche};
 
