@@ -54,16 +54,22 @@ TOLLERANZA = 1e-9
 FILO = 1e-9
 
 passati = 0
-falliti: list[str] = []
+falliti: list[tuple[str, str]] = []
 
 
 def controlla(nome, condizione, dettaglio=""):
+    """Il dettaglio si tiene, non solo si stampa.
+
+    Chi legge la CI da fuori vede solo le annotazioni, e l'annotazione prende
+    la **coda** del log: un dettaglio stampato a meta' corsa non ci arriva. Per
+    questo il perche' di ogni rosso viene ristampato in fondo, accanto al nome.
+    """
     global passati
     if condizione:
         passati += 1
         print(f"  [ok ] {nome}")
     else:
-        falliti.append(nome)
+        falliti.append((nome, str(dettaglio)))
         print(f"  [NO ] {nome}  {dettaglio}")
 
 
@@ -402,8 +408,15 @@ for caso, suo in zip(casi, suoi["casi"]):
     elif not vicini(mie_ps, sue_ps):
         perche.append("le probabilita' non coincidono")
     if perche:
-        diversi.append(f"{caso['domanda']['tipo']} t={caso.get('temperatura')}: "
-                       + "; ".join(perche[:3]))
+        # Il caso va scritto per intero: un rosso che non si puo' rifare
+        # costa un giro di CI per capire cosa guardare.
+        diversi.append(
+            f"caso #{casi.index(caso)} {caso['domanda']['tipo']} "
+            f"t={caso.get('temperatura')} politica={caso['domanda']['politica']} "
+            f"logit={[round(x, 6) for x in caso['logit']]}"
+            + (f" priorita={[round(x, 6) for x in caso['priorita']]}"
+               if caso.get("priorita") else "")
+            + ": " + "; ".join(perche[:3]))
 controlla(f"i giudizi coincidono tutti ({len(casi)} casi)", not diversi,
           "\n      ".join(diversi[:6]))
 # I casi sul confine si contano, invece di sparire: sono quelli in cui la
@@ -455,7 +468,7 @@ controlla("cioe' sempre le stesse lettere, a parita' di forma della domanda",
           lettere_speciali == ["C", "D", "E"], str(lettere_speciali))
 
 print(f"\n{passati} passati, {len(falliti)} falliti")
-if falliti:
-    for n in falliti:
-        print(f"  ::error::{n}")
+for nome, dettaglio in falliti:
+    riga = " / ".join(x.strip() for x in dettaglio.splitlines() if x.strip())
+    print(f"  ::error::{nome}: {riga[:1200]}")
 sys.exit(1 if falliti else 0)
