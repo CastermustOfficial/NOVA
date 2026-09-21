@@ -52,6 +52,10 @@ def controlla(nome, condizione, dettaglio=""):
 # Cosa manca a ciascuno per essere attaccato. Non «e' morto»: e' la riga da
 # cancellare il giorno in cui qualcuno lo esegue.
 SCOLLEGATI: dict[str, str] = {
+    "nova-giudizio": "la meta' pura delle decisioni tipizzate: c'e' tutta e si prova "
+                     "tutta, ma nessuno gliele chiede ancora. Si attacca quando esiste la "
+                     "meta' che parla con llama-server, cioe' chi i logit delle lettere li "
+                     "va a prendere",
     "nova-browser": "il browser guidato da dentro: gira ancora tutto in Python "
                     "(nova/browser.py), e attaccarlo vuol dire spostare il "
                     "pilota, non aggiungerne un secondo",

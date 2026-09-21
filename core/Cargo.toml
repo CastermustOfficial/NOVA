@@ -10,6 +10,7 @@ members = [
     "crates/nova-modelli",
     "crates/nova-scala",
     "crates/nova-decisioni",
+    "crates/nova-giudizio",
     "crates/nova-calendario",
     "crates/nova-pianificazione",
     "crates/nova-salita",
