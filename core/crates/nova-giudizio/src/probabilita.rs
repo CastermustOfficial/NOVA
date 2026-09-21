@@ -63,6 +63,23 @@ pub fn senza_prioria(logit: &[f64], priorita: &[f64]) -> Result<Vec<f64>, String
     Ok(dopo)
 }
 
+/// Di quanto si e' disposti a credere che una somma cumulata abbia raggiunto
+/// un quantile.
+///
+/// Sommare dieci volte un decimo non fa uno: fa 0.9999999999999999, e la somma
+/// dei primi nove si ferma a 0.8999999999999999. Senza questo margine il
+/// novantesimo percentile di una distribuzione piatta su dieci livelli salta di
+/// **un'ancora intera** a seconda di come sono caduti gli ultimi bit — e gli
+/// ultimi bit cambiano da macchina a macchina. E' successo: verde qui, rosso
+/// sulla CI, con `p90` a 8 da una parte e 9 dall'altra.
+///
+/// Il margine non e' una tolleranza di confronto: e' la constatazione che una
+/// cumulata di probabilita' porta con se' l'errore di dieci addizioni, e che un
+/// quantile che cambia per quello non e' un quantile. Mille miliardesimi sono
+/// enormemente piu' dell'errore accumulabile e enormemente meno di qualunque
+/// differenza che significhi qualcosa.
+pub const TOLLERANZA_CUMULATA: f64 = 1e-12;
+
 /// Cosa si sa di un numero, letto da una distribuzione su valori discreti.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Statistiche {
@@ -104,7 +121,7 @@ pub fn statistiche(valori: &[f64], probabilita: &[f64]) -> Result<Statistiche, S
         let mut cumulata = 0.0;
         for (v, p) in valori.iter().zip(probabilita) {
             cumulata += p;
-            if cumulata >= q {
+            if cumulata + TOLLERANZA_CUMULATA >= q {
                 return *v;
             }
         }
@@ -193,6 +210,36 @@ mod prove {
         assert_eq!(s.decimo, 0.0);
         assert_eq!(s.mediana, 50.0);
         assert_eq!(s.novantesimo, 100.0);
+    }
+
+    /// Dieci decimi non fanno uno, e il quantile non deve accorgersene.
+    ///
+    /// E' il caso che ha fatto diventare rosso il banco sulla CI restando
+    /// verde in locale: la somma dei primi nove decimi e' 0.8999999999999999,
+    /// e senza margine il novantesimo percentile saltava dall'ottavo al nono
+    /// livello a seconda della macchina.
+    #[test]
+    fn una_cumulata_che_arriva_per_un_pelo_conta_come_arrivata() {
+        let valori: Vec<f64> = (0..10).map(|i| i as f64).collect();
+        let ps = vec![0.1; 10];
+        let somma_dei_primi_nove: f64 = ps[..9].iter().sum();
+        assert!(
+            somma_dei_primi_nove < 0.9,
+            "il caso di prova non e' sul filo: {somma_dei_primi_nove}"
+        );
+        let s = statistiche(&valori, &ps).unwrap();
+        assert_eq!(s.novantesimo, 8.0, "nove decimi arrivano a 0.9");
+        assert_eq!(s.mediana, 4.0, "cinque decimi arrivano a 0.5");
+        assert_eq!(s.decimo, 0.0);
+    }
+
+    /// Ma il margine non deve inghiottire un livello intero.
+    #[test]
+    fn il_margine_non_sposta_un_quantile_vero() {
+        let s = statistiche(&[0.0, 1.0, 2.0], &[0.05, 0.5, 0.45]).unwrap();
+        assert_eq!(s.decimo, 1.0, "0.05 non arriva a 0.1");
+        assert_eq!(s.mediana, 1.0);
+        assert_eq!(s.novantesimo, 2.0);
     }
 
     #[test]

@@ -153,6 +153,13 @@ def py_senza_prioria(logit, priorita):
     return [x - math.log(p) for x, p in zip(logit, prima)]
 
 
+# Sommare dieci volte un decimo non fa uno: la somma dei primi nove si ferma a
+# 0.8999999999999999. Senza margine il novantesimo percentile di una
+# distribuzione piatta su dieci livelli salta di un'ancora intera a seconda di
+# come cadono gli ultimi bit, e quelli cambiano da macchina a macchina.
+TOLLERANZA_CUMULATA = 1e-12
+
+
 def py_statistiche(valori, probabilita):
     media = sum(v * p for v, p in zip(valori, probabilita))
     varianza = sum(p * (v - media) ** 2 for v, p in zip(valori, probabilita))
@@ -161,7 +168,7 @@ def py_statistiche(valori, probabilita):
         cumulata = 0.0
         for v, p in zip(valori, probabilita):
             cumulata += p
-            if cumulata >= q:
+            if cumulata + TOLLERANZA_CUMULATA >= q:
                 return v
         return valori[-1]
 
@@ -322,7 +329,11 @@ PRIORITA = [([1.0, 2.0, 0.5], [0.0, 0.0, 0.0]), ([3.0, 0.0, 1.0], [3.0, 0.0, 1.0
             ([0.0, 0.0], [5.0, -5.0]), ([1.0, 1.0, 1.0], [0.0, 1.0, 2.0])]
 MEDIE = [([0.0, 50.0, 100.0], [0.2, 0.3, 0.5]), ([0.0, 1.0], [1.0, 0.0]),
          ([-40.0, 0.0, 37.5, 100.0], [0.25, 0.25, 0.25, 0.25]),
-         ([0.0, 0.0, 0.0], [0.3, 0.3, 0.4])]
+         ([0.0, 0.0, 0.0], [0.3, 0.3, 0.4]),
+         # Dieci decimi: la cumulata dei primi nove e' 0.8999999999999999.
+         ([float(i) for i in range(10)], [0.1] * 10),
+         # E tre terzi, che e' lo stesso inciampo con un altro denominatore.
+         ([0.0, 1.0, 2.0], [1 / 3, 1 / 3, 1 / 3])]
 CONCENTRAZIONI = [[0.5, 0.5], [1.0, 0.0], [0.25] * 4, [0.97, 0.01, 0.01, 0.01]]
 
 dentro = {"casi": casi, "morbidi": MORBIDI, "priorita": PRIORITA,
