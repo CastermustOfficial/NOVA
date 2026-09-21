@@ -768,3 +768,51 @@ La regola generale: **un banco gemello prova che due meta' sono d'accordo, non
 cosa hanno deciso.** Dove una decisione dipende da un confronto esatto fra
 numeri calcolati, quella decisione va provata dove i numeri si scrivono invece
 che dove si calcolano.
+
+## E dieci decimi non facevano uno
+
+Seguito del paragrafo qui sopra, e la causa vera. Il banco restava rosso sulla
+CI anche dopo aver dichiarato i casi sul filo delle soglie, e finalmente
+l'annotazione ha detto quale:
+
+```
+caso #363 punteggio politica={'puo_astenersi': False} logit=[0.0 x 10]
+  statistiche [4.5, 2.87228…43, 4.0, 0.0, 9.0]
+           vs [4.500000000000001, 2.87228…48, 4.0, 0.0, 8.0]
+```
+
+Una distribuzione piatta su dieci livelli. Le due meta' differivano di **un
+ulp** sulla media — 4.5 contro 4.500000000000001, dentro la tolleranza e senza
+alcuna importanza — e di **un'ancora intera** sul novantesimo percentile.
+
+La ragione e' che sommare dieci volte un decimo non fa uno:
+
+```
+    somma dei primi 9 decimi = 0.8999999999999999   ->  non raggiunge 0.9
+    somma di tutti e 10      = 0.9999999999999999
+```
+
+Quindi `cumulata >= 0.9` e' falso all'ottavo livello e vero al nono, e basta
+che gli ultimi bit cadano dall'altra parte — cosa che fanno, da una macchina
+all'altra — perche' `p90` salti da 8 a 9. Matematicamente la risposta giusta e'
+8: nove livelli da un decimo **sono** nove decimi.
+
+Il rimedio non e' una tolleranza di confronto nel banco: quella copre i numeri
+vicini, e qui la differenza e' un livello intero. Il rimedio e' nella funzione,
+in tutte e due le meta': `cumulata + 1e-12 >= q`. Non e' una comodita' — e' la
+constatazione che una cumulata di probabilita' porta con se' l'errore di dieci
+addizioni, e che un quantile che cambia per quello non e' un quantile. Mille
+miliardesimi sono enormemente piu' dell'errore accumulabile e enormemente meno
+di qualunque differenza che significhi qualcosa, e due prove lo fissano da
+tutte e due i lati: senza margine il caso dei dieci decimi torna rosso, e con
+un margine grosso (0.06) torna rosso l'altro, quello che verifica che il
+margine non inghiotta un livello vero.
+
+**Due lezioni, e la seconda e' quella che mi terro'.** La prima: un confronto
+fra una somma cumulata e una costante e' un confine, come lo era la soglia
+della politica. La seconda: ci ho messo **tre giri di CI** a saperlo, perche'
+l'annotazione prende la coda del log e il dettaglio delle differenze veniva
+stampato a meta' corsa. Il terzo giro non e' servito a riparare niente: e'
+servito a far dire al banco *perche'* era rosso. Quella riga andava scritta il
+primo giorno — e adesso il dettaglio di ogni rosso viene ristampato in fondo,
+col caso per intero, cosi' si rifa' in locale invece di indovinarlo.
