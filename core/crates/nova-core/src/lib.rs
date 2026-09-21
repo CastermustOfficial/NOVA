@@ -18,6 +18,7 @@ pub mod caps;
 pub mod caps_approvazione;
 pub mod agente;
 pub mod caps_file;
+pub mod caps_memoria;
 pub mod caps_registro;
 pub mod dalla_configurazione;
 pub mod caps_segreti;
@@ -91,12 +92,18 @@ pub fn build(config: Config) -> Result<Arc<Server>> {
     caps::register_builtins(&mut registry);
     caps_ui::register(&mut registry);
     caps_file::register(&mut registry);
+    caps_memoria::register(&mut registry);
     caps_registro::register(&mut registry);
     caps_approvazione::register(&mut registry);
     caps_voce::register(&mut registry);
     caps_segreti::register(&mut registry);
 
-    Ok(Server::new(Arc::new(registry), ctx, config))
+    let server = Server::new(Arc::new(registry), ctx, config);
+    // La memoria vive nel server perche' deve sopravvivere ai turni; le
+    // capacita' ricevono un `Ctx`, che il server non ce l'ha. Questo e' il
+    // filo che le ricollega, e si annoda qui, una volta sola.
+    caps_memoria::collega_il_server(&server);
+    Ok(server)
 }
 
 /// Avvia i servizi marcati `autostart` nella configurazione.

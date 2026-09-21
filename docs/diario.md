@@ -10052,3 +10052,58 @@ percorso — i due modi esatti in cui questo spostamento poteva rompere le cose.
 Mi ha preso in giro subito: contiene le forme sbagliate scritte per esteso,
 perché è lei a cercarle, quindi al primo giro si è trovata da sola. Adesso si
 salta, con scritto perché.
+
+## NOVA in Rust comincia a ricordare
+
+Il demone la memoria la leggeva già: a ogni turno ripesca quel che sa e lo
+mette in coda alla domanda. Non sapeva scriverci, e l'asimmetria costava più
+di quanto sembri — NOVA poteva ricordare solo quello che aveva imparato
+**prima** che il turno passasse in Rust, e ogni fatto nuovo aspettava un turno
+Python per essere messo via.
+
+Sei capacità: `kb.cerca`, `kb.nota`, `kb.collega`, `kb.vicini`,
+`kb.dimentica`, `kb.stato`. E come per i file, nessuna riga di logica
+riscritta: `nova-nodi` il vault lo sapeva già leggere e scrivere per intero —
+fusione dei doppioni, frontmatter, grafo, archiviazione — e `nova-memoria`
+sapeva già cercare. Il lavoro era il ponte, più le tre cose che il demone ha e
+la cassetta non può avere.
+
+**Il guardiano dei segreti sta dentro la porta**, non nel giudizio di chi
+chiama. È una regola vecchia di questo progetto (D106, D110) e vale la pena
+ripeterne il motivo, perché è il tipo di cosa che sembra pignoleria finché non
+succede: quel che entra nel vault viene riletto in *ogni* conversazione futura,
+comprese quelle in cui NOVA legge testo scritto da altri. Una credenziale lì
+dentro è esposta per sempre. La prova prova a farcene entrare una e guarda due
+cose: che venga rifiutata, e che il rifiuto **dica cosa ha trovato senza
+ripetere quel che ha letto**.
+
+**Archiviare un ricordo finisce nel registro delle azioni.** Il file resta —
+archiviare non è cancellare — ma da domani NOVA risponde diversamente, e senza
+una riga nessuno se lo ricorda.
+
+**L'indice e la reindicizzazione** sono le tre righe dopo la scrittura più
+facili da dimenticare, e dimenticarne una lascia la memoria a rispondere con
+quel che sapeva prima: un difetto che si vede un turno dopo, e altrove. Stanno
+in un posto solo, `con_il_disco`, e la mutazione che le toglie fa rosso.
+
+### La prova apre il vault con l'altra metà
+
+Il pezzo che mi piace di più: il demone scrive, e poi la prova apre quello
+stesso vault **col Python**, con `Vault` di `nova/kb/store.py`, e controlla
+titolo, tipo, confidenza ed etichette. Se le due metà scrivessero formati
+diversi si vedrebbe il giorno che succede, invece del giorno in cui qualcuno
+apre Obsidian e trova un file storto.
+
+Ha già ripagato: l'indice si chiama `_INDICE.md`, non `index.md`, e me ne sono
+accorto perché la prova ha guardato dove lo cerca il Python invece di dove mi
+aspettavo io.
+
+### Tre mutazioni
+
+Tolto il guardiano dei segreti: rossa, e in tre punti diversi. Tolta la
+riscrittura dell'indice: rossa. Tolta la reindicizzazione dopo la scrittura:
+rossa sulla ricerca, che è il modo giusto di accorgersene — il nodo c'era sul
+disco e NOVA rispondeva di non saperne niente.
+
+Restano sei famiglie: `sistema` (ventidue strumenti, la più grossa), `app`,
+`web`, le deleghe, lo schermo, i documenti.

@@ -21,8 +21,9 @@ use std::sync::Mutex;
 
 use nova_memoria::scelta::{scegli, Candidato, Via};
 use nova_memoria::{vettore::vettore, Bm25, Nodo as NodoIndice, Pezzo};
-use nova_nodi::deposito::Deposito;
+use nova_nodi::deposito::{Deposito, DiscoScrivibile, GuardianoDeiSegreti};
 use nova_nodi::disco_vero::Cartella;
+use nova_nodi::Nodo;
 use serde_json::Value;
 
 /// Quanti ricordi si consegnano, se la configurazione non lo dice.
@@ -41,6 +42,19 @@ pub const CONFIDENZA_MINIMA: f64 = 0.25;
 #[derive(Default)]
 pub struct Memoria {
     dentro: Mutex<Option<Aperta>>,
+}
+
+/// Un nodo come lo legge chi ha cercato.
+#[derive(Debug, Clone)]
+pub struct Trovato {
+    pub slug: String,
+    pub titolo: String,
+    pub tipo: String,
+    pub confidenza: f64,
+    pub corpo: String,
+    pub relazioni: Vec<String>,
+    /// Come ci si e' arrivati: `esatto`, `fusione`, `grafo`.
+    pub via: String,
 }
 
 struct Aperta {
@@ -204,6 +218,215 @@ impl Memoria {
             .collect();
         let _ = Via::Esatto; // il perche' di ogni scelta serve all'audit, non qui
         nova_memoria::come_contesto(&pezzi, massimo)
+    }
+
+    /// Cosa la memoria sa di questa domanda, un nodo per riga.
+    ///
+    /// E' la stessa ricerca di [`Memoria::contesto_per`] — stesso indice,
+    /// stessa fusione, stessa scelta — ma qui i nodi tornano interi invece che
+    /// impaginati: chi chiede e' il modello, che vuole leggerli, non il
+    /// compositore del prompt, che vuole un blocco della misura giusta.
+    pub fn cerca(&self, domanda: &str, quanti: usize, cfg: &Value) -> Vec<Trovato> {
+        let radice = percorso(cfg, &radice_progetto());
+        if !radice.is_dir() {
+            return Vec::new();
+        }
+        self.prepara(&radice);
+        let dentro = self.dentro.lock().unwrap();
+        let Some(a) = dentro.as_ref() else {
+            return Vec::new();
+        };
+        // Senza soglia di confidenza e senza espansione del grafo: chi cerca a
+        // mano vuole vedere cosa c'e', non il sottoinsieme che entrerebbe in un
+        // prompt. La soglia serve a non sprecare contesto, e qui non c'e'
+        // contesto da sprecare.
+        let (scelti, _) = scegli(
+            domanda,
+            &self.candidati(a),
+            &a.indice.cerca(domanda),
+            &self.densi(a, domanda),
+            &|slug: &str| {
+                a.deposito
+                    .vicini(slug)
+                    .into_iter()
+                    .map(|n| n.slug.clone())
+                    .collect()
+            },
+            quanti.clamp(1, 12),
+            0.0,
+            false,
+        );
+        scelti
+            .iter()
+            .filter_map(|s| a.deposito.prendi(&s.slug).map(|n| (s, n)))
+            .map(|(s, n)| Trovato {
+                slug: n.slug.clone(),
+                titolo: n.title.clone(),
+                tipo: n.tipo.clone(),
+                confidenza: n.confidenza,
+                corpo: n.body.clone(),
+                relazioni: n.tutte_le_relazioni(),
+                via: match s.via {
+                    Via::Esatto => "esatto",
+                    Via::Fusione => "fusione",
+                    Via::Grafo => "grafo",
+                }
+                .to_string(),
+            })
+            .collect()
+    }
+
+    fn candidati(&self, a: &Aperta) -> BTreeMap<String, Candidato> {
+        a.deposito
+            .attivi()
+            .map(|n| {
+                (
+                    n.slug.clone(),
+                    Candidato {
+                        slug: n.slug.clone(),
+                        titolo: n.title.clone(),
+                        tag: n.tags.clone(),
+                        tipo: n.tipo.clone(),
+                        confidenza: n.confidenza,
+                        aggiornato: n.aggiornato.clone(),
+                    },
+                )
+            })
+            .collect()
+    }
+
+    fn densi(&self, a: &Aperta, domanda: &str) -> BTreeMap<String, f64> {
+        let v = vettore(domanda);
+        a.vettori
+            .iter()
+            .filter_map(|(slug, x)| {
+                let s = nova_memoria::coseno(&v, x);
+                (s > 0.05).then(|| (slug.clone(), s))
+            })
+            .collect()
+    }
+
+    /// Scrive un nodo nel vault, e reindicizza.
+    ///
+    /// Il guardiano dei segreti sta **dentro la porta**, non nel giudizio di
+    /// chi chiama (D106, D110): quel che entra qui viene riletto in ogni
+    /// conversazione futura, comprese quelle in cui NOVA legge testo scritto
+    /// da altri, e una credenziale li' dentro e' esposta per sempre.
+    pub fn salva(&self, cfg: &Value, nodo: Nodo, unisci: bool) -> Result<Nodo, String> {
+        self.con_il_disco(cfg, |a, cartella, oggi, _| {
+            let salvato = a
+                .deposito
+                .salva(cartella, &GuardianoDeiSegreti, nodo, unisci, &oggi)?;
+            Ok(salvato)
+        })
+    }
+
+    /// Archivia un nodo: non entra piu' nelle risposte, il file resta.
+    pub fn archivia(&self, cfg: &Value, chi: &str, motivo: &str) -> Result<bool, String> {
+        let motivo = motivo.to_string();
+        self.con_il_disco(cfg, move |a, cartella, oggi, italiano| {
+            let Some(nodo) = a.deposito.per_titolo(chi).map(|n| n.slug.clone()) else {
+                return Ok(false);
+            };
+            Ok(a.deposito
+                .archivia(cartella, &nodo, &motivo, &oggi, &italiano))
+        })
+    }
+
+    /// Collega due nodi. Il grafo non e' orientato: il legame vale nei due
+    /// versi, e si scrive su uno solo perche' `vicini` guarda da tutt'e due.
+    pub fn collega(&self, cfg: &Value, da: &str, a_chi: &str) -> Result<(String, String), String> {
+        self.con_il_disco(cfg, |a, cartella, oggi, _| {
+            let Some(primo) = a.deposito.per_titolo(da).cloned() else {
+                return Err(format!("il nodo «{da}» non c'e'"));
+            };
+            let Some(secondo) = a.deposito.per_titolo(a_chi).cloned() else {
+                return Err(format!("il nodo «{a_chi}» non c'e'"));
+            };
+            if primo.slug == secondo.slug {
+                return Err("un nodo non si collega a se stesso".into());
+            }
+            let mut nuovo = primo.clone();
+            if !nuovo.tutte_le_relazioni().contains(&secondo.slug) {
+                nuovo.relazioni.push(secondo.slug.clone());
+            }
+            a.deposito
+                .salva(cartella, &GuardianoDeiSegreti, nuovo, false, &oggi)?;
+            Ok((primo.slug, secondo.slug))
+        })
+    }
+
+    /// I nodi direttamente collegati a uno, per esplorare il grafo.
+    pub fn vicini(&self, cfg: &Value, chi: &str) -> Option<(String, String, Vec<Trovato>)> {
+        let radice = percorso(cfg, &radice_progetto());
+        if !radice.is_dir() {
+            return None;
+        }
+        self.prepara(&radice);
+        let dentro = self.dentro.lock().unwrap();
+        let a = dentro.as_ref()?;
+        let nodo = a.deposito.per_titolo(chi)?;
+        let vicini = a
+            .deposito
+            .vicini(&nodo.slug)
+            .into_iter()
+            .map(|n| Trovato {
+                slug: n.slug.clone(),
+                titolo: n.title.clone(),
+                tipo: n.tipo.clone(),
+                confidenza: n.confidenza,
+                corpo: String::new(),
+                relazioni: Vec::new(),
+                via: "grafo".into(),
+            })
+            .collect();
+        Some((nodo.slug.clone(), nodo.title.clone(), vicini))
+    }
+
+    /// Lo stato della memoria: quanti nodi, di che tipo, quanti legami.
+    pub fn statistiche(&self, cfg: &Value) -> Option<nova_nodi::deposito::Statistiche> {
+        let radice = percorso(cfg, &radice_progetto());
+        if !radice.is_dir() {
+            return None;
+        }
+        self.prepara(&radice);
+        let dentro = self.dentro.lock().unwrap();
+        Some(dentro.as_ref()?.deposito.statistiche())
+    }
+
+    /// Il giro comune a tutto cio' che **scrive**: apri, fai, riscrivi
+    /// l'indice, reindicizza.
+    ///
+    /// Sta in un posto solo perche' le tre cose dopo sono facili da
+    /// dimenticare, e dimenticarne una lascia la memoria che risponde con
+    /// quel che sapeva prima — cioe' un difetto che si vede un turno dopo, e
+    /// altrove.
+    fn con_il_disco<T>(
+        &self,
+        cfg: &Value,
+        fai: impl FnOnce(&mut Aperta, &Cartella, String, String) -> Result<T, String>,
+    ) -> Result<T, String> {
+        let radice = percorso(cfg, &radice_progetto());
+        if !radice.is_dir() {
+            return Err(format!(
+                "la memoria non c'e': «{}» non e' una cartella. Controlla                  `kb.vault_path` nella configurazione.",
+                radice.display()
+            ));
+        }
+        self.prepara(&radice);
+        let mut dentro = self.dentro.lock().unwrap();
+        let a = dentro.as_mut().ok_or("la memoria non si e' aperta")?;
+        let cartella = Cartella::nuova(&radice);
+        // La stessa data che scrive il registro delle azioni: una memoria
+        // datata in un fuso e un registro in un altro raccontano due giornate
+        // diverse dello stesso pomeriggio.
+        let oggi = crate::registro::oggi();
+        let italiano = nova_registro::data_italiana(&oggi);
+        let esito = fai(a, &cartella, oggi.clone(), italiano)?;
+        let indice = a.deposito.indice(&oggi);
+        let _ = DiscoScrivibile::scrivi(&cartella, Deposito::dove_va_lindice(), &indice);
+        reindicizza(a);
+        Ok(esito)
     }
 
     /// Quanti nodi sono in memoria adesso. Zero anche quando non e' mai
