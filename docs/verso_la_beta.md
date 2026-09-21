@@ -2427,14 +2427,28 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    (D299, D300). E adesso il demone **impara** anche: a turno finito
    ricostruisce la procedura e la archivia, con le stesse regole del Python
    e senza far aspettare nessuno, perche' lui resta acceso (D303). Resta
-   fuori l'imparare della **memoria**: i fatti durevoli che finiscono nel
-   vault li estrae ancora solo il Python.
-4. **Gli strumenti che al demone mancano.** Comincia: la famiglia dei
-   **file** e' attaccata tutta (D308), e non riscrivendola — i corpi stanno
-   gia' in `nova-strumenti`, confrontati col Python da un banco. Restano le
-   altre: `nova-harness` per i documenti a pezzi, `nova-docx` e `nova-fogli`
-   per i file di lavoro, `nova-browser` + `nova-cdp` per il browser, e le
-   famiglie senza crate — memoria, sistema, web.
+   fuori l'imparare **automatico** della memoria: i fatti durevoli li estrae
+   ancora solo il Python. Ma NOVA in Rust adesso ci **scrive**, quando e'
+   l'utente a dirglielo: sei capacita' `kb.*`, con il guardiano dei segreti
+   dentro la porta (D319).
+4. **Gli strumenti che al demone mancano.** Due famiglie su otto, e
+   nessuna delle due riscrivendo niente: i **file** (D308) e la **memoria**
+   (D319) — i corpi stavano gia' in `nova-strumenti` e in `nova-nodi`,
+   confrontati col Python da un banco. Restano: `sistema` (ventidue
+   strumenti, la piu' grossa e la piu' eterogenea), `app` e finestre, `web`,
+   le deleghe a un altro cervello, lo schermo, e i due documenti —
+   `nova-harness`, `nova-docx`, `nova-fogli`, `nova-browser` + `nova-cdp`.
+
+   | famiglia | in Python | nel demone |
+   | --- | ---: | ---: |
+   | file | 14 | 12 |
+   | memoria | 8 | 6 |
+   | shell | 3 | 3 |
+   | sistema | 22 | 0 |
+   | app / finestre | 6 | 0 |
+   | web | 3 | 0 |
+   | deleghe | 3 | 0 |
+   | schermo | 1 | 0 |
 5. **Il prompt.** Le regole operative stanno in `nova/config.py` come testo, e
    il turno del demone oggi manda solo cio' che l'utente ha in `config.json`.
    E' l'ultima cosa da spostare, perche' finche' le due strade coesistono
