@@ -9871,3 +9871,110 @@ che tocca il disco dichiara cosa succede se l'utente cambia idea.
   finisce nel registro delle azioni — che e' precisamente la sua materia.
 - Cancellare non si annulla da qui. Nel Cestino si recupera dal Cestino; per
   sempre e' per sempre, e va nel registro.
+
+## Decisioni tipizzate senza generare un token, e la frase che veniva a smentire
+
+Gio mi ha passato [Rizzo Flow](https://github.com/Rizzo-AI-Academy/rizzo-flow),
+che e' la versione locale e aperta di **Jev** di TypeSafe: invece di chiedere a
+un modello di *scrivere* una risposta — token dopo token, in un formato che poi
+speri sia JSON valido — gli si fa una domanda a scelta multipla dove ogni
+risposta e' **una lettera maiuscola**, e si leggono i logit di quelle lettere
+dopo un forward pass solo. Zero token generati. Quel che torna non e' un testo
+da interpretare, e' una distribuzione: quale opzione, e quanto sicura.
+
+L'ho letto tutto e mi ha fatto una buona impressione — la disciplina sulle
+misure soprattutto, che e' rara. Poi Gio ha detto la cosa giusta: da noi
+l'architettura e' Rust, quindi non lo si tiene com'e'.
+
+La sorpresa e' stata scoprire che la frase che questo lavoro viene a smentire
+era gia' scritta in casa nostra, nella prima pagina di `nova_decisioni`:
+
+> le euristiche di oggi restano cosi' non per pigrizia ma perche' l'alternativa
+> costava un giro di modello per ogni domandina.
+
+Non costa piu' quel prezzo. E allora il crate nuovo si chiama `nova-giudizio` e
+sta accanto a quello: `nova_decisioni` dice **di che materia** e' fatta una
+decisione e dove si puo' decidere, `nova_giudizio` dice **come** si decide.
+
+### Cosa si prende e cosa si affitta
+
+La parte che qui non c'e', apposta, e' il modello. NOVA **gia' accende**
+llama-server: `nova_modelli::motore` lo trova, `nova_cervelli::rete` ci parla.
+Quello che Rizzo Flow ottiene clonando la KV cache e proiettando a mano le
+righe di vocabolario delle lettere, llama-server lo da' con parametri suoi —
+`cache_prompt` per il prefisso condiviso, `n_probs` per la distribuzione,
+`/tokenize` per verificare che una lettera sia un token solo senza portarsi un
+tokenizzatore in Rust. Niente MLX, niente secondo modello, niente secondo
+processo.
+
+Quindi questo primo pezzo e' la **meta' pura**: da una domanda ai candidati, dai
+logit a un giudizio. Non tocca la rete, si prova per intero senza scaricare un
+peso, ed e' la meta' che deve essere giusta — uno `status` sbagliato e' una
+decisione presa male in silenzio.
+
+### Le tre cose che ho scritto diverse da loro
+
+**Un giudizio non ha un valore nullo** (D311). Loro tornano un `value: null`
+piu' uno `status` che spiega. E' la forma che permette a chi chiama di
+dimenticarsi del secondo campo: legge il primo, lo trova vuoto, ci mette un
+ripiego. Qui `Giudizio` e' un enum, e il valore non si legge senza aver
+trattato il caso in cui non c'e'. E' la stessa lezione del gradino che e' un
+processo e non un indirizzo.
+
+**«Non basta» non e' «no»** (D312). Su un sistema che tocca il PC di qualcuno,
+«l'evidenza non me lo dice» e «l'evidenza dice di no» sono opposti. Il tipo li
+tiene separati per costruzione.
+
+**Un giudizio puo' solo stringere** (D313). Questa e' la piu' importante e
+l'ho scritta prima di scrivere il codice. Stamattina abbiamo chiuso un buco
+nelle guardie di NOVA; sarebbe assurdo riaprirlo dalla porta di servizio
+lasciando che un modello dica «tranquillo, questo comando e' innocuo».
+`stringe()` prende come primo argomento cio' che ha gia' deciso la regola
+deterministica: se quella vieta, esce vietato comunque. E anche il **dubbio**
+stringe — nel momento in cui si decide se lasciar fare qualcosa, `NonBasta`
+vale come un si'.
+
+### La priorita' delle lettere, e perche' e' quasi gratis
+
+Le vie d'uscita stanno in fondo all'elenco, quindi prendono sempre le lettere
+piu' alte. Se il modello ha una preferenza per certe lettere — e ce l'ha, loro
+l'hanno misurata — quella pendenza cade **sempre sulle stesse voci**. E cade
+proprio su «non lo so», che e' la voce che si vuole scelta *di piu'*, non di
+meno: nei loro numeri e' esattamente il punto in cui sono peggio del
+riferimento (6 scelte sicure sbagliate su 36 contro 1).
+
+La stessa domanda con un'evidenza priva di contenuto da' quella priorita' a
+priori, e si toglie dividendo. Loro l'hanno in elenco fra le cose da fare, in
+una forma piu' cara (debiasing per permutazione, un giro in piu' per ogni
+ordine). Per NOVA la versione economica e' quasi gratis, e la ragione e'
+architetturale: quella priorita' **non dipende dallo stato**, solo dal testo
+della domanda. NOVA fa sempre le stesse domande su stati che cambiano — il
+cancello delle approvazioni, la salita di gradino, la pertinenza di un ricordo
+— quindi si misura una volta per forma di domanda e non si rimisura mai piu'
+(D314).
+
+### Il banco, e le otto mutazioni
+
+1320 giudizi confrontati fra le due meta', su quattro forme di domanda, sei
+politiche, sei forme di logit (piatti, uno che domina, enormi, pari merito,
+uscite forti) e tre temperature. Piu' l'aritmetica sciolta e il **testo della
+domanda carattere per carattere**, perche' quel testo finisce nel prompt e un
+prompt diverso e' una risposta diversa.
+
+Il Python del banco non e' una traduzione del Rust: e' una seconda scrittura
+della stessa matematica, fatta dalla definizione. Due traduzioni dello stesso
+testo sbagliano insieme; due scritture dello stesso conto no.
+
+Sono passati tutti al primo colpo, e questo di solito vuol dire che il banco
+non guarda. Ho mutato il Rust in otto punti — la soglia `>=` che diventa `>`,
+il pareggio fra fuori scala e informazione mancante, le medie non
+rinormalizzate, la softmax senza la sottrazione del massimo, il quantile
+discreto, il punteggio normalizzato su `len` invece di `len-1`, la priorita'
+sommata invece che tolta, l'astensione spostata in cima all'elenco. Otto rossi
+su otto. Adesso ci credo.
+
+Una cosa piccola che mi e' piaciuta trovare: con la **sola** astensione la
+soglia `massimo_indisponibile` non fa mai un lavoro suo, perche' una quota oltre
+la meta' mette gia' quella voce in testa da sola. Fa un lavoro suo solo sui
+numeri, dove le uscite sono tre. Sta scritto nel nome della prova, cosi' chi un
+giorno la togliera' credendola ridondante leggera' prima perche' c'e'.

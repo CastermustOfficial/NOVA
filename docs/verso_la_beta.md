@@ -2523,6 +2523,69 @@ facevano i comandi.
 cose: cosa ha fatto, e cosa succede se l'utente cambia idea (D310).
 
 
+## Decidere senza scrivere: il primitivo che manca
+
+Un modello a cui si chiede di classificare qualcosa **scrive** una risposta:
+token dopo token, in un formato che si spera sia JSON valido. Ma per una
+decisione non serve testo — serve **quale opzione, e quanto sicura**. Quella
+informazione e' gia' nel modello dopo un forward pass solo: e' la probabilita'
+che assegna a ciascuna risposta possibile.
+
+Il modo di leggerla e' una domanda a scelta multipla in cui ogni risposta e'
+**una lettera maiuscola**. Si leggono i logit di quelle lettere e basta. Zero
+token generati, niente ciclo di decodifica, niente JSON da riparare.
+
+L'idea viene da **Jev** di TypeSafe; la dimostrazione che si fa in casa con
+pesi aperti e' di [Rizzo Flow](https://github.com/Rizzo-AI-Academy/rizzo-flow),
+a sua volta ispirato a [SemIf](https://github.com/TheoLeeCJ/SemIf). Qui non c'e'
+codice loro: c'e' la stessa idea, con le scelte di NOVA.
+
+**Perche' interessa a NOVA.** `nova_decisioni` dice, nella sua prima pagina, che
+le euristiche di oggi — liste di parole, soglie, espressioni regolari — «restano
+cosi' non per pigrizia ma perche' l'alternativa costava un giro di modello per
+ogni domandina». Quel prezzo non c'e' piu'. E i posti dove una decisione
+tipizzata sostituisce un contatore o una regex sono quelli che contano: il
+cancello delle approvazioni, la salita di gradino, la pertinenza di un ricordo,
+e CANT-12 — «quale materiale puo' uscire dal PC» e' letteralmente una decisione
+tipizzata.
+
+**Fatto: la meta' pura** (`nova-giudizio`). Dalla domanda ai candidati, dai
+logit al giudizio. Non tocca nessun modello e si prova per intero senza
+scaricare un peso: 1320 giudizi confrontati con una seconda scrittura in Python
+della stessa matematica, su quattro forme di domanda, sei politiche, sei forme
+di logit e tre temperature — piu' il testo della domanda carattere per
+carattere, perche' quel testo finisce nel prompt. Otto mutazioni deliberate,
+otto rossi.
+
+Tre scelte che divergono dal riferimento, e sono le tre che contano:
+un giudizio **non ha un valore nullo** (D311), «non basta» vuol dire «chiedo» e
+non «no» (D312), e un giudizio puo' **solo stringere** una guardia
+deterministica, mai allentarla (D313). Quest'ultima e' la stessa regola di D309
+guardata da un'altra porta: sarebbe assurdo chiudere un buco nelle guardie la
+mattina e riaprirlo la sera lasciando che un modello dica «tranquillo».
+
+**Da fare: la meta' che parla.** NOVA gia' accende llama-server, quindi non
+serve ne' MLX ne' un secondo modello: `cache_prompt` da' il prefisso condiviso,
+`n_probs` la distribuzione dopo un forward pass, `/tokenize` il controllo che
+una lettera sia un token solo. Due cose vanno verificate **prima** di scriverci
+sopra, e con una richiesta sola:
+
+1. `n_probs` torna i primi N del vocabolario, non le righe che chiedi tu. Se una
+   lettera ammessa non entra nei primi N, la sua probabilita' non arriva. Da
+   provare: N molto alto, oppure una grammatica che restringe i candidati alle
+   sole lettere (il README dice «date le impostazioni di campionamento», il che
+   lo suggerisce ma non lo garantisce).
+2. `cache_prompt` e' dichiarato **non deterministico** dal README di llama.cpp.
+   Serve un modo «diretto» di riferimento e il conto pubblicato di quante
+   decisioni cambiano, come fa Rizzo Flow (loro: 2 su 777, max delta 0.144).
+
+E una terza cosa che non e' tecnica: il riferimento gira su un modello scelto
+perche' e' bravo a questo, e sul loro stesso banco il modello piccolo fa 0.45
+contro 0.95. NOVA gira su quello che l'utente ha in `config.json`. Quindi il
+primitivo deve **dichiarare quando non sa**, e l'astensione deve finire su
+«chiedo all'utente», mai su un valore di ripiego.
+
+
 ## Il confine che tiene il kernel
 
 Un revisore ha proposto una cosa grossa: che il modello generi solo un grafo

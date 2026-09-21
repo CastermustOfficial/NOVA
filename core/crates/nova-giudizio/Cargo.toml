@@ -1,0 +1,22 @@
+[package]
+name = "nova-giudizio"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Decisioni tipizzate lette dai logit: la meta' che non tocca nessun modello."
+
+# Nessuna dipendenza per il nucleo. E' aritmetica su numeri e stringhe, e cio'
+# che non dipende da niente si puo' provare ovunque e non invecchia. serde
+# serve solo al banco di confronto, che e' un binario a parte.
+[dependencies]
+serde = { workspace = true, features = ["derive"], optional = true }
+serde_json = { workspace = true, optional = true }
+
+[features]
+banco = ["dep:serde", "dep:serde_json"]
+
+[[bin]]
+name = "banco-giudizio"
+path = "src/banco.rs"
+required-features = ["banco"]
