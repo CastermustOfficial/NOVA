@@ -12,7 +12,7 @@
 //!   API esterne. Non e' agentico: propone chiamate, le esegue NOVA.
 //!
 //! Le dichiarazioni — identita', permessi, elenco degli strumenti — stanno in
-//! [`dichiarazioni`] e sono **generate** da `_estrai_cervelli.py` (D112).
+//! [`dichiarazioni`] e sono **generate** da `attrezzi/_estrai_cervelli.py` (D112).
 
 pub mod accesso;
 pub mod claude;

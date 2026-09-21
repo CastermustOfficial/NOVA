@@ -1,6 +1,6 @@
 //! I testi che il modello rilegge a ogni richiesta.
 //!
-//! **Generato da `_estrai_prompt.py`, poi mantenuto a mano.** Non sono prosa
+//! **Generato da `attrezzi/_estrai_prompt.py`, poi mantenuto a mano.** Non sono prosa
 //! da migliorare: sono cio' su cui il modello decide come comportarsi, e una
 //! parola diversa e' un comportamento diverso che nessun tipo intercetta
 //! (D112). Ricopiarli sarebbe stato ventimila occasioni di sbagliarne una,

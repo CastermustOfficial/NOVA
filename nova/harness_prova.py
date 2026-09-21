@@ -44,6 +44,13 @@ ATTESA_S = 300
 SOTTO_RUST = ("core", "rust", "src-tauri")
 #: I file che, se ci sono, vogliono dire «questo progetto usa pytest».
 DICHIARANO_PYTEST = ("pytest.ini", "tox.ini", "setup.cfg")
+#: Dove si cercano gli script di prova, oltre alla radice.
+#:
+#: Guardare **solo** nella radice era il caso piu' facile scambiato per
+#: l'unico: quasi nessun progetto tiene le prove sparse in cima, e uno che le
+#: ordina in una cartella si sentiva dire «qui non c'e' niente da provare».
+#: NOVA se n'e' accorta il giorno che ha ordinato le proprie.
+CARTELLE_DI_PROVA = ("tests", "test", "prove", "provi")
 # Quanto output si tiene. La coda, non la testa: l'errore sta in fondo.
 CODA_RIGHE = 40
 # Qui c'era un secondo `NON_GUARDARE`, diverso da quello di `harness.py` e
@@ -123,11 +130,38 @@ def scopri(radice: str | Path) -> list[Banco]:
         banchi.append(Banco("pytest", [sys.executable, "-m", "pytest", "-q"], r))
 
     # La convenzione di NOVA, e di chiunque scriva i test come script.
-    soli = sorted(f.name for f in r.glob("test_*.py") if _standalone(f))
+    soli = script_di_prova(r)
     if soli and not dichiarato:
         banchi.append(Banco("script", [sys.executable], r, pezzi=soli))
 
     return banchi
+
+
+def script_di_prova(radice: Path) -> list[str]:
+    """Gli script di prova del progetto, in percorsi relativi alla radice.
+
+    Si guarda in cima **e** nelle cartelle in cui le prove si mettono di
+    solito, perche' un progetto che le ordina non ha smesso di averle. I
+    percorsi tornano relativi e con le barre in avanti: sono cio' che si passa
+    all'interprete, e il verdetto non deve dipendere da come si scrive un
+    separatore.
+
+    L'ordine e' quello alfabetico del percorso intero, quindi le prove di una
+    stessa cartella restano vicine: chi legge un elenco di centonove righe
+    legge gruppi, non un alfabeto rimescolato.
+    """
+    trovati: list[str] = []
+    for f in radice.glob("test_*.py"):
+        if _standalone(f):
+            trovati.append(f.name)
+    for cartella in CARTELLE_DI_PROVA:
+        dentro = radice / cartella
+        if not dentro.is_dir():
+            continue
+        for f in dentro.rglob("test_*.py"):
+            if _standalone(f):
+                trovati.append(f.relative_to(radice).as_posix())
+    return sorted(trovati)
 
 
 def _esegui_uno(comando: list[str], dove: Path, resto: float) -> tuple[int, str]:

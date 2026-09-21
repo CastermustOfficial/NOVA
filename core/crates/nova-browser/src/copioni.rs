@@ -1,6 +1,6 @@
 //! Il JavaScript che NOVA fa girare **dentro la pagina dell'utente**.
 //!
-//! **Generato da `_estrai_copioni.py`, poi mantenuto a mano.** E' l'unica
+//! **Generato da `attrezzi/_estrai_copioni.py`, poi mantenuto a mano.** E' l'unica
 //! parte di NOVA eseguita da un interprete che non e' nostro, su un documento
 //! che non e' nostro: ricopiarla a mano sarebbe stato ottomila caratteri di
 //! occasioni di cambiare un carattere in un'espressione regolare o in un

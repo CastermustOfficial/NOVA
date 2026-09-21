@@ -1,6 +1,6 @@
 //! Le regole che dicono cosa, in una pagina, e' testo.
 //!
-//! **Generato da `_estrai_html.py`, poi mantenuto a mano.** Sono le stesse
+//! **Generato da `attrezzi/_estrai_html.py`, poi mantenuto a mano.** Sono le stesse
 //! espressioni regolari che gira Python — estratte, non riscritte (D112):
 //! quelle di `nova/html_a_testo.py` dagli oggetti gia' compilati, quelle dei
 //! due raschiatori dall'albero sintattico di `nova/tools/web.py`, perche'

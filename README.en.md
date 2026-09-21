@@ -666,8 +666,13 @@ appears in either: its name does, and the fact that the store exists.
 ```powershell
 .\build.ps1              # builds the Rust core (release)
 .\build.ps1 -Test        # runs the Rust tests
-python -m pytest -q       # runs the Python tests
+foreach ($f in Get-ChildItem -Path prove -Recurse -Filter "test_*.py") { python $f.FullName }
 ```
+
+The Python tests are **programs**, not `pytest` cases: each one runs on its
+own, prints what it checks, and ends with an exit code — 0 passed, 1 failed,
+**2 "cannot be done here"**. They live in `prove/`, grouped by what they need
+in order to run: see [`prove/README.md`](prove/README.md).
 
 The rest of this document is the detailed technical documentation.
 
@@ -874,7 +879,7 @@ falls back to shared memory: the model still starts but runs ~10x slower.
 
 Measurements on an RTX 4060 Ti 16 GB with Qwen3.8-27B Q4_K_M (15.7 GB), using
 NOVA's real prompt — 12,492 tokens of rules and sixty tool schemas. The bench
-is `banco_modello.py`, and it measures them itself.
+is `misure/banco_modello.py`, and it measures them itself.
 
 **The first number to look at isn't the speed, it's the gap between cold and
 warm:**
@@ -922,8 +927,8 @@ without saying so. If you want the 60, set them by hand:
 And measure again, because free VRAM depends on what else is running:
 
 ```powershell
-python banco_modello.py            # every configuration
-python banco_modello.py kv8-60     # just one
+python misure/banco_modello.py            # every configuration
+python misure/banco_modello.py kv8-60     # just one
 ```
 
 A 27B at Q4 doesn't fit entirely in 16 GB, and five layers on the CPU stay the

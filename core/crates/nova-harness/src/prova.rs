@@ -21,6 +21,12 @@
 //! `test_*.py` che finiscono con `sys.exit`, sono script che si eseguono e
 //! basta — e' la convenzione di NOVA stessa, e vale per chiunque scriva i
 //! test cosi'.
+//!
+//! **Chi li trova non sta qui.** `script_soli` arriva gia' pronto in
+//! [`Segni`], e chi lo riempie guarda in cima **e** nelle cartelle in cui le
+//! prove si mettono di solito: guardare solo in cima era il caso piu' facile
+//! scambiato per l'unico, e un progetto che ordina le proprie prove si
+//! sentiva rispondere che non ne aveva.
 
 use std::path::{Path, PathBuf};
 
@@ -90,6 +96,9 @@ pub struct Segni {
     /// Il progetto dichiara pytest, in un modo o nell'altro.
     pub dichiara_pytest: bool,
     /// I `test_*.py` che sono script da eseguire, in ordine.
+    ///
+    /// Percorsi **relativi alla radice**, non soli nomi: le prove stanno
+    /// anche in una cartella, e un nome nudo non basta a ritrovarle.
     pub script_soli: Vec<String>,
 }
 

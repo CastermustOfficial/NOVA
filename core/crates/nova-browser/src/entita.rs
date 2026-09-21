@@ -1,6 +1,6 @@
 //! I nomi delle entita' HTML, come li conosce `html.unescape`.
 //!
-//! **Generato da `_estrai_html.py`. Non si scrive a mano.** Sono i nomi che
+//! **Generato da `attrezzi/_estrai_html.py`. Non si scrive a mano.** Sono i nomi che
 //! lo standard HTML5 definisce: duemiladuecento, non venti. Una tabella
 //! parziale non darebbe un errore — lascerebbe `&hellip;` dentro il titolo
 //! che NOVA mostra, e nessuno se ne accorgerebbe (D113).

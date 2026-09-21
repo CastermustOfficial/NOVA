@@ -656,8 +656,13 @@ compare il nome, e il fatto che l'archivio esiste.
 ```powershell
 .\build.ps1              # compila il core Rust (release)
 .\build.ps1 -Test        # esegue i test Rust
-python -m pytest -q       # esegue i test Python
+foreach ($f in Get-ChildItem -Path prove -Recurse -Filter "test_*.py") { python $f.FullName }
 ```
+
+Le prove Python sono **programmi**, non casi di `pytest`: ognuna si lancia da
+sola, stampa cosa controlla e finisce con un codice di uscita — 0 passata,
+1 rossa, **2 «qui non si puo' fare»**. Stanno in `prove/`, divise per cosa
+serve a farle girare: [`prove/README.md`](prove/README.md) lo spiega.
 
 Il resto di questo documento e' la documentazione tecnica di dettaglio.
 
@@ -864,7 +869,7 @@ lento.
 
 Misure su RTX 4060 Ti 16 GB con Qwen3.8-27B Q4_K_M (15,7 GB), con il prompt
 vero di NOVA — 12.492 token fra regole e schemi dei sessanta strumenti. Il
-banco e' `banco_modello.py`, e le misura da solo.
+banco e' `misure/banco_modello.py`, e le misura da solo.
 
 **Il primo numero da guardare non e' la velocita', e' il divario fra freddo e
 caldo:**
@@ -912,10 +917,10 @@ dirlo. Chi vuole i 60 li mette a mano:
 E si rimisura, perche' la VRAM libera dipende da cos'altro c'e' acceso:
 
 ```powershell
-python banco_modello.py            # tutte le configurazioni
-python banco_modello.py kv8-60     # una sola
-python banco_taglio.py             # quanto costa accorciare la conversazione
-python banco_cervello.py           # sa scegliere il tool giusto fra sessanta?
+python misure/banco_modello.py            # tutte le configurazioni
+python misure/banco_modello.py kv8-60     # una sola
+python misure/banco_taglio.py             # quanto costa accorciare la conversazione
+python misure/banco_cervello.py           # sa scegliere il tool giusto fra sessanta?
 ```
 
 L'ultimo misura una cosa diversa dalle altre: non quanto e' veloce un modello,

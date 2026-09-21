@@ -1,7 +1,7 @@
 //! Le trentatre' dichiarazioni degli strumenti che NOVA apre a un altro
 //! programma.
 //!
-//! **Generato da `_estrai_mcp.py`. Non si modifica a mano.** Sono
+//! **Generato da `attrezzi/_estrai_mcp.py`. Non si modifica a mano.** Sono
 //! ventitremila caratteri di schema che Claude Code rilegge a ogni sessione e
 //! su cui sceglie quale strumento di NOVA usare: una parola diversa e' un
 //! comportamento diverso che nessun tipo intercetta (D112). Ricopiarle

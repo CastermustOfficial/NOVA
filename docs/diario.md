@@ -9978,3 +9978,77 @@ soglia `massimo_indisponibile` non fa mai un lavoro suo, perche' una quota oltre
 la meta' mette gia' quella voce in testa da sola. Fa un lavoro suo solo sui
 numeri, dove le uscite sono tre. Sta scritto nel nome della prova, cosi' chi un
 giorno la togliera' credendola ridondante leggera' prima perche' c'e'.
+
+## Centonove prove in cima, e cosa è saltato fuori spostandole
+
+Erano centonove `test_*.py` nella radice del repository, in ordine alfabetico
+e basta. Per sapere se una prova avesse bisogno del demone acceso, di un banco
+costruito o di una macchina Windows vera bisognava aprirla.
+
+Adesso stanno in `prove/`, in cinque cartelle, e la cartella risponde all'unica
+domanda che ci si pone davanti a una prova che non si conosce — **cosa serve
+per farla girare**: `gemelli/` (un banco Rust costruito), `demone/` (novad),
+`macchina/` (Windows, uno schermo, l'audio), `progetto/` (niente: guarda il
+repository stesso), `nova/` (niente: puro Python). Gli attrezzi che si lanciano
+a mano sono in `attrezzi/`, i banchi di prestazione in `misure/`.
+
+Il criterio non è tematico ed è voluto: rispecchia **come si eseguono**. La CI
+ha tre giri diversi che selezionavano con tre espressioni diverse
+(`test_*.py`, `test_*_rust.py test_demone_*.py`, più una riga a parte per i
+dati personali); adesso ognuno nomina delle cartelle, e cosa gira dove si legge
+invece di dedurlo da un modello di nome.
+
+### Come si sposta un centinaio di file senza rompere niente
+
+Prima di toccare, ho registrato il codice di uscita di tutte e centonove.
+Dopo, li ho riconfrontati: **zero differenze**. È l'unico controllo che conta,
+e per due volte mi ha salvato — la prima perché ero io a sbagliare il
+confronto.
+
+Il bug era mio e vale la pena scriverlo perché è subdolo:
+
+```bash
+python3 "$t" >/dev/null 2>&1; echo "$(basename $t) $?"    # sbagliato
+```
+
+`$(basename ...)` è una sostituzione di comando, gira in una sottoshell, e
+**azzera `$?` prima che venga espanso**. Il primo giro diceva che diciassette
+prove erano passate da «non provabile» a «passata», e per un attimo ci ho
+creduto. Poi ne ho lanciata una a mano: usciva 2, correttamente. Il codice di
+uscita va preso *prima* di qualunque altra cosa.
+
+### Il riordino ha trovato un difetto in NOVA stessa
+
+Questa è la parte che rende il lavoro più che cosmetico. `harness_prova.scopri`
+— la funzione con cui NOVA capisce **come si prova un progetto qualunque** —
+cercava gli script di prova così:
+
+```python
+soli = sorted(f.name for f in r.glob("test_*.py") if _standalone(f))
+```
+
+Solo nella radice. Finché le prove di NOVA stavano in cima, la prova
+«NOVA riconosce se stessa» era verde e nessuno aveva ragione di dubitare.
+Spostandole è diventata rossa, e ha detto una cosa vera: **quasi nessun
+progetto tiene le prove sparse in cima**, e uno che le ordina si sentiva
+rispondere che non ne aveva. Era il caso più facile scambiato per l'unico.
+
+Adesso si guarda in cima *e* in `tests/`, `test/`, `prove/`, ricorsivamente, e
+i percorsi tornano relativi alla radice invece che nomi nudi — un nome nudo non
+basta più a ritrovare il file. La regola sta in una funzione sola,
+`script_di_prova`, e il banco gemello **la chiama** invece di riscriverla:
+c'era una seconda copia della scoperta dentro `test_harness_rust.py`, e una
+seconda copia si sarebbe fermata alla radice anche dopo che l'altra ha imparato
+a guardare in una cartella.
+
+### La convenzione è tenuta da una prova, non da un documento
+
+`prove/progetto/test_prove_ordinate.py`: un `test_*.py` rimesso in radice, o in
+una cartella non dichiarata, fa rosso lì invece di sparire da tutti i giri
+della CI in silenzio. Controlla anche che nessuna prova scambi la propria
+cartella per la radice, e che chi importa `nova` si metta la radice nel
+percorso — i due modi esatti in cui questo spostamento poteva rompere le cose.
+
+Mi ha preso in giro subito: contiene le forme sbagliate scritte per esteso,
+perché è lei a cercarle, quindi al primo giro si è trovata da sola. Adesso si
+salta, con scritto perché.
