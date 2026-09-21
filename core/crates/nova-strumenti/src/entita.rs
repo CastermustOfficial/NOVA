@@ -4,7 +4,7 @@
 //! i duecento piu' comuni scritti a mano sarebbero duecento occasioni di
 //! sbagliare un carattere che finisce nel contesto del modello. E' la stessa
 //! ragione per cui sono estratte le dichiarazioni degli strumenti (D112), e
-//! lo script che le ha prese sta nel repository (`_estrai_entita.py`).
+//! lo script che le ha prese sta nel repository (`attrezzi/_estrai_entita.py`).
 //!
 //! Prima qui c'era una tabella scritta a mano di una sessantina di voci. Il
 //! banco l'ha smascherata perche' nel corpus c'erano otto entita' messe

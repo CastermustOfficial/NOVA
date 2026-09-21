@@ -46,8 +46,12 @@ non *cosa*: il cosa si legge dal codice.
 
 ```powershell
 .\build.ps1 -Test      # test Rust
-python -m pytest -q    # test Python
+foreach ($f in Get-ChildItem -Path prove -Recurse -Filter "test_*.py") { python $f.FullName }
 ```
+
+Le prove Python sono programmi, non casi di `pytest`: 0 passata, 1 rossa,
+2 «qui non si puo' fare». Stanno in `prove/`, divise per cosa serve a farle
+girare — [`prove/README.md`](prove/README.md).
 
 Fai passare i test prima di aprire la PR. Se ne rompi uno di proposito perche'
 il comportamento vecchio era sbagliato, dillo nella descrizione.

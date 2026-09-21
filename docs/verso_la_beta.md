@@ -1846,7 +1846,7 @@ sconosciuto che da' le mani libere.
 CANT-2 avevo annunciato cinque file da portare scegliendoli dai **nomi** nella
 cartella, e nessuno dei cinque era CANT-2 (D150). Quindi stavolta non si
 guarda come si chiamano le funzioni: si guarda cosa **toccano**. Uno script
-(`_conto_cant3.py`) legge l'albero sintattico di `agent.py` e dei quattro
+(`attrezzi/_conto_cant3.py`) legge l'albero sintattico di `agent.py` e dei quattro
 cervelli e marca ogni funzione con cio' che il suo corpo nomina — la rete, il
 disco, i processi, i fili, il registro degli strumenti, i cervelli,
 l'orologio. Quello che non tocca niente si puo' portare adesso; il resto no.

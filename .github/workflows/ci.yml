@@ -95,8 +95,8 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $false
           $falliti = @()
           $saltate = @()
-          Get-ChildItem test_*.py | Sort-Object Name | ForEach-Object {
-            $uscita = & python $_.Name 2>&1
+          Get-ChildItem -Path prove -Recurse -Filter "test_*.py" | Sort-Object FullName | ForEach-Object {
+            $uscita = & python $_.FullName 2>&1
             $codice = $LASTEXITCODE
             $uscita | Write-Host
             if ($codice -eq 2) { $saltate += $_.Name }
@@ -107,10 +107,10 @@ jobs:
               # *cosa* e' fallito senza doverlo scaricare cambia la velocita'
               # con cui lo si aggiusta.
               $coda = ($uscita | Select-Object -Last 12) -join ' / '
-              Write-Host "::error::$($_.Name): $coda"
+              Write-Host "::error::$($_.FullName | Resolve-Path -Relative): $coda"
             }
           }
-          $quante = (Get-ChildItem test_*.py).Count
+          $quante = (Get-ChildItem -Path prove -Recurse -Filter "test_*.py").Count
           $verdi = $quante - $falliti.Count - $saltate.Count
           Write-Host "riepilogo: $verdi verdi, $($falliti.Count) rosse, $($saltate.Count) non provabili su $quante"
           if ($saltate) { Write-Host "::notice::saltate (serve una macchina vera): $($saltate -join ', ')" }
@@ -145,7 +145,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Cerco chiavi e percorsi personali
-        run: python test_niente_dati_personali.py
+        run: python prove/progetto/test_niente_dati_personali.py
   # La luce prima delle mani (D209). Mac e Linux non si possono provare dalla
   # macchina di chi scrive, e finche' nessuna macchina diversa guarda, il
   # codice che sta dietro a #[cfg(windows)] non e' verde: e' non guardato.
@@ -263,7 +263,7 @@ jobs:
           set +e
           falliti=()
           saltate=()
-          for f in test_*.py; do
+          for f in prove/*/test_*.py; do
             uscita=$(python "$f" 2>&1)
             codice=$?
             echo "$uscita"
@@ -277,7 +277,7 @@ jobs:
               echo "::error::$f su ${{ matrix.sistema }}: $coda"
             fi
           done
-          quante=$(ls test_*.py | wc -l)
+          quante=$(ls prove/*/test_*.py | wc -l)
           echo "riepilogo: $((quante - ${#falliti[@]} - ${#saltate[@]})) verdi, ${#falliti[@]} rosse, ${#saltate[@]} non provabili su $quante"
           if [ ${#saltate[@]} -gt 0 ]; then
             echo "::notice::saltate su ${{ matrix.sistema }} (serve una macchina vera o un banco costruito): ${saltate[*]}"
@@ -338,7 +338,7 @@ jobs:
         # gia' successo al primo giro — due prove usano il binario del crate
         # invece di un `banco-`, e restavano fuori (D229, D280).
         run: |
-          chiesti=$(grep -ho '\-p [a-z0-9-]*' ../test_*_rust.py | sort -u | tr '\n' ' ')
+          chiesti=$(grep -ho '\-p [a-z0-9-]*' ../prove/gemelli/*.py | sort -u | tr '\n' ' ')
           echo "crate che le prove chiedono: $chiesti"
           # Due passate e non una: `--features banco` su un crate che quella
           # feature non ce l'ha non e' un avviso, e' un errore che ferma
@@ -366,7 +366,7 @@ jobs:
           set +e
           falliti=()
           saltate=()
-          for f in test_*_rust.py test_demone_*.py; do
+          for f in prove/gemelli/*.py prove/demone/*.py; do
             uscita=$(python "$f" 2>&1)
             codice=$?
             echo "$uscita"
@@ -378,7 +378,7 @@ jobs:
               echo "::error::$f: $coda"
             fi
           done
-          quante=$(ls test_*_rust.py test_demone_*.py | wc -l)
+          quante=$(ls prove/gemelli/*.py prove/demone/*.py | wc -l)
           echo "riepilogo: $((quante - ${#falliti[@]} - ${#saltate[@]})) gemelli verdi, ${#falliti[@]} rossi, ${#saltate[@]} non provabili su $quante"
           # Qui «saltata» vuol dire che il banco serve una macchina vera - un
           # Chrome acceso, un server MCP - non che non e' stato costruito.

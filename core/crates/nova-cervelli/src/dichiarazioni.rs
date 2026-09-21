@@ -1,6 +1,6 @@
 //! Cosa NOVA dice a un cervello che vive **fuori** da lei.
 //!
-//! **Generato da `_estrai_cervelli.py`, poi mantenuto a mano.** Sono
+//! **Generato da `attrezzi/_estrai_cervelli.py`, poi mantenuto a mano.** Sono
 //! dichiarazioni, non prosa: l'identita' che il cervello riceve, la
 //! traduzione dei livelli di autonomia, e l'elenco degli strumenti che gli e'
 //! lecito usare (D112).

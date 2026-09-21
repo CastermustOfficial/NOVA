@@ -1,6 +1,6 @@
 //! Le guardie predefinite: cosa non si tocca, cosa non si esegue.
 //!
-//! **Generato da `_estrai_guardie.py`. Non si scrive a mano.** Erano due
+//! **Generato da `attrezzi/_estrai_guardie.py`. Non si scrive a mano.** Erano due
 //! elenchi — uno in `nova/config.py`, uno scritto a mano nella
 //! configurazione del demone — e sapevano cose diverse (D185). Ora e' uno
 //! solo, e sta in Python perche' e' li' che l'utente lo puo' cambiare.
