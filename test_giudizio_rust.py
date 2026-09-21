@@ -39,6 +39,19 @@ if not BINARIO.is_file():
     sys.exit(2)
 
 TOLLERANZA = 1e-9
+# Quanto vicino a una soglia si considera «sul filo».
+#
+# Una politica confronta una probabilita' **calcolata** con una costante, e sul
+# confine quel confronto e' una monetina: `exp` e la divisione possono cadere da
+# una parte o dall'altra dell'ultimo bit su macchine diverse, e la decisione
+# cambia. Non e' un difetto di una delle due meta' ed e' inutile pretendere che
+# coincidano: e' una proprieta' del disegno, e la si dichiara invece di
+# nasconderla dietro una tolleranza piu' larga.
+#
+# Sul filo si accetta l'uno o l'altro esito — ma **le probabilita' devono
+# coincidere lo stesso**, e i casi sul filo si contano: se un giorno diventassero
+# la maggioranza, vorrebbe dire che il confronto non prova piu' niente.
+FILO = 1e-9
 
 passati = 0
 falliti: list[str] = []
@@ -352,6 +365,7 @@ campi_numerici = ["indisponibile", "in_testa", "concentrazione", "valore",
                   "normalizzato", "probabilita_vero"]
 diversi = []
 conta = {}
+fili = 0
 for caso, suo in zip(casi, suoi["casi"]):
     if "Ok" not in suo:
         diversi.append(f"{caso['domanda']['tipo']}: il Rust ha rifiutato: {suo}")
@@ -360,16 +374,27 @@ for caso, suo in zip(casi, suoi["casi"]):
     mio = py_giudica(caso["domanda"], caso["logit"], caso.get("temperatura", 1.0),
                      caso.get("priorita"))
     conta[mio["come"]] = conta.get(mio["come"], 0) + 1
+    politica = caso["domanda"]["politica"]
+    sul_filo = (abs(mio["indisponibile"] - politica.get("massimo_indisponibile", 0.5)) < FILO
+                or abs(mio["in_testa"] - politica.get("minimo_in_testa", 0.0)) < FILO)
     perche = []
     if mio["come"] != suo["come"]:
-        perche.append(f"esito {mio['come']} vs {suo['come']}")
-    for campo in campi_numerici:
-        if not vicini(mio[campo], suo[campo]):
-            perche.append(f"{campo} {mio[campo]} vs {suo[campo]}")
-    if mio["scelta"] != suo["scelta"]:
-        perche.append(f"scelta {mio['scelta']} vs {suo['scelta']}")
-    if not vicini(mio["statistiche"], suo["statistiche"]):
-        perche.append(f"statistiche {mio['statistiche']} vs {suo['statistiche']}")
+        if sul_filo:
+            # Confine: l'esito puo' cadere di qua o di la', le probabilita' no.
+            fili += 1
+        else:
+            perche.append(f"esito {mio['come']} vs {suo['come']}")
+    elif mio["come"] == suo["come"]:
+        # I campi che dipendono dall'esito si confrontano solo se l'esito e' lo
+        # stesso: altrimenti si starebbe confrontando una risposta con la sua
+        # assenza, e la differenza e' gia' stata contata sopra.
+        for campo in campi_numerici:
+            if not vicini(mio[campo], suo[campo]):
+                perche.append(f"{campo} {mio[campo]} vs {suo[campo]}")
+        if mio["scelta"] != suo["scelta"]:
+            perche.append(f"scelta {mio['scelta']} vs {suo['scelta']}")
+        if not vicini(mio["statistiche"], suo["statistiche"]):
+            perche.append(f"statistiche {mio['statistiche']} vs {suo['statistiche']}")
     mie_ps = [p for _, p in mio["probabilita"]]
     sue_ps = [p for _, p in suo["probabilita"]]
     if [i for i, _ in mio["probabilita"]] != [i for i, _ in suo["probabilita"]]:
@@ -381,6 +406,11 @@ for caso, suo in zip(casi, suoi["casi"]):
                        + "; ".join(perche[:3]))
 controlla(f"i giudizi coincidono tutti ({len(casi)} casi)", not diversi,
           "\n      ".join(diversi[:6]))
+# I casi sul confine si contano, invece di sparire: sono quelli in cui la
+# politica confronta una probabilita' calcolata con una costante e l'ultimo bit
+# decide. Che siano pochi e' cio' che rende il resto del confronto significativo.
+controlla(f"e i casi sul filo di una soglia restano una minoranza ({fili} su {len(casi)})",
+          fili < len(casi) // 10, f"{fili} casi su {len(casi)} cadono entro {FILO} da una soglia")
 # Un corpus che non esercita i rami non prova niente: qui si dichiara quali.
 controlla("e il corpus tocca tutti e quattro gli esiti",
           set(conta) == {"risposto", "non_basta", "fuori_scala", "incerto"},

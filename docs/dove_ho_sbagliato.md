@@ -731,3 +731,40 @@ Python, provata da un banco. Tre buchi in un giorno, tutti della stessa
 forma: **la stessa cosa scritta due volte in due posti**. Comincio a
 pensare che valga la pena cercarla di proposito invece di aspettare di
 inciamparci.
+
+## Un banco che pretendeva l'ultimo bit uguale su due macchine
+
+Il banco di `nova-giudizio` confronta 1320 giudizi fra la meta' Rust e una
+seconda scrittura in Python. Verde qui, rosso sulla CI — e la differenza non
+era in nessuna delle due meta'.
+
+Una politica confronta una probabilita' **calcolata** con una costante:
+`indisponibile >= massimo_indisponibile`. Cinquantatre casi del corpus cadono
+esattamente sul confine (per esempio una distribuzione piatta su due
+candidati: 0.5 tondo). Li' `exp` e la divisione possono finire da una parte o
+dall'altra dell'ultimo bit a seconda della libreria matematica della macchina,
+e la decisione cambia. Non e' un difetto: e' una proprieta' del disegno.
+
+La tentazione era allargare la tolleranza. Sarebbe stato il rimedio sbagliato:
+la tolleranza copre i numeri, non le **decisioni**, e allargarla avrebbe
+nascosto anche differenze vere.
+
+Due rimedi, e servono tutti e due perche' rispondono a due domande diverse.
+
+**Il banco dichiara i casi sul filo.** Entro `FILO = 1e-9` da una soglia si
+accetta l'uno o l'altro esito — ma le probabilita' devono coincidere lo stesso,
+e i casi sul filo **si contano**, con una prova che li tiene sotto un decimo
+del corpus. Se un giorno diventassero la maggioranza, vorrebbe dire che il
+confronto non prova piu' niente, e si vedrebbe.
+
+**Il confine si fissa altrove.** Accettare due esiti sul filo vuol dire che il
+banco non inchioda piu' la semantica di `>=`, e infatti la mutazione `>=` → `>`
+e' passata. Quindi il confronto e' uscito da `giudica` ed e' diventato
+`ci_si_ferma(prima_e_speciale, indisponibile, soglia)`: tre argomenti, nessun
+esponenziale, e una prova di unita' che scrive `0.5` e `0.5` a mano. Li'
+l'uguaglianza e' esatta su qualunque macchina IEEE, e la mutazione torna rossa.
+
+La regola generale: **un banco gemello prova che due meta' sono d'accordo, non
+cosa hanno deciso.** Dove una decisione dipende da un confronto esatto fra
+numeri calcolati, quella decisione va provata dove i numeri si scrivono invece
+che dove si calcolano.
