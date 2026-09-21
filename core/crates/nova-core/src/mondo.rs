@@ -45,13 +45,24 @@ pub enum Gradino {
         intestazioni: Vec<(String, String)>,
         in_casa: bool,
     },
-    /// Si lancia un processo: `claude` e le CLI dichiarate.
+    /// Si lancia un processo: una CLI dichiarata in `brains.cli`.
     ///
-    /// Il turno non sa ancora farlo, e lo **dice**. Il ripiego silenzioso —
-    /// trattarlo come un indirizzo e vedere cosa succede — darebbe un guasto
-    /// di rete per un gradino che non ha mai avuto un indirizzo, cioe' la
-    /// diagnosi sbagliata con la faccia di quella giusta.
-    Processo { nome: String },
+    /// Si porta dietro **come si lancia**, non solo il nome: il nome da solo
+    /// non basta a sapere che programma e', e andarlo a ripescare nella
+    /// configurazione al momento di lanciarlo vorrebbe dire rileggerla a
+    /// meta' turno, quando l'utente puo' averla gia' cambiata.
+    Cli {
+        nome: String,
+        come: Box<nova_cervelli::cli::Dichiarata>,
+    },
+    /// Claude Code: un processo anche lui, ma con sessioni, permessi e MCP.
+    ///
+    /// Il turno non sa ancora lanciarlo, e lo **dice**. Il ripiego
+    /// silenzioso — trattarlo come una CLI qualunque e vedere cosa succede —
+    /// darebbe un Claude senza gli strumenti di NOVA e senza il filo della
+    /// conversazione, cioe' una risposta peggiore con la faccia di quella
+    /// giusta.
+    Claude { nome: String },
 }
 
 impl Gradino {
@@ -68,14 +79,15 @@ impl Gradino {
                 in_casa,
                 ..
             } => Some((base_url, modello, intestazioni, *in_casa)),
-            Gradino::Processo { .. } => None,
+            _ => None,
         }
     }
 
     pub fn nome(&self) -> &str {
         match self {
             Gradino::Indirizzo { nome, .. } => nome,
-            Gradino::Processo { nome } => nome,
+            Gradino::Cli { nome, .. } => nome,
+            Gradino::Claude { nome } => nome,
         }
     }
 
@@ -85,6 +97,11 @@ impl Gradino {
     /// perche' chi legge la configurazione ce li ha in mano comunque: qui si
     /// decide se **contano**. Per un processo non contano, e buttarli via e'
     /// meglio che tenerli e lasciar credere che servano a qualcosa.
+    ///
+    /// Una CLI senza dichiarazione non e' un errore da fermare qui: e' una
+    /// CLI che si chiama come il suo binario. Capita a chi toglie la voce da
+    /// `brains.cli` e si dimentica il gradino che la usava, e provare a
+    /// lanciare `gemini` e' piu' onesto che far sparire il gradino.
     pub fn nuovo(
         nome: &str,
         specie: nova_scala::Specie,
@@ -92,19 +109,26 @@ impl Gradino {
         modello: &str,
         intestazioni: Vec<(String, String)>,
         in_casa: bool,
+        come: Option<&nova_cervelli::cli::Dichiarata>,
     ) -> Gradino {
-        if specie.e_un_indirizzo() {
-            Gradino::Indirizzo {
+        match specie {
+            nova_scala::Specie::Locale | nova_scala::Specie::Api => Gradino::Indirizzo {
                 nome: nome.to_string(),
                 base_url: base_url.to_string(),
                 modello: modello.to_string(),
                 intestazioni,
                 in_casa,
-            }
-        } else {
-            Gradino::Processo {
+            },
+            nova_scala::Specie::Claude => Gradino::Claude {
                 nome: nome.to_string(),
-            }
+            },
+            nova_scala::Specie::Cli => Gradino::Cli {
+                nome: nome.to_string(),
+                come: Box::new(
+                    come.cloned()
+                        .unwrap_or_else(|| nova_cervelli::cli::dichiarata(nome, &Value::Null)),
+                ),
+            },
         }
     }
 }
@@ -152,9 +176,28 @@ pub struct Recapiti {
     pub api_modello: String,
     /// Gia' letta dall'ambiente se nel file non c'era.
     pub api_chiave: String,
-    /// I nomi dichiarati in `brains.cli`: servono a riconoscere che un
-    /// gradino e' un processo e non un indirizzo.
-    pub cli: Vec<String>,
+    /// Le CLI dichiarate in `brains.cli`. Servono a due cose in un colpo:
+    /// riconoscere che un gradino e' un processo e non un indirizzo, e
+    /// sapere **come si lancia**.
+    pub cli: Vec<nova_cervelli::cli::Dichiarata>,
+}
+
+impl Recapiti {
+    /// I nomi delle CLI dichiarate, per chi deve solo riconoscerli.
+    pub fn nomi_cli(&self) -> Vec<String> {
+        self.cli.iter().map(|c| c.nome.clone()).collect()
+    }
+
+    /// La dichiarazione che si chiama cosi', **senza guardare le maiuscole**.
+    ///
+    /// Da tutte e due le parti, come in `nova_scala::specie_di`: una CLI
+    /// scritta a mano nel file come «Gemini» e un gradino che dice `gemini`
+    /// sono la stessa cosa. Cercarla con un confronto secco vorrebbe dire
+    /// riconoscerla come processo e poi non saperla lanciare.
+    pub fn cli_di(&self, brain: &str) -> Option<&nova_cervelli::cli::Dichiarata> {
+        let n = brain.trim().to_lowercase();
+        self.cli.iter().find(|c| c.nome.trim().to_lowercase() == n)
+    }
 }
 
 /// La scala vera, dalla configurazione.
@@ -176,6 +219,7 @@ pub struct Recapiti {
 /// corta, e' un turno che non puo' cominciare.
 pub fn scala_vera(cfg: &nova_scala::Configurazione, r: &Recapiti) -> Vec<Gradino> {
     let mut fuori: Vec<Gradino> = Vec::new();
+    let nomi = r.nomi_cli();
     for nome in nova_scala::scala(cfg) {
         let Some(t) = cfg.gradino(&nome) else {
             continue;
@@ -183,7 +227,7 @@ pub fn scala_vera(cfg: &nova_scala::Configurazione, r: &Recapiti) -> Vec<Gradino
         if cfg.solo_locale && !t.locale {
             continue;
         }
-        let specie = nova_scala::specie_di(&t.brain, &r.cli);
+        let specie = nova_scala::specie_di(&t.brain, &nomi);
         let (url, modello_di_scorta, chiave) = match specie {
             nova_scala::Specie::Api => (&r.api_url, &r.api_modello, r.api_chiave.as_str()),
             _ => (&r.locale_url, &r.locale_modello, ""),
@@ -195,6 +239,16 @@ pub fn scala_vera(cfg: &nova_scala::Configurazione, r: &Recapiti) -> Vec<Gradino
         } else {
             &t.model
         };
+        // Per una CLI il modello di scorta e' quello **suo**, non quello di
+        // casa: passare il nome del GGUF locale a `gemini` non e' un ripiego,
+        // e' una riga di comando che chiede un modello che non esiste.
+        let come = r.cli_di(&t.brain).map(|d| {
+            let mut d = d.clone();
+            if !t.model.trim().is_empty() {
+                d.modello = t.model.trim().to_string();
+            }
+            d
+        });
         fuori.push(Gradino::nuovo(
             &t.nome,
             specie,
@@ -202,6 +256,7 @@ pub fn scala_vera(cfg: &nova_scala::Configurazione, r: &Recapiti) -> Vec<Gradino
             modello,
             nova_cervelli::openai::intestazioni(chiave),
             nova_scala::e_in_casa(url),
+            come.as_ref(),
         ));
     }
     if fuori.is_empty() {
@@ -216,6 +271,7 @@ pub fn scala_vera(cfg: &nova_scala::Configurazione, r: &Recapiti) -> Vec<Gradino
             },
             nova_cervelli::openai::intestazioni(""),
             nova_scala::e_in_casa(&r.locale_url),
+            None,
         ));
     }
     fuori
@@ -264,7 +320,7 @@ impl<'a> MondoVero<'a> {
                 intestazioni,
                 in_casa,
             } => Some((nome, base_url, modello, intestazioni, *in_casa)),
-            Gradino::Processo { .. } => None,
+            _ => None,
         }
     }
 
@@ -302,9 +358,15 @@ impl<'a> MondoVero<'a> {
     /// `Resoconto` da' tutti e due i numeri, e i ruoli si controllano lo
     /// stesso: se un giorno quella forma cambiasse, si vedrebbe qui e subito
     /// invece che in una trascrizione rifiutata.
-    pub fn taglia(&mut self) {
-        let righe: Vec<nova_contesto::Messaggio> = self
-            .sessione
+    /// La conversazione come la vedono i cervelli: solo ruolo e testo.
+    ///
+    /// Di un messaggio con dentro delle chiamate a strumenti resta il
+    /// contenuto, che puo' essere vuoto. E' giusto cosi': a chi legge questa
+    /// forma — la finestra, il prompt di una CLI — un `tool_call_id` non
+    /// dice niente, e quel che conta e' che le righe restino **quelle**, nel
+    /// loro ordine.
+    fn righe(&self) -> Vec<nova_contesto::Messaggio> {
+        self.sessione
             .messaggi
             .iter()
             .map(|m| nova_contesto::Messaggio {
@@ -319,7 +381,11 @@ impl<'a> MondoVero<'a> {
                     .unwrap_or("")
                     .to_string(),
             })
-            .collect();
+            .collect()
+    }
+
+    pub fn taglia(&mut self) {
+        let righe = self.righe();
         let (rimasti, conto) = nova_contesto::taglia(
             &righe,
             self.sessione.misure.tetto,
@@ -347,6 +413,95 @@ impl<'a> MondoVero<'a> {
             fuori.push(m);
         }
         self.sessione.messaggi = fuori;
+    }
+
+    /// Un giro con un cervello che sta dietro a un indirizzo.
+    async fn a_un_indirizzo(&mut self) -> Result<Risposta, String> {
+        let Some((nome, base_url, modello, intestazioni, in_casa)) = self.indirizzo_ora() else {
+            return Err("questo gradino non e' un indirizzo".to_string());
+        };
+        let (nome, base_url, modello) =
+            (nome.to_string(), base_url.to_string(), modello.to_string());
+        let intestazioni = intestazioni.to_vec();
+        // Si taglia **prima** di chiedere, non dopo aver ricevuto un rifiuto:
+        // «exceeds the available context size» e' un errore che si previene,
+        // non uno da tradurre bene.
+        self.taglia();
+        let corpo = self.corpo(&modello);
+        let r = chiedi(
+            self.trasporto,
+            &base_url,
+            &intestazioni,
+            &corpo,
+            &nome,
+            in_casa,
+        )
+        .map_err(motivo_di)?;
+
+        let chiamate: Vec<Chiamata> = r.tool_calls.iter().filter_map(chiamata_da).collect();
+        // Il messaggio dell'assistente si mette **prima** di eseguire, con
+        // dentro le sue chiamate: un `tool` che risponde a un `tool_calls`
+        // che non c'e' e' una trascrizione invalida, e le API la rifiutano.
+        let mut msg = json!({ "role": "assistant", "content": r.contenuto });
+        if !r.tool_calls.is_empty() {
+            msg["tool_calls"] = Value::Array(r.tool_calls.clone());
+        }
+        self.sessione.messaggi.push(msg);
+        Ok(Risposta {
+            contenuto: r.contenuto,
+            chiamate,
+        })
+    }
+
+    /// Un giro con una CLI agentica: si lancia, le si da' il prompt, si
+    /// legge cosa ha stampato.
+    ///
+    /// **Non torna mai delle chiamate a strumenti**, e non e' una
+    /// semplificazione: una CLI agentica ha gia' agito per conto suo mentre
+    /// NOVA aspettava. Gli strumenti del turno non le si mandano nemmeno —
+    /// non saprebbe cosa farsene, e il giro si chiude in un colpo solo.
+    ///
+    /// Quel che la memoria ha trovato non si passa qui: nel turno del demone
+    /// e' gia' in coda alla domanda dell'utente (D160), e rimetterlo anche
+    /// in testa vorrebbe dire dirlo due volte.
+    async fn a_una_cli(&mut self, d: &nova_cervelli::cli::Dichiarata) -> Result<Risposta, String> {
+        let eseguibile = crate::processo::trova(&d.binario);
+        if let Some(perche) =
+            nova_cervelli::cli::perche_non_pronto(&eseguibile, &d.binario, &d.nome)
+        {
+            return Err(perche);
+        }
+        self.taglia();
+        let prompt = nova_cervelli::cli::prompt_completo(&self.righe(), "");
+        let mut args = nova_cervelli::cli::argomenti(&eseguibile, &d.args, &d.modello);
+        if !d.su_stdin {
+            args.push(prompt.clone());
+        }
+        let u = crate::processo::lancia(
+            &args,
+            if d.su_stdin {
+                Some(prompt.as_str())
+            } else {
+                None
+            },
+            &d.cartella,
+            d.secondi,
+        )
+        .await
+        .map_err(|g| match g {
+            crate::processo::Guaio::Troppo => {
+                nova_cervelli::cli::non_ha_risposto(&d.etichetta, d.secondi)
+            }
+            crate::processo::Guaio::Muto(e) => format!("{} non e' partita: {e}", d.etichetta),
+        })?;
+        let testo = nova_cervelli::cli::cosa_ha_detto(&d.etichetta, &u.stdout, &u.stderr)?;
+        self.sessione
+            .messaggi
+            .push(json!({ "role": "assistant", "content": testo }));
+        Ok(Risposta {
+            contenuto: testo,
+            chiamate: Vec::new(),
+        })
     }
 }
 
@@ -389,52 +544,27 @@ pub fn chiamata_da(v: &Value) -> Option<Chiamata> {
 #[async_trait]
 impl Mondo for MondoVero<'_> {
     async fn chiedi(&mut self) -> Result<Risposta, String> {
-        if self.ora().is_none() {
+        // Il gradino si copia: i due giri qui sotto prendono `self` per
+        // intero, e tenerne in mano un pezzo in prestito li' fermerebbe.
+        // Una `Dichiarata` e' fatta di stringhe corte e si copia una volta
+        // per turno.
+        let Some(g) = self.ora().cloned() else {
             // Una scala vuota non e' una scala corta: senza questa riga si
             // usciva dicendo «e' un processo» di un gradino che non c'e'.
             return Err("non c'e' nessun cervello configurato a cui chiedere. \
                         Apri il pannello dei cervelli e scegline almeno uno."
                 .to_string());
-        }
-        let Some((nome, base_url, modello, intestazioni, in_casa)) = self.indirizzo_ora() else {
-            return Err(format!(
-                "«{}» non e' un indirizzo ma un processo da lanciare, e il turno non \
-                 sa ancora farlo. Scegli un cervello locale o una chiave API, oppure \
-                 usa quella CLI dal pannello.",
-                self.ora().map_or("", Gradino::nome)
-            ));
         };
-        let (nome, base_url, modello) =
-            (nome.to_string(), base_url.to_string(), modello.to_string());
-        let intestazioni = intestazioni.to_vec();
-        // Si taglia **prima** di chiedere, non dopo aver ricevuto un rifiuto:
-        // «exceeds the available context size» e' un errore che si previene,
-        // non uno da tradurre bene.
-        self.taglia();
-        let corpo = self.corpo(&modello);
-        let r = chiedi(
-            self.trasporto,
-            &base_url,
-            &intestazioni,
-            &corpo,
-            &nome,
-            in_casa,
-        )
-        .map_err(motivo_di)?;
-
-        let chiamate: Vec<Chiamata> = r.tool_calls.iter().filter_map(chiamata_da).collect();
-        // Il messaggio dell'assistente si mette **prima** di eseguire, con
-        // dentro le sue chiamate: un `tool` che risponde a un `tool_calls`
-        // che non c'e' e' una trascrizione invalida, e le API la rifiutano.
-        let mut msg = json!({ "role": "assistant", "content": r.contenuto });
-        if !r.tool_calls.is_empty() {
-            msg["tool_calls"] = Value::Array(r.tool_calls.clone());
+        match g {
+            Gradino::Indirizzo { .. } => self.a_un_indirizzo().await,
+            Gradino::Cli { ref come, .. } => self.a_una_cli(come).await,
+            Gradino::Claude { ref nome } => Err(format!(
+                "«{nome}» e' Claude Code, e il turno del demone non sa ancora \
+                 lanciarlo: gli servono la sessione, i permessi e il ponte MCP. \
+                 Scegli un cervello locale, una chiave API o una CLI dichiarata, \
+                 oppure usa Claude Code dal pannello."
+            )),
         }
-        self.sessione.messaggi.push(msg);
-        Ok(Risposta {
-            contenuto: r.contenuto,
-            chiamate,
-        })
     }
 
     async fn esegui(&mut self, c: &Chiamata) -> (Andata, String) {
@@ -604,6 +734,7 @@ mod prove {
                         &format!("m{i}"),
                         vec![],
                         true,
+                        None,
                     )
                 })
                 .collect(),
@@ -763,11 +894,11 @@ mod prove {
     }
 
     #[tokio::test]
-    async fn un_gradino_che_e_un_processo_lo_dice_invece_di_provarci() {
-        // Il ripiego silenzioso - trattarlo come un indirizzo e vedere cosa
-        // succede - darebbe un guasto di rete per un gradino che un indirizzo
-        // non ce l'ha mai avuto: la diagnosi sbagliata con la faccia di
-        // quella giusta.
+    async fn claude_code_lo_dice_invece_di_provarci() {
+        // Il ripiego silenzioso - trattarlo come una CLI qualunque e vedere
+        // cosa succede - darebbe un Claude senza gli strumenti di NOVA e
+        // senza il filo della conversazione: una risposta peggiore con la
+        // faccia di quella giusta.
         let t = Copione::con(&[dice("non dovrei arrivare qui", &[])]);
         let e = Finge("x");
         let mut sess = sessione(1);
@@ -779,10 +910,11 @@ mod prove {
             "m",
             vec![],
             false,
+            None,
         )];
         match m.chiedi().await {
             Err(motivo) => {
-                assert!(motivo.contains("processo"), "{motivo}");
+                assert!(motivo.contains("Claude Code"), "{motivo}");
                 assert!(motivo.contains("«claude»"), "{motivo}");
                 assert!(
                     t.mandati.lock().unwrap().is_empty(),
@@ -794,8 +926,11 @@ mod prove {
     }
 
     #[tokio::test]
-    async fn per_una_cli_lindirizzo_si_butta_invece_di_tenerlo_li() {
-        // Tenerlo lascerebbe credere che serva a qualcosa.
+    async fn per_una_cli_lindirizzo_si_butta_e_si_tiene_come_si_lancia() {
+        // L'indirizzo, tenuto, lascerebbe credere che serva a qualcosa; la
+        // dichiarazione invece serve eccome, ed e' l'unica cosa che dice
+        // **che programma** e' quel gradino.
+        let d = nova_cervelli::cli::dichiarata("gemini", &json!({"binary": "gemini-cli"}));
         let g = Gradino::nuovo(
             "gemini",
             nova_scala::Specie::Cli,
@@ -803,9 +938,20 @@ mod prove {
             "m",
             vec![],
             false,
+            Some(&d),
         );
-        assert!(matches!(g, Gradino::Processo { .. }), "{g:?}");
+        let Gradino::Cli { nome, come } = &g else {
+            panic!("{g:?}");
+        };
+        assert_eq!(
+            (nome.as_str(), come.binario.as_str()),
+            ("gemini", "gemini-cli")
+        );
         assert_eq!(g.nome(), "gemini");
+        assert!(g.indirizzo().is_none(), "un processo non ha un indirizzo");
+        // Senza dichiarazione non sparisce: si chiama come il suo binario.
+        let orfana = Gradino::nuovo("glm", nova_scala::Specie::Cli, "", "", vec![], false, None);
+        assert!(matches!(&orfana, Gradino::Cli { come, .. } if come.binario == "glm"));
         let l = Gradino::nuovo(
             "locale",
             nova_scala::Specie::Locale,
@@ -813,8 +959,99 @@ mod prove {
             "m",
             vec![],
             true,
+            None,
         );
         assert!(matches!(l, Gradino::Indirizzo { .. }), "{l:?}");
+    }
+
+    #[tokio::test]
+    async fn una_cli_si_lancia_davvero_e_quel_che_stampa_e_la_risposta() {
+        if !cfg!(unix) {
+            return;
+        }
+        let t = Copione::con(&[]);
+        let e = Finge("x");
+        let mut sess = sessione(1);
+        let mut m = mondo(&t, &e, &mut sess);
+        let d = nova_cervelli::cli::dichiarata(
+            "finta",
+            &json!({"binary": "/bin/sh", "args": ["-c", "cat >/dev/null; echo 'ho fatto io'"]}),
+        );
+        m.sessione.gradini = vec![Gradino::Cli {
+            nome: "finta".into(),
+            come: Box::new(d),
+        }];
+        m.sessione.messaggi = vec![json!({"role": "user", "content": "ciao"})];
+        let r = m.chiedi().await.unwrap();
+        assert_eq!(r.contenuto, "ho fatto io");
+        assert!(
+            r.chiamate.is_empty(),
+            "una CLI agentica ha gia' agito: non chiede strumenti a NOVA"
+        );
+        assert_eq!(
+            m.sessione.messaggi.last().unwrap()["content"],
+            "ho fatto io",
+            "la risposta entra in conversazione come quella di un cervello qualunque"
+        );
+        assert!(
+            t.mandati.lock().unwrap().is_empty(),
+            "una CLI non e' un indirizzo: non doveva partire nessuna richiesta"
+        );
+    }
+
+    #[tokio::test]
+    async fn una_cli_che_non_ce_lo_dice_prima_di_lanciarla() {
+        let t = Copione::con(&[]);
+        let e = Finge("x");
+        let mut sess = sessione(1);
+        let mut m = mondo(&t, &e, &mut sess);
+        m.sessione.gradini = vec![Gradino::Cli {
+            nome: "assente".into(),
+            come: Box::new(nova_cervelli::cli::dichiarata(
+                "assente",
+                &json!({"binary": "non-esiste-questo-programma-qui"}),
+            )),
+        }];
+        let motivo = m.chiedi().await.unwrap_err();
+        // «Installalo» da solo manderebbe a reinstallare una cosa che c'e'
+        // gia': un processo eredita il PATH da quando e' partito (D193).
+        assert!(motivo.contains("riavvia NOVA"), "{motivo}");
+        assert!(
+            motivo.contains("non-esiste-questo-programma-qui"),
+            "{motivo}"
+        );
+    }
+
+    #[tokio::test]
+    async fn una_cli_che_non_stampa_niente_e_un_guasto_non_una_risposta_vuota() {
+        if !cfg!(unix) {
+            return;
+        }
+        let t = Copione::con(&[]);
+        let e = Finge("x");
+        let mut sess = sessione(1);
+        let mut m = mondo(&t, &e, &mut sess);
+        m.sessione.gradini = vec![Gradino::Cli {
+            nome: "muta".into(),
+            come: Box::new(nova_cervelli::cli::dichiarata(
+                "muta",
+                &json!({"binary": "/bin/sh",
+                        "args": ["-c", "cat >/dev/null; echo 'manca la chiave' >&2"]}),
+            )),
+        }];
+        m.sessione.messaggi = vec![json!({"role": "user", "content": "ciao"})];
+        let motivo = m.chiedi().await.unwrap_err();
+        assert!(motivo.contains("Muta"), "l'etichetta dedotta: {motivo}");
+        assert!(
+            motivo.contains("manca la chiave"),
+            "cio' che spiega il guasto sta su stderr, e buttarlo via \
+             lascerebbe un errore che non dice niente: {motivo}"
+        );
+        assert_eq!(
+            m.sessione.messaggi.len(),
+            1,
+            "un guasto non entra in conversazione come se fosse una risposta"
+        );
     }
 
     #[tokio::test]
@@ -896,7 +1133,10 @@ mod prove {
             api_url: "https://api.esempio.com".into(),
             api_modello: "gpt-di-serie".into(),
             api_chiave: "sk-segretissima".into(),
-            cli: vec!["gemini".into()],
+            cli: vec![nova_cervelli::cli::dichiarata(
+                "gemini",
+                &json!({"binary": "gemini-cli", "model": "gemini-2.5-pro"}),
+            )],
         }
     }
 
@@ -949,12 +1189,14 @@ mod prove {
         assert!(matches!(&s[1], Gradino::Indirizzo { base_url, modello, .. }
                          if base_url == "https://api.esempio.com" && modello == "gpt-di-serie"));
         assert!(
-            matches!(s[2], Gradino::Processo { .. }),
+            matches!(s[2], Gradino::Claude { .. }),
             "claude e' un processo, non un indirizzo"
         );
         assert!(
-            matches!(s[3], Gradino::Processo { .. }),
-            "una CLI dichiarata e' un processo"
+            matches!(&s[3], Gradino::Cli { come, .. } if come.binario == "gemini-cli"
+                     && come.modello == "gemini-2.5-pro"),
+            "una CLI dichiarata e' un processo, e si porta dietro come si lancia: {:?}",
+            s[3]
         );
     }
 

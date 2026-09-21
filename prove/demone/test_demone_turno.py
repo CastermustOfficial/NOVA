@@ -405,14 +405,18 @@ try:
     controlla("senza motivi da dare, visto che va",
               pronto.get("perche") == "", str(pronto))
 
-    # E con una scala che comincia con una CLI dice di no, **spiegando**.
+    # E con Claude Code davanti dice di no, **spiegando**. Una CLI
+    # dichiarata il turno la sa lanciare (vedi test_demone_cli.py); Claude
+    # Code no, e non e' la stessa cosa: gli servono la sessione, i permessi
+    # e il ponte MCP, e fingere di saperlo fare darebbe un Claude senza gli
+    # strumenti di NOVA e senza il filo della conversazione.
+    #
     # Si riscrive la configurazione e si richiede subito: se il demone la
     # tenesse in mano dal suo avvio, questa risposta non cambierebbe, e chi
     # cambia cervello dal pannello dovrebbe riavviare tutto per vederlo.
     config = Path(casa) / "NOVA" / "config.json"
     prima = config.read_text(encoding="utf-8")
     dentro = json.loads(prima)
-    dentro["brains"]["cli"] = {"claude": {"comando": "claude"}}
     dentro["brains"]["routing"]["scala"] = ["claude", "locale"]
     dentro["brains"]["routing"]["tiers"]["claude"] = {"brain": "claude", "locale": True}
     config.write_text(json.dumps(dentro, ensure_ascii=False), encoding="utf-8")
@@ -421,7 +425,7 @@ try:
             con_cli = c.request("agente/pronto", {})
     finally:
         config.write_text(prima, encoding="utf-8")
-    controlla("con una CLI davanti, il turno non lo sa ancora fare",
+    controlla("con Claude Code davanti, il turno non lo sa ancora fare",
               con_cli.get("pronto") is False, str(con_cli))
     controlla("e lo dice in una riga che si puo' leggere",
               "claude" in (con_cli.get("perche") or ""), str(con_cli))

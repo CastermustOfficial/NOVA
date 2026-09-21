@@ -152,11 +152,18 @@ pub fn recapiti(cfg: &Value, ambiente: &dyn Fn(&str) -> Option<String>) -> Recap
         },
         api_modello: testo(cfg, &["brains", "api_model"]),
         api_chiave: chiave,
+        // Le CLI si leggono **intere**, non solo i nomi: il nome dice che
+        // quel gradino e' un processo, la dichiarazione dice che programma
+        // e', e chi deve lanciarlo ha bisogno di tutte e due.
         cli: cfg
             .get("brains")
             .and_then(|b| b.get("cli"))
             .and_then(Value::as_object)
-            .map(|o| o.keys().cloned().collect())
+            .map(|o| {
+                o.iter()
+                    .map(|(nome, spec)| nova_cervelli::cli::dichiarata(nome, spec))
+                    .collect()
+            })
             .unwrap_or_default(),
     }
 }
@@ -289,9 +296,26 @@ mod prove {
     #[test]
     fn le_cli_dichiarate_si_riconoscono() {
         let r = recapiti(&configurazione(), &|_| None);
-        let mut nomi = r.cli.clone();
+        let mut nomi = r.nomi_cli();
         nomi.sort();
         assert_eq!(nomi, vec!["codex", "gemini"]);
+    }
+
+    #[test]
+    fn di_una_cli_si_legge_come_si_lancia_non_solo_che_esiste() {
+        // Il nome dice che quel gradino e' un processo; la dichiarazione dice
+        // **che programma** e'. Senza la seconda, riconoscerlo non serve a
+        // niente: il turno saprebbe di dover lanciare qualcosa e non cosa.
+        let r = recapiti(&configurazione(), &|_| None);
+        let g = r
+            .cli_di("GEMINI")
+            .expect("le maiuscole non contano, da tutte e due le parti");
+        assert_eq!(g.nome, "gemini");
+        assert!(!g.binario.is_empty());
+        assert!(
+            g.secondi > 0,
+            "un tetto di zero secondi e' una CLI che non parte mai"
+        );
     }
 
     #[test]

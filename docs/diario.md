@@ -10107,3 +10107,118 @@ disco e NOVA rispondeva di non saperne niente.
 
 Restano sei famiglie: `sistema` (ventidue strumenti, la più grossa), `app`,
 `web`, le deleghe, lo schermo, i documenti.
+
+## Il turno in Rust impara a lanciare un cervello che è un programma
+
+Questa è la cosa che vale più di tutte le altre di questa settimana, e vale
+per un motivo antipatico: fino a stamattina niente di quello che ho scritto
+nelle ultime settimane girava sulla macchina di chi ha `claude` o `gemini` in
+cima alla scala.
+
+Metà della scala di NOVA non sta dietro a un indirizzo (D219). `locale` e
+`api` sono URL: si manda un corpo, arriva una risposta. `claude`, `gemini`,
+`glm` e chiunque altro sia dichiarato in `brains.cli` sono **binari**: si
+lanciano, ricevono un prompt su stdin, stampano una risposta. Il turno del
+demone sapeva fare solo la prima metà, e alla seconda rispondeva con una
+frase onesta — «è un processo da lanciare, e il turno non sa ancora farlo».
+
+Onesta e inutile. Perché il turno parte sempre dal **primo** gradino, e se il
+primo gradino è una CLI il turno non comincia nemmeno: il guscio chiede
+`agente/pronto`, si sente dire di no, e manda la domanda al Python. Ogni
+messaggio. Le capacità dei file, quelle della memoria, il taglio della
+conversazione, le procedure: tutto costruito, tutto provato, e su quella
+macchina tutto spento.
+
+### Attaccare, non riscrivere
+
+Terza volta di fila, e ormai è un metodo. `nova-cervelli::cli` c'era già da
+CANT-9: quali nomi provare nel PATH e in che ordine (su Windows il `.cmd`
+per primo, se no si trova lo script che Windows non sa avviare), come si
+compone il prompt intero per una CLI che non ha sessione, come si sostituisce
+`{model}` sulla riga di comando, e perché non è pronta — con quel messaggio
+che dice **prima** «riavvia NOVA» e poi «installalo», perché un processo
+eredita il PATH da quando è partito e mandare a reinstallare una cosa che c'è
+già è il consiglio sbagliato con la faccia di quello giusto (D193).
+
+Mancavano due cose: leggere la dichiarazione, e lanciare il processo.
+
+La dichiarazione ora si legge **intera** e una volta sola. Prima `Recapiti`
+teneva solo i nomi delle CLI, che bastavano a riconoscere che un gradino è un
+processo; ma il nome non dice *che programma è*. Andarlo a ripescare nella
+configurazione al momento di lanciarlo avrebbe voluto dire rileggere il file a
+metà turno, quando l'utente può averlo già cambiato dal pannello.
+
+Il lancio sta in `nova-core::processo`, sottile apposta: il PATH, la finestra
+nera di Windows che non deve aprirsi, stdin, il tetto di tempo. Una cosa che
+non avrei scritto se non l'avessi pensata: **se scade, il processo si
+ammazza**. Lasciarlo vivere dopo aver smesso di aspettarlo lo lascerebbe ad
+agire sul computer dell'utente mentre NOVA racconta di aver rinunciato — due
+padroni e nessuno che guarda.
+
+### Due varianti, non una
+
+`Gradino::Processo` era una variante sola per due cose diverse, e l'ho spezzata
+in `Cli` e `Claude`.
+
+Claude Code **resta** un no. Non per pigrizia: ha le sessioni (`--resume` con
+l'identificativo, che sopravvive alle conversazioni), i permessi tradotti nel
+suo vocabolario, il ponte MCP che gli dà gli strumenti di NOVA, il prompt di
+sistema che su Windows non può viaggiare sulla riga di comando perché la riga
+finisce a 8191 caratteri e il prompt da solo ne pesa ottomila. Trattarlo come
+una CLI qualunque funzionerebbe — stamperebbe una risposta — e sarebbe un
+Claude senza gli strumenti di NOVA e senza il filo della conversazione. Una
+risposta peggiore con la faccia di quella giusta, che è la categoria di
+difetto che questo progetto teme di più. Il messaggio adesso dice *quali* tre
+cose gli mancano, invece di «non so farlo».
+
+### La riga che conta è in `agente/pronto`
+
+`pronto` è la domanda che il guscio fa prima di scegliere la strada, e la fa
+prima apposta: provare e ripiegare sarebbe peggio che inutile, perché un turno
+fallito a metà ha già eseguito degli strumenti e rifarlo dall'altra parte vuol
+dire farli **due volte**.
+
+Quindi per una CLI `pronto` non risponde «sì, è una CLI»: va a guardare se il
+binario c'è nel PATH **adesso**. Se non c'è, risponde no con lo stesso motivo
+che leggerebbe l'utente. Una mutazione che gli fa dire sì a scatola chiusa fa
+rosso in due punti, ed è giusto che ne faccia due.
+
+### La CLI finta è uno script Python
+
+La prova nuova, `prove/demone/test_demone_cli.py`, accende `novad` vero con
+una scala che comincia con una CLI finta, e la CLI finta è uno script Python
+lanciato con l'interprete che sta già girando. Il motivo è banale e mi ha
+fatto perdere dieci minuti a ragionarci: un `.sh` col shebang non parte su
+Windows, un `.cmd` non parte altrove, e una prova che gira solo su metà delle
+macchine non prova la metà che conta. La CLI finta scrive su un file quello
+che ha ricevuto — il prompt e la riga di comando — che sono esattamente le due
+cose che da fuori non si vedono e che, sbagliate, non danno un errore.
+
+Diciotto controlli. Quello che mi piace di più è il quinto: al secondo turno
+il prompt che la CLI riceve contiene `UTENTE: dimmi che ore sono` e
+`ASSISTENTE: Ho risposto io, la CLI.` — cioè la continuità che una CLI senza
+sessione non ha e che gliela dà NOVA riscrivendogliela ogni volta.
+
+E la porta del server locale nella configurazione di prova è la **1**, chiusa
+apposta: se il turno ripiegasse sull'HTTP invece di lanciare il programma, la
+prova lo vedrebbe come un guasto di rete invece di passare per sbaglio.
+
+### Due mutazioni, e una prova vecchia che aveva ragione a modo suo
+
+Tolto il messaggio dell'assistente dalla conversazione dopo la risposta della
+CLI: rossa sul secondo turno, che è il posto giusto. Svuotato lo stdin che si
+manda al processo, e insieme fatto dire sempre «sì» a `pronto`: sei controlli
+rossi su diciotto.
+
+Poi `test_demone_turno.py` è diventata rossa da sola, e per un momento ho
+pensato di aver rotto qualcosa. Aveva un controllo che diceva «con una CLI
+davanti il turno non lo sa ancora fare», e dichiarava `claude` dentro
+`brains.cli` per costruirlo. Adesso quella è una CLI dichiarata, il turno la
+sa lanciare, e il binario `claude` nel container c'è davvero: rispondeva di
+essere pronta, correttamente. L'aspettativa era vecchia, non il codice. L'ho
+riscritta su Claude Code nativo — che è il caso che continua a dire di no — e
+ho lasciato scritto nel commento perché le due cose non sono la stessa.
+
+Restano cinque famiglie di strumenti: `sistema` (ventidue, la più grossa),
+`app`, `web`, le deleghe, lo schermo. E resta Claude Code, che adesso è
+l'unico gradino che il turno in Rust guarda e mette giù.

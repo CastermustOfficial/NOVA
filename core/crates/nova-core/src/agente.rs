@@ -217,13 +217,23 @@ pub fn pronto(_server: &Arc<Server>) -> Value {
     let nomi: Vec<String> = gradini.iter().map(|g| g.nome().to_string()).collect();
     let (pronto, perche) = match gradini.first() {
         None => (false, "non c'e' nessun cervello configurato".to_string()),
-        Some(g) if g.indirizzo().is_some() => (true, String::new()),
-        Some(g) => (
+        Some(crate::mondo::Gradino::Indirizzo { .. }) => (true, String::new()),
+        // Una CLI il turno la sa lanciare, ma solo se il programma c'e'
+        // davvero: dirlo adesso e' tutto il punto di questa domanda — chi
+        // chiede deve scegliere la strada **prima** di imboccarla, e
+        // scoprire che manca il binario a meta' turno costerebbe un turno.
+        Some(crate::mondo::Gradino::Cli { come, .. }) => {
+            let eseguibile = crate::processo::trova(&come.binario);
+            match nova_cervelli::cli::perche_non_pronto(&eseguibile, &come.binario, &come.nome) {
+                Some(perche) => (false, perche),
+                None => (true, String::new()),
+            }
+        }
+        Some(crate::mondo::Gradino::Claude { nome }) => (
             false,
             format!(
-                "il primo gradino «{}» e' un processo da lanciare, e il turno \
-                 non sa ancora farlo",
-                g.nome()
+                "il primo gradino «{nome}» e' Claude Code, e il turno non sa \
+                 ancora lanciarlo"
             ),
         ),
     };

@@ -2431,6 +2431,18 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    ancora solo il Python. Ma NOVA in Rust adesso ci **scrive**, quando e'
    l'utente a dirglielo: sei capacita' `kb.*`, con il guardiano dei segreti
    dentro la porta (D319).
+3-bis. ~~**Il turno sa parlare solo in HTTP.**~~ Fatto. Meta' della scala di
+   NOVA non sta dietro a un indirizzo (D219): `claude`, `gemini`, `glm` sono
+   binari da lanciare, e a quelli il turno rispondeva «non so ancora farlo».
+   Era il buco che valeva piu' di tutti gli altri messi insieme: chi ha una
+   CLI in cima alla scala non vedeva **niente** di questo lavoro, perche' il
+   turno parte sempre dal primo gradino e se quello non si puo' fare la
+   domanda passa al Python. Adesso una CLI dichiarata in `brains.cli` si
+   lancia davvero, col prompt intero che le da' la continuita' che non ha, e
+   `agente/pronto` risponde «si'» solo se il binario c'e' **adesso** (D320).
+   Resta fuori **Claude Code**: gli servono la sessione, i permessi e il
+   ponte MCP, e ha il suo pezzo di cantiere.
+
 4. **Gli strumenti che al demone mancano.** Due famiglie su otto, e
    nessuna delle due riscrivendo niente: i **file** (D308) e la **memoria**
    (D319) — i corpi stavano gia' in `nova-strumenti` e in `nova-nodi`,
@@ -2489,8 +2501,8 @@ un processo per frase, teneva la continuita' del discorso in un file, e
 Adesso il guscio chiede al demone, e la strada si sceglie **prima** di
 imboccarla: `agente/pronto` costa quanto un ping e dice se il turno in Rust
 si puo' fare con la scala che c'e' oggi in `config.json`. Se non si puo' —
-il primo gradino e' una CLI da lanciare, tipo `claude` — si passa dalla
-meta' Python come sempre. Provare e ripiegare sarebbe stato piu' semplice da
+il primo gradino e' Claude Code, oppure e' una CLI il cui binario nel PATH
+non c'e' — si passa dalla meta' Python come sempre. Provare e ripiegare sarebbe stato piu' semplice da
 scrivere e sbagliato da usare: un turno morto a meta' ha gia' eseguito degli
 strumenti, e rifarlo dall'altra parte li eseguirebbe due volte (D305).
 
