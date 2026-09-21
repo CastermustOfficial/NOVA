@@ -98,7 +98,7 @@ mod prove {
 
     fn scala(quanti: usize) -> Vec<Gradino> {
         (0..quanti)
-            .map(|i| Gradino::nuovo(&format!("g{i}"), Specie::Api, "http://x", "m", vec![], true))
+            .map(|i| Gradino::nuovo(&format!("g{i}"), Specie::Api, "http://x", "m", vec![], true, None))
             .collect()
     }
 

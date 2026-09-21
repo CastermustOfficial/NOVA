@@ -44,6 +44,10 @@ pub mod modello;
 // Il braccio del turno: cervelli veri e strumenti veri, dietro le regole
 // che nova-ciclo prova contro una finzione.
 pub mod mondo;
+// Meta' della scala non sta dietro a un indirizzo: e' un programma da
+// lanciare. Gli spigoli di lanciarlo — il PATH, la finestra nera, chi non
+// finisce piu' — stanno li' (D219).
+pub mod processo;
 
 // La conversazione, fra un turno e l'altro.
 pub mod sessione;
