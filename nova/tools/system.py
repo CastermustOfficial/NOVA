@@ -197,8 +197,15 @@ def _tastiera_rust(argomenti: list[str], dentro: str | None, fatto: str) -> str 
         r = subprocess.run(cmd, input=dentro, capture_output=True, text=True,
                            encoding="utf-8", timeout=60,
                            creationflags=SENZA_FINESTRA)
-    except Exception:                                       # noqa: BLE001
+    except OSError:
+        # Il solo caso in cui si ripiega: il binario **non e' partito**.
         return None
+    except subprocess.TimeoutExpired as e:
+        # Partito si', e fermato a meta': ripiegare vorrebbe dire ripetere.
+        raise ToolError(
+            "la tastiera non ha finito entro un minuto: mi sono fermato, ma una "
+            "parte puo' essere gia' arrivata. Non ripeto, perche' finirebbe due "
+            "volte.") from e
     if r.returncode == 0:
         return f"{fatto} in «{w['title']}» ({w['process']})."
     if r.returncode == 4:
@@ -207,7 +214,16 @@ def _tastiera_rust(argomenti: list[str], dentro: str | None, fatto: str) -> str 
             f"scrivere. {r.stderr.strip()[:160]}")
     if r.returncode == 2:
         raise ToolError(r.stderr.strip()[:300] or "combinazione non valida")
-    return None
+    # Qualunque altro codice vuol dire che il binario **e' partito** e si e'
+    # fermato — il fuoco scappato a meta' testo, o una finestra con privilegi
+    # piu' alti che rifiuta gli eventi. Prima qui si tornava `None`, e chi
+    # chiama lo prendeva per «il binario non c'e'» e ripiegava sulla libreria
+    # `keyboard` o su SendKeys: cioe' **riscriveva tutto il testo da capo**,
+    # nella finestra che nel frattempo aveva preso il fuoco — quella
+    # sbagliata per definizione. Un guasto a meta' resta un guasto.
+    raise ToolError(
+        (r.stderr.strip()[:300] or f"la tastiera si e' fermata (uscita {r.returncode})")
+        + " — non ripeto per altra strada: una parte puo' essere gia' arrivata.")
 
 
 @tool(

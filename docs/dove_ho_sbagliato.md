@@ -961,3 +961,34 @@ abbastanza da farsi ricordare da soli.
 
 Correzione anche a «Le forme che si ripetono»: dice «una di queste quattro» e
 ne elenca cinque. Contate, non ricordate — che e' la prima voce dell'elenco.
+
+## Ho messo una porta sul retro accanto alla guardia
+
+D143 è una delle decisioni di cui ero più contento: `nova-tastiera` preme i
+tasti solo se il fuoco è sulla finestra che ci si aspetta, e lo ricontrolla a
+ogni blocco di trentadue caratteri. Se il fuoco scappa, si ferma.
+
+**Credevo** che fermarsi bastasse. **Era vero** che il Python, subito sotto,
+leggeva l'uscita del binario così: 0 fatto, 4 fuoco sbagliato, 2 combinazione
+storta, **tutto il resto `None`** — e `None` voleva dire «il binario non
+c'è, ripiega». Quando il binario si fermava a metà per proteggere l'utente,
+il Python ripiegava sulla libreria `keyboard` e riscriveva il testo da capo,
+nella finestra che aveva appena preso il fuoco. La guardia fermava il danno e
+la riga dopo lo rifaceva, più grosso.
+
+**Me ne sono accorto** portando la stessa cosa nel demone: per scrivere la
+versione Rust dovevo decidere cosa fare di ogni codice d'uscita, e davanti
+all'1 la risposta «ripiega» era evidentemente sbagliata. Non me n'ero accorto
+scrivendo il Python perché lì il caso interessante era il 4, e l'1 l'avevo
+lasciato cadere nel «resto».
+
+La lezione è precisa: **un ripiego deve distinguere «non c'è» da «c'era e si
+è fermato»**. Sono due domande diverse con la stessa faccia — nessuna
+risposta utile — e la prima si risolve provando altrove, la seconda si
+peggiora. Ogni volta che scrivo un `return None` che fa ripiegare chi chiama,
+la domanda da farsi è: *e se il primo tentativo avesse già agito?*
+
+> Rientra nella terza forma — la prova che non poteva fallire — dalla parte
+> opposta: la prova di D143 provava la guardia, e la guardia funzionava. Non
+> c'era nessuna prova su **chi chiama la guardia**. Adesso c'è, e sul codice
+> vecchio fa nove rossi su dodici.

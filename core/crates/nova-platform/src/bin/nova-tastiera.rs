@@ -21,15 +21,6 @@
 
 use std::io::Read;
 
-fn fuoco_sbagliato(atteso: i64) -> Option<String> {
-    match nova_platform::finestre::davanti() {
-        Ok(Some(f)) if f.handle == atteso => None,
-        Ok(Some(f)) => Some(format!("il fuoco e' su «{}» ({})", f.title, f.process)),
-        Ok(None) => Some("in questo momento il fuoco non ce l'ha nessuna finestra".into()),
-        Err(e) => Some(format!("non riesco a sapere chi ha il fuoco: {e}")),
-    }
-}
-
 fn main() {
     let a: Vec<String> = std::env::args().skip(1).collect();
     let dove = a
@@ -39,7 +30,7 @@ fn main() {
         .and_then(|s| s.parse::<i64>().ok());
 
     if let Some(atteso) = dove {
-        if let Some(perche) = fuoco_sbagliato(atteso) {
+        if let Some(perche) = nova_platform::tastiera::fuoco_sbagliato(atteso) {
             eprintln!("non scrivo niente: {perche}");
             std::process::exit(4);
         }

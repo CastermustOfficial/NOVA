@@ -112,13 +112,16 @@ mod imp {
                     Ok(Some(f)) if f.handle == atteso => {}
                     Ok(Some(f)) => {
                         return Err(anyhow!(
-                            "il fuoco e' passato a «{}» ({}) mentre scrivevo: mi sono                              fermato, ma una parte del testo puo' esserci gia' finita",
-                            f.title, f.process
+                            "il fuoco e' passato a «{}» ({}) mentre scrivevo: mi sono \
+                             fermato, ma una parte del testo puo' esserci gia' finita",
+                            f.title,
+                            f.process
                         ))
                     }
                     Ok(None) => {
                         return Err(anyhow!(
-                            "nessuna finestra ha piu' il fuoco mentre scrivevo: mi sono                              fermato"
+                            "nessuna finestra ha piu' il fuoco mentre scrivevo: mi sono \
+                             fermato"
                         ))
                     }
                     Err(e) => return Err(anyhow!("non riesco a controllare il fuoco: {e}")),
@@ -185,6 +188,33 @@ mod imp {
 }
 
 pub use imp::{combinazione, scrivi, scrivi_dentro};
+
+/// Perche' il fuoco **non** e' su `atteso`, oppure `None` se lo e'.
+///
+/// Stava scritta dentro `nova-tastiera`, e il demone ne avrebbe scritta una
+/// seconda: due copie della stessa guardia sono il modo in cui se ne corregge
+/// una e si lascia l'altra. Adesso la chiamano tutti e due da qui.
+pub fn fuoco_sbagliato(atteso: i64) -> Option<String> {
+    match crate::finestre::davanti() {
+        Ok(Some(f)) if f.handle == atteso => None,
+        Ok(Some(f)) => Some(format!("il fuoco e' su «{}» ({})", f.title, f.process)),
+        Ok(None) => Some("in questo momento il fuoco non ce l'ha nessuna finestra".into()),
+        Err(e) => Some(format!("non riesco a sapere chi ha il fuoco: {e}")),
+    }
+}
+
+/// Preme una combinazione, ma solo se il fuoco e' ancora su `dove`.
+///
+/// Prima si capisce la combinazione e poi si guarda il fuoco: una
+/// combinazione che non vuol dire niente si rifiuta senza bisogno di sapere
+/// chi c'e' davanti, e il motivo che torna e' quello giusto.
+pub fn premi_dentro(tasti: &str, dove: i64) -> anyhow::Result<()> {
+    let (modificatori, finale) = capisci(tasti).map_err(anyhow::Error::msg)?;
+    if let Some(perche) = fuoco_sbagliato(dove) {
+        anyhow::bail!("non ho premuto niente: {perche}");
+    }
+    combinazione(&modificatori, finale)
+}
 
 // ------------------------------------------------------------ i nomi dei tasti
 

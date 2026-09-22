@@ -10314,3 +10314,85 @@ Il resto della famiglia `sistema` sono `type_text` e `press_keys` — che
 vogliono la guardia sul fuoco, perché fra l'approvazione e il momento in cui
 i tasti partono la finestra davanti può cambiare (D143) — e il promemoria
 nell'Utilità di pianificazione, che in Rust non c'è ancora.
+
+## La tastiera, e una porta sul retro accanto alla guardia
+
+Secondo filo della famiglia `sistema`: `type_text` e `press_keys`, cioè le
+sole due capacità di NOVA che **non hanno un bersaglio**. Un file ha un
+percorso, una notifica va all'utente, gli appunti sono uno solo. I tasti no:
+il sistema li consegna a chi ha il fuoco *in quel millisecondo*, e fra
+l'approvazione di una persona e l'invio il fuoco può essersi spostato.
+
+Tutto questo lo sapevo già — è D143, e c'è una prova su Windows che scrive
+solo in una finestra che apre lei. Quello che non sapevo l'ho trovato leggendo
+il Python per portarlo.
+
+### La porta sul retro
+
+`type_text` fa così: prova `nova-tastiera` con `--dove <handle>`, e se il
+binario non c'è ripiega sulla libreria `keyboard`, e poi su SendKeys. Il
+binario esce con 0 se ha scritto, 4 se il fuoco era sbagliato *prima* di
+cominciare, 2 se la combinazione non ha senso — e **1 se si è fermato a
+metà**: il fuoco passato a un'altra finestra fra un blocco di trentadue
+caratteri e l'altro, oppure una finestra con privilegi più alti che rifiuta
+gli eventi.
+
+Il Python gestiva lo 0, il 4 e il 2. Per tutto il resto tornava `None`. E
+`None`, per chi chiamava, voleva dire «il binario non c'è» — quindi
+ripiegava su `keyboard.write(text)` e **riscriveva tutto il testo da capo**.
+Nella finestra che nel frattempo aveva preso il fuoco. Che è, per
+definizione, quella sbagliata.
+
+Cioè: la guardia di D143 fermava il binario esattamente quando doveva, e la
+riga subito dopo la aggirava, nel solo caso per cui la guardia esiste.
+
+La correzione è piccola e la regola che c'è dentro no: **si ripiega solo se
+il binario non è partito**. Un `OSError` al lancio vuol dire che non c'è; un
+codice d'uscita diverso da zero vuol dire che c'era, ha fatto qualcosa, e si
+è fermato — e quel che ha fatto non si può sapere da fuori. Anche il tempo
+scaduto è un guasto: il binario era partito.
+
+La prova, `prove/nova/test_tastiera_non_ripete.py`, non preme niente: finge
+il binario, la finestra davanti e la libreria `keyboard`, e guarda chi viene
+chiamato. Gira su qualunque macchina. Sul codice di prima: nove rossi su
+dodici.
+
+### Nel demone, la stessa regola in un posto dove si prova
+
+Nel demone le due capacità sono `sys.digita` e `sys.tasti`, pericolose, con
+un'anteprima che **nomina la finestra** — «La finestra è: «Documento
+importante - Word» (WINWORD.EXE)» — perché è l'unica cosa con cui chi approva
+può decidere.
+
+La guardia sta in `nova_strumenti::capacita`, nei corpi comuni `digita` e
+`premi`, dietro un tratto `Tastiera` come gli altri. Guardano chi c'è
+davanti; se non c'è nessuno non premono niente; agiscono **legati a quella
+finestra**; la nominano nella risposta; e un errore a metà torna com'è. Non
+c'è un ripiego da sbagliare, perché non c'è un ripiego. E si prova con una
+tastiera finta che sposta il fuoco sotto i piedi — il caso per cui la
+guardia esiste, che su una macchina di compilazione non capita mai da solo.
+
+E il controllo del fuoco, che stava scritto dentro il binario
+`nova-tastiera`, è diventato `nova_platform::tastiera::fuoco_sbagliato`: il
+demone ne avrebbe scritta una seconda copia, e due copie della stessa guardia
+sono il modo in cui se ne corregge una e si lascia l'altra.
+
+### E un messaggio con trenta spazi dentro
+
+Leggendo `tastiera.rs` ho trovato due messaggi d'errore così:
+
+```
+mentre scrivevo: mi sono                              fermato
+```
+
+Una continuazione di riga persa per strada: il `\` a fine riga non c'era più,
+e gli spazi dell'indentazione erano finiti dentro la stringa. È il messaggio
+che il modello legge quando il fuoco scappa a metà testo. Codice
+`#[cfg(windows)]`, quindi l'ho controllato con `cargo check --target
+x86_64-pc-windows-msvc` prima di spedirlo — la volta in cui non l'ho fatto sta
+in `dove_ho_sbagliato.md`.
+
+Otto capacità di `sistema` su ventidue nel demone. Le altre quattordici sono
+il promemoria e le tre attività pianificate (che vogliono l'Utilità di
+pianificazione in Rust), più le automazioni e le riparazioni, che sono Python
+per natura: generano ed eseguono codice Python.
