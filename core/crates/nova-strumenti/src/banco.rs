@@ -14,6 +14,7 @@ use nova_strumenti::data::Fuso;
 use nova_strumenti::memoria;
 use nova_strumenti::pagina;
 use nova_strumenti::sistema;
+use nova_strumenti::app;
 use nova_strumenti::guardie::{Autonomia, Guardie};
 use nova_strumenti::{anteprima, schema, Argomenti, Rischio, STRUMENTI};
 use serde::{Deserialize, Serialize};
@@ -105,6 +106,35 @@ struct Dentro {
     /// risponde diversa a ognuna — cioe' non confrontare niente.
     #[serde(default)]
     macchine: Vec<MacchinaDentro>,
+    /// Nomi di applicazioni da risolvere negli alias.
+    #[serde(default)]
+    alias: Vec<String>,
+    /// (applicazioni installate, filtro)
+    #[serde(default)]
+    installate: Vec<(Vec<String>, String)>,
+    /// Una macchina finta con processi e finestre, e le domande da farle.
+    #[serde(default)]
+    scenari_app: Vec<ScenarioApp>,
+}
+
+#[derive(Deserialize)]
+struct ScenarioApp {
+    /// (pid, nome, memoria in byte)
+    processi: Vec<(u32, String, u64)>,
+    /// (handle, pid, titolo, processo), nell'ordine della pila
+    finestre: Vec<(i64, u32, String, String)>,
+    /// I nomi da cercare, chiudere e portare davanti.
+    nomi: Vec<String>,
+    #[serde(default)]
+    forza: bool,
+    #[serde(default)]
+    filtro: String,
+    #[serde(default = "venticinque")]
+    quanti: i64,
+}
+
+fn venticinque() -> i64 {
+    25
 }
 
 /// Com'e' fatto un PC, come lo scrive il banco.
@@ -200,6 +230,10 @@ struct Fuori {
     ricordi: Vec<String>,
     vicinati: Vec<String>,
     macchine: Vec<String>,
+    alias: Vec<String>,
+    installate: Vec<String>,
+    /// Per ogni scenario: bersagli, anteprime, finestre scelte, e la tabella.
+    scenari_app: Vec<serde_json::Value>,
     /// Per ogni testo, le chiamate trovate nella forma esatta che il Python
     /// consegna al ciclo: id, tipo, nome e argomenti gia' resi in stringa.
     inline: Vec<serde_json::Value>,
@@ -457,6 +491,39 @@ fn main() {
                 }),
             acceso_da_secondi: m.acceso_da_secondi,
         })).collect(),
+        alias: d.alias.iter().map(|n| match app::risolvi(n) {
+            Ok(x) => x,
+            Err(e) => format!("ERRORE: {e}"),
+        }).collect(),
+        installate: d.installate.iter()
+            .map(|(nomi, filtro)| app::elenco_installate(nomi, filtro))
+            .collect(),
+        scenari_app: d.scenari_app.iter().map(|sc| {
+            let processi: Vec<app::Processo> = sc.processi.iter()
+                .map(|(pid, nome, m)| app::Processo { pid: *pid, nome: nome.clone(), memoria_byte: *m })
+                .collect();
+            let finestre: Vec<app::Finestra> = sc.finestre.iter()
+                .map(|(h, pid, t, pr)| app::Finestra {
+                    handle: *h, pid: *pid, titolo: t.clone(), processo: pr.clone(),
+                })
+                .collect();
+            serde_json::json!({
+                "bersagli": sc.nomi.iter().map(|n| {
+                    app::bersagli(n, &processi, &finestre).iter()
+                        .map(|b| serde_json::json!([b.pid, b.nome, b.finestre]))
+                        .collect::<Vec<_>>()
+                }).collect::<Vec<_>>(),
+                "anteprime": sc.nomi.iter().map(|n| {
+                    let t = app::bersagli(n, &processi, &finestre);
+                    app::anteprima_chiusura(n, sc.forza, Some(&t))
+                }).collect::<Vec<_>>(),
+                "avanti": sc.nomi.iter().map(|n| match app::scegli_finestra(n, &finestre) {
+                    Ok(w) => format!("Finestra in primo piano: {}", w.titolo),
+                    Err(e) => format!("ERRORE: {e}"),
+                }).collect::<Vec<_>>(),
+                "processi": app::tabella_processi(&processi, &sc.filtro, sc.quanti),
+            })
+        }).collect(),
     };
     println!("{}", serde_json::to_string(&fuori).unwrap());
 }

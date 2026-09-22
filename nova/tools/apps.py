@@ -56,13 +56,19 @@ def _start_via_shell(target: str, args: str = "") -> str:
             r = subprocess.run([str(b), "--avvia", target, args],
                                capture_output=True, text=True, encoding="utf-8",
                                timeout=30, creationflags=SENZA_FINESTRA)
+        except OSError:
+            # Il solo caso in cui si ripiega: il binario non e' partito.
+            r = None
+        except subprocess.TimeoutExpired as e:
+            # Partito si': il programma puo' essere gia' in piedi. Ripiegare
+            # su Start-Process vorrebbe dire aprirlo due volte (D322).
+            raise ToolError(
+                f"l'avvio di '{target}' non ha risposto entro trenta secondi: "
+                "puo' essere partito lo stesso, quindi non lo rilancio.") from e
+        if r is not None:
             if r.returncode == 0:
                 return f"Avviato: {target}" + (f" {args}" if args else "")
             raise ToolError(f"impossibile avviare '{target}': {r.stderr.strip()[:400]}")
-        except ToolError:
-            raise
-        except Exception:                                   # noqa: BLE001
-            pass
     cmd = f"Start-Process -FilePath '{target}'"
     if args:
         cmd += f" -ArgumentList '{args}'"

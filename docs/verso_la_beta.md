@@ -2443,16 +2443,16 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    Resta fuori **Claude Code**: gli servono la sessione, i permessi e il
    ponte MCP, e ha il suo pezzo di cantiere.
 
-4. **Gli strumenti che al demone mancano.** Due famiglie e mezzo su otto, e
-   nessuna riscrivendo niente: i **file** (D308), la **memoria** (D319) e il
-   grosso di **sistema** (D321, D322) — i corpi stavano gia' in
-   `nova-strumenti`, in `nova-nodi` e in `nova-platform`, confrontati col
-   Python da un banco. Restano: il resto di `sistema` — il promemoria e le
-   tre attivita' pianificate, che vogliono l'Utilita' di pianificazione in
-   Rust, e le automazioni e le riparazioni, che sono Python per natura —
-   piu' `app` e finestre, `web`, le deleghe a un altro cervello, lo schermo,
-   e i due documenti — `nova-harness`, `nova-docx`, `nova-fogli`,
-   `nova-browser` + `nova-cdp`.
+4. **Gli strumenti che al demone mancano.** Tre famiglie e mezzo su otto, e
+   nessuna riscrivendo niente: i **file** (D308), la **memoria** (D319), il
+   grosso di **sistema** (D321, D322) e **app e finestre** (D323) — i corpi
+   stavano gia' in `nova-strumenti`, in `nova-nodi` e in `nova-platform`,
+   confrontati col Python da un banco. Restano: il resto di `sistema` — il
+   promemoria e le tre attivita' pianificate, che vogliono l'Utilita' di
+   pianificazione in Rust, e le automazioni e le riparazioni, che sono Python
+   per natura — piu' `web`, le deleghe a un altro cervello, lo schermo, e i
+   due documenti — `nova-harness`, `nova-docx`, `nova-fogli`, `nova-browser`
+   + `nova-cdp`.
 
    | famiglia | in Python | nel demone |
    | --- | ---: | ---: |
@@ -2460,7 +2460,7 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    | memoria | 8 | 6 |
    | shell | 3 | 3 |
    | sistema | 22 | 8 |
-   | app / finestre | 6 | 0 |
+   | app / finestre | 6 | 6 |
    | web | 3 | 0 |
    | deleghe | 3 | 0 |
    | schermo | 1 | 0 |

@@ -40,6 +40,9 @@ pub mod guscio;
 
 // Le parti degli strumenti di sistema che non chiedono niente al sistema.
 pub mod sistema;
+// Applicazioni, finestre e processi: quale programma e' «blocco note», chi
+// risponderebbe a «notepad», cosa legge chi approva una chiusura (D141).
+pub mod app;
 
 // Cosa dice una pagina, in un posto solo.
 pub mod pagina;
