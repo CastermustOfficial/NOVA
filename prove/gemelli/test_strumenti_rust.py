@@ -1096,6 +1096,157 @@ controlla("e di una batteria si dice solo quel che si sa",
           "Batteria      : alla corrente" in mac["macchine"][2],
           mac["macchine"][2][:200])
 
+
+# --------------------------------------------------------------------------
+# Applicazioni, finestre e processi.
+#
+# Si finge la macchina e si fanno le stesse domande alle due meta'. Il Python
+# e' **quello vero**, `nova/tools/apps.py`: si sostituiscono solo le funzioni
+# che chiedono al sistema (`_processi_rust`, `_finestre_rust`, `_app_rust`) e
+# il modulo `psutil`, cosi' la regola che si confronta e' quella che gira.
+import types                                                      # noqa: E402
+from nova.tools import apps                                       # noqa: E402
+from nova.tools.base import ToolError                             # noqa: E402
+
+ALIAS = ["notepad", "  Blocco Note ", "CHROME", "lm studio", "C:\\Tools\\x.exe ",
+         "nonesiste", "   ", "", "Gestione Attivita"]
+
+APP_NOMI = [f"Applicazione {i:03d}" for i in range(300)] + ["Città Café", "zoom"]
+INSTALLATE = [(APP_NOMI, ""), (APP_NOMI, "CAFÉ"), (APP_NOMI, "0"),
+              (APP_NOMI[:5], ""), (APP_NOMI, "niente")]
+
+MB = 1024 * 1024
+SCENARI_APP = [
+    {   # la macchina di D141: un asterisco vero in un titolo, e basta
+        "processi": [[4, "System", 0], [812, "notepad.exe", 12 * MB],
+                     [900, "chrome.exe", 350 * MB], [901, "chrome.exe", 80 * MB],
+                     [1200, "explorer.exe", 95 * MB], [1300, "Chrome Helper.exe", 3 * MB // 2]],
+        "finestre": [[10, 812, "*napoli difesa - Blocco note", "notepad.exe"],
+                     [20, 900, "Posta - Google Chrome", "chrome.exe"],
+                     [21, 900, "Documenti - Google Chrome", "chrome.exe"],
+                     [22, 900, "Calendario - Google Chrome", "chrome.exe"],
+                     [23, 900, "*bozza - Google Chrome", "chrome.exe"],
+                     [30, 1200, "Esplora file", "explorer.exe"]],
+        "nomi": ["*", "?", "[a-z]", "", "  ", "notepad", "CHROME", "posta",
+                 "blocco", "esplora", "nessuno", "e"],
+        "forza": True, "filtro": "", "quanti": 25,
+    },
+    {   # tanti processi uguali: l'elenco si taglia a sei e lo dice
+        "processi": [[100 + i, "svchost.exe", (i % 3) * MB] for i in range(9)]
+                    + [[50, "Città.exe", MB // 2], [51, "citta.exe", 5 * MB // 2]],
+        "finestre": [],
+        "nomi": ["svchost", "città", "CITTÀ"],
+        "forza": False, "filtro": "S", "quanti": 4,
+    },
+    {   # memoria a meta' di un mega: l'arrotondamento deve essere lo stesso
+        "processi": [[1, "a.exe", MB // 2], [2, "b.exe", 3 * MB // 2],
+                     [3, "c.exe", 5 * MB // 2], [4, "d.exe", 0]],
+        "finestre": [],
+        "nomi": ["a"], "forza": False, "filtro": "", "quanti": 0,
+    },
+]
+
+
+def _py_processi(sc):
+    return [{"pid": pid, "nome": n, "memoria_byte": m} for pid, n, m in sc["processi"]]
+
+
+def _py_finestre(sc):
+    return [{"handle": h, "pid": pid, "title": t, "process": pr}
+            for h, pid, t, pr in sc["finestre"]]
+
+
+def _py_psutil(sc):
+    """Un `psutil` finto che risponde con i processi dello scenario."""
+    class P:
+        def __init__(self, pid, nome, m):
+            mi = types.SimpleNamespace(rss=m)
+            self.info = {"pid": pid, "name": nome, "memory_info": mi}
+    finto = types.ModuleType("psutil")
+    finto.process_iter = lambda _campi: [P(*x) for x in sc["processi"]]
+    return finto
+
+
+def _py_avanti(sc, nome):
+    apps._finestre_rust = lambda: _py_finestre(sc)
+    apps.binari.trova = lambda _n: Path("/finto")
+    apps.subprocess.run = lambda cmd, **_k: subprocess.CompletedProcess(cmd, 0, "", "")
+    try:
+        return apps._avanti_rust(nome)
+    except ToolError as e:
+        return f"ERRORE: {e}"
+
+
+r = subprocess.run([str(BINARIO)], input=json.dumps({
+    "alias": ALIAS, "installate": [list(x) for x in INSTALLATE],
+    "scenari_app": SCENARI_APP}, ensure_ascii=False),
+    capture_output=True, text=True, encoding="utf-8", timeout=120)
+ap = json.loads(r.stdout)
+_run_vero = subprocess.run
+_trova_vero = apps.binari.trova
+
+py_alias = []
+for n in ALIAS:
+    try:
+        py_alias.append(apps._resolve_command(n))
+    except ToolError as e:
+        py_alias.append(f"ERRORE: {e}")
+diverse = [f"{n!r}: rust {a!r} vs python {b!r}"
+           for n, a, b in zip(ALIAS, ap["alias"], py_alias) if a != b]
+controlla(f"i {len(ALIAS)} nomi di applicazione si risolvono uguali", not diverse,
+          " | ".join(diverse[:3]))
+
+py_inst = []
+for nomi, filtro in INSTALLATE:
+    apps._app_rust = lambda nomi=nomi: list(nomi)
+    py_inst.append(apps.list_installed_apps(filtro))
+diverse = [f"{i}: rust {a[-80:]!r} vs python {b[-80:]!r}"
+           for i, (a, b) in enumerate(zip(ap["installate"], py_inst)) if a != b]
+controlla(f"i {len(INSTALLATE)} elenchi di applicazioni sono uguali, taglio compreso",
+          not diverse, " | ".join(diverse[:2]))
+
+for i, sc in enumerate(SCENARI_APP):
+    suo = ap["scenari_app"][i]
+    apps._processi_rust = lambda sc=sc: _py_processi(sc)
+    apps._finestre_rust = lambda sc=sc: _py_finestre(sc)
+    py_b = [[[b["pid"], b["nome"], b["finestre"]] for b in apps.bersagli(n)]
+            for n in sc["nomi"]]
+    diverse = [f"{n!r}: rust {a} vs python {b}"
+               for n, a, b in zip(sc["nomi"], suo["bersagli"], py_b) if a != b]
+    controlla(f"scenario {i}: chi risponderebbe a ciascuno dei {len(sc['nomi'])} nomi",
+              not diverse, " | ".join(diverse[:2]))
+
+    py_a = [apps._anteprima_chiusura({"name": n, "force": sc["forza"]}) for n in sc["nomi"]]
+    diverse = [f"{n!r}:\n    rust   {a!r}\n    python {b!r}"
+               for n, a, b in zip(sc["nomi"], suo["anteprime"], py_a) if a != b]
+    controlla(f"scenario {i}: cosa legge chi approva la chiusura", not diverse,
+              " | ".join(diverse[:2]))
+
+    py_v = [_py_avanti(sc, n) for n in sc["nomi"]]
+    subprocess.run = _run_vero
+    apps.subprocess.run = _run_vero
+    apps.binari.trova = _trova_vero
+    diverse = [f"{n!r}: rust {a!r} vs python {b!r}"
+               for n, a, b in zip(sc["nomi"], suo["avanti"], py_v) if a != b]
+    controlla(f"scenario {i}: quale finestra si porta davanti", not diverse,
+              " | ".join(diverse[:2]))
+
+    sys.modules["psutil"] = _py_psutil(sc)
+    py_t = apps.list_processes(sc["filtro"], sc["quanti"])
+    del sys.modules["psutil"]
+    controlla(f"scenario {i}: la tabella dei processi, ordine e arrotondamento compresi",
+              suo["processi"] == py_t,
+              f"\n    rust:\n{suo['processi']}\n    python:\n{py_t}")
+
+# Le domande sul risultato, indipendenti dal confronto: un confronto fra due
+# meta' che sbagliano uguale sarebbe verde.
+d141 = ap["scenari_app"][0]
+controlla("«*» trova solo chi l'asterisco ce l'ha davvero (D141)",
+          [b[0] for b in d141["bersagli"][0]] == [812, 900], str(d141["bersagli"][0]))
+controlla("e un nome vuoto non trova niente", d141["bersagli"][3] == [] and d141["bersagli"][4] == [])
+controlla("e l'anteprima avvisa del lavoro non salvato",
+          "NON SALVATO" in d141["anteprime"][6], d141["anteprime"][6][:200])
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")

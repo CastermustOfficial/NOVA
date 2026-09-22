@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Un guasto a meta' tastiera resta un guasto: non si riscrive per altra strada.
+"""Un guasto a meta' resta un guasto: non si rifa' per altra strada (D322).
+
+Due strumenti di sistema, la stessa regola: si ripiega solo se **non e'
+successo niente**.
+
+**La tastiera.**
 
 `type_text` e `press_keys` provano prima `nova-tastiera`, il binario che
 preme i tasti **solo se il fuoco e' dove ci si aspetta** (D143). Se il
@@ -129,8 +134,49 @@ fatto, guasto = prova("type_text", digita)
 controlla("binario che non parte: si ripiega, come prima",
           ("write", "ciao mondo") in ripieghi, f"{ripieghi} / {fatto or guasto!r}")
 
+print("\n6. il volume: dopo un muto riuscito non si ripiega sul tasto che inverte")
+# Il ripiego di fondo del volume e' il tasto «muto» di Windows, che non
+# imposta: **inverte**. Se `nova-volume` ha gia' messo il muto e poi fallisce
+# sul livello, ripiegare rimetterebbe il suono — il contrario di quel che e'
+# stato chiesto. E senza `pycaw` quel ripiego e' proprio quello.
+chiamate_volume: list[str] = []
+
+
+def volume_finto(cmd, **_k):
+    chiamate_volume.append(cmd[1])
+    if cmd[1] == "muto":
+        return subprocess.CompletedProcess(cmd, 0, '{"livello": 40, "muto": true}', "")
+    return subprocess.CompletedProcess(cmd, 1, "", "endpoint audio sparito")
+
+
+system.subprocess.run = volume_finto
+sys.modules.pop("pycaw", None)
+sys.modules.pop("pycaw.pycaw", None)
+ripieghi.clear()
+try:
+    detto, guasto = system.set_volume(level=20, mute=True), None
+except ToolError as e:
+    detto, guasto = None, str(e)
+controlla("il guasto dice cosa era gia' stato fatto",
+          guasto is not None and "muto" in guasto and "Non ripiego" in guasto,
+          repr(detto or guasto))
+controlla("e il tasto che inverte non e' stato premuto",
+          not any(r[0] == "powershell" for r in ripieghi), str(ripieghi))
+
+chiamate_volume.clear()
+system.subprocess.run = lambda cmd, **_k: (
+    chiamate_volume.append(cmd[1])
+    or subprocess.CompletedProcess(cmd, 1, "", "nessun dispositivo"))
+ripieghi.clear()
+try:
+    detto, guasto = system.set_volume(level=20), None
+except ToolError as e:
+    detto, guasto = None, str(e)
+controlla("se il primo passo fallisce non e' successo niente: il ripiego e' lecito",
+          guasto is None or "Non ripiego" not in guasto, repr(detto or guasto))
+
 print(f"\n{passati} controlli passati, {len(falliti)} falliti")
 if falliti:
-    print("::error::test_tastiera_non_ripete: " + "; ".join(falliti))
+    print("::error::test_ripiego_sistema: " + "; ".join(falliti))
     sys.exit(1)
 sys.exit(0)

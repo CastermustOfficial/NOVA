@@ -992,3 +992,29 @@ la domanda da farsi è: *e se il primo tentativo avesse già agito?*
 > opposta: la prova di D143 provava la guardia, e la guardia funzionava. Non
 > c'era nessuna prova su **chi chiama la guardia**. Adesso c'è, e sul codice
 > vecchio fa nove rossi su dodici.
+
+## Ho scritto una lezione e non sono andato a cercarla altrove
+
+Ieri: «un ripiego deve distinguere "non c'è" da "c'era e si è fermato"», a
+proposito della tastiera. Ho corretto la tastiera, ho scritto la voce, e sono
+passato oltre.
+
+**Credevo** che fosse un difetto di `type_text`. **Era vero** che era una
+forma, e che la stessa forma stava in altri due posti dello stesso
+progetto: `open_application`, che sul tempo scaduto rilanciava il programma,
+e `set_volume`, che dopo un «muto» riuscito ripiegava sul tasto di Windows
+che inverte e rimetteva il suono. **Me ne sono accorto** solo perché il
+giorno dopo ho aperto `apps.py` per un altro motivo.
+
+È la seconda volta che questo registro ha la stessa voce con un altro
+oggetto — «Ho corretto un difetto in un posto e l'ho lasciato nell'altro» è
+qualche centinaio di righe più su. Quella volta erano due copie dello stesso
+codice; questa volta sono tre codici diversi con la stessa idea sbagliata, che
+è più difficile da vedere perché `grep` sul nome della funzione non la trova.
+
+La cura non è ricordarsene: è che **una voce di questo registro che parla di
+una forma si chiude con un giro su tutto il progetto**, fatto quel giorno. Il
+giro l'ho fatto oggi — sette punti in cui il Python lancia un binario con un
+ripiego, e una tabella nel diario che dice quali sono pericolosi e perché. Il
+criterio del giro non era il nome, era la domanda: *se il primo tentativo
+avesse già agito, ripeterlo farebbe danno?*

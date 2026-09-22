@@ -10352,7 +10352,7 @@ codice d'uscita diverso da zero vuol dire che c'era, ha fatto qualcosa, e si
 è fermato — e quel che ha fatto non si può sapere da fuori. Anche il tempo
 scaduto è un guasto: il binario era partito.
 
-La prova, `prove/nova/test_tastiera_non_ripete.py`, non preme niente: finge
+La prova, `prove/nova/test_ripiego_sistema.py`, non preme niente: finge
 il binario, la finestra davanti e la libreria `keyboard`, e guarda chi viene
 chiamato. Gira su qualunque macchina. Sul codice di prima: nove rossi su
 dodici.
@@ -10396,3 +10396,89 @@ Otto capacità di `sistema` su ventidue nel demone. Le altre quattordici sono
 il promemoria e le tre attività pianificate (che vogliono l'Utilità di
 pianificazione in Rust), più le automazioni e le riparazioni, che sono Python
 per natura: generano ed eseguono codice Python.
+
+## Applicazioni e processi, e sette ripieghi passati uno per uno
+
+La famiglia `app`: aprire un programma, elencare quelli installati, vedere i
+processi, portare davanti una finestra, chiudere. Sei strumenti, tutti
+Python, con i corpi già in `nova-platform` — li usavano i binari
+`nova-processi`, `nova-finestre` e `nova-app` che il Python lanciava.
+
+### Le regole in un posto, e il Python vero sul banco
+
+Il pezzo che pesa è `bersagli`, cioè chi risponderebbe a «chiudi notepad».
+È D141: la strada vecchia incollava il nome dentro un `-like` di PowerShell,
+e su una macchina vera `*` selezionava tutti e 292 i processi. Adesso è una
+sottostringa, sul nome del processo e sui titoli delle sue finestre, e un
+testo vuoto non trova niente.
+
+L'ho portato in `nova_strumenti::app` insieme al resto — gli alias, il taglio
+dichiarato dell'elenco delle applicazioni, l'anteprima della chiusura con i
+titoli e l'avviso sull'asterisco, la tabella dei processi — e l'ho messo sul
+banco gemello **contro le funzioni vere di `apps.py`**, fingendo solo la
+macchina: `_processi_rust`, `_finestre_rust`, `_app_rust` e il modulo
+`psutil`. Tre macchine finte, quella di D141 compresa, con l'asterisco vero
+in un titolo del Blocco note.
+
+Una cosa che non sapevo e il banco mi ha fatto verificare: la memoria a
+mezzo mega esatto. Python scrive `{0.5:8.0f}` come `0` e `{2.5:8.0f}` come
+`2` — arrotonda al pari. Rust, formattando, fa lo stesso. Ho messo i tre casi
+nello scenario apposta, perché «probabilmente uguale» non è un confronto.
+
+### Nomi che non si confondono
+
+Nel demone la famiglia si chiama `app.*`, non `proc.*`, e non per gusto:
+`proc.*` esiste già ed è un'altra cosa — i processi che **il demone**
+supervisiona e fa ripartire. `app.processi` lo dice nella descrizione, che è
+la riga su cui il modello sceglie.
+
+E `list_windows` non è diventata una seconda capacità: `ui.windows` c'era
+già, e adesso ha un `filter`. È la stessa scelta di `sys.info`: due risposte
+alla stessa domanda sono il modo in cui il modello ne sceglie una a caso.
+
+Una cosa sola in più rispetto al Python, dichiarata: `app.chiudi` toglie il
+demone stesso dai bersagli. «Chiudi nova» è una richiesta che può arrivare, e
+senza questa riga il demone si fermerebbe a metà del giro — i processi dopo
+il suo resterebbero vivi, e chi ha chiesto non riceverebbe **nessuna**
+risposta, nemmeno quella che dice cosa non è andato.
+
+La prova col demone vero chiude davvero un processo: una copia di `sleep`
+che si chiama `novabersaglio`, perché chiudere per nome qualcosa che potrebbe
+avere un omonimo sulla macchina non è una prova, è un rischio.
+
+### Il ripiego, passato ovunque
+
+Ieri ho scritto in `dove_ho_sbagliato.md` che un ripiego deve distinguere
+«non c'è» da «c'era e si è fermato». Oggi, aprendo `apps.py`, la stessa forma
+era lì: `open_application` ripiegava su `Start-Process` anche quando
+`nova-processi` andava in **tempo scaduto** — cioè quando il programma poteva
+essere già partito. Word lento la mattina, e se ne aprivano due.
+
+Allora li ho passati tutti. Sette punti in cui il Python lancia un binario
+con un ripiego:
+
+| dove | cosa fa il ripiego | ripetuto è un danno? |
+| --- | --- | --- |
+| `type_text`, `press_keys` | riscrive / ripreme | **sì** — corretto ieri (D322) |
+| `open_application` | rilancia il programma | **sì** — corretto oggi |
+| `set_volume` | dopo un «muto» riuscito, preme il tasto che **inverte** | **sì** — corretto oggi |
+| appunti, lettura e scrittura | rilegge / riscrive lo stesso testo | no |
+| elenco finestre, app, processi | rilegge | no |
+| Cestino | riprova a spostare un file che non c'è più | no — ma se il binario va in tempo scaduto *dopo* averlo spostato, dice «non riuscito» a una cosa riuscita |
+
+Il volume è quello che mi ha sorpreso di più. Il ripiego di fondo è il tasto
+«muto» di Windows, che non imposta: inverte. Se `nova-volume` metteva il muto
+e poi falliva sul livello, il Python ripiegava — e rimetteva il suono. Il
+contrario esatto della richiesta.
+
+La regola, adesso scritta in tutti e tre i posti: **si ripiega solo se non è
+successo niente**. Per il volume si può sapere passo per passo, perché ogni
+passo è un processo a sé; per la tastiera no, e quindi ogni uscita diversa
+da zero è un guasto.
+
+Le due prove dei ripieghi si chiamano adesso `test_ripiego_sistema.py` e
+`test_ripiego_app.py`: il soggetto non è la tastiera, è la regola.
+
+Tre famiglie e mezzo su otto nel demone. Restano `web`, le deleghe, lo
+schermo, i documenti, e il pezzo di `sistema` che vuole l'Utilità di
+pianificazione.

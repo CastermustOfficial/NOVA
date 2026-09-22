@@ -367,22 +367,42 @@ def _volume_rust(level: int | None, mute: bool | None) -> str | None:
     b = binari.trova("nova-volume")
     if b is None:
         return None
-    try:
-        # L'ordine e' quello degli argomenti dello strumento: prima il muto,
-        # poi il livello, cosi' «silenzia e mettilo a 20» lascia il volume a 20
-        # e l'audio muto, e non il contrario.
-        for arg in ([("muto" if mute else "suono")] if mute is not None else []) + \
-                   ([str(max(0, min(100, int(level))))] if level is not None else []):
+    # L'ordine e' quello degli argomenti dello strumento: prima il muto,
+    # poi il livello, cosi' «silenzia e mettilo a 20» lascia il volume a 20
+    # e l'audio muto, e non il contrario.
+    passi = ([("muto" if mute else "suono")] if mute is not None else []) + \
+            ([str(max(0, min(100, int(level))))] if level is not None else [])
+    fatti: list[str] = []
+    r = None
+    for arg in passi:
+        try:
             r = subprocess.run([str(b), arg], capture_output=True, text=True,
                                encoding="utf-8", timeout=10,
                                creationflags=SENZA_FINESTRA)
-            if r.returncode != 0:
+        except OSError:
+            r = None
+        except subprocess.TimeoutExpired:
+            r = None
+        if r is None or r.returncode != 0:
+            # Si ripiega solo se **non e' successo niente** (D322). Il ripiego
+            # di fondo e' il tasto «muto» di Windows, che *inverte*: dopo un
+            # «muto» riuscito, ripiegare per il livello rimetterebbe il suono
+            # — cioe' farebbe il contrario di quel che e' stato chiesto.
+            if not fatti:
                 return None
+            motivo = (r.stderr.strip()[:200] if r is not None else "") or "nessuna risposta"
+            raise ToolError(
+                f"ho gia' impostato «{', '.join(fatti)}», poi «{arg}» non e' "
+                f"andato: {motivo}. Non ripiego: il ripiego inverte il muto "
+                "invece di impostarlo.")
+        fatti.append(arg)
+    try:
         import json
         stato = json.loads(r.stdout)
         return f"Volume: {stato['livello']}% (muto={bool(stato['muto'])})"
     except Exception:                                       # noqa: BLE001
-        return None
+        # Fatto, ma non riletto: si dice cosi', invece di ripiegare e rifarlo.
+        return f"Volume impostato ({', '.join(fatti)}), ma non sono riuscito a rileggerlo."
 
 
 @tool(

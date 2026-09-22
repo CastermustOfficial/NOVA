@@ -108,13 +108,37 @@ impl Capability for UiWindowsCap {
                 .into(),
             risk: Risk::Safe,
             category: "ui".into(),
-            schema: json!({ "type": "object", "properties": {}, "required": [] }),
+            // Il filtro e' quello di `list_windows` dall'altra parte: senza,
+            // il demone avrebbe avuto bisogno di una seconda capacita' per la
+            // stessa domanda — e due risposte alla stessa domanda sono il
+            // modo in cui il modello ne sceglie una a caso.
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "filter": {
+                        "type": "string",
+                        "description": "Testo nel titolo o nel nome del processo, opzionale",
+                    },
+                },
+                "required": [],
+            }),
         }
     }
 
-    async fn call(&self, _args: Value, ctx: &Ctx) -> Result<Value> {
+    async fn call(&self, args: Value, ctx: &Ctx) -> Result<Value> {
         let ui = albero(ctx)?;
-        let finestre = tokio::task::spawn_blocking(move || ui.windows()).await??;
+        let mut finestre = tokio::task::spawn_blocking(move || ui.windows()).await??;
+        let filtro = args
+            .get("filter")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_lowercase();
+        if !filtro.is_empty() {
+            finestre.retain(|w| {
+                w.title.to_lowercase().contains(&filtro)
+                    || w.process.to_lowercase().contains(&filtro)
+            });
+        }
         Ok(json!({ "windows": finestre }))
     }
 }
