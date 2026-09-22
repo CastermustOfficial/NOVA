@@ -165,6 +165,7 @@ pub fn recapiti(cfg: &Value, ambiente: &dyn Fn(&str) -> Option<String>) -> Recap
                     .collect()
             })
             .unwrap_or_default(),
+        claude: nova_cervelli::claude::dichiarato(cfg),
     }
 }
 

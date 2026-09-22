@@ -49,7 +49,17 @@ pub struct Impostazioni {
     pub session_id: String,
     pub mcp_config: String,
     pub extra_args: Vec<String>,
+    /// Lo strumento a cui Claude Code chiede i permessi. Vuoto vuol dire
+    /// quello del server MCP Python ([`SPORTELLO_PERMESSI`]); il demone indica
+    /// il suo, [`SPORTELLO_DEMONE`], quando nel collegamento c'e' lui.
+    pub sportello: String,
 }
+
+/// Lo sportello dei permessi quando e' il demone a lanciare Claude Code.
+///
+/// E' `approvazione.claude` col nome che le da' MCP: il punto diventa un
+/// trattino basso, e il server si chiama `nova-core`.
+pub const SPORTELLO_DEMONE: &str = "mcp__nova-core__approvazione_claude";
 
 /// La riga di comando per un turno.
 ///
@@ -85,7 +95,11 @@ pub fn argomenti(i: &Impostazioni, sistema: &str, file_prompt: &str) -> Vec<Stri
         a.push(STRUMENTI_PERMESSI.to_string());
         if i.autonomia != PIENA {
             a.push("--permission-prompt-tool".into());
-            a.push(SPORTELLO_PERMESSI.to_string());
+            a.push(if i.sportello.is_empty() {
+                SPORTELLO_PERMESSI.to_string()
+            } else {
+                i.sportello.clone()
+            });
         }
     }
     if i.session_id.is_empty() {
@@ -187,6 +201,203 @@ pub fn perche_non_pronto(
     None
 }
 
+// ------------------------------------------------- dalla configurazione
+
+/// Il modello, se la configurazione non ne dice uno. Quello del Python.
+pub const MODELLO_PREDEFINITO: &str = "claude-sonnet-5";
+/// Il tetto dei turni, se la configurazione non ne dice uno.
+///
+/// E' un freno di spesa, non una misura di sicurezza: a fermare Claude ci
+/// sono il livello di autonomia e il tasto ferma.
+pub const TURNI_PREDEFINITI: i64 = 48;
+/// Quanto si aspetta Claude Code, se la configurazione non lo dice.
+pub const SECONDI_PREDEFINITI: u64 = 900;
+/// Il livello di autonomia, se la configurazione non ne dice uno: quello dei
+/// valori di fabbrica, che stanno in un posto solo.
+pub use nova_strumenti::predefiniti::AUTONOMIA_PREDEFINITA;
+
+/// Come la configurazione di NOVA dice di lanciare Claude Code.
+///
+/// I ripieghi si applicano **qui**, una volta, e sono quelli di
+/// `nova/config.py`: il pannello, il turno Python e il turno del demone
+/// devono lanciare lo stesso Claude. Un banco gemello li confronta con la
+/// `Config` vera del Python.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Dichiarato {
+    /// Vuoto vuol dire «cercalo»: nel PATH, poi dove lo mette npm.
+    pub binario: String,
+    pub modello: String,
+    pub max_turns: i64,
+    pub secondi: u64,
+    /// Vuoto vuol dire la cartella dell'utente.
+    pub cartella: String,
+    pub extra_args: Vec<String>,
+    pub autonomia: String,
+    /// Se la memoria gli si da' come server MCP o come cartella da leggere.
+    pub kb_via_mcp: bool,
+}
+
+/// La dichiarazione letta dalla configurazione, coi ripieghi del Python.
+pub fn dichiarato(cfg: &serde_json::Value) -> Dichiarato {
+    use serde_json::Value;
+    let b = cfg.get("brains").unwrap_or(&Value::Null);
+    // Senza togliere gli spazi: il Python non li toglie, e un nome di modello
+    // o un percorso con uno spazio in piu' e' un'altra cosa — dirlo e' compito
+    // di chi lo lancia, non di chi legge.
+    let testo = |k: &str| b.get(k).and_then(Value::as_str).unwrap_or("").to_string();
+    Dichiarato {
+        binario: testo("claude_binary"),
+        // `model_override or b.claude_model or "sonnet"` nel Python, sopra una
+        // configurazione il cui predefinito e' «claude-sonnet-5». Quindi due
+        // ripieghi diversi, e contano tutti e due: se la chiave **manca** vale
+        // il predefinito della configurazione; se c'e' ed e' **vuota**, vale
+        // «sonnet».
+        modello: match b.get("claude_model") {
+            None => MODELLO_PREDEFINITO.into(),
+            Some(_) => {
+                let m = testo("claude_model");
+                if m.is_empty() {
+                    "sonnet".into()
+                } else {
+                    m
+                }
+            }
+        },
+        max_turns: b
+            .get("claude_max_turns")
+            .and_then(Value::as_i64)
+            .unwrap_or(TURNI_PREDEFINITI),
+        // Zero **non** e' un tetto, e qui si diverge dal Python apposta: di la'
+        // `timeout=0` fa scadere ogni turno prima di cominciare. E' la stessa
+        // scelta delle CLI dichiarate, e il banco la dichiara.
+        secondi: b
+            .get("claude_timeout")
+            .and_then(Value::as_u64)
+            .filter(|s| *s > 0)
+            .unwrap_or(SECONDI_PREDEFINITI),
+        cartella: testo("claude_cwd"),
+        extra_args: b
+            .get("claude_extra_args")
+            .and_then(Value::as_array)
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default(),
+        autonomia: cfg
+            .get("safety")
+            .and_then(|s| s.get("autonomy"))
+            .and_then(Value::as_str)
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or(AUTONOMIA_PREDEFINITA)
+            .to_string(),
+        kb_via_mcp: b
+            .get("claude_kb_via_mcp")
+            .and_then(Value::as_bool)
+            .unwrap_or(true),
+    }
+}
+
+// ------------------------------------------------------- il collegamento
+
+/// Il collegamento MCP che il demone da' a Claude Code, e lo sportello che ne
+/// viene.
+///
+/// Due server, e ciascuno c'e' solo se c'e' davvero:
+///
+/// - **`nova-core`**, cioe' il demone stesso attraverso il ponte `nova mcp`:
+///   file, memoria, sistema, applicazioni, finestre — e lo sportello dei
+///   permessi, che quindi e' il suo;
+/// - **`nova`**, il server Python, **copiato** dal collegamento che il Python
+///   ha scritto nel vault. Porta cio' che il demone non ha ancora (il
+///   browser guidato, le deleghe, `harness_*`), e si svuota man mano che le
+///   famiglie arrivano di qua. Non lo si ricostruisce: il comando giusto per
+///   avviarlo lo sa chi l'ha scritto.
+///
+/// Se non ce n'e' nessuno torna `None`, e Claude parte senza strumenti di
+/// NOVA: funziona, e il prompt glielo dice invece di promettergli strumenti
+/// che non ha.
+pub fn collegamento(
+    ponte: &str,
+    endpoint: &str,
+    python: Option<&serde_json::Value>,
+) -> Option<(serde_json::Value, &'static str)> {
+    use serde_json::{json, Map, Value};
+    let mut server = Map::new();
+    if !ponte.is_empty() {
+        server.insert(
+            "nova-core".into(),
+            json!({"command": ponte, "args": ["--endpoint", endpoint, "mcp"]}),
+        );
+    }
+    if let Some(p) = python.filter(|p| p.is_object()) {
+        server.insert("nova".into(), p.clone());
+    }
+    if server.is_empty() {
+        return None;
+    }
+    // Con il demone nel collegamento lo sportello e' il suo; senza, e' quello
+    // del Python — vuoto vuol dire proprio quello (vedi `Impostazioni`).
+    let sportello = if ponte.is_empty() {
+        ""
+    } else {
+        SPORTELLO_DEMONE
+    };
+    Some((json!({ "mcpServers": Value::Object(server) }), sportello))
+}
+
+// ------------------------------------------------------- cosa ha risposto
+
+/// Il JSON che Claude Code stampa, anche se ha qualcosa intorno.
+///
+/// Di norma l'uscita e' un oggetto e basta. A volte davanti c'e' un avviso —
+/// una riga di aggiornamento disponibile, un'avvertenza dell'ambiente — e
+/// allora si prende dalla prima graffa aperta all'ultima chiusa. Se nemmeno
+/// quello e' JSON, si dice e si mostra l'inizio: un «non interpretabile» senza
+/// il testo non spiega niente.
+pub fn leggi_uscita(uscita: &str) -> Result<serde_json::Value, String> {
+    let uscita = nova_pitone::senza_bianchi(uscita);
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(uscita) {
+        if v.is_object() {
+            return Ok(v);
+        }
+    }
+    if let (Some(da), Some(a)) = (uscita.find('{'), uscita.rfind('}')) {
+        if a > da {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&uscita[da..=a]) {
+                if v.is_object() {
+                    return Ok(v);
+                }
+            }
+        }
+    }
+    Err(format!(
+        "Risposta di Claude Code non interpretabile: {}",
+        uscita.chars().take(400).collect::<String>()
+    ))
+}
+
+/// Cosa si dice quando Claude Code non stampa niente.
+///
+/// Il caso che si sa riconoscere e' la riga di comando troppo lunga: su
+/// Windows finisce a 8191 caratteri, e la cura e' una sola. Negli altri casi
+/// l'unica riga che spiega qualcosa sta su stderr, e va riportata.
+pub fn senza_uscita(errore: &str, lunghezza_riga: usize) -> String {
+    let errore = nova_pitone::senza_bianchi(errore);
+    if nova_guasti::cervelli::e_riga_troppo_lunga(errore) {
+        return format!(
+            "La riga di comando verso Claude Code supera il limite di Windows \
+             ({lunghezza_riga} caratteri su 8191). Accorcia il prompt di sistema in \
+             config.json."
+        );
+    }
+    format!(
+        "Claude Code non ha prodotto output. {}",
+        errore.chars().take(400).collect::<String>()
+    )
+}
+
 #[cfg(test)]
 mod prove {
     use super::*;
@@ -269,6 +480,88 @@ mod prove {
         assert_eq!(descrizione_stato("opus", "chiave", "", 0.4567),
                    "Claude Code: opus  (0.457 $ questa sessione)");
         assert!(a_consumo("chiave") && !a_consumo("abbonamento"));
+    }
+
+    #[test]
+    fn il_demone_indica_il_suo_sportello() {
+        let mut i = base();
+        i.mcp_config = "C:\\mcp.json".into();
+        let a = argomenti(&i, "", "");
+        let k = a
+            .iter()
+            .position(|x| x == "--permission-prompt-tool")
+            .unwrap();
+        assert_eq!(
+            a[k + 1],
+            SPORTELLO_PERMESSI,
+            "vuoto vuol dire quello di sempre"
+        );
+        i.sportello = SPORTELLO_DEMONE.into();
+        let a = argomenti(&i, "", "");
+        let k = a
+            .iter()
+            .position(|x| x == "--permission-prompt-tool")
+            .unwrap();
+        assert_eq!(a[k + 1], SPORTELLO_DEMONE);
+    }
+
+    #[test]
+    fn luscita_si_legge_anche_con_un_avviso_davanti() {
+        let v = leggi_uscita("aggiornamento disponibile\n{\"result\": \"ciao\"}\n").unwrap();
+        assert_eq!(v["result"], "ciao");
+        let e = leggi_uscita("niente di utile").unwrap_err();
+        assert!(e.contains("non interpretabile: niente di utile"), "{e}");
+        assert!(
+            leggi_uscita("[1, 2]").is_err(),
+            "un JSON che non e' un oggetto non e' la risposta"
+        );
+    }
+
+    #[test]
+    fn il_collegamento_ha_solo_i_server_che_ci_sono() {
+        assert!(
+            collegamento("", "x", None).is_none(),
+            "senza server, niente collegamento"
+        );
+        let (v, sportello) = collegamento("C:\\nova.exe", "\\\\.\\pipe\\nova", None).unwrap();
+        assert_eq!(sportello, SPORTELLO_DEMONE);
+        assert_eq!(v["mcpServers"]["nova-core"]["args"][2], "mcp");
+        assert!(v["mcpServers"].get("nova").is_none());
+        let py = serde_json::json!({"command": "python", "args": ["-m", "nova.mcp_kb"]});
+        let (v, sportello) = collegamento("", "x", Some(&py)).unwrap();
+        assert_eq!(
+            sportello, "",
+            "senza il demone lo sportello e' quello del Python"
+        );
+        assert_eq!(v["mcpServers"]["nova"], py);
+    }
+
+    #[test]
+    fn i_ripieghi_sono_quelli_del_python() {
+        let d = dichiarato(&serde_json::json!({}));
+        assert_eq!(
+            (
+                d.modello.as_str(),
+                d.max_turns,
+                d.secondi,
+                d.autonomia.as_str(),
+                d.kb_via_mcp
+            ),
+            (MODELLO_PREDEFINITO, 48, 900, "ask_risky", true)
+        );
+        let d = dichiarato(&serde_json::json!({
+            "brains": {"claude_model": "opus", "claude_timeout": 0, "claude_extra_args": ["--x"]},
+            "safety": {"autonomy": "autonomous"}
+        }));
+        assert_eq!(d.modello, "opus");
+        assert_eq!(
+            d.secondi, SECONDI_PREDEFINITI,
+            "un tetto di zero non e' un tetto"
+        );
+        assert_eq!(
+            (d.extra_args, d.autonomia.as_str()),
+            (vec!["--x".to_string()], "autonomous")
+        );
     }
 
     #[test]

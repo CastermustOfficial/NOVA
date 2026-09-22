@@ -19,6 +19,9 @@ nova-guasti = { path = "../nova-guasti" }
 # `.strip()` di Python non e' `trim()` di Rust: le abitudini di Python
 # stanno in un posto solo (D182).
 nova-pitone = { path = "../nova-pitone" }
+# I valori di fabbrica — il livello di autonomia, per esempio — stanno in un
+# posto solo, e quel posto e' li'.
+nova-strumenti = { path = "../nova-strumenti" }
 # Gia' in casa: `nova-voce` ci parla con ElevenLabs. Un secondo cliente HTTP
 # per la stessa cosa sarebbero due comportamenti da conoscere invece di uno.
 ureq = "2"

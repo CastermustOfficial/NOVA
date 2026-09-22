@@ -409,7 +409,7 @@ impl Memoria {
         let radice = percorso(cfg, &radice_progetto());
         if !radice.is_dir() {
             return Err(format!(
-                "la memoria non c'e': «{}» non e' una cartella. Controlla                  `kb.vault_path` nella configurazione.",
+                "la memoria non c'e': «{}» non e' una cartella. Controlla `kb.vault_path` nella configurazione.",
                 radice.display()
             ));
         }

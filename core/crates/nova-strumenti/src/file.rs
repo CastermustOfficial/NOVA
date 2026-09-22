@@ -174,7 +174,11 @@ mod prove {
         assert_eq!(fetta(100, 0, 0), (0, 100), "uno zero non e' un errore");
         assert_eq!(fetta(100, -5, 0), (0, 100));
         assert_eq!(fetta(100, 10, 5), (9, 14));
-        assert_eq!(fetta(3, 1, 999), (0, 999), "il limite non si accorcia qui: a tagliarlo\n                   ci pensa chi ha le righe in mano");
+        assert_eq!(
+            fetta(3, 1, 999),
+            (0, 999),
+            "il limite non si accorcia qui: a tagliarlo\nci pensa chi ha le righe in mano"
+        );
     }
 
     #[test]

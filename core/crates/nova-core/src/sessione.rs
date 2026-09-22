@@ -38,6 +38,15 @@ pub struct Sessione {
     pub misure: Misure,
     /// Quante volte si e' delegato **da quando la sessione e' aperta**.
     pub deleghe: u32,
+    /// La sessione di Claude Code che tiene il filo di questa conversazione.
+    ///
+    /// Claude Code la conversazione la tiene lui, e si riprende con
+    /// `--resume`: qui si conserva solo il capo del filo. Vuoto vuol dire
+    /// «aprine una», ed e' anche l'unico caso in cui gli si passa il prompt
+    /// di sistema. Sta in memoria e non su disco: il demone resta acceso, e
+    /// il problema per cui il Python la scriveva su un file — un processo per
+    /// messaggio, e ogni frase una conversazione nuova — qui non c'e'.
+    pub claude: String,
 }
 
 impl Sessione {
@@ -49,6 +58,7 @@ impl Sessione {
             gradini,
             misure: Misure::default(),
             deleghe: 0,
+            claude: String::new(),
         }
     }
 
@@ -64,6 +74,10 @@ impl Sessione {
     /// voltato pagina.
     pub fn ricomincia(&mut self) {
         self.messaggi = vec![json!({"role": "system", "content": self.sistema})];
+        // «Ricomincia da capo» vale anche per Claude Code: senza questa riga
+        // il bottone svuotava la conversazione di NOVA e Claude riprendeva la
+        // sua, con tutto quello che si era detto prima.
+        self.claude.clear();
     }
 
     /// Ricomincia con un prompt nuovo: cambia la configurazione, cambia il
@@ -98,7 +112,7 @@ mod prove {
 
     fn scala(quanti: usize) -> Vec<Gradino> {
         (0..quanti)
-            .map(|i| Gradino::nuovo(&format!("g{i}"), Specie::Api, "http://x", "m", vec![], true, None))
+            .map(|i| Gradino::nuovo(&format!("g{i}"), Specie::Api, "http://x", "m", vec![], true, crate::mondo::Come::Niente))
             .collect()
     }
 

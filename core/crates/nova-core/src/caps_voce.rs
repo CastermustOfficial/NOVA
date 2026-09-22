@@ -466,7 +466,7 @@ impl Capability for FaseCap {
     fn info(&self) -> CapabilityInfo {
         CapabilityInfo {
             name: "voce.fase".into(),
-            description: "In che punto della conversazione vocale siamo, e come                           cambiarlo. «dormiente» aspetta il nome, «sveglia» manda                           tutto al cervello, «in_pausa» tiene la conversazione ma                           chiude l'orecchio."
+            description: "In che punto della conversazione vocale siamo, e come cambiarlo. «dormiente» aspetta il nome, «sveglia» manda tutto al cervello, «in_pausa» tiene la conversazione ma chiude l'orecchio."
                 .into(),
             risk: Risk::Safe,
             category: "voce".into(),
@@ -573,7 +573,7 @@ impl Capability for RisveglioCap {
     fn info(&self) -> CapabilityInfo {
         CapabilityInfo {
             name: "voce.risveglio".into(),
-            description: "Accende o spegne il microfono sempre aperto che aspetta la                           parola di risveglio. A riposo costa quasi niente: la                           trascrizione parte solo quando qualcuno ha parlato davvero,                           e resta sul PC."
+            description: "Accende o spegne il microfono sempre aperto che aspetta la parola di risveglio. A riposo costa quasi niente: la trascrizione parte solo quando qualcuno ha parlato davvero, e resta sul PC."
                 .into(),
             risk: Risk::Moderate,
             category: "voce".into(),
@@ -629,7 +629,7 @@ impl Capability for TrascriviCap {
     fn info(&self) -> CapabilityInfo {
         CapabilityInfo {
             name: "voce.trascrivi".into(),
-            description: "Ascolta e trasforma in testo, in locale. Dice anche se la                           frase cominciava con la parola di risveglio e cosa veniva                           dopo — che e' il modo in cui NOVA distingue «Nova, apri i                           progetti» da una conversazione fra persone."
+            description: "Ascolta e trasforma in testo, in locale. Dice anche se la frase cominciava con la parola di risveglio e cosa veniva dopo — che e' il modo in cui NOVA distingue «Nova, apri i progetti» da una conversazione fra persone."
                 .into(),
             risk: Risk::Moderate,
             category: "voce".into(),
@@ -739,7 +739,7 @@ impl Capability for AscoltaCap {
     fn info(&self) -> CapabilityInfo {
         CapabilityInfo {
             name: "voce.ascolta".into(),
-            description: "Ascolta dal microfono finche' non cala il silenzio, e                           riferisce quanto ha sentito. Serve anche a capire se il                           microfono scelto funziona davvero: un picco a zero vuol                           dire che quel dispositivo non consegna niente."
+            description: "Ascolta dal microfono finche' non cala il silenzio, e riferisce quanto ha sentito. Serve anche a capire se il microfono scelto funziona davvero: un picco a zero vuol dire che quel dispositivo non consegna niente."
                 .into(),
             risk: Risk::Moderate,
             category: "voce".into(),

@@ -229,15 +229,79 @@ pub fn pronto(_server: &Arc<Server>) -> Value {
                 None => (true, String::new()),
             }
         }
-        Some(crate::mondo::Gradino::Claude { nome }) => (
-            false,
-            format!(
-                "il primo gradino «{nome}» e' Claude Code, e il turno non sa \
-                 ancora lanciarlo"
-            ),
-        ),
+        // Claude Code: le stesse tre domande del pannello, nello stesso
+        // ordine — c'e'? esiste? ha fatto l'accesso? — perche' il motivo
+        // arriva all'utente, e un motivo sbagliato lo manda a cercare il
+        // guasto dalla parte sbagliata.
+        Some(crate::mondo::Gradino::Claude { come, .. }) => {
+            let eseguibile = nova_cervelli::cerca::dove_e_claude(&come.d.binario);
+            match nova_cervelli::claude::perche_non_pronto(
+                &eseguibile,
+                std::path::Path::new(&eseguibile).exists(),
+                nova_cervelli::cerca::credenziali().is_some(),
+            ) {
+                Some(perche) => (false, perche),
+                None => (true, String::new()),
+            }
+        }
     };
     json!({ "pronto": pronto, "perche": perche, "gradini": nomi })
+}
+
+/// Scrive il collegamento MCP per Claude Code, e dice quale sportello usare.
+///
+/// Torna `(percorso del file, sportello)`, o due stringhe vuote se Claude
+/// deve partire senza strumenti di NOVA: quando la configurazione dice di
+/// non dargli la memoria come server (`claude_kb_via_mcp: false`), o quando
+/// non c'e' nessun server da dargli.
+///
+/// Il ponte e' il client `nova` accanto al demone: e' lui che Claude Code
+/// lancia, e lui inoltra al demone **questo**, per questo gli si passa
+/// l'indirizzo. Il server Python si copia dal collegamento che il Python ha
+/// gia' scritto nel vault, se c'e'.
+fn collegamento_claude(
+    server: &Arc<Server>,
+    d: &nova_cervelli::claude::Dichiarato,
+    vault: &std::path::Path,
+) -> (String, String) {
+    if !d.kb_via_mcp {
+        return (String::new(), String::new());
+    }
+    let ponte = std::env::current_exe()
+        .ok()
+        .and_then(|e| e.parent().map(std::path::Path::to_path_buf))
+        .map(|dir| dir.join(if cfg!(windows) { "nova.exe" } else { "nova" }))
+        .filter(|p| p.is_file())
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let python = std::fs::read_to_string(vault.join(".nova").join("mcp.json"))
+        .ok()
+        .and_then(|t| serde_json::from_str::<Value>(t.trim_start_matches('\u{feff}')).ok())
+        .and_then(|v| v.get("mcpServers").and_then(|m| m.get("nova")).cloned());
+    let Some((contenuto, sportello)) =
+        nova_cervelli::claude::collegamento(&ponte, &server.config.endpoint, python.as_ref())
+    else {
+        return (String::new(), String::new());
+    };
+    let f = crate::mondo::cartella_nova().join("mcp_demone.json");
+    let scritto = f
+        .parent()
+        .map(std::fs::create_dir_all)
+        .transpose()
+        .ok()
+        .and_then(|_| {
+            std::fs::write(
+                &f,
+                serde_json::to_string_pretty(&contenuto).unwrap_or_default(),
+            )
+            .ok()
+        });
+    if scritto.is_none() {
+        // Senza file non c'e' collegamento: meglio un Claude senza strumenti
+        // di NOVA che un Claude a cui si indica un file che non c'e'.
+        return (String::new(), String::new());
+    }
+    (f.to_string_lossy().to_string(), sportello.to_string())
 }
 
 /// Un turno intero, dalla frase dell'utente alla risposta.
@@ -276,6 +340,14 @@ pub async fn fai_un_turno(
     // cervello nel pannello, deve valere adesso e non alla prossima
     // conversazione.
     s.gradini = gradini;
+    if s.gradini
+        .iter()
+        .any(|g| matches!(g, crate::mondo::Gradino::Claude { .. }))
+    {
+        let vault = crate::memoria::percorso(&cfg, &crate::memoria::radice_progetto());
+        let (mcp, sportello) = collegamento_claude(server, &recapiti.claude, &vault);
+        crate::mondo::collega_claude(&mut s.gradini, &vault.to_string_lossy(), &mcp, &sportello);
+    }
     s.misure = misure;
     // Quel che si sa gia' va **in coda alla domanda**, mai nel prompt di
     // sistema: il messaggio numero zero e' la regione su cui i fornitori
