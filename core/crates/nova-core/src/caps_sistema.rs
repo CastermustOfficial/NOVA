@@ -17,13 +17,39 @@
 //! per chi. Il nodo lo fa questo file, che e' l'unico posto in cui la scelta
 //! «su questa macchina chi sa fare cosa» e' scritta.
 //!
-//! Cosa c'e' e cosa no, oggi: gli appunti, il volume, le notifiche. La
-//! cattura dello schermo e il resto di quelli che restano passano ancora da
-//! PowerShell nel Python, e finche' e' cosi' e' meglio che qui **non ci
-//! siano** — un tratto implementato a meta' e' peggio di uno che manca,
-//! perche' chi lo chiama non sa quale meta' ha preso.
+//! Cosa c'e' e cosa no, oggi: gli appunti, il volume, le notifiche, l'ora,
+//! com'e' fatto il PC. La tastiera — `type_text` e `press_keys` — e il
+//! promemoria nell'Utilita' di pianificazione passano ancora dal Python, e
+//! finche' e' cosi' e' meglio che qui **non ci siano**: un tratto
+//! implementato a meta' e' peggio di uno che manca, perche' chi lo chiama non
+//! sa quale meta' ha preso.
+//!
+//! Sotto ai tratti, in fondo a questo file, ci sono le **capacita'**: il
+//! punto in cui quel che il sistema sa fare diventa qualcosa che il modello
+//! puo' chiedere. Prima di oggi i tratti c'erano, `Sistema` li implementava
+//! tutti, e non li registrava nessuno: dal demone gli appunti, il volume e
+//! le notifiche **non esistevano**, e ogni «copiamelo» passava per un
+//! processo Python.
 
-use nova_strumenti::capacita::{Appunti, Audio, Notifiche};
+use std::sync::Arc;
+
+use anyhow::Result;
+use async_trait::async_trait;
+use nova_proto::{CapabilityInfo, Risk};
+use nova_strumenti::capacita::{self, Appunti, Audio, Macchina, Notifiche};
+use serde_json::{json, Value};
+
+use crate::capability::{
+    arg_bool_opt, arg_i64_opt, arg_str, arg_str_opt, schema, Capability, Ctx, Registry,
+};
+
+pub fn register(reg: &mut Registry) {
+    reg.add(Arc::new(SysOraCap));
+    reg.add(Arc::new(SysAppuntiLeggiCap));
+    reg.add(Arc::new(SysAppuntiScriviCap));
+    reg.add(Arc::new(SysVolumeCap));
+    reg.add(Arc::new(SysNotificaCap));
+}
 
 /// Il sistema di questa macchina, per quello che sa fare.
 pub struct Sistema;
@@ -62,6 +88,40 @@ impl Notifiche for Sistema {
     }
 }
 
+impl Macchina for Sistema {
+    /// I numeri arrivano di la' come numeri e qui restano numeri: il
+    /// passaggio fra le due strutture e' l'unico posto in cui un campo si
+    /// puo' perdere, e se un nome cambia da quella parte il compilatore lo
+    /// chiede qui invece di lasciare una riga vuota nella risposta.
+    fn com_e_fatta(&self) -> Result<nova_strumenti::sistema::Macchina, String> {
+        let d = nova_platform::sistema::leggi().map_err(|e| e.to_string())?;
+        Ok(nova_strumenti::sistema::Macchina {
+            sistema: d.sistema,
+            build: d.build,
+            pc: d.pc,
+            cpu: d.cpu,
+            processori: d.processori,
+            ram_totale_byte: d.ram_totale_byte,
+            ram_libera_byte: d.ram_libera_byte,
+            dischi: d
+                .dischi
+                .into_iter()
+                .map(|x| nova_strumenti::sistema::Disco {
+                    radice: x.radice,
+                    totale_byte: x.totale_byte,
+                    liberi_byte: x.liberi_byte,
+                })
+                .collect(),
+            batteria: d.batteria.map(|b| nova_strumenti::sistema::Batteria {
+                percentuale: b.percentuale,
+                alla_corrente: b.alla_corrente,
+                minuti_rimasti: b.minuti_rimasti,
+            }),
+            acceso_da_secondi: d.acceso_da_secondi,
+        })
+    }
+}
+
 impl Audio for Sistema {
     fn stato(&self) -> Result<(u8, bool), String> {
         nova_platform::audio::stato().map_err(|e| e.to_string())
@@ -73,6 +133,178 @@ impl Audio for Sistema {
 
     fn muto(&self, muto: bool) -> Result<(), String> {
         nova_platform::audio::muto(muto).map_err(|e| e.to_string())
+    }
+}
+
+/// Il fuso di questa macchina, chiesto **per istante**.
+///
+/// Un fuso non e' una costante: cambia due volte l'anno, e un numero solo
+/// basta a far uscire con un'ora sbagliata una data di gennaio letta a
+/// luglio. E' la stessa ragione per cui di la' e' un tratto.
+struct FusoDiQui;
+
+impl nova_strumenti::data::Fuso for FusoDiQui {
+    fn secondi_in(&self, istante: u64) -> i64 {
+        nova_platform::fuso_secondi(istante as i64)
+    }
+}
+
+// ------------------------------------------------------------- data e ora
+
+struct SysOraCap;
+
+#[async_trait]
+impl Capability for SysOraCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "sys.ora".into(),
+            description: "Data e ora correnti del PC.".into(),
+            risk: Risk::Safe,
+            category: "sys".into(),
+            schema: schema(&[]),
+        }
+    }
+
+    async fn call(&self, _args: Value, _ctx: &Ctx) -> Result<Value> {
+        let adesso = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        Ok(Value::String(nova_strumenti::sistema::data_e_ora(
+            adesso, &FusoDiQui,
+        )))
+    }
+}
+
+// ------------------------------------------------------------- gli appunti
+
+struct SysAppuntiLeggiCap;
+
+#[async_trait]
+impl Capability for SysAppuntiLeggiCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "sys.appunti_leggi".into(),
+            description: "Legge il contenuto testuale degli appunti.".into(),
+            risk: Risk::Safe,
+            category: "sys".into(),
+            schema: schema(&[]),
+        }
+    }
+
+    async fn call(&self, _args: Value, _ctx: &Ctx) -> Result<Value> {
+        capacita::leggi_appunti(&Sistema)
+            .map(Value::String)
+            .map_err(|e| anyhow::anyhow!("{e}"))
+    }
+}
+
+struct SysAppuntiScriviCap;
+
+#[async_trait]
+impl Capability for SysAppuntiScriviCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "sys.appunti_scrivi".into(),
+            description: "Copia un testo negli appunti.".into(),
+            risk: Risk::Moderate,
+            category: "sys".into(),
+            schema: schema(&[("text", "string", "Testo da copiare", true)]),
+        }
+    }
+
+    /// Cosa c'era prima si dice **adesso**, non dopo.
+    ///
+    /// Scrivere negli appunti butta via quel che c'era, e quel che c'era puo'
+    /// essere una cosa che l'utente aveva appena copiato per incollarla
+    /// altrove. Non si annulla — non c'e' una pila — quindi l'unica difesa e'
+    /// dirlo prima di premere.
+    async fn anteprima(&self, args: Value, _ctx: &Ctx) -> Option<Result<Value>> {
+        let nuovo = arg_str_opt(&args, "text").unwrap_or_default();
+        let prima = <Sistema as Appunti>::leggi(&Sistema)
+            .ok()
+            .flatten()
+            .unwrap_or_default();
+        Some(Ok(json!({
+            "farei": "sostituirei il contenuto degli appunti",
+            "caratteri": nuovo.chars().count(),
+            "cosa_ce_adesso": prima.chars().take(200).collect::<String>(),
+            "annullabile": false,
+            "nota": "gli appunti non hanno una pila: quel che c'e' adesso si perde",
+        })))
+    }
+
+    async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
+        let testo = arg_str(&args, "text")?;
+        capacita::scrivi_appunti(&Sistema, &testo)
+            .map(Value::String)
+            .map_err(|e| anyhow::anyhow!("{e}"))
+    }
+}
+
+// ----------------------------------------------------------------- audio
+
+struct SysVolumeCap;
+
+#[async_trait]
+impl Capability for SysVolumeCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "sys.volume".into(),
+            description: "Imposta o silenzia il volume di sistema.".into(),
+            risk: Risk::Moderate,
+            category: "sys".into(),
+            schema: schema(&[
+                ("level", "integer", "Volume da 0 a 100", false),
+                (
+                    "mute",
+                    "boolean",
+                    "true per silenziare, false per riattivare",
+                    false,
+                ),
+            ]),
+        }
+    }
+
+    async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
+        // `level` e `mute` si prendono solo se ci sono: zero e' un volume, e
+        // `false` e' «riattiva». Con un valore di ripiego questa capacita'
+        // eseguirebbe una richiesta che nessuno ha fatto.
+        let livello = arg_i64_opt(&args, "level");
+        let muto = arg_bool_opt(&args, "mute");
+        capacita::volume(&Sistema, livello, muto)
+            .map(Value::String)
+            .map_err(|e| anyhow::anyhow!("{e}"))
+    }
+}
+
+// ------------------------------------------------------------- notifiche
+
+struct SysNotificaCap;
+
+#[async_trait]
+impl Capability for SysNotificaCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "sys.notifica".into(),
+            description: "Mostra una notifica di sistema all'utente.".into(),
+            risk: Risk::Safe,
+            category: "sys".into(),
+            schema: schema(&[
+                ("message", "string", "Testo della notifica", true),
+                ("title", "string", "Titolo (default: NOVA)", false),
+            ]),
+        }
+    }
+
+    async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
+        let messaggio = arg_str(&args, "message")?;
+        let titolo = arg_str_opt(&args, "title")
+            .filter(|t| !t.trim().is_empty())
+            .unwrap_or_else(|| "NOVA".to_string());
+        capacita::notifica(&Sistema, &titolo, &messaggio)
+            .map(Value::String)
+            .map_err(|e| anyhow::anyhow!("{e}"))
     }
 }
 
@@ -93,6 +325,32 @@ mod prove {
         let _: &dyn Appunti = &s;
         let _: &dyn Audio = &s;
         let _: &dyn Notifiche = &s;
+        let _: &dyn Macchina = &s;
+    }
+
+    /// I tratti sono registrati, non solo implementati.
+    ///
+    /// E' il difetto che questo pezzo e' venuto a chiudere: `Sistema` stava
+    /// dietro a tutti e tre i tratti da mesi, e nessuna capacita' lo
+    /// chiamava. Dal demone gli appunti e il volume non esistevano, e la
+    /// prova di sopra passava lo stesso.
+    #[test]
+    fn e_qualcuno_li_chiede_davvero() {
+        let mut r = Registry::new();
+        register(&mut r);
+        let nomi: Vec<String> = r.list().into_iter().map(|c| c.name).collect();
+        for atteso in [
+            "sys.ora",
+            "sys.appunti_leggi",
+            "sys.appunti_scrivi",
+            "sys.volume",
+            "sys.notifica",
+        ] {
+            assert!(
+                nomi.contains(&atteso.to_string()),
+                "manca {atteso}: {nomi:?}"
+            );
+        }
     }
 
     /// Il corpo comune passa dal sistema vero — e non pretende che funzioni.

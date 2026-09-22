@@ -51,6 +51,18 @@ pub trait Audio {
     fn muto(&self, muto: bool) -> Result<(), String>;
 }
 
+/// Com'e' fatta la macchina su cui NOVA gira.
+///
+/// E' la capacita' che il modello chiede piu' spesso all'inizio di una
+/// conversazione, quando vuole sapere dove si trova, ed era la piu' cara di
+/// tutte: 1.543 millisecondi misurati, piu' di tutte le altre messe insieme,
+/// perche' dall'altra parte era una query WMI dentro una shell.
+pub trait Macchina {
+    /// I numeri, non il racconto: a scriverli per una persona ci pensa
+    /// [`informazioni`], e a leggerli per un conto ci pensa chi li riceve.
+    fn com_e_fatta(&self) -> Result<crate::sistema::Macchina, String>;
+}
+
 /// Nessuno che sappia fare queste cose. Non e' un ripiego silenzioso: ogni
 /// metodo dice **perche'**, cosi' chi legge la risposta capisce che manca il
 /// sistema e non che ha sbagliato lui.
@@ -75,6 +87,12 @@ impl Appunti for NienteSistema {
 impl Notifiche for NienteSistema {
     fn mostra(&self, _titolo: &str, _messaggio: &str) -> Result<(), String> {
         Err(manca("mostrare una notifica"))
+    }
+}
+
+impl Macchina for NienteSistema {
+    fn com_e_fatta(&self) -> Result<crate::sistema::Macchina, String> {
+        Err(manca("leggere com'e' fatto il PC"))
     }
 }
 
@@ -128,6 +146,11 @@ pub fn volume(a: &dyn Audio, livello: Option<i64>, muto: Option<bool>) -> Result
     Ok(format!("Volume: {adesso}% (muto={})", if e_muto { "True" } else { "False" }))
 }
 
+/// Com'e' fatto il PC, letto e raccontato.
+pub fn informazioni(m: &dyn Macchina) -> Result<String, String> {
+    Ok(crate::sistema::racconta(&m.com_e_fatta()?))
+}
+
 #[cfg(test)]
 mod prove {
     use super::*;
@@ -179,6 +202,7 @@ mod prove {
         assert!(e.contains("non e' un errore della richiesta")
                 || e.contains("Non e' un errore della richiesta"), "{e}");
         assert!(volume(&n, Some(50), None).is_err());
+        assert!(informazioni(&n).unwrap_err().contains("com'e' fatto il PC"));
     }
 
     #[test]

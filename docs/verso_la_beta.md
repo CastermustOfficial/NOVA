@@ -2443,20 +2443,22 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    Resta fuori **Claude Code**: gli servono la sessione, i permessi e il
    ponte MCP, e ha il suo pezzo di cantiere.
 
-4. **Gli strumenti che al demone mancano.** Due famiglie su otto, e
-   nessuna delle due riscrivendo niente: i **file** (D308) e la **memoria**
-   (D319) — i corpi stavano gia' in `nova-strumenti` e in `nova-nodi`,
-   confrontati col Python da un banco. Restano: `sistema` (ventidue
-   strumenti, la piu' grossa e la piu' eterogenea), `app` e finestre, `web`,
-   le deleghe a un altro cervello, lo schermo, e i due documenti —
-   `nova-harness`, `nova-docx`, `nova-fogli`, `nova-browser` + `nova-cdp`.
+4. **Gli strumenti che al demone mancano.** Due famiglie e mezzo su otto, e
+   nessuna riscrivendo niente: i **file** (D308), la **memoria** (D319) e il
+   primo filo di **sistema** (D321) — i corpi stavano gia' in
+   `nova-strumenti`, in `nova-nodi` e in `nova-platform`, confrontati col
+   Python da un banco. Restano: il resto di `sistema` — la tastiera, che
+   vuole la guardia sul fuoco (D143), e il promemoria, che in Rust non c'e'
+   ancora — piu' `app` e finestre, `web`, le deleghe a un altro cervello, lo
+   schermo, e i due documenti — `nova-harness`, `nova-docx`, `nova-fogli`,
+   `nova-browser` + `nova-cdp`.
 
    | famiglia | in Python | nel demone |
    | --- | ---: | ---: |
    | file | 14 | 12 |
    | memoria | 8 | 6 |
    | shell | 3 | 3 |
-   | sistema | 22 | 0 |
+   | sistema | 22 | 6 |
    | app / finestre | 6 | 0 |
    | web | 3 | 0 |
    | deleghe | 3 | 0 |

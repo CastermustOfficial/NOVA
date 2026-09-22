@@ -1027,6 +1027,75 @@ diverse = [f"rust {suo!r} vs python {py!r}"
 controlla(f"i {len(NOMI_VERSATI)} nomi di file versati sono uguali", not diverse,
           " | ".join(diverse[:2]))
 
+
+# --------------------------------------------------------------------------
+# Com'e' fatto il PC, raccontato a chi legge.
+#
+# I numeri arrivano da qui e non dalla macchina: chiedere a ognuna delle due
+# meta' di leggersi il proprio sistema vorrebbe dire confrontare due risposte
+# a due domande diverse. E la regola la si chiede al Python **vero** —
+# `_racconta_sistema` — invece di riscriverne una copia qui: una copia direbbe
+# «uguali» anche il giorno che `system.py` cambia sotto.
+from nova.tools.system import _racconta_sistema                   # noqa: E402
+
+MACCHINE = [
+    # un fisso: nessuna batteria, e va detto che non c'e'
+    {"sistema": "Windows 11 Pro", "build": 26200, "pc": "IL-FISSO",
+     "cpu": "AMD Ryzen 9 7950X", "processori": 32,
+     "ram_totale_byte": 34359738368, "ram_libera_byte": 8589934592,
+     "dischi": [["C:\\", 1000204886016, 512110190592],
+                ["D:\\", 2000398934016, 1073741824]],
+     "batteria": None, "acceso_da_secondi": 3600 * 5 + 60 * 7 + 42},
+    # un portatile a batteria, con tutto quel che si sa
+    {"sistema": "Windows 11 Home", "build": 22631, "pc": "PORTATILE",
+     "cpu": "Intel Core i7-1360P", "processori": 16,
+     "ram_totale_byte": 17179869184, "ram_libera_byte": 1073741824,
+     "dischi": [["C:\\", 511101108224, 42949672960]],
+     "batteria": [62, False, 95], "acceso_da_secondi": 59},
+    # e uno che della batteria sa solo che e' attaccato alla corrente: i
+    # pezzi che mancano non devono diventare virgole vuote
+    {"sistema": "Windows 10 Pro", "build": 19045, "pc": "VECCHIO",
+     "cpu": "Intel Core i5-4590", "processori": 4,
+     "ram_totale_byte": 8589934592, "ram_libera_byte": 900,
+     "dischi": [], "batteria": [None, True, None],
+     "acceso_da_secondi": 3600 * 240},
+]
+
+
+def py_macchina(m: dict) -> dict:
+    """La stessa macchina nella forma che si aspetta il Python."""
+    d = dict(m)
+    d["dischi"] = [{"radice": r, "totale_byte": t, "liberi_byte": l}
+                   for r, t, l in m["dischi"]]
+    if m["batteria"] is None:
+        d["batteria"] = None
+    else:
+        p, corrente, minuti = m["batteria"]
+        d["batteria"] = {"percentuale": p, "alla_corrente": corrente,
+                         "minuti_rimasti": minuti}
+    return d
+
+
+r = subprocess.run([str(BINARIO)], input=json.dumps({"macchine": MACCHINE},
+                                                    ensure_ascii=False),
+                   capture_output=True, text=True, encoding="utf-8", timeout=120)
+mac = json.loads(r.stdout)
+
+diverse = [f"{m['pc']}:\n    rust   {suo!r}\n    python {_racconta_sistema(py_macchina(m))!r}"
+           for m, suo in zip(MACCHINE, mac["macchine"])
+           if suo != _racconta_sistema(py_macchina(m))]
+controlla(f"le {len(MACCHINE)} macchine si raccontano uguali", not diverse,
+          " | ".join(diverse[:2]))
+
+# Le domande sul risultato: un fisso deve **dire** che la batteria non c'e' —
+# il silenzio direbbe «non lo so», che manda a cercare un guasto — e i pezzi
+# che mancano non devono lasciare virgole per aria.
+controlla("di un fisso si dice che la batteria non c'e'",
+          "nessuna (e' un fisso)" in mac["macchine"][0], mac["macchine"][0][:200])
+controlla("e di una batteria si dice solo quel che si sa",
+          "Batteria      : alla corrente" in mac["macchine"][2],
+          mac["macchine"][2][:200])
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")

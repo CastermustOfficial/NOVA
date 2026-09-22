@@ -3041,6 +3041,7 @@ version = "0.1.1"
 dependencies = [
  "glob",
  "nova-calendario",
+ "nova-dati",
  "regex",
  "serde",
  "serde_json",

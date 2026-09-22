@@ -103,16 +103,31 @@ impl Capability for SysInfoCap {
     fn info(&self) -> CapabilityInfo {
         CapabilityInfo {
             name: "sys.info".into(),
-            description:
-                "Informazioni sulla macchina: sistema operativo, architettura, host, utente.".into(),
+            // La descrizione la legge il modello e ci decide sopra: se
+            // promette meno di quel che c'e', chi vuole sapere quanta memoria
+            // resta non chiama questa e va a lanciare un comando. E se
+            // promette piu' di quel che c'e' — la versione vecchia diceva
+            // anche «rete», e la rete non l'ha mai data — chi la chiama non
+            // capisce se il dato manca o se manca la cosa (D137).
+            description: "Com'e' fatto il PC: sistema, nome, CPU, memoria, dischi, \
+                          batteria e da quanto e' acceso. Non dice niente della rete."
+                .into(),
             risk: Risk::Safe,
             category: "sys".into(),
             schema: schema(&[]),
         }
     }
 
+    /// Quel che si sa sempre, piu' quel che sa dire questa macchina.
+    ///
+    /// Le due meta' stanno separate apposta. La prima — sistema, architettura,
+    /// utente, dove sta l'eseguibile — sono variabili d'ambiente e costanti di
+    /// compilazione: non possono fallire, e sono cio' che serve a chi cerca un
+    /// guasto. La seconda viene dal sistema operativo e **puo'** non arrivare:
+    /// se non arriva si dice perche', invece di restituire una risposta piu'
+    /// corta che sembra completa.
     async fn call(&self, _args: Value, _ctx: &Ctx) -> Result<Value> {
-        Ok(json!({
+        let mut fuori = json!({
             "os": std::env::consts::OS,
             "family": std::env::consts::FAMILY,
             "arch": std::env::consts::ARCH,
@@ -121,7 +136,35 @@ impl Capability for SysInfoCap {
             "home": dirs_home().to_string_lossy(),
             "cpus": std::thread::available_parallelism().map(|n| n.get()).unwrap_or(0),
             "exe": std::env::current_exe().map(|p| p.to_string_lossy().to_string()).unwrap_or_default(),
-        }))
+        });
+        // Il racconto, non i numeri sciolti: e' la stessa riga che legge chi
+        // usa NOVA dal Python, confrontata carattere per carattere da un
+        // banco. I numeri restano comunque qui sotto, per chi ci deve fare un
+        // conto.
+        match nova_strumenti::capacita::Macchina::com_e_fatta(&crate::caps_sistema::Sistema) {
+            Ok(m) => {
+                fuori["macchina"] = Value::String(nova_strumenti::sistema::racconta(&m));
+                fuori["ram_totale_byte"] = json!(m.ram_totale_byte);
+                fuori["ram_libera_byte"] = json!(m.ram_libera_byte);
+                fuori["acceso_da_secondi"] = json!(m.acceso_da_secondi);
+                fuori["dischi"] = Value::Array(
+                    m.dischi
+                        .iter()
+                        .map(|d| {
+                            json!({
+                                "radice": d.radice,
+                                "totale_byte": d.totale_byte,
+                                "liberi_byte": d.liberi_byte,
+                            })
+                        })
+                        .collect(),
+                );
+            }
+            Err(perche) => {
+                fuori["macchina_non_letta"] = Value::String(perche);
+            }
+        }
+        Ok(fuori)
     }
 }
 

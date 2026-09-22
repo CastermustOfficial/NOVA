@@ -100,6 +100,30 @@ struct Dentro {
     /// (slug, titolo, vicini) per l'elenco dei collegamenti.
     #[serde(default)]
     vicinati: Vec<(String, String, Vec<(String, String, String)>)>,
+    /// Macchine da raccontare. I numeri arrivano da fuori apposta: leggerli
+    /// dal sistema vorrebbe dire confrontare due meta' su una macchina che
+    /// risponde diversa a ognuna — cioe' non confrontare niente.
+    #[serde(default)]
+    macchine: Vec<MacchinaDentro>,
+}
+
+/// Com'e' fatto un PC, come lo scrive il banco.
+#[derive(Deserialize)]
+struct MacchinaDentro {
+    sistema: String,
+    build: u32,
+    pc: String,
+    cpu: String,
+    processori: u32,
+    ram_totale_byte: u64,
+    ram_libera_byte: u64,
+    /// (radice, totale, liberi)
+    #[serde(default)]
+    dischi: Vec<(String, u64, u64)>,
+    /// (percentuale, alla corrente, minuti rimasti) — assente su un fisso.
+    #[serde(default)]
+    batteria: Option<(Option<u8>, bool, Option<u32>)>,
+    acceso_da_secondi: u64,
 }
 
 #[derive(Deserialize)]
@@ -175,6 +199,7 @@ struct Fuori {
     titoli: Vec<String>,
     ricordi: Vec<String>,
     vicinati: Vec<String>,
+    macchine: Vec<String>,
     /// Per ogni testo, le chiamate trovate nella forma esatta che il Python
     /// consegna al ciclo: id, tipo, nome e argomenti gia' resi in stringa.
     inline: Vec<serde_json::Value>,
@@ -411,6 +436,27 @@ fn main() {
         vicinati: d.vicinati.iter()
             .map(|(s, t, v)| memoria::racconta_vicini(s, t, v))
             .collect(),
+        macchine: d.macchine.iter().map(|m| sistema::racconta(&sistema::Macchina {
+            sistema: m.sistema.clone(),
+            build: m.build,
+            pc: m.pc.clone(),
+            cpu: m.cpu.clone(),
+            processori: m.processori,
+            ram_totale_byte: m.ram_totale_byte,
+            ram_libera_byte: m.ram_libera_byte,
+            dischi: m.dischi.iter()
+                .map(|(radice, totale_byte, liberi_byte)| sistema::Disco {
+                    radice: radice.clone(), totale_byte: *totale_byte,
+                    liberi_byte: *liberi_byte,
+                })
+                .collect(),
+            batteria: m.batteria.as_ref().map(
+                |(percentuale, alla_corrente, minuti_rimasti)| sistema::Batteria {
+                    percentuale: *percentuale, alla_corrente: *alla_corrente,
+                    minuti_rimasti: *minuti_rimasti,
+                }),
+            acceso_da_secondi: m.acceso_da_secondi,
+        })).collect(),
     };
     println!("{}", serde_json::to_string(&fuori).unwrap());
 }
