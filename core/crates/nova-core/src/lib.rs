@@ -101,6 +101,7 @@ pub fn build(config: Config) -> Result<Arc<Server>> {
     caps_approvazione::register(&mut registry);
     caps_voce::register(&mut registry);
     caps_segreti::register(&mut registry);
+    caps_sistema::register(&mut registry);
 
     let server = Server::new(Arc::new(registry), ctx, config);
     // La memoria vive nel server perche' deve sopravvivere ai turni; le

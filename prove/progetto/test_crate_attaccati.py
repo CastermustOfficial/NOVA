@@ -64,8 +64,6 @@ SCOLLEGATI: dict[str, str] = {
     "nova-componenti": "le regole per procurarsi i pezzi mancanti. Scaricare e "
                        "scompattare li fa nova/componenti.py: due scaricatori "
                        "sarebbero due modi di lasciare mezzo file sul disco",
-    "nova-dati": "«dove sono i miei dati»: la mappa c'e', a leggerla e' il "
-                 "Python del pannello",
     "nova-decisioni": "il censimento di CANT-12 — quale materiale puo' uscire "
                       "dal PC. Attaccarlo e' CANT-12, che e' aperto apposta",
     "nova-docx": "modificare un .docx senza spogliarlo: lo strumento che lo "

@@ -10222,3 +10222,95 @@ ho lasciato scritto nel commento perché le due cose non sono la stessa.
 Restano cinque famiglie di strumenti: `sistema` (ventidue, la più grossa),
 `app`, `web`, le deleghe, lo schermo. E resta Claude Code, che adesso è
 l'unico gradino che il turno in Rust guarda e mette giù.
+
+## Sei capacità che c'erano già, e nessuno le chiedeva
+
+Questa è la famiglia `sistema`, il primo filo: appunti, volume, notifiche,
+data e ora, com'è fatto il PC. È anche la scoperta più imbarazzante della
+settimana.
+
+`nova-core/src/caps_sistema.rs` esisteva da mesi. Dentro c'è il nodo di D130 —
+`nova-strumenti` dichiara «copia questo testo negli appunti» con le parole di
+NOVA, `nova-platform` sa farlo con Win32, e quel file è l'unico posto dove è
+scritto chi fa cosa su questa macchina. C'era tutto: `impl Appunti for
+Sistema`, `impl Audio`, `impl Notifiche`. E c'era anche una prova, con un
+commento che ne spiegava il senso:
+
+> Finché `capacita.rs` aveva solo `NienteSistema`, i tratti erano una
+> dichiarazione d'intenti: si compilavano e non li implementava nessuno.
+> Questa riga non compila se qualcuno li scollega.
+
+La prova era giusta e passava. Solo che `caps_sistema::register` **non
+esisteva**, e in `build()` nessuno chiamava quel modulo. Dal demone, gli
+appunti non c'erano. Il volume non c'era. Le notifiche non c'erano. Ogni
+«copiamelo negli appunti» faceva partire un processo Python.
+
+La lezione, che è la vera ragione per cui scrivo questa voce: **provare che
+due pezzi combaciano non è provare che qualcuno li usa.** La prova vecchia
+guardava il collegamento; quella nuova guarda la porta, cioè chiede al demone
+acceso `capabilities/list` e pretende di trovarci i sei nomi. È un genere di
+controllo diverso, e mi serviva.
+
+### Attaccare, non riscrivere — stavolta letteralmente
+
+Cinque delle sei capacità sono venute senza una riga di logica nuova. I corpi
+comuni (`leggi_appunti`, `scrivi_appunti`, `volume`, `notifica`) stavano già in
+`capacita.rs`, con le loro prove; `data_e_ora` stava in `sistema.rs` col suo
+banco gemello. Quel che ho scritto è la dichiarazione — nome, descrizione,
+rischio, schema — e nient'altro.
+
+L'unica cosa nuova è `racconta`: la riga con cui NOVA dice com'è fatto il PC.
+E l'ho scritta con un banco gemello che chiama il **Python vero**,
+`_racconta_sistema`, invece di riscriverne una copia nella prova. Una copia
+direbbe «uguali» anche il giorno in cui `system.py` cambia sotto, che è
+esattamente il giorno in cui una prova gemella dovrebbe accorgersi di
+qualcosa.
+
+### `sys.info` diceva meno di quel che poteva
+
+`sys.info` c'era già e rispondeva con quattro cose: sistema operativo,
+architettura, host, utente. Dall'altra parte `system_info` dice anche RAM,
+dischi, batteria e da quanto il PC è acceso — ed era la capacità **più cara di
+tutte**, 1.543 ms misurati, perché era una query WMI dentro una shell. È
+anche quella che il modello chiede più spesso all'inizio di una
+conversazione, quando vuole sapere dove si trova.
+
+Due capacità che rispondono alla stessa domanda in due modi diversi sarebbero
+state la cosa peggiore, quindi non ne ho aggiunta una seconda: ho arricchito
+quella che c'è. Adesso porta il racconto *e* i numeri — il racconto per chi
+legge, i numeri per chi ci deve fare un conto (D137) — e se il sistema non sa
+dire com'è fatto lo scrive in un campo suo invece di restituire una risposta
+più corta che sembra completa.
+
+### Tre mutazioni, e una che mi ha ingannato
+
+Tolta la registrazione: rossa, sette controlli su sedici. Tolta la riga
+«Batteria: nessuna (è un fisso)»: rossa sul banco gemello.
+
+La terza è quella interessante. Volevo provare che `level: 0` è una richiesta
+e non un'assenza — zero è silenzio, e confonderlo con «non lo ha chiesto»
+vuol dire eseguire una cosa che nessuno ha chiesto. Ho mutato
+`arg_i64_opt(&args, "level")` in una versione che scarta lo zero, ho lanciato
+la prova… e il controllo passava. Perché l'avevo mutata **insieme** alla
+registrazione: senza `sys.volume` registrata l'errore era «capacità
+sconosciuta», che non contiene la frase che il controllo cerca, quindi il
+controllo passava a vuoto.
+
+Due mutazioni insieme non sono due mutazioni: sono una mutazione che ne
+maschera un'altra. Rimessa la registrazione, la terza è diventata rossa da
+sola. E per questo esiste `arg_i64_opt` accanto ad `arg_u64`: perché per certi
+argomenti il valore di ripiego è il difetto.
+
+### E il guardiano ha trovato una riga vecchia
+
+`test_crate_attaccati.py` è diventato rosso: `nova-dati` era dichiarato
+scollegato, e adesso `nova-strumenti` lo usa per scrivere «8.00 GB». Quella
+prova fallisce in tutte e due le direzioni — un crate scollegato che non si
+dichiara, *e* un crate dichiarato scollegato che nel frattempo è stato
+attaccato — ed è la seconda volta che il secondo caso mi accorcia l'elenco da
+solo. Nove crate ancora da attaccare.
+
+Il resto della famiglia `sistema` sono `type_text` e `press_keys` — che
+vogliono la guardia sul fuoco, perché fra l'approvazione e il momento in cui
+i tasti partono la finestra davanti può cambiare (D143) — e il promemoria
+nell'Utilità di pianificazione, che in Rust non c'è ancora.

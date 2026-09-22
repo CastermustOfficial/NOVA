@@ -196,6 +196,21 @@ pub fn arg_bool(args: &Value, chiave: &str, default: bool) -> bool {
         .unwrap_or(default)
 }
 
+/// Un intero solo se c'e' davvero.
+///
+/// Non e' `arg_i64(args, chiave, 0)`: ci sono argomenti per cui «zero» e'
+/// una richiesta — il volume a zero e' silenzio — e confonderlo con «non lo
+/// ha chiesto» vuol dire eseguire una cosa che nessuno ha chiesto.
+pub fn arg_i64_opt(args: &Value, chiave: &str) -> Option<i64> {
+    args.get(chiave).and_then(|v| v.as_i64())
+}
+
+/// Un booleano solo se c'e' davvero. Vedi [`arg_i64_opt`]: `false` e' una
+/// richiesta, l'assenza no.
+pub fn arg_bool_opt(args: &Value, chiave: &str) -> Option<bool> {
+    args.get(chiave).and_then(|v| v.as_bool())
+}
+
 pub fn arg_u64(args: &Value, chiave: &str, default: u64) -> u64 {
     args.get(chiave).and_then(|v| v.as_u64()).unwrap_or(default)
 }
