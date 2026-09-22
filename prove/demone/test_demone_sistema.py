@@ -111,9 +111,15 @@ try:
     with CoreClient(endpoint, timeout=30) as c:
         tutte = {x["name"]: x for x in c.request("capabilities/list")["capabilities"]}
     attese = ["sys.ora", "sys.appunti_leggi", "sys.appunti_scrivi",
-              "sys.volume", "sys.notifica", "sys.info"]
+              "sys.volume", "sys.notifica", "sys.info", "sys.digita", "sys.tasti"]
     mancano = [n for n in attese if n not in tutte]
-    controlla("le sei capacita' di sistema ci sono", not mancano, str(mancano))
+    controlla("le otto capacita' di sistema ci sono", not mancano, str(mancano))
+    # I tasti non hanno un bersaglio: meno che «pericolose» vorrebbe dire
+    # premerli senza chiedere.
+    controlla("e le due della tastiera sono dichiarate pericolose",
+              all(tutte.get(n, {}).get("risk") == "dangerous"
+                  for n in ("sys.digita", "sys.tasti")),
+              str([(n, tutte.get(n, {}).get("risk")) for n in ("sys.digita", "sys.tasti")]))
     # Scrivere negli appunti butta via quel che c'era: non e' «sicuro».
     controlla("e copiare negli appunti non e' dichiarato innocuo",
               tutte.get("sys.appunti_scrivi", {}).get("risk") != "safe",
@@ -208,6 +214,39 @@ try:
                   isinstance(pc.get("macchina_non_letta"), str)
                   and len(pc["macchina_non_letta"]) > 10,
                   str(pc.get("macchina_non_letta")))
+
+    print("\n7. la tastiera guarda chi c'e' davanti, e senza nessuno non preme")
+    # Su questa macchina puo' non esserci nessuna finestra col fuoco — su un
+    # agente di compilazione non c'e' nemmeno uno schermo. E' proprio il caso
+    # da provare: la risposta giusta e' **non premere** e dirlo. Se invece
+    # una finestra c'e', questa prova non ci scrive: non e' sua (vedi
+    # `prove/macchina/test_tastiera.py`, che scrive solo in una finestra che
+    # apre lei).
+    with CoreClient(endpoint, timeout=30) as c:
+        # «prova: true» e' l'anteprima: dice cosa succederebbe e non lo fa.
+        chi, g_chi = esito(c, "sys.digita", {"text": "ciao", "prova": True})
+    controlla("l'anteprima risponde, e non esegue",
+              g_chi is None and (chi or {}).get("eseguito") is False, repr(g_chi or chi)[:200])
+    farei = str((chi or {}).get("farei", ""))
+    controlla("l'anteprima dice quale finestra, o che non sa dirlo",
+              "La finestra e': «" in farei or "non riesco a dire quale sia" in farei,
+              farei[:200])
+    controlla("e dice che non si annulla",
+              (chi or {}).get("annullabile") is False, str(chi)[:200])
+    if (chi or {}).get("finestra") is None:
+        with CoreClient(endpoint, timeout=30) as c:
+            _d, g_d = esito(c, "sys.digita", {"text": "ciao", "delay_seconds": 0})
+            _t, g_t = esito(c, "sys.tasti", {"keys": "ctrl+s"})
+        controlla("senza nessuno davanti, digitare si rifiuta",
+                  g_d is not None and "non premo niente" in g_d, repr(g_d))
+        # «focus_window» e' il nome del Python: dal demone quello strumento
+        # non esiste, e un consiglio che non si puo' seguire non e' un aiuto.
+        controlla("e consiglia lo strumento che questa meta' ha davvero",
+                  g_d is not None and "«ui.focus»" in g_d
+                  and "focus_window" not in g_d, repr(g_d))
+        controlla("e premere una combinazione pure", g_t is not None, repr(g_t))
+    else:
+        print("  (davanti c'e' una finestra che non e' nostra: non ci scrivo)")
 
 finally:
     processo.terminate()

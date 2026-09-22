@@ -2445,12 +2445,13 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
 
 4. **Gli strumenti che al demone mancano.** Due famiglie e mezzo su otto, e
    nessuna riscrivendo niente: i **file** (D308), la **memoria** (D319) e il
-   primo filo di **sistema** (D321) — i corpi stavano gia' in
+   grosso di **sistema** (D321, D322) — i corpi stavano gia' in
    `nova-strumenti`, in `nova-nodi` e in `nova-platform`, confrontati col
-   Python da un banco. Restano: il resto di `sistema` — la tastiera, che
-   vuole la guardia sul fuoco (D143), e il promemoria, che in Rust non c'e'
-   ancora — piu' `app` e finestre, `web`, le deleghe a un altro cervello, lo
-   schermo, e i due documenti — `nova-harness`, `nova-docx`, `nova-fogli`,
+   Python da un banco. Restano: il resto di `sistema` — il promemoria e le
+   tre attivita' pianificate, che vogliono l'Utilita' di pianificazione in
+   Rust, e le automazioni e le riparazioni, che sono Python per natura —
+   piu' `app` e finestre, `web`, le deleghe a un altro cervello, lo schermo,
+   e i due documenti — `nova-harness`, `nova-docx`, `nova-fogli`,
    `nova-browser` + `nova-cdp`.
 
    | famiglia | in Python | nel demone |
@@ -2458,7 +2459,7 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    | file | 14 | 12 |
    | memoria | 8 | 6 |
    | shell | 3 | 3 |
-   | sistema | 22 | 6 |
+   | sistema | 22 | 8 |
    | app / finestre | 6 | 0 |
    | web | 3 | 0 |
    | deleghe | 3 | 0 |

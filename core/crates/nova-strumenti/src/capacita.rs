@@ -63,6 +63,36 @@ pub trait Macchina {
     fn com_e_fatta(&self) -> Result<crate::sistema::Macchina, String>;
 }
 
+/// La finestra che ha il fuoco, per quel che serve a chi preme i tasti.
+///
+/// L'identificativo c'e' perche' e' l'unica cosa che si puo' **ricontrollare**:
+/// il titolo cambia da solo (un documento che si salva, una scheda che
+/// carica), il processo e' uguale per dieci finestre. Il titolo e il processo
+/// ci sono perche' sono l'unica cosa che una persona sa riconoscere.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Finestra {
+    pub handle: i64,
+    pub titolo: String,
+    pub processo: String,
+}
+
+/// La tastiera, cioe' la sola capacita' che **non ha un bersaglio**.
+///
+/// Tutte le altre dicono a chi parlano: il file ha un percorso, la notifica
+/// va all'utente, gli appunti sono uno solo. I tasti no: il sistema li
+/// consegna a chi ha il fuoco *in quel millisecondo*, e fra l'approvazione di
+/// una persona e il momento in cui partono il fuoco puo' essere cambiato
+/// (D143). Per questo i due metodi che agiscono vogliono **dove**, e chi li
+/// implementa si impegna a ricontrollarlo e a fermarsi se e' cambiato.
+pub trait Tastiera {
+    /// Chi ha il fuoco adesso, o `None` se non ce l'ha nessuno.
+    fn davanti(&self) -> Result<Option<Finestra>, String>;
+    /// Scrive il testo, ma solo finche' il fuoco resta su `dove`.
+    fn scrivi_dentro(&self, testo: &str, dove: i64) -> Result<(), String>;
+    /// Preme la combinazione, ma solo se il fuoco e' ancora su `dove`.
+    fn premi_dentro(&self, tasti: &str, dove: i64) -> Result<(), String>;
+}
+
 /// Nessuno che sappia fare queste cose. Non e' un ripiego silenzioso: ogni
 /// metodo dice **perche'**, cosi' chi legge la risposta capisce che manca il
 /// sistema e non che ha sbagliato lui.
@@ -87,6 +117,18 @@ impl Appunti for NienteSistema {
 impl Notifiche for NienteSistema {
     fn mostra(&self, _titolo: &str, _messaggio: &str) -> Result<(), String> {
         Err(manca("mostrare una notifica"))
+    }
+}
+
+impl Tastiera for NienteSistema {
+    fn davanti(&self) -> Result<Option<Finestra>, String> {
+        Err(manca("sapere chi ha il fuoco"))
+    }
+    fn scrivi_dentro(&self, _testo: &str, _dove: i64) -> Result<(), String> {
+        Err(manca("premere i tasti"))
+    }
+    fn premi_dentro(&self, _tasti: &str, _dove: i64) -> Result<(), String> {
+        Err(manca("premere i tasti"))
     }
 }
 
@@ -146,6 +188,88 @@ pub fn volume(a: &dyn Audio, livello: Option<i64>, muto: Option<bool>) -> Result
     Ok(format!("Volume: {adesso}% (muto={})", if e_muto { "True" } else { "False" }))
 }
 
+/// Cosa si risponde quando davanti non c'e' nessuno.
+///
+/// `strumento` e' il nome con cui **quella meta'** di NOVA porta davanti una
+/// finestra: nel Python e' `focus_window`, nel demone `ui.focus`. Nominare
+/// uno strumento che chi legge non ha sarebbe un consiglio che non si puo'
+/// seguire.
+pub fn nessuno_davanti(strumento: &str) -> String {
+    format!(
+        "in questo momento nessuna finestra ha il fuoco: non premo niente, \
+         perche' non saprei dove andrebbe a finire. Porta davanti la finestra \
+         giusta con «{strumento}» e riprova."
+    )
+}
+
+/// Digita un testo nella finestra che ha il fuoco, **nominandola**.
+///
+/// Tre regole, ognuna con una ragione:
+///
+/// 1. **si guarda prima chi c'e'**, e se non c'e' nessuno non si preme
+///    niente: non si saprebbe dove va a finire;
+/// 2. **si scrive legati a quella finestra**, e se il fuoco si sposta chi
+///    implementa si ferma: fra il controllo e l'invio c'e' sempre un «fra»;
+/// 3. **la risposta dice quale**. «Digitati 42 caratteri nella finestra
+///    attiva» e' vero e inutile: non permette a nessuno — ne' al modello ne'
+///    all'utente — di accorgersi che il testo e' andato altrove.
+///
+/// E un guasto a meta' **resta un guasto**. Non si riprova per altra strada:
+/// una parte del testo puo' essere gia' arrivata, e ripeterlo per intero
+/// vorrebbe dire scriverlo due volte — la seconda nella finestra che nel
+/// frattempo ha preso il fuoco, cioe' in quella sbagliata per definizione.
+pub fn digita(t: &dyn Tastiera, testo: &str, strumento_fuoco: &str) -> Result<String, String> {
+    let w = t
+        .davanti()?
+        .ok_or_else(|| nessuno_davanti(strumento_fuoco))?;
+    t.scrivi_dentro(testo, w.handle)?;
+    Ok(format!(
+        "Digitati {} caratteri in «{}» ({}).",
+        testo.chars().count(),
+        w.titolo,
+        w.processo
+    ))
+}
+
+/// Preme una combinazione nella finestra che ha il fuoco, nominandola.
+///
+/// Le stesse tre regole di [`digita`].
+pub fn premi(t: &dyn Tastiera, tasti: &str, strumento_fuoco: &str) -> Result<String, String> {
+    let w = t
+        .davanti()?
+        .ok_or_else(|| nessuno_davanti(strumento_fuoco))?;
+    t.premi_dentro(tasti, w.handle)?;
+    Ok(format!(
+        "Inviata la combinazione: {tasti} in «{}» ({}).",
+        w.titolo, w.processo
+    ))
+}
+
+/// Aggiunge a un'anteprima **quale** finestra riceverebbe i tasti.
+///
+/// E' l'unica cosa con cui chi approva puo' decidere. «Digita nella finestra
+/// attiva: ciao» e' identica se davanti c'e' il blocco note o il documento su
+/// cui l'utente stava lavorando, e il risultato e' un'altra cosa (D143).
+pub fn con_la_finestra(testa: &str, davanti: Option<&Finestra>) -> String {
+    match davanti {
+        None => format!("{testa} — non riesco a dire quale sia"),
+        Some(w) => format!("{testa}\n  La finestra e': «{}» ({})", w.titolo, w.processo),
+    }
+}
+
+/// La testa dell'anteprima di [`digita`]: il testo, fino a duecento caratteri.
+pub fn anteprima_digita(testo: &str) -> String {
+    format!(
+        "Digita nella finestra che ha il fuoco: {}",
+        testo.chars().take(200).collect::<String>()
+    )
+}
+
+/// La testa dell'anteprima di [`premi`].
+pub fn anteprima_tasti(tasti: &str) -> String {
+    format!("Preme i tasti {tasti} nella finestra che ha il fuoco")
+}
+
 /// Com'e' fatto il PC, letto e raccontato.
 pub fn informazioni(m: &dyn Macchina) -> Result<String, String> {
     Ok(crate::sistema::racconta(&m.com_e_fatta()?))
@@ -203,6 +327,111 @@ mod prove {
                 || e.contains("Non e' un errore della richiesta"), "{e}");
         assert!(volume(&n, Some(50), None).is_err());
         assert!(informazioni(&n).unwrap_err().contains("com'e' fatto il PC"));
+    }
+
+    /// Una tastiera finta che puo' **cambiare il fuoco sotto i piedi**.
+    ///
+    /// E' il caso per cui la guardia esiste, e su una macchina di
+    /// compilazione non si riproduce: serve una finta che lo faccia apposta.
+    struct TastieraFinta {
+        davanti: Option<Finestra>,
+        /// Se vero, il fuoco «si sposta» fra lo sguardo e l'invio.
+        scappa: bool,
+        premuto: RefCell<Vec<(String, i64)>>,
+    }
+
+    impl TastieraFinta {
+        fn con(davanti: Option<Finestra>, scappa: bool) -> Self {
+            TastieraFinta {
+                davanti,
+                scappa,
+                premuto: RefCell::new(Vec::new()),
+            }
+        }
+    }
+
+    impl Tastiera for TastieraFinta {
+        fn davanti(&self) -> Result<Option<Finestra>, String> {
+            Ok(self.davanti.clone())
+        }
+        fn scrivi_dentro(&self, testo: &str, dove: i64) -> Result<(), String> {
+            if self.scappa {
+                return Err("il fuoco e' passato a «Altro» (altro.exe) mentre scrivevo".into());
+            }
+            self.premuto.borrow_mut().push((testo.to_string(), dove));
+            Ok(())
+        }
+        fn premi_dentro(&self, tasti: &str, dove: i64) -> Result<(), String> {
+            if self.scappa {
+                return Err("non scrivo niente: il fuoco e' su «Altro» (altro.exe)".into());
+            }
+            self.premuto.borrow_mut().push((tasti.to_string(), dove));
+            Ok(())
+        }
+    }
+
+    fn blocco() -> Finestra {
+        Finestra {
+            handle: 42,
+            titolo: "Senza titolo - Blocco note".into(),
+            processo: "notepad.exe".into(),
+        }
+    }
+
+    #[test]
+    fn senza_nessuno_davanti_non_si_preme_niente() {
+        let t = TastieraFinta::con(None, false);
+        let e = digita(&t, "ciao", "ui.focus").unwrap_err();
+        assert!(
+            e.contains("non premo niente") && e.contains("«ui.focus»"),
+            "{e}"
+        );
+        assert!(premi(&t, "ctrl+s", "ui.focus").is_err());
+        assert!(t.premuto.borrow().is_empty(), "ha premuto lo stesso");
+    }
+
+    #[test]
+    fn si_scrive_legati_alla_finestra_guardata_e_la_si_nomina() {
+        let t = TastieraFinta::con(Some(blocco()), false);
+        let r = digita(&t, "perch\u{e9}", "ui.focus").unwrap();
+        assert_eq!(
+            r,
+            "Digitati 6 caratteri in «Senza titolo - Blocco note» (notepad.exe)."
+        );
+        assert_eq!(
+            t.premuto.borrow()[0].1,
+            42,
+            "il bersaglio e' quello guardato"
+        );
+        let r = premi(&t, "ctrl+s", "ui.focus").unwrap();
+        assert!(
+            r.ends_with("in «Senza titolo - Blocco note» (notepad.exe)."),
+            "{r}"
+        );
+    }
+
+    #[test]
+    fn se_il_fuoco_scappa_a_meta_e_un_guasto_non_un_fatto() {
+        // Il difetto che c'era dall'altra parte: un guasto a meta' veniva
+        // preso per «il binario non c'e'» e si ripiegava su un'altra
+        // strada, che riscriveva **tutto** il testo nella finestra che
+        // intanto aveva preso il fuoco.
+        let t = TastieraFinta::con(Some(blocco()), true);
+        let e = digita(&t, "ciao", "ui.focus").unwrap_err();
+        assert!(e.contains("mentre scrivevo"), "il motivo va detto: {e}");
+        assert!(premi(&t, "ctrl+s", "ui.focus").is_err());
+    }
+
+    #[test]
+    fn lanteprima_dice_quale_finestra_o_che_non_lo_sa() {
+        let testa = anteprima_digita("ciao");
+        assert_eq!(
+            con_la_finestra(&testa, Some(&blocco())),
+            "Digita nella finestra che ha il fuoco: ciao\n  \
+             La finestra e': «Senza titolo - Blocco note» (notepad.exe)"
+        );
+        assert!(con_la_finestra(&testa, None).ends_with("— non riesco a dire quale sia"));
+        assert_eq!(anteprima_digita(&"x".repeat(500)).chars().count(), 39 + 200);
     }
 
     #[test]

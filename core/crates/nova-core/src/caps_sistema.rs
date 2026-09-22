@@ -18,11 +18,10 @@
 //! «su questa macchina chi sa fare cosa» e' scritta.
 //!
 //! Cosa c'e' e cosa no, oggi: gli appunti, il volume, le notifiche, l'ora,
-//! com'e' fatto il PC. La tastiera — `type_text` e `press_keys` — e il
-//! promemoria nell'Utilita' di pianificazione passano ancora dal Python, e
-//! finche' e' cosi' e' meglio che qui **non ci siano**: un tratto
-//! implementato a meta' e' peggio di uno che manca, perche' chi lo chiama non
-//! sa quale meta' ha preso.
+//! com'e' fatto il PC, la tastiera. Il promemoria nell'Utilita' di
+//! pianificazione passa ancora dal Python, e finche' e' cosi' e' meglio che
+//! qui **non ci sia**: un tratto implementato a meta' e' peggio di uno che
+//! manca, perche' chi lo chiama non sa quale meta' ha preso.
 //!
 //! Sotto ai tratti, in fondo a questo file, ci sono le **capacita'**: il
 //! punto in cui quel che il sistema sa fare diventa qualcosa che il modello
@@ -36,7 +35,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use async_trait::async_trait;
 use nova_proto::{CapabilityInfo, Risk};
-use nova_strumenti::capacita::{self, Appunti, Audio, Macchina, Notifiche};
+use nova_strumenti::capacita::{self, Appunti, Audio, Finestra, Macchina, Notifiche, Tastiera};
 use serde_json::{json, Value};
 
 use crate::capability::{
@@ -49,7 +48,15 @@ pub fn register(reg: &mut Registry) {
     reg.add(Arc::new(SysAppuntiScriviCap));
     reg.add(Arc::new(SysVolumeCap));
     reg.add(Arc::new(SysNotificaCap));
+    reg.add(Arc::new(SysDigitaCap));
+    reg.add(Arc::new(SysTastiCap));
 }
+
+/// Il nome con cui **questa** meta' di NOVA porta davanti una finestra.
+///
+/// Va nel messaggio di chi non trova nessuno col fuoco: consigliare uno
+/// strumento che chi legge non ha sarebbe un consiglio che non si segue.
+const PORTA_DAVANTI: &str = "ui.focus";
 
 /// Il sistema di questa macchina, per quello che sa fare.
 pub struct Sistema;
@@ -85,6 +92,28 @@ impl Notifiche for Sistema {
             })
             .map_err(|e| format!("non riesco ad avviare la notifica: {e}"))?;
         Ok(())
+    }
+}
+
+impl Tastiera for Sistema {
+    fn davanti(&self) -> Result<Option<Finestra>, String> {
+        nova_platform::finestre::davanti()
+            .map(|o| {
+                o.map(|w| Finestra {
+                    handle: w.handle,
+                    titolo: w.title,
+                    processo: w.process,
+                })
+            })
+            .map_err(|e| e.to_string())
+    }
+
+    fn scrivi_dentro(&self, testo: &str, dove: i64) -> Result<(), String> {
+        nova_platform::tastiera::scrivi_dentro(testo, Some(dove)).map_err(|e| e.to_string())
+    }
+
+    fn premi_dentro(&self, tasti: &str, dove: i64) -> Result<(), String> {
+        nova_platform::tastiera::premi_dentro(tasti, dove).map_err(|e| e.to_string())
     }
 }
 
@@ -308,6 +337,120 @@ impl Capability for SysNotificaCap {
     }
 }
 
+// ---------------------------------------------------------------- tastiera
+
+/// L'anteprima di una capacita' di tastiera: **quale** finestra.
+///
+/// «La finestra attiva» e' esattamente cio' che chi approva non sa (D143).
+/// Qui si guarda chi c'e' davanti **adesso**, lo si nomina, e si dice anche
+/// la cosa che nessuna anteprima puo' garantire: che fra l'approvazione e
+/// l'invio il fuoco puo' spostarsi, e in quel caso non si preme niente.
+fn anteprima_tastiera(testa: String) -> Value {
+    let davanti = <Sistema as Tastiera>::davanti(&Sistema).ok().flatten();
+    json!({
+        "farei": capacita::con_la_finestra(&testa, davanti.as_ref()),
+        "finestra": davanti.as_ref().map(|w| json!({
+            "handle": w.handle,
+            "titolo": w.titolo,
+            "processo": w.processo,
+        })),
+        "annullabile": false,
+        "nota": "se al momento dell'invio il fuoco non e' piu' su questa finestra, \
+                 non premo niente",
+    })
+}
+
+struct SysDigitaCap;
+
+#[async_trait]
+impl Capability for SysDigitaCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "sys.digita".into(),
+            // La descrizione e' un'istruzione per il modello, e deve
+            // scoraggiarlo: i tasti vanno dove c'e' il fuoco, e se l'utente
+            // stava scrivendo glieli si mette in mezzo al lavoro. La strada
+            // buona quasi sempre esiste ed e' un'altra.
+            description: "ULTIMA SPIAGGIA. Digita come se premessi tu i tasti: il testo \
+                          finisce nella finestra che ha il fuoco, e se l'utente stava \
+                          scrivendo se lo ritrova in mezzo al suo lavoro. Prima prova \
+                          sempre `ui.find` + `ui.set_text`, che scrivono dentro il campo \
+                          giusto senza toccare la tastiera."
+                .into(),
+            risk: Risk::Dangerous,
+            category: "sys".into(),
+            schema: schema(&[
+                ("text", "string", "Testo da digitare", true),
+                (
+                    "delay_seconds",
+                    "number",
+                    "Attesa prima di digitare (default 0.5)",
+                    false,
+                ),
+            ]),
+        }
+    }
+
+    async fn anteprima(&self, args: Value, _ctx: &Ctx) -> Option<Result<Value>> {
+        let testo = arg_str_opt(&args, "text").unwrap_or_default();
+        Some(Ok(anteprima_tastiera(capacita::anteprima_digita(&testo))))
+    }
+
+    async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
+        let testo = arg_str(&args, "text")?;
+        // L'attesa si tiene nei limiti: e' li' per dare il tempo a una
+        // finestra appena portata davanti di prendersi il fuoco, non per
+        // tenere occupato il demone.
+        let attesa = args
+            .get("delay_seconds")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.5)
+            .clamp(0.0, 10.0);
+        tokio::time::sleep(std::time::Duration::from_secs_f64(attesa)).await;
+        // I tasti partono su un filo che puo' bloccarsi: un testo lungo sono
+        // centinaia di invii, e ognuno ricontrolla il fuoco.
+        tokio::task::spawn_blocking(move || capacita::digita(&Sistema, &testo, PORTA_DAVANTI))
+            .await
+            .map_err(|e| anyhow::anyhow!("la digitazione non e' arrivata in fondo: {e}"))?
+            .map(Value::String)
+            .map_err(|e| anyhow::anyhow!("{e}"))
+    }
+}
+
+struct SysTastiCap;
+
+#[async_trait]
+impl Capability for SysTastiCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "sys.tasti".into(),
+            description: "ULTIMA SPIAGGIA. Preme una combinazione di tasti nella finestra \
+                          che ha il fuoco, non in quella che intendi tu. Prima prova \
+                          sempre `ui.find` + `ui.click`, che preme il pulsante parlando \
+                          all'applicazione. Usalo solo per scorciatoie che non esistono \
+                          come comando (es. 'ctrl+s')."
+                .into(),
+            risk: Risk::Dangerous,
+            category: "sys".into(),
+            schema: schema(&[("keys", "string", "Combinazione, es. ctrl+shift+esc", true)]),
+        }
+    }
+
+    async fn anteprima(&self, args: Value, _ctx: &Ctx) -> Option<Result<Value>> {
+        let tasti = arg_str_opt(&args, "keys").unwrap_or_default();
+        Some(Ok(anteprima_tastiera(capacita::anteprima_tasti(&tasti))))
+    }
+
+    async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
+        let tasti = arg_str(&args, "keys")?;
+        tokio::task::spawn_blocking(move || capacita::premi(&Sistema, &tasti, PORTA_DAVANTI))
+            .await
+            .map_err(|e| anyhow::anyhow!("la combinazione non e' arrivata in fondo: {e}"))?
+            .map(Value::String)
+            .map_err(|e| anyhow::anyhow!("{e}"))
+    }
+}
+
 #[cfg(test)]
 mod prove {
     use super::*;
@@ -326,6 +469,7 @@ mod prove {
         let _: &dyn Audio = &s;
         let _: &dyn Notifiche = &s;
         let _: &dyn Macchina = &s;
+        let _: &dyn Tastiera = &s;
     }
 
     /// I tratti sono registrati, non solo implementati.
@@ -339,12 +483,25 @@ mod prove {
         let mut r = Registry::new();
         register(&mut r);
         let nomi: Vec<String> = r.list().into_iter().map(|c| c.name).collect();
+        // I tasti non hanno un bersaglio: dichiararli meno che pericolosi
+        // vorrebbe dire premerli senza chiedere.
+        for c in r.list() {
+            if c.name == "sys.digita" || c.name == "sys.tasti" {
+                assert!(
+                    matches!(c.risk, Risk::Dangerous),
+                    "{} non e' pericolosa",
+                    c.name
+                );
+            }
+        }
         for atteso in [
             "sys.ora",
             "sys.appunti_leggi",
             "sys.appunti_scrivi",
             "sys.volume",
             "sys.notifica",
+            "sys.digita",
+            "sys.tasti",
         ] {
             assert!(
                 nomi.contains(&atteso.to_string()),
