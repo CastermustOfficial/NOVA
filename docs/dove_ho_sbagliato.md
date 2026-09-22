@@ -360,7 +360,7 @@ copiando qualcosa li tiene per qualche millesimo.
 
 ## Le forme che si ripetono
 
-Rileggendole di fila, sono quasi tutte una di queste quattro:
+Rileggendole di fila, sono quasi tutte una di queste cinque:
 
 1. **Ho ricordato invece di misurare.** Il numero quattordici, `0x70`, la data
    di un banco, l'aspettativa di una funzione. Ogni volta la cosa ricordata
@@ -816,3 +816,148 @@ stampato a meta' corsa. Il terzo giro non e' servito a riparare niente: e'
 servito a far dire al banco *perche'* era rosso. Quella riga andava scritta il
 primo giorno — e adesso il dettaglio di ogni rosso viene ristampato in fondo,
 col caso per intero, cosi' si rifa' in locale invece di indovinarlo.
+
+## Ho letto diciassette prove saltate come diciassette prove passate
+
+Spostavo centonove `test_*.py` dalla radice a `prove/`, e per sapere quali si
+fossero rotte giravo tutta la suite con un ciclo di shell:
+
+```bash
+python3 "$t"
+echo "$(basename $t) $?"
+```
+
+Diciassette prove che prima uscivano 2 — «qui non si puo' provare» —
+risultavano uscite 0. Per un minuto buono ho creduto di aver *aggiustato*
+qualcosa spostando dei file, il che avrebbe dovuto insospettirmi subito.
+
+**Credevo** che `$?` valesse ancora l'uscita di `python3` quando `echo` lo
+espande. **Era vero** che la sostituzione di comando `$(basename …)` gira in
+una sottoshell, quella sottoshell finisce bene, e `$?` viene **riscritto a
+zero prima** che l'`echo` lo legga. Il codice d'uscita che stavo leggendo era
+quello di `basename`. **Me ne sono accorto** perche' il risultato era troppo
+bello: una prova che chiede il demone acceso non comincia a passare perche' il
+suo file ha cambiato cartella.
+
+La cura e' una riga: `c=$?; n=$(basename "$t")`. Prendere il codice **prima**
+di qualunque altra cosa.
+
+> La forma e' la quarta dell'elenco — leggere un sintomo come una causa — ma
+> con una variante che non avevo ancora incontrato: lo strumento di misura
+> che distrugge la cosa misurata *mentre* la misura.
+
+## Ho creduto che spostare dei file non avesse semantica
+
+Stesso lavoro. **Credevo** che riordinare centonove prove in cinque cartelle
+fosse un'operazione meccanica: nessuna riga di logica cambia, quindi niente
+puo' rompersi. **Era vero** che sette prove si sono rotte, ognuna per una
+ragione diversa: un `sys.path.insert` che mancava, una che cercava le sue
+sorelle per percorso dalla radice, un `from pathlib import Path` che non
+c'era e non si vedeva perche' quel ramo non lo prendeva nessuno, un file di
+banco che si era spostato, due ricerche di sorelle, e una — `test_harness.py`
+— che non era rotta affatto: aveva trovato **un difetto di NOVA**
+(`harness_prova.scopri` guardava solo nella radice, D318).
+
+**Me ne sono accorto** solo perche' ho rigirato tutta la suite invece di
+fidarmi del fatto che «non ho toccato codice». Il percorso di un file *e'*
+codice: ci sono dentro le dipendenze che nessuno ha dichiarato.
+
+> Lezione riusabile: un riordino e' una modifica, e va provato come una
+> modifica. Se non si ha il coraggio di rigirare tutto, non si ha il diritto
+> di chiamarlo «solo uno spostamento».
+
+## Ho misurato la meta' sbagliata, tre volte in due settimane
+
+Tre episodi diversi, la stessa forma, e la terza volta ha fatto piu' male
+delle prime due perche' avrei dovuto saperlo gia'.
+
+1. **Mutazione ripristinata senza ricompilare.** Rimesso il file com'era,
+   rilanciata la prova, ancora rossa: per un momento ho creduto di aver
+   trovato un difetto vero. Stavo eseguendo il binario mutato.
+2. **Uguale, il giorno dopo.** Stesso gesto, stessa conclusione sbagliata.
+3. **Oggi, con la prova nuova sulle CLI.** Ho compilato `novad` in *debug* e
+   lanciato la prova, che pero' preferisce il binario di *release* se c'e' —
+   e ce n'era uno di due ore prima. La prova diceva «il turno non sa ancora
+   lanciare un processo», che era esattamente il comportamento che avevo
+   appena tolto. Per un minuto ho cercato il difetto nel codice nuovo.
+
+**Credevo** che «ho cambiato il sorgente» implicasse «sto provando il
+sorgente». **Era vero** che fra i due c'e' un passaggio — la compilazione, e
+*quale* delle due compilazioni — che non e' automatico e non avvisa.
+
+La cura non e' ricordarsene: e' che il gesto di ripristino e quello di
+ricompilazione stiano **nello stesso comando**, sempre, cosi' non si possono
+separare per distrazione.
+
+## Due mutazioni insieme non sono due mutazioni
+
+Provavo le sei capacita' di sistema. Volevo verificare tre cose, e per
+risparmiare una compilazione le ho mutate tutte e tre in un colpo: tolta la
+registrazione, tolta la riga della batteria, e fatto scartare lo zero da
+`arg_i64_opt`.
+
+Due sono diventate rosse. La terza — «zero e' una richiesta, e ci prova» —
+**e' passata**, e per un istante ho pensato che il controllo fosse buono e la
+mutazione innocua.
+
+**Credevo** che tre mutazioni indipendenti nel sorgente dessero tre verdetti
+indipendenti nella prova. **Era vero** che senza la registrazione `sys.volume`
+non esiste affatto, quindi l'errore diventa «capacita' sconosciuta», che non
+contiene la frase che il controllo cerca — e il controllo passava **a vuoto**,
+esattamente come sarebbe passato con il codice giusto. **Me ne sono accorto**
+perche' il conto non tornava: mi aspettavo tre rossi e ne avevo due.
+
+Ripristinata la registrazione e lasciata sola la terza, e' diventata rossa
+subito.
+
+> Questa e' la terza forma dell'elenco — la prova che non puo' fallire — ma
+> creata **dalla mutazione stessa**, il che e' peggio: e' il caso in cui lo
+> strumento che serve a smascherare le prove finte ne fabbrica una. Una
+> mutazione alla volta, e ricompilare in mezzo, anche quando sembra uno
+> spreco di due minuti.
+
+## Avevo una prova che guardava il collegamento, e credevo guardasse la porta
+
+`nova-core/src/caps_sistema.rs` implementava `Appunti`, `Audio` e `Notifiche`
+da mesi. Sotto c'era questa prova, con questo commento:
+
+> Finche' `capacita.rs` aveva solo `NienteSistema`, i tratti erano una
+> dichiarazione d'intenti: si compilavano e non li implementava nessuno.
+> Questa riga non compila se qualcuno li scollega.
+
+**Credevo** che quella riga tenesse il pezzo attaccato. **Era vero** che
+teneva attaccata *l'implementazione al tratto*, e che nessuno registrava il
+modulo: dal demone gli appunti, il volume e le notifiche **non esistevano**, e
+ogni «copiamelo» faceva ripartire un processo Python. La prova passava, il
+commento diceva la verita', e la capacita' non c'era.
+
+**Me ne sono accorto** solo perche' sono andato a cercare *da dove cominciare*
+per portare la famiglia `sistema`, e ho trovato il lavoro gia' fatto e non
+collegato.
+
+La cosa che devo tenere e' che **questa l'avevo gia' scritta**: la voce «Ho
+scritto una diagnostica e non l'ho collegata a niente», qualche centinaio di
+righe piu' su, e' lo stesso errore con un altro oggetto. Una volta e' una
+distrazione; due sono un'abitudine. La domanda da farsi davanti a ogni pezzo
+finito non e' «funziona?» ma **«chi lo chiama?»**, e la prova che risponde a
+quella domanda e' diversa da quella che risponde alla prima: interroga la
+porta — `capabilities/list` sul demone acceso — non il tipo.
+
+---
+
+## Nota sul registro stesso
+
+Me l'ha chiesto Gio oggi: *«stai aggiornando sempre "dove ho sbagliato"?»*.
+No. Fra `E dieci decimi non facevano uno` e le cinque voci qui sopra ci sono
+**cinque commit** in cui non ho scritto niente, e gli errori di quei cinque
+commit li ho ricostruiti a posteriori — cioe' nel modo in cui questo registro
+dice che non si fa, perche' un errore ricordato e' gia' mezzo riscritto.
+
+Quel che ho notato mentre li riscrivevo: gli errori che finiscono qui sono
+quelli che mi hanno *fermato*. Quelli che mi hanno solo rallentato — il
+binario vecchio, la mutazione mascherata — li archiviavo come attrito e
+andavo avanti, e sono proprio quelli che si ripetono, perche' non costano
+abbastanza da farsi ricordare da soli.
+
+Correzione anche a «Le forme che si ripetono»: dice «una di queste quattro» e
+ne elenca cinque. Contate, non ricordate — che e' la prima voce dell'elenco.
