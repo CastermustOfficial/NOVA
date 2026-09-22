@@ -807,6 +807,53 @@ controlla("ma dicono anche cosa fare se davvero non c'e'",
           all("installalo" in r.lower() for r in fuori3["cli_non_pronte"]),
           "il caso normale resta il piu' probabile: non va tolto")
 
+# --------------------------------------------------------------------------
+# Come si lancia Claude Code, letto dalla configurazione.
+#
+# Il pannello, il turno Python e il turno del demone devono lanciare lo stesso
+# Claude. Il Python qui e' la `Config` **vera**: `_merge` sopra i predefiniti,
+# e poi lo stesso ripiego del modello che fa `ClaudeCodeBrain`.
+from nova import config as _config                                # noqa: E402
+
+DICHIARATI = [
+    {},
+    {"brains": {"claude_model": "opus", "claude_max_turns": 10,
+                "claude_extra_args": ["--verbose"], "claude_cwd": "C:\\lavoro"},
+     "safety": {"autonomy": "autonomous"}},
+    {"brains": {"claude_model": ""}},
+    {"brains": {"claude_binary": "C:\\strumenti\\claude.cmd", "claude_kb_via_mcp": False,
+                "claude_timeout": 120}},
+    {"brains": {"claude_model": " opus "}, "safety": {"autonomy": "always_ask"}},
+]
+
+
+def py_dichiarato(raw):
+    c = _config._merge(_config.Config(), raw)
+    b = c.brains
+    return [b.claude_binary, b.claude_model or "sonnet", b.claude_max_turns,
+            b.claude_timeout, b.claude_cwd, list(b.claude_extra_args),
+            c.safety.autonomy, b.claude_kb_via_mcp]
+
+
+r = subprocess.run([str(BINARIO)], input=json.dumps({"dichiarati": DICHIARATI},
+                                                    ensure_ascii=False),
+                   capture_output=True, text=True, encoding="utf-8", timeout=60)
+dc = json.loads(r.stdout)["dichiarati"]
+diverse = [f"{raw}: rust {a} vs python {py_dichiarato(raw)}"
+           for raw, a in zip(DICHIARATI, dc) if a != py_dichiarato(raw)]
+controlla(f"le {len(DICHIARATI)} configurazioni di Claude Code si leggono uguali",
+          not diverse, " | ".join(diverse[:2]))
+# La divergenza dichiarata: un tempo di zero di la' fa scadere ogni turno prima
+# di cominciare; qui vale il predefinito. Si prova che sia **solo** quella.
+r = subprocess.run([str(BINARIO)], input=json.dumps(
+    {"dichiarati": [{"brains": {"claude_timeout": 0}}]}), capture_output=True,
+    text=True, encoding="utf-8", timeout=60)
+zero = json.loads(r.stdout)["dichiarati"][0]
+atteso = py_dichiarato({"brains": {"claude_timeout": 0}})
+controlla("un tempo di zero e' l'unica differenza, ed e' dichiarata",
+          zero[3] == 900 and atteso[3] == 0 and zero[:3] + zero[4:] == atteso[:3] + atteso[4:],
+          f"{zero} vs {atteso}")
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")

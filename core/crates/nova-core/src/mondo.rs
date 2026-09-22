@@ -57,12 +57,49 @@ pub enum Gradino {
     },
     /// Claude Code: un processo anche lui, ma con sessioni, permessi e MCP.
     ///
-    /// Il turno non sa ancora lanciarlo, e lo **dice**. Il ripiego
-    /// silenzioso — trattarlo come una CLI qualunque e vedere cosa succede —
-    /// darebbe un Claude senza gli strumenti di NOVA e senza il filo della
-    /// conversazione, cioe' una risposta peggiore con la faccia di quella
-    /// giusta.
-    Claude { nome: String },
+    /// Non e' una CLI qualunque, e trattarlo come tale darebbe un Claude
+    /// senza gli strumenti di NOVA e senza il filo della conversazione: una
+    /// risposta peggiore con la faccia di quella giusta. Porta con se' la
+    /// sua dichiarazione e il collegamento che gli prepara il demone.
+    Claude { nome: String, come: Box<Claude> },
+}
+
+/// Come si lancia Claude Code in questo turno.
+///
+/// Due meta' con due origini diverse. `d` viene dalla configurazione ed e'
+/// pura: si legge senza toccare niente. Il resto viene **dal mondo** — dove
+/// sta il vault, quale file di collegamento MCP si e' scritto, quale
+/// sportello dei permessi c'e' — e lo mette il demone prima del turno (vedi
+/// [`collega_claude`]). Finche' non l'ha messo, `mcp_config` e' vuoto e
+/// Claude parte senza strumenti di NOVA, che e' un modo di funzionare, non
+/// un guasto.
+#[derive(Debug, Clone, Default)]
+pub struct Claude {
+    pub d: nova_cervelli::claude::Dichiarato,
+    pub vault: String,
+    pub mcp_config: String,
+    pub sportello: String,
+}
+
+/// Cio' che un gradino si porta dietro oltre a indirizzo e modello.
+pub enum Come<'a> {
+    Niente,
+    Cli(&'a nova_cervelli::cli::Dichiarata),
+    Claude(&'a Claude),
+}
+
+/// Mette il collegamento del mondo sui gradini che sono Claude Code.
+///
+/// Si fa ad ogni turno, come si rileggono i gradini: il file di
+/// collegamento si riscrive se l'utente ha cambiato il vault.
+pub fn collega_claude(gradini: &mut [Gradino], vault: &str, mcp_config: &str, sportello: &str) {
+    for g in gradini.iter_mut() {
+        if let Gradino::Claude { come, .. } = g {
+            come.vault = vault.to_string();
+            come.mcp_config = mcp_config.to_string();
+            come.sportello = sportello.to_string();
+        }
+    }
 }
 
 impl Gradino {
@@ -87,7 +124,7 @@ impl Gradino {
         match self {
             Gradino::Indirizzo { nome, .. } => nome,
             Gradino::Cli { nome, .. } => nome,
-            Gradino::Claude { nome } => nome,
+            Gradino::Claude { nome, .. } => nome,
         }
     }
 
@@ -109,7 +146,7 @@ impl Gradino {
         modello: &str,
         intestazioni: Vec<(String, String)>,
         in_casa: bool,
-        come: Option<&nova_cervelli::cli::Dichiarata>,
+        come: Come,
     ) -> Gradino {
         match specie {
             nova_scala::Specie::Locale | nova_scala::Specie::Api => Gradino::Indirizzo {
@@ -121,13 +158,23 @@ impl Gradino {
             },
             nova_scala::Specie::Claude => Gradino::Claude {
                 nome: nome.to_string(),
+                come: Box::new(match come {
+                    Come::Claude(c) => c.clone(),
+                    // Senza dichiarazione valgono i ripieghi della
+                    // configurazione: e' il Claude che parte senza aver
+                    // scritto niente, cioe' quello di tutti.
+                    _ => Claude {
+                        d: nova_cervelli::claude::dichiarato(&Value::Null),
+                        ..Default::default()
+                    },
+                }),
             },
             nova_scala::Specie::Cli => Gradino::Cli {
                 nome: nome.to_string(),
-                come: Box::new(
-                    come.cloned()
-                        .unwrap_or_else(|| nova_cervelli::cli::dichiarata(nome, &Value::Null)),
-                ),
+                come: Box::new(match come {
+                    Come::Cli(d) => d.clone(),
+                    _ => nova_cervelli::cli::dichiarata(nome, &Value::Null),
+                }),
             },
         }
     }
@@ -180,6 +227,8 @@ pub struct Recapiti {
     /// riconoscere che un gradino e' un processo e non un indirizzo, e
     /// sapere **come si lancia**.
     pub cli: Vec<nova_cervelli::cli::Dichiarata>,
+    /// Come la configurazione dice di lanciare Claude Code.
+    pub claude: nova_cervelli::claude::Dichiarato,
 }
 
 impl Recapiti {
@@ -249,6 +298,19 @@ pub fn scala_vera(cfg: &nova_scala::Configurazione, r: &Recapiti) -> Vec<Gradino
             }
             d
         });
+        // Per Claude Code il modello di scorta e' quello di `claude_model`,
+        // e quello scritto sul gradino vince — come fa il Python con
+        // `model_override`.
+        let claude = Claude {
+            d: {
+                let mut d = r.claude.clone();
+                if !t.model.trim().is_empty() {
+                    d.modello = t.model.trim().to_string();
+                }
+                d
+            },
+            ..Default::default()
+        };
         fuori.push(Gradino::nuovo(
             &t.nome,
             specie,
@@ -256,7 +318,11 @@ pub fn scala_vera(cfg: &nova_scala::Configurazione, r: &Recapiti) -> Vec<Gradino
             modello,
             nova_cervelli::openai::intestazioni(chiave),
             nova_scala::e_in_casa(url),
-            come.as_ref(),
+            match (specie, come.as_ref()) {
+                (nova_scala::Specie::Claude, _) => Come::Claude(&claude),
+                (_, Some(d)) => Come::Cli(d),
+                _ => Come::Niente,
+            },
         ));
     }
     if fuori.is_empty() {
@@ -271,7 +337,7 @@ pub fn scala_vera(cfg: &nova_scala::Configurazione, r: &Recapiti) -> Vec<Gradino
             },
             nova_cervelli::openai::intestazioni(""),
             nova_scala::e_in_casa(&r.locale_url),
-            None,
+            Come::Niente,
         ));
     }
     fuori
@@ -503,6 +569,182 @@ impl<'a> MondoVero<'a> {
             chiamate: Vec::new(),
         })
     }
+
+    /// Un giro con Claude Code: il filo lo tiene lui, NOVA gli passa la
+    /// domanda.
+    ///
+    /// Diverso da una CLI qualunque in tre cose, e sono le tre ragioni per
+    /// cui ha un gradino suo:
+    ///
+    /// - **la conversazione la tiene lui**, con `--resume`: gli si manda solo
+    ///   l'ultima domanda — che nel turno del demone ha gia' in coda quel che
+    ///   la memoria ha trovato — e il prompt di sistema solo quando la
+    ///   sessione si apre;
+    /// - **agisce coi suoi strumenti**, e quelli di NOVA gli arrivano dal
+    ///   collegamento MCP che il demone ha scritto;
+    /// - **chiede i permessi** allo sportello che il collegamento indica.
+    ///
+    /// Non torna mai chiamate a strumenti: quando risponde, ha gia' agito.
+    async fn a_claude(&mut self, c: &Claude) -> Result<Risposta, String> {
+        use nova_cervelli::claude;
+        let eseguibile = nova_cervelli::cerca::dove_e_claude(&c.d.binario);
+        if let Some(perche) = claude::perche_non_pronto(
+            &eseguibile,
+            std::path::Path::new(&eseguibile).exists(),
+            nova_cervelli::cerca::credenziali().is_some(),
+        ) {
+            return Err(perche);
+        }
+        let righe = self.righe();
+        let domanda = claude::ultimo_utente(&righe);
+        if domanda.trim().is_empty() {
+            self.sessione
+                .messaggi
+                .push(json!({ "role": "assistant", "content": "" }));
+            return Ok(Risposta {
+                contenuto: String::new(),
+                chiamate: Vec::new(),
+            });
+        }
+        let apertura = self.sessione.claude.is_empty();
+        let sistema = claude::prompt_di_sistema(
+            &righe,
+            &utente(),
+            &casa(),
+            &c.vault,
+            !c.mcp_config.is_empty(),
+        );
+        // Il prompt di sistema non viaggia sulla riga di comando: su Windows
+        // la riga finisce a 8191 caratteri e il prompt da solo ne pesa piu'
+        // di ottomila. Se il file non si scrive, si torna al prompt in linea.
+        let file_prompt = if apertura {
+            scrivi_prompt(&sistema).unwrap_or_default()
+        } else {
+            String::new()
+        };
+        let mut imp = claude::Impostazioni {
+            eseguibile,
+            model: c.d.modello.clone(),
+            autonomia: c.d.autonomia.clone(),
+            max_turns: c.d.max_turns,
+            session_id: self.sessione.claude.clone(),
+            mcp_config: c.mcp_config.clone(),
+            extra_args: c.d.extra_args.clone(),
+            sportello: c.sportello.clone(),
+        };
+        let mut esito = lancia_claude(&imp, &sistema, &file_prompt, &domanda, c).await;
+        // Solo per il caso previsto: un Claude Code che non conosce
+        // l'opzione col file. Qualunque altro errore risale intatto —
+        // ripetere un turno che ha gia' agito sul computer sarebbe peggio
+        // del guasto (D322).
+        if let Err(e) = &esito {
+            if apertura && !file_prompt.is_empty() && nova_guasti::cervelli::flag_file_ignoto(e) {
+                imp.session_id.clear();
+                esito = lancia_claude(&imp, &sistema, "", &domanda, c).await;
+            }
+        }
+        let dati = esito?;
+        if let Some(id) = dati.get("session_id").and_then(Value::as_str) {
+            if !id.is_empty() {
+                self.sessione.claude = id.to_string();
+            }
+        }
+        let testo = dati
+            .get("result")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        if dati
+            .get("is_error")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+        {
+            if nova_guasti::cervelli::e_limite_uso(&testo) {
+                return Err(format!(
+                    "Claude Code ha esaurito la quota: {}",
+                    testo.chars().take(300).collect::<String>()
+                ));
+            }
+            return Err(nova_guasti::cervelli::perche_errore(&dati, c.d.max_turns));
+        }
+        let testo = nova_pitone::senza_bianchi(&testo).to_string();
+        self.sessione
+            .messaggi
+            .push(json!({ "role": "assistant", "content": testo }));
+        Ok(Risposta {
+            contenuto: testo,
+            chiamate: Vec::new(),
+        })
+    }
+}
+
+/// Chi e' l'utente, come lo chiama il Python (`getpass.getuser()`).
+fn utente() -> String {
+    std::env::var("USERNAME")
+        .or_else(|_| std::env::var("USER"))
+        .unwrap_or_else(|_| "l'utente".to_string())
+}
+
+/// La cartella dell'utente.
+fn casa() -> String {
+    std::env::var("USERPROFILE")
+        .or_else(|_| std::env::var("HOME"))
+        .unwrap_or_default()
+}
+
+/// La cartella di NOVA, quella accanto a `config.json`.
+pub fn cartella_nova() -> std::path::PathBuf {
+    nova_configurazione::dove::percorso()
+        .parent()
+        .map(std::path::Path::to_path_buf)
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+}
+
+/// Il prompt di sistema su disco, per passarne il percorso invece del testo.
+///
+/// Lo stesso file del Python: una sessione si apre da una parte o
+/// dall'altra, mai da tutte e due insieme, e il file si riscrive ogni volta.
+fn scrivi_prompt(testo: &str) -> Option<String> {
+    let f = cartella_nova().join("prompt_sistema.txt");
+    std::fs::create_dir_all(f.parent()?).ok()?;
+    std::fs::write(&f, testo).ok()?;
+    Some(f.to_string_lossy().to_string())
+}
+
+/// Lancia Claude Code una volta, e ne legge la risposta.
+///
+/// Il testo della domanda va **su stdin**: su Windows `claude` e' un file
+/// batch, e `cmd.exe` rianalizza la riga — un a capo in un argomento la
+/// chiude li'.
+async fn lancia_claude(
+    imp: &nova_cervelli::claude::Impostazioni,
+    sistema: &str,
+    file_prompt: &str,
+    domanda: &str,
+    c: &Claude,
+) -> Result<Value, String> {
+    use nova_cervelli::claude;
+    let args = claude::argomenti(imp, sistema, file_prompt);
+    let u = crate::processo::lancia(&args, Some(domanda), &c.d.cartella, c.d.secondi)
+        .await
+        .map_err(|g| match g {
+            crate::processo::Guaio::Troppo => {
+                format!("Claude Code non ha risposto entro {}s", c.d.secondi)
+            }
+            crate::processo::Guaio::Muto(e) => format!("Claude Code non e' partito: {e}"),
+        })?;
+    if nova_pitone::senza_bianchi(&u.stdout).is_empty() {
+        return Err(claude::senza_uscita(
+            &u.stderr,
+            args.join(" ").chars().count(),
+        ));
+    }
+    let mut dati = claude::leggi_uscita(&u.stdout)?;
+    // stderr viaggia dentro i dati: quando `result` e' vuoto — e capita — e'
+    // spesso l'unica riga che spiega qualcosa, e `perche_errore` la usa.
+    dati["_stderr"] = Value::String(u.stderr);
+    dati["_codice"] = json!(u.codice);
+    Ok(dati)
 }
 
 /// Perche' il cervello non ha risposto, in una frase.
@@ -558,12 +800,7 @@ impl Mondo for MondoVero<'_> {
         match g {
             Gradino::Indirizzo { .. } => self.a_un_indirizzo().await,
             Gradino::Cli { ref come, .. } => self.a_una_cli(come).await,
-            Gradino::Claude { ref nome } => Err(format!(
-                "«{nome}» e' Claude Code, e il turno del demone non sa ancora \
-                 lanciarlo: gli servono la sessione, i permessi e il ponte MCP. \
-                 Scegli un cervello locale, una chiave API o una CLI dichiarata, \
-                 oppure usa Claude Code dal pannello."
-            )),
+            Gradino::Claude { ref come, .. } => self.a_claude(come).await,
         }
     }
 
@@ -647,6 +884,7 @@ impl Mondo for MondoVero<'_> {
 
 #[cfg(test)]
 mod prove {
+    use super::Come;
     use super::*;
     use nova_cervelli::rete::{Esito, Muto};
     use std::sync::Mutex;
@@ -734,7 +972,7 @@ mod prove {
                         &format!("m{i}"),
                         vec![],
                         true,
-                        None,
+                        Come::Niente,
                     )
                 })
                 .collect(),
@@ -894,15 +1132,20 @@ mod prove {
     }
 
     #[tokio::test]
-    async fn claude_code_lo_dice_invece_di_provarci() {
-        // Il ripiego silenzioso - trattarlo come una CLI qualunque e vedere
-        // cosa succede - darebbe un Claude senza gli strumenti di NOVA e
-        // senza il filo della conversazione: una risposta peggiore con la
-        // faccia di quella giusta.
+    async fn claude_code_che_non_ce_lo_dice_prima_di_lanciarlo() {
+        // Le tre domande del pannello, nello stesso ordine: c'e'? esiste? ha
+        // fatto l'accesso? Qui la seconda: un binario indicato che non esiste
+        // si dice per quello che e', invece di provare a lanciarlo.
         let t = Copione::con(&[dice("non dovrei arrivare qui", &[])]);
         let e = Finge("x");
         let mut sess = sessione(1);
         let mut m = mondo(&t, &e, &mut sess);
+        let c = Claude {
+            d: nova_cervelli::claude::dichiarato(
+                &json!({"brains": {"claude_binary": "/non/esiste/claude"}}),
+            ),
+            ..Default::default()
+        };
         m.sessione.gradini = vec![Gradino::nuovo(
             "claude",
             nova_scala::Specie::Claude,
@@ -910,19 +1153,34 @@ mod prove {
             "m",
             vec![],
             false,
-            None,
+            Come::Claude(&c),
         )];
-        match m.chiedi().await {
-            Err(motivo) => {
-                assert!(motivo.contains("Claude Code"), "{motivo}");
-                assert!(motivo.contains("«claude»"), "{motivo}");
-                assert!(
-                    t.mandati.lock().unwrap().is_empty(),
-                    "non doveva mandare niente a nessuno"
-                );
-            }
-            Ok(_) => panic!("non poteva rispondere: non c'e' nessun indirizzo"),
-        }
+        let motivo = m.chiedi().await.unwrap_err();
+        assert!(
+            motivo.contains("eseguibile inesistente: /non/esiste/claude"),
+            "{motivo}"
+        );
+        assert!(
+            t.mandati.lock().unwrap().is_empty(),
+            "non doveva mandare niente a nessuno"
+        );
+    }
+
+    #[test]
+    fn il_modello_di_claude_viene_dal_gradino_poi_dalla_configurazione() {
+        let c = config(
+            &["a", "b"],
+            &[("a", "claude", "", false), ("b", "claude", "haiku", false)],
+        );
+        let s = scala_vera(&c, &recapiti());
+        let modelli: Vec<&str> = s
+            .iter()
+            .map(|g| match g {
+                Gradino::Claude { come, .. } => come.d.modello.as_str(),
+                _ => "",
+            })
+            .collect();
+        assert_eq!(modelli, ["opus-di-scorta", "haiku"]);
     }
 
     #[tokio::test]
@@ -938,7 +1196,7 @@ mod prove {
             "m",
             vec![],
             false,
-            Some(&d),
+            Come::Cli(&d),
         );
         let Gradino::Cli { nome, come } = &g else {
             panic!("{g:?}");
@@ -950,7 +1208,15 @@ mod prove {
         assert_eq!(g.nome(), "gemini");
         assert!(g.indirizzo().is_none(), "un processo non ha un indirizzo");
         // Senza dichiarazione non sparisce: si chiama come il suo binario.
-        let orfana = Gradino::nuovo("glm", nova_scala::Specie::Cli, "", "", vec![], false, None);
+        let orfana = Gradino::nuovo(
+            "glm",
+            nova_scala::Specie::Cli,
+            "",
+            "",
+            vec![],
+            false,
+            Come::Niente,
+        );
         assert!(matches!(&orfana, Gradino::Cli { come, .. } if come.binario == "glm"));
         let l = Gradino::nuovo(
             "locale",
@@ -959,7 +1225,7 @@ mod prove {
             "m",
             vec![],
             true,
-            None,
+            Come::Niente,
         );
         assert!(matches!(l, Gradino::Indirizzo { .. }), "{l:?}");
     }
@@ -1133,6 +1399,9 @@ mod prove {
             api_url: "https://api.esempio.com".into(),
             api_modello: "gpt-di-serie".into(),
             api_chiave: "sk-segretissima".into(),
+            claude: nova_cervelli::claude::dichiarato(
+                &json!({"brains": {"claude_model": "opus-di-scorta"}}),
+            ),
             cli: vec![nova_cervelli::cli::dichiarata(
                 "gemini",
                 &json!({"binary": "gemini-cli", "model": "gemini-2.5-pro"}),

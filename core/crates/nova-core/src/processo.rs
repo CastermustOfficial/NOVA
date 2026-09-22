@@ -44,18 +44,11 @@ pub fn trova(binario: &str) -> String {
             String::new()
         };
     }
-    let Some(path) = std::env::var_os("PATH") else {
-        return String::new();
-    };
-    for cartella in std::env::split_paths(&path) {
-        for nome in nova_cervelli::cli::candidati(b) {
-            let quale = cartella.join(&nome);
-            if quale.is_file() {
-                return quale.to_string_lossy().to_string();
-            }
-        }
-    }
-    String::new()
+    // Il PATH lo scorre `nova_cervelli::cerca`, lo stesso che usa il guscio
+    // per dire nel pannello se una CLI e' pronta: due scansioni diverse
+    // vorrebbero dire un pannello che dice «pronta» e un turno che dice «non
+    // trovata».
+    nova_cervelli::cerca::primo_nel_path(&nova_cervelli::cli::candidati(b))
 }
 
 /// La cartella da cui si lancia: quella dichiarata, o quella dell'utente.
@@ -88,6 +81,12 @@ pub async fn lancia(
     };
     let mut c = tokio::process::Command::new(eseguibile);
     c.args(resto);
+    // Se chi aspetta smette di aspettare — «ferma», o il turno annullato — il
+    // processo muore con lui. Senza, un Claude Code fermato dall'utente
+    // continuerebbe ad agire sul computer mentre NOVA dice di essersi
+    // fermata. (Su Windows cade il processo lanciato, non i suoi nipoti:
+    // e' il limite scritto in architettura, «Nipoti orfani».)
+    c.kill_on_drop(true);
     if let Some(dove) = da_dove(cartella) {
         c.current_dir(dove);
     }

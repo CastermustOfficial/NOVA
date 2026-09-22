@@ -10308,7 +10308,8 @@ scollegato, e adesso `nova-strumenti` lo usa per scrivere «8.00 GB». Quella
 prova fallisce in tutte e due le direzioni — un crate scollegato che non si
 dichiara, *e* un crate dichiarato scollegato che nel frattempo è stato
 attaccato — ed è la seconda volta che il secondo caso mi accorcia l'elenco da
-solo. Nove crate ancora da attaccare.
+solo. Dieci crate ancora da attaccare. *(Qui avevo scritto «nove» a memoria:
+contati il 22 settembre sono dieci.)*
 
 Il resto della famiglia `sistema` sono `type_text` e `press_keys` — che
 vogliono la guardia sul fuoco, perché fra l'approvazione e il momento in cui
@@ -10482,3 +10483,97 @@ Le due prove dei ripieghi si chiamano adesso `test_ripiego_sistema.py` e
 Tre famiglie e mezzo su otto nel demone. Restano `web`, le deleghe, lo
 schermo, i documenti, e il pezzo di `sistema` che vuole l'Utilità di
 pianificazione.
+
+## Claude Code parte dal demone
+
+Il punto 1 dell'ordine deciso con Gio stamattina, e il più importante per lui:
+la sua scala comincia con `claude`, e fino a oggi ogni suo messaggio passava
+dal Python. Da adesso no.
+
+### Cosa c'è voluto, e cosa c'era già
+
+Quasi tutto c'era, sparso. `nova_cervelli::claude` sapeva comporre la riga di
+comando (con le opzioni MCP **prima** del prompt, per via di `cmd.exe`), il
+prompt di sistema, l'ultima domanda dell'utente. `nova-guasti` sapeva
+raccontare un Claude che si ferma: la quota, il tetto dei turni, l'opzione
+che non conosce. `nova-mcp` sapeva scrivere la domanda dello sportello dei
+permessi e la risposta che Claude Code sa leggere.
+
+Mancavano: leggere la configurazione di Claude con gli stessi ripieghi del
+Python, leggere il suo JSON anche quando ha un avviso davanti, tenere la
+sessione, scrivere il collegamento MCP, e lanciarlo dal turno.
+
+La **sessione** sta nella `Sessione` del demone, in memoria: il Python la
+scriveva su un file perché lanciava un processo per messaggio, e il demone
+resta acceso. Si chiude con tutte e due le porte del «ricomincia» — e qui una
+mutazione mi ha detto una cosa: il controllo che avevo scritto passava anche
+togliendo la riga che chiude la sessione, perché provava `dimentica`, che
+butta la conversazione intera, e non `nuova: true`, che la svuota tenendola.
+Due porte, un controllo solo. Adesso sono due.
+
+Il **collegamento MCP** lo scrive il demone: sé stesso attraverso il ponte
+`nova --endpoint … mcp`, e il server Python **copiato** dal collegamento che il
+Python ha già scritto nel vault — non ricostruito, perché il comando giusto
+per avviarlo lo sa chi l'ha scritto. Quel server porta ancora il browser, le
+deleghe, `harness_*`: si svuota man mano che le famiglie arrivano di qua.
+
+Lo **sportello dei permessi** adesso è nel demone: `approvazione.claude`,
+con i campi che manda Claude Code e la risposta nel suo formato, sopra la
+stessa attesa di `approvazione.chiedi` — una coda sola, perché due code
+vorrebbero dire che l'interfaccia ne guarda una.
+
+### La porta da cui entra Claude
+
+Scrivendo la prova per lo sportello ho chiamato il demone come lo chiama
+Claude Code — `tools/call` — invece che come lo chiamano le altre prove —
+`capabilities/call`. E da lì un testo tornava **serializzato in JSON**: tra
+virgolette, con gli a capo scritti `\n`. La tabella dei processi arrivava a
+Claude come una riga sola. E la risposta dello sportello — che Claude deve
+leggere come JSON — arrivava come una stringa che *contiene* JSON, cioè
+illeggibile.
+
+Valeva per tutte le capacità che rispondono con un testo, comprese le
+venti che ho aggiunto nelle ultime due settimane. Nessuna prova se n'era
+accorta perché nessuna guardava da quella porta. Il turno del demone no: la
+stessa distinzione l'aveva già fatta `MondoVero::esegui`. Adesso un testo
+resta testo anche verso Claude, e `test_demone_claude.py` passa da `tools/call`
+apposta.
+
+### Due volte il guardiano dei doppioni
+
+`test_niente_due_volte.py` è diventato rosso due volte in questo lavoro, e
+tutte e due le volte aveva ragione.
+
+La prima: avevo scritto in `nova_cervelli::claude` la domanda dello sportello,
+il suo peso e la risposta a Claude — `in_chiaro`, `rischio`,
+`risposta_permesso` — con tanto di banco gemello. Esistevano già, in
+`nova-mcp`, già confrontati col Python. Li ho tolti e ho usato quelli. La
+seconda: `AUTONOMIA_PREDEFINITA`, che sta già nei valori di fabbrica di
+`nova-strumenti`.
+
+La prima è la terza volta che questo registro vede lo stesso errore — riscrivere
+ciò che c'è — e sta in `dove_ho_sbagliato.md` con la cosa che cambio.
+
+### E le stringhe coi buchi
+
+Leggendo `memoria.rs` per trovare dove sta il vault, ho visto un messaggio con
+dentro trenta spazi: lo stesso guaio della tastiera, una continuazione di riga
+persa. Stavolta il giro l'ho fatto subito: sei stringhe in tutto, quattro delle
+quali erano **descrizioni degli strumenti della voce**, cioè le righe su cui il
+modello decide cosa usare. Corrette, e c'è una prova che le cerca in tutto il
+Rust (D325).
+
+### La prova
+
+`prove/demone/test_demone_claude.py`, 28 controlli. Il Claude è finto: uno
+script che si ricorda la riga di comando e la domanda, e risponde come Claude
+Code con `--output-format json` — con un avviso di aggiornamento davanti,
+perché è una cosa che succede. Si guarda che la domanda arrivi su stdin e non
+sulla riga, che il prompt di sistema viaggi in un file e solo all'apertura, che
+la sessione si riprenda, che il collegamento abbia i due server giusti e lo
+sportello sia quello del demone, e che una quota finita si dica come quota e
+un tetto dei turni dica qual è e come si alza. Tre mutazioni, tre rossi — dopo
+aver aggiunto la seconda porta del «ricomincia».
+
+Il processo lanciato adesso muore con chi lo aspetta: un «ferma» che lascia
+Claude ad agire sul computer non è un ferma.

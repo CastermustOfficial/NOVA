@@ -15,6 +15,7 @@
 //! [`dichiarazioni`] e sono **generate** da `attrezzi/_estrai_cervelli.py` (D112).
 
 pub mod accesso;
+pub mod cerca;
 pub mod claude;
 pub mod cli;
 pub mod dichiarazioni;

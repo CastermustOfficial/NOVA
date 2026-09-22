@@ -38,6 +38,11 @@ nova-scala = { path = "../nova-scala" }
 nova-contesto = { path = "../nova-contesto" }
 # Chiedere a un cervello: i tentativi, i codici, il corpo di un errore.
 nova-cervelli = { path = "../nova-cervelli" }
+# Come si racconta un Claude Code che si e' fermato: la quota finita, il
+# tetto dei turni, l'opzione che non conosce. Gia' confrontato col Python.
+nova-guasti = { path = "../nova-guasti" }
+# `.strip()` di Python non e' `trim()` di Rust (D182).
+nova-pitone = { path = "../nova-pitone" }
 # Il cliente HTTP di casa: `nova-voce` e `nova-cervelli` parlano gia' con
 # questo, e un secondo sarebbe un secondo comportamento da conoscere.
 ureq = "2"

@@ -2440,8 +2440,9 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    domanda passa al Python. Adesso una CLI dichiarata in `brains.cli` si
    lancia davvero, col prompt intero che le da' la continuita' che non ha, e
    `agente/pronto` risponde «si'» solo se il binario c'e' **adesso** (D320).
-   Resta fuori **Claude Code**: gli servono la sessione, i permessi e il
-   ponte MCP, e ha il suo pezzo di cantiere.
+   E dal 22 settembre anche **Claude Code**, con la sessione che si
+   riprende, lo sportello dei permessi nel demone e il collegamento MCP che
+   il demone gli scrive (D324).
 
 4. **Gli strumenti che al demone mancano.** Tre famiglie e mezzo su otto, e
    nessuna riscrivendo niente: i **file** (D308), la **memoria** (D319), il
@@ -2471,6 +2472,33 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
 6. **Quel che resta del Python** — l'installatore, il primo avvio, il
    pannello delle impostazioni — si sposta quando il resto e' fermo, non
    prima: e' la parte che si vede, e romperla si vede subito.
+
+**L'ordine dal 22 settembre**, deciso con Gio guardando i numeri contati
+quel giorno (68.000 righe di Rust in 37 crate, 24.000 di Python, 35 strumenti
+su 60 nel demone, 10 crate scritti e non ancora usati):
+
+1. ~~**Claude Code nel turno in Rust.**~~ Fatto (D324). La scala di Gio
+   comincia con `claude`, e adesso il turno parte dal demone: sessione
+   ripresa con `--resume`, prompt di sistema su file solo all'apertura,
+   sportello dei permessi nel demone, e un collegamento MCP che mette
+   insieme il demone e — finche' serve — il server Python copiato dal vault.
+   Quel server si svuota man mano che le famiglie arrivano di qua.
+2. **Le famiglie che mancano.** Ricerca web, deleghe e cattura dello schermo
+   (7 strumenti, piu' `known_folders`, `read_document` e le due delle
+   procedure); il browser guidato (`nova-browser` + `nova-cdp`, scritti e da
+   attaccare: sono i `web_*` che usa Claude Code); i documenti (`harness`,
+   Word, fogli); promemoria e attivita' pianificate, che vogliono prima
+   l'Utilita' di pianificazione in Rust.
+3. **Le istruzioni operative nel prompt** (mossa 5).
+4. **Installatore, primo avvio, pannello** (mossa 6).
+5. **L'apprendimento automatico della memoria**, che oggi fa solo il Python.
+
+E le decisioni che non sono codice e spettano a Gio: **automazioni e
+riparazioni** — NOVA oggi si scrive strumenti in Python e si ripara provando
+le modifiche sul proprio Python; tutta in Rust, in che linguaggio si scrive
+da sola, e riparare se stessa vorrebbe dire compilare Rust sul PC
+dell'utente? — piu' il motore di ricalcolo dei fogli, CANT-12, le impronte dei
+binari, `build.ps1` e il cancello della beta.
 
 La regola che tiene insieme le sei mosse: **nessuna cancella niente**. Il
 Python resta finche' il Rust non fa la stessa cosa, e la prova che lo dice e'
@@ -2504,8 +2532,8 @@ un processo per frase, teneva la continuita' del discorso in un file, e
 Adesso il guscio chiede al demone, e la strada si sceglie **prima** di
 imboccarla: `agente/pronto` costa quanto un ping e dice se il turno in Rust
 si puo' fare con la scala che c'e' oggi in `config.json`. Se non si puo' —
-il primo gradino e' Claude Code, oppure e' una CLI il cui binario nel PATH
-non c'e' — si passa dalla meta' Python come sempre. Provare e ripiegare sarebbe stato piu' semplice da
+il primo gradino e' un programma che nel PATH non c'e', o un Claude Code
+senza accesso — si passa dalla meta' Python come sempre. Provare e ripiegare sarebbe stato piu' semplice da
 scrivere e sbagliato da usare: un turno morto a meta' ha gia' eseguito degli
 strumenti, e rifarlo dall'altra parte li eseguirebbe due volte (D305).
 
@@ -2613,6 +2641,35 @@ perche' e' bravo a questo, e sul loro stesso banco il modello piccolo fa 0.45
 contro 0.95. NOVA gira su quello che l'utente ha in `config.json`. Quindi il
 primitivo deve **dichiarare quando non sa**, e l'astensione deve finire su
 «chiedo all'utente», mai su un valore di ripiego.
+
+**Riferimenti raccolti da Gio il 22 settembre**, da guardare quando si riapre
+CANT-12:
+
+- [awesome-jev](https://github.com/yibie/awesome-jev) — l'elenco curato di cio'
+  che e' stato costruito su Jev: 168 voci in tredici aree (classificazione e
+  instradamento, verifica e guardie, punteggi, decisioni di agenti,
+  calibrazione, infrastruttura). Jev risponde a tipi fissi — scelta, punteggio,
+  si'/no/incerto — con una probabilita' calibrata, e l'elenco raccoglie anche
+  repliche aperte (NanoJev 0.6B, mini-jev, decider su Qwen).
+  [What can Jev do](https://whatcanjevdo.com/) e
+  [507 casi d'uso](https://hermes-ai.net/jev/) sono gallerie dello stesso.
+  Servono a una cosa precisa: il **censimento** qui sopra e' la lista delle
+  decisioni di NOVA; quelle gallerie dicono quali decisioni *simili* altri
+  hanno gia' spostato, e con che risultato.
+- [jevlike](https://github.com/vinnylarouge/jevlike) — **un meccanismo
+  diverso** da Rizzo Flow e da `nova-giudizio`, e la differenza e' quella che
+  decide. Rizzo Flow legge i logit delle lettere da un modello **qualunque e
+  non toccato**: funziona col cervello che l'utente ha gia'. jevlike e' un
+  classificatore **addestrato**: una testa leggera in cui ogni opzione
+  interroga il contesto con l'attenzione, sopra un codificatore (anche un
+  Qwen2.5-0.5B congelato). Dichiara circa cento volte piu' veloce di un piccolo
+  decodificatore su otto opzioni e ~98% su dati sintetici, ma 26% su
+  Wikispeedia col codificatore congelato: fuori dall'addestramento cala. Per
+  NOVA vorrebbe dire un secondo modello e dei dati per addestrarlo — un'altra
+  strada, non un'alternativa gratuita. Licenza MIT.
+- [rizzo-flow](https://github.com/Rizzo-AI-Academy/rizzo-flow) — gia' studiato;
+  la meta' pura sta in `nova-giudizio` e il ramo con le tre correzioni e' stato
+  consegnato (vedi sopra).
 
 
 ## Il confine che tiene il kernel

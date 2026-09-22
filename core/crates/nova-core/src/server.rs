@@ -238,8 +238,7 @@ impl Server {
             };
             return match risposta {
                 Ok(v) if mcp => Ok(json!({
-                    "content": [{ "type": "text", "text": serde_json::to_string_pretty(&v)
-                        .unwrap_or_else(|_| v.to_string()) }]
+                    "content": [{ "type": "text", "text": testo_per_mcp(&v) }]
                 })),
                 Ok(v) => Ok(v),
                 Err(e) if mcp => Ok(json!({
@@ -268,8 +267,7 @@ impl Server {
 
         match esito {
             Ok(v) if mcp => Ok(json!({
-                "content": [{ "type": "text", "text": serde_json::to_string_pretty(&v)
-                    .unwrap_or_else(|_| v.to_string()) }]
+                "content": [{ "type": "text", "text": testo_per_mcp(&v) }]
             })),
             Ok(v) => Ok(v),
             Err(e) if mcp => Ok(json!({
@@ -464,8 +462,38 @@ impl Server {
     }
 }
 
+/// Il risultato di una capacita' come lo legge un cervello via MCP.
+///
+/// Un testo **resta testo**. Prima passava tutto da `to_string_pretty`, e
+/// una stringa serializzata in JSON e' una stringa tra virgolette con gli a
+/// capo scritti `\n`: la tabella dei processi arrivava a Claude Code come
+/// una riga sola, e la risposta dello sportello dei permessi — che Claude
+/// Code deve leggere come JSON — arrivava come una stringa che *contiene*
+/// JSON, cioe' illeggibile. Il turno del demone non se ne accorgeva, perche'
+/// la stessa distinzione l'aveva gia' fatta in `MondoVero::esegui`: il buco
+/// era solo sulla porta da cui entra Claude Code.
+pub fn testo_per_mcp(v: &Value) -> String {
+    match v {
+        Value::String(s) => s.clone(),
+        altro => serde_json::to_string_pretty(altro).unwrap_or_else(|_| altro.to_string()),
+    }
+}
+
 #[cfg(test)]
 mod prove {
+
+    #[test]
+    fn un_testo_arriva_a_claude_come_testo_non_come_json() {
+        // La tabella dei processi arrivava come una riga sola tra virgolette,
+        // con gli a capo scritti «\n».
+        assert_eq!(
+            testo_per_mcp(&json!("riga uno\nriga due")),
+            "riga uno\nriga due"
+        );
+        // E cio' che e' un oggetto resta un oggetto leggibile.
+        let o = testo_per_mcp(&json!({"a": 1}));
+        assert!(o.contains("\"a\": 1"), "{o}");
+    }
     use super::*;
 
     fn demone() -> Arc<Server> {

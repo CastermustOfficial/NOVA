@@ -21,34 +21,6 @@ use nova_cervelli::{accesso, claude, cli, openai};
 
 use crate::config;
 
-/// Cerca un nome fra quelli che il PATH espone.
-///
-/// Non c'e' un `which` nella libreria standard e non se ne aggiunge uno solo
-/// per questo: `PATH` e', letteralmente, un elenco di cartelle da provare.
-fn nel_path(nome: &str) -> String {
-    let Some(percorsi) = std::env::var_os("PATH") else {
-        return String::new();
-    };
-    for cartella in std::env::split_paths(&percorsi) {
-        let f = cartella.join(nome);
-        if f.is_file() {
-            return f.to_string_lossy().into_owned();
-        }
-    }
-    String::new()
-}
-
-/// Il primo dei candidati che esiste, altrimenti stringa vuota.
-fn primo_che_c_e(candidati: &[String]) -> String {
-    for n in candidati {
-        let t = nel_path(n);
-        if !t.is_empty() {
-            return t;
-        }
-    }
-    String::new()
-}
-
 fn testo(v: &Value, strada: &[&str]) -> String {
     let mut qui = v;
     for k in strada {
@@ -60,38 +32,9 @@ fn testo(v: &Value, strada: &[&str]) -> String {
     qui.as_str().unwrap_or("").to_string()
 }
 
-/// Dove Claude Code sta davvero: il PATH, poi il ripiego di npm.
-fn dove_e_claude(indicato: &str) -> String {
-    if !indicato.is_empty() {
-        return indicato.to_string();
-    }
-    let candidati: Vec<String> = accesso::CANDIDATI.iter().map(|s| s.to_string()).collect();
-    let trovato = primo_che_c_e(&candidati);
-    if !trovato.is_empty() {
-        return trovato;
-    }
-    let appdata = std::env::var("APPDATA").unwrap_or_default();
-    let ripiego = accesso::ripiego_npm(&appdata);
-    if std::path::Path::new(&ripiego).exists() {
-        ripiego
-    } else {
-        String::new()
-    }
-}
-
-/// Le credenziali di Claude Code, se ci sono e si leggono.
-///
-/// `None` copre tutti e tre i modi di non saperlo - niente casa, niente file,
-/// file illeggibile - perche' all'utente vanno detti allo stesso modo: «non
-/// risulti collegato», non «non sei abbonato».
-fn credenziali() -> Option<Value> {
-    let casa = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME"))?;
-    let f = std::path::PathBuf::from(casa)
-        .join(".claude")
-        .join(".credentials.json");
-    let grezzo = std::fs::read_to_string(f).ok()?;
-    serde_json::from_str(grezzo.trim_start_matches('\u{feff}')).ok()
-}
+// Dov'e' Claude Code e se ha fatto l'accesso stanno in `nova_cervelli::cerca`:
+// il demone fa la stessa domanda, e due copie darebbero due risposte.
+use nova_cervelli::cerca::{credenziali, dove_e_claude, primo_nel_path as primo_che_c_e};
 
 /// «In casa» si decide dall'host, non dal nome: Ollama e LM Studio parlano il
 /// dialetto delle API remote ma girano qui (D171).
@@ -143,10 +86,10 @@ fn un_claude(cfg: &Value) -> Value {
         std::path::Path::new(&eseguibile).exists(),
         cred.is_some(),
     );
-    let model = {
-        let m = testo(cfg, &["brains", "claude_model"]);
-        if m.is_empty() { "sonnet".to_string() } else { m }
-    };
+    // Lo stesso modello che lancerebbero il turno Python e quello del demone:
+    // qui c'era un «sonnet» di ripiego suo, e il pannello diceva un modello
+    // diverso da quello che partiva davvero quando la chiave mancava.
+    let model = claude::dichiarato(cfg).modello;
     json!({
         "nome": "claude",
         "etichetta": "Claude Code",

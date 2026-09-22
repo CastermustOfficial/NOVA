@@ -127,6 +127,9 @@ struct Dentro {
     /// cura sbagliata detta all'utente.
     #[serde(default)]
     cli_non_pronte: Vec<(String, String)>,
+    /// Configurazioni da cui leggere come si lancia Claude Code.
+    #[serde(default)]
+    dichiarati: Vec<Value>,
 }
 
 #[derive(Deserialize)]
@@ -212,6 +215,7 @@ struct Fuori {
     ripieghi: Vec<String>,
     candidati_claude: Vec<String>,
     cli_non_pronte: Vec<String>,
+    dichiarati: Vec<Value>,
 }
 
 fn messaggi(v: &[MessaggioIn]) -> Vec<Messaggio> {
@@ -284,6 +288,8 @@ fn main() {
                     session_id: c.session_id.clone(),
                     mcp_config: c.mcp_config.clone(),
                     extra_args: c.extra_args.clone(),
+                    // Il Python ha uno sportello solo: si confronta quello.
+                    sportello: String::new(),
                 };
                 claude::argomenti(&i, &c.sistema, &c.file_prompt)
             })
@@ -383,6 +389,23 @@ fn main() {
             .cli_non_pronte
             .iter()
             .map(|(b, n)| cli::perche_non_pronto("", b, n).unwrap_or_default())
+            .collect(),
+        dichiarati: d
+            .dichiarati
+            .iter()
+            .map(|c| {
+                let x = claude::dichiarato(c);
+                serde_json::json!([
+                    x.binario,
+                    x.modello,
+                    x.max_turns,
+                    x.secondi,
+                    x.cartella,
+                    x.extra_args,
+                    x.autonomia,
+                    x.kb_via_mcp
+                ])
+            })
             .collect(),
     };
 

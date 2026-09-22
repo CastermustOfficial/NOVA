@@ -90,6 +90,7 @@ fn adesso() -> u64 {
 
 pub fn register(reg: &mut Registry) {
     reg.add(Arc::new(ChiediCap));
+    reg.add(Arc::new(ClaudeCap));
     reg.add(Arc::new(AtteseCap));
     reg.add(Arc::new(RispondiCap));
 }
@@ -146,7 +147,26 @@ impl Capability for ChiediCap {
         let rischio = arg_str_opt(&args, "rischio").unwrap_or_else(|| "moderate".into());
         let origine = arg_str_opt(&args, "origine").unwrap_or_else(|| "utente".into());
         let attesa = arg_u64(&args, "timeout_s", ATTESA_PREDEFINITA_S).clamp(5, 3600);
+        chiedi_e_aspetta(ctx, strumento, dettaglio, rischio, origine, attesa).await
+    }
+}
 
+/// Mette la domanda allo sportello e **aspetta** chi risponde.
+///
+/// Sta fuori da [`ChiediCap`] perche' ci passano due porte: chi chiede con le
+/// parole di NOVA (`approvazione.chiedi`) e Claude Code, che chiede con le
+/// sue (`approvazione.claude`). Una sola attesa, un solo campanello: due code
+/// separate vorrebbero dire che l'interfaccia ne guarda una e l'altra resta
+/// senza risposta.
+async fn chiedi_e_aspetta(
+    ctx: &Ctx,
+    strumento: String,
+    dettaglio: String,
+    rischio: String,
+    origine: String,
+    attesa: u64,
+) -> Result<Value> {
+    {
         let s = sportello();
         let id = {
             let mut n = s.contatore.lock().await;
@@ -218,6 +238,92 @@ impl Capability for ChiediCap {
                 }));
             }
         }
+    }
+}
+
+// ------------------------------------------------------ la porta di Claude
+
+/// Quanto aspetta Claude Code una risposta. Come dall'altra parte: dieci
+/// minuti, perche' dall'altra parte c'e' una persona che forse e' al telefono.
+const ATTESA_CLAUDE_S: u64 = 600;
+
+struct ClaudeCap;
+
+#[async_trait]
+impl Capability for ClaudeCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "approvazione.claude".into(),
+            // Questa non la sceglie il modello: la indica NOVA a Claude Code
+            // con `--permission-prompt-tool`. La descrizione lo dice perche'
+            // un modello che la vede fra gli strumenti non si metta a
+            // chiedersi permessi da solo.
+            description: "Lo sportello dei permessi di Claude Code: lo chiama Claude Code \
+                          da se', quando un'azione vuole il consenso dell'utente. Non va \
+                          chiamato a mano."
+                .into(),
+            risk: Risk::Safe,
+            category: "approvazione".into(),
+            // I nomi dei campi sono quelli che Claude Code manda, non i nostri.
+            schema: schema(&[
+                (
+                    "tool_name",
+                    "string",
+                    "Lo strumento che Claude vuole usare",
+                    true,
+                ),
+                (
+                    "input",
+                    "object",
+                    "Gli argomenti con cui vuole usarlo",
+                    false,
+                ),
+                (
+                    "tool_use_id",
+                    "string",
+                    "L'identificativo della chiamata",
+                    false,
+                ),
+            ]),
+        }
+    }
+
+    /// La risposta e' **testo JSON**, nel formato che vuole Claude Code: un
+    /// oggetto con `behavior`. Arriva cosi' com'e' perche' la porta MCP lascia
+    /// passare i testi da testi (vedi `server::testo_per_mcp`).
+    async fn call(&self, args: Value, ctx: &Ctx) -> Result<Value> {
+        let strumento = arg_str(&args, "tool_name")?;
+        let argomenti = args.get("input").cloned().unwrap_or(Value::Null);
+        // La domanda, il peso e la risposta sono quelli di `nova-mcp`, gia'
+        // confrontati col server MCP Python da un banco gemello: qui si
+        // aggiunge solo la porta.
+        let dettaglio = nova_mcp::in_chiaro(&strumento, &argomenti);
+        let rischio = nova_mcp::rischio(&strumento, &argomenti).to_string();
+        let esito = chiedi_e_aspetta(
+            ctx,
+            strumento,
+            dettaglio,
+            rischio,
+            "utente".into(),
+            ATTESA_CLAUDE_S,
+        )
+        .await?;
+        let argomenti = if argomenti.is_null() {
+            json!({})
+        } else {
+            argomenti
+        };
+        let motivo = esito.get("motivo").and_then(Value::as_str).unwrap_or("");
+        // Un esito che non si riconosce e' un no: un guasto dello sportello
+        // non deve mai diventare un permesso.
+        let come = match esito.get("esito").and_then(Value::as_str) {
+            Some("consentito") => nova_mcp::Esito::Consentito,
+            Some("scaduto") => nova_mcp::Esito::Scaduto,
+            _ => nova_mcp::Esito::Negato { motivo },
+        };
+        Ok(Value::String(nova_mcp::risposta_permesso(
+            &come, &argomenti,
+        )))
     }
 }
 

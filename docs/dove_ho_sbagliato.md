@@ -1018,3 +1018,47 @@ giro l'ho fatto oggi — sette punti in cui il Python lancia un binario con un
 ripiego, e una tabella nel diario che dice quali sono pericolosi e perché. Il
 criterio del giro non era il nome, era la domanda: *se il primo tentativo
 avesse già agito, ripeterlo farebbe danno?*
+
+## Ho riscritto un pezzo che c'era già. La terza volta
+
+Portando Claude Code nel turno in Rust mi serviva lo sportello dei permessi:
+la domanda che vede l'utente, il suo peso, la risposta che Claude sa
+leggere. Ho letto le funzioni in `nova/mcp_kb.py`, le ho scritte in
+`nova_cervelli::claude`, ho scritto il banco gemello, verde al primo colpo.
+
+**Esistevano già**, in `nova-mcp`, con lo stesso nome, già confrontate col
+Python da `test_mcp_rust.py`. **Me ne sono accorto** perché
+`test_niente_due_volte.py` ha trovato `PAROLE_PESANTI` in due crate. Due ore
+dopo, lo stesso guardiano ha trovato `AUTONOMIA_PREDEFINITA`.
+
+È la terza voce di questo registro con questa forma («Ho chiesto "cosa c'è
+già" a metà del progetto», «Ho riscritto un pezzo che c'era già. Due volte,
+nello stesso giorno»). Le prime due volte la lezione era «chiedi prima»; non è
+bastata, perché «chiedere» l'ho fatto — ho cercato `session_id`,
+`total_cost_usd`, `sessione.json` — ma ho cercato **le cose che mi aspettavo
+mancassero**, non quelle che stavo per scrivere.
+
+La cosa che cambio è meccanica: **prima di scrivere una funzione che porta
+qualcosa dal Python, cerco nel Rust il nome della funzione Python senza il
+trattino basso** (`_in_chiaro` → `in_chiaro`). È quello che avrebbe trovato
+tutte e tre le volte. E il guardiano dei doppioni resta la rete sotto: ha
+preso tutte e due le ricadute di oggi.
+
+## Ho provato le capacità dalla porta sbagliata
+
+Venti capacità aggiunte in due settimane — `sys.*`, `app.*` — ognuna con una
+prova col demone vero, tutte verdi. Tutte le prove chiamavano
+`capabilities/call`. Claude Code invece chiama `tools/call`, e da lì un testo
+tornava tra virgolette e con gli a capo scritti `\n`.
+
+**Credevo** che provare il demone vero volesse dire provare ciò che vede chi
+lo usa. **Era vero** che il demone ha due porte, e ne provavo una. **Me ne
+sono accorto** solo scrivendo lo sportello dei permessi, la prima capacità la
+cui risposta *deve* essere letta da Claude come JSON: tra virgolette non lo
+era.
+
+È la stessa forma di «Avevo una prova che guardava il collegamento, e credevo
+guardasse la porta», un giorno dopo: allora la porta era `capabilities/list`
+contro l'implementazione, oggi `tools/call` contro `capabilities/call`. La
+domanda da farsi è una: **chi userà questa cosa, e da dove entra?** — e la
+prova entra da lì.
