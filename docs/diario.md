@@ -10651,3 +10651,36 @@ tabelle grandi, perché dai nomi non poteva vederlo (D327). La storia sta in
 
 Quindici mutazioni, una alla volta e ricostruendo fra l'una e l'altra:
 quindici rossi.
+
+## Lo schermo, senza `mss`
+
+`schermo.cattura` nel demone (D329): lo screenshot del Python, con GDI al
+posto di `mss` e di Pillow. Nella tabella di `verso_la_beta.md` lo schermo
+passa a 1 su 1; delle famiglie piccole restano le deleghe, che vogliono prima
+il router.
+
+I pixel sono quelli veri: il filo che cattura si dichiara consapevole dei DPI
+per monitor, e una finestra si prende coi bordi che disegna DWM. La cattura
+vera l'ho potuta provare solo compilando per Windows (`cargo check --target
+x86_64-pc-windows-msvc -p nova-platform`); la prova col demone, su Windows,
+controlla che esca un PNG col nome giusto e che `annulla.ultimo` lo tolga,
+e altrove che si dica che non si sa fare.
+
+Il resto — dove, con che nome, quale finestra, cosa si dice — lo confronta
+il banco degli strumenti con lo `screenshot` vero del Python, fingendo solo
+`mss`, l'orologio e il demone a cui il Python chiede le finestre.
+
+### Due cose trovate per strada
+
+- Le anteprime del demone adesso usano le parole dichiarate in
+  `nova-strumenti` (D330). Per `rete.apri`, ieri, le avevo riscritte a mano:
+  l'adattatore stava nel banco e non nella libreria.
+- Il banco degli strumenti gira in `Europe/Rome`. In UTC, dove girano la
+  macchina delle prove e la CI, una mutazione sullo stampo del nome non si
+  sarebbe vista, e con lei nessun errore di fuso in nessuna delle cinque cose
+  che passano dall'ora locale.
+
+Sei mutazioni, sei rossi — una solo dopo aver spostato in `nova-strumenti`
+la scelta del nome del file, che il demone e il banco si scrivevano ognuno
+per conto suo. Via anche un avviso di compilazione in `nova-voce` che
+compariva a ogni build.

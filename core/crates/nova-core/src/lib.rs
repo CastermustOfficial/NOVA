@@ -22,6 +22,7 @@ pub mod caps_file;
 pub mod caps_memoria;
 pub mod caps_registro;
 pub mod caps_rete;
+pub mod caps_schermo;
 pub mod dalla_configurazione;
 pub mod caps_segreti;
 pub mod caps_sistema;
@@ -106,6 +107,7 @@ pub fn build(config: Config) -> Result<Arc<Server>> {
     caps_sistema::register(&mut registry);
     caps_app::register(&mut registry);
     caps_rete::register(&mut registry);
+    caps_schermo::register(&mut registry);
 
     let server = Server::new(Arc::new(registry), ctx, config);
     // La memoria vive nel server perche' deve sopravvivere ai turni; le

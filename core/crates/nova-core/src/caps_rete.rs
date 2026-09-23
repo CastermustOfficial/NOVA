@@ -254,11 +254,12 @@ impl Capability for ReteApri {
             scaricata::da_aprire(&url, &cerca)
                 .map(|dove| {
                     json!({
-                        "farei": if url.is_empty() {
-                            format!("Cerca su Google nel browser: {cerca}")
-                        } else {
-                            format!("Apre nel browser: {url}")
-                        },
+                        // Le parole dell'anteprima sono quelle del Python,
+                        // dichiarate in un posto solo.
+                        "farei": nova_strumenti::anteprima(
+                            "open_in_browser",
+                            &nova_strumenti::ArgomentiJson(&args),
+                        ),
                         "aprirei": dove,
                         "annullabile": false,
                         "nota": "si chiude la scheda",

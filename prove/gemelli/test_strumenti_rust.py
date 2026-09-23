@@ -29,6 +29,15 @@ RADICE = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(RADICE))
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
+# Un fuso con l'ora legale, anche su una macchina che gira in UTC. Le date
+# che il banco confronta — i file, «che ore sono», le procedure, il nome
+# delle schermate — passano tutte dall'ora locale, e in UTC uno spostamento
+# sbagliato o dimenticato da' zero da tutte e due le parti: verde, e non ha
+# provato niente. Su Windows `tzset` non c'e', e l'ora e' quella del PC.
+if hasattr(__import__("time"), "tzset"):
+    os.environ["TZ"] = "Europe/Rome"
+    __import__("time").tzset()
+
 NOME = "banco-strumenti.exe" if os.name == "nt" else "banco-strumenti"
 BINARIO = RADICE / "core" / "target" / "release" / NOME
 if not BINARIO.is_file():
@@ -1312,6 +1321,106 @@ controlla(f"le {len(_case)} case danno le stesse cartelle, nello stesso ordine",
 controlla("chi non c'e' non si elenca, e TEMP e APPDATA ci sono anche vuote",
           [k for k, _ in suo["cartelle"][1]] == ["home", "temp", "appdata"]
           and len(suo["cartelle"][0]) == 13, str(suo["cartelle"][1]))
+
+print("\n=== Le schermate: dove, come si chiamano, quale finestra, cosa si dice ===")
+# `screenshot` si chiama **vero**. Si fingono solo le cose di fuori: `mss`
+# (i pixel), l'orologio del nome, la cartella, e il demone a cui il Python
+# chiede le finestre. Pillow e' quello vero, e scrive un PNG vero.
+import types as _types  # noqa: E402
+from nova.tools import schermo as _sch  # noqa: E402
+from nova import core_client as _cc  # noqa: E402
+
+_STAMPO = "20260923-214501"
+_TITOLI = ["Documento1 - Word", "Posta in arrivo - Outlook", "word pad",
+           "Una finestra con un titolo lunghissimo che non finisce mai davvero",
+           "a", "b", "c", "d", "e", "f", "g (l'undicesima non si elenca)"]
+SCHERMATE = [
+    ("", "", 1920, 1080), ("", "prova: *uno*", 800, 600), ("WORD", "", 640, 480),
+    ("outlook", "posta/oggi", 1024, 768), ("excel", "", 1, 1),
+    ("Documento1 - Word", "perché sì", 300, 200), ("", "  ", 10, 10),
+    ("lunghissimo", "", 5, 5),
+]
+_cartella_sch = Path(tempfile.mkdtemp(prefix="nova-sch-"))
+_ISTANTI_SCH = [1788611696, 1767225600, 1774746000]
+
+
+class _Grezzo:
+    def __init__(self, w, h):
+        self.size = (w, h)
+        self.bgra = bytes(w * h * 4)
+
+
+def _mss_finto(w, h):
+    class _M:
+        monitors = [None, {"left": 0, "top": 0, "width": w, "height": h}]
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def grab(self, _area):
+            return _Grezzo(w, h)
+    return _types.SimpleNamespace(mss=_M)
+
+
+class _DemoneFinto:
+    def __init__(self, *a, **k):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def call(self, nome, args=None):
+        if nome == "ui.windows":
+            return {"windows": [{"title": t, "handle": i} for i, t in enumerate(_TITOLI)]}
+        return {"bounds": [0, 0, 10, 10]}
+
+
+suo = json.loads(subprocess.run([str(BINARIO)], input=json.dumps({
+    "schermate": [[f, n, _STAMPO, str(_cartella_sch), _TITOLI, w, h]
+                  for f, n, w, h in SCHERMATE],
+    "stampi": _ISTANTI_SCH,
+    "fusi": sorted((s_, fuso_in(s_)) for s_ in _ISTANTI_SCH),
+}, ensure_ascii=False), capture_output=True, text=True, encoding="utf-8", timeout=120).stdout)
+
+_veri = (sys.modules.get("mss"), _sch.time, _sch.CARTELLA, _cc.CoreClient)
+try:
+    _sch.time = _types.SimpleNamespace(strftime=lambda _f: _STAMPO)
+    _sch.CARTELLA = _cartella_sch
+    _cc.CoreClient = _DemoneFinto
+    diverse = []
+    for (f, n, w, h), ru in zip(SCHERMATE, suo["schermate"]):
+        sys.modules["mss"] = _mss_finto(w, h)
+        try:
+            py = {"Ok": _sch.screenshot(f, n)}
+        except Exception as e:                                    # noqa: BLE001
+            py = {"Err": str(e)}
+        if py != ru:
+            diverse.append(f"{(f, n)!r}:\n      python {py}\n      rust   {ru}")
+    controlla(f"le {len(SCHERMATE)} schermate finiscono nello stesso file e si raccontano uguali",
+              not diverse, ("\n    " + "\n    ".join(diverse[:2])) if diverse else "")
+finally:
+    if _veri[0] is None:
+        sys.modules.pop("mss", None)
+    else:
+        sys.modules["mss"] = _veri[0]
+    _sch.time, _sch.CARTELLA, _cc.CoreClient = _veri[1:]
+
+import time as _time  # noqa: E402
+diverse = [f"{s_}: rust {ru!r} vs python {_time.strftime('%Y%m%d-%H%M%S', _time.localtime(s_))!r}"
+           for s_, ru in zip(_ISTANTI_SCH, suo["stampi"])
+           if ru != _time.strftime("%Y%m%d-%H%M%S", _time.localtime(s_))]
+controlla("lo stampo del nome e' l'ora locale di strftime", not diverse, " | ".join(diverse))
+controlla("una finestra che non c'e' elenca le prime dieci, tagliate a quaranta",
+          "Err" in suo["schermate"][4]
+          and "l'undicesima" not in suo["schermate"][4]["Err"]
+          and "Una finestra con un titolo lunghissimo c," in suo["schermate"][4]["Err"],
+          str(suo["schermate"][4]))
 
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:

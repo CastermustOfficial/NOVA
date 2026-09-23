@@ -51,6 +51,9 @@ pub mod memoria;
 // nel file.
 pub mod procedure;
 
+// Dove finisce una schermata, come si chiama, e cosa se ne dice.
+pub mod schermo;
+
 // Cosa NOVA chiede al sistema operativo, detto con le parole di NOVA. I
 // tratti li dichiara chi ne ha bisogno: e' cosi' che Windows si appoggia a
 // NOVA invece del contrario (D130).
@@ -200,6 +203,41 @@ pub fn anteprima(nome: &str, args: &dyn Argomenti) -> String {
         }
     }
     ripiego(nome, args)
+}
+
+/// Gli argomenti come arrivano in JSON — dal modello, dal demone, dal banco.
+///
+/// Stava nel banco e basta; da quando il demone racconta le sue anteprime con
+/// le stesse parole del Python serve anche li', e due copie sarebbero due
+/// idee diverse di cosa e' «acceso». L'ordine dei campi e' quello del JSON,
+/// come quello di un `dict` Python.
+pub struct ArgomentiJson<'a>(pub &'a serde_json::Value);
+
+impl Argomenti for ArgomentiJson<'_> {
+    fn campo(&self, nome: &str) -> Option<String> {
+        self.0.get(nome).map(|v| match v {
+            // Il testo di un JSON non ha le virgolette attorno: `str()` di
+            // Python su una stringa non le mette, e qui si racconta la stessa
+            // cosa allo stesso modo.
+            serde_json::Value::String(s) => s.clone(),
+            serde_json::Value::Null => "None".into(),
+            serde_json::Value::Bool(b) => if *b { "True".into() } else { "False".into() },
+            altro => altro.to_string(),
+        })
+    }
+    fn campi(&self) -> Vec<String> {
+        self.0.as_object().map(|o| o.keys().cloned().collect()).unwrap_or_default()
+    }
+    fn acceso(&self, nome: &str) -> bool {
+        match self.0.get(nome) {
+            None | Some(serde_json::Value::Null) => false,
+            Some(serde_json::Value::Bool(b)) => *b,
+            Some(serde_json::Value::String(s)) => !s.is_empty(),
+            Some(serde_json::Value::Number(n)) => n.as_f64().unwrap_or(0.0) != 0.0,
+            Some(serde_json::Value::Array(a)) => !a.is_empty(),
+            Some(serde_json::Value::Object(o)) => !o.is_empty(),
+        }
+    }
 }
 
 /// Da dove si prendono i valori. E' un tratto e non una mappa perche' chi

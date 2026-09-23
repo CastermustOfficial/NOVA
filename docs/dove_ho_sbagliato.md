@@ -1100,3 +1100,32 @@ non farsi ingannare da due metà che sbagliano uguale, ma sono **mie**, e una
 mia idea di come dovrebbe andare non è il Python. Il file resta nel corpus
 apposta, con scritto perché: se un giorno una metà passa a `is_dir()` e
 l'altra no, il confronto diventa rosso.
+
+## Ho scritto a mano un'anteprima che era già dichiarata
+
+Per `rete.apri` ho scritto il `farei` dell'anteprima con due `format!`:
+«Apre nel browser: …», «Cerca su Google nel browser: …». Le stesse parole
+stanno in `nova-strumenti`, dichiarate per ogni strumento Python e confrontate
+da un banco. **Me ne sono accorto** il giorno dopo, per `schermo.cattura`,
+quando stavo per scrivere di nuovo a mano «Cattura tutto lo schermo».
+
+Perché non l'avevo visto: l'adattatore che legge le anteprime da un JSON
+stava **nel banco**, non nella libreria. Chi scrive una capacità nel demone
+cerca nella libreria, non trova niente da usare, e riscrive. Ho spostato
+l'adattatore dove lo trova chi ne ha bisogno (D330). È la stessa lezione del
+lettore di pagine, vista dall'altra parte: non basta che una cosa esista una
+volta sola, deve stare **dove la si cerca**.
+
+## Ho provato l'ora locale su una macchina che non ne ha
+
+Il banco degli strumenti confronta cinque cose che passano dall'ora locale.
+La macchina delle prove e la CI girano in UTC: lì lo spostamento è zero da
+tutte e due le parti, e un Rust che lo dimentica è verde. **Me ne sono
+accorto** preparando una mutazione — lo stampo delle schermate calcolato in
+UTC — e chiedendomi, prima di lanciarla, in che fuso gira la macchina: UTC.
+Sarebbe stata verde, e con lei ogni errore di fuso scritto finora. Adesso il
+banco si mette in `Europe/Rome` dove può (D330), e la stessa mutazione è
+rossa su tre istanti, uno dei quali è la notte del cambio d'ora.
+
+La domanda che mi faccio adesso quando una prova è verde al primo colpo:
+**in questa macchina, il caso difficile c'è?**

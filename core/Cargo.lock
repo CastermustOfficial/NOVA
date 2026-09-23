@@ -2965,6 +2965,7 @@ version = "0.1.1"
 dependencies = [
  "anyhow",
  "libc",
+ "png 0.17.16",
  "serde",
  "serde_json",
  "tracing",
