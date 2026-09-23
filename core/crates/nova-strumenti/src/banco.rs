@@ -8,11 +8,11 @@
 
 use nova_strumenti::chiamate;
 use nova_strumenti::file;
-use nova_strumenti::file_disco::{self, SenzaSistema};
+use nova_strumenti::file_disco;
+use nova_strumenti::procedure;
 use nova_strumenti::guscio::{self, Risposta};
 use nova_strumenti::data::Fuso;
 use nova_strumenti::memoria;
-use nova_strumenti::pagina;
 use nova_strumenti::sistema;
 use nova_strumenti::app;
 use nova_strumenti::guardie::{Autonomia, Guardie};
@@ -66,6 +66,15 @@ struct Dentro {
     /// di gennaio elencato a luglio uscirebbe con un'ora sbagliata.
     #[serde(default)]
     fusi: Vec<(u64, i64)>,
+    /// (voci dell'archivio delle procedure, filtro) da elencare.
+    #[serde(default)]
+    procedure: Vec<(Vec<serde_json::Value>, String)>,
+    /// (voci, identificativo) da dimenticare.
+    #[serde(default)]
+    dimenticare: Vec<(Vec<serde_json::Value>, String)>,
+    /// (casa, TEMP, APPDATA) di cui dire le cartelle note.
+    #[serde(default)]
+    cartelle: Vec<(String, String, String)>,
     /// (codice, stdout, stderr) da raccontare come farebbe uno strumento di
     /// shell. Il processo non si avvia: avviarlo proverebbe il sistema
     /// operativo, non il racconto.
@@ -92,9 +101,6 @@ struct Dentro {
     /// Istanti da dire come data e ora.
     #[serde(default)]
     istanti: Vec<u64>,
-    /// Pagine HTML da ridurre a testo.
-    #[serde(default)]
-    pagine: Vec<String>,
     /// (slug, titolo, tipo, corpo, confidenza, via, relazioni)
     #[serde(default)]
     ricordi: Vec<(String, String, String, String, f64, String, Vec<String>)>,
@@ -225,8 +231,6 @@ struct Fuori {
     tasti: Vec<Option<String>>,
     volumi: Vec<i64>,
     istanti: Vec<String>,
-    pagine: Vec<String>,
-    titoli: Vec<String>,
     ricordi: Vec<String>,
     vicinati: Vec<String>,
     macchine: Vec<String>,
@@ -240,6 +244,10 @@ struct Fuori {
     versati: Vec<String>,
     troncati: Vec<String>,
     nomi_versati: Vec<String>,
+    procedure: Vec<String>,
+    /// L'archivio riscritto, come testo, o niente se non c'era.
+    dimenticate: Vec<Option<String>>,
+    cartelle: Vec<Vec<(String, String)>>,
 }
 
 #[derive(Serialize)]
@@ -424,8 +432,27 @@ fn main() {
         tasti: d.tasti.iter().map(|t| sistema::traduci_tasti(t).ok()).collect(),
         volumi: d.volumi.iter().map(|v| sistema::passi_di_volume(*v)).collect(),
         istanti: d.istanti.iter().map(|s| sistema::data_e_ora(*s, &Fusi(d.fusi.clone()))).collect(),
-        pagine: d.pagine.iter().map(|h| pagina::a_testo(h)).collect(),
-        titoli: d.pagine.iter().map(|h| pagina::titolo_di(h, 120)).collect(),
+        procedure: d
+            .procedure
+            .iter()
+            .map(|(voci, cerca)| procedure::elenco(voci, cerca, &Fusi(d.fusi.clone())))
+            .collect(),
+        dimenticate: d
+            .dimenticare
+            .iter()
+            .map(|(voci, id)| {
+                procedure::senza(voci, id).map(|r| {
+                    nova_pitone::json_come_python_rientrato(&serde_json::Value::Array(r), 1)
+                })
+            })
+            .collect(),
+        cartelle: d
+            .cartelle
+            .iter()
+            .map(|(casa, temp, appdata)| {
+                file_disco::cartelle_note(std::path::Path::new(casa), temp, appdata)
+            })
+            .collect(),
         inline: d
             .inline
             .iter()

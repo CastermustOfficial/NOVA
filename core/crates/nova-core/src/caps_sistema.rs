@@ -170,7 +170,7 @@ impl Audio for Sistema {
 /// Un fuso non e' una costante: cambia due volte l'anno, e un numero solo
 /// basta a far uscire con un'ora sbagliata una data di gennaio letta a
 /// luglio. E' la stessa ragione per cui di la' e' un tratto.
-struct FusoDiQui;
+pub(crate) struct FusoDiQui;
 
 impl nova_strumenti::data::Fuso for FusoDiQui {
     fn secondi_in(&self, istante: u64) -> i64 {

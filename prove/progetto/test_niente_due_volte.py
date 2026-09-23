@@ -145,6 +145,49 @@ for nome, (crate, perche) in sorted(DAVVERO_DIVERSE.items()):
     controlla(f"«{nome}» in {len(crate)} crate, e c'e' scritto perche'",
               bool(perche.strip()) and len(perche) > 30)
 
+# -- e nessuna tabella grande copiata sotto un altro nome ------------------
+# I nomi non bastano. Le entita' HTML sono state in due crate per mesi:
+# `NOMI` in nova-browser, `ENTITA` in nova-strumenti, duemila voci ciascuna,
+# e questa prova non poteva vederle perche' si chiamavano diversamente. Con
+# loro c'era una seconda copia di `a_testo`, che sbagliava due casi che la
+# prima sapeva fare e che nessuno usava fuori dal suo banco (D327). Qui si
+# guarda il **contenuto**: una tabella di almeno cinquanta voci che ne
+# divide piu' della meta' con una tabella di un altro crate e' la stessa
+# tabella, qualunque nome abbia.
+print("\n=== nessuna tabella grande in due crate sotto due nomi ===")
+
+
+def tabelle_grandi():
+    fuori = {}
+    for f in sorted(CRATES.rglob("src/**/*.rs")):
+        crate = f.relative_to(CRATES).parts[0]
+        testo = f.read_text(encoding="utf-8", errors="replace")
+        for m in re.finditer(r"^(?:pub(?:\([a-z]+\))? )?(?:const|static) ([A-Z][A-Z0-9_]*)"
+                             r"\s*:[^=]*=\s*&?\[", testo, re.M):
+            chiusa = testo.find("\n];", m.end())
+            if chiusa < 0:
+                continue
+            chiavi = re.findall(r'^\s*\(\s*"((?:[^"\\]|\\.)*)"', testo[m.end():chiusa], re.M)
+            if len(chiavi) >= 50:
+                # `amp` e `amp;` sono la stessa voce scritta in due modi.
+                fuori[(crate, m.group(1))] = {c.rstrip(";").lower() for c in chiavi}
+    return fuori
+
+
+grandi = tabelle_grandi()
+controlla("il cercatore vede la tabella delle entita'",
+          ("nova-browser", "NOMI") in grandi, str(sorted(grandi)))
+chiavi_t = sorted(grandi)
+copie = []
+for i, a in enumerate(chiavi_t):
+    for b in chiavi_t[i + 1:]:
+        if a[0] != b[0]:
+            comuni = len(grandi[a] & grandi[b])
+            if comuni > min(len(grandi[a]), len(grandi[b])) / 2:
+                copie.append(f"{a[1]} in {a[0]} e {b[1]} in {b[0]}: {comuni} voci in comune")
+controlla(f"le {len(grandi)} tabelle grandi sono tutte diverse", not copie,
+          " | ".join(copie[:2]))
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")

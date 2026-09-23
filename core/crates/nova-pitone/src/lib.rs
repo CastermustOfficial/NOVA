@@ -112,6 +112,19 @@ pub fn json_come_python(v: &Value) -> String {
     fuori
 }
 
+/// `json.dumps(x, ensure_ascii=False, indent=n)`: una voce per riga.
+///
+/// Con `indent` Python cambia anche il separatore fra le voci — `,` senza
+/// spazio, perche' dopo c'e' l'a capo — e lascia `{}` e `[]` su una riga
+/// quando sono vuoti. E' il formato di ogni file che NOVA scrive per essere
+/// riletto anche da un occhio umano (le procedure, i manifesti) e di cio' che
+/// `fetch_url` mostra quando la pagina e' JSON.
+pub fn json_come_python_rientrato(v: &Value, rientro: usize) -> String {
+    let mut fuori = String::new();
+    scrivi_rientrato(v, rientro, 0, &mut fuori);
+    fuori
+}
+
 fn scrivi(v: &Value, dentro: &mut String) {
     match v {
         Value::Object(o) => {
@@ -136,8 +149,105 @@ fn scrivi(v: &Value, dentro: &mut String) {
             }
             dentro.push(']');
         }
-        altro => dentro.push_str(&altro.to_string()),
+        altro => dentro.push_str(&foglia(altro)),
     }
+}
+
+fn scrivi_rientrato(v: &Value, rientro: usize, livello: usize, dentro: &mut String) {
+    let a_capo = |dentro: &mut String, livello: usize| {
+        dentro.push('\n');
+        dentro.push_str(&" ".repeat(rientro * livello));
+    };
+    match v {
+        Value::Object(o) if !o.is_empty() => {
+            dentro.push('{');
+            for (i, (k, val)) in o.iter().enumerate() {
+                if i > 0 {
+                    dentro.push(',');
+                }
+                a_capo(dentro, livello + 1);
+                dentro.push_str(&Value::String(k.clone()).to_string());
+                dentro.push_str(": ");
+                scrivi_rientrato(val, rientro, livello + 1, dentro);
+            }
+            a_capo(dentro, livello);
+            dentro.push('}');
+        }
+        Value::Array(a) if !a.is_empty() => {
+            dentro.push('[');
+            for (i, val) in a.iter().enumerate() {
+                if i > 0 {
+                    dentro.push(',');
+                }
+                a_capo(dentro, livello + 1);
+                scrivi_rientrato(val, rientro, livello + 1, dentro);
+            }
+            a_capo(dentro, livello);
+            dentro.push(']');
+        }
+        altro => dentro.push_str(&foglia(altro)),
+    }
+}
+
+/// Un valore che non contiene altri valori.
+///
+/// I numeri con la virgola passano da [`float_come_python`]: `serde_json`
+/// scrive `1e100` dove Python scrive `1e+100`.
+fn foglia(v: &Value) -> String {
+    match v {
+        Value::Number(n) if n.is_f64() => {
+            n.as_f64().map_or_else(|| n.to_string(), float_come_python)
+        }
+        altro => altro.to_string(),
+    }
+}
+
+/// `repr(x)` di un `float` Python.
+///
+/// Le cifre sono le stesse di Rust — tutte e due scrivono le **piu' corte**
+/// che, rilette, danno lo stesso numero — e cambia solo dove si mette la
+/// virgola. Python passa alla forma con l'esponente sotto `1e-4` e da
+/// `1e16` in su, scrive sempre il segno dell'esponente e almeno due cifre
+/// (`1e-05`), e un numero intero porta sempre il suo `.0`.
+///
+/// `NaN` e gli infiniti si scrivono come li scrive `json.dumps`, che non e'
+/// come li scrive `repr`: qui servono al JSON.
+pub fn float_come_python(x: f64) -> String {
+    if x.is_nan() {
+        return "NaN".into();
+    }
+    if x.is_infinite() {
+        return if x > 0.0 { "Infinity" } else { "-Infinity" }.into();
+    }
+    let scientifica = format!("{x:e}");
+    let (segno, resto) = match scientifica.strip_prefix('-') {
+        Some(r) => ("-", r),
+        None => ("", scientifica.as_str()),
+    };
+    let (mantissa, esponente) = resto.split_once('e').unwrap_or((resto, "0"));
+    let esponente: i32 = esponente.parse().unwrap_or(0);
+    let cifre: String = mantissa.chars().filter(|c| *c != '.').collect();
+    let quante = cifre.len() as i32;
+    if (-4..16).contains(&esponente) {
+        if esponente < 0 {
+            let zeri = "0".repeat((-esponente - 1) as usize);
+            return format!("{segno}0.{zeri}{cifre}");
+        }
+        let intere = (esponente + 1) as usize;
+        if quante <= esponente + 1 {
+            let zeri = "0".repeat(intere - cifre.len());
+            return format!("{segno}{cifre}{zeri}.0");
+        }
+        let (prima, dopo) = cifre.split_at(intere);
+        return format!("{segno}{prima}.{dopo}");
+    }
+    let mantissa = if cifre.len() > 1 {
+        format!("{}.{}", &cifre[..1], &cifre[1..])
+    } else {
+        cifre
+    };
+    let verso = if esponente < 0 { '-' } else { '+' };
+    format!("{segno}{mantissa}e{verso}{:02}", esponente.abs())
 }
 
 #[cfg(test)]
@@ -166,5 +276,37 @@ mod prove_json {
             json_come_python(&json!("dice \"ciao\"")),
             "\"dice \\\"ciao\\\"\""
         );
+    }
+
+    #[test]
+    fn i_numeri_con_la_virgola_si_scrivono_come_repr() {
+        for (x, atteso) in [
+            (1.5, "1.5"),
+            (3.0, "3.0"),
+            (-0.0, "-0.0"),
+            (0.1, "0.1"),
+            (1e15, "1000000000000000.0"),
+            (1e16, "1e+16"),
+            (1.5e16, "1.5e+16"),
+            (0.0001, "0.0001"),
+            (0.00001, "1e-05"),
+            (1.5e-7, "1.5e-07"),
+            (1e100, "1e+100"),
+            (123.456, "123.456"),
+            (-2.5e-300, "-2.5e-300"),
+        ] {
+            assert_eq!(float_come_python(x), atteso, "{x}");
+        }
+    }
+
+    #[test]
+    fn rientrato_come_indent() {
+        let v = json!({"a": 1, "b": [1, {"c": []}], "d": {}, "e": 2.0});
+        assert_eq!(
+            json_come_python_rientrato(&v, 1),
+            "{\n \"a\": 1,\n \"b\": [\n  1,\n  {\n   \"c\": []\n  }\n ],\n \"d\": {},\n \"e\": 2.0\n}"
+        );
+        assert_eq!(json_come_python_rientrato(&json!([]), 1), "[]");
+        assert_eq!(json_come_python_rientrato(&json!("x"), 2), "\"x\"");
     }
 }

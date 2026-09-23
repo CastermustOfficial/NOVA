@@ -810,62 +810,10 @@ for s_, suo in zip(ISTANTI, sis["istanti"]):
 controlla("data e ora si dicono con lo stesso giorno e lo stesso formato",
           not diverse, " | ".join(diverse[:2]))
 
-print("\n=== Cosa dice una pagina ===")
-# Questo testo e' quello che il modello legge di una pagina web: non c'e'
-# niente di piu' vicino a «cosa ha capito». Il corpus e' largo sulle entita'
-# apposta — quali il Rust non conosce si deve **vedere**, non scoprire.
-from nova.html_a_testo import a_testo as py_testo, titolo_di as py_titolo  # noqa: E402
-
-PAGINE = [
-    "<html><head><title>Prova &amp; C.</title><style>p{color:red}</style></head>"
-    "<body><script>var x = 1 < 2;</script><h1>Titolo</h1>"
-    "<p>Prima riga</p><p>Seconda &egrave; qui</p></body></html>",
-    "<ul><li>uno</li><li>due</li><li>tre</li></ul>",
-    "<p>a</p><p></p><p></p><p></p><p>b</p>",
-    "a&nbsp;&nbsp;b",
-    "Tizio & Caio",
-    "1 &lt; 2 &amp;&amp; 3 &gt; 2",
-    "&#233; e &#x2014; e &#8364;",
-    "<svg><path d='M0 0'/></svg>visibile",
-    "<template><p>nascosto</p></template>visibile",
-    "<noscript>senza javascript</noscript>con",
-    "<div>a<br>b<br/>c</div>",
-    "<table><tr><td>x</td></tr><tr><td>y</td></tr></table>",
-    "  spazi   in   mezzo  ",
-    "",
-    "<p>&copy; 2026 &mdash; tutti i diritti &hellip;</p>",
-    "&laquo;citazione&raquo; e &rsquo;apostrofo",
-    "&pound;10 &euro;20 &deg;C &frac12; &sup2;",
-    "&alpha; &beta; &pi; &infin; &ne; &le; &ge;",
-    "&agrave;&egrave;&eacute;&igrave;&ograve;&ugrave;&ccedil;&ntilde;&uuml;",
-    "&szlig; &times; &divide; &plusmn; &micro; &sect; &para;",
-    "&larr; &rarr; &harr; &dagger; &permil; &bull; &middot;",
-    "&trade; &reg; &ldquo;virgolette&rdquo; &lsquo;singole&rsquo;",
-    # Entita' che quasi certamente il Rust non conosce: si deve vedere.
-    "&oelig; &yuml; &thorn; &eth; &curren; &brvbar; &not; &notin;",
-    "<a href='x'>collegamento</a> e testo",
-    "<p>riga1\nriga2</p>",
-    "<HTML><BODY><P>maiuscolo</P></BODY></HTML>",
-    "<p>tag mai chiuso",
-    "<script>non chiuso mai",
-]
-
-r = subprocess.run([str(BINARIO)], input=json.dumps(
-    {"pagine": PAGINE}, ensure_ascii=False),
-    capture_output=True, text=True, encoding="utf-8", timeout=120)
-pag = json.loads(r.stdout)
-
-diverse = []
-for h, suo in zip(PAGINE, pag["pagine"]):
-    mio = py_testo(h)
-    if suo != mio:
-        diverse.append(f"{h[:40]!r}:\n      python {mio[:120]!r}\n      rust   {suo[:120]!r}")
-controlla(f"le {len(PAGINE)} pagine si leggono uguali", not diverse,
-          ("\n    " + "\n    ".join(diverse[:3])) if diverse else "")
-
-diverse = [f"{h[:30]!r}: rust {suo!r} vs python {py_titolo(h)!r}"
-           for h, suo in zip(PAGINE, pag["titoli"]) if suo != py_titolo(h)]
-controlla("e i titoli pure", not diverse, " | ".join(diverse[:2]))
+# «Cosa dice una pagina» qui non c'e' piu': ce n'era una seconda copia, in
+# nova-strumenti, che nessuno usava fuori da questo banco e che sbagliava due
+# casi che la prima — quella di nova-browser — sa fare. Il suo corpus e'
+# passato in `test_browser_rust.py`, dove si prova l'unica rimasta.
 
 print("\n=== Come si racconta un ricordo al modello ===")
 # E' l'ultimo pezzo della memoria, e sembra il piu' innocuo. Non lo e': un
@@ -1246,6 +1194,124 @@ controlla("«*» trova solo chi l'asterisco ce l'ha davvero (D141)",
 controlla("e un nome vuoto non trova niente", d141["bersagli"][3] == [] and d141["bersagli"][4] == [])
 controlla("e l'anteprima avvisa del lavoro non salvato",
           "NON SALVATO" in d141["anteprime"][6], d141["anteprime"][6][:200])
+
+print("\n=== Le procedure imparate: vederle e dimenticarle ===")
+# Il Python si chiama **vero**: `procedure_elenco` e `procedura_dimentica`
+# leggono e scrivono `ricette.json`, e qui il file e' uno temporaneo al posto
+# di quello dell'utente. Dimenticare si confronta sul **testo del file**
+# riscritto, non sull'elenco: le due meta' scrivono lo stesso archivio, e
+# «uguale nel significato» non basta se una delle due trasforma 12 in 12.0.
+import tempfile  # noqa: E402
+from nova import ricette as _ricette  # noqa: E402
+from nova.tools import procedure as _proc  # noqa: E402
+from nova.tools.base import ToolError as _ToolError  # noqa: E402
+
+_VOCI = [
+    {"id": "r1", "titolo": "Aprire la posta", "innesco": "apri outlook e leggi",
+     "procedura": "1. app.apri outlook\n2. aspetta\n  3. leggi  \n4\n5\n6\n7 non si vede",
+     "usata": 3, "ultimo_uso": 1788611696.25, "secondi": 12, "campo_ignoto": [1, 2.5]},
+    {"id": "r2", "titolo": "Backup", "innesco": "fai il backup",
+     "procedura": "copia\u2028tutto", "usata": 1, "ultimo_uso": 1767225600,
+     "secondi": 3.5, "creata": 1e16},
+    {"id": "r3", "innesco": "senza titolo", "ultimo_uso": 1788611696.25},
+    {"id": "r4", "titolo": "Perché sì", "innesco": "", "procedura": "",
+     "ultimo_uso": 0, "usata": 2, "secondi": 0.0001},
+]
+CASI_PROC = [(_VOCI, ""), (_VOCI, "posta"), (_VOCI, "  BACKUP "), (_VOCI, "niente"),
+             (_VOCI, "perché"), ([], ""), ([], "x"), (_VOCI, "titolo")]
+CASI_DIM = [(_VOCI, "r2"), (_VOCI, " r1 "), (_VOCI, "r9"), ([], "r1"),
+            ([{"id": "solo", "x": {"a": [], "b": {}}}], "solo")]
+
+_istanti = sorted({int(v.get("ultimo_uso", 0)) for v in _VOCI})
+_cartella = Path(tempfile.mkdtemp(prefix="nova-proc-"))
+_archivio = _cartella / "ricette.json"
+_percorso_vero = _ricette._percorso
+_ricette._percorso = lambda: _archivio
+
+_case = []
+for i, (sotto, _t, _a) in enumerate([("con", "C:\\T", "C:\\A"), ("senza", "", "")]):
+    casa = _cartella / f"casa{i}"
+    casa.mkdir()
+    if sotto == "con":
+        # Tutte e dieci (CARTELLE_NOTE in `file_disco.rs`), perche' il
+        # confronto veda l'elenco intero: un nome
+        # che manca da una parte sola si vede solo se la cartella c'e'.
+        for nome in ("Desktop", "Documents", "Documenti", "Pictures", "Immagini",
+                     "Music", "Musica", "Videos", "Video"):
+            (casa / nome).mkdir()
+        (casa / "Downloads").write_text("un file, non una cartella")
+    _case.append((str(casa), _t, _a))
+
+suo = json.loads(subprocess.run([str(BINARIO)], input=json.dumps({
+    "procedure": CASI_PROC, "dimenticare": CASI_DIM, "cartelle": _case,
+    "fusi": [(s_, fuso_in(s_)) for s_ in _istanti],
+}, ensure_ascii=False), capture_output=True, text=True, encoding="utf-8", timeout=120).stdout)
+
+try:
+    diverse = []
+    for (voci, cerca), ru in zip(CASI_PROC, suo["procedure"]):
+        _archivio.write_text(json.dumps(voci, ensure_ascii=False, indent=1), encoding="utf-8")
+        py = _proc.procedure_elenco(cerca)
+        if py != ru:
+            diverse.append(f"{cerca!r}:\n      python {py!r}\n      rust   {ru!r}")
+    controlla(f"i {len(CASI_PROC)} elenchi di procedure coincidono", not diverse,
+              ("\n    " + "\n    ".join(diverse[:2])) if diverse else "")
+
+    diverse = []
+    for (voci, ident), ru in zip(CASI_DIM, suo["dimenticate"]):
+        _archivio.write_text(json.dumps(voci, ensure_ascii=False, indent=1), encoding="utf-8")
+        try:
+            detto = _proc.procedura_dimentica(ident)
+            py = _archivio.read_text(encoding="utf-8")
+        except _ToolError as e:
+            detto, py = str(e), None
+        if py != ru:
+            diverse.append(f"{ident!r}: python {py!r} vs rust {ru!r}")
+    controlla(f"i {len(CASI_DIM)} archivi riscritti sono identici byte per byte",
+              not diverse, " | ".join(diverse[:2]))
+finally:
+    _ricette._percorso = _percorso_vero
+
+# Le domande sul risultato, indipendenti dal confronto.
+tutte = suo["procedure"][0]
+controlla("le piu' recenti prima, e a pari data l'ordine del file",
+          [r.split("  ")[0] for r in tutte.splitlines() if not r.startswith(" ")]
+          == ["r1", "r3", "r2", "r4"], tutte[:300])
+controlla("un campo che manca si dice come lo dice Python («?», 1x, 0s)",
+          "r3  ?  (usata 1x" in tutte and "la prima volta 0s)" in tutte, tutte[:400])
+controlla("i numeri escono come li scrive Python (12s, 3.5s, 0.0001s)",
+          "volta 12s)" in tutte and "volta 3.5s)" in tutte and "volta 0.0001s)" in tutte)
+controlla("al massimo sei righe per procedura", "7 non si vede" not in tutte)
+controlla("dimenticare conserva i campi che Rust non conosce",
+          '"campo_ignoto"' in (suo["dimenticate"][0] or "")
+          and '"creata": 1e+16' in (suo["dimenticate"][1] or ""),
+          (suo["dimenticate"][0] or "")[:200])
+
+print("\n=== Le cartelle note ===")
+import os as _os  # noqa: E402
+diverse = []
+for (casa, temp, appdata), ru in zip(_case, suo["cartelle"]):
+    salvate = {k: _os.environ.get(k) for k in ("HOME", "USERPROFILE", "TEMP", "APPDATA")}
+    _os.environ.update({"HOME": casa, "USERPROFILE": casa, "TEMP": temp, "APPDATA": appdata})
+    try:
+        from nova.tools import files as _files
+        py = list(_files.known_folders().items())
+    finally:
+        for k, v in salvate.items():
+            if v is None:
+                _os.environ.pop(k, None)
+            else:
+                _os.environ[k] = v
+    if [list(x) for x in py] != ru:
+        diverse.append(f"python {py} vs rust {ru}")
+controlla(f"le {len(_case)} case danno le stesse cartelle, nello stesso ordine",
+          not diverse, " | ".join(diverse[:1]))
+# Nota: un **file** che si chiama Downloads per tutte e due conta, perche'
+# il Python chiede `exists()` e non `is_dir()`. E' nel corpus apposta: se un
+# giorno una meta' cambia idea, il confronto qui sopra diventa rosso.
+controlla("chi non c'e' non si elenca, e TEMP e APPDATA ci sono anche vuote",
+          [k for k, _ in suo["cartelle"][1]] == ["home", "temp", "appdata"]
+          and len(suo["cartelle"][0]) == 13, str(suo["cartelle"][1]))
 
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:

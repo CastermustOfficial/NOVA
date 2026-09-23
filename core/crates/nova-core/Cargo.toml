@@ -46,6 +46,10 @@ nova-pitone = { path = "../nova-pitone" }
 # Il cliente HTTP di casa: `nova-voce` e `nova-cervelli` parlano gia' con
 # questo, e un secondo sarebbe un secondo comportamento da conoscere.
 ureq = "2"
+# Il web senza browser: cosa si chiede a DuckDuckGo, come si leggono i
+# risultati, cosa si dice di una pagina scaricata. Confrontato col Python da
+# un banco; qui c'e' solo la rete.
+nova-browser = { path = "../nova-browser" }
 tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true

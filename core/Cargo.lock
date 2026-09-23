@@ -2819,6 +2819,7 @@ version = "0.1.1"
 dependencies = [
  "anyhow",
  "async-trait",
+ "nova-browser",
  "nova-calendario",
  "nova-cervelli",
  "nova-ciclo",
@@ -3045,6 +3046,7 @@ dependencies = [
  "glob",
  "nova-calendario",
  "nova-dati",
+ "nova-pitone",
  "regex",
  "serde",
  "serde_json",

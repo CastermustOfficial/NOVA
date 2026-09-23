@@ -2448,21 +2448,24 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    nessuna riscrivendo niente: i **file** (D308), la **memoria** (D319), il
    grosso di **sistema** (D321, D322) e **app e finestre** (D323) — i corpi
    stavano gia' in `nova-strumenti`, in `nova-nodi` e in `nova-platform`,
-   confrontati col Python da un banco. Restano: il resto di `sistema` — il
-   promemoria e le tre attivita' pianificate, che vogliono l'Utilita' di
-   pianificazione in Rust, e le automazioni e le riparazioni, che sono Python
-   per natura — piu' `web`, le deleghe a un altro cervello, lo schermo, e i
-   due documenti — `nova-harness`, `nova-docx`, `nova-fogli`, `nova-browser`
-   + `nova-cdp`.
+   confrontati col Python da un banco. Il 23 settembre il **web senza
+   browser**, le cartelle note e le procedure imparate (D326), con i corpi
+   in `nova_browser::scaricata` e `nova_strumenti::procedure`. Restano: il
+   resto di `sistema` — il promemoria e le tre attivita' pianificate, che
+   vogliono l'Utilita' di pianificazione in Rust, e le automazioni e le
+   riparazioni, che sono Python per natura — piu' le deleghe a un altro
+   cervello, lo schermo, `read_document`, e i due documenti —
+   `nova-harness`, `nova-docx`, `nova-fogli` — e il browser guidato
+   (`nova-cdp`, e la meta' di `nova-browser` che il browser lo usa).
 
    | famiglia | in Python | nel demone |
    | --- | ---: | ---: |
-   | file | 14 | 12 |
-   | memoria | 8 | 6 |
+   | file | 14 | 13 |
+   | memoria | 8 | 8 |
    | shell | 3 | 3 |
    | sistema | 22 | 8 |
    | app / finestre | 6 | 6 |
-   | web | 3 | 0 |
+   | web | 3 | 3 |
    | deleghe | 3 | 0 |
    | schermo | 1 | 0 |
 5. **Il prompt.** Le regole operative stanno in `nova/config.py` come testo, e
@@ -2485,7 +2488,8 @@ su 60 nel demone, 10 crate scritti e non ancora usati):
    Quel server si svuota man mano che le famiglie arrivano di qua.
 2. **Le famiglie che mancano.** Ricerca web, deleghe e cattura dello schermo
    (7 strumenti, piu' `known_folders`, `read_document` e le due delle
-   procedure); il browser guidato (`nova-browser` + `nova-cdp`, scritti e da
+   procedure) — ~~web, `known_folders` e procedure~~ fatti (D326), restano
+   la cattura dello schermo e le deleghe; il browser guidato (`nova-browser` + `nova-cdp`, scritti e da
    attaccare: sono i `web_*` che usa Claude Code); i documenti (`harness`,
    Word, fogli); promemoria e attivita' pianificate, che vogliono prima
    l'Utilita' di pianificazione in Rust.

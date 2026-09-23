@@ -135,7 +135,8 @@ fn sciogli(dato: &str) -> String {
     fuori
 }
 
-fn casa() -> Option<PathBuf> {
+/// La cartella dell'utente: `USERPROFILE` su Windows, `HOME` altrove.
+pub fn casa() -> Option<PathBuf> {
     std::env::var_os("USERPROFILE")
         .or_else(|| std::env::var_os("HOME"))
         .map(PathBuf::from)
@@ -618,4 +619,38 @@ pub fn apri(sistema: &dyn Sistema, percorso: &str) -> Esito {
     }
     sistema.apri(&p.scritto)?;
     Ok(format!("Aperto: {}", p.testo()))
+}
+
+/// Le cartelle che l'utente chiama per nome, nelle due lingue in cui
+/// Windows le puo' aver create.
+pub const CARTELLE_NOTE: [&str; 10] = [
+    "Desktop",
+    "Downloads",
+    "Documents",
+    "Documenti",
+    "Pictures",
+    "Immagini",
+    "Music",
+    "Musica",
+    "Videos",
+    "Video",
+];
+
+/// `known_folders`: la casa, le cartelle note **che ci sono davvero**, e le
+/// due variabili che il modello chiede piu' spesso.
+///
+/// Le chiavi sono in minuscolo e `temp` e `appdata` ci sono sempre, anche
+/// vuote: e' la forma che il Python ha sempre dato, e un modello che ha
+/// imparato a leggere `appdata` non deve scoprire che a volte manca.
+pub fn cartelle_note(casa: &Path, temp: &str, appdata: &str) -> Vec<(String, String)> {
+    let mut fuori = vec![("home".to_string(), casa.display().to_string())];
+    for nome in CARTELLE_NOTE {
+        let p = casa.join(nome);
+        if p.exists() {
+            fuori.push((nome.to_lowercase(), p.display().to_string()));
+        }
+    }
+    fuori.push(("temp".into(), temp.into()));
+    fuori.push(("appdata".into(), appdata.into()));
+    fuori
 }

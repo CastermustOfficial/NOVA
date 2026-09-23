@@ -9,6 +9,7 @@
 use std::io::Read;
 
 use nova_browser::motori::{self, Risultato};
+use nova_browser::scaricata;
 use nova_browser::testo;
 use nova_browser::{
     clicca, clicca_testo, dentro, errore_di_pagina, incolla, leggi, per_testo, risultati,
@@ -91,6 +92,18 @@ struct Dentro {
     /// (pagina, quanto del titolo tenere).
     #[serde(default)]
     titoli: Vec<(String, usize)>,
+    /// (indirizzo finale, tipo, testo, max_chars) di una pagina scaricata.
+    #[serde(default)]
+    scaricate: Vec<(String, String, String, Option<i64>)>,
+    /// (url, search_query) da aprire nel browser.
+    #[serde(default)]
+    aperture: Vec<(String, String)>,
+    /// (max_results chiesto, risultati del motore) da elencare.
+    #[serde(default)]
+    elenchi: Vec<(Option<i64>, Vec<(String, String, String)>)>,
+    /// Indirizzi scritti dal modello, da completare prima di scaricarli.
+    #[serde(default)]
+    schemi: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -116,6 +129,11 @@ struct Fuori {
     righe: Vec<String>,
     pagine: Vec<String>,
     titoli: Vec<String>,
+    scaricate: Vec<String>,
+    aperture: Vec<Result<String, String>>,
+    /// Quanti se ne chiedono al motore, e come si raccontano i primi.
+    elenchi: Vec<(usize, String)>,
+    schemi: Vec<String>,
 }
 
 fn come_tre(r: &[Risultato]) -> Vec<(String, String, String)> {
@@ -196,6 +214,34 @@ fn main() {
             .collect(),
         pagine: d.pagine.iter().map(|p| testo::a_testo(p)).collect(),
         titoli: d.titoli.iter().map(|(p, m)| testo::titolo_di(p, *m)).collect(),
+        scaricate: d
+            .scaricate
+            .iter()
+            .map(|(u, t, x, m)| scaricata::pagina(u, t, x, *m))
+            .collect(),
+        aperture: d
+            .aperture
+            .iter()
+            .map(|(u, c)| scaricata::da_aprire(u, c))
+            .collect(),
+        elenchi: d
+            .elenchi
+            .iter()
+            .map(|(chiesti, trovati)| {
+                let n = scaricata::quanti(*chiesti);
+                let r: Vec<Risultato> = trovati
+                    .iter()
+                    .take(n)
+                    .map(|(t, u, x)| Risultato {
+                        titolo: t.clone(),
+                        url: u.clone(),
+                        riassunto: x.clone(),
+                    })
+                    .collect();
+                (n, scaricata::elenco(&r))
+            })
+            .collect(),
+        schemi: d.schemi.iter().map(|u| scaricata::con_schema(u)).collect(),
     };
 
     match serde_json::to_string(&fuori) {
