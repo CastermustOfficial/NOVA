@@ -202,8 +202,14 @@ try:
     arrivato = ricevute["casa"][-1] if ricevute["casa"] else {}
     atteso = (f"vincoli: breve\n\n### {ALLEGATO}\n```\nriga uno\nriga due\n\n```"
               "\n\n---\n\nriassumi")
+    # «in quanto» c'e' solo se la risposta ha preso almeno un millesimo: su
+    # una macchina veloce il cervello finto risponde prima, e il Python in
+    # quel caso non scrive la durata. Si guarda che, se c'e', sia al posto
+    # suo.
+    testa = detto.split("\n", 1)[0]
     controlla("risponde, e dice chi ha risposto e in quanto",
-              not err and detto.startswith("[risposta da «locale», ")
+              not err and (testa == "[risposta da «locale»]"
+                           or (testa.startswith("[risposta da «locale», ") and testa.endswith("s]")))
               and detto.split("\n", 1)[1] == "casa risponde a: " + atteso[-40:],
               repr(detto)[:200])
     controlla("al cervello arriva un messaggio solo, contesto e allegato davanti",
