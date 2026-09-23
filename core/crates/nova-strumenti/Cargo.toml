@@ -23,6 +23,9 @@ nova-calendario = { path = "../nova-calendario" }
 # tre cose diverse sullo stesso numero.
 nova-dati = { path = "../nova-dati" }
 regex = "1"
+# `str(x)` e `splitlines` di Python: l'elenco delle procedure scrive i numeri
+# come li scriveva il Python, e taglia le righe dove le tagliava lui.
+nova-pitone = { path = "../nova-pitone" }
 # Non piu' opzionale da quando il pacchetto sa leggere le chiamate che certi
 # modelli scrivono **dentro il testo** invece che nel canale dei tool: quel
 # testo e' JSON, e riconoscerne un sottoinsieme scritto a mano vorrebbe dire

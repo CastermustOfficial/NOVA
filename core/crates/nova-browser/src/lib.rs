@@ -34,6 +34,7 @@ pub mod copioni;
 pub mod entita;
 pub mod motori;
 pub mod regole;
+pub mod scaricata;
 pub mod testo;
 
 // Leggere i risultati di un motore senza browser: la strada di ripiego.

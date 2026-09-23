@@ -10577,3 +10577,77 @@ aver aggiunto la seconda porta del «ricomincia».
 
 Il processo lanciato adesso muore con chi lo aspetta: un «ferma» che lascia
 Claude ad agire sul computer non è un ferma.
+
+## Il web senza browser, e un lettore di pagine di troppo
+
+Sei capacità nuove nel demone, per tre famiglie piccole che mancavano:
+`rete.cerca`, `rete.leggi` e `rete.apri` (gli strumenti web del Python che
+non usano il browser), `fs.cartelle` (`known_folders`), `kb.procedure` e
+`kb.procedura_dimentica` (D326). Nella tabella di `verso_la_beta.md` il web
+passa da 0 a 3 su 3, la memoria da 6 a 8 su 8, i file da 12 a 13 su 14.
+
+Si chiamano `rete` e non `web` apposta: il browser guidato arriverà coi suoi
+nomi, e una famiglia sola per due cose diverse il modello la usa a caso.
+
+### Dove sta cosa
+
+Come per le altre famiglie, nel demone c'è la rete e basta. Cosa si chiede a
+DuckDuckGo, come si leggono i risultati e cosa si dice di una pagina
+scaricata stanno in `nova_browser::scaricata`, accanto ai raschiatori che
+c'erano già; per questo `nova-browser` adesso è attaccato al demone, mentre
+`nova-cdp` aspetta il browser guidato. L'elenco delle procedure e il
+dimenticarle stanno in `nova_strumenti::procedure`.
+
+Le procedure si leggono **come stanno nel file**, non come `Ricetta`: la
+`Ricetta` tiene i campi che servono a ritrovare una procedura, e riscrivere
+l'archivio da lì avrebbe perso gli altri e scritto `12.0` dove Python aveva
+scritto `12`. Il banco lo guarda nel modo più severo che c'è: dimentica la
+stessa voce con il Python vero e col Rust, e confronta **il testo dei due
+file**.
+
+Per scriverlo come Python servivano due cose che `nova-pitone` non aveva:
+`json.dumps(indent=1)` e i numeri con la virgola come li scrive `repr` —
+`1e+16`, `1e-05`, `3.0` (D328). La seconda l'ha trovata il banco, al primo
+`1e16` nel corpus.
+
+### Quattro differenze, dette
+
+- Una pagina `text/html` senza `charset` si legge UTF-8. `requests` la
+  legge Latin-1, e ogni lettera accentata diventa due caratteri sbagliati.
+- Una ricerca che non trova niente dice perché, **motore per motore**. Il
+  Python ingoia gli errori di rete e dice sempre «non ho riconosciuto i
+  risultati» — la stessa bugia che il suo commento racconta di aver già
+  pagato una volta.
+- Dimenticare una procedura si annulla: prima si mette da parte l'archivio,
+  e `annulla.uno` lo rimette. L'anteprima dice il prezzo: una procedura
+  imparata nel frattempo sparirebbe con l'annullamento.
+- Il proxy si sceglie come lo sceglie `requests`, `no_proxy` compreso — il
+  cliente HTTP di casa da solo lo ignora, e mandava attraverso il proxy anche
+  una pagina su `localhost` — ma senza leggere quello impostato in Windows.
+
+### Due lettori di pagine
+
+Cercando quale `a_testo` usare per `rete.leggi` ne ho trovati due: uno in
+`nova-browser`, uno in `nova-strumenti` con la sua tabella di duemila entità.
+Il secondo lo usava solo il proprio banco, e sbagliava due casi che il primo
+sa fare. Tolto, il suo corpus passato al banco del browser coi due casi in
+più, e il guardiano dei doppioni adesso guarda anche il **contenuto** delle
+tabelle grandi, perché dai nomi non poteva vederlo (D327). La storia sta in
+`dove_ho_sbagliato.md`.
+
+### Le prove
+
+- `prove/gemelli/test_browser_rust.py`: una sezione nuova, sette controlli —
+  tredici pagine scaricate con una `requests.models.Response` vera, sei
+  indirizzi da completare, nove aperture, sei elenchi col Chrome guidato
+  finto per vedere quanti risultati chiede il Python.
+- `prove/gemelli/test_strumenti_rust.py`: otto elenchi di procedure, cinque
+  archivi riscritti confrontati byte per byte, due case per le cartelle note.
+- `prove/demone/test_demone_rete.py`, 21 controlli dalla porta di Claude
+  Code (`tools/call`): un server HTTP su 127.0.0.1, un proxy finto
+  nell'ambiente e 127.0.0.1 in `no_proxy`. La pagina deve arrivare, dopo il
+  rimando e in UTF-8; la ricerca deve fallire e dire che i motori non hanno
+  risposto; e una procedura dimenticata deve tornare con `annulla.uno`.
+
+Quindici mutazioni, una alla volta e ricostruendo fra l'una e l'altra:
+quindici rossi.

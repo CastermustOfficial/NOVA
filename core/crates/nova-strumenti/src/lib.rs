@@ -44,14 +44,12 @@ pub mod sistema;
 // risponderebbe a «notepad», cosa legge chi approva una chiusura (D141).
 pub mod app;
 
-// Cosa dice una pagina, in un posto solo.
-pub mod pagina;
-
-// Le entita' HTML con un nome, tutte, estratte e non ricopiate.
-mod entita;
-
 // Come si racconta la memoria di NOVA al modello.
 pub mod memoria;
+
+// Vedere e dimenticare le procedure imparate, sulle voci cosi' come stanno
+// nel file.
+pub mod procedure;
 
 // Cosa NOVA chiede al sistema operativo, detto con le parole di NOVA. I
 // tratti li dichiara chi ne ha bisogno: e' cosi' che Windows si appoggia a

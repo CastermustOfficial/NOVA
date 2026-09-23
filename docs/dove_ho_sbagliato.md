@@ -1062,3 +1062,41 @@ guardasse la porta», un giorno dopo: allora la porta era `capabilities/list`
 contro l'implementazione, oggi `tools/call` contro `capabilities/call`. La
 domanda da farsi è una: **chi userà questa cosa, e da dove entra?** — e la
 prova entra da lì.
+
+## Ho scritto un secondo lettore di pagine, e il suo banco lo copriva
+
+Portando gli strumenti in `nova-strumenti` ci ho messo anche «cosa dice una
+pagina»: `a_testo`, `titolo_di`, e una tabella di duemila entità HTML
+estratta da Python con uno script suo. Un banco gemello la confrontava col
+Python su una trentina di pagine, verde.
+
+**Esistevano già**, in `nova-browser`, con il loro banco. E la mia copia
+**sbagliava due casi** che l'altra sa fare: un blocco invisibile dentro un
+altro (`<svg><style>x</style>y</svg>z` dava `y z`, Python dà `z`, perché la
+chiusura va cercata per il tag che ha aperto) e il separatore di riga
+` `. Il suo banco non li vedeva perché il suo corpus non li conteneva.
+**Me ne sono accorto** oggi, cercando quale dei due usare per `rete.leggi`:
+due funzioni con lo stesso nome e la stessa prima riga di commento.
+
+È la quarta voce di questo registro con la forma «ho riscritto ciò che
+c'era», ma con una cosa in più che vale la pena dire: **un banco verde non
+dice che una copia è giusta, dice che è giusta sul suo corpus**. Due copie
+con due corpus diversi possono essere verdi tutte e due e dire cose diverse.
+
+Il guardiano dei doppioni non poteva vederla: guarda i nomi delle costanti, e
+le due tabelle si chiamavano `NOMI` ed `ENTITA`. Adesso guarda anche il
+**contenuto** delle tabelle grandi (D327), e la copia l'ho tolta.
+
+## Ho scritto una domanda sul risultato senza rileggere il Python
+
+Nel banco delle cartelle note ho aggiunto un controllo mio, indipendente dal
+confronto: «un file che si chiama Downloads non è la cartella dei download».
+Rosso. **Credevo** che `known_folders` chiedesse se la cartella è una
+cartella; **chiede** `exists()`, e un file con quel nome per lui conta. Il
+Rust faceva lo stesso, e il confronto era verde.
+
+Il controllo era sbagliato, non il codice: le domande sul risultato servono a
+non farsi ingannare da due metà che sbagliano uguale, ma sono **mie**, e una
+mia idea di come dovrebbe andare non è il Python. Il file resta nel corpus
+apposta, con scritto perché: se un giorno una metà passa a `is_dir()` e
+l'altra no, il confronto diventa rosso.

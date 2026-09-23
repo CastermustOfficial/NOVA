@@ -224,12 +224,42 @@ PAGINE = [
     "senza tag ma con &amp; dentro",
     "<a href='x'>testo</a> fuori",
     "<br>uno<br/>due<BR />tre",
+    # Un invisibile dentro un altro: finisce dove si chiude **il primo**, non
+    # dove si chiude un invisibile qualunque. Era la differenza fra questo
+    # lettore e la seconda copia che stava in nova-strumenti, che il suo banco
+    # non vedeva perche' il suo corpus non aveva questo caso.
+    "<svg><style>x</style>y</svg>z",
+    "<script>a</style>b</script>c",
+    # Il corpus della copia tolta da nova-strumenti, largo sulle entita'.
+    "<html><head><title>Prova &amp; C.</title><style>p{color:red}</style></head>"
+    "<body><script>var x = 1 < 2;</script><h1>Titolo</h1>"
+    "<p>Prima riga</p><p>Seconda &egrave; qui</p></body></html>",
+    "<p>a</p><p></p><p></p><p></p><p>b</p>",
+    "Tizio & Caio",
+    "1 &lt; 2 &amp;&amp; 3 &gt; 2",
+    "&#233; e &#x2014; e &#8364;",
+    "<table><tr><td>x</td></tr><tr><td>y</td></tr></table>",
+    "<p>&copy; 2026 &mdash; tutti i diritti &hellip;</p>",
+    "&laquo;citazione&raquo; e &rsquo;apostrofo",
+    "&pound;10 &euro;20 &deg;C &frac12; &sup2;",
+    "&alpha; &beta; &pi; &infin; &ne; &le; &ge;",
+    "&agrave;&egrave;&eacute;&igrave;&ograve;&ugrave;&ccedil;&ntilde;&uuml;",
+    "&szlig; &times; &divide; &plusmn; &micro; &sect; &para;",
+    "&larr; &rarr; &harr; &dagger; &permil; &bull; &middot;",
+    "&trade; &reg; &ldquo;virgolette&rdquo; &lsquo;singole&rsquo;",
+    "&oelig; &yuml; &thorn; &eth; &curren; &brvbar; &not; &notin;",
+    "<p>riga1\nriga2</p>",
+    "<HTML><BODY><P>maiuscolo</P></BODY></HTML>",
+    "<p>tag mai chiuso",
+    "<script>non chiuso mai",
 ]
 TITOLI = [("<html><head><TITLE>Perch&#233; s&igrave;</TITLE>", 120),
           ("<html>senza</html>", 120),
           ("<title>abcdef</title>", 3),
           ("<title>  con <b>tag</b> dentro  </title>", 120),
-          ("<title>", 120)]
+          ("<title>", 120),
+          ("<head><title>Prova &amp; C.</title></head>", 120),
+          ("<title>a<svg>b</svg>c</title>", 120)]
 
 RISULTATI = [(200, 8), (200, 1), (200, 25)]
 
@@ -455,6 +485,132 @@ controlla(f"i {len(ENTITA)} testi si sciolgono come html.unescape",
           not diverse, primo)
 controlla(f"e sono tutti i {len(TUTTE)} nomi che lo standard definisce",
           len(TUTTE) > 2000, "una tabella parziale non e' una tabella")
+
+print("\n9. il web senza browser: una pagina scaricata, una da aprire, un elenco")
+# Il Python si chiama **vero**: `fetch_url`, `open_in_browser` e `web_search`
+# della cassetta degli strumenti. Si sostituisce solo cio' che sta fuori —
+# la rete, il browser dell'utente, il Chrome guidato — e la risposta e' un
+# `requests.models.Response` vero, cosi' `r.json()` e' quello di `requests`.
+import requests as _requests  # noqa: E402
+from nova.tools import web as _web  # noqa: E402
+from nova.tools.base import ToolError as _ToolError  # noqa: E402
+from nova import cerca as _cerca  # noqa: E402
+
+_LUNGA = "<p>" + "parola " * 400 + "</p>"
+SCARICATE = [
+    ("https://esempio.it/", "text/html; charset=utf-8",
+     "<html><head><title> Ciao &amp; <b>benvenuti</b> </title></head>"
+     "<body><p>Perch\u00e9 s\u00ec</p><script>x()</script></body></html>", None),
+    ("https://esempio.it/a", "text/html", _LUNGA, 100),
+    ("https://esempio.it/a", "text/html", _LUNGA, 0),
+    ("https://esempio.it/a", "text/html", _LUNGA, -5),
+    ("https://esempio.it/a", "text/html", _LUNGA, 2000),
+    ("https://api.it/v1", "application/json",
+     '{"b": [1, 2.5, 1e20, {"c": null, "d": true}], "a": "\u00e8", "e": {}, "f": []}', None),
+    ("https://api.it/v1", "application/json; charset=utf-8", '{"a": "lungo"}', 8),
+    ("https://api.it/v1", "application/json", '{"a": 1}', 0),
+    ("https://api.it/v1", "application/json", '[1, 2, 3]', -3),
+    ("https://api.it/v1", "application/json", "<html>non e' json</html>", None),
+    ("https://api.it/v1", "text/plain", '{"a": 1}', None),
+    ("https://api.it/v1", "", "solo testo", None),
+    ("https://api.it/v1", "application/problem+json", '{"x": "y"}', None),
+]
+APERTURE = [("esempio.it", ""), ("https://a.it/x", ""), ("HTTP://A.IT", ""),
+            ("file:///C:/x.html", ""), ("", "gatti neri & bianchi / 100%"),
+            ("", "perch\u00e9 s\u00ec?"), ("", ""), ("ftp://x", ""), ("a.it", "ignorata")]
+_TROVATI = [(f"Titolo {i}", f"https://s{i}.it/", "riassunto" if i % 2 else "")
+            for i in range(1, 21)]
+ELENCHI = [(None, _TROVATI), (0, _TROVATI), (3, _TROVATI), (-2, _TROVATI),
+           (40, _TROVATI), (2, _TROVATI[:1])]
+SCHEMI = ["esempio.it", "http://a.it", "HTTPS://A.IT", "ftp://x", "", "file:///c"]
+
+rete = rust({"scaricate": [list(x) for x in SCARICATE],
+             "aperture": [list(x) for x in APERTURE],
+             "elenchi": [[n, [list(t) for t in r]] for n, r in ELENCHI],
+             "schemi": SCHEMI})
+
+
+class _Rete:
+    RequestException = _requests.RequestException
+
+    def __init__(self, risposta):
+        self.risposta, self.chiesti = risposta, []
+
+    def get(self, url, **_kw):
+        self.chiesti.append(url)
+        return self.risposta
+
+
+def _risposta(finale, tipo, testo):
+    r = _requests.models.Response()
+    r.status_code, r.url, r.encoding = 200, finale, "utf-8"
+    r._content = testo.encode("utf-8")
+    if tipo:
+        r.headers["content-type"] = tipo
+    return r
+
+
+_rete_vera, _apri_vero, _cerca_vera = _web._rete, _web.webbrowser.open, _cerca.cerca
+try:
+    diverse, chiesti = [], []
+    for (finale, tipo, testo, m), ru in zip(SCARICATE, rete["scaricate"]):
+        finta = _Rete(_risposta(finale, tipo, testo))
+        _web._rete = lambda: finta
+        py = _web.fetch_url(finale) if m is None else _web.fetch_url(finale, m)
+        if py != ru:
+            diverse.append(f"{tipo!r} {m}:\n      python {py[:160]!r}\n      rust   {ru[:160]!r}")
+    controlla(f"le {len(SCARICATE)} pagine scaricate si raccontano uguali", not diverse,
+              ("\n    " + "\n    ".join(diverse[:2])) if diverse else "")
+
+    diverse = []
+    for u, ru in zip(SCHEMI, rete["schemi"]):
+        finta = _Rete(_risposta("https://x/", "text/html", ""))
+        _web._rete = lambda: finta
+        _web.fetch_url(u)
+        if finta.chiesti != [ru]:
+            diverse.append(f"{u!r}: python {finta.chiesti} vs rust {ru!r}")
+    controlla(f"i {len(SCHEMI)} indirizzi si completano uguali prima di scaricarli",
+              not diverse, " | ".join(diverse[:2]))
+
+    diverse, aperti = [], []
+    _web.webbrowser.open = lambda u: aperti.append(u)
+    for (u, q), ru in zip(APERTURE, rete["aperture"]):
+        try:
+            py = ("Ok", _web.open_in_browser(u, q))
+        except _ToolError as e:
+            py = ("Err", str(e))
+        mio = ("Ok", "Aperto nel browser: " + ru["Ok"]) if "Ok" in ru else ("Err", ru["Err"])
+        if py != mio:
+            diverse.append(f"{(u, q)!r}: python {py!r} vs rust {mio!r}")
+    controlla(f"le {len(APERTURE)} aperture portano allo stesso indirizzo", not diverse,
+              " | ".join(diverse[:2]))
+
+    diverse = []
+    for (n, trovati), (quanti, ru) in zip(ELENCHI, rete["elenchi"]):
+        chiesto = []
+
+        def _finta(domanda, quanti=8, **_kw):
+            chiesto.append(quanti)
+            return {"ok": True, "risultati": [{"titolo": t, "url": u, "testo": x}
+                                              for t, u, x in trovati]}
+        _cerca.cerca = _finta
+        py = _web.web_search("gatti") if n is None else _web.web_search("gatti", n)
+        if (chiesto, py) != ([quanti], ru):
+            diverse.append(f"{n}: python {chiesto} {py[:80]!r} vs rust {quanti} {ru[:80]!r}")
+    controlla(f"i {len(ELENCHI)} elenchi chiedono quanti ne chiede il Python e si "
+              "raccontano uguali", not diverse, " | ".join(diverse[:2]))
+finally:
+    _web._rete, _web.webbrowser.open, _cerca.cerca = _rete_vera, _apri_vero, _cerca_vera
+
+# Domande sul risultato, indipendenti dal confronto.
+controlla("il JSON rientrato scrive 1e+20 come Python, non 1e20",
+          "1e+20" in rete["scaricate"][5], rete["scaricate"][5][:200])
+controlla("una pagina tagliata non scende sotto i cinquecento caratteri",
+          rete["scaricate"][1].endswith("\n... [pagina troncata]")
+          and len(rete["scaricate"][1].split("\n\n", 1)[1]) == 500 + len("\n... [pagina troncata]"))
+controlla("una ricerca per Google passa dagli apici giusti",
+          rete["aperture"][4]["Ok"].endswith("gatti%20neri%20%26%20bianchi%20/%20100%25"),
+          str(rete["aperture"][4]))
 
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:

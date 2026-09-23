@@ -275,6 +275,11 @@ NUMERI = [
 
 #: Elenchi che un altro banco confronta gia', col nome della prova che lo fa.
 ALTROVE = {
+    # Le cartelle note: in Python non sono una costante ma una tupla scritta
+    # dentro `known_folders`, e l'albero non la raggiunge. Il banco degli
+    # strumenti le prova tutte e dieci, chiamando il `known_folders` vero su
+    # una casa che le ha tutte, e su una che non ne ha nessuna.
+    "CARTELLE_NOTE": "test_strumenti_rust.py",
     "GUARDANO_LO_SCHERMO": "test_guasti_rust.py",
     # Le parole che nel nome di un campo annunciano un segreto. In Python
     # sono un'unica espressione regolare con dentro alternanze annidate

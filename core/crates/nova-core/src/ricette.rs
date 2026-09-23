@@ -190,18 +190,41 @@ pub fn scrivi(archivio: &[Ricetta]) -> std::io::Result<()> {
 }
 
 pub fn scrivi_in(dove: &std::path::Path, archivio: &[Ricetta]) -> std::io::Result<()> {
+    let voci: Vec<Value> = archivio.iter().map(come_json).collect();
+    riscrivi_in(dove, &voci)
+}
+
+/// Le voci dell'archivio **cosi' come stanno nel file**, campi sconosciuti
+/// compresi.
+///
+/// Per dimenticare una procedura non si passa dalla [`Ricetta`], che tiene
+/// solo i campi che servono a ritrovarla: riscrivere l'archivio da li'
+/// butterebbe via tutto il resto, e scriverebbe `12.0` dove c'era `12`.
+pub fn voci() -> Vec<Value> {
+    let Ok(testo) = std::fs::read_to_string(percorso()) else {
+        return Vec::new();
+    };
+    match serde_json::from_str(testo.trim_start_matches('\u{feff}')) {
+        Ok(Value::Array(v)) => v,
+        _ => Vec::new(),
+    }
+}
+
+/// Riscrive l'archivio con queste voci.
+pub fn riscrivi(voci: &[Value]) -> std::io::Result<()> {
+    riscrivi_in(&percorso(), voci)
+}
+
+/// `json.dumps(elenco, ensure_ascii=False, indent=1)`, scritto di fianco e
+/// poi rinominato: il file lo aprono tutte e due le meta', e anche un occhio
+/// umano, e un'interruzione a meta' non deve lasciarlo troncato.
+fn riscrivi_in(dove: &std::path::Path, voci: &[Value]) -> std::io::Result<()> {
     if let Some(d) = dove.parent() {
         std::fs::create_dir_all(d)?;
     }
-    let voci: Vec<Value> = archivio.iter().map(come_json).collect();
-    // `indent=1` e le chiavi nell'ordine in cui le scrive il Python: il file
-    // lo aprono tutte e due le meta', e anche un occhio umano.
-    let mut fuori = Vec::new();
-    let formato = serde_json::ser::PrettyFormatter::with_indent(b" ");
-    let mut ser = serde_json::Serializer::with_formatter(&mut fuori, formato);
-    serde::Serialize::serialize(&Value::Array(voci), &mut ser).map_err(std::io::Error::other)?;
+    let testo = nova_pitone::json_come_python_rientrato(&Value::Array(voci.to_vec()), 1);
     let parte = dove.with_extension("json.parte");
-    std::fs::write(&parte, &fuori)?;
+    std::fs::write(&parte, testo)?;
     std::fs::rename(&parte, dove)
 }
 

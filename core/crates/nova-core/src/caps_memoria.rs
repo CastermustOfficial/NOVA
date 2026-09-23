@@ -40,6 +40,8 @@ pub fn register(reg: &mut Registry) {
     reg.add(Arc::new(KbVicini));
     reg.add(Arc::new(KbDimentica));
     reg.add(Arc::new(KbStato));
+    reg.add(Arc::new(KbProcedure));
+    reg.add(Arc::new(KbProceduraDimentica));
 }
 
 /// Il server, per arrivare alla memoria.
@@ -424,6 +426,118 @@ impl Capability for KbStato {
             "per_origine": s.per_origine,
             "isolati": s.orfani,
             "collisioni": s.collisioni,
+        }))
+    }
+}
+
+// --------------------------------------------------------------- procedure
+
+/// Le procedure imparate: come NOVA ha risolto richieste che le sono gia'
+/// state fatte. Non stanno nel vault, stanno in `ricette.json`, ma per chi le
+/// guarda sono memoria — e il Python le mette nella stessa categoria.
+struct KbProcedure;
+
+#[async_trait]
+impl Capability for KbProcedure {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "kb.procedure".into(),
+            description: "Le procedure che NOVA ha imparato: come ha risolto richieste che le \
+                          sono gia' state fatte, quante volte le ha rifatte e quanto ci aveva \
+                          messo la prima volta."
+                .into(),
+            risk: Risk::Safe,
+            category: "memoria".into(),
+            schema: schema(&[(
+                "cerca",
+                "string",
+                "Vuoto per tutte, oppure una parola per filtrare",
+                false,
+            )]),
+        }
+    }
+
+    async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
+        let cerca = arg_str_opt(&args, "cerca").unwrap_or_default();
+        let voci = tokio::task::block_in_place(crate::ricette::voci);
+        Ok(Value::String(nova_strumenti::procedure::elenco(
+            &voci,
+            &cerca,
+            &crate::caps_sistema::FusoDiQui,
+        )))
+    }
+}
+
+/// Dimenticare una procedura. Una imparata male e' peggio di nessuna: viene
+/// proposta con la stessa sicurezza di una buona.
+///
+/// **Diverso dal Python, apposta: qui si torna indietro.** Di la' la voce
+/// sparisce e basta. Qui prima si mette da parte l'archivio com'era, e
+/// `annulla.uno` lo rimette — e' la premessa N2, prima la reversibilita'.
+/// Il prezzo e' scritto nell'anteprima: annullare rimette **tutto**
+/// l'archivio, quindi anche una procedura imparata nel frattempo sparisce.
+struct KbProceduraDimentica;
+
+#[async_trait]
+impl Capability for KbProceduraDimentica {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "kb.procedura_dimentica".into(),
+            description: "Cancella una procedura imparata. Da usare quando NOVA continua a \
+                          riprovare una strada che non funziona piu'."
+                .into(),
+            risk: Risk::Moderate,
+            category: "memoria".into(),
+            schema: schema(&[(
+                "procedura",
+                "string",
+                "L'identificativo dato da kb.procedure",
+                true,
+            )]),
+        }
+    }
+
+    async fn anteprima(&self, args: Value, _ctx: &Ctx) -> Option<Result<Value>> {
+        let id = arg_str_opt(&args, "procedura").unwrap_or_default();
+        let voci = tokio::task::block_in_place(crate::ricette::voci);
+        let c_e = nova_strumenti::procedure::senza(&voci, &id).is_some();
+        Some(Ok(json!({
+            "farei": format!("Dimentica la procedura {id}"),
+            "trovata": c_e,
+            "annullabile": true,
+            "nota": "annullare rimette l'archivio delle procedure com'era adesso: \
+                     una procedura imparata nel frattempo sparirebbe",
+        })))
+    }
+
+    async fn call(&self, args: Value, ctx: &Ctx) -> Result<Value> {
+        let id = arg_str(&args, "procedura")?;
+        let dove = crate::ricette::percorso();
+        let voci = tokio::task::block_in_place(crate::ricette::voci);
+        let Some(restano) = nova_strumenti::procedure::senza(&voci, &id) else {
+            return Err(anyhow!("{}", nova_strumenti::procedure::non_trovata(&id)));
+        };
+        let inversa = match crate::giornale::conserva(&dove) {
+            Ok(copia) => crate::giornale::Inversa::RipristinaFile {
+                percorso: dove.display().to_string(),
+                copia,
+            },
+            Err(e) => crate::giornale::Inversa::NonSiPuo {
+                perche: format!("non sono riuscito a mettere da parte l'archivio: {e}"),
+            },
+        };
+        tokio::task::block_in_place(|| crate::ricette::riscrivi(&restano))
+            .inspect_err(|_| crate::giornale::butta_copia(&inversa))
+            .map_err(|e| anyhow!("non riesco a riscrivere le procedure: {e}"))?;
+        let annullabile = !matches!(inversa, crate::giornale::Inversa::NonSiPuo { .. });
+        let cosa = format!("dimenticata la procedura {id}");
+        let annotata = crate::giornale::annota("kb.procedura_dimentica", &cosa, inversa).ok();
+        ctx.bus
+            .emit("kb.procedura_dimenticata", json!({ "procedura": id }));
+        Ok(json!({
+            "detto": nova_strumenti::procedure::dimenticata(&id),
+            "annullabile": annullabile,
+            "annulla_con": annotata.map(|i| format!("annulla.uno id={i}")),
         }))
     }
 }

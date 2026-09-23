@@ -47,6 +47,7 @@ pub fn register(reg: &mut Registry) {
     reg.add(Arc::new(FsSearchCap));
     reg.add(Arc::new(FsGrepCap));
     reg.add(Arc::new(FsOpenCap));
+    reg.add(Arc::new(FsCartelleCap));
 }
 
 /// Le due cose che il disco non sa fare da solo, come le fa questo sistema.
@@ -607,5 +608,38 @@ impl Capability for FsOpenCap {
         let path = arg_str(&args, "path")?;
         let detto = fuori_dal_filo(move || file_disco::apri(&SistemaDelDemone, &path)).await?;
         Ok(json!({ "detto": detto }))
+    }
+}
+
+// ------------------------------------------------------------ cartelle note
+
+struct FsCartelleCap;
+
+#[async_trait]
+impl Capability for FsCartelleCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "fs.cartelle".into(),
+            description: "Elenca i percorsi delle cartelle note dell'utente (Desktop, Download, \
+                          Documenti, ...)."
+                .into(),
+            risk: Risk::Safe,
+            category: "fs".into(),
+            schema: schema(&[]),
+        }
+    }
+
+    async fn call(&self, _args: Value, _ctx: &Ctx) -> Result<Value> {
+        let casa = file_disco::casa().ok_or_else(|| {
+            anyhow!("non so dov'e' la cartella dell'utente: USERPROFILE e HOME sono vuote")
+        })?;
+        let temp = std::env::var("TEMP").unwrap_or_default();
+        let appdata = std::env::var("APPDATA").unwrap_or_default();
+        let voci = file_disco::cartelle_note(&casa, &temp, &appdata);
+        Ok(Value::Object(
+            voci.into_iter()
+                .map(|(k, v)| (k, Value::String(v)))
+                .collect(),
+        ))
     }
 }

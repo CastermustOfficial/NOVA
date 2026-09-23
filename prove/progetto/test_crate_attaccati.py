@@ -56,11 +56,10 @@ SCOLLEGATI: dict[str, str] = {
                      "tutta, ma nessuno gliele chiede ancora. Si attacca quando esiste la "
                      "meta' che parla con llama-server, cioe' chi i logit delle lettere li "
                      "va a prendere",
-    "nova-browser": "il browser guidato da dentro: gira ancora tutto in Python "
-                    "(nova/browser.py), e attaccarlo vuol dire spostare il "
-                    "pilota, non aggiungerne un secondo",
-    "nova-cdp": "la websocket verso il browser: serve a nova-browser, e si "
-                "attacca insieme a lui",
+    "nova-cdp": "la websocket verso il browser guidato, che gira ancora tutto "
+                "in Python (nova/browser.py): attaccarla vuol dire spostare il "
+                "pilota, non aggiungerne un secondo. nova-browser invece e' "
+                "attaccato dal D326, per la parte che il browser non lo usa",
     "nova-componenti": "le regole per procurarsi i pezzi mancanti. Scaricare e "
                        "scompattare li fa nova/componenti.py: due scaricatori "
                        "sarebbero due modi di lasciare mezzo file sul disco",
