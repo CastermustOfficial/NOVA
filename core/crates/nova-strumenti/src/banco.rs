@@ -10,21 +10,21 @@ use nova_strumenti::chiamate;
 use nova_strumenti::file;
 use nova_strumenti::file_disco;
 use nova_strumenti::procedure;
+use nova_strumenti::schermo;
 use nova_strumenti::guscio::{self, Risposta};
 use nova_strumenti::data::Fuso;
 use nova_strumenti::memoria;
 use nova_strumenti::sistema;
 use nova_strumenti::app;
 use nova_strumenti::guardie::{Autonomia, Guardie};
-use nova_strumenti::{anteprima, schema, Argomenti, Rischio, STRUMENTI};
+use nova_strumenti::{anteprima, schema, ArgomentiJson, Rischio, STRUMENTI};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 
 #[derive(Deserialize)]
 struct Dentro {
     /// (nome dello strumento, argomenti) di cui si vuole l'anteprima.
     #[serde(default)]
-    anteprime: Vec<(String, BTreeMap<String, serde_json::Value>)>,
+    anteprime: Vec<(String, serde_json::Value)>,
     /// Le regole con cui provare le guardie.
     #[serde(default)]
     protetti: Vec<String>,
@@ -75,6 +75,14 @@ struct Dentro {
     /// (casa, TEMP, APPDATA) di cui dire le cartelle note.
     #[serde(default)]
     cartelle: Vec<(String, String, String)>,
+    /// Schermate: (finestra, nome, stampo, cartella, titoli aperti,
+    /// larghezza, altezza). I pixel non c'entrano: si confronta dove finisce
+    /// il file, quale finestra si sceglie e cosa se ne dice.
+    #[serde(default)]
+    schermate: Vec<(String, String, String, String, Vec<String>, u32, u32)>,
+    /// Istanti di cui fare lo stampo del nome, coi `fusi`.
+    #[serde(default)]
+    stampi: Vec<u64>,
     /// (codice, stdout, stderr) da raccontare come farebbe uno strumento di
     /// shell. Il processo non si avvia: avviarlo proverebbe il sistema
     /// operativo, non il racconto.
@@ -248,6 +256,8 @@ struct Fuori {
     /// L'archivio riscritto, come testo, o niente se non c'era.
     dimenticate: Vec<Option<String>>,
     cartelle: Vec<Vec<(String, String)>>,
+    schermate: Vec<Result<String, String>>,
+    stampi: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -257,36 +267,6 @@ struct Dichiarazione {
     categoria: String,
     obbligatori: Vec<String>,
     parametri: Vec<String>,
-}
-
-/// Gli argomenti come arrivano dal JSON.
-struct DaJson(BTreeMap<String, serde_json::Value>);
-
-impl Argomenti for DaJson {
-    fn campo(&self, nome: &str) -> Option<String> {
-        self.0.get(nome).map(|v| match v {
-            // Il testo di un JSON non ha le virgolette attorno: `str()` di
-            // Python su una stringa non le mette, e qui si racconta la stessa
-            // cosa allo stesso modo.
-            serde_json::Value::String(s) => s.clone(),
-            serde_json::Value::Null => "None".into(),
-            serde_json::Value::Bool(b) => if *b { "True".into() } else { "False".into() },
-            altro => altro.to_string(),
-        })
-    }
-    fn campi(&self) -> Vec<String> {
-        self.0.keys().cloned().collect()
-    }
-    fn acceso(&self, nome: &str) -> bool {
-        match self.0.get(nome) {
-            None | Some(serde_json::Value::Null) => false,
-            Some(serde_json::Value::Bool(b)) => *b,
-            Some(serde_json::Value::String(s)) => !s.is_empty(),
-            Some(serde_json::Value::Number(n)) => n.as_f64().unwrap_or(0.0) != 0.0,
-            Some(serde_json::Value::Array(a)) => !a.is_empty(),
-            Some(serde_json::Value::Object(o)) => !o.is_empty(),
-        }
-    }
 }
 
 /// Un Cestino finto, identico a quello che il Python monta per la prova:
@@ -345,7 +325,7 @@ fn main() {
         anteprime: d
             .anteprime
             .into_iter()
-            .map(|(nome, args)| anteprima(&nome, &DaJson(args)))
+            .map(|(nome, args)| anteprima(&nome, &ArgomentiJson(&args)))
             .collect(),
         scritture: {
             let g = Guardie::nuove(&d.protetti, &d.radici, &d.vietati,
@@ -446,6 +426,19 @@ fn main() {
                 })
             })
             .collect(),
+        schermate: d
+            .schermate
+            .iter()
+            .map(|(finestra, nome, stampo, cartella, titoli, w, h)| {
+                if !finestra.is_empty() {
+                    schermo::scegli(titoli, finestra)?;
+                }
+                let dove =
+                    schermo::destinazione(std::path::Path::new(cartella), stampo, finestra, nome);
+                Ok(schermo::racconto(finestra, &dove, *w, *h))
+            })
+            .collect(),
+        stampi: d.stampi.iter().map(|s| schermo::stampo(*s, &Fusi(d.fusi.clone()))).collect(),
         cartelle: d
             .cartelle
             .iter()

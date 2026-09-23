@@ -97,7 +97,7 @@ impl Scribe {
 /// stato piu' codice di questo, per giunta da aggiornare.
 fn multiparte(confine: &str, wav: &[u8], lingua: &str) -> Vec<u8> {
     let mut c: Vec<u8> = Vec::with_capacity(wav.len() + 512);
-    let mut campo = |nome: &str, valore: &str, c: &mut Vec<u8>| {
+    let campo = |nome: &str, valore: &str, c: &mut Vec<u8>| {
         c.extend_from_slice(format!("--{confine}\r\n").as_bytes());
         c.extend_from_slice(
             format!("Content-Disposition: form-data; name=\"{nome}\"\r\n\r\n").as_bytes(),

@@ -15,6 +15,11 @@ tracing.workspace = true
 # e' grande una pagina di memoria. Sono tre chiamate di sistema, e farle
 # davvero e' meglio che leggere l'uscita di tre comandi — e' la stessa
 # ragione per cui qui dentro non si compone PowerShell (D130).
+[dependencies.png]
+# Lo schermo catturato si scrive in PNG. E' Rust e basta, ed e' gia' nel
+# lockfile: la tira dentro il guscio per le icone.
+version = "0.17"
+
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
@@ -32,6 +37,10 @@ features = [
     "Win32_UI_Accessibility",
     "Win32_UI_WindowsAndMessaging",
     "Win32_Graphics_Gdi",
+    # La cattura dello schermo: i bordi veri di una finestra li sa DWM, e i
+    # pixel veri li vede solo un filo che si dichiara consapevole dei DPI.
+    "Win32_Graphics_Dwm",
+    "Win32_UI_HiDpi",
     # GetDriveTypeW: distinguere un disco fisso da una chiavetta o da
     # una unita' di rete. Una riga sola, ma senza di lei la ricerca
     # «ovunque» dei modelli si impianta sul primo disco di rete montato.

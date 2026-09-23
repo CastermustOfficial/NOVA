@@ -91,6 +91,9 @@ pub mod nuvola;
 pub use nuvola::segnaposto;
 
 pub mod finestre;
+
+// Lo schermo, o una finestra, in un'immagine.
+pub mod schermo;
 pub use finestre::{schermi, schermo_di, schermo_di_lavoro, sposta, Posa, Schermo};
 
 // Che ore sono per chi guarda l'orologio. Il fuso e' una domanda di sistema,
