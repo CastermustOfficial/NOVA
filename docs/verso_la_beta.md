@@ -2451,11 +2451,11 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    confrontati col Python da un banco. Il 23 settembre il **web senza
    browser**, le cartelle note e le procedure imparate (D326), con i corpi
    in `nova_browser::scaricata` e `nova_strumenti::procedure`; e lo
-   **schermo** (D329), con GDI e senza `mss`. Restano: il
+   **schermo** (D329), con GDI e senza `mss`; e le **deleghe** (D331), col
+   giro intero del Router confrontato col Python. Restano: il
    resto di `sistema` — il promemoria e le tre attivita' pianificate, che
    vogliono l'Utilita' di pianificazione in Rust, e le automazioni e le
-   riparazioni, che sono Python per natura — piu' le deleghe a un altro
-   cervello, `read_document`, e i due documenti —
+   riparazioni, che sono Python per natura — piu' `read_document`, e i due documenti —
    `nova-harness`, `nova-docx`, `nova-fogli` — e il browser guidato
    (`nova-cdp`, e la meta' di `nova-browser` che il browser lo usa).
 
@@ -2467,7 +2467,7 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    | sistema | 22 | 8 |
    | app / finestre | 6 | 6 |
    | web | 3 | 3 |
-   | deleghe | 3 | 0 |
+   | deleghe | 3 | 3 |
    | schermo | 1 | 1 |
 5. **Il prompt.** Le regole operative stanno in `nova/config.py` come testo, e
    il turno del demone oggi manda solo cio' che l'utente ha in `config.json`.
@@ -2490,7 +2490,7 @@ su 60 nel demone, 10 crate scritti e non ancora usati):
 2. **Le famiglie che mancano.** Ricerca web, deleghe e cattura dello schermo
    (7 strumenti, piu' `known_folders`, `read_document` e le due delle
    procedure) — ~~web, `known_folders` e procedure~~ fatti (D326),
-   ~~schermo~~ fatto (D329), restano le deleghe; il browser guidato
+   ~~schermo~~ fatto (D329), ~~deleghe~~ fatte (D331); il browser guidato
    (`nova-cdp` e la meta' di `nova-browser` che il browser lo usa: sono i
    `web_*` che usa Claude Code); i documenti (`harness`,
    Word, fogli); promemoria e attivita' pianificate, che vogliono prima

@@ -79,6 +79,12 @@ pub struct Claude {
     pub vault: String,
     pub mcp_config: String,
     pub sportello: String,
+    /// Come si chiama il file del prompt di sistema; vuoto, quello di sempre.
+    ///
+    /// Una delega non scrive sul file del turno: una delega puo' partire
+    /// mentre un turno sta aprendo la sua sessione, e un Claude che legge il
+    /// prompt di un altro risponde con le istruzioni sbagliate senza dirlo.
+    pub file_prompt: String,
 }
 
 /// Cio' che un gradino si porta dietro oltre a indirizzo e modello.
@@ -362,6 +368,22 @@ pub struct MondoVero<'a> {
     pub strumenti: Vec<Value>,
     /// Cio' che e' stato consegnato all'utente in questo turno, in ordine.
     pub consegnato: Vec<String>,
+    /// Cosa si sa dell'ultima domanda oltre alla risposta.
+    pub ultima: Ultima,
+}
+
+/// Cosa si sa dell'ultima domanda a un cervello, oltre alla risposta.
+///
+/// Il giro del turno ha bisogno di una frase; la delega ha bisogno di sapere
+/// se era la **quota** — che vuol dire mettere in pausa quel gradino e
+/// ripiegare su un altro fornitore — e quanto e' costata. Sono due cose che
+/// la frase perdeva.
+#[derive(Debug, Clone, Default)]
+pub struct Ultima {
+    /// Quota finita: fra quanti secondi riprovare.
+    pub quota: Option<i64>,
+    /// Quanto e' costata, se il cervello lo dice (Claude Code lo dice).
+    pub costo_usd: f64,
 }
 
 impl<'a> MondoVero<'a> {
@@ -502,7 +524,12 @@ impl<'a> MondoVero<'a> {
             &nome,
             in_casa,
         )
-        .map_err(motivo_di)?;
+        .map_err(|e| {
+            if let nova_cervelli::rete::Errore::LimiteUso { riprova_fra_s, .. } = &e {
+                self.ultima.quota = Some(*riprova_fra_s);
+            }
+            motivo_di(e)
+        })?;
 
         let chiamate: Vec<Chiamata> = r.tool_calls.iter().filter_map(chiamata_da).collect();
         // Il messaggio dell'assistente si mette **prima** di eseguire, con
@@ -618,7 +645,7 @@ impl<'a> MondoVero<'a> {
         // la riga finisce a 8191 caratteri e il prompt da solo ne pesa piu'
         // di ottomila. Se il file non si scrive, si torna al prompt in linea.
         let file_prompt = if apertura {
-            scrivi_prompt(&sistema).unwrap_or_default()
+            scrivi_prompt(&sistema, &c.file_prompt).unwrap_or_default()
         } else {
             String::new()
         };
@@ -660,6 +687,9 @@ impl<'a> MondoVero<'a> {
             .unwrap_or(false)
         {
             if nova_guasti::cervelli::e_limite_uso(&testo) {
+                // Quanto aspettare Claude Code non lo dice: il Python usa il
+                // quarto d'ora di `LimiteUso`, e qui pure.
+                self.ultima.quota = Some(QUOTA_CLAUDE_S);
                 return Err(format!(
                     "Claude Code ha esaurito la quota: {}",
                     testo.chars().take(300).collect::<String>()
@@ -667,6 +697,10 @@ impl<'a> MondoVero<'a> {
             }
             return Err(nova_guasti::cervelli::perche_errore(&dati, c.d.max_turns));
         }
+        self.ultima.costo_usd = dati
+            .get("total_cost_usd")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0);
         let testo = nova_pitone::senza_bianchi(&testo).to_string();
         self.sessione
             .messaggi
@@ -677,6 +711,10 @@ impl<'a> MondoVero<'a> {
         })
     }
 }
+
+/// Quanto aspettare quando Claude Code dice di aver finito la quota senza
+/// dire fino a quando: il `riprova_fra_s` di ripiego di `LimiteUso`.
+pub const QUOTA_CLAUDE_S: i64 = 900;
 
 /// Chi e' l'utente, come lo chiama il Python (`getpass.getuser()`).
 fn utente() -> String {
@@ -704,8 +742,8 @@ pub fn cartella_nova() -> std::path::PathBuf {
 ///
 /// Lo stesso file del Python: una sessione si apre da una parte o
 /// dall'altra, mai da tutte e due insieme, e il file si riscrive ogni volta.
-fn scrivi_prompt(testo: &str) -> Option<String> {
-    let f = cartella_nova().join("prompt_sistema.txt");
+fn scrivi_prompt(testo: &str, nome: &str) -> Option<String> {
+    let f = cartella_nova().join(if nome.is_empty() { "prompt_sistema.txt" } else { nome });
     std::fs::create_dir_all(f.parent()?).ok()?;
     std::fs::write(&f, testo).ok()?;
     Some(f.to_string_lossy().to_string())
@@ -989,6 +1027,7 @@ mod prove {
             gradino: 0,
             strumenti: vec![],
             consegnato: vec![],
+            ultima: Ultima::default(),
         }
     }
 

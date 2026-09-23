@@ -3016,6 +3016,8 @@ dependencies = [
 name = "nova-scala"
 version = "0.1.1"
 dependencies = [
+ "nova-mcp",
+ "nova-pitone",
  "serde",
  "serde_json",
 ]

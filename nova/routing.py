@@ -294,11 +294,22 @@ class Router:
     def delega(self, a: str, compito: str, motivo: str = "",
                da: str = "?", kb_context: str = "",
                contesto: str = "", allegati: int = 0,
-               salta_regola: bool = False) -> Delega:
+               salta_regola: bool = False, _ripiego: bool = False) -> Delega:
         """Affida un sotto-compito a un gradino e restituisce il risultato.
 
         Non e' un passaggio di consegne: chi delega resta al comando e riceve
         indietro la risposta da usare come qualunque altro risultato.
+
+        **Un ripiego non ripiega** (`_ripiego`). L'elenco dei sostituti lo fa
+        chi ha fallito per primo, e lo scorre tutto lui. Prima ogni sostituto
+        che falliva ripiegava a sua volta, e i sostituti di un sostituto
+        comprendono il gradino di partenza: con `solo_locale` acceso,
+        «standard» rimandava ad «alternativo» che rimandava a «standard», e
+        la catena finiva solo quando Python alzava `RecursionError` — con
+        novecentonovantotto deleghe fallite nello storico, e il conto delle
+        deleghe nello stato che le contava tutte. E un sostituto a quota
+        cercava i propri sostituti fra i gradini dello stesso conto di chi
+        aveva fallito per primo, che era proprio quello da evitare.
         """
         # Sui ripieghi la regola non si riapplica: rialzare al gradino che ha
         # appena rifiutato rimanda la palla a chi l'ha respinta, e il locale —
@@ -337,7 +348,7 @@ class Router:
         except LimiteUso as e:
             self.metti_in_pausa(a, e.riprova_fra_s)
             traccia.esito = f"ERRORE: quota esaurita su «{a}»"
-            if self.cfg.brains.routing.get("ripiego_su_limite", True):
+            if not _ripiego and self.cfg.brains.routing.get("ripiego_su_limite", True):
                 for alternativa in self._ripieghi(a):
                     self.log(f"«{a}» e' a quota: ripiego su «{alternativa}»")
                     # Un ripiego che solleva interrompe la catena prima del
@@ -346,7 +357,7 @@ class Router:
                         ripiego = self.delega(alternativa, compito, motivo=motivo,
                                               da=da, kb_context=kb_context,
                                               contesto=contesto, allegati=0,
-                                              salta_regola=True)
+                                              salta_regola=True, _ripiego=True)
                     except Exception as errore_ripiego:
                         self.log(f"«{alternativa}» non utilizzabile: {errore_ripiego}")
                         continue
@@ -357,12 +368,12 @@ class Router:
             # policy o tetto: ha senso provare un gradino consentito prima di
             # arrendersi, ma se non ce n'e' l'utente deve sapere il perche'
             traccia.esito = f"ERRORE: {e}"
-            for alternativa in self._ripieghi(a):
+            for alternativa in ([] if _ripiego else self._ripieghi(a)):
                 try:
                     ripiego = self.delega(alternativa, compito, motivo=motivo,
                                           da=da, kb_context=kb_context,
                                           contesto=contesto, allegati=0,
-                                          salta_regola=True)
+                                          salta_regola=True, _ripiego=True)
                 except Exception:
                     continue
                 if not ripiego.esito.startswith("ERRORE"):

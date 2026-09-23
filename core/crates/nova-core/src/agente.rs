@@ -76,7 +76,7 @@ pub struct Agente {
 /// minuti interi, e farlo sul filo dello scheduler vorrebbe dire che per
 /// tutto quel tempo il demone non risponde a nessun altro — nemmeno al «fermati».
 /// `block_in_place` toglie questo compito dallo scheduler e lo lascia lavorare.
-struct ReteNelDemone(Rete);
+pub(crate) struct ReteNelDemone(pub(crate) Rete);
 
 impl Trasporto for ReteNelDemone {
     fn posta(
@@ -173,7 +173,7 @@ impl Agente {
 /// Se nel file non c'e' niente si dice **cosa** manca invece di partire con
 /// un prompt vuoto: un modello senza prompt di sistema non e' NOVA, e' un
 /// assistente qualunque con in mano gli strumenti del computer di qualcuno.
-fn sistema(cfg: &Value) -> String {
+pub(crate) fn sistema(cfg: &Value) -> String {
     let scritto = cfg
         .get("system_prompt")
         .and_then(Value::as_str)
@@ -217,35 +217,43 @@ pub fn pronto(_server: &Arc<Server>) -> Value {
     let nomi: Vec<String> = gradini.iter().map(|g| g.nome().to_string()).collect();
     let (pronto, perche) = match gradini.first() {
         None => (false, "non c'e' nessun cervello configurato".to_string()),
-        Some(crate::mondo::Gradino::Indirizzo { .. }) => (true, String::new()),
+        Some(g) => match perche_non_pronto(g) {
+            Some(p) => (false, p),
+            None => (true, String::new()),
+        },
+    };
+    json!({ "pronto": pronto, "perche": perche, "gradini": nomi })
+}
+
+/// Perche' questo gradino non si puo' usare adesso, se non si puo'.
+///
+/// Un indirizzo non si interroga qui: rispondere «pronto» costa quanto un
+/// ping, e chi deve sapere se il server risponde lo scopre alla prima
+/// domanda. Una CLI e Claude Code invece si guardano sul disco.
+pub fn perche_non_pronto(g: &crate::mondo::Gradino) -> Option<String> {
+    match g {
+        crate::mondo::Gradino::Indirizzo { .. } => None,
         // Una CLI il turno la sa lanciare, ma solo se il programma c'e'
         // davvero: dirlo adesso e' tutto il punto di questa domanda — chi
         // chiede deve scegliere la strada **prima** di imboccarla, e
         // scoprire che manca il binario a meta' turno costerebbe un turno.
-        Some(crate::mondo::Gradino::Cli { come, .. }) => {
+        crate::mondo::Gradino::Cli { come, .. } => {
             let eseguibile = crate::processo::trova(&come.binario);
-            match nova_cervelli::cli::perche_non_pronto(&eseguibile, &come.binario, &come.nome) {
-                Some(perche) => (false, perche),
-                None => (true, String::new()),
-            }
+            nova_cervelli::cli::perche_non_pronto(&eseguibile, &come.binario, &come.nome)
         }
         // Claude Code: le stesse tre domande del pannello, nello stesso
         // ordine — c'e'? esiste? ha fatto l'accesso? — perche' il motivo
         // arriva all'utente, e un motivo sbagliato lo manda a cercare il
         // guasto dalla parte sbagliata.
-        Some(crate::mondo::Gradino::Claude { come, .. }) => {
+        crate::mondo::Gradino::Claude { come, .. } => {
             let eseguibile = nova_cervelli::cerca::dove_e_claude(&come.d.binario);
-            match nova_cervelli::claude::perche_non_pronto(
+            nova_cervelli::claude::perche_non_pronto(
                 &eseguibile,
                 std::path::Path::new(&eseguibile).exists(),
                 nova_cervelli::cerca::credenziali().is_some(),
-            ) {
-                Some(perche) => (false, perche),
-                None => (true, String::new()),
-            }
+            )
         }
-    };
-    json!({ "pronto": pronto, "perche": perche, "gradini": nomi })
+    }
 }
 
 /// Scrive il collegamento MCP per Claude Code, e dice quale sportello usare.
@@ -394,6 +402,7 @@ pub async fn fai_un_turno(
         gradino: 0,
         strumenti,
         consegnato: Vec::new(),
+        ultima: crate::mondo::Ultima::default(),
     };
     let inizio = std::time::Instant::now();
     let righe_prima = mondo.sessione.messaggi.len();

@@ -10684,3 +10684,62 @@ Sei mutazioni, sei rossi — una solo dopo aver spostato in `nova-strumenti`
 la scelta del nome del file, che il demone e il banco si scrivevano ognuno
 per conto suo. Via anche un avviso di compilazione in `nova-voce` che
 compariva a ogni build.
+
+## Le deleghe nel demone, col Router intero
+
+`cervelli.delega`, `cervelli.stato` e `cervelli.secondo_parere` (D331): le
+ultime tre delle famiglie piccole. Nella tabella di `verso_la_beta.md` le
+deleghe passano a 3 su 3.
+
+Era la più grossa delle tre, perché dietro c'è il `Router` Python: la regola
+che fa salire per categoria, il tetto di spesa con la prenotazione, le pause
+per quota, i ripieghi su un altro fornitore. La matematica stava già in
+`nova-scala`; il giro no. Adesso c'è anche quello, in `nova_scala::delega`,
+sopra un tratto che sa solo chiedere a un cervello. È la stessa cucitura del
+turno: cio' che decide si prova con un mondo finto, e il mondo vero è
+corto.
+
+### Il banco gioca a scacchi col Router
+
+Sei partite, ognuna una configurazione, un copione per ogni cervello finto e
+una fila di mosse — delega, secondo parere, stato, l'orologio che avanza, un
+cervello che si spegne. Le gioca il `Router` vero con gli strumenti veri di
+`deleghe.py`, e le gioca il Rust; si confronta tutto: cosa torna a chi ha
+chiesto, cosa si scrive nel registro, cosa arriva a ogni cervello, lo
+storico, la spesa, le prenotazioni, le pause. Il primo giro aveva quattro
+rossi, tutti per la stessa ragione: in Python la traccia di un sostituto
+nello storico e quella restituita sono **lo stesso oggetto**, e il motivo
+«(ripiego: …)» scritto sull'una compare anche nell'altra.
+
+### Un difetto del Python
+
+Portando i ripieghi l'ho visto leggendo: ogni sostituto ripiegava a sua volta,
+e i sostituti di un sostituto comprendono il gradino di partenza. Con
+`solo_locale` acceso l'ho provato: 998 deleghe nello storico, e la risposta
+del locale solo quando Python alza `RecursionError`. Corretto da tutte e due
+le parti — un ripiego non ripiega — e c'è una partita apposta.
+
+### La scala letta come la legge Python
+
+Per delegare servono campi che il turno non usava, e leggendoli ho visto che
+il demone li leggeva diversi (D332, e la voce in `dove_ho_sbagliato.md`).
+Adesso la scala di fabbrica è estratta da Python e sta sotto a quella
+dell'utente, come fa `_merge`.
+
+### Nel demone
+
+Chiedere a un gradino è un giro del turno con un messaggio solo, fatto da
+`MondoVero`: niente strade nuove per parlare con un indirizzo, una CLI o
+Claude Code. Il giro adesso dice anche se è finito per quota, e quanto è
+costato. `prove/demone/test_demone_cervelli.py`, 17 controlli, con due
+server OpenAI finti — uno risponde 429 alla prima domanda — e un Claude
+Code finto: si guarda cosa arriva al cervello (un messaggio, niente prompt
+di sistema, niente strumenti), che la regola faccia salire, che la quota
+metta in pausa e si ripieghi su un altro fornitore, che in pausa non si
+bussi, che a Claude si deleghi con una sessione nuova e un file di prompt
+suo, e che un server spento non sia «pronto».
+
+Diciassette mutazioni, una alla volta e ricostruendo fra l'una e l'altra:
+dodici sul giro e sulla lettura della scala, cinque nel demone. Tutte rosse,
+una solo dopo aver aggiunto al banco la mossa che la guardava — il secondo
+parere in cui tutti e due i gradini salirebbero allo stesso.

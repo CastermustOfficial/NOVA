@@ -12,7 +12,7 @@
 
 use nova_ciclo::Manopole;
 use nova_ciclo::ManopoleDiSalita as ManopoleSalita;
-use nova_scala::{Configurazione, Gradino as GradinoScala};
+use nova_scala::Configurazione;
 use serde_json::Value;
 
 use crate::mondo::{Misure, Recapiti};
@@ -57,57 +57,15 @@ fn vero(v: &Value, dove: &[&str], se_manca: bool) -> bool {
     ora.as_bool().unwrap_or(se_manca)
 }
 
-/// I gradini e le loro regole, come li ha scritti l'utente.
+/// I gradini e le loro regole, come li vede NOVA.
 ///
-/// L'ordine dei gradini viene da `routing.scala` e non dall'ordine delle
-/// chiavi di `tiers`: e' scritto in `nova_scala::scala` perche' e' li' che e'
-/// costato, e qui si porta solo cio' che c'e' nel file.
+/// La lettura sta in `nova_scala::configurazione`, confrontata col Python:
+/// la scala di fabbrica sotto a quella dell'utente al primo livello, e i
+/// valori letti come li legge Python. Qui prima si leggeva il file com'era,
+/// e un gradino con `"brain": "locale"` senza `"locale": true` per il demone
+/// era fuori casa (D331).
 pub fn scala(cfg: &Value) -> Configurazione {
-    let routing = cfg
-        .get("brains")
-        .and_then(|b| b.get("routing"))
-        .cloned()
-        .unwrap_or(Value::Null);
-    let mut tiers: Vec<GradinoScala> = Vec::new();
-    if let Some(o) = routing.get("tiers").and_then(Value::as_object) {
-        for (nome, t) in o {
-            tiers.push(GradinoScala {
-                nome: nome.clone(),
-                brain: testo(t, &["brain"]),
-                model: testo(t, &["model"]),
-                descrizione: testo(t, &["descrizione"]),
-                locale: vero(t, &["locale"], false),
-                a_pagamento: vero(t, &["a_pagamento"], false),
-            });
-        }
-    }
-    let scala_dichiarata: Vec<String> = routing
-        .get("scala")
-        .and_then(Value::as_array)
-        .map(|a| {
-            a.iter()
-                .filter_map(|x| x.as_str().map(str::to_string))
-                .collect()
-        })
-        .unwrap_or_default();
-    Configurazione {
-        tiers,
-        scala_dichiarata,
-        escalation_automatica: vero(&routing, &["escalation_automatica"], true),
-        solo_locale: vero(&routing, &["solo_locale"], false),
-        // Le categorie che salgono per regola sono un giudizio sul testo
-        // della domanda, e quel giudizio qui non si fa ancora: il turno del
-        // demone parte dal primo gradino e sale quando sbaglia.
-        categorie: Vec::new(),
-        tetto_usd_sessione: routing
-            .get("tetto_usd_sessione")
-            .and_then(Value::as_f64)
-            .unwrap_or(0.0),
-        costo_stimato_delega: routing
-            .get("costo_stimato_delega")
-            .and_then(Value::as_f64)
-            .unwrap_or(0.0),
-    }
+    nova_scala::da_routing(&nova_scala::routing_effettivo(cfg))
 }
 
 /// Dove si va a parlare: l'indirizzo di casa, quello del fornitore, la chiave.
@@ -269,8 +227,13 @@ mod prove {
 
     #[test]
     fn senza_configurazione_non_si_esplode() {
+        // Senza `brains.routing` la scala e' quella di fabbrica, come per
+        // Python: prima era vuota, e il demone non aveva a chi chiedere.
         let c = scala(&json!({}));
-        assert!(c.tiers.is_empty());
+        assert_eq!(
+            nova_scala::scala(&c),
+            ["locale", "standard", "difficile", "alternativo"]
+        );
         let r = recapiti(&json!({}), &|_| None);
         assert_eq!(r.locale_url, "http://127.0.0.1:8420");
         assert_eq!(r.api_url, "https://api.openai.com");

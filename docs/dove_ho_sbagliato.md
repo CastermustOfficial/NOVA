@@ -1129,3 +1129,38 @@ rossa su tre istanti, uno dei quali è la notte del cambio d'ora.
 
 La domanda che mi faccio adesso quando una prova è verde al primo colpo:
 **in questa macchina, il caso difficile c'è?**
+
+## Il demone leggeva la scala a modo suo
+
+Quando ho scritto `dalla_configurazione::scala`, per il turno del demone,
+ho letto `brains.routing` com'era nel file, coi valori di ripiego di Rust:
+`locale` falso se non c'è scritto, `a_pagamento` falso, nessuna categoria,
+nessuna scala di fabbrica se il file non ne ha una. Il Python fa diverso su
+tutti e quattro: `locale` vale `brain == "locale"`, `a_pagamento` il
+contrario, e la scala di fabbrica sta sotto a quella dell'utente.
+
+**Credevo** che per il turno bastasse: il turno parte dal primo gradino e
+sale quando sbaglia, e di `locale` e delle categorie non si serve. **Era
+vero** per il turno. **Me ne sono accorto** portando la delega, che di quei
+campi vive: con la mia lettura un gradino `"brain": "locale"` scritto a mano
+era fuori casa, e con `solo_locale` acceso il demone lo avrebbe rifiutato
+mentre il Python lo usava.
+
+La lezione è quella di D185 detta in un altro modo: **una lettura della
+configurazione che «basta per chi la usa oggi» è una seconda lettura**, e il
+prossimo che la usa eredita le sue differenze senza saperlo. Adesso la
+lettura sta in `nova-scala`, confrontata col `_merge` vero (D332).
+
+Portando il `Router` ho trovato anche un difetto del Python, scritto a suo
+tempo senza una prova che lo guardasse: ogni sostituto ripiegava a sua
+volta, e con `solo_locale` acceso la catena girava in tondo fino a
+`RecursionError`. La risposta arrivava lo stesso — dal locale, dopo
+novecentonovantotto tentativi — e per questo nessuno se n'era accorto (D331).
+
+E ancora una volta il guardiano dei doppioni: per allegare i file a una
+delega ho scritto `allega` in `nova-scala`, e c'era già in `nova-mcp`,
+confrontata col Python. Rosso prima del commit, per `MAX_CARATTERI_ALLEGATI`.
+Le due funzioni Python differiscono per una riga — quella della delega avvisa
+che ci si è fermati — e adesso in Rust la regola è una, con quella riga come
+scelta di chi chiama. Avevo cercato «allega» nei nomi delle funzioni Python,
+come mi ero ripromesso; non l'avevo cercato nel Rust.
