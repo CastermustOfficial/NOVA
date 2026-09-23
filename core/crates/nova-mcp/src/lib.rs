@@ -416,6 +416,15 @@ pub enum Allegato {
 /// file illeggibile **si dice** invece di sparire — chi ha chiesto di
 /// allegarlo deve sapere che non c'e'.
 pub fn allega(contesto: &str, file: &[Allegato]) -> String {
+    allega_avvisando(contesto, file, false)
+}
+
+/// Come [`allega`], e se il tetto si raggiunge lo si scrive in coda.
+///
+/// Sono due funzioni in Python — `_allega` del server MCP e quella di
+/// `tools/deleghe.py` — identiche tranne che per questa riga, che la seconda
+/// aggiunge. Qui la regola e' una, e la riga e' una scelta di chi chiama.
+pub fn allega_avvisando(contesto: &str, file: &[Allegato], avvisa: bool) -> String {
     if file.is_empty() {
         return contesto.to_string();
     }
@@ -443,6 +452,9 @@ pub fn allega(contesto: &str, file: &[Allegato]) -> String {
                 rimasti -= testo.chars().count() as i64;
                 pezzi.push(format!("### {percorso}\n```\n{testo}\n```"));
                 if rimasti <= 0 {
+                    if avvisa {
+                        pezzi.push("[altri file omessi: limite di contesto raggiunto]".into());
+                    }
                     break;
                 }
             }

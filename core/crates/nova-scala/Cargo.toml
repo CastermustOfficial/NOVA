@@ -8,10 +8,17 @@ description = "Chi risponde a cosa: la scala dei gradini, le salite obbligate, i
 
 [dependencies]
 serde = { workspace = true, features = ["derive"], optional = true }
-serde_json = { workspace = true, optional = true }
+# La configurazione arriva come JSON, e la scala di fabbrica sta scritta in
+# JSON: estratta da Python, non ricopiata.
+serde_json = { workspace = true }
+# `bool(x)`, `str(x)` e `.strip()` come li intende Python.
+nova-pitone = { path = "../nova-pitone" }
+# Come si allegano i file a un compito: la regola e' quella del server MCP,
+# e una seconda copia saprebbe presto cose diverse.
+nova-mcp = { path = "../nova-mcp" }
 
 [features]
-banco = ["dep:serde", "dep:serde_json"]
+banco = ["dep:serde"]
 
 [[bin]]
 name = "banco-scala"

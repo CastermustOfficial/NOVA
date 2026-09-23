@@ -22,6 +22,17 @@ use std::collections::BTreeMap;
 pub mod parole;
 pub use parole::parola_presente;
 
+// Dal file alla scala, con la scala di fabbrica sotto come fa Python.
+pub mod configurazione;
+pub use configurazione::{da_routing, routing_effettivo};
+
+// La scala di fabbrica, estratta da `routing_predefinito()`.
+pub mod predefinito;
+
+// Passare la palla: il giro della delega, con le sue pause e il suo conto.
+pub mod delega;
+
+
 /// Un gradino: quale cervello, con quale modello, e quanto costa.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Gradino {
@@ -116,6 +127,8 @@ pub struct Configurazione {
     pub categorie: Vec<Categoria>,
     pub tetto_usd_sessione: f64,
     pub costo_stimato_delega: f64,
+    /// Se un gradino a quota esaurita ripiega su un altro fornitore.
+    pub ripiego_su_limite: bool,
 }
 
 impl Configurazione {
@@ -252,17 +265,24 @@ pub fn utilizzabile(
     }
     // Se il tetto lo rifiuterebbe comunque, salire vuol dire solo perdere il
     // ripiego: meglio restare dov'e' il compito.
-    if cfg.tetto_usd_sessione > 0.0 && a_consumo(t) {
-        let stima = if cfg.costo_stimato_delega > 0.0 {
-            cfg.costo_stimato_delega
-        } else {
-            0.10
-        };
-        if speso_usd + prenotato_usd + stima > cfg.tetto_usd_sessione {
+    if cfg.tetto_usd_sessione != 0.0 && a_consumo(t) {
+        if speso_usd + prenotato_usd + stima(cfg) > cfg.tetto_usd_sessione {
             return false;
         }
     }
     true
+}
+
+/// Quanto si prenota su una delega prima di sapere quanto costera'.
+///
+/// `float(costo_stimato_delega or 0.10)`: lo zero vuol dire «non l'ha
+/// scritto», non «gratis».
+pub fn stima(cfg: &Configurazione) -> f64 {
+    if cfg.costo_stimato_delega != 0.0 {
+        cfg.costo_stimato_delega
+    } else {
+        0.10
+    }
 }
 
 /// Chi puo' sostituire un gradino a quota esaurita.

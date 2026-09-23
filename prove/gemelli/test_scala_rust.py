@@ -404,6 +404,280 @@ ombra = confronta(["api", "Api", "claude"], ["api"],
 controlla("«api» dichiarata copre l'api di casa", ombra[0] == "cli", str(ombra))
 controlla("ma non copre «claude»", ombra[2] == "claude", str(ombra))
 
+print("\n=== La scala letta da config.json, con quella di fabbrica sotto ===")
+# Il demone leggeva il file com'era: senza la scala di fabbrica sotto, e con
+# `locale` falso per chi non lo scriveva. Qui si legge con il `_merge` vero
+# del Python e si chiede al Router vero, su compiti che fanno scattare le
+# categorie di fabbrica.
+import copy  # noqa: E402
+import types  # noqa: E402
+import tempfile  # noqa: E402
+from pathlib import Path as _Path  # noqa: E402
+from nova.config import Config, _merge  # noqa: E402
+from nova.routing import routing_predefinito  # noqa: E402
+from nova import routing as _routing  # noqa: E402
+
+COMPITI_FABBRICA = [("rivedi il codice di questo modulo", 2), ("rivedi il codice", 1),
+                    ("sovrascrivi il file", 0), ("progettazione della cache", 0),
+                    ("che tempo fa", 0)]
+CONFIGURAZIONI = [
+    {},
+    {"brains": {}},
+    {"brains": {"routing": "rotto"}},
+    {"brains": {"routing": {"tiers": {"solo": {"brain": "locale"}, "nuvola": {"brain": "api"},
+                                      "senza_brain": {"model": "x"}}}}},
+    {"brains": {"routing": {"solo_locale": "false", "escalation_automatica": 0,
+                            "tetto_usd_sessione": "2.5", "costo_stimato_delega": 0,
+                            "ripiego_su_limite": []}}},
+    {"brains": {"routing": {"categorie_che_salgono": {
+        "stringa": {"gradino_minimo": "difficile", "parole": "xy"},
+        "min_testo": {"gradino_minimo": "difficile", "min_file": "2", "parole": ["a"]},
+        "min_rotto": {"gradino_minimo": "difficile", "min_file": "due", "parole": ["b"]},
+        "min_float": {"gradino_minimo": "standard", "min_file": 1.9, "parole": [3, None]},
+        "spenta": {"attiva": "", "gradino_minimo": "difficile", "parole": ["c"]},
+        "non_oggetto": 5}}}},
+]
+
+
+def letta_py(raw):
+    cfg = _merge(Config(), copy.deepcopy(raw))
+    r = Router(cfg)
+    rt = cfg.brains.routing
+    return {
+        "tiers": [[t.nome, t.brain, t.model, t.descrizione, t.locale, t.a_pagamento]
+                  for t in r.tiers().values()],
+        "scala": r.scala(),
+        "solo_locale": bool(rt.get("solo_locale")),
+        "tetto": float(rt.get("tetto_usd_sessione") or 0),
+        "stima": float(rt.get("costo_stimato_delega") or 0.10),
+        "ripiego_su_limite": bool(rt.get("ripiego_su_limite", True)),
+    }, [list(r.gradino_minimo(c, n)) for c, n in COMPITI_FABBRICA]
+
+
+# «rotto» e' l'unico caso in cui le due parti non sono uguali per scelta: il
+# Python prende una stringa come scala e si ferma alla prima domanda; il Rust
+# tiene quella di fabbrica. Si controlla a parte.
+lette = rust({"configurazioni": CONFIGURAZIONI,
+              "compiti": COMPITI_FABBRICA})["configurazioni"]
+diverse = []
+for raw, ru in zip(CONFIGURAZIONI, lette):
+    if raw.get("brains", {}).get("routing") == "rotto":
+        continue
+    py, _minimi = letta_py(raw)
+    for k, v in py.items():
+        if ru.get(k) != v:
+            diverse.append(f"{json.dumps(raw)[:60]} {k}: rust {ru.get(k)} vs python {v}")
+controlla(f"le {len(CONFIGURAZIONI) - 1} configurazioni danno la stessa scala e le stesse "
+          "manopole", not diverse, " | ".join(diverse[:3]))
+controlla("una routing che non e' un oggetto lascia la scala di fabbrica",
+          lette[2]["scala"] == ["locale", "standard", "difficile", "alternativo"],
+          str(lette[2]["scala"]))
+
+print("\n=== La scala di fabbrica e' quella di Python ===")
+controlla("ROUTING_PREDEFINITO e' routing_predefinito(), estratto e non ricopiato",
+          json.loads(rust({})["predefinito"]) == routing_predefinito())
+
+print("\n=== La delega, giocata passo per passo coi cervelli finti ===")
+# Il Router e gli strumenti di `deleghe.py` sono quelli veri. Si finge solo
+# chi risponde — cervelli che leggono da un copione — e l'orologio.
+from nova.tools import deleghe as _del  # noqa: E402
+from nova.tools.base import ToolError  # noqa: E402
+from nova.brains.base import LimiteUso, Risposta  # noqa: E402
+import nova.brains as _brains  # noqa: E402
+
+_cartella = _Path(tempfile.mkdtemp(prefix="nova-delega-"))
+(_cartella / "a.py").write_bytes(b"def a():\r\n    return 1\r\n# fine\rdopo\r\n")
+(_cartella / "b.md").write_text("perché sì — **sì**", encoding="utf-8")
+(_cartella / "grande.txt").write_text("x" * 119_990 + "\n" + "y" * 50, encoding="utf-8")
+(_cartella / "c.txt").write_text("mai letto", encoding="utf-8")
+FA, FB, FG, FC = (str(_cartella / n) for n in ("a.py", "b.md", "grande.txt", "c.txt"))
+
+# Ogni gradino ha una coppia (cervello, modello) sua: e' da li' che il
+# cervello finto capisce chi e'.
+CONSUMO = {"brains": {"routing": {"tetto_usd_sessione": 0.25, "costo_stimato_delega": 0.10}}}
+SCENARI = [
+    {"nome": "quota esaurita: pausa, ripiego su un altro fornitore, poi la pausa passa",
+     "config": {}, "a_consumo": [], "orologio": 1_788_000_000.5,
+     "copione": {"standard": [{"limite": 30}],
+                 "alternativo": [{"ok": "da gemini", "costo": 0.02, "durata": 1500}]},
+     "passi": [{"tipo": "delega", "a": " standard ", "compito": "spiega le code",
+                "motivo": "troppo lungo per me"},
+               {"tipo": "stato"},
+               {"tipo": "avanza", "secondi": 30},
+               {"tipo": "delega", "a": "standard", "compito": "e adesso?"},
+               {"tipo": "avanza", "secondi": 31},
+               {"tipo": "delega", "a": "standard", "compito": "e adesso?"},
+               {"tipo": "stato"}]},
+    {"nome": "le categorie che salgono, e il secondo parere che resta su due teste",
+     "config": {}, "a_consumo": [], "orologio": 1000.0, "copione": {},
+     "passi": [{"tipo": "delega", "a": "standard", "compito": "rivedi l'architettura"},
+               {"tipo": "delega", "a": "standard", "compito": "trova i bug",
+                "file": [FA, FB]},
+               {"tipo": "parere", "domanda": "fai una code review", "file": [FA, FB]},
+               {"tipo": "parere", "domanda": "che ne pensi", "primo": "difficile",
+                "secondo": "difficile"},
+               # Salirebbero tutti e due a «difficile»: il secondo resta dov'era.
+               {"tipo": "parere", "domanda": "rivedi l'architettura", "primo": "standard",
+                "secondo": "locale"},
+               {"tipo": "grezza", "a": "standard", "compito": "un refactor",
+                "da": "difficile"},
+               {"tipo": "grezza", "a": "standard", "compito": "un refactor",
+                "salta_regola": True}]},
+    {"nome": "il tetto di spesa: si prenota, si sfora, si ripiega",
+     "config": CONSUMO, "a_consumo": ["standard", "difficile", "locale"], "orologio": 5.0,
+     "copione": {"standard": [{"ok": "uno", "costo": 0.12, "durata": 900},
+                              {"ok": "due", "costo": 0.12}]},
+     "passi": [{"tipo": "delega", "a": "standard", "compito": "primo"},
+               {"tipo": "delega", "a": "standard", "compito": "secondo"},
+               {"tipo": "delega", "a": "standard", "compito": "terzo"},
+               {"tipo": "stato"}]},
+    {"nome": "solo in casa: un ripiego non ripiega",
+     "config": {"brains": {"routing": {"solo_locale": True}}}, "a_consumo": [],
+     "orologio": 0.0, "copione": {},
+     "passi": [{"tipo": "delega", "a": "standard", "compito": "ciao"},
+               {"tipo": "spegni", "gradino": "locale", "perche": "llama-server giu'"},
+               {"tipo": "delega", "a": "difficile", "compito": "ciao"},
+               {"tipo": "grezza", "a": "alternativo", "compito": "ciao"},
+               {"tipo": "stato"}]},
+    {"nome": "chi non risponde, chi non c'e', e la quota senza ripiego",
+     "config": {"brains": {"routing": {"ripiego_su_limite": False}}}, "a_consumo": [],
+     "orologio": 100.0,
+     "copione": {"difficile": [{"errore": "processo morto"}],
+                 "standard": [{"limite": 7200}]},
+     "passi": [{"tipo": "spegni", "gradino": "alternativo", "perche": "manca il programma"},
+               {"tipo": "delega", "a": "alternativo", "compito": "x"},
+               {"tipo": "delega", "a": "inesistente", "compito": "x"},
+               {"tipo": "delega", "a": "difficile", "compito": "x"},
+               {"tipo": "delega", "a": "standard", "compito": "x"},
+               {"tipo": "parere", "domanda": "chi ha ragione?", "primo": "standard",
+                "secondo": "inesistente"},
+               {"tipo": "stato"}]},
+    {"nome": "contesto e allegati: a capo, accenti, tagli",
+     "config": {}, "a_consumo": [], "orologio": 0.0, "copione": {},
+     "passi": [{"tipo": "delega", "a": "locale", "compito": "leggi",
+                "contesto": "vincoli: nessuno", "file": [FA, FB]},
+               {"tipo": "delega", "a": "locale", "compito": "tutto",
+                "file": [FG, FA, FC]},
+               {"tipo": "delega", "a": "locale", "compito": "c" * 80}]},
+]
+
+
+def gioca_py(sc):
+    cfg = _merge(Config(), copy.deepcopy(sc["config"]))
+    orologio = [sc["orologio"]]
+    righe, chiesti, spenti = [], [], {}
+    copione = copy.deepcopy(sc["copione"])
+    r = Router(cfg, log=righe.append)
+    chi = {(t.brain, t.model): n for n, t in r.tiers().items()}
+    assert len(chi) == len(r.tiers()), "due gradini con lo stesso cervello e modello"
+
+    class Finto:
+        def __init__(self, nome):
+            self.nome = nome
+            self.a_consumo = nome in sc["a_consumo"]
+
+        def disponibile(self):
+            return (False, spenti[self.nome]) if self.nome in spenti else (True, "")
+
+        def chat(self, messaggi, _tools, _cfg):
+            chiesti.append([self.nome, messaggi[0]["content"]])
+            coda = copione.setdefault(self.nome, [])
+            if not coda:
+                return Risposta(contenuto=f"risposta di {self.nome}")
+            x = coda.pop(0)
+            if "limite" in x:
+                raise LimiteUso("quota finita", x["limite"])
+            if "errore" in x:
+                raise RuntimeError(x["errore"])
+            return Risposta(contenuto=x.get("ok", ""), costo_usd=x.get("costo", 0.0),
+                            durata_ms=x.get("durata", 0))
+
+    veri = (_brains.crea_brain, _routing.time, _del.ROUTER)
+    _brains.crea_brain = lambda brain, *_a, model_override="", **_k: Finto(
+        chi[(brain, model_override)])
+    _routing.time = types.SimpleNamespace(time=lambda: orologio[0])
+    _del.ROUTER = r
+    risultati = []
+    try:
+        for p in sc["passi"]:
+            tipo = p["tipo"]
+            if tipo == "delega":
+                try:
+                    risultati.append({"Ok": _del.delega(p["a"], p["compito"], p.get("motivo", ""),
+                                                        p.get("contesto", ""), p.get("file"))})
+                except ToolError as e:
+                    risultati.append({"Err": str(e)})
+            elif tipo == "grezza":
+                try:
+                    t = r.delega(a=p["a"], compito=p["compito"], motivo=p.get("motivo", ""),
+                                 da=p.get("da", ""), contesto=p.get("contesto", ""),
+                                 allegati=p.get("allegati", 0),
+                                 salta_regola=p.get("salta_regola", False))
+                    risultati.append({"Ok": [t.da, t.a, t.motivo, t.compito, t.esito,
+                                             t.costo_usd, t.durata_ms]})
+                except PermissionError as e:
+                    risultati.append({"Err": str(e)})
+            elif tipo == "parere":
+                risultati.append(_del.secondo_parere(p["domanda"], p.get("primo", "standard"),
+                                                     p.get("secondo", "alternativo"),
+                                                     p.get("file")))
+            elif tipo == "stato":
+                risultati.append(json.loads(json.dumps(_del.modelli())))
+            else:
+                if tipo == "avanza":
+                    orologio[0] += p["secondi"]
+                elif tipo == "spegni":
+                    spenti[p["gradino"]] = p["perche"]
+                elif tipo == "accendi":
+                    spenti.pop(p["gradino"], None)
+                risultati.append(None)
+        pause = {n: r.pausa_residua(n) for n in r.tiers()}
+    finally:
+        _brains.crea_brain, _routing.time, _del.ROUTER = veri
+    return {
+        "risultati": risultati, "righe": righe, "chiesti": chiesti,
+        "speso": r.speso_usd, "prenotato": r._prenotato,
+        "storico": [[t.da, t.a, t.motivo, t.compito, t.esito, t.costo_usd, t.durata_ms]
+                    for t in r.storico],
+        "pause": pause,
+    }
+
+
+_suoi = rust({"scenari": [{k: v for k, v in sc.items() if k != "nome"} for sc in SCENARI]})
+for sc, ru in zip(SCENARI, _suoi["scenari"]):
+    py = gioca_py(sc)
+    diverse = []
+    for parte in ("risultati", "righe", "chiesti", "storico", "speso", "prenotato", "pause"):
+        a, b = py[parte], ru[parte]
+        if a != b:
+            if isinstance(a, list) and isinstance(b, list):
+                k = next((i for i, (x, y) in enumerate(zip(a, b)) if x != y), min(len(a), len(b)))
+                a, b = (a[k] if k < len(a) else "(manca)"), (b[k] if k < len(b) else "(manca)")
+                parte = f"{parte}[{k}]"
+            diverse.append(f"{parte}:\n      python {str(a)[:300]}\n      rust   {str(b)[:300]}")
+    controlla(sc["nome"], not diverse, ("\n    " + "\n    ".join(diverse[:2])) if diverse else "")
+
+# Le domande sul risultato, indipendenti dal confronto.
+quota, regole, tetto, casa, guasti, allegati = _suoi["scenari"]
+controlla("a quota si ripiega su un altro fornitore, non sullo stesso conto",
+          quota["risultati"][0]["Ok"].startswith("[risposta da «alternativo» (salito da « standard »), 0.0200 $, 1.5s]"),
+          str(quota["risultati"][0]))
+controlla("e dopo la pausa si torna al gradino chiesto",
+          quota["risultati"][5]["Ok"].endswith("risposta di standard"), str(quota["risultati"][5]))
+controlla("il tetto: due deleghe passano, la terza ripiega",
+          tetto["risultati"][2]["Ok"].startswith("[risposta da «alternativo»")
+          and abs(tetto["speso"] - 0.24) < 1e-9 and tetto["prenotato"] == 0,
+          str(tetto["risultati"][2]))
+controlla("solo in casa: tre tentativi, non novecentonovantotto",
+          [t[1] for t in casa["storico"][:3]] == ["alternativo", "locale", "standard"],
+          str([t[1] for t in casa["storico"]]))
+controlla("un gradino spento dice perche', con le parole del Python",
+          guasti["risultati"][1] == {"Err": "«alternativo» non ha potuto rispondere:  "
+                                            "manca il programma"}, str(guasti["risultati"][1]))
+controlla("gli allegati arrivano col testo a capo come lo legge Python",
+          "def a():\n    return 1\n# fine\ndopo\n" in allegati["chiesti"][0][1],
+          repr(allegati["chiesti"][0][1][:200]))
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")
