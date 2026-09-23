@@ -1164,3 +1164,10 @@ Le due funzioni Python differiscono per una riga — quella della delega avvisa
 che ci si è fermati — e adesso in Rust la regola è una, con quella riga come
 scelta di chi chiama. Avevo cercato «allega» nei nomi delle funzioni Python,
 come mi ero ripromesso; non l'avevo cercato nel Rust.
+
+E una prova che dipendeva dalla velocità della macchina: controllavo che
+l'intestazione della risposta dicesse la durata, che il Python scrive solo
+se è almeno un millesimo. Qui il cervello finto ci metteva qualche
+millesimo, sulla CI meno: rosso là, verde qui. È la stessa voce di D235, la
+prova che misurava la velocità della macchina; adesso la durata si guarda
+solo se c'è.
