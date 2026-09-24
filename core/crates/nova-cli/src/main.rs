@@ -64,6 +64,14 @@ enum Cmd {
     },
     /// Le conversazioni aperte nel demone.
     Sessioni,
+    /// Le richieste di permesso in attesa, una per una: si' o no.
+    ///
+    ///   nova permessi
+    ///
+    /// E' il bottone della chat per chi sta nel terminale: un `nova chiedi`
+    /// che aspetta un permesso si sblocca rispondendo da qui, in un'altra
+    /// finestra.
+    Permessi,
     /// Resta in ascolto degli eventi. Senza argomenti ascolta tutto.
     Watch { topics: Vec<String> },
     /// Ponte stdio <-> demone, per collegare Claude Code come server MCP.
@@ -160,6 +168,54 @@ async fn main() -> Result<()> {
             } else {
                 for nome in aperte {
                     println!("{nome}");
+                }
+            }
+        }
+
+        Cmd::Permessi => {
+            let r = chiamata_singola(
+                &endpoint,
+                "capabilities/call",
+                json!({ "name": "approvazione.attese", "args": {} }),
+            )
+            .await?;
+            let attese: Vec<Value> = r
+                .get("richieste")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default();
+            if attese.is_empty() {
+                println!("nessuna richiesta in attesa");
+            }
+            for a in attese {
+                let testo = |k: &str| a.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
+                println!(
+                    "\n{} ({}, {})\n{}",
+                    testo("strumento"),
+                    testo("rischio"),
+                    testo("origine"),
+                    testo("dettaglio")
+                );
+                eprint!("Consenti? [s/N] ");
+                let mut riga = String::new();
+                std::io::stdin().read_line(&mut riga)?;
+                // Solo un si' esplicito e' un si': Invio da solo, o qualunque
+                // altra cosa, e' un no.
+                let si = matches!(
+                    riga.trim().to_lowercase().as_str(),
+                    "s" | "si" | "sì" | "y" | "yes"
+                );
+                let esito = chiamata_singola(
+                    &endpoint,
+                    "capabilities/call",
+                    json!({ "name": "approvazione.rispondi",
+                            "args": { "id": testo("id"), "consenti": si } }),
+                )
+                .await?;
+                if esito.get("ok").and_then(|v| v.as_bool()) == Some(false) {
+                    println!("non piu' in attesa");
+                } else {
+                    println!("{}", if si { "consentito" } else { "negato" });
                 }
             }
         }

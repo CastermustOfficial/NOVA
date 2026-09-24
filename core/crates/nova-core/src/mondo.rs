@@ -24,6 +24,13 @@ use nova_cervelli::rete::{chiedi, Trasporto};
 #[async_trait]
 pub trait Esecutore: Send + Sync {
     async fn esegui(&self, nome: &str, argomenti: Value) -> Result<Value, String>;
+    /// Se la chiamata si puo' fare. `Err` porta il testo che il modello
+    /// legge al posto del risultato: la persona ha detto di no, o non ha
+    /// risposto. Chi non chiede niente a nessuno — i mondi finti — non lo
+    /// scrive.
+    async fn permesso(&self, _nome: &str, _argomenti: &Value) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 /// Un gradino della scala: come si chiama, e **come** ci si parla.
@@ -844,6 +851,18 @@ impl Mondo for MondoVero<'_> {
 
     async fn esegui(&mut self, c: &Chiamata) -> (Andata, String) {
         let argomenti: Value = serde_json::from_str(&c.argomenti).unwrap_or(json!({}));
+        // Prima il permesso. Un no non e' un fallimento del modello — e'
+        // la scelta di chi comanda — e contarlo come tale lo farebbe salire
+        // di gradino, cioe' mandare il compito fuori dal PC perche' l'utente
+        // ha detto di no (`Andata::Negata`).
+        if let Err(testo) = self.esecutore.permesso(&c.nome, &argomenti).await {
+            self.sessione.messaggi.push(json!({
+                "role": "tool",
+                "name": c.nome,
+                "content": testo,
+            }));
+            return (Andata::Negata, String::new());
+        }
         let (testo, andata, errore) = match self.esecutore.esegui(&c.nome, argomenti).await {
             Ok(v) => {
                 let t = match &v {
@@ -972,6 +991,39 @@ mod prove {
                 Ok(json!(self.0))
             }
         }
+    }
+
+    /// Un esecutore davanti a cui la persona dice sempre di no.
+    struct DiceNo;
+
+    #[async_trait]
+    impl Esecutore for DiceNo {
+        async fn permesso(&self, _nome: &str, _a: &Value) -> Result<(), String> {
+            Err("AZIONE RIFIUTATA".into())
+        }
+        async fn esegui(&self, _nome: &str, _a: Value) -> Result<Value, String> {
+            panic!("una chiamata negata non si esegue");
+        }
+    }
+
+    #[tokio::test]
+    async fn un_no_non_si_esegue_e_non_e_un_fallimento() {
+        // Un no contato come fallimento farebbe salire di gradino: il compito
+        // uscirebbe dal PC perche' l'utente ha detto di no.
+        let t = Copione::con(&[]);
+        let mut sess = sessione(2);
+        let mut m = mondo(&t, &DiceNo, &mut sess);
+        let (andata, errore) = m
+            .esegui(&Chiamata {
+                nome: "shell_exec".into(),
+                argomenti: "{}".into(),
+            })
+            .await;
+        assert_eq!(andata, Andata::Negata);
+        assert!(errore.is_empty());
+        let ultimo = m.sessione.messaggi.last().unwrap();
+        assert_eq!(ultimo["role"], "tool");
+        assert_eq!(ultimo["content"], "AZIONE RIFIUTATA");
     }
 
     fn dice(contenuto: &str, chiamate: &[(&str, &str)]) -> String {

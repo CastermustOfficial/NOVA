@@ -18,6 +18,7 @@ pub mod caps;
 pub mod caps_app;
 pub mod caps_approvazione;
 pub mod caps_cervelli;
+pub mod permessi;
 pub mod agente;
 pub mod caps_file;
 pub mod caps_memoria;

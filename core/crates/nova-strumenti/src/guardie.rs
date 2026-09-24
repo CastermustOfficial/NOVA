@@ -51,6 +51,21 @@ impl Autonomia {
     pub fn dal_nome(s: &str) -> Autonomia {
         Self::capisci(s).unwrap_or(Autonomia::ChiediSeRischioso)
     }
+
+    /// Se prima di fare una cosa di questo rischio bisogna chiedere: il
+    /// `needs_approval` di `SafetyContext` in Python.
+    ///
+    /// Sta qui e non solo dentro [`Guardie`] perche' la domanda non ha
+    /// bisogno di percorsi ne' di comandi: chi deve solo decidere se chiedere
+    /// — il turno del demone, la porta MCP — non deve costruirsi delle
+    /// guardie vuote per farsela rispondere.
+    pub fn chiede(self, rischio: crate::Rischio) -> bool {
+        match self {
+            Autonomia::Tutto => false,
+            Autonomia::Chiedi => true,
+            Autonomia::ChiediSeRischioso => rischio >= crate::Rischio::Pericoloso,
+        }
+    }
 }
 
 /// «Questo percorso sta dentro quella cartella?», risposta **sui nomi**.
@@ -280,11 +295,7 @@ impl Guardie {
 
     /// Se prima di fare questa cosa bisogna chiedere.
     pub fn serve_permesso(&self, rischio: crate::Rischio) -> bool {
-        match self.autonomia {
-            Autonomia::Tutto => false,
-            Autonomia::Chiedi => true,
-            Autonomia::ChiediSeRischioso => rischio >= crate::Rischio::Pericoloso,
-        }
+        self.autonomia.chiede(rischio)
     }
 }
 

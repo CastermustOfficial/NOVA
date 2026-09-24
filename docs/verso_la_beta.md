@@ -2497,6 +2497,10 @@ su 60 nel demone, 10 crate scritti e non ancora usati):
    l'Utilita' di pianificazione in Rust.
 3. **Le istruzioni operative nel prompt** (mossa 5).
 4. **Installatore, primo avvio, pannello** (mossa 6).
+
+   ~~**Le conferme nel demone.**~~ Fatto (D333), fuori elenco perche' non si
+   poteva arrivare alla beta senza: un modello che agisce dal demone chiede
+   come chiedeva il Python, e la chat ha il bottone per rispondere.
 5. **L'apprendimento automatico della memoria**, che oggi fa solo il Python.
 
 E le decisioni che non sono codice e spettano a Gio: **automazioni e

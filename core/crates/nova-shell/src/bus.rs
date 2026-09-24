@@ -224,6 +224,24 @@ async fn giro(app: &AppHandle, endpoint: &str) -> anyhow::Result<()> {
                 let _ = app.emit("nova://voce", json!({ "da": "nova", "testo": avviso }));
             }
         }
+        // NOVA aspetta un si' o un no. La carta coi bottoni sta nella chat:
+        // se la chat e' chiusa la si apre, se no la domanda la vede solo
+        // l'orb, che non ha bottoni (D333). Le richieste delle prove non
+        // aprono niente.
+        if topic == "approvazione.richiesta"
+            && dati
+                .get("origine")
+                .and_then(|o| o.as_str())
+                .unwrap_or("utente")
+                == "utente"
+        {
+            let app2 = app.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = crate::mostra_chat(app2).await {
+                    tracing::warn!(errore = %e, "non riesco ad aprire la chat per un permesso");
+                }
+            });
+        }
         if topic == "voce.comando" {
             if let Some(testo) = dati.get("testo").and_then(|t| t.as_str()) {
                 if !testo.trim().is_empty() {

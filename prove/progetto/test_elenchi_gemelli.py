@@ -308,6 +308,12 @@ ALTROVE = {
 #: dichiarazione, non una scappatoia: chi legge sa che quella riga non ha
 #: nessuno che la controlli dall'altra parte.
 SENZA_GEMELLO: dict[str, str] = {
+    # Le capacita' che un modello non vede e non puo' chiamare. Il Python
+    # non ha l'elenco perche' non ha il buco: il suo server MCP non espone
+    # il bottone «consenti». Il buco era del demone, e l'elenco sta dove sta
+    # la porta che chiude (D333).
+    "SOLO_PER_LA_PERSONA": "le capacita' del demone che solo la persona puo' "
+                           "chiamare; dalla parte Python non c'e' una porta da chiudere",
     # I dispositivi che restano scrivibili dentro il recinto del kernel. In
     # Python non c'e' niente da confrontare: il recinto e' una cosa che fa il
     # sistema operativo, e dalla parte Python non esiste affatto. Non sono
