@@ -92,6 +92,15 @@ impl Registry {
         self.caps.values().map(|c| c.info()).collect()
     }
 
+    /// Quelle che un modello puo' vedere: tutte tranne quelle che usa solo
+    /// la persona (vedi `permessi::SOLO_PER_LA_PERSONA`).
+    pub fn per_i_modelli(&self) -> Vec<CapabilityInfo> {
+        self.list()
+            .into_iter()
+            .filter(|i| crate::permessi::per_un_modello(&i.name))
+            .collect()
+    }
+
     pub fn len(&self) -> usize {
         self.caps.len()
     }
@@ -109,7 +118,7 @@ impl Registry {
     /// non sa fare una cosa che l'altro fa.
     pub fn as_openai_tools(&self) -> Vec<Value> {
         let mut fuori: Vec<Value> = self
-            .list()
+            .per_i_modelli()
             .into_iter()
             .map(|i| {
                 json!({
@@ -136,7 +145,7 @@ impl Registry {
 
     /// Traduce il registro in tool MCP, cosi' Claude Code puo' usarlo com'e'.
     pub fn as_mcp_tools(&self) -> Vec<Value> {
-        self.list()
+        self.per_i_modelli()
             .into_iter()
             .map(|c| {
                 serde_json::json!({

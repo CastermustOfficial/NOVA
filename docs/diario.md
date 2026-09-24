@@ -10743,3 +10743,36 @@ Diciassette mutazioni, una alla volta e ricostruendo fra l'una e l'altra:
 dodici sul giro e sulla lettura della scala, cinque nel demone. Tutte rosse,
 una solo dopo aver aggiunto al banco la mossa che la guardava — il secondo
 parere in cui tutti e due i gradini salirebbero allo stesso.
+
+## Le conferme nel demone
+
+Finite le famiglie piccole, avevo scritto a Gio che gli strumenti pericolosi,
+quando il turno gira nel demone, partono senza chiedere. Era vero, ed era
+peggio di così: non chiedeva **nessuna** delle due porte da cui arriva un
+modello. Il turno del demone non guardava il livello di autonomia, e Claude
+Code — che il server `nova-core` lo ha tutto fra gli strumenti che usa senza
+chiedere — poteva lanciare `shell.exec` senza che nessuno lo sapesse. Questo
+valeva anche quando il turno lo faceva il Python.
+
+Adesso chiedono tutte e due, con la regola del Python (D333). E guardando
+come si risponde ho trovato altre due cose:
+
+- **Un modello poteva approvarsi da solo.** `approvazione.rispondi`, il
+  bottone «consenti», stava nell'elenco degli strumenti di Claude Code. Adesso
+  i modelli non lo vedono, e se lo chiamano lo stesso si sentono dire di no.
+- **Non c'era un bottone.** Nel guscio in Rust una richiesta di permesso
+  accendeva l'orb su «aspetto un tuo ok», e poi niente: dopo dieci minuti
+  scadeva, e scaduta vuol dire no. Adesso la chat si apre da sola con una
+  carta — cosa sta per succedere, «Sì, fallo», «No» — e dal terminale c'è
+  `nova permessi`.
+
+La terza porta, quella da cui chiamano il guscio e la riga di comando, resta
+senza domande: lì chiama la persona. È anche la porta da cui stanotte è
+partito lo spegnimento, e va detto: `nova call` si fida di chi lo lancia,
+come un terminale.
+
+`prove/demone/test_demone_permessi.py`, 15 controlli, con un cervello finto
+che chiede lo strumento scritto nella domanda e un filo che fa da persona.
+La carta l'ho guardata in un Chromium senza finestra, con un Tauri finto:
+due richieste, una della persona e una di una prova — che non deve
+comparire — un clic su «Sì», una decisa altrove e una scaduta.

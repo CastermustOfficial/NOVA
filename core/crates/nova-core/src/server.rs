@@ -154,7 +154,17 @@ impl Server {
                     "children": self.ctx.supervisor.status().await,
                 });
                 if let Some(o) = stato.as_object_mut() {
-                    o.insert("autonomy".into(), json!(self.config.autonomy));
+                    // Quella che decide davvero: il livello scelto nel
+                    // pannello, nel `config.json` di NOVA. Il campo di
+                    // `core.json` non l'ha mai guardato nessuno, e mostrarlo
+                    // qui vuol dire mostrare all'utente un livello che non e'
+                    // quello applicato (D333).
+                    let a = crate::permessi::autonomia(&nova_configurazione::dove::leggi());
+                    let nome = nova_strumenti::guardie::Autonomia::NOMI
+                        .iter()
+                        .find(|(_, x)| *x == a)
+                        .map_or("ask_risky", |(n, _)| *n);
+                    o.insert("autonomy".into(), json!(nome));
                 }
                 Ok(stato)
             }
@@ -247,6 +257,25 @@ impl Server {
                 })),
                 Err(e) => Err((codes::INTERNAL_ERROR, e.to_string())),
             };
+        }
+
+        // Dalla porta MCP arriva un modello — Claude Code — e un modello
+        // chiede prima di fare cio' che il livello di autonomia dice di
+        // chiedere (D333). Dalla porta diretta arriva la persona.
+        if mcp {
+            if let Err(testo) =
+                crate::permessi::chiedi_per_un_modello(cap.as_ref(), &richiesta.args, &self.ctx)
+                    .await
+            {
+                self.ctx.bus.emit(
+                    "cap.negata",
+                    json!({ "name": richiesta.name, "motivo": testo }),
+                );
+                return Ok(json!({
+                    "content": [{ "type": "text", "text": testo }],
+                    "isError": true
+                }));
+            }
         }
 
         let esito = if richiesta.name.starts_with("azione.") {

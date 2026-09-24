@@ -158,7 +158,7 @@ impl Capability for ChiediCap {
 /// sue (`approvazione.claude`). Una sola attesa, un solo campanello: due code
 /// separate vorrebbero dire che l'interfaccia ne guarda una e l'altra resta
 /// senza risposta.
-async fn chiedi_e_aspetta(
+pub(crate) async fn chiedi_e_aspetta(
     ctx: &Ctx,
     strumento: String,
     dettaglio: String,
@@ -245,7 +245,7 @@ async fn chiedi_e_aspetta(
 
 /// Quanto aspetta Claude Code una risposta. Come dall'altra parte: dieci
 /// minuti, perche' dall'altra parte c'e' una persona che forse e' al telefono.
-const ATTESA_CLAUDE_S: u64 = 600;
+pub(crate) const ATTESA_CLAUDE_S: u64 = 600;
 
 struct ClaudeCap;
 

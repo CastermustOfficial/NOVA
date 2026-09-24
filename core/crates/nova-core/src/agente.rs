@@ -112,6 +112,14 @@ pub struct EsecutoreDemone {
 
 #[async_trait]
 impl Esecutore for EsecutoreDemone {
+    async fn permesso(&self, nome: &str, argomenti: &Value) -> Result<(), String> {
+        // Una capacita' che non c'e' la rifiuta `esegui`, con l'elenco.
+        let Some(cap) = self.server.registry.get(nome) else {
+            return Ok(());
+        };
+        crate::permessi::chiedi_per_un_modello(cap.as_ref(), argomenti, &self.server.ctx).await
+    }
+
     async fn esegui(&self, nome: &str, argomenti: Value) -> Result<Value, String> {
         let Some(cap) = self.server.registry.get(nome) else {
             return Err(format!("«{nome}» non e' una capacita' di questo demone"));

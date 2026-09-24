@@ -81,6 +81,22 @@ body{font-size:13px}
 @keyframes respira{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
 
 .nota{font-size:10.5px;color:var(--fioco);text-align:center;padding:2px 6px;letter-spacing:.02em}
+/* --- il permesso: NOVA aspetta un si' o un no --- */
+.permesso{align-self:stretch;border:1px solid rgba(232,176,74,.40);background:rgba(232,176,74,.08);
+  border-radius:12px;padding:10px 12px;font-size:12px;line-height:1.5;color:var(--inchiostro)}
+.permesso b{display:block;font-size:11.5px;margin-bottom:4px;color:var(--mezzo)}
+.permesso .cosa{white-space:pre-wrap;word-break:break-word;font-family:var(--mono);font-size:11.5px;
+  background:rgba(0,0,0,.30);border:1px solid var(--linea);border-radius:8px;padding:6px 8px;
+  max-height:160px;overflow:auto}
+.permesso .quale{color:var(--fioco);font-size:10.5px;margin-top:4px}
+.permesso .bottoni{display:flex;gap:6px;margin-top:8px}
+.permesso button{flex:1;font-family:inherit;font-size:12px;border-radius:9px;padding:6px 0;cursor:pointer;
+  border:1px solid var(--linea);background:var(--vetro);color:var(--inchiostro);transition:.15s}
+.permesso button.si{background:var(--brace);color:#1a0b05;border-color:transparent;font-weight:600}
+.permesso button:hover{filter:brightness(1.1)}
+.permesso .esito{margin-top:6px;color:var(--mezzo);font-size:11px}
+.permesso.deciso{border-color:var(--linea);background:var(--vetro)}
+.permesso.deciso b,.permesso.deciso .cosa,.permesso.deciso .quale{opacity:.55}
 .vuoto{margin:auto;text-align:center;color:var(--fioco);font-size:12px;line-height:1.7;padding:0 18px}
 .vuoto b{display:block;color:var(--mezzo);font-size:12.5px;margin-bottom:3px}
 .prove{display:flex;flex-direction:column;gap:6px;margin:14px auto 0;max-width:330px}
@@ -287,6 +303,87 @@ function nota(testo) {
   fondo();
 }
 
+/* --- il permesso -------------------------------------------------------- *
+ * Quando NOVA sta per fare qualcosa che il livello di autonomia dice di
+ * chiedere, il demone mette la domanda allo sportello e aspetta. Fino a
+ * qui non c'era un bottone per rispondere: l'orb diventava «aspetto un tuo
+ * ok» e dopo dieci minuti la domanda scadeva, cioe' diventava un no che
+ * nessuno aveva detto (D333). La carta dice cosa succede se si consente —
+ * la frase, non il nome dello strumento — e i due bottoni chiamano la
+ * stessa capacita' che chiamerebbe la voce o la riga di comando: se si
+ * risponde altrove, la carta lo scopre dall'evento e si chiude da sola.
+ * ------------------------------------------------------------------------ */
+const carte = new Map();
+
+function cartaPermesso(r) {
+  if (!r?.id || carte.has(r.id) || (r.origine && r.origine !== 'utente')) return;
+  $('vuoto')?.remove();
+  const c = document.createElement('div');
+  c.className = 'permesso';
+  const t = document.createElement('b');
+  t.textContent = r.rischio === 'dangerous'
+    ? T('Posso farlo? È un’azione rischiosa.')
+    : T('Posso farlo?');
+  c.appendChild(t);
+  const cosa = document.createElement('div');
+  cosa.className = 'cosa';
+  cosa.textContent = String(r.dettaglio || r.strumento || '');
+  c.appendChild(cosa);
+  const quale = document.createElement('div');
+  quale.className = 'quale';
+  quale.textContent = String(r.strumento || '');
+  c.appendChild(quale);
+  const bottoni = document.createElement('div');
+  bottoni.className = 'bottoni';
+  const si = document.createElement('button');
+  si.className = 'si';
+  si.textContent = T('Sì, fallo');
+  const no = document.createElement('button');
+  no.textContent = T('No');
+  bottoni.append(si, no);
+  c.appendChild(bottoni);
+  const rispondi = async consenti => {
+    si.disabled = no.disabled = true;
+    try {
+      const esito = await invoke('demone_chiama', {
+        capacita: 'approvazione.rispondi', args: { id: r.id, consenti } });
+      /* «ok: false» vuol dire che era gia' decisa o scaduta: lo dice
+         l'evento, e la carta si chiude da li'. */
+      if (esito?.ok === false) chiudiCarta(r.id, esito.motivo || T('non più in attesa'));
+    } catch (e) {
+      si.disabled = no.disabled = false;
+      nota(T('non sono riuscita a mandare la risposta: ') + String(e).slice(0, 80));
+    }
+  };
+  si.onclick = () => rispondi(true);
+  no.onclick = () => rispondi(false);
+  carte.set(r.id, c);
+  $('discorso').appendChild(c);
+  fondo();
+  /* Il fuoco resta dov'era, apposta: chi sta scrivendo e preme Invio non
+     deve consentire un'azione che non ha ancora letto. */
+}
+
+function chiudiCarta(id, testo) {
+  const c = carte.get(id);
+  if (!c) return;
+  carte.delete(id);
+  c.classList.add('deciso');
+  c.querySelector('.bottoni')?.remove();
+  const e = document.createElement('div');
+  e.className = 'esito';
+  e.textContent = testo;
+  c.appendChild(e);
+}
+
+async function permessiInAttesa() {
+  if (!invoke) return;
+  try {
+    const a = await invoke('demone_chiama', { capacita: 'approvazione.attese', args: {} });
+    for (const r of a?.richieste || []) cartaPermesso(r);
+  } catch (e) { console.warn('permessi:', e); }
+}
+
 /* --- scrivere --------------------------------------------------------- */
 let occupata = false;
 
@@ -377,6 +474,13 @@ ascolta?.('nova://fase', ev => {
 
 ascolta?.('nova://evento', ev => {
   const e = ev.payload || {};
+  if (e.topic === 'approvazione.richiesta') cartaPermesso(e.dati);
+  if (e.topic === 'approvazione.decisa') {
+    chiudiCarta(e.dati?.id, e.dati?.consentito ? T('consentito') : T('negato'));
+  }
+  if (e.topic === 'approvazione.scaduta') {
+    chiudiCarta(e.dati?.id, T('nessuna risposta: l’ho considerato un no'));
+  }
   if (e.topic === 'voce.muto') {
     nota(T(e.dati?.muto ? 'il microfono non consegna niente' : 'microfono di nuovo attivo'));
   }
@@ -461,6 +565,9 @@ function benvenuto(motivo) {
 (async function avvia() {
   turno('quiete');
   if (!invoke) return;
+  /* Una domanda fatta mentre la chat era chiusa aspetta ancora: la si
+     mostra appena la finestra c'e'. */
+  permessiInAttesa();
   let vuota = true;
   try {
     const c = await invoke('cronologia_leggi');

@@ -67,6 +67,11 @@ pub const AUTONOMY_FULL: &str = predefiniti::LIVELLI[2];
 pub struct Config {
     /// Named pipe su Windows, socket unix altrove.
     pub endpoint: String,
+    /// **Non decide niente.** Il livello che si applica e' `safety.autonomy`
+    /// del `config.json` di NOVA, quello del pannello (vedi `permessi`).
+    /// Resta perche' un `core.json` che lo scrive si deve ancora leggere, e
+    /// togliere un campo da una struttura con `tipi_fermi` lo renderebbe
+    /// illeggibile.
     pub autonomy: String,
     /// Percorsi mai scrivibili, qualunque cosa dica il modello.
     pub protected_paths: Vec<String>,
