@@ -37,9 +37,15 @@ def _pdf(p: Path, pagine: str) -> str:
         raise ToolError("per i PDF serve pypdf: pip install pypdf")
     lettore = pypdf.PdfReader(str(p))
     if lettore.is_encrypted:
+        # `decrypt` non solleva quando la password e' sbagliata: torna zero.
+        # Prima si guardava solo l'eccezione, e un PDF chiuso da una password
+        # vera passava oltre — ogni pagina diventava «illeggibile: File has
+        # not been decrypted», e il messaggio giusto non compariva mai.
         try:
-            lettore.decrypt("")
+            aperto = lettore.decrypt("")
         except Exception:
+            aperto = 0
+        if not aperto:
             raise ToolError(f"{p.name} e' protetto da password: non riesco ad aprirlo")
     totale = len(lettore.pages)
     indici = _intervallo(pagine, totale)

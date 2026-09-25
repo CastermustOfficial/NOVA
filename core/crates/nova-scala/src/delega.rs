@@ -394,22 +394,8 @@ pub fn allega(
 /// (`[Errno 2] No such file or directory`): e' l'unica cosa che qui non si
 /// confronta.
 pub fn leggi_come_python(p: &str) -> (String, Result<String, String>) {
-    let casa = std::env::var("USERPROFILE")
-        .or_else(|_| std::env::var("HOME"))
-        .unwrap_or_default();
-    let esteso = match p.strip_prefix('~') {
-        Some(resto) if resto.is_empty() || resto.starts_with(['/', '\\']) => {
-            format!("{casa}{resto}")
-        }
-        _ => p.to_string(),
-    };
-    let letto = std::fs::read(&esteso)
-        .map(|b| {
-            String::from_utf8_lossy(&b)
-                .replace("\r\n", "\n")
-                .replace('\r', "\n")
-        })
-        .map_err(|e| e.to_string());
+    let esteso = nova_pitone::espandi_utente(p);
+    let letto = nova_pitone::leggi_testo(std::path::Path::new(&esteso)).map_err(|e| e.to_string());
     (esteso, letto)
 }
 

@@ -25,6 +25,10 @@
 //! servirebbe per fare di piu', e fare di piu' e' esattamente cio' che ha
 //! spogliato il documento nel giro col `docx-rs`.
 
+
+// Leggere com'e' scritto, per chi deve solo sapere cosa c'e' dentro.
+pub mod lettura;
+
 use std::io::{Read, Write};
 use std::path::Path;
 

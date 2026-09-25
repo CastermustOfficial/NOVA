@@ -424,3 +424,37 @@ mod prove_repr {
         assert_eq!(repr_stringa("é\u{200b}"), "'é\\u200b'");
     }
 }
+
+// ------------------------------------------------------------- file
+
+/// `Path(p).expanduser()`: la tilde in testa diventa la cartella
+/// dell'utente, e nient'altro cambia.
+///
+/// Stava in tre posti — chi allega file a una delega, chi consegna file al
+/// browser, chi legge un documento — scritta tre volte uguale. La tilde che
+/// non sta in testa, o che e' seguita da un nome (`~anna`), resta com'e':
+/// Python la risolverebbe verso la cartella di un altro utente, e qui non si
+/// indovina.
+pub fn espandi_utente(p: &str) -> String {
+    let casa = std::env::var("USERPROFILE")
+        .or_else(|_| std::env::var("HOME"))
+        .unwrap_or_default();
+    match p.strip_prefix('~') {
+        Some(resto) if resto.is_empty() || resto.starts_with(['/', '\\']) => {
+            format!("{casa}{resto}")
+        }
+        _ => p.to_string(),
+    }
+}
+
+/// `Path(p).read_text(encoding="utf-8", errors="replace")`.
+///
+/// In modo testo, quindi con gli a capo universali: `\r\n` e `\r` da solo
+/// diventano `\n`. Chi riceve il testo di un file di Windows non deve
+/// trovarsi un carattere in piu' a ogni riga.
+pub fn leggi_testo(p: &std::path::Path) -> std::io::Result<String> {
+    let b = std::fs::read(p)?;
+    Ok(String::from_utf8_lossy(&b)
+        .replace("\r\n", "\n")
+        .replace('\r', "\n"))
+}

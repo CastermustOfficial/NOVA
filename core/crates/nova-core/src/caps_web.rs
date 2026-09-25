@@ -198,19 +198,6 @@ fn annota(a: Option<Annotazione>, dove: &str) {
     }
 }
 
-/// `Path(x).expanduser()` di Python: solo la tilde in testa.
-fn espandi_tilde(p: &str) -> PathBuf {
-    let casa = std::env::var("USERPROFILE")
-        .or_else(|_| std::env::var("HOME"))
-        .unwrap_or_default();
-    match p.strip_prefix('~') {
-        Some(resto) if resto.is_empty() || resto.starts_with(['/', '\\']) => {
-            PathBuf::from(format!("{casa}{resto}"))
-        }
-        _ => PathBuf::from(p),
-    }
-}
-
 // ------------------------------------------------------------ le azioni
 
 fn apri(url: &str) -> Result<String, String> {
@@ -393,7 +380,7 @@ fn carica(a: &Value) -> Result<String, String> {
 fn consegna(selettore: &str, percorsi: &[String], quale: &str) -> Result<Value, String> {
     let mut veri = Vec::new();
     for x in percorsi {
-        let f = espandi_tilde(x);
+        let f = PathBuf::from(nova_pitone::espandi_utente(x));
         if !f.is_file() {
             return Ok(
                 json!({"ok": false, "motivo": format!("file inesistente: {}", f.display())}),

@@ -10,6 +10,9 @@ description = "Modificare un .docx senza spogliarlo: zip piu' una modifica chiru
 # Uno zip, e basta. Per modificare un `.docx` **non** serve una libreria di
 # `.docx`: misurato sul banco dei documenti (D237).
 zip = { version = "2", default-features = false, features = ["deflate"] }
+# Solo per leggere (`lettura`): la struttura serve, e niente torna nel file.
+# E' la stessa versione che porta gia' `umya-spreadsheet`.
+quick-xml = "0.41"
 
 [features]
 banco = []

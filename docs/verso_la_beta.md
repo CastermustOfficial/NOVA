@@ -2456,7 +2456,7 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    (D334), gli otto `web_*` che prima aveva solo Claude Code. Restano: il
    resto di `sistema` — il promemoria e le tre attivita' pianificate, che
    vogliono l'Utilita' di pianificazione in Rust, e le automazioni e le
-   riparazioni, che sono Python per natura — piu' `read_document`, e i due documenti —
+   riparazioni, che sono Python per natura — e i documenti —
    `nova-harness`, `nova-docx`, `nova-fogli`.
 
    | famiglia | in Python | nel demone |
@@ -2492,7 +2492,8 @@ su 60 nel demone, 10 crate scritti e non ancora usati):
    procedure) — ~~web, `known_folders` e procedure~~ fatti (D326),
    ~~schermo~~ fatto (D329), ~~deleghe~~ fatte (D331), ~~il browser
    guidato~~ fatto (D334: gli otto `web_*`, anche per il cervello del
-   demone); i documenti (`harness`,
+   demone), ~~`read_document`~~ fatto (D335; i PDF cifrati aspettano
+   `mupdf`); i documenti (`harness`,
    Word, fogli); promemoria e attivita' pianificate, che vogliono prima
    l'Utilita' di pianificazione in Rust.
 3. **Le istruzioni operative nel prompt** (mossa 5).

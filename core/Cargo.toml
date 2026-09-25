@@ -27,6 +27,7 @@ members = [
     "crates/nova-fogli",
     "crates/nova-harness",
     "crates/nova-docx",
+    "crates/nova-documenti",
     "crates/nova-mcp-cliente",
     "crates/nova-configurazione",
     "crates/nova-nodi",
