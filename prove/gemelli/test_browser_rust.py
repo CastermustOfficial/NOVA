@@ -612,6 +612,167 @@ controlla("una ricerca per Google passa dagli apici giusti",
           rete["aperture"][4]["Ok"].endswith("gatti%20neri%20%26%20bianchi%20/%20100%25"),
           str(rete["aperture"][4]))
 
+print("\n=== Cosa si dice al modello dopo aver guidato il browser ===")
+# I metodi `web_*` veri di `ServerKB`, con un browser finto che riporta
+# l'esito del copione, e il registro delle azioni ascoltato invece che
+# scritto. Il testo e' quello che Claude legge; la riga del registro e'
+# quella che l'utente ritrova in «azioni recenti».
+import types as _types  # noqa: E402
+from nova import mcp_kb as _mcp, registro as _reg, browser as _brw  # noqa: E402
+from nova import core_client as _cc  # noqa: E402
+
+N = {"tag": "div", "id": None, "ruolo": None, "etichetta": None, "testo": None,
+     "visibile": True}
+RACCONTI = [
+    {"quale": "apri", "url": "https://chiesto.it", "r": {"id": "T1", "url": "https://x.it/a", "titolo": "Titolo"}},
+    {"quale": "apri", "url": "https://chiesto.it", "r": {"id": "T2", "url": "", "titolo": None}},
+    {"quale": "trova", "selettore": "button", "testo": "", "r": [
+        {**N, "tag": "button", "id": "ok", "ruolo": "button", "etichetta": "l'invio", "testo": "Invia"},
+        {**N, "etichetta": "a b \"c\" d'e", "visibile": False},
+        {**N, "tag": "a", "etichetta": "tab\tqui", "testo": "perché sì"}]},
+    {"quale": "trova", "selettore": "#x", "testo": "", "r": []},
+    {"quale": "trova", "selettore": "", "testo": "Accedi", "r": None},
+    {"quale": "trova", "selettore": " ", "testo": "  ", "r": []},
+    {"quale": "leggi", "r": {"titolo": "T", "url": "https://u", "testo": "ciao", "tagliato": True}},
+    {"quale": "leggi", "r": {"titolo": None, "url": "https://u", "testo": ""}},
+    {"quale": "tabella", "righe": 2, "r": {"ok": True, "righe": 5, "tagliato": True, "colonne": 3,
+                                          "tsv": "a\tb\tc\nd\te\tf", "quale": "table#dati"}},
+    {"quale": "tabella", "righe": 400, "r": {"ok": False, "motivo": "nessuna tabella in questa pagina"}},
+    {"quale": "tabella", "righe": 400, "r": {"ok": False}},
+    # Il predefinito vale solo se la chiave manca: presente e vuota si scrive
+    # vuota, presente e nulla si scrive «None».
+    {"quale": "tabella", "righe": 400, "r": {"ok": False, "motivo": ""}},
+    {"quale": "click", "selettore": "#x", "testo": "", "r": {"ok": False, "motivo": None}},
+    {"quale": "click", "selettore": "#invia", "testo": "", "r": {"ok": True, "su": "Invia"}},
+    {"quale": "click", "selettore": "", "testo": "ACCETTO", "r": {"ok": True, "su": "", "altri": 2}},
+    {"quale": "click", "selettore": "", "testo": "x", "r": {"ok": False, "motivo": "nessun elemento visibile con quel testo"}},
+    {"quale": "click", "selettore": "", "testo": "", "r": {}},
+    {"quale": "scrivi", "selettore": "#nome", "testo": "Gio", "r": {"ok": True}},
+    {"quale": "scrivi", "selettore": "#nome", "testo": "Gio", "r": {"ok": False, "motivo": "nessun elemento per quel selettore"}},
+    {"quale": "incolla", "testo": "a\tb\tc\nd\te\n", "r": {"ok": True, "su": "div#griglia", "come": "evento incolla"}},
+    {"quale": "incolla", "testo": "una riga", "r": {"ok": True, "su": "", "come": "insertText"}},
+    {"quale": "incolla", "testo": "x", "r": {"ok": False, "come": "evento incolla", "motivo": "non preso"}},
+    {"quale": "incolla", "testo": "", "r": {}},
+    {"quale": "incolla", "testo": "a b\tc", "r": {"ok": True, "su": "p", "come": "insertText"}},
+    {"quale": "carica", "selettore": "#file", "r": {"ok": True, "file": ["a.csv", "b.pdf"]}},
+    {"quale": "carica", "selettore": "#file", "r": {"ok": False, "motivo": "quel selettore non e' un campo file (e' div:)"}},
+]
+SEGRETI = [
+    {"quale": "segreto", "selettore": "#pwd", "segreto": "posta", "r": {"ok": True}},
+    {"quale": "segreto", "selettore": "#pwd", "segreto": "posta", "r": {"ok": False}},
+    {"quale": "segreto_assente", "selettore": "#pwd", "segreto": " manca ", "r": None},
+]
+DOPO = [{"ok": True, "preso_dalla_pagina": True, "su": "div", "scrivibile": False},
+        {"ok": True, "preso_dalla_pagina": False, "su": "input#x", "scrivibile": True},
+        {"ok": True, "preso_dalla_pagina": False, "su": "div", "scrivibile": False},
+        {"ok": False, "motivo": "nessun elemento su cui incollare"}, None, {}]
+REPR = ["ciao", "l'utente", "l'\"a\"", "a b", "x​y", " ", "tab\t\\", "\x7f\x85",
+        "", "é😀", "\U000e0041"]
+
+suo = rust({"racconti": RACCONTI + SEGRETI, "dopo_incolla": [d if d is not None else {} for d in DOPO],
+            "repr": REPR})
+
+
+class _BrowserFinto:
+    def __init__(self, r):
+        self.r = r
+
+    def avvia(self):
+        return {}
+
+    def __getattr__(self, nome):
+        return lambda *a, **k: self.r
+
+
+def _python(c):
+    scritte = []
+
+    class _Io:
+        def _browser(self):
+            return _BrowserFinto(c.get("r"))
+
+        def _dove_sono(self, _scheda):
+            return "https://dove"
+
+    vero_annota = _reg.annota
+    vero_client = _cc.CoreClient
+    _reg.annota = lambda azione, dove="", dettagli="", tipo="browser", esito="": \
+        scritte.append([azione, dettagli, tipo])
+
+    class _Cliente:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def call(self, _n, _a):
+            return {"valore": "" if c["quale"] == "segreto_assente" else "s3gr3t0"}
+    _cc.CoreClient = _Cliente
+    try:
+        io, q = _Io(), c["quale"]
+        if q == "apri":
+            # `apri` del browser torna la scheda: il finto la torna.
+            testo = _mcp.ServerKB.web_apri(io, c["url"])
+        elif q == "trova":
+            testo = _mcp.ServerKB.web_trova(io, c.get("selettore", ""), testo=c.get("testo", ""))
+        elif q == "leggi":
+            testo = _mcp.ServerKB.web_leggi(io)
+        elif q == "tabella":
+            testo = _mcp.ServerKB.web_tabella(io, righe=c["righe"])
+        elif q == "click":
+            testo = _mcp.ServerKB.web_click(io, c.get("selettore", ""), testo=c.get("testo", ""))
+        elif q == "scrivi":
+            testo = _mcp.ServerKB.web_scrivi(io, c["selettore"], c["testo"])
+        elif q in ("segreto", "segreto_assente"):
+            testo = _mcp.ServerKB.web_scrivi(io, c["selettore"], segreto=c["segreto"])
+        elif q == "incolla":
+            testo = _mcp.ServerKB.web_incolla(io, c["testo"])
+        elif q == "carica":
+            testo = _mcp.ServerKB.web_carica(io, c["selettore"], ["x"])
+    finally:
+        _reg.annota, _cc.CoreClient = vero_annota, vero_client
+    return [testo, scritte[0] if scritte else None]
+
+
+diverse = []
+for c, ru in zip(RACCONTI + SEGRETI, suo["racconti"]):
+    py = _python(c)
+    if py != [ru[0], list(ru[1]) if ru[1] else None]:
+        diverse.append(f"{c['quale']} {json.dumps(c.get('r'), ensure_ascii=False)[:60]}:"
+                       f"\n      python {py!r}\n      rust   {ru!r}")
+controlla(f"i {len(RACCONTI) + len(SEGRETI)} racconti sono il testo del Python, "
+          "e scrivono la stessa riga nel registro",
+          not diverse, ("\n    " + "\n    ".join(diverse[:3])) if diverse else "")
+
+# `incolla` del browser vero, con la pagina finta: cosa torna e se consegna
+# il testo con insertText.
+diverse = []
+for e, (passo, ru) in zip(DOPO, suo["dopo_incolla"]):
+    inseriti = []
+    veri = (_brw._scheda, _brw.valuta, _brw._parla)
+    _brw._scheda = lambda *_a, **_k: {"id": "T"}
+    _brw.valuta = lambda *_a, **_k: e
+    _brw._parla = lambda _t, metodo, params=None, **_k: inseriti.append(metodo) or {}
+    try:
+        py = _brw.incolla("testo")
+    finally:
+        _brw._scheda, _brw.valuta, _brw._parla = veri
+    # `valuta` che torna None diventa `{}` in Python (`or {}`): il banco
+    # Rust lo riceve gia' cosi'.
+    atteso = ("inserisci" if inseriti == ["Input.insertText"] else "fine", py)
+    if atteso != (passo, ru):
+        diverse.append(f"{e}: python {atteso} vs rust {(passo, ru)}")
+controlla(f"dopo l'incolla si sceglie come il Python, nei {len(DOPO)} casi", not diverse,
+          " | ".join(diverse[:2]))
+
+diverse = [f"{x!r}: python {repr(x)} vs rust {r}" for x, r in zip(REPR, suo["repr"]) if repr(x) != r]
+controlla(f"il repr delle {len(REPR)} stringhe e' quello di Python", not diverse,
+          " | ".join(diverse[:3]))
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")

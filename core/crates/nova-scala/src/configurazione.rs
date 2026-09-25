@@ -23,16 +23,9 @@ use serde_json::{Map, Value};
 
 use crate::{Categoria, Configurazione, Gradino};
 
-/// `bool(x)` di Python.
+/// `bool(x)` di Python: sta in `nova-pitone`, con `str(x)`.
 pub fn vero_python(v: &Value) -> bool {
-    match v {
-        Value::Null => false,
-        Value::Bool(b) => *b,
-        Value::Number(n) => n.as_f64().is_some_and(|x| x != 0.0),
-        Value::String(s) => !s.is_empty(),
-        Value::Array(a) => !a.is_empty(),
-        Value::Object(o) => !o.is_empty(),
-    }
+    nova_pitone::vero(Some(v))
 }
 
 /// `float(x or se_falso)` di Python. Cio' su cui Python solleverebbe vale
@@ -59,20 +52,6 @@ fn intero_python(v: Option<&Value>) -> Option<i64> {
         Value::Number(n) => n.as_i64().or_else(|| n.as_f64().map(|x| x.trunc() as i64)),
         Value::String(s) => nova_pitone::senza_bianchi(s).parse().ok(),
         _ => None,
-    }
-}
-
-/// `str(x)` di Python, per cio' che puo' stare in un elenco di parole.
-fn str_python(v: &Value) -> String {
-    match v {
-        Value::String(s) => s.clone(),
-        Value::Null => "None".into(),
-        Value::Bool(true) => "True".into(),
-        Value::Bool(false) => "False".into(),
-        Value::Number(n) if n.is_f64() => n
-            .as_f64()
-            .map_or_else(|| n.to_string(), nova_pitone::float_come_python),
-        altro => altro.to_string(),
     }
 }
 
@@ -165,7 +144,9 @@ pub fn da_routing(r: &Value) -> Configurazione {
                 // `[str(x) for x in (parole or [])]`: una stringa sola si
                 // scorre lettera per lettera, un oggetto per chiavi.
                 parole: match spec.get("parole") {
-                    Some(Value::Array(a)) => a.iter().map(str_python).collect(),
+                    Some(Value::Array(a)) => {
+                        a.iter().map(|x| nova_pitone::str_di(Some(x))).collect()
+                    }
                     Some(Value::String(s)) => s.chars().map(String::from).collect(),
                     Some(Value::Object(o)) => o.keys().cloned().collect(),
                     _ => Vec::new(),

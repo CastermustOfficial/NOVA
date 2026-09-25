@@ -2452,12 +2452,12 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    browser**, le cartelle note e le procedure imparate (D326), con i corpi
    in `nova_browser::scaricata` e `nova_strumenti::procedure`; e lo
    **schermo** (D329), con GDI e senza `mss`; e le **deleghe** (D331), col
-   giro intero del Router confrontato col Python. Restano: il
+   giro intero del Router confrontato col Python; e il **browser guidato**
+   (D334), gli otto `web_*` che prima aveva solo Claude Code. Restano: il
    resto di `sistema` — il promemoria e le tre attivita' pianificate, che
    vogliono l'Utilita' di pianificazione in Rust, e le automazioni e le
    riparazioni, che sono Python per natura — piu' `read_document`, e i due documenti —
-   `nova-harness`, `nova-docx`, `nova-fogli` — e il browser guidato
-   (`nova-cdp`, e la meta' di `nova-browser` che il browser lo usa).
+   `nova-harness`, `nova-docx`, `nova-fogli`.
 
    | famiglia | in Python | nel demone |
    | --- | ---: | ---: |
@@ -2490,9 +2490,9 @@ su 60 nel demone, 10 crate scritti e non ancora usati):
 2. **Le famiglie che mancano.** Ricerca web, deleghe e cattura dello schermo
    (7 strumenti, piu' `known_folders`, `read_document` e le due delle
    procedure) — ~~web, `known_folders` e procedure~~ fatti (D326),
-   ~~schermo~~ fatto (D329), ~~deleghe~~ fatte (D331); il browser guidato
-   (`nova-cdp` e la meta' di `nova-browser` che il browser lo usa: sono i
-   `web_*` che usa Claude Code); i documenti (`harness`,
+   ~~schermo~~ fatto (D329), ~~deleghe~~ fatte (D331), ~~il browser
+   guidato~~ fatto (D334: gli otto `web_*`, anche per il cervello del
+   demone); i documenti (`harness`,
    Word, fogli); promemoria e attivita' pianificate, che vogliono prima
    l'Utilita' di pianificazione in Rust.
 3. **Le istruzioni operative nel prompt** (mossa 5).

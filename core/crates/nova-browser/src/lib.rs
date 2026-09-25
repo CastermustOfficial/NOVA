@@ -33,6 +33,8 @@
 pub mod copioni;
 pub mod entita;
 pub mod motori;
+// Cosa si dice al modello dopo aver guidato il browser.
+pub mod racconti;
 pub mod regole;
 pub mod scaricata;
 pub mod testo;
