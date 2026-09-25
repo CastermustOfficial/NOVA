@@ -1,0 +1,27 @@
+[package]
+name = "nova-documenti"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Leggere il contenuto di un PDF, di un Word, di un foglio di calcolo o di un file di testo."
+
+[dependencies]
+# Il testo dei PDF. Puro Rust: la libreria che l'harness vuole per i blocchi
+# con le coordinate e' mupdf (D238), che si compila dai sorgenti C; per
+# leggere il testo di una fattura pagina per pagina non serve, e un demone
+# che per compilarsi chiede libclang su Windows e' un demone che non si
+# compila.
+pdf-extract = "0.12"
+nova-docx = { path = "../nova-docx" }
+nova-fogli = { path = "../nova-fogli" }
+nova-pitone = { path = "../nova-pitone" }
+serde_json = { workspace = true, optional = true }
+
+[features]
+banco = ["dep:serde_json"]
+
+[[bin]]
+name = "banco-documenti"
+path = "src/banco.rs"
+required-features = ["banco"]

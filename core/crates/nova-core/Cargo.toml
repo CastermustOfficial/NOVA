@@ -52,6 +52,8 @@ ureq = "2"
 nova-browser = { path = "../nova-browser" }
 # La connessione al browser di NOVA: schede, porta HTTP, websocket.
 nova-cdp = { path = "../nova-cdp" }
+# Leggere PDF, Word e fogli di calcolo: `read_document`.
+nova-documenti = { path = "../nova-documenti" }
 tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true

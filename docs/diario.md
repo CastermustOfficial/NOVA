@@ -10806,3 +10806,29 @@ delle azioni che sa su quale pagina si è premuto.
   finivano su una pagina bianca. Il documento vuoto di una scheda nuova dice
   `complete` prima che la navigazione cominci, e l'attesa si fermava lì. Il
   Python ha la stessa attesa, e lo stesso difetto quando il browser è lento.
+
+## Leggere un documento, dal demone
+
+`documenti.leggi` è `read_document` del Python (D335), in un crate suo
+con un banco che legge gli stessi file dalle due parti: testo con gli a capo
+di Windows e byte rotti, un Word costruito apposta per essere scomodo —
+celle unite in orizzontale e in verticale, un collegamento, una revisione,
+una tabulazione, un salto di pagina — un foglio di calcolo con tre fogli, e
+PDF di tutti i tipi.
+
+Il Word è stato verde al primo colpo, e non me lo aspettavo: le regole di
+`python-docx` sono piene di eccezioni, e le ho scritte leggendo il suo
+sorgente invece che la sua documentazione. Le mutazioni dicono se il banco
+le guarda davvero.
+
+### Due cose sui PDF cifrati
+
+- La parte Python aveva un difetto: `pypdf` non solleva quando la password
+  è sbagliata, torna zero, e il controllo guardava solo l'eccezione. Un PDF
+  chiuso da una password diventava una fila di pagine «illeggibili».
+  Corretto.
+- La parte Rust ha un limite, e resta: la libreria sotto `pdf-extract` non
+  apre la cifratura dei programmi di oggi, nemmeno quando per leggere non
+  serve una password — gli estratti conto sono così. Adesso lo dice. La cura
+  è `mupdf`, che serve comunque all'harness; è una decisione da prendere con
+  Gio, perché su Windows vuole libclang per compilarsi.
