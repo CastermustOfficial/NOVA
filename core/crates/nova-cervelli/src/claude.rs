@@ -61,6 +61,26 @@ pub struct Impostazioni {
 /// trattino basso, e il server si chiama `nova-core`.
 pub const SPORTELLO_DEMONE: &str = "mcp__nova-core__approvazione_claude";
 
+/// Gli strumenti del server Python che adesso ha anche il demone, con lo
+/// stesso nome e la stessa descrizione.
+///
+/// Quando nel collegamento c'e' il demone, Claude Code li vedrebbe **due
+/// volte** — `mcp__nova__web_apri` e `mcp__nova-core__web_apri` — e il
+/// prompt dice solo `web_apri`: sceglierebbe a caso fra due strade uguali,
+/// una delle quali passa dal cancello dei permessi e l'altra no. Si toglie
+/// quella del Python. Man mano che le famiglie arrivano di qua, l'elenco
+/// cresce e il server Python si svuota (D334).
+pub const SPOSTATI_NEL_DEMONE: [&str; 8] = [
+    "mcp__nova__web_apri",
+    "mcp__nova__web_trova",
+    "mcp__nova__web_leggi",
+    "mcp__nova__web_click",
+    "mcp__nova__web_scrivi",
+    "mcp__nova__web_incolla",
+    "mcp__nova__web_carica",
+    "mcp__nova__web_tabella",
+];
+
 /// La riga di comando per un turno.
 ///
 /// `file_prompt` e' il percorso in cui il prompt di sistema e' stato scritto,
@@ -93,6 +113,10 @@ pub fn argomenti(i: &Impostazioni, sistema: &str, file_prompt: &str) -> Vec<Stri
         a.push("--strict-mcp-config".into());
         a.push("--allowedTools".into());
         a.push(STRUMENTI_PERMESSI.to_string());
+        if i.sportello == SPORTELLO_DEMONE {
+            a.push("--disallowedTools".into());
+            a.push(SPOSTATI_NEL_DEMONE.join(","));
+        }
         if i.autonomia != PIENA {
             a.push("--permission-prompt-tool".into());
             a.push(if i.sportello.is_empty() {
@@ -503,6 +527,22 @@ mod prove {
             .position(|x| x == "--permission-prompt-tool")
             .unwrap();
         assert_eq!(a[k + 1], SPORTELLO_DEMONE);
+    }
+
+    #[test]
+    fn col_demone_i_doppioni_del_python_si_tolgono() {
+        let mut i = base();
+        i.mcp_config = "C:\\mcp.json".into();
+        let a = argomenti(&i, "", "");
+        assert!(
+            !a.iter().any(|x| x == "--disallowedTools"),
+            "senza demone restano"
+        );
+        i.sportello = SPORTELLO_DEMONE.into();
+        let a = argomenti(&i, "", "");
+        let k = a.iter().position(|x| x == "--disallowedTools").unwrap();
+        assert!(a[k + 1].starts_with("mcp__nova__web_apri,"));
+        assert!(!a[k + 1].contains("nova-core"));
     }
 
     #[test]

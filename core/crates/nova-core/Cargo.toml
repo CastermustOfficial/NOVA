@@ -50,6 +50,8 @@ ureq = "2"
 # risultati, cosa si dice di una pagina scaricata. Confrontato col Python da
 # un banco; qui c'e' solo la rete.
 nova-browser = { path = "../nova-browser" }
+# La connessione al browser di NOVA: schede, porta HTTP, websocket.
+nova-cdp = { path = "../nova-cdp" }
 tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true

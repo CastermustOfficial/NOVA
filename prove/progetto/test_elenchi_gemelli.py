@@ -308,6 +308,11 @@ ALTROVE = {
 #: dichiarazione, non una scappatoia: chi legge sa che quella riga non ha
 #: nessuno che la controlli dall'altra parte.
 SENZA_GEMELLO: dict[str, str] = {
+    # Gli strumenti del server Python che Claude Code non deve vedere due
+    # volte. Il Python non ha un demone da cui toglierli; la prova in
+    # `caps_web.rs` controlla che ognuno ci sia davvero nel demone (D334).
+    "SPOSTATI_NEL_DEMONE": "i doppioni tolti a Claude Code quando nel collegamento c'e' "
+                           "il demone; dalla parte Python non c'e' niente da togliere",
     # Le capacita' che un modello non vede e non puo' chiamare. Il Python
     # non ha l'elenco perche' non ha il buco: il suo server MCP non espone
     # il bottone «consenti». Il buco era del demone, e l'elenco sta dove sta

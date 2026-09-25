@@ -69,6 +69,16 @@ struct Dentro {
     risposte: Vec<Value>,
     #[serde(default)]
     espressioni: Vec<String>,
+    /// Racconti degli strumenti `web_*`: ognuno dice quale, cosa ha
+    /// riportato il browser, e gli argomenti dello strumento.
+    #[serde(default)]
+    racconti: Vec<Value>,
+    /// Esiti del copione dell'incolla, per la scelta di cosa fare dopo.
+    #[serde(default)]
+    dopo_incolla: Vec<Value>,
+    /// Stringhe di cui fare il `repr`.
+    #[serde(default)]
+    repr: Vec<String>,
     /// (caratteri, quanti) per il copione dei risultati.
     #[serde(default)]
     risultati: Vec<(i64, i64)>,
@@ -134,6 +144,9 @@ struct Fuori {
     /// Quanti se ne chiedono al motore, e come si raccontano i primi.
     elenchi: Vec<(usize, String)>,
     schemi: Vec<String>,
+    racconti: Vec<(String, Option<(String, String, String)>)>,
+    dopo_incolla: Vec<(String, Value)>,
+    repr: Vec<String>,
 }
 
 fn come_tre(r: &[Risultato]) -> Vec<(String, String, String)> {
@@ -156,7 +169,45 @@ fn main() {
         }
     };
 
+    let racconti_fatti: Vec<(String, Option<(String, String, String)>)> = d
+        .racconti
+        .iter()
+        .map(|c| {
+            let t = |k: &str| c.get(k).and_then(Value::as_str).unwrap_or("").to_string();
+            let r = c.get("r").cloned().unwrap_or(Value::Null);
+            let (detto, nota) = match t("quale").as_str() {
+                "apri" => (nova_browser::racconti::apri(&r, &t("url")), None),
+                "trova" => (nova_browser::racconti::manca_bersaglio(&t("selettore"), &t("testo"))
+                    .unwrap_or_else(|| nova_browser::racconti::trova(&r, &t("selettore"), &t("testo"))), None),
+                "leggi" => (nova_browser::racconti::leggi(&r), None),
+                "tabella" => (nova_browser::racconti::tabella(
+                    &r, c.get("righe").and_then(Value::as_i64).unwrap_or(400)), None),
+                "click" => match nova_browser::racconti::manca_bersaglio(&t("selettore"), &t("testo")) {
+                    Some(e) => (e, None),
+                    None => nova_browser::racconti::click(&r, &t("selettore"), &t("testo")),
+                },
+                "scrivi" => nova_browser::racconti::scrivi(&r, &t("selettore"), &t("testo")),
+                "segreto" => nova_browser::racconti::scrivi_segreto(&r, &t("selettore"), &t("segreto")),
+                "segreto_assente" => (nova_browser::racconti::segreto_assente(&t("segreto")), None),
+                "incolla" => nova_browser::racconti::incolla(&r, &t("testo")),
+                "carica" => nova_browser::racconti::carica(&r, &t("selettore")),
+                altro => (format!("sconosciuto: {altro}"), None),
+            };
+            (detto, nota.map(|n| (n.azione, n.dettagli, n.tipo)))
+        })
+        .collect();
+    let dopo: Vec<(String, Value)> = d
+        .dopo_incolla
+        .iter()
+        .map(|e| match nova_browser::racconti::dopo_incolla(e) {
+            nova_browser::racconti::DopoIncolla::Fine(v) => ("fine".to_string(), v),
+            nova_browser::racconti::DopoIncolla::Inserisci(v) => ("inserisci".to_string(), v),
+        })
+        .collect();
     let fuori = Fuori {
+        racconti: racconti_fatti,
+        dopo_incolla: dopo,
+        repr: d.repr.iter().map(|x| nova_pitone::repr_stringa(x)).collect(),
         valori: d.valori.iter().map(|v| dentro(v)).collect(),
         trova: d.trova.iter().map(|(s, q)| trova(s, *q)).collect(),
         per_testo: d

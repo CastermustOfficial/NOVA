@@ -10776,3 +10776,33 @@ che chiede lo strumento scritto nella domanda e un filo che fa da persona.
 La carta l'ho guardata in un Chromium senza finestra, con un Tauri finto:
 due richieste, una della persona e una di una prova — che non deve
 comparire — un clic su «Sì», una decisa altrove e una scaduta.
+
+## Il browser di NOVA nel demone
+
+Gli otto `web_*` che Claude Code usava dal server Python adesso sono del
+demone (D334). Era la famiglia più grossa fra quelle rimaste, ma quasi tutto
+c'era già: i nove copioni che girano nella pagina in `nova-browser`, la
+connessione in `nova-cdp`. Mancava il braccio che li mette in fila — avviare
+il browser col profilo di NOVA, aprire una scheda, aspettare che carichi,
+consegnare un file in una connessione sola — e la frase che torna al modello.
+
+La frase l'ho confrontata coi metodi `web_*` veri di `ServerKB`, con un
+browser finto che riporta l'esito del copione: 27 casi, più le sei strade
+dopo un incolla. Per le etichette serviva il `repr` di Python, che sceglie le
+virgolette guardando il contenuto: `aria-label="l'invio"` e non
+`aria-label='l\'invio'`. Adesso sta in `nova-pitone`.
+
+Il braccio l'ho provato su un Chromium vero, senza finestra, con una pagina
+servita dalla prova: aprire, cercare, premere per testo, scrivere, una tabella,
+un incolla che la griglia si prende e uno che il campo riceve con
+`insertText`, un file consegnato senza finestra di dialogo, e il registro
+delle azioni che sa su quale pagina si è premuto.
+
+### Due cose che il Python sbaglia, trovate dalla prova
+
+- `web_apri` diceva il titolo della scheda **appena creata**, cioè vuoto.
+  Adesso quello della pagina caricata, e l'indirizzo dove si è arrivati.
+- Alla seconda esecuzione la prova è diventata rossa: le prime mosse
+  finivano su una pagina bianca. Il documento vuoto di una scheda nuova dice
+  `complete` prima che la navigazione cominci, e l'attesa si fermava lì. Il
+  Python ha la stessa attesa, e lo stesso difetto quando il browser è lento.

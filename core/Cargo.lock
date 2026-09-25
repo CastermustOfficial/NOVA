@@ -2821,6 +2821,7 @@ dependencies = [
  "async-trait",
  "nova-browser",
  "nova-calendario",
+ "nova-cdp",
  "nova-cervelli",
  "nova-ciclo",
  "nova-configurazione",

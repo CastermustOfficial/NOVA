@@ -310,3 +310,117 @@ mod prove_json {
         assert_eq!(json_come_python_rientrato(&json!("x"), 2), "\"x\"");
     }
 }
+
+// ------------------------------------------------------------- repr
+
+/// Se Python considera stampabile questo carattere (`str.isprintable`).
+///
+/// Python lo decide sulla categoria Unicode: non stampabili sono i
+/// controlli, i formati, i separatori di riga e di paragrafo, gli spazi
+/// **tranne** lo spazio normale, l'uso privato e i non assegnati. La libreria
+/// di Rust non porta le categorie, e qui ci sono quelle che si incontrano
+/// davvero in una pagina web — lo spazio non divisibile per primo — piu'
+/// l'uso privato. **I non assegnati no**: sono migliaia, cambiano a ogni
+/// versione di Unicode, e in un'etichetta di una pagina non ci finiscono.
+pub fn stampabile(c: char) -> bool {
+    let n = c as u32;
+    let non = matches!(n,
+        // Cc
+        0x00..=0x1f | 0x7f..=0x9f
+        // Zs tranne lo spazio
+        | 0xa0 | 0x1680 | 0x2000..=0x200a | 0x202f | 0x205f | 0x3000
+        // Zl, Zp
+        | 0x2028 | 0x2029
+        // Cf
+        | 0xad | 0x600..=0x605 | 0x61c | 0x6dd | 0x70f | 0x890..=0x891 | 0x8e2 | 0x180e
+        | 0x200b..=0x200f | 0x202a..=0x202e | 0x2060..=0x2064 | 0x2066..=0x206f
+        | 0xfeff | 0xfff9..=0xfffb | 0x110bd | 0x110cd | 0x13430..=0x1343f
+        | 0x1bca0..=0x1bca3 | 0x1d173..=0x1d17a | 0xe0001 | 0xe0020..=0xe007f
+        // Co
+        | 0xe000..=0xf8ff | 0xf0000..=0xffffd | 0x100000..=0x10fffd
+    );
+    !non
+}
+
+/// `repr(s)` di Python per una stringa.
+///
+/// Le virgolette sono singole, **tranne** quando dentro c'e' un apice e
+/// nessuna virgoletta doppia: allora sono doppie, e l'apice resta com'e'.
+/// Serve dove un messaggio di Python mette un `!r` e il modello legge quel
+/// testo: `aria-label="l'utente"` e `aria-label='l\'utente'` sono lo stesso
+/// valore e due righe diverse.
+pub fn repr_stringa(s: &str) -> String {
+    let virgola = if s.contains('\'') && !s.contains('"') {
+        '"'
+    } else {
+        '\''
+    };
+    let mut fuori = String::with_capacity(s.len() + 2);
+    fuori.push(virgola);
+    for c in s.chars() {
+        match c {
+            '\\' => fuori.push_str("\\\\"),
+            '\n' => fuori.push_str("\\n"),
+            '\r' => fuori.push_str("\\r"),
+            '\t' => fuori.push_str("\\t"),
+            c if c == virgola => {
+                fuori.push('\\');
+                fuori.push(c);
+            }
+            c if stampabile(c) => fuori.push(c),
+            c => {
+                let n = c as u32;
+                if n <= 0xff {
+                    fuori.push_str(&format!("\\x{n:02x}"));
+                } else if n <= 0xffff {
+                    fuori.push_str(&format!("\\u{n:04x}"));
+                } else {
+                    fuori.push_str(&format!("\\U{n:08x}"));
+                }
+            }
+        }
+    }
+    fuori.push(virgola);
+    fuori
+}
+
+/// `str(x)` di Python per un valore arrivato da JSON: `None`, `True`,
+/// `False`, il testo senza virgolette, i numeri come li scrive Python.
+pub fn str_di(v: Option<&Value>) -> String {
+    match v {
+        None | Some(Value::Null) => "None".into(),
+        Some(Value::Bool(true)) => "True".into(),
+        Some(Value::Bool(false)) => "False".into(),
+        Some(Value::String(s)) => s.clone(),
+        Some(Value::Number(n)) if n.is_f64() => {
+            n.as_f64().map_or_else(|| n.to_string(), float_come_python)
+        }
+        Some(altro) => json_come_python(altro),
+    }
+}
+
+/// Se un valore e' «vero» per Python: `None`, `False`, zero e i vuoti no.
+pub fn vero(v: Option<&Value>) -> bool {
+    match v {
+        None | Some(Value::Null) => false,
+        Some(Value::Bool(b)) => *b,
+        Some(Value::Number(n)) => n.as_f64().is_some_and(|x| x != 0.0),
+        Some(Value::String(s)) => !s.is_empty(),
+        Some(Value::Array(a)) => !a.is_empty(),
+        Some(Value::Object(o)) => !o.is_empty(),
+    }
+}
+
+#[cfg(test)]
+mod prove_repr {
+    use super::*;
+
+    #[test]
+    fn le_virgolette_le_sceglie_il_contenuto() {
+        assert_eq!(repr_stringa("ciao"), "'ciao'");
+        assert_eq!(repr_stringa("l'utente"), "\"l'utente\"");
+        assert_eq!(repr_stringa("l'\"a\""), "'l\\'\"a\"'");
+        assert_eq!(repr_stringa("a\u{a0}b\tc"), "'a\\xa0b\\tc'");
+        assert_eq!(repr_stringa("é\u{200b}"), "'é\\u200b'");
+    }
+}

@@ -110,6 +110,12 @@ impl Sessione {
     pub fn apri(scheda: &Scheda, attesa: Duration) -> Result<Sessione, String> {
         let richiesta = richiesta_di_aggancio(&scheda.ws)?;
         let (ws, _) = tungstenite::connect(richiesta).map_err(|e| motivo(&e.to_string()))?;
+        // Senza un limite sulla lettura, `chiama` guarda l'orologio solo
+        // **fra** un messaggio e l'altro: un browser che non manda niente
+        // teneva fermo chi aspettava per sempre, non per `attesa` secondi.
+        if let MaybeTlsStream::Plain(t) = ws.get_ref() {
+            let _ = t.set_read_timeout(Some(attesa));
+        }
         Ok(Sessione { ws, attesa, n: 0 })
     }
 
@@ -129,7 +135,18 @@ impl Sessione {
 
         let scadenza = Instant::now() + self.attesa;
         while Instant::now() < scadenza {
-            let messaggio = self.ws.read().map_err(|e| motivo(&e.to_string()))?;
+            let messaggio = match self.ws.read() {
+                Ok(m) => m,
+                Err(tungstenite::Error::Io(e))
+                    if matches!(
+                        e.kind(),
+                        std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                    ) =>
+                {
+                    break;
+                }
+                Err(e) => return Err(motivo(&e.to_string())),
+            };
             let tungstenite::Message::Text(t) = messaggio else {
                 continue;
             };
@@ -154,6 +171,71 @@ impl Sessione {
     pub fn chiudi(mut self) {
         let _ = self.ws.close(None);
     }
+}
+
+// ---------------------------------------------------------- la porta HTTP
+
+/// Il browser risponde anche in HTTP, sulla stessa porta: chi e', quali
+/// schede ha, aprine una. Si chiede sempre e solo a `127.0.0.1`, e senza
+/// passare da un proxy: la porta di debug non esce dalla macchina.
+fn agente(attesa: Duration) -> ureq::Agent {
+    ureq::AgentBuilder::new().timeout(attesa).build()
+}
+
+/// Chi risponde sulla porta di debug, se qualcuno risponde.
+pub fn versione(porta: u16) -> Option<Value> {
+    agente(Duration::from_secs(2))
+        .get(&format!("http://127.0.0.1:{porta}/json/version"))
+        .call()
+        .ok()?
+        .into_string()
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok())
+}
+
+/// Le pagine aperte, nell'ordine in cui le elenca il browser.
+pub fn schede(porta: u16) -> Result<Vec<Scheda>, String> {
+    let testo = agente(Duration::from_secs(5))
+        .get(&format!("http://127.0.0.1:{porta}/json"))
+        .call()
+        .map_err(|e| motivo(&e.to_string()))?
+        .into_string()
+        .map_err(|e| format!("l'elenco delle schede non si legge: {e}"))?;
+    Ok(schede_da(&testo)?
+        .into_iter()
+        .filter(Scheda::e_una_pagina)
+        .collect())
+}
+
+/// Apre una scheda nuova su un indirizzo, e torna la sua voce.
+///
+/// L'indirizzo va dopo il `?` **cosi' com'e'**, come fa il Python: il
+/// browser prende per indirizzo tutto quello che c'e' dopo. Le versioni
+/// recenti vogliono `PUT`, le vecchie `GET`.
+pub fn nuova(porta: u16, url: &str) -> Result<Value, String> {
+    let a = agente(Duration::from_secs(10));
+    let dove = format!("http://127.0.0.1:{porta}/json/new?{url}");
+    let r = match a.put(&dove).call() {
+        Ok(r) => r,
+        Err(_) => a.get(&dove).call().map_err(|e| motivo(&e.to_string()))?,
+    };
+    r.into_string()
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok())
+        .ok_or_else(|| "il browser non ha detto quale scheda ha aperto".to_string())
+}
+
+/// Una domanda sola a una scheda, su una connessione che si chiude subito.
+pub fn chiedi(
+    scheda: &Scheda,
+    metodo: &str,
+    params: Value,
+    attesa: Duration,
+) -> Result<Value, String> {
+    let mut s = Sessione::apri(scheda, attesa)?;
+    let r = s.chiama(metodo, params);
+    s.chiudi();
+    r
 }
 
 /// La richiesta di aggancio, con l'origine che serve.
