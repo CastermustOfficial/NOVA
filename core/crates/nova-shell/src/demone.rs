@@ -34,6 +34,12 @@ const CONSENTITE: &[&str] = &[
     "azione.stato",
     "approvazione.attese",
     "approvazione.rispondi",
+    // I bottoni dell'harness: guardare, accettare, buttare e provare le
+    // proposte di NOVA (D339).
+    "harness.proposte",
+    "harness.applica",
+    "harness.scarta",
+    "harness.prova",
 ];
 
 #[cfg(windows)]
@@ -112,7 +118,7 @@ pub async fn chiama(capacita: &str, args: Value) -> Result<Value> {
     metodo(
         "capabilities/call",
         json!({ "name": capacita, "args": args }),
-        ATTESA_CAPACITA,
+        attesa_per(capacita),
     )
     .await
 }
@@ -120,6 +126,17 @@ pub async fn chiama(capacita: &str, args: Value) -> Result<Value> {
 /// Quanto si aspetta una capacita' qualunque: sono cose corte, e se non
 /// tornano e' perche' qualcosa si e' incastrato.
 const ATTESA_CAPACITA: u64 = 120;
+
+/// Tranne le prove di un progetto: una suite puo' metterci i suoi cinque
+/// minuti (`nova_harness::prova::ATTESA_PROVE_S`), e «applica e prova» la
+/// esegue due volte, prima e dopo. Un guscio che molla prima direbbe
+/// «non risponde» mentre il demone sta ancora provando.
+fn attesa_per(capacita: &str) -> u64 {
+    match capacita {
+        "harness.prova" | "harness.applica" => 2 * nova_harness::prova::ATTESA_PROVE_S + 60,
+        _ => ATTESA_CAPACITA,
+    }
+}
 
 /// Quanto si aspetta un turno intero. E' lo stesso quarto d'ora che dentro
 /// il demone aspetta il modello (`nova_core::agente::ATTESA_RISPOSTA`): un
@@ -252,6 +269,13 @@ pub async fn dimentica_sessione(sessione: &str) -> Result<()> {
 #[cfg(test)]
 mod prove {
     use super::*;
+
+    #[test]
+    fn le_prove_si_aspettano_due_volte_e_il_resto_no() {
+        assert_eq!(attesa_per("harness.applica"), 660);
+        assert_eq!(attesa_per("harness.prova"), 660);
+        assert_eq!(attesa_per("harness.proposte"), ATTESA_CAPACITA);
+    }
 
     #[test]
     fn la_voce_e_una_bandierina_non_una_conversazione_a_parte() {

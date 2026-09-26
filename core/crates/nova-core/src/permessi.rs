@@ -38,7 +38,19 @@ use crate::capability::{Capability, Ctx};
 /// chiamarlo si approverebbe da solo le richieste che fa. Stava nell'elenco
 /// di Claude Code, e il server `nova-core` e' fra quelli che Claude usa senza
 /// chiedere.
-pub const SOLO_PER_LA_PERSONA: [&str; 1] = ["approvazione.rispondi"];
+///
+/// Le capacita' `harness.*` sono i bottoni della finestra dell'harness:
+/// guardare, accettare, buttare e provare le proposte. Il modello propone
+/// con il suo strumento e applica con il suo, che passa dal suo cancello; un
+/// modello che potesse premere «accetta» si accetterebbe da solo le proposte
+/// che fa (D339).
+pub const SOLO_PER_LA_PERSONA: [&str; 5] = [
+    "approvazione.rispondi",
+    "harness.applica",
+    "harness.proposte",
+    "harness.prova",
+    "harness.scarta",
+];
 
 /// Il testo che il modello legge quando la persona ha detto di no. E' quello
 /// del Python, parola per parola.

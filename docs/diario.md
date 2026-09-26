@@ -10892,3 +10892,41 @@ Lo sportello dei permessi è uscito dalla nuvoletta ed è andato in
 `permessi.js`: le conversazioni sono due finestre, e una carta scritta due
 volte è una carta che un giorno dice due cose diverse. Il Markdown ha
 imparato le tabelle, e per i documenti unisce le righe in paragrafi.
+
+## L'harness, seconda fase: le proposte
+
+Quando NOVA propone una modifica, adesso la si guarda nell'harness: la
+finestra si apre sul confronto, dentro l'editor, e nella chat compare una
+carta con i file e le righe che cambiano. Si accetta tutto, o a pezzi, o si
+ritocca il lato destro prima di accettare; oppure si applica **e prova**, e
+se cade un test che passava tutto torna com'era (D339).
+
+La proposta resta quella che scrive `harness_proponi` in Python: un file
+accanto alle sessioni, che adesso il guscio sorveglia. Il testo come
+sarebbe lo calcola la stessa `rifai` che applica, gia' gemella del Python;
+in piu' tiene gli a capo di Windows e l'ultima riga senza a capo. Gli a
+capo li perdeva anche l'applicazione del Python, quella che usa NOVA con
+`harness_applica`: un file di Windows toccato in una riga tornava sul disco
+con tutti gli a capo cambiati. Corretto anche li', con la sua prova.
+
+A scrivere e' il demone, con quattro capacita' che sono bottoni della
+persona e che un modello non vede. La prova vera l'ho fatta sul disco, con
+un progetto finto e il suo script di prova, e ha trovato una cosa che non
+avrei immaginato: dopo aver rimesso un file com'era, la prova seguente
+cadeva lo stesso. Python decide se ricompilare un modulo guardando data e
+dimensione del sorgente; `a + b` e `a - b` hanno la stessa lunghezza, e il
+file rimesso con la data di adesso sembrava ancora quello rotto. La copia
+adesso si fa con la data, come `shutil.copy2`.
+
+E il rovescio, peggiore, l'ha trovato lo stesso banco rilanciato: la
+modifica rotta scritta nello stesso secondo in cui la prova di prima aveva
+compilato il modulo **passava le prove**, perche' Python eseguiva la copia
+compilata vecchia. Le prove adesso girano con una cartella di compilati
+nuova ogni volta, dalle due parti: anche `harness_applica` del Python, che
+NOVA usa da sola, aveva lo stesso buco. Una prova in Python lo riproduce a
+colpo sicuro, rimettendo al file la data di prima.
+
+Il conto «+3 −1» e' una sottosequenza comune piu' lunga, con le righe
+uguali in testa e in coda tolte prima; oltre un certo prodotto di righe si
+conta alla grossa, e una prova lo dice. Le mutazioni ne hanno trovate due
+che le prove non vedevano, e adesso le vedono.

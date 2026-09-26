@@ -194,6 +194,30 @@ with tempfile.TemporaryDirectory() as tmp:
     controlla("ma senza verifica si applica lo stesso", esito.get("ok") is True,
               str(esito)[:160])
 
+print("\n6b. una modifica della stessa lunghezza non si nasconde dietro i compilati")
+# Python ricompila guardando data e dimensione del sorgente: stessa
+# lunghezza e stessa data volevano dire eseguire la copia compilata vecchia,
+# e la modifica rotta passava le prove.
+import os                                                          # noqa: E402
+pyc = Path(tempfile.mkdtemp(prefix="nova_pyc_"))
+(pyc / "prove").mkdir()
+conti = pyc / "conti.py"
+conti.write_text("def somma(a, b):\n    return a + b\n", encoding="utf-8")
+(pyc / "prove" / "test_conti.py").write_text(
+    "import sys\nsys.path.insert(0, '.')\nfrom conti import somma\n"
+    "sys.exit(0 if somma(2, 3) == 5 else 1)\n", encoding="utf-8")
+# Una copia compilata in `__pycache__`, come la lascia chi prova a mano.
+import subprocess                                                  # noqa: E402
+subprocess.run([sys.executable, "-c", "import conti"], cwd=str(pyc), check=True)
+prima = harness_prova.esegui(pyc)
+data = conti.stat()
+conti.write_text("def somma(a, b):\n    return a - b\n", encoding="utf-8")
+os.utime(conti, ns=(data.st_atime_ns, data.st_mtime_ns))
+dopo = harness_prova.esegui(pyc)
+controlla("prima passa", prima["passate"] == ["prove/test_conti.py"], str(prima))
+controlla("e dopo la modifica rotta cade davvero", dopo["cadute"] == ["prove/test_conti.py"], str(dopo))
+shutil.rmtree(pyc, ignore_errors=True)
+
 print("\n7. il modello lo puo' chiedere")
 from nova.mcp_kb import STRUMENTI                                # noqa: E402
 nomi = {s["name"] for s in STRUMENTI}

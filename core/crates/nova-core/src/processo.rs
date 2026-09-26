@@ -76,11 +76,25 @@ pub async fn lancia(
     cartella: &str,
     secondi: u64,
 ) -> Result<Uscita, Guaio> {
+    lancia_con(args, su_stdin, cartella, secondi, &[]).await
+}
+
+/// Come [`lancia`], con delle variabili d'ambiente in piu' per il figlio.
+pub async fn lancia_con(
+    args: &[String],
+    su_stdin: Option<&str>,
+    cartella: &str,
+    secondi: u64,
+    ambiente: &[(&str, &str)],
+) -> Result<Uscita, Guaio> {
     let Some((eseguibile, resto)) = args.split_first() else {
         return Ok(Uscita::default());
     };
     let mut c = tokio::process::Command::new(eseguibile);
     c.args(resto);
+    for (k, v) in ambiente {
+        c.env(k, v);
+    }
     // Se chi aspetta smette di aspettare — «ferma», o il turno annullato — il
     // processo muore con lui. Senza, un Claude Code fermato dall'utente
     // continuerebbe ad agire sul computer mentre NOVA dice di essersi

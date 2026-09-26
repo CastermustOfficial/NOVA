@@ -2496,7 +2496,8 @@ su 60 nel demone, 10 crate scritti e non ancora usati):
    `mupdf`, che sul PC di Gio vuole Visual Studio Build Tools 2022 — scelto
    di no, per ora); i documenti (`harness`,
    Word, fogli) — l'harness ha cominciato dalla finestra nel guscio
-   (D336–D338, `docs/harness.md`), e gli strumenti `harness_*` restano in
+   (D336–D338) e dalle proposte guardate e provate li' (D339,
+   `docs/harness.md`); gli strumenti `harness_*` del modello restano in
    Python finche' non arriva la loro fase; promemoria e attivita'
    pianificate, che vogliono prima l'Utilita' di pianificazione in Rust.
 3. **Le istruzioni operative nel prompt** (mossa 5).

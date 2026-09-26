@@ -390,16 +390,21 @@ def anteprima_testo(f: Path, modifiche: list[dict],
 
 
 def _applica_testo(f: Path, modifiche: list[dict]) -> int:
-    righe, fatte, saltate = _rifai(
-        harness.righe_di(f.read_text(encoding="utf-8")), modifiche)
+    # Letto cosi' com'e': `read_text` trasforma i `\r\n` in `\n`, e un
+    # file di Windows toccato in una riga tornava sul disco con **tutti** gli
+    # a capo cambiati — un confronto in git con ogni riga diversa.
+    with open(f, encoding="utf-8", newline="") as fh:
+        grezzo = fh.read()
+    righe, fatte, saltate = _rifai(harness.righe_di(grezzo), modifiche)
     if saltate:
         # Una modifica che non si applica non sparisce in silenzio. Se il
         # file e' cambiato sotto, applicare le altre vorrebbe dire scrivere
         # meta' di quel che si e' mostrato: non si scrive niente.
         raise ValueError("; ".join(x["perche"] for x in saltate))
-    testo = "\n".join(righe)
-    if not testo.endswith("\n"):
-        testo += "\n"
+    a_capo = "\r\n" if "\r\n" in grezzo else "\n"
+    testo = a_capo.join(righe)
+    if not testo.endswith(a_capo):
+        testo += a_capo
     scrivi(f, testo)
     return fatte
 

@@ -561,6 +561,9 @@ pub mod aperti;
 
 pub mod modifica;
 
+/// Una proposta di NOVA come si guarda: il testo com'e' e come sarebbe.
+pub mod proposta;
+
 /// Il verificatore: come si prova un progetto, e cosa vuol dire che una
 /// modifica non lo ha peggiorato.
 pub mod prova;

@@ -108,6 +108,11 @@ pub const SOTTO_RUST: [&str; 3] = ["core", "rust", "src-tauri"];
 /// I file che, se ci sono, vogliono dire «questo progetto usa pytest».
 pub const DICHIARANO_PYTEST: [&str; 3] = ["pytest.ini", "tox.ini", "setup.cfg"];
 
+/// Dove si cercano gli script di prova, oltre alla radice. Guardare solo in
+/// cima era il caso piu' facile scambiato per l'unico: un progetto che
+/// ordina le prove in una cartella non ha smesso di averle.
+pub const CARTELLE_DI_PROVA: [&str; 4] = ["tests", "test", "prove", "provi"];
+
 /// Come si prova questo progetto. Il primo della lista e' il piu' probabile.
 pub fn scopri(radice: &Path, segni: &Segni, python: &str) -> Vec<Banco> {
     let mut banchi = Vec::new();
