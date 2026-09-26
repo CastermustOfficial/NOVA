@@ -225,6 +225,17 @@ try:
 except ImportError:
     print("  (PyMuPDF non c'e': salto)")
 
+print("\n7b. gli a capo di Windows restano quelli")
+# `read_text` trasformava ogni `\r\n` in `\n`: toccata una riga, il file
+# tornava sul disco con tutti gli a capo cambiati.
+win = lavoro / "win.py"
+win.write_bytes(b"a = 1\r\nb = 2\r\nc = 3\r\n")
+harness.apri(str(win))
+mod.proponi([{"blocco": "r1", "azione": "sostituisci", "testo": "b = 20"}])
+mod.applica()
+controlla("solo la riga cambiata e' diversa, a capo compresi",
+          win.read_bytes() == b"a = 1\r\nb = 20\r\nc = 3\r\n", repr(win.read_bytes()))
+
 print("\n8. senza niente aperto non si propone")
 harness.chiudi()
 v = mod.proponi([{"blocco": "r0", "azione": "sostituisci", "testo": "x"}])

@@ -42,7 +42,7 @@ pub fn percorso() -> PathBuf {
 /// sta davanti al computer. Due righe della stessa giornata sfalsate di
 /// un'ora non darebbero nessun errore — sarebbero solo sbagliate, e chi
 /// rilegge non ha modo di accorgersene.
-fn adesso() -> String {
+pub(crate) fn adesso() -> String {
     let t = nova_platform::orologio::adesso();
     quando(t, nova_platform::fuso_secondi(t))
 }

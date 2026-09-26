@@ -2958,6 +2958,7 @@ dependencies = [
  "nova-contesto",
  "nova-documenti",
  "nova-guasti",
+ "nova-harness",
  "nova-mcp",
  "nova-memoria",
  "nova-modelli",

@@ -164,14 +164,16 @@ def script_di_prova(radice: Path) -> list[str]:
     return sorted(trovati)
 
 
-def _esegui_uno(comando: list[str], dove: Path, resto: float) -> tuple[int, str]:
+def _esegui_uno(comando: list[str], dove: Path, resto: float,
+                cache: str = "") -> tuple[int, str]:
     from .processi import SENZA_FINESTRA
     try:
         finito = subprocess.run(
             comando, cwd=str(dove), capture_output=True, text=True,
             encoding="utf-8", errors="replace",
             timeout=max(5.0, resto), creationflags=SENZA_FINESTRA,
-            env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+            env={**os.environ, "PYTHONIOENCODING": "utf-8",
+                 **({"PYTHONPYCACHEPREFIX": cache} if cache else {})},
         )
     except subprocess.TimeoutExpired:
         return 124, "la prova non e' finita entro il tempo"
@@ -202,6 +204,14 @@ def esegui(radice: str | Path, banco: Banco | None = None,
     saltate: list[str] = []
     coda: list[str] = []
 
+    # I compilati di Python in una cartella nuova a ogni giro: Python decide
+    # se ricompilare guardando data (al secondo) e dimensione del sorgente, e
+    # una modifica della stessa lunghezza fatta nello stesso secondo della
+    # prova di prima veniva eseguita dalla copia vecchia — la modifica rotta
+    # passava le prove (D339, trovato dal banco del demone).
+    import shutil
+    import tempfile
+    cache = tempfile.mkdtemp(prefix="nova-prove-pyc-")
     pezzi = banco.pezzi or [""]
     for pezzo in pezzi:
         resto = attesa_s - (time.time() - inizio)
@@ -209,7 +219,7 @@ def esegui(radice: str | Path, banco: Banco | None = None,
             saltate.append(pezzo or banco.nome)
             continue
         comando = banco.comando + ([pezzo] if pezzo else [])
-        codice, uscita = _esegui_uno(comando, banco.dove, resto)
+        codice, uscita = _esegui_uno(comando, banco.dove, resto, cache)
         nome = pezzo or banco.nome
         # 2 vuol dire «non provabile qui»: serve il demone, serve un browser.
         # Non e' un fallimento e non deve bloccare niente.
@@ -222,6 +232,7 @@ def esegui(radice: str | Path, banco: Banco | None = None,
             coda.append(f"--- {nome}\n" +
                         "\n".join(uscita.strip().splitlines()[-CODA_RIGHE:]))
 
+    shutil.rmtree(cache, ignore_errors=True)
     return {"ok": not cadute, "provabile": True, "banco": banco.nome,
             "comando": banco.descrizione(), "dove": str(banco.dove),
             "passate": passate, "cadute": cadute, "saltate": saltate,

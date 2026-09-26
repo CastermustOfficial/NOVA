@@ -37,8 +37,80 @@ svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6;stroke
 .gesto svg{width:15px;height:15px}
 
 /* --- il corpo --- */
-.corpo{display:grid;grid-template-columns:248px minmax(0,1fr) 380px;min-height:0}
-.corpo.senza-chat{grid-template-columns:248px minmax(0,1fr) 0}
+.corpo{display:grid;grid-template-columns:46px 248px minmax(0,1fr) 380px;min-height:0}
+.corpo.senza-chat{grid-template-columns:46px 248px minmax(0,1fr) 0}
+
+/* --- le viste a sinistra: Esplora, Modifiche, Test --- */
+.attivita{border-right:1px solid var(--linea);display:flex;flex-direction:column;align-items:center;padding-top:8px;gap:4px}
+.attivita button{width:36px;height:36px;border-radius:9px;display:grid;place-items:center;color:var(--fioco);position:relative}
+.attivita button.si{color:var(--inchiostro)}
+.attivita button.si::before{content:"";position:absolute;left:-5px;top:9px;bottom:9px;width:2px;border-radius:2px;background:var(--brace)}
+.attivita button:hover{background:var(--vetro-2);color:var(--inchiostro)}
+.pallino{position:absolute;top:5px;right:4px;min-width:14px;height:14px;padding:0 3px;border-radius:7px;background:var(--brace);
+  color:#160a06;font-size:9px;font-weight:700;display:grid;place-items:center}
+.vista{display:flex;flex-direction:column;min-height:0;flex:1}
+.elenco-vista{overflow:auto;flex:1;padding:0 6px 12px}
+.elenco-vista .vuoto{color:var(--fioco);padding:8px 10px;line-height:1.6}
+.azioni-vista{display:flex;flex-wrap:wrap;gap:6px;padding:0 12px 10px}
+.azioni-vista button{font-size:11.5px;padding:4px 9px;border-radius:7px;border:1px solid var(--linea-2);color:var(--mezzo)}
+.azioni-vista button:hover{color:var(--inchiostro);background:var(--vetro-2)}
+.azioni-vista button.primo{background:var(--brace);color:#160a06;border-color:transparent;font-weight:600}
+.voce-proposta{padding:7px 9px;border-radius:8px;cursor:pointer;margin-bottom:2px}
+.voce-proposta:hover{background:var(--vetro)}
+.voce-proposta.aperto{background:var(--vetro-2)}
+.voce-proposta .riga1{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--inchiostro)}
+.voce-proposta .riga1 .n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.voce-proposta .conta{margin-left:auto;font:11px var(--mono);white-space:nowrap}
+.voce-proposta .dove,.voce-proposta .perche{font-size:11px;color:var(--fioco);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.voce-proposta .guaio{font-size:11px;color:var(--attenzione)}
+.piu{color:var(--ascolto)} .meno{color:var(--pericolo)}
+.prova-sintesi{padding:0 14px 10px;font-size:12px;color:var(--mezzo);line-height:1.6}
+.prova-sintesi b{color:var(--inchiostro);font-weight:600}
+
+/* --- il confronto: la proposta dentro l'editor --- */
+#confronto{flex:1;min-width:0;display:flex;flex-direction:column}
+.barra-confronto{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--linea);
+  background:var(--fondo-2);font-size:12px;color:var(--mezzo);flex-wrap:wrap}
+.barra-confronto .chi{color:var(--inchiostro);font-weight:600}
+.barra-confronto .motivo{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:320px;color:var(--fioco)}
+.barra-confronto .nav{display:flex;align-items:center;gap:2px;font:11.5px var(--mono)}
+.barra-confronto button{font-size:12px;padding:4px 10px;border-radius:7px;border:1px solid var(--linea-2);color:var(--mezzo);white-space:nowrap}
+.barra-confronto button:hover:not(:disabled){color:var(--inchiostro);background:var(--vetro-2)}
+.barra-confronto button:disabled{opacity:.35;cursor:default}
+.barra-confronto .nav button{padding:3px 7px}
+.barra-confronto button.primo{background:var(--brace);color:#160a06;border-color:transparent;font-weight:600}
+.barra-confronto .dx{margin-left:auto;display:flex;gap:6px}
+#confrontoEd{flex:1;min-height:0}
+#confrontoRipiego{flex:1;min-height:0;background:var(--fondo);border:none;outline:none;resize:none;padding:10px 14px;
+  font:13px/20px var(--mono);color:var(--inchiostro);white-space:pre;overflow:auto}
+
+/* --- il pannello di sotto: l'uscita delle prove --- */
+.sotto{height:220px;flex:none;border-top:1px solid var(--linea);display:flex;flex-direction:column;min-height:0;background:var(--fondo)}
+.sotto .testa-sotto{display:flex;align-items:center;gap:10px;height:30px;padding:0 8px 0 14px;border-bottom:1px solid var(--linea);
+  font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;color:var(--inchiostro)}
+.sotto .testa-sotto span{letter-spacing:0;text-transform:none;font-weight:400;color:var(--mezzo);font-size:12px;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sotto .testa-sotto button{margin-left:auto;width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:var(--fioco);letter-spacing:0}
+.sotto .testa-sotto button:hover{background:var(--vetro-2);color:var(--inchiostro)}
+.uscita{flex:1;overflow:auto;padding:8px 14px;font:12px/18px var(--mono);color:#cfcac4;white-space:pre-wrap}
+.uscita .ok{color:var(--ascolto)} .uscita .ko{color:var(--pericolo)} .uscita .dim{color:var(--fioco)}
+
+/* --- la carta delle proposte, nella chat --- */
+.proposta{border:1px solid var(--linea-2);border-radius:12px;background:var(--fondo);overflow:hidden;align-self:stretch}
+.proposta .t{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--linea);font-size:12.5px}
+.proposta .t b{font-weight:600}
+.proposta .t span{margin-left:auto;font:11px var(--mono)}
+.proposta .f{display:flex;align-items:center;gap:8px;padding:5px 12px;font:12px var(--mono);color:var(--mezzo);cursor:pointer}
+.proposta .f:hover{background:var(--vetro)}
+.proposta .f .conta{margin-left:auto}
+.proposta .b{display:flex;gap:6px;padding:9px 12px;border-top:1px solid var(--linea);flex-wrap:wrap}
+.proposta .b button{white-space:nowrap;padding:5px 10px;border-radius:8px;font-size:12px;font-weight:600;border:1px solid var(--linea-2);color:var(--mezzo)}
+.proposta .b button:hover{color:var(--inchiostro)}
+.proposta .b button.primo{background:var(--brace);color:#160a06;border-color:transparent}
+.proposta.decisa{opacity:.7}
+.proposta.decisa .b{display:none}
+.proposta.decisa .f{pointer-events:none}
+.piede-app .attesa{color:var(--brace);cursor:pointer}
 .corpo.senza-chat .chat{display:none}
 
 .lato{border-right:1px solid var(--linea);background:var(--fondo-2);display:flex;flex-direction:column;min-height:0}
@@ -207,14 +279,45 @@ body.lavora #btnFerma{display:flex}
   </header>
 
   <div class="corpo" id="corpo">
+    <nav class="attivita">
+      <button class="si" id="attEsplora" title="Esplora (Ctrl+Maiusc+E)">
+        <svg viewBox="0 0 24 24"><path d="M4 5h6l2 2h8v12H4z"/></svg>
+      </button>
+      <button id="attModifiche" title="Modifiche proposte da NOVA (Ctrl+Maiusc+M)">
+        <svg viewBox="0 0 24 24"><path d="M6 3v12M18 9v12M6 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM18 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM18 9c0 4-12 2-12 6"/></svg>
+        <span class="pallino" id="pallinoModifiche" hidden></span>
+      </button>
+      <button id="attTest" title="Test">
+        <svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/></svg>
+      </button>
+    </nav>
+
     <aside class="lato">
-      <div class="sez">
-        <span id="nomeCartella">Esplora</span>
-        <button id="btnAggiorna" title="Rileggi la cartella">
-          <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg>
-        </button>
+      <div class="vista" id="vEsplora">
+        <div class="sez">
+          <span id="nomeCartella">Esplora</span>
+          <button id="btnAggiorna" title="Rileggi la cartella">
+            <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg>
+          </button>
+        </div>
+        <div class="albero" id="albero"></div>
       </div>
-      <div class="albero" id="albero"></div>
+      <div class="vista" id="vModifiche" hidden>
+        <div class="sez"><span>Modifiche</span></div>
+        <div class="azioni-vista" id="azioniModifiche" hidden>
+          <button class="primo" id="btnAccettaTutto" title="Scrive tutte le proposte, come le vedi">Accetta tutto</button>
+          <button id="btnProvaTutto" title="Le scrive, prova il progetto, e le toglie se un test che passava cade">Applica e prova</button>
+          <button id="btnScartaTutto">Scarta tutto</button>
+        </div>
+        <div class="elenco-vista" id="elencoModifiche"></div>
+      </div>
+      <div class="vista" id="vTest" hidden>
+        <div class="sez"><span>Test</span></div>
+        <div class="azioni-vista">
+          <button class="primo" id="btnProvaProgetto">Prova il progetto</button>
+        </div>
+        <div class="prova-sintesi" id="sintesiProva">Riconosco da solo come si provano i test: cargo, npm, go, pytest, o gli script di prova.</div>
+      </div>
     </aside>
 
     <main class="centro">
@@ -232,18 +335,30 @@ body.lavora #btnFerma{display:flex}
         <textarea id="ripiego" spellcheck="false" hidden></textarea>
         <div class="anteprima" id="anteprima" hidden></div>
         <div class="documento" id="documento" hidden></div>
+        <div id="confronto" hidden>
+          <div class="barra-confronto" id="barraConfronto"></div>
+          <div class="avviso" id="avvisoConfronto" hidden></div>
+          <div id="confrontoEd"></div>
+          <textarea id="confrontoRipiego" spellcheck="false" hidden></textarea>
+        </div>
         <div class="benvenuto" id="benvenuto">
           <div class="dentro">
             <div class="manca" id="mancaEditor" hidden></div>
-            <h2>Apri qualcosa su cui lavorare</h2>
-            <div>Una cartella, e i suoi file compaiono a sinistra. Oppure chiedi a NOVA di aprirti un file.</div>
-            <div class="bottoni">
+            <h2 id="bvTitolo">Apri qualcosa su cui lavorare</h2>
+            <div id="bvTesto">Una cartella, e i suoi file compaiono a sinistra. Oppure chiedi a NOVA di aprirti un file.</div>
+            <div class="bottoni" id="bvBottoni">
               <button class="bottone primo" id="bvCartella">Apri una cartella</button>
               <button class="bottone secondo" id="bvFile">Apri un file</button>
             </div>
             <div class="recenti" id="recenti" hidden><b>Aperte di recente</b></div>
           </div>
         </div>
+      </div>
+      <div class="sotto" id="sotto" hidden>
+        <div class="testa-sotto">Test <span id="testaProva"></span>
+          <button id="btnChiudiSotto" title="Chiudi">✕</button>
+        </div>
+        <div class="uscita" id="uscitaProva"></div>
       </div>
     </main>
 
@@ -279,6 +394,7 @@ body.lavora #btnFerma{display:flex}
   <footer class="piede-app">
     <span id="stCartella"></span>
     <span class="sporchi" id="stSporchi"></span>
+    <span class="attesa" id="stProposte"></span>
     <span class="messaggio" id="stMessaggio"></span>
     <div class="dx">
       <span id="stPosizione"></span>
@@ -362,7 +478,7 @@ function ricorda() {
   try {
     localStorage.setItem(DEPOSITO, JSON.stringify({
       cartella: stato.cartella,
-      schede: stato.schede.filter(s => s.tipo !== 'altro').map(s => s.percorso),
+      schede: stato.schede.filter(s => s.tipo !== 'altro' && s.tipo !== 'proposta').map(s => s.percorso),
       attiva: stato.attiva,
       espanse: [...stato.espanse],
       chat: stato.chat,
@@ -392,6 +508,8 @@ function aggiornaPiede() {
   $('stCartella').textContent = stato.cartella ? nomeDi(stato.cartella) : '';
   const sporche = stato.schede.filter(x => x.sporco).length;
   $('stSporchi').textContent = sporche ? (sporche === 1 ? T('1 file non salvato') : sporche + ' ' + T('file non salvati')) : '';
+  const qui = proposte.length;
+  $('stProposte').textContent = qui ? (qui === 1 ? T('1 proposta in attesa') : qui + ' ' + T('proposte in attesa')) : '';
   if (s && s.tipo === 'testo') {
     const p = ed.posizione();
     $('stPosizione').textContent = p ? `${T('Riga')} ${p.riga}, ${T('Col')} ${p.colonna}` : '';
@@ -480,6 +598,15 @@ const TEMA = {
     'scrollbarSlider.background': '#ffffff14',
     'scrollbarSlider.hoverBackground': '#ffffff24',
     'focusBorder': '#e8734a66',
+    // Il confronto con i colori della bozza: il verde e il rosso tenui,
+    // perche' una proposta lunga non deve sembrare un allarme.
+    'diffEditor.insertedLineBackground': '#7df0b216',
+    'diffEditor.insertedTextBackground': '#7df0b22e',
+    'diffEditor.removedLineBackground': '#e8604a1c',
+    'diffEditor.removedTextBackground': '#e8604a3a',
+    'diffEditorGutter.insertedLineBackground': '#7df0b21c',
+    'diffEditorGutter.removedLineBackground': '#e8604a24',
+    'diffEditor.diagonalFill': '#ffffff0a',
   },
 };
 
@@ -687,8 +814,8 @@ function disegnaSchede() {
   for (const s of stato.schede) {
     const d = document.createElement('div');
     d.className = 'scheda' + (s.percorso === stato.attiva ? ' si' : '') + (s.sporco ? ' sporca' : '');
-    d.title = s.percorso;
-    const est = estensione(s.percorso).slice(1).toUpperCase();
+    d.title = s.tipo === 'proposta' ? T('Proposta di NOVA su ') + s.file : s.percorso;
+    const est = s.tipo === 'proposta' ? '⇄' : estensione(s.percorso).slice(1).toUpperCase();
     if (s.tipo !== 'testo' && est) {
       const t = document.createElement('span');
       t.className = 'tipo';
@@ -708,6 +835,13 @@ function disegnaSchede() {
     if (s.percorso === stato.attiva) requestAnimationFrame(() => d.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
   }
   $('benvenuto').hidden = stato.schede.length > 0;
+  // Con una cartella aperta non si invita ad aprirne una: si indica l'albero.
+  $('bvTitolo').textContent = stato.cartella ? T('Scegli un file') : T('Apri qualcosa su cui lavorare');
+  $('bvTesto').textContent = stato.cartella
+    ? T('Dall’albero a sinistra, oppure chiedi a NOVA di aprirtelo.')
+    : T('Una cartella, e i suoi file compaiono a sinistra. Oppure chiedi a NOVA di aprirti un file.');
+  $('bvBottoni').hidden = !!stato.cartella;
+  $('recenti').hidden = !!stato.cartella || !recenti().length;
 }
 
 function disegnaBriciole() {
@@ -715,8 +849,9 @@ function disegnaBriciole() {
   const b = $('briciole');
   b.innerHTML = '';
   if (!s) return;
-  const pezzi = relativo(s.percorso, stato.cartella).split(/[\\/]/).filter(Boolean);
-  if (stato.cartella && dentro(s.percorso, stato.cartella)) pezzi.unshift(nomeDi(stato.cartella));
+  const vero = s.file || s.percorso;
+  const pezzi = relativo(vero, stato.cartella).split(/[\\/]/).filter(Boolean);
+  if (stato.cartella && dentro(vero, stato.cartella)) pezzi.unshift(nomeDi(stato.cartella));
   pezzi.forEach((p, i) => {
     if (i) { const sep = document.createElement('b'); sep.textContent = ' › '; b.appendChild(sep); }
     const n = document.createElement('span');
@@ -724,17 +859,20 @@ function disegnaBriciole() {
     if (i === pezzi.length - 1) n.className = 'io';
     b.appendChild(n);
   });
-  b.title = s.percorso;
+  b.title = vero;
 }
 
 function mostraScheda(s) {
   ed.lascia(attiva());
+  lasciaConfronto(attiva());
   stato.attiva = s.percorso;
   $('editor').hidden = !(s.tipo === 'testo' && ed.monaco);
   $('ripiego').hidden = true;
-  $('documento').hidden = s.tipo === 'testo';
+  $('documento').hidden = s.tipo === 'testo' || s.tipo === 'proposta';
+  $('confronto').hidden = s.tipo !== 'proposta';
   $('anteprima').hidden = true;
   if (s.tipo === 'testo') ed.mostra(s);
+  else if (s.tipo === 'proposta') mostraConfronto(s);
   else disegnaDocumento(s);
   $('btnAnteprima').hidden = !(s.tipo === 'testo' && ['.md', '.markdown'].includes(estensione(s.percorso)));
   $('btnAnteprima').classList.toggle('si', !!s.anteprima);
@@ -869,12 +1007,14 @@ async function chiudiScheda(s) {
   if (i < 0) return;
   stato.schede.splice(i, 1);
   ed.chiudi(s);
+  chiudiConfronto(s);
   if (stato.attiva === s.percorso) {
     const prossima = stato.schede[Math.min(i, stato.schede.length - 1)];
     stato.attiva = null;
     if (prossima) mostraScheda(prossima);
     else {
       $('editor').hidden = true; $('ripiego').hidden = true; $('documento').hidden = true;
+      $('confronto').hidden = true;
       $('anteprima').hidden = true; $('btnAnteprima').hidden = true;
       disegnaSchede(); disegnaBriciole(); disegnaAlbero(); disegnaContesto(); aggiornaPiede(); ricorda();
     }
@@ -979,6 +1119,7 @@ async function apriCartella(cartella, { schede = null } = {}) {
   $('nomeCartella').title = cartella;
   await contenuto(cartella);
   disegnaAlbero();
+  disegnaSchede();
   disegnaBriciole();
   aggiornaPiede();
   ricorda();
@@ -1231,9 +1372,9 @@ const includi = { file: true, selezione: true };
 
 function contesto() {
   const s = attiva();
-  const c = { cartella: stato.cartella || '', aperti: stato.schede.map(x => x.percorso) };
+  const c = { cartella: stato.cartella || '', aperti: [...new Set(stato.schede.map(x => x.file || x.percorso))] };
   if (s && includi.file) {
-    c.attivo = { percorso: s.percorso };
+    c.attivo = { percorso: s.file || s.percorso };
     if (s.tipo === 'testo') {
       c.attivo.riga = ed.posizione()?.riga || 0;
       c.attivo.modificato = !!s.sporco;
@@ -1309,6 +1450,519 @@ function mostraChat(si) {
 
 const permessi = sportello({ discorso: $('discorso'), invoke, T, nota, fondo, prima: togliInizio });
 
+/* ============================================ le viste a sinistra === */
+const VISTE = ['esplora', 'modifiche', 'test'];
+const maiuscola = x => x[0].toUpperCase() + x.slice(1);
+function mostraVista(v) {
+  for (const x of VISTE) {
+    $('v' + maiuscola(x)).hidden = x !== v;
+    $('att' + maiuscola(x)).classList.toggle('si', x === v);
+  }
+}
+
+/* ================================================ le proposte ======= *
+ * NOVA propone con il suo strumento, e la proposta sta in un file suo:
+ * qui la si guarda come confronto dentro l'editor — cio' che se ne va e
+ * cio' che arriva — e la si accetta intera o a pezzi, la si ritocca, la
+ * si butta, o la si applica e prova. A scrivere e' il demone
+ * (`harness.applica`): una copia accanto, e con la prova, se un test che
+ * passava cade, tutto torna com'era (D339). */
+let proposte = [];
+
+const chiama = (capacita, args = {}) => invoke('demone_chiama', { capacita, args });
+
+async function caricaProposte() {
+  if (!invoke) return;
+  try { proposte = (await chiama('harness.proposte'))?.proposte || []; }
+  catch (e) { console.warn('proposte:', e); return; }
+  // Una scheda di confronto la cui proposta non c'e' piu' — applicata o
+  // buttata da NOVA, o da un'altra parte — si chiude; una riscritta si
+  // aggiorna, se non la si stava ritoccando.
+  for (const s of stato.schede.filter(x => x.tipo === 'proposta')) {
+    const p = proposte.find(x => stesso(x.file, s.file));
+    if (!p) { await chiudiScheda(s); continue; }
+    if (p.quando !== s.proposta.quando && !s.ritoccata) {
+      s.proposta = p;
+      creaModelliProposta(s);
+      if (s.percorso === stato.attiva) mostraConfronto(s);
+    }
+  }
+  disegnaModifiche();
+  aggiornaCarta();
+  aggiornaPiede();
+}
+
+function contaDi(p) {
+  const c = document.createElement('span');
+  c.className = 'conta';
+  if (!p.qui) { c.textContent = T('PDF/Word'); return c; }
+  const piu = document.createElement('span'); piu.className = 'piu'; piu.textContent = '+' + (p.piu || 0);
+  const meno = document.createElement('span'); meno.className = 'meno'; meno.textContent = ' −' + (p.meno || 0);
+  c.append(piu, meno);
+  return c;
+}
+
+function disegnaModifiche() {
+  const el = $('elencoModifiche');
+  el.innerHTML = '';
+  const pallino = $('pallinoModifiche');
+  pallino.hidden = !proposte.length;
+  pallino.textContent = String(proposte.length);
+  $('azioniModifiche').hidden = !proposte.some(p => p.qui && !p.errore);
+  if (!proposte.length) {
+    const v = document.createElement('div');
+    v.className = 'vuoto';
+    v.textContent = T('Nessuna modifica in attesa. Quando NOVA ne propone una, la trovi qui.');
+    el.appendChild(v);
+    return;
+  }
+  for (const p of proposte) {
+    const d = document.createElement('div');
+    d.className = 'voce-proposta' + (stato.attiva === 'proposta:' + p.file ? ' aperto' : '');
+    d.title = p.file;
+    const r1 = document.createElement('div');
+    r1.className = 'riga1';
+    const n = document.createElement('span');
+    n.className = 'n';
+    n.textContent = p.nome || nomeDi(p.file);
+    r1.append(n, contaDi(p));
+    d.appendChild(r1);
+    const dove = document.createElement('div');
+    dove.className = 'dove';
+    const cartellaDelFile = genitore(p.file);
+    dove.textContent = stesso(cartellaDelFile, stato.cartella) ? nomeDi(stato.cartella)
+      : relativo(cartellaDelFile, stato.cartella);
+    d.appendChild(dove);
+    if (p.motivo) {
+      const m = document.createElement('div');
+      m.className = 'perche';
+      m.textContent = p.motivo;
+      d.appendChild(m);
+    }
+    const guaio = p.errore || (p.saltate?.length ? T('in parte non si applica più: il file è cambiato') : '')
+      || (!p.qui ? T('si guarda nella finestra di prima') : '');
+    if (guaio) {
+      const g = document.createElement('div');
+      g.className = 'guaio';
+      g.textContent = guaio;
+      d.appendChild(g);
+    }
+    d.onclick = () => apriConfronto(p.file);
+    el.appendChild(d);
+  }
+}
+
+function creaModelliProposta(s) {
+  const p = s.proposta;
+  s.ritoccata = false;
+  if (monaco) {
+    const l = linguaDi(p.file);
+    s.nomeLingua = l.nome;
+    s.originale?.dispose();
+    s.modificato?.dispose();
+    s.originale = monaco.editor.createModel(p.originale, l.id);
+    s.modificato = monaco.editor.createModel(p.proposto, l.id);
+    s.modificato.onDidChangeContent(() => {
+      s.ritoccata = s.modificato.getValue() !== s.proposta.proposto;
+    });
+  } else {
+    s.testo = p.proposto;
+  }
+}
+
+async function apriConfronto(file) {
+  let p = proposte.find(x => stesso(x.file, file));
+  if (!p) { await caricaProposte(); p = proposte.find(x => stesso(x.file, file)); }
+  if (!p) return null;
+  if (!p.qui) { messaggio(T('Questa proposta è su un PDF o un Word: si guarda nella finestra di prima.'), 7000); return null; }
+  if (p.errore) { messaggio(p.errore, 9000); return null; }
+  const chiaveScheda = 'proposta:' + p.file;
+  let s = stato.schede.find(x => x.percorso === chiaveScheda);
+  if (!s) {
+    s = { percorso: chiaveScheda, file: p.file, nome: nomeDi(p.file), tipo: 'proposta', proposta: p, sporco: false };
+    creaModelliProposta(s);
+    stato.schede.push(s);
+  }
+  if (!stato.cartella) await apriCartella(genitore(p.file));
+  mostraScheda(s);
+  disegnaModifiche();
+  return s;
+}
+
+let confronto = null;
+function assicuraConfronto() {
+  if (confronto || !monaco) return confronto;
+  confronto = monaco.editor.createDiffEditor($('confrontoEd'), {
+    theme: 'nova',
+    automaticLayout: true,
+    renderSideBySide: false,
+    useInlineViewWhenSpaceIsLimited: true,
+    originalEditable: false,
+    renderMarginRevertIcon: true,
+    ignoreTrimWhitespace: false,
+    fontFamily: "'Cascadia Mono', 'Cascadia Code', Consolas, monospace",
+    fontSize: 13, lineHeight: 20,
+    minimap: { enabled: false },
+    scrollBeyondLastLine: false,
+    inlineSuggest: { enabled: false },
+  });
+  confronto.onDidUpdateDiff(() => disegnaBarraConfronto());
+  const m = confronto.getModifiedEditor();
+  m.onDidChangeCursorPosition(() => disegnaBarraConfronto());
+  m.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => accettaScheda(attiva()));
+  return confronto;
+}
+
+function mostraConfronto(s) {
+  const c = assicuraConfronto();
+  if (c) {
+    $('confrontoEd').hidden = false;
+    $('confrontoRipiego').hidden = true;
+    c.setModel({ original: s.originale, modified: s.modificato });
+    if (s.vista) c.getModifiedEditor().restoreViewState(s.vista);
+  } else {
+    $('confrontoEd').hidden = true;
+    $('confrontoRipiego').hidden = false;
+    $('confrontoRipiego').value = s.testo;
+  }
+  const a = $('avvisoConfronto');
+  const guai = [...(s.proposta.saltate || [])];
+  if (!c) guai.unshift(T('Senza l’editor completo il confronto non si vede: questo è il file come sarebbe, e lo puoi ritoccare.'));
+  a.hidden = !guai.length;
+  a.textContent = guai.length
+    ? (s.proposta.saltate?.length ? T('Non tutto si applica più, perché il file è cambiato da quando NOVA ha proposto: ') : '') + guai.join(' · ')
+    : '';
+  disegnaBarraConfronto();
+}
+
+function lasciaConfronto(s) {
+  if (!s || s.tipo !== 'proposta') return;
+  if (confronto) s.vista = confronto.getModifiedEditor().saveViewState();
+  else s.testo = $('confrontoRipiego').value;
+}
+
+function chiudiConfronto(s) {
+  if (s.tipo !== 'proposta') return;
+  if (confronto && confronto.getModel()?.modified === s.modificato) confronto.setModel(null);
+  s.originale?.dispose();
+  s.modificato?.dispose();
+  s.originale = s.modificato = null;
+  disegnaModifiche();
+}
+
+function valoreProposta(s) {
+  if (s.modificato) return s.modificato.getValue();
+  return s.percorso === stato.attiva ? $('confrontoRipiego').value : s.testo;
+}
+
+/* I pezzi del confronto: dove sono, e quale ha davanti chi guarda. */
+function pezzi() { return confronto?.getLineChanges() || []; }
+function pezzoCorrente(tutti) {
+  const riga = confronto?.getModifiedEditor().getPosition()?.lineNumber || 1;
+  const i = tutti.findIndex(c => riga <= Math.max(c.modifiedEndLineNumber, c.modifiedStartLineNumber));
+  return i < 0 ? tutti.length - 1 : i;
+}
+function vaiAlPezzo(i) {
+  const tutti = pezzi();
+  if (!tutti.length) return;
+  const c = tutti[(i + tutti.length) % tutti.length];
+  const riga = Math.max(1, c.modifiedStartLineNumber);
+  const m = confronto.getModifiedEditor();
+  m.setPosition({ lineNumber: riga, column: 1 });
+  m.revealLineInCenter(riga);
+  m.focus();
+}
+
+/* Rifiutare un pezzo = rimettere, nel testo che si scrivera', le righe di
+   prima al posto di quelle proposte. Il resto della proposta resta. */
+function rifiutaPezzo() {
+  const tutti = pezzi();
+  if (!tutti.length) return;
+  const c = tutti[pezzoCorrente(tutti)];
+  const o = confronto.getOriginalEditor().getModel();
+  const m = confronto.getModifiedEditor().getModel();
+  const eol = m.getEOL();
+  const R = monaco.Range;
+  const vecchie = c.originalEndLineNumber
+    ? o.getValueInRange(new R(c.originalStartLineNumber, 1, c.originalEndLineNumber, o.getLineMaxColumn(c.originalEndLineNumber)))
+    : null;
+  let modifica;
+  if (!c.modifiedEndLineNumber) {
+    // NOVA toglieva delle righe: si rimettono dopo la riga indicata.
+    const dopo = c.modifiedStartLineNumber;
+    modifica = dopo === 0
+      ? { range: new R(1, 1, 1, 1), text: vecchie + eol }
+      : { range: new R(dopo, m.getLineMaxColumn(dopo), dopo, m.getLineMaxColumn(dopo)), text: eol + vecchie };
+  } else if (!c.originalEndLineNumber) {
+    // NOVA aggiungeva delle righe: si tolgono.
+    const da = c.modifiedStartLineNumber, a = c.modifiedEndLineNumber;
+    modifica = a < m.getLineCount()
+      ? { range: new R(da, 1, a + 1, 1), text: '' }
+      : da > 1
+        ? { range: new R(da - 1, m.getLineMaxColumn(da - 1), a, m.getLineMaxColumn(a)), text: '' }
+        : { range: new R(1, 1, a, m.getLineMaxColumn(a)), text: '' };
+  } else {
+    const da = c.modifiedStartLineNumber, a = c.modifiedEndLineNumber;
+    modifica = { range: new R(da, 1, a, m.getLineMaxColumn(a)), text: vecchie };
+  }
+  m.pushEditOperations([], [modifica], () => null);
+}
+
+function disegnaBarraConfronto() {
+  const s = attiva();
+  const b = $('barraConfronto');
+  if (!s || s.tipo !== 'proposta') return;
+  b.innerHTML = '';
+  const bottone = (testo, fai, { primo = false, titolo = '', spento = false } = {}) => {
+    const x = document.createElement('button');
+    x.textContent = testo;
+    if (primo) x.className = 'primo';
+    if (titolo) x.title = titolo;
+    x.disabled = spento;
+    x.onclick = fai;
+    return x;
+  };
+  const chi = document.createElement('span');
+  chi.className = 'chi';
+  chi.textContent = T('Proposta di NOVA');
+  b.appendChild(chi);
+  if (s.proposta.motivo) {
+    const m = document.createElement('span');
+    m.className = 'motivo';
+    m.textContent = s.proposta.motivo;
+    m.title = s.proposta.motivo;
+    b.appendChild(m);
+  }
+  if (confronto) {
+    const tutti = pezzi();
+    const nav = document.createElement('span');
+    nav.className = 'nav';
+    const i = tutti.length ? pezzoCorrente(tutti) : -1;
+    nav.append(
+      bottone('‹', () => vaiAlPezzo(i - 1), { titolo: T('Pezzo prima'), spento: !tutti.length }),
+      document.createTextNode(tutti.length ? ` ${i + 1}/${tutti.length} ` : ' 0 '),
+      bottone('›', () => vaiAlPezzo(i + 1), { titolo: T('Pezzo dopo'), spento: !tutti.length }),
+    );
+    b.appendChild(nav);
+    b.appendChild(bottone(T('Rifiuta questo pezzo'), rifiutaPezzo,
+      { titolo: T('Rimette le righe di prima al posto di questo pezzo; il resto della proposta resta'), spento: !tutti.length }));
+    const affiancato = !!confronto.getOptions?.().renderSideBySide;
+    b.appendChild(bottone(affiancato ? T('In linea') : T('Affiancato'), () => {
+      confronto.updateOptions({ renderSideBySide: !affiancato });
+      disegnaBarraConfronto();
+    }));
+  }
+  const dx = document.createElement('span');
+  dx.className = 'dx';
+  dx.append(
+    bottone(T('Scarta'), () => scartaProposta(s.file)),
+    bottone(T('Applica e prova'), () => accettaScheda(s, { verifica: true }),
+      { titolo: T('Scrive, prova il progetto, e rimette tutto com’era se un test che passava cade') }),
+    bottone(T('Accetta'), () => accettaScheda(s), { primo: true, titolo: T('Scrive il file come lo vedi a destra (Ctrl+S)') }),
+  );
+  b.appendChild(dx);
+}
+
+async function accettaScheda(s, opzioni = {}) {
+  if (!s || s.tipo !== 'proposta') return false;
+  lasciaConfronto(s);
+  return applicaProposte([{ file: s.file, testo: valoreProposta(s), atteso: s.proposta.modificato ?? null }], opzioni);
+}
+
+/* Tutte quelle che si guardano qui. Una proposta aperta vale come la si
+   vede — con i pezzi rifiutati e i ritocchi; una non aperta, com'e'. */
+function tutteLeProposte() {
+  return proposte.filter(p => p.qui && !p.errore).map(p => {
+    const s = stato.schede.find(x => x.tipo === 'proposta' && stesso(x.file, p.file));
+    if (s) lasciaConfronto(s);
+    return s ? { file: p.file, testo: valoreProposta(s), atteso: p.modificato ?? null }
+             : { file: p.file, atteso: p.modificato ?? null };
+  });
+}
+
+let applicando = false;
+async function applicaProposte(modifiche, { verifica = false } = {}) {
+  if (!modifiche.length || applicando || !invoke) return false;
+  applicando = true;
+  if (verifica) inizioProva(T('provo prima e dopo le modifiche…'));
+  let r;
+  try {
+    r = await chiama('harness.applica', { modifiche, verifica, cartella: stato.cartella || '' });
+  } catch (e) {
+    applicando = false;
+    const m = String(e);
+    if (verifica) fineProva(null, m);
+    if (m.includes('CAMBIATO:')) {
+      await chiediQui(T('Il file è cambiato sul disco dopo che hai guardato la proposta: la ricarico, così vedi il confronto giusto.'),
+        [{ testo: T('Va bene'), valore: true, primo: true }]);
+      for (const s of stato.schede.filter(x => x.tipo === 'proposta')) s.proposta.quando = null;
+      await caricaProposte();
+    } else {
+      messaggio(m, 10000);
+    }
+    return false;
+  }
+  applicando = false;
+  if (verifica) fineProva(r.dopo || null, r.ok ? r.verdetto : r.motivo, r.prima || null);
+  if (!r.ok) {
+    await chiediQui(String(r.motivo || T('Non l’ho applicata.')), [{ testo: T('Va bene'), valore: true, primo: true }]);
+    return false;
+  }
+  for (const f of r.file || []) {
+    const s = stato.schede.find(x => x.tipo === 'proposta' && stesso(x.file, f.file));
+    if (s) await chiudiScheda(s);
+    const aperta = stato.schede.find(x => x.tipo === 'testo' && stesso(x.percorso, f.file));
+    if (aperta && !aperta.sporco) await ricarica(aperta);
+  }
+  const n = r.applicate || 0;
+  messaggio((n === 1 ? T('Applicata') : T('Applicate') + ` ${n}`) + (r.verdetto ? ' · ' + r.verdetto : '')
+    + ' · ' + T('la copia di prima sta accanto, «.prima»'), 9000);
+  await caricaProposte();
+  return true;
+}
+
+async function scartaProposta(file) {
+  try { await chiama('harness.scarta', { file }); }
+  catch (e) { messaggio(String(e), 8000); return; }
+  const s = stato.schede.find(x => x.tipo === 'proposta' && stesso(x.file, file));
+  if (s) await chiudiScheda(s);
+  await caricaProposte();
+}
+
+async function scartaTutte() {
+  const quante = proposte.filter(p => p.qui).length;
+  if (!quante) return;
+  const v = await chiediQui(quante === 1 ? T('Butto la proposta in attesa?') : T('Butto tutte le proposte in attesa?') + ` (${quante})`,
+    [{ testo: T('Scarta'), valore: true, primo: true }, { testo: T('Annulla'), valore: false }]);
+  if (!v) return;
+  for (const p of proposte.filter(x => x.qui)) {
+    try { await chiama('harness.scarta', { file: p.file }); } catch (e) { messaggio(String(e), 8000); }
+    const s = stato.schede.find(x => x.tipo === 'proposta' && stesso(x.file, p.file));
+    if (s) await chiudiScheda(s);
+  }
+  await caricaProposte();
+}
+
+/* La carta nella chat: le proposte arrivate mentre si parla, con i bottoni
+   per deciderle senza lasciare la conversazione. Una sola carta viva:
+   quando non resta niente in attesa, dice com'e' finita e si spegne. */
+let carta = null;
+function aggiornaCarta() {
+  const qui = proposte.filter(p => p.qui && !p.errore);
+  if (!qui.length) {
+    if (carta) {
+      carta.classList.add('decisa');
+      carta.querySelector('.t span').textContent = T('decise');
+      carta = null;
+    }
+    return;
+  }
+  if (!carta) {
+    togliInizio();
+    carta = document.createElement('div');
+    carta.className = 'proposta';
+    $('discorso').appendChild(carta);
+  }
+  carta.innerHTML = '';
+  const t = document.createElement('div');
+  t.className = 't';
+  const b = document.createElement('b');
+  b.textContent = T('Modifiche proposte');
+  const q = document.createElement('span');
+  q.textContent = qui.length === 1 ? T('1 file') : `${qui.length} ${T('file')}`;
+  t.append(b, q);
+  carta.appendChild(t);
+  for (const p of qui) {
+    const f = document.createElement('div');
+    f.className = 'f';
+    f.title = p.motivo || p.file;
+    f.append(document.createTextNode(relativo(p.file, stato.cartella)), contaDi(p));
+    f.onclick = () => apriConfronto(p.file);
+    carta.appendChild(f);
+  }
+  const bottoni = document.createElement('div');
+  bottoni.className = 'b';
+  const bot = (testo, fai, primo) => {
+    const x = document.createElement('button');
+    x.textContent = testo;
+    if (primo) x.className = 'primo';
+    x.onclick = fai;
+    return x;
+  };
+  bottoni.append(
+    bot(T('Guarda'), () => { mostraVista('modifiche'); apriConfronto(qui[0].file); }),
+    bot(T('Accetta tutto'), () => applicaProposte(tutteLeProposte()), true),
+    bot(T('Applica e prova'), () => applicaProposte(tutteLeProposte(), { verifica: true })),
+    bot(T('Scarta'), scartaTutte),
+  );
+  carta.appendChild(bottoni);
+  fondo();
+}
+
+/* ===================================================== le prove ===== */
+function mostraSotto(si = true) { $('sotto').hidden = !si; }
+
+function righinaProva(testo, classe = '') {
+  const r = document.createElement('div');
+  if (classe) r.className = classe;
+  r.textContent = testo;
+  $('uscitaProva').appendChild(r);
+  $('uscitaProva').scrollTop = $('uscitaProva').scrollHeight;
+}
+
+function inizioProva(titolo) {
+  mostraSotto();
+  $('uscitaProva').innerHTML = '';
+  $('testaProva').textContent = titolo;
+  $('sintesiProva').textContent = titolo;
+}
+
+/* Quello che il demone racconta mentre prova: un pezzo alla volta. */
+function eventoProva(d) {
+  if (d.fase === 'inizio') {
+    righinaProva(`${T('provo')}: ${d.comando}`, 'dim');
+    $('testaProva').textContent = d.comando;
+  } else if (d.fase === 'pezzo') {
+    const segno = { passata: '✓', caduta: '✗', saltata: '–' }[d.esito] || '·';
+    righinaProva(`${segno} ${d.nome}`, d.esito === 'passata' ? 'ok' : d.esito === 'caduta' ? 'ko' : 'dim');
+  }
+}
+
+function fineProva(esito, racconto, prima = null) {
+  if (prima?.racconto) righinaProva(`${T('prima')}: ${prima.racconto}`, 'dim');
+  if (esito?.racconto) righinaProva(`${prima ? T('dopo') + ': ' : ''}${esito.racconto}`, esito.ok ? 'ok' : 'ko');
+  if (esito?.uscita) righinaProva(esito.uscita);
+  if (racconto) righinaProva(racconto, esito && !esito.ok ? 'ko' : '');
+  const detto = racconto || esito?.racconto || esito?.motivo || '';
+  $('testaProva').textContent = detto;
+  const s = $('sintesiProva');
+  s.innerHTML = '';
+  const b = document.createElement('b');
+  b.textContent = T('Ultima prova: ');
+  s.append(b, document.createTextNode(detto));
+}
+
+async function provaProgetto() {
+  if (!stato.cartella) { messaggio(T('Apri prima la cartella del progetto.'), 5000); return; }
+  inizioProva(T('provo il progetto…'));
+  try {
+    const r = await chiama('harness.prova', { cartella: stato.cartella });
+    fineProva(r.provabile ? r : null, r.provabile ? '' : r.motivo);
+  } catch (e) {
+    fineProva(null, String(e));
+  }
+}
+
+$('attEsplora').onclick = () => mostraVista('esplora');
+$('attModifiche').onclick = () => mostraVista('modifiche');
+$('attTest').onclick = () => mostraVista('test');
+$('stProposte').onclick = () => mostraVista('modifiche');
+$('btnAccettaTutto').onclick = () => applicaProposte(tutteLeProposte());
+$('btnProvaTutto').onclick = () => applicaProposte(tutteLeProposte(), { verifica: true });
+$('btnScartaTutto').onclick = scartaTutte;
+$('btnProvaProgetto').onclick = provaProgetto;
+$('btnChiudiSotto').onclick = () => mostraSotto(false);
+
 /* ============================================ cosa apre NOVA ======== *
  * NOVA apre un file con lo strumento dell'harness; il guscio se ne
  * accorge e lo mette in fila (vedi harness.rs). Qui si ritira la fila. */
@@ -1321,6 +1975,7 @@ async function ritira() {
     const cartella = String(a.cartella || '');
     if (cartella && !stesso(cartella, stato.cartella)) await apriCartella(cartella);
     else if (!stato.cartella && file) await apriCartella(genitore(file));
+    if (a.proposta) { await caricaProposte(); await apriConfronto(file); mostraVista('modifiche'); continue; }
     if (file) await apriFile(file, { riga: Number(a.riga) || 0, sessione: String(a.sessione || '') });
   }
   return fila.length > 0;
@@ -1363,6 +2018,8 @@ document.addEventListener('keydown', e => {
   else if (ctrl && !e.shiftKey && e.key.toLowerCase() === 'j') { e.preventDefault(); mostraChat(!stato.chat); }
   else if (ctrl && !e.shiftKey && e.key.toLowerCase() === 'o') { e.preventDefault(); scegli(false); }
   else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'o') { e.preventDefault(); scegli(true); }
+  else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'e') { e.preventDefault(); mostraVista('esplora'); }
+  else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'm') { e.preventDefault(); mostraVista('modifiche'); }
   else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'v') { e.preventDefault(); $('btnAnteprima').hidden || $('btnAnteprima').click(); }
   else if (ctrl && e.key === 'Tab' && stato.schede.length > 1) {
     e.preventDefault();
@@ -1377,7 +2034,12 @@ document.addEventListener('keydown', e => {
 ascolta?.('nova://stato', ev => turno(String(ev.payload?.stato || 'quiete')));
 ascolta?.('nova://passo', ev => passo(ev.payload?.testo));
 ascolta?.('nova://harness', () => ritira());
-ascolta?.('nova://evento', ev => permessi.evento(ev.payload || {}));
+ascolta?.('nova://evento', ev => {
+  const e = ev.payload || {};
+  permessi.evento(e);
+  if (e.topic === 'harness.prova') eventoProva(e.dati || {});
+});
+ascolta?.('nova://proposte', () => caricaProposte());
 /* La voce e la nuvoletta finiscono qui come nell'orb: la conversazione e'
    una. */
 let inCorso = null;
@@ -1407,6 +2069,7 @@ window.addEventListener('focus', guardaSulDisco);
   if (!invoke) return;
   leggiPermessi();
   permessi.inAttesa();
+  await caricaProposte();
   try {
     const c = await invoke('cronologia_leggi');
     for (const b of (c?.battute || []).slice(-60)) battuta(b.da, b.testo);

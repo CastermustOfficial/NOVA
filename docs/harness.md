@@ -108,11 +108,31 @@ in aggiunta, come quello del Python.
 - **NOVA apre file qui** con lo strumento che ha già, `harness_apri`: il
   guscio si dichiara finestra dell'harness e ne segue il puntatore (D337).
   PDF, Word e HTML aperti da NOVA vanno ancora alla finestra di prima (in
-  Qt), che li mostra con le pagine vere: il guscio la accende da sé. La
-  accende anche quando NOVA propone una modifica, perché il confronto da
-  accettare sta ancora lì. Qui arrivano con la seconda e la quarta fase.
+  Qt), che li mostra con le pagine vere: il guscio la accende da sé. Qui
+  arrivano con la quarta fase.
 - Chiusa, la finestra si nasconde e ritrova tutto; riaperto il guscio,
   ritrova la cartella, le schede e le cartelle espanse.
+
+**Fase 2 — fatta** (D339). Le proposte di NOVA si guardano qui:
+
+- Quando NOVA propone, la finestra si apre sul confronto: dentro l'editor,
+  in linea o affiancato, con quel che se ne va in rosso e quel che arriva in
+  verde. Nella chat compare la carta delle proposte, con i file e le righe
+  che cambiano, e i bottoni per decidere senza lasciare la conversazione.
+- *Modifiche* le elenca tutte, anche su più file; il piede dice quante ne
+  aspettano.
+- Si accettano intere o **a pezzi**: «Rifiuta questo pezzo» (o la freccia
+  nel margine) rimette le righe di prima, il resto resta. Il lato destro si
+  scrive: ritoccare prima di accettare è scrivere lì.
+- **Applica e prova**: prova il progetto prima e dopo, e se cade un test che
+  passava rimette tutto com'era e la proposta resta. L'uscita si legge nel
+  pannello di sotto, un pezzo alla volta mentre gira.
+- *Test* prova il progetto da solo, riconoscendo come: cargo, npm, go,
+  pytest, o gli script di prova.
+- Una proposta su un file cambiato dopo che l'hai guardata non si scrive:
+  si ricarica il confronto. Accanto a ogni file scritto resta la copia
+  `.prima`.
+- Le proposte su PDF e Word si guardano ancora nella finestra di prima.
 
 ## Dopo
 

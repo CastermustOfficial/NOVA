@@ -23,6 +23,7 @@ pub mod caps_documenti;
 pub mod permessi;
 pub mod agente;
 pub mod caps_file;
+pub mod caps_harness;
 pub mod caps_memoria;
 pub mod caps_registro;
 pub mod caps_rete;
@@ -115,6 +116,7 @@ pub fn build(config: Config) -> Result<Arc<Server>> {
     caps_cervelli::register(&mut registry);
     caps_web::register(&mut registry);
     caps_documenti::register(&mut registry);
+    caps_harness::register(&mut registry);
 
     let server = Server::new(Arc::new(registry), ctx, config);
     // La memoria vive nel server perche' deve sopravvivere ai turni; le

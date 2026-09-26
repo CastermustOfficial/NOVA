@@ -106,7 +106,7 @@ pub fn segui(app: AppHandle) {
         // una finestra che salta fuori all'avvio per un documento aperto la
         // settimana scorsa e' una finestra che nessuno ha chiesto.
         let mut vista = sessione_corrente(&base);
-        let mut proposte = ultima_proposta(&base);
+        let mut proposte = proposte_su_disco(&base);
         loop {
             // A ogni giro, non solo all'avvio: se la finestra di prima si e'
             // chiusa, nel file resta il suo pid morto, e lo strumento la
@@ -115,15 +115,27 @@ pub fn segui(app: AppHandle) {
                 tracing::debug!(errore = %e, "non riesco a dichiarare la finestra dell'harness");
             }
             tokio::time::sleep(OGNI).await;
-            // Una proposta di NOVA si guarda e si accetta nella finestra di
-            // prima, finche' la seconda fase non porta qui il confronto:
-            // senza, una modifica proposta a un file aperto qui resterebbe
-            // invisibile.
-            let ultima = ultima_proposta(&base);
-            if ultima > proposte {
-                proposte = ultima;
-                tracing::info!("una proposta di NOVA: la mostra la finestra di prima");
-                finestra_di_prima();
+            // Una proposta di NOVA si guarda qui, come confronto da accettare
+            // a pezzi. Quelle su un PDF o un Word le sa disegnare solo la
+            // finestra di prima, fino alla quarta fase.
+            let ora_proposte = proposte_su_disco(&base);
+            if ora_proposte != proposte {
+                for file in nuove(&proposte, &ora_proposte) {
+                    if nova_harness::modifica::si_riscrive(&nova_harness::estensione(&file)) {
+                        tracing::info!(file = %file, "una proposta di NOVA da guardare");
+                        apri(
+                            &app,
+                            json!({ "file": file, "proposta": true, "da": "nova" }),
+                        );
+                    } else {
+                        tracing::info!(file = %file, "una proposta per la finestra di prima");
+                        finestra_di_prima();
+                    }
+                }
+                // Anche quando se ne vanno: applicate o buttate da NOVA, la
+                // finestra deve smettere di mostrarle.
+                let _ = app.emit_to("harness", "nova://proposte", json!({}));
+                proposte = ora_proposte;
             }
             let ora = sessione_corrente(&base);
             if ora.is_none() || ora == vista {
@@ -156,18 +168,41 @@ fn alla_finestra_di_prima(file: &str) -> bool {
     ALLA_FINESTRA_DI_PRIMA.contains(&nova_harness::estensione(file).as_str())
 }
 
-/// Quando e' stata scritta l'ultima proposta di NOVA (`proposta-*.json`,
-/// vedi `nova/harness_modifica.py`).
-fn ultima_proposta(base: &Path) -> Option<SystemTime> {
-    std::fs::read_dir(base)
-        .ok()?
+/// Le proposte di NOVA sul disco (`proposta-*.json`, vedi
+/// `nova/harness_modifica.py`): per ognuna, quando e' stata scritta e su
+/// quale file.
+type Proposte = Vec<(String, Option<SystemTime>, String)>;
+
+fn proposte_su_disco(base: &Path) -> Proposte {
+    let Ok(dentro) = std::fs::read_dir(base) else {
+        return Vec::new();
+    };
+    let mut v: Proposte = dentro
         .filter_map(Result::ok)
-        .filter(|d| {
+        .filter_map(|d| {
             let n = d.file_name().to_string_lossy().to_string();
-            n.starts_with("proposta-") && n.ends_with(".json")
+            if !(n.starts_with("proposta-") && n.ends_with(".json")) {
+                return None;
+            }
+            let quando = d.metadata().ok().and_then(|m| m.modified().ok());
+            let file = std::fs::read_to_string(d.path())
+                .ok()
+                .and_then(|t| serde_json::from_str::<Value>(t.trim_start_matches('\u{feff}')).ok())
+                .and_then(|p| p.get("file").and_then(Value::as_str).map(str::to_string))
+                .unwrap_or_default();
+            Some((n, quando, file))
         })
-        .filter_map(|d| d.metadata().ok()?.modified().ok())
-        .max()
+        .collect();
+    v.sort();
+    v
+}
+
+/// I file delle proposte nuove, o riscritte, da un giro all'altro.
+fn nuove(prima: &Proposte, ora: &Proposte) -> Vec<String> {
+    ora.iter()
+        .filter(|x| !prima.contains(x) && !x.2.is_empty())
+        .map(|x| x.2.clone())
+        .collect()
 }
 
 /// La finestra di prima, se l'ha accesa il guscio.
@@ -624,17 +659,33 @@ mod prove {
     }
 
     #[test]
-    fn l_ultima_proposta_e_la_piu_recente_e_solo_delle_proposte() {
+    fn le_proposte_nuove_o_riscritte_si_vedono() {
         let d = cartella_di_prova("proposte");
-        assert_eq!(ultima_proposta(&d), None);
-        std::fs::write(d.join("ab12.json"), "{}").unwrap();
+        assert!(proposte_su_disco(&d).is_empty());
+        std::fs::write(d.join("ab12.json"), r#"{"file":"x"}"#).unwrap();
         std::fs::write(d.join("proposta-x.txt"), "{}").unwrap();
-        assert_eq!(ultima_proposta(&d), None, "ne' sessioni ne' altri file");
-        std::fs::write(d.join("proposta-aaa.json"), "{}").unwrap();
-        let prima = ultima_proposta(&d).unwrap();
+        assert!(
+            proposte_su_disco(&d).is_empty(),
+            "ne' sessioni ne' altri file"
+        );
+        std::fs::write(d.join("proposta-aaa.json"), r#"{"file":"/p/a.rs"}"#).unwrap();
+        let uno = proposte_su_disco(&d);
+        assert_eq!(nuove(&Vec::new(), &uno), ["/p/a.rs"]);
+        assert!(nuove(&uno, &uno).is_empty());
         std::thread::sleep(Duration::from_millis(30));
-        std::fs::write(d.join("proposta-bbb.json"), "{}").unwrap();
-        assert!(ultima_proposta(&d).unwrap() > prima);
+        std::fs::write(d.join("proposta-aaa.json"), r#"{"file":"/p/a.rs"}"#).unwrap();
+        std::fs::write(d.join("proposta-bbb.json"), r#"{"file":"/p/b.md"}"#).unwrap();
+        std::fs::write(d.join("proposta-ccc.json"), "rotta").unwrap();
+        let due = proposte_su_disco(&d);
+        assert_eq!(
+            nuove(&uno, &due),
+            ["/p/a.rs", "/p/b.md"],
+            "riscritta, nuova; la rotta no"
+        );
+        std::fs::remove_file(d.join("proposta-aaa.json")).unwrap();
+        let tre = proposte_su_disco(&d);
+        assert_ne!(tre, due, "una che se ne va e' un cambiamento");
+        assert!(nuove(&due, &tre).is_empty());
         let _ = std::fs::remove_dir_all(&d);
     }
 
