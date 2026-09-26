@@ -10849,3 +10849,46 @@ domanda tornerà con l'harness:
   rifiuta, e la 0.5 — che non lo usa — si ferma dentro il progetto di MuPDF,
   quando `bin2coff` deve incorporare i caratteri. Serve Visual Studio Build
   Tools **2022**; la CI su `windows-latest` lo ha già.
+
+## L'harness, prima fase: la finestra
+
+Discusso con Gio cosa deve avere (docs/harness.md), approvata la bozza
+(docs/harness_bozza.html), e fatta la prima delle cinque fasi: la finestra
+nel guscio, con i file a sinistra, l'editor a schede al centro e la chat a
+destra.
+
+L'editor è Monaco, e non sta in git: lo scarica `build.rs` a versione
+fissata, controllando l'impronta del registro npm (D336). Per sapere cosa
+tenere l'ho aperto in Chromium e ho guardato cosa chiedeva: 15 MB dei 25 del
+pacchetto. La traduzione italiana di Monaco non è un modulo, e chiesta al
+suo caricatore lo lascia ad aspettare per sempre: l'editor non partiva, e
+senza la prova nel browser me ne sarei accorto sul PC di Gio.
+
+NOVA ci apre i file con lo strumento che ha già (D337). `harness_apri`
+guarda `finestra.json` per sapere se la finestra dell'harness è viva; il
+guscio ci scrive il suo pid e segue il puntatore della sessione, e lo
+strumento non cambia di una riga. Me ne stavo accorgendo tardi: la finestra
+in Qt mostra i PDF con le pagine vere e ha il pannello delle proposte, e
+prendersi tutto avrebbe voluto dire un passo indietro per chi studia su un
+PDF. Quindi PDF, Word e HTML vanno ancora là, accesa dal guscio, finché la
+quarta fase non li porta qui.
+
+La chat dell'harness è la stessa dell'orb, e con la domanda manda cosa è
+aperto e cosa è selezionato, in coda come la postilla della voce (D338). Per
+metterlo lì sono passato da `demone::turno`, e ho trovato che la voce, nel
+demone, aveva **una conversazione sua**: il guscio passava «voce» come nome
+di sessione invece della bandierina, quindi la postilla con i marcatori di
+chiusura non arrivava mai al cervello. Corretto.
+
+La pagina l'ho provata in Chromium con un `__TAURI__` finto: aprire una
+cartella, espandere, aprire un file, scrivere, salvare, selezionare due
+righe e chiedere (il contesto arriva con le righe giuste), cliccare
+`src/main.rs:3` nella risposta, l'anteprima del Markdown con una tabella,
+un PDF aperto da NOVA, un file cambiato da fuori — pulito si ricarica,
+sporco chiede — e la sessione ritrovata dopo aver ricaricato la pagina. E
+tutto di nuovo senza Monaco, col foglio semplice.
+
+Lo sportello dei permessi è uscito dalla nuvoletta ed è andato in
+`permessi.js`: le conversazioni sono due finestre, e una carta scritta due
+volte è una carta che un giorno dice due cose diverse. Il Markdown ha
+imparato le tabelle, e per i documenti unisce le righe in paragrafi.

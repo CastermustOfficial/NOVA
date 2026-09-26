@@ -158,7 +158,7 @@ ultimo, da solo, e non si commenta mai.
 
 
 def run_cli(cfg: Config, once: str | None = None, no_server: bool = False,
-            dalla_voce: bool = False) -> int:
+            dalla_voce: bool = False, postilla: str = "") -> int:
     """Modalita' testuale: utile per test e diagnostica.
 
     Regola su cosa va dove: su **stdout** solo la risposta, su **stderr**
@@ -236,7 +236,11 @@ def run_cli(cfg: Config, once: str | None = None, no_server: bool = False,
     try:
         if once:
             try:
-                agent.send(once, postilla=POSTILLA_VOCE if dalla_voce else "")
+                # Dopo la voce, cio' che il guscio manda in piu': cosa c'e'
+                # aperto nell'harness. Come la voce, non lo ha detto
+                # l'utente, quindi va in coda e non si impara.
+                agent.send(once, postilla=(POSTILLA_VOCE if dalla_voce else "")
+                           + (postilla or ""))
             except KeyboardInterrupt:
                 raise
             except Exception as e:
@@ -324,6 +328,9 @@ def main(argv: list[str] | None = None) -> int:
     # nella riga di comando finisce solo un percorso scritto da NOVA.
     ap.add_argument("--ask-file", metavar="PERCORSO", dest="ask_file",
                     help="come --ask, ma la richiesta sta in un file UTF-8")
+    ap.add_argument("--postilla", default="",
+                    help="con --ask: contesto da mettere in coda alla domanda "
+                         "(lo usa l'harness del guscio per dire cosa c'e' aperto)")
     ap.add_argument("--voce", action="store_true",
                     help="la domanda arriva dal microfono: risposta parlata e "
                          "marcatori di chiusura")
@@ -487,7 +494,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.cli or domanda:
         return run_cli(cfg, once=domanda,
                        no_server=args.no_server or cfg.brains.active != "locale",
-                       dalla_voce=args.voce)
+                       dalla_voce=args.voce, postilla=args.postilla)
     return avvia_orb()
 
 

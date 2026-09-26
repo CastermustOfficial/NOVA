@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Harness — bozza</title>
+<style>
+:root{
+  --fondo:#0a0908; --fondo-2:#0f0d0c; --fondo-3:#141210;
+  --inchiostro:#ece9e6; --mezzo:#948d86; --fioco:#5d5852;
+  --brace:#e8734a; --brace-16:rgba(232,115,74,.16); --brace-08:rgba(232,115,74,.08);
+  --ascolto:#7df0b2; --pensiero:#7aa2f7; --parola:#e08bd0;
+  --attenzione:#e8b04a; --pericolo:#e8604a;
+  --vetro:rgba(255,255,255,.035); --vetro-2:rgba(255,255,255,.065);
+  --linea:rgba(255,255,255,.08); --linea-2:rgba(255,255,255,.15);
+  --piu:rgba(125,240,178,.10); --piu-bordo:rgba(125,240,178,.55);
+  --meno:rgba(232,96,74,.12); --meno-bordo:rgba(232,96,74,.6);
+  --testo:'Segoe UI Variable','Segoe UI',system-ui,sans-serif;
+  --mono:'Cascadia Mono','Consolas',ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--fondo);color:var(--inchiostro);font:13px/1.45 var(--testo);overflow:hidden;
+  -webkit-font-smoothing:antialiased;color-scheme:dark}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+::selection{background:var(--brace-16);color:var(--brace)}
+
+.app{height:100vh;display:grid;grid-template-rows:38px 1fr 24px}
+
+/* --- la testa --- */
+.testa{display:flex;align-items:center;gap:12px;padding:0 10px 0 14px;border-bottom:1px solid var(--linea);background:var(--fondo)}
+.marchio{display:flex;align-items:center;gap:8px;font-weight:600;letter-spacing:.02em}
+.orbino{width:14px;height:14px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#ffd2bd,var(--brace) 45%,#6b2a14 100%);
+  box-shadow:0 0 12px rgba(232,115,74,.55)}
+.orbino.pensa{background:radial-gradient(circle at 35% 30%,#d9e4ff,var(--pensiero) 45%,#1d2d5c 100%);box-shadow:0 0 12px rgba(122,162,247,.6)}
+.briciole{color:var(--fioco);font-size:12px}
+.briciole b{color:var(--mezzo);font-weight:500}
+.testa .cerca{margin-left:auto;margin-right:auto;width:420px;height:24px;border-radius:7px;border:1px solid var(--linea);
+  background:var(--vetro);color:var(--fioco);font-size:12px;display:flex;align-items:center;justify-content:center;gap:8px}
+.kbd{font-family:var(--mono);font-size:10.5px;padding:1px 5px;border:1px solid var(--linea-2);border-radius:4px;color:var(--mezzo)}
+.finestra{display:flex;gap:14px;color:var(--fioco);font-size:14px}
+
+/* --- il corpo --- */
+.corpo{display:grid;grid-template-columns:46px 232px 1fr 372px;min-height:0}
+
+.attivita{border-right:1px solid var(--linea);display:flex;flex-direction:column;align-items:center;padding-top:8px;gap:4px;background:var(--fondo)}
+.attivita button{width:36px;height:36px;border-radius:9px;display:grid;place-items:center;color:var(--fioco);position:relative}
+.attivita button.si{color:var(--inchiostro)}
+.attivita button.si::before{content:"";position:absolute;left:-5px;top:9px;bottom:9px;width:2px;border-radius:2px;background:var(--brace)}
+.attivita button:hover{background:var(--vetro-2);color:var(--inchiostro)}
+.pallino{position:absolute;top:6px;right:6px;min-width:14px;height:14px;padding:0 3px;border-radius:7px;background:var(--brace);color:#160a06;font-size:9px;font-weight:700;display:grid;place-items:center}
+svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+
+.lato{border-right:1px solid var(--linea);background:var(--fondo-2);display:flex;flex-direction:column;min-height:0}
+.sez{font-size:10.5px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--mezzo);padding:12px 14px 8px;display:flex;align-items:center}
+.sez span{margin-left:auto;letter-spacing:0;font-family:var(--mono);color:var(--fioco);font-weight:400}
+.albero{font-size:12.5px;padding:0 6px 10px;overflow:auto}
+.nodo{display:flex;align-items:center;gap:6px;height:24px;padding:0 8px;border-radius:6px;color:var(--mezzo);white-space:nowrap}
+.nodo:hover{background:var(--vetro)}
+.nodo.aperto{background:var(--vetro-2);color:var(--inchiostro)}
+.nodo .ic{width:14px;text-align:center;color:var(--fioco);font-size:10px}
+.nodo .seg{margin-left:auto;font-size:10.5px;font-family:var(--mono)}
+.seg.m{color:var(--attenzione)} .seg.p{color:var(--brace)}
+.l1{padding-left:22px}.l2{padding-left:36px}.l3{padding-left:50px}
+
+/* --- l'editor --- */
+.centro{display:grid;grid-template-rows:1fr 190px;min-width:0;min-height:0}
+.metà{display:grid;grid-template-columns:1fr 1fr;min-height:0}
+.riquadro{display:flex;flex-direction:column;min-width:0;min-height:0;border-right:1px solid var(--linea)}
+.riquadro:last-child{border-right:none}
+.schede{display:flex;height:34px;border-bottom:1px solid var(--linea);background:var(--fondo-2);overflow:hidden}
+.scheda{display:flex;align-items:center;gap:7px;padding:0 12px;font-size:12.5px;color:var(--fioco);border-right:1px solid var(--linea);white-space:nowrap}
+.scheda.si{color:var(--inchiostro);background:var(--fondo);box-shadow:inset 0 1px 0 var(--brace)}
+.scheda .x{color:var(--fioco);font-size:11px}
+.scheda .punto{width:7px;height:7px;border-radius:50%;background:var(--mezzo)}
+.tipo{font-family:var(--mono);font-size:9.5px;padding:1px 4px;border-radius:3px;background:var(--vetro-2);color:var(--mezzo)}
+
+/* il PDF */
+.scrivania{flex:1;overflow:hidden;background:#1a1816;display:flex;flex-direction:column;align-items:center;padding:18px 0;gap:14px}
+.pagina{width:86%;max-width:430px;aspect-ratio:1/1.33;background:#f6f3ee;color:#2a2622;border-radius:2px;
+  box-shadow:0 18px 40px -18px rgba(0,0,0,.9);padding:30px 34px;font:10.5px/1.55 Georgia,'Times New Roman',serif;position:relative}
+.pagina h4{font:600 13px/1.3 Georgia,serif;margin-bottom:10px}
+.pagina p{margin-bottom:8px;text-align:justify}
+.evid{background:rgba(232,115,74,.28);box-shadow:0 0 0 2px rgba(232,115,74,.28);border-radius:2px}
+.numero{position:absolute;bottom:14px;left:0;right:0;text-align:center;color:#8a837b;font-size:9px}
+.barra-pdf{display:flex;align-items:center;gap:10px;height:30px;padding:0 12px;border-bottom:1px solid var(--linea);font-size:11.5px;color:var(--fioco)}
+.barra-pdf b{color:var(--mezzo);font-weight:500}
+
+/* il codice */
+.codice{flex:1;overflow:hidden;font:12.5px/20px var(--mono);background:var(--fondo);padding:8px 0;position:relative}
+.r{display:flex;white-space:pre}
+.n{width:46px;text-align:right;padding-right:14px;color:#3d3935;flex:none}
+.r.cur .n{color:var(--mezzo)}
+.r.cur{background:rgba(255,255,255,.025)}
+.kw{color:#c792ea}.fn{color:#82aaff}.st{color:#c3e88d}.cm{color:#5d5852;font-style:italic}.ty{color:#ffcb6b}.nu{color:#f78c6c}
+.r.via{background:var(--meno);box-shadow:inset 2px 0 0 var(--meno-bordo)}
+.r.via .t{text-decoration:line-through;text-decoration-color:rgba(232,96,74,.5);opacity:.75}
+.r.nuova{background:var(--piu);box-shadow:inset 2px 0 0 var(--piu-bordo)}
+.decidi{position:absolute;right:14px;display:flex;gap:6px;font-family:var(--testo)}
+.decidi button{font-size:11.5px;padding:3px 10px;border-radius:6px;border:1px solid var(--linea-2);background:var(--fondo-3)}
+.decidi .si{background:var(--brace);color:#160a06;border-color:transparent;font-weight:600}
+
+/* il pannello di sotto */
+.sotto{border-top:1px solid var(--linea);display:flex;flex-direction:column;min-height:0;background:var(--fondo)}
+.sotto .schede{background:var(--fondo);height:30px}
+.sotto .scheda{border-right:none;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:600}
+.sotto .scheda.si{box-shadow:inset 0 -1px 0 var(--brace);background:none}
+.terminale{flex:1;overflow:hidden;font:12px/18px var(--mono);padding:8px 14px;color:#cfcac4}
+.pr{color:var(--ascolto)} .dim{color:var(--fioco)} .ok{color:var(--ascolto)} .ko{color:var(--pericolo)}
+.nova-cmd{color:var(--mezzo);border-left:2px solid var(--brace);padding-left:8px;margin:4px 0}
+
+/* --- la chat --- */
+.chat{border-left:1px solid var(--linea);background:var(--fondo-2);display:flex;flex-direction:column;min-height:0}
+.chat-testa{display:flex;align-items:center;gap:10px;height:44px;padding:0 16px;border-bottom:1px solid var(--linea)}
+.chat-testa .stato{font-size:12px;color:var(--pensiero)}
+.chat-testa .chi{margin-left:auto;font-size:11px;color:var(--fioco)}
+.discorso{flex:1;overflow:hidden;padding:16px;display:flex;flex-direction:column;gap:14px}
+.tua{align-self:flex-end;max-width:86%;background:var(--vetro-2);border:1px solid var(--linea);padding:9px 12px;border-radius:12px 12px 4px 12px}
+.sua{max-width:96%;color:#dcd8d3}
+.sua p{margin-bottom:7px}
+.posto{display:inline-flex;align-items:center;gap:4px;font:11.5px var(--mono);padding:1px 7px;border-radius:5px;
+  background:var(--brace-08);color:var(--brace);border:1px solid rgba(232,115,74,.25)}
+.passi{display:flex;flex-direction:column;gap:3px;margin:6px 0 8px;font-size:12px;color:var(--fioco)}
+.passi div::before{content:"›  ";color:var(--mezzo)}
+.proposta{border:1px solid var(--linea-2);border-radius:12px;background:var(--fondo);overflow:hidden}
+.proposta .t{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--linea);font-size:12.5px}
+.proposta .t b{font-weight:600}
+.proposta .t span{margin-left:auto;font-family:var(--mono);font-size:11px}
+.proposta .f{display:flex;align-items:center;gap:8px;padding:6px 12px;font:12px var(--mono);color:var(--mezzo)}
+.proposta .f .piu{color:var(--ascolto)} .proposta .f .meno{color:var(--pericolo)}
+.proposta .f .piu{margin-left:auto}
+.proposta .b{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--linea)}
+.btn{white-space:nowrap;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:600;border:1px solid var(--linea-2);color:var(--mezzo)}
+.btn.primo{background:var(--brace);color:#160a06;border-color:transparent}
+.componi{margin:0 12px 12px;border:1px solid var(--linea-2);border-radius:12px;background:var(--fondo);padding:8px 10px}
+.contesto{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.contesto span{font-size:11px;padding:2px 7px;border-radius:5px;background:var(--vetro-2);color:var(--mezzo);font-family:var(--mono)}
+.componi .campo{color:var(--fioco);padding:4px 2px 8px}
+.componi .piede{display:flex;align-items:center;gap:10px;font-size:11px;color:var(--fioco)}
+.componi .piede .invia{margin-left:auto;width:28px;height:28px;border-radius:8px;background:var(--brace);display:grid;place-items:center;color:#160a06}
+
+/* --- il piede --- */
+.piede-app{display:flex;align-items:center;gap:16px;padding:0 12px;border-top:1px solid var(--linea);font-size:11.5px;color:var(--fioco);background:var(--fondo)}
+.piede-app .dx{margin-left:auto;display:flex;gap:16px}
+.piede-app .perm{color:var(--attenzione)}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="testa">
+    <div class="marchio"><div class="orbino"></div>NOVA</div>
+    <div class="briciole">nova-docx <b>›</b> src <b>›</b> <b>lettura.rs</b></div>
+    <div class="cerca">Cerca file, simboli, testo <span class="kbd">Ctrl P</span></div>
+    <div class="finestra"><span>—</span><span>▢</span><span>✕</span></div>
+  </header>
+
+  <div class="corpo">
+
+    <nav class="attivita">
+      <button class="si" title="Esplora"><svg viewBox="0 0 24 24"><path d="M4 5h6l2 2h8v12H4z"/></svg></button>
+      <button title="Cerca"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></svg></button>
+      <button title="Modifiche"><svg viewBox="0 0 24 24"><path d="M6 3v12M18 9v12M6 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM18 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM18 9c0 4-12 2-12 6"/></svg><span class="pallino">3</span></button>
+      <button title="Test"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/></svg></button>
+    </nav>
+
+    <aside class="lato">
+      <div class="sez">Esplora <span>core</span></div>
+      <div class="albero">
+        <div class="nodo"><span class="ic">▾</span>crates</div>
+        <div class="nodo l1"><span class="ic">▸</span>nova-browser</div>
+        <div class="nodo l1"><span class="ic">▸</span>nova-core</div>
+        <div class="nodo l1"><span class="ic">▾</span>nova-docx</div>
+        <div class="nodo l2"><span class="ic">▾</span>src</div>
+        <div class="nodo l3"><span class="ic">·</span>banco.rs</div>
+        <div class="nodo l3"><span class="ic">·</span>lib.rs<span class="seg m">M</span></div>
+        <div class="nodo l3 aperto"><span class="ic">·</span>lettura.rs<span class="seg p">●</span></div>
+        <div class="nodo l3"><span class="ic">·</span>prove.rs</div>
+        <div class="nodo l2"><span class="ic">·</span>Cargo.toml<span class="seg p">●</span></div>
+        <div class="nodo l1"><span class="ic">▸</span>nova-documenti</div>
+        <div class="nodo l1"><span class="ic">▸</span>nova-fogli</div>
+        <div class="nodo"><span class="ic">▾</span>studio</div>
+        <div class="nodo l1"><span class="ic">·</span>ECMA-376 parte 1.pdf</div>
+        <div class="nodo l1"><span class="ic">·</span>appunti.md</div>
+        <div class="nodo"><span class="ic">·</span>Cargo.toml</div>
+      </div>
+    </aside>
+
+    <main class="centro">
+      <div class="metà">
+
+        <section class="riquadro">
+          <div class="schede">
+            <div class="scheda si"><span class="tipo">PDF</span>ECMA-376 parte 1.pdf <span class="x">✕</span></div>
+            <div class="scheda"><span class="tipo">MD</span>appunti.md <span class="punto"></span></div>
+          </div>
+          <div class="barra-pdf">pagina <b>3</b> di 5039 <span style="margin-left:auto">− 110% +</span></div>
+          <div class="scrivania">
+            <div class="pagina">
+              <h4>17.4.85 vMerge (Vertically Merged Cell)</h4>
+              <p>This element specifies that this cell is part of a vertically merged set of cells in a table. The
+              <span class="evid">val attribute on this element determines how this cell is defined with respect to the
+              previous cell in the table (i.e. does this cell continue the vertical merge or start a new merged group of
+              cells).</span></p>
+              <p>If this element is omitted, then this cell shall not be part of any vertically merged grouping of
+              cells, and any vertically merged group of cells which is preceding this cell shall be terminated.</p>
+              <p><i>val</i> (Vertical Merge Type): specifies how the vertically merged cell shall be merged. If this
+              attribute is omitted, its value shall be assumed to be <b>continue</b>.</p>
+              <div class="numero">3</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="riquadro">
+          <div class="schede">
+            <div class="scheda si"><span class="tipo">RS</span>lettura.rs <span class="x">✕</span></div>
+            <div class="scheda"><span class="tipo">RS</span>lib.rs <span class="punto"></span></div>
+            <div class="scheda"><span class="tipo">TOML</span>Cargo.toml</div>
+          </div>
+          <div class="codice">
+            <div class="r"><span class="n">112</span><span class="t"><span class="kw">fn</span> <span class="fn">continua</span>(tc: &amp;<span class="ty">Nodo</span>) -&gt; <span class="ty">bool</span> {</span></div>
+            <div class="r"><span class="n">113</span><span class="t">    <span class="cm">// `w:vMerge` senza valore vuol dire «continua».</span></span></div>
+            <div class="r via"><span class="n">114</span><span class="t">    proprieta(tc, <span class="st">"vMerge"</span>).is_some()</span></div>
+            <div class="r nuova"><span class="n">114</span><span class="t">    proprieta(tc, <span class="st">"vMerge"</span>)</span></div>
+            <div class="r nuova"><span class="n">115</span><span class="t">        .is_some_and(|v| v.attributo(<span class="st">"val"</span>).unwrap_or(<span class="st">"continue"</span>) == <span class="st">"continue"</span>)</span></div>
+            <div class="r" style="height:30px;align-items:center"><span class="n"></span><span class="decidi" style="position:static;margin-left:0"><button class="si">Accetta</button><button>Rifiuta</button><button>Ritocca</button></span></div>
+            <div class="r"><span class="n">116</span><span class="t">}</span></div>
+            <div class="r"><span class="n">117</span><span class="t"></span></div>
+            <div class="r cur"><span class="n">118</span><span class="t"><span class="kw">fn</span> <span class="fn">prima_della_riga</span>(tr: &amp;<span class="ty">Nodo</span>) -&gt; <span class="ty">usize</span> {</span></div>
+            <div class="r"><span class="n">119</span><span class="t">    tr.primo_w(<span class="st">"trPr"</span>)</span></div>
+            <div class="r"><span class="n">120</span><span class="t">        .and_then(|p| p.primo_w(<span class="st">"gridBefore"</span>))</span></div>
+            <div class="r"><span class="n">121</span><span class="t">        .and_then(|g| g.attributo(<span class="st">"val"</span>))</span></div>
+            <div class="r"><span class="n">122</span><span class="t">        .and_then(|v| v.parse().ok())</span></div>
+            <div class="r"><span class="n">123</span><span class="t">        .unwrap_or(<span class="nu">0</span>)</span></div>
+            <div class="r"><span class="n">124</span><span class="t">}</span></div>
+          </div>
+        </section>
+      </div>
+
+      <section class="sotto">
+        <div class="schede">
+          <div class="scheda si">Terminale</div>
+          <div class="scheda">Test</div>
+          <div class="scheda">Comandi di NOVA</div>
+        </div>
+        <div class="terminale">
+          <div><span class="pr">core</span> <span class="dim">&gt;</span> cargo test -p nova-docx</div>
+          <div class="dim">   Compiling nova-docx v0.1.1</div>
+          <div>test lettura::prove::le_celle_unite_si_ripetono ... <span class="ok">ok</span></div>
+          <div>test lettura::prove::un_paragrafo_si_legge_come_in_python_docx ... <span class="ok">ok</span></div>
+          <div class="nova-cmd">NOVA ha eseguito <b style="color:var(--inchiostro)">cargo test -p nova-docx --lib lettura</b> — 17 passati, 0 falliti</div>
+          <div><span class="pr">core</span> <span class="dim">&gt;</span> <span style="background:var(--inchiostro);color:var(--fondo)"> </span></div>
+        </div>
+      </section>
+    </main>
+
+    <aside class="chat">
+      <div class="chat-testa"><div class="orbino pensa"></div><span class="stato">sta scrivendo la proposta…</span><span class="chi">Claude · sonnet</span></div>
+      <div class="discorso">
+        <div class="tua">Nella specifica <code>vMerge</code> senza <code>val</code> vale «continue»? E il nostro codice lo fa?</div>
+        <div class="sua">
+          <p>Sì: lo dice la specifica a <span class="posto">▤ pagina 3</span> — se <code>val</code> manca, vale <b>continue</b>.</p>
+          <div class="passi"><div>ho cercato «vMerge» nel PDF</div><div>ho letto <span class="posto">lettura.rs:112</span></div><div>ho fatto girare i test di nova-docx: 17 verdi</div></div>
+          <p>Il nostro codice però trattava <i>qualunque</i> <code>vMerge</code> come «continua», anche <code>restart</code>. Ti propongo di guardare il valore.</p>
+        </div>
+        <div class="proposta">
+          <div class="t"><b>Proposta</b> · 2 file, 3 modifiche <span class="piu" style="color:var(--ascolto)">+4 −1</span></div>
+          <div class="f">lettura.rs <span class="piu">+2</span><span class="meno">−1</span></div>
+          <div class="f">Cargo.toml <span class="piu">+2</span></div>
+          <div class="b"><button class="btn primo">Accetta tutto</button><button class="btn">Applica e prova</button><button class="btn">Scarta</button></div>
+        </div>
+      </div>
+      <div class="componi">
+        <div class="contesto"><span>@ lettura.rs</span><span>selezione · righe 112–116</span><span>@ ECMA-376 p.3</span></div>
+        <div class="campo">Chiedi a NOVA, o descrivi cosa fare…</div>
+        <div class="piede"><span>Ctrl ↵ invia</span><span class="invia">↑</span></div>
+      </div>
+    </aside>
+  </div>
+
+  <footer class="piede-app">
+    <span>● 3 proposte in attesa</span><span>17 test verdi</span>
+    <div class="dx"><span>Rust</span><span>Riga 118, col 5</span><span>UTF-8</span><span class="perm">Conferma se rischioso</span></div>
+  </footer>
+</div>
+</body>
+</html>

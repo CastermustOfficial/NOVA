@@ -327,6 +327,7 @@ pub async fn fai_un_turno(
     nome_sessione: &str,
     ricomincia: bool,
     dalla_voce: bool,
+    in_coda: &str,
 ) -> Result<Value> {
     if testo.trim().is_empty() {
         return Err(anyhow!("un turno senza domanda non ha niente da fare"));
@@ -379,12 +380,19 @@ pub async fn fai_un_turno(
     // entra nella ricerca in memoria e non viene imparata. Per questo si
     // attacca qui, in coda alla domanda, e non al testo che gira per il
     // resto del turno.
-    let postilla = if dalla_voce {
-        nova_contesto::testi::POSTILLA_VOCE
-    } else {
-        ""
-    };
-    let contenuto = nova_contesto::blocchi::domanda(testo, &memoria, &procedure, "", postilla);
+    //
+    // Dopo la voce, quello che chi chiama manda in piu' (`in_coda`): l'harness
+    // ci mette cosa c'e' aperto e cosa e' selezionato. Stesso trattamento,
+    // stessa ragione.
+    let postilla = format!(
+        "{}{in_coda}",
+        if dalla_voce {
+            nova_contesto::testi::POSTILLA_VOCE
+        } else {
+            ""
+        }
+    );
+    let contenuto = nova_contesto::blocchi::domanda(testo, &memoria, &procedure, "", &postilla);
     s.messaggi
         .push(json!({ "role": "user", "content": contenuto }));
 
@@ -561,7 +569,7 @@ mod prove {
     #[tokio::test]
     async fn una_domanda_vuota_non_e_un_turno() {
         let server = crate::build(crate::config::Config::default()).unwrap();
-        let e = fai_un_turno(&server, "   ", "", false, false)
+        let e = fai_un_turno(&server, "   ", "", false, false, "")
             .await
             .unwrap_err();
         assert!(e.to_string().contains("senza domanda"));

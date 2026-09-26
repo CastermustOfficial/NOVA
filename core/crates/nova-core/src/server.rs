@@ -122,7 +122,14 @@ impl Server {
                     .get("voce")
                     .and_then(|v| v.as_bool())
                     .unwrap_or(false);
-                crate::agente::fai_un_turno(self, testo, sessione, ricomincia, dalla_voce)
+                // Cio' che va in coda alla domanda senza che l'utente l'abbia
+                // detto: cosa c'e' aperto nell'harness, per ora. Si attacca
+                // come la postilla della voce, e come lei non si impara.
+                let postilla = params
+                    .get("postilla")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                crate::agente::fai_un_turno(self, testo, sessione, ricomincia, dalla_voce, postilla)
                     .await
                     .map_err(|e| (codes::CAPABILITY_FAILED, e.to_string()))
             }

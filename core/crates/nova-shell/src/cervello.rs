@@ -129,7 +129,16 @@ pub fn strada(imposta: Option<Strada>, pronto: Option<bool>) -> Result<Strada, S
 /// a voce e sui marcatori di chiusura. Quel testo non entra ne' nella ricerca
 /// in memoria ne' in cio' che NOVA impara: da tutte e due le parti passa solo
 /// la bandierina, e la postilla viene attaccata alla fine della domanda.
-pub async fn chiedi(app: AppHandle, testo: String, dalla_voce: bool) -> Result<String, String> {
+///
+/// `postilla` va in coda alla domanda allo stesso modo: e' il contesto che
+/// l'utente non ha scritto ma che il cervello deve sapere — cosa c'e' aperto
+/// nell'harness, quando la domanda arriva da li'.
+pub async fn chiedi(
+    app: AppHandle,
+    testo: String,
+    dalla_voce: bool,
+    postilla: String,
+) -> Result<String, String> {
     let domanda = testo.trim().to_string();
     if domanda.is_empty() {
         return Ok(String::new());
@@ -160,12 +169,12 @@ pub async fn chiedi(app: AppHandle, testo: String, dalla_voce: bool) -> Result<S
             // stato si spegne comunque vada, come dall'altra parte — un orb
             // fermo sull'ultimo passo racconta una cosa che e' finita.
             NEL_DEMONE.fetch_add(1, Ordering::SeqCst);
-            let esito = crate::demone::turno(&domanda, if dalla_voce { "voce" } else { "" }).await;
+            let esito = crate::demone::turno(&domanda, dalla_voce, &postilla).await;
             NEL_DEMONE.fetch_sub(1, Ordering::SeqCst);
             let _ = app.emit("nova://passo", json!({ "testo": "" }));
             esito.map_err(|e| e.to_string())
         }
-        Strada::Python => chiedi_a_python(app, domanda, dalla_voce).await,
+        Strada::Python => chiedi_a_python(app, domanda, dalla_voce, postilla).await,
     }
 }
 
@@ -174,6 +183,7 @@ async fn chiedi_a_python(
     app: AppHandle,
     domanda: String,
     dalla_voce: bool,
+    postilla: String,
 ) -> Result<String, String> {
     tokio::task::spawn_blocking(move || {
         let radice = radice_progetto();
@@ -186,6 +196,11 @@ async fn chiedi_a_python(
             .arg("--ask")
             .arg(&domanda)
             .args(if dalla_voce { &["--voce"][..] } else { &[][..] })
+            .args(if postilla.is_empty() {
+                Vec::new()
+            } else {
+                vec!["--postilla".to_string(), postilla.clone()]
+            })
             .current_dir(&radice)
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
@@ -254,7 +269,7 @@ async fn chiedi_a_python(
     .map_err(|e| e.to_string())?
 }
 
-fn eseguibile_python() -> String {
+pub fn eseguibile_python() -> String {
     std::env::var("NOVA_PYTHON").unwrap_or_else(|_| {
         if cfg!(windows) { "python".into() } else { "python3".into() }
     })

@@ -556,6 +556,9 @@ pub fn in_json(b: &Blocco) -> Value {
 
 /// Le proposte di modifica: quel che si puo' chiedere a un blocco, e come
 /// un documento diventa quel che sara'.
+/// Cosa c'e' aperto nella finestra, detto al cervello.
+pub mod aperti;
+
 pub mod modifica;
 
 /// Il verificatore: come si prova un progetto, e cosa vuol dire che una

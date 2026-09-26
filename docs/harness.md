@@ -1,7 +1,8 @@
 # L'harness: cosa deve avere
 
 Deciso con Gio il 26 settembre 2026, **prima** di pensare a come renderlo
-bello. Questo file dice cosa c'è dentro; l'aspetto viene dopo, guardando.
+bello. Questo file dice cosa c'è dentro; l'aspetto è quello della bozza
+approvata, [`harness_bozza.html`](harness_bozza.html).
 
 ## A cosa serve
 
@@ -84,6 +85,34 @@ in aggiunta, come quello del Python.
 3. Il terminale.
 4. PDF e Word.
 5. *Cerca* nel progetto, e la sessione che si ritrova.
+
+## Com'è andata
+
+**Fase 1 — fatta** (D336, D337). La finestra `harness` del guscio
+(`nova-shell/ui/harness.html`, il Rust in `nova-shell/src/harness.rs`):
+
+- *Esplora* legge la cartella un livello per volta, e non mostra le cartelle
+  che l'harness di NOVA non guarda (`target`, `node_modules`, `.git`…).
+- L'editor è Monaco, scaricato alla compilazione e non tenuto in git (D336);
+  senza rete resta un foglio semplice, e la finestra lo dice. Il Markdown ha
+  l'anteprima accanto.
+- Salvare non scrive sopra a un file cambiato sul disco dopo averlo aperto:
+  chiede. Un file cambiato da fuori — da NOVA, per esempio — si ricarica da
+  solo se non ci sono modifiche, altrimenti si chiede quale versione tenere.
+  Il segno UTF-8 in testa e gli a capo di Windows restano com'erano.
+- La chat è la stessa dell'orb: quel che si scrive in una finestra compare
+  nell'altra. Con la domanda va cosa è aperto e cosa è selezionato, in coda,
+  come la postilla della voce (`nova_harness::aperti`). I pezzetti sopra al
+  campo dicono cosa parte, e si tolgono con un clic.
+- `main.rs:40` e «riga 40» nelle risposte si cliccano.
+- **NOVA apre file qui** con lo strumento che ha già, `harness_apri`: il
+  guscio si dichiara finestra dell'harness e ne segue il puntatore (D337).
+  PDF, Word e HTML aperti da NOVA vanno ancora alla finestra di prima (in
+  Qt), che li mostra con le pagine vere: il guscio la accende da sé. La
+  accende anche quando NOVA propone una modifica, perché il confronto da
+  accettare sta ancora lì. Qui arrivano con la seconda e la quarta fase.
+- Chiusa, la finestra si nasconde e ritrova tutto; riaperto il guscio,
+  ritrova la cartella, le schede e le cartelle espanse.
 
 ## Dopo
 

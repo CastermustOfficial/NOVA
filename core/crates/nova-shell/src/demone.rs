@@ -214,17 +214,28 @@ pub async fn pronto_al_turno() -> Result<(bool, String)> {
 /// tornare anche di qua vorrebbe dire due strade per la stessa notizia, e
 /// chi guarda l'orb vedrebbe ogni passo due volte quando un turno parte
 /// dalla voce invece che dalla chat.
-pub async fn turno(testo: &str, sessione: &str) -> Result<String> {
-    let r = metodo(
-        "agente/turno",
-        json!({ "testo": testo, "sessione": sessione }),
-        ATTESA_TURNO,
-    )
-    .await?;
+///
+/// La voce e la chat sono **la stessa conversazione** (D307): cambia solo la
+/// bandierina `voce`, che fa attaccare alla domanda la postilla di chi parla
+/// al microfono. Prima qui si passava «voce» come *nome di sessione*: il
+/// demone apriva una seconda conversazione per la voce, e la postilla non
+/// arrivava mai — cioe' mai il marcatore con cui la voce capisce che il
+/// discorso e' chiuso.
+///
+/// `postilla` e' il resto di cio' che va in coda alla domanda senza essere
+/// detto dall'utente: oggi, cosa c'e' aperto nell'harness.
+pub async fn turno(testo: &str, voce: bool, postilla: &str) -> Result<String> {
+    let r = metodo("agente/turno", richiesta_turno(testo, voce, postilla), ATTESA_TURNO).await?;
     Ok(r.get("risposta")
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string())
+}
+
+/// Cosa si manda al demone per un turno. Senza `sessione`: voce e chat
+/// finiscono nella conversazione di sempre.
+fn richiesta_turno(testo: &str, voce: bool, postilla: &str) -> Value {
+    json!({ "testo": testo, "voce": voce, "postilla": postilla })
 }
 
 /// Taglia il filo del discorso dalla parte del demone.
@@ -236,4 +247,20 @@ pub async fn dimentica_sessione(sessione: &str) -> Result<()> {
     )
     .await
     .map(|_| ())
+}
+
+#[cfg(test)]
+mod prove {
+    use super::*;
+
+    #[test]
+    fn la_voce_e_una_bandierina_non_una_conversazione_a_parte() {
+        let r = richiesta_turno("che ore sono", true, "");
+        assert_eq!(r["voce"], true);
+        assert!(r.get("sessione").is_none(), "{r}");
+        let h = richiesta_turno("cosa fa?", false, "\n\n<harness>x</harness>");
+        assert_eq!(h["voce"], false);
+        assert_eq!(h["postilla"], "\n\n<harness>x</harness>");
+        assert_eq!(h["testo"], "cosa fa?");
+    }
 }

@@ -1171,3 +1171,18 @@ se è almeno un millesimo. Qui il cervello finto ci metteva qualche
 millesimo, sulla CI meno: rosso là, verde qui. È la stessa voce di D235, la
 prova che misurava la velocità della macchina; adesso la durata si guarda
 solo se c'è.
+
+## La voce aveva una conversazione sua
+
+Portando il turno nel demone, nel guscio avevo scritto
+`turno(&domanda, if dalla_voce { "voce" } else { "" })`, e il secondo
+argomento era il **nome della sessione**. Due errori in uno: la voce finiva
+in una conversazione diversa dalla chat — contro D307, che dice l'opposto
+con le stesse parole — e il demone non riceveva mai la bandierina `voce`,
+cioè mai la postilla con i marcatori con cui la voce capisce che il discorso
+è chiuso. Il banco del demone provava la bandierina chiamando il demone
+direttamente, e passava; nessuno provava cosa mandava **il guscio**.
+
+L'ho visto solo perché dovevo aggiungere un argomento a quella funzione. La
+richiesta adesso la costruisce una funzione sola, con una prova che dice che
+la voce è una bandierina e non una sessione (D338).
