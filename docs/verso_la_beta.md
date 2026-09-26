@@ -2493,7 +2493,8 @@ su 60 nel demone, 10 crate scritti e non ancora usati):
    ~~schermo~~ fatto (D329), ~~deleghe~~ fatte (D331), ~~il browser
    guidato~~ fatto (D334: gli otto `web_*`, anche per il cervello del
    demone), ~~`read_document`~~ fatto (D335; i PDF cifrati aspettano
-   `mupdf`); i documenti (`harness`,
+   `mupdf`, che sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X) vuole Visual Studio Build Tools 2022 — scelto
+   di no, per ora); i documenti (`harness`,
    Word, fogli); promemoria e attivita' pianificate, che vogliono prima
    l'Utilita' di pianificazione in Rust.
 3. **Le istruzioni operative nel prompt** (mossa 5).
