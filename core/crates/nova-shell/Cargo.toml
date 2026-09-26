@@ -7,6 +7,12 @@ description = "Il guscio di NOVA: l'orb che galleggia, la chat, le impostazioni.
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+# Per portare l'editor dell'harness: scaricarlo, controllarne l'impronta,
+# aprirlo. Vedi `build.rs` (D336).
+ureq = "2"
+flate2 = "1"
+sha2 = "0.10"
+base64 = "0.22"
 
 [dependencies]
 nova-proto = { path = "../nova-proto" }
@@ -18,10 +24,15 @@ nova-cervelli = { path = "../nova-cervelli" }
 # che una CLI ha scritto: stanno li', gia' provate.
 nova-guasti = { path = "../nova-guasti" }
 nova-platform = { path = "../nova-platform" }
+# Quali cartelle un progetto non mostra, e come si parla a NOVA di cio' che
+# e' aperto: l'harness del guscio usa le stesse regole di quello di NOVA.
+nova-harness = { path = "../nova-harness" }
 tauri = { version = "2", features = ["tray-icon"] }
 # La guardia di istanza singola: due doppi clic non devono dare due orb.
 # Vedi `finestre::richiama` per cosa fa il secondo.
 tauri-plugin-single-instance = "2"
+# «Apri cartella» nell'harness: la finestra di scelta del sistema.
+tauri-plugin-dialog = "2"
 serde.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true

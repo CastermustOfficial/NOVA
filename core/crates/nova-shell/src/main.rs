@@ -1,11 +1,12 @@
 //! Il guscio di NOVA.
 //!
-//! Tre finestre, una sola sempre in scena:
+//! Quattro finestre, una sola sempre in scena:
 //!
 //! ```text
 //! orb          96x96, trasparente, senza bordi, sempre sopra — il compagno
 //!   click  ->  chat         la conversazione, quando serve
 //!                impostazioni   il pannello, che si apre di rado
+//!                harness        dove si lavora: i file, l'editor, la chat accanto
 //! ```
 //!
 //! Il guscio e' Rust e parla col demone. L'interfaccia e' HTML resa dal
@@ -24,6 +25,7 @@ mod cronologia;
 mod config;
 mod demone;
 mod finestre;
+mod harness;
 mod modelli;
 mod processo;
 mod stato;
@@ -142,9 +144,16 @@ fn cronologia_leggi() -> serde_json::Value {
     cronologia::come_json()
 }
 
+/// Una battuta in piu' nel filo. Le altre finestre con la chat lo sanno
+/// subito: la conversazione e' una sola, e la nuvoletta e l'harness aperti
+/// insieme non devono raccontarne due diverse.
 #[tauri::command]
-fn cronologia_aggiungi(da: String, testo: String) {
+fn cronologia_aggiungi(app: tauri::AppHandle, finestra: tauri::Window, da: String, testo: String) {
     cronologia::aggiungi(&da, &testo);
+    let _ = app.emit(
+        "nova://battuta",
+        serde_json::json!({ "da": da, "testo": testo, "finestra": finestra.label() }),
+    );
 }
 
 #[tauri::command]
@@ -232,9 +241,19 @@ fn config_scrivi(modifica: serde_json::Value) -> Result<serde_json::Value, Strin
 ///
 /// La chiama la chat quando si scrive. Il giro vocale non passa di qui: ha
 /// bisogno di altro attorno (i marcatori, la fase, la voce) e sta in `voce`.
+///
+/// `contesto` lo manda l'harness: cosa c'e' aperto e cosa e' selezionato.
+/// Diventa una postilla in coda alla domanda (vedi `nova_harness::aperti`).
 #[tauri::command]
-async fn parla(app: tauri::AppHandle, testo: String) -> Result<String, String> {
-    cervello::chiedi(app, testo, false).await
+async fn parla(
+    app: tauri::AppHandle,
+    testo: String,
+    contesto: Option<serde_json::Value>,
+) -> Result<String, String> {
+    let postilla = contesto
+        .map(|c| nova_harness::aperti::postilla(&c))
+        .unwrap_or_default();
+    cervello::chiedi(app, testo, false, postilla).await
 }
 
 fn mostra_o_crea(
@@ -311,6 +330,7 @@ fn main() {
             tracing::info!("NOVA e' gia' aperta: richiamo l'orb invece di aprirne un altro");
             finestre::richiama(app);
         }))
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             apri_chat,
             mostra_chat,
@@ -334,7 +354,15 @@ fn main() {
             cervelli::cervelli_stato,
             cervelli::cervello_collega,
             cervelli::cervello_prova,
-            nuova_conversazione
+            nuova_conversazione,
+            harness::apri_harness,
+            harness::harness_in_attesa,
+            harness::harness_cartella,
+            harness::harness_leggi,
+            harness::harness_salva,
+            harness::harness_quando,
+            harness::harness_blocchi,
+            harness::harness_scegli
         ])
         .setup(|app| {
             // L'orb non deve comparire nella barra delle applicazioni ne'
@@ -367,6 +395,8 @@ fn main() {
             voce::avvia(app.handle().clone());
             // L'orecchio sul demone: da qui in poi l'orb cambia colore da solo.
             bus::ascolta(app.handle().clone());
+            // Quando NOVA apre un file nell'harness, la finestra e' questa.
+            harness::segui(app.handle().clone());
             Ok(())
         })
         .run(tauri::generate_context!())

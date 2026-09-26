@@ -11,6 +11,12 @@ use anyhow::{anyhow, Context, Result};
 use serde_json::{Map, Value};
 
 pub fn percorso() -> Result<PathBuf> {
+    Ok(cartella_nova()?.join("config.json"))
+}
+
+/// `%APPDATA%\NOVA` su Windows, `~/.config/NOVA` altrove: dove NOVA tiene
+/// le sue cose, e dove le cerca anche la meta' Python.
+pub fn cartella_nova() -> Result<PathBuf> {
     let base = if cfg!(windows) {
         std::env::var_os("APPDATA")
             .map(PathBuf::from)
@@ -21,7 +27,7 @@ pub fn percorso() -> Result<PathBuf> {
             .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
             .ok_or_else(|| anyhow!("HOME non definita"))?
     };
-    Ok(base.join("NOVA").join("config.json"))
+    Ok(base.join("NOVA"))
 }
 
 pub fn leggi() -> Result<Value> {

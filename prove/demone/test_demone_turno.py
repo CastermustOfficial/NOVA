@@ -454,6 +454,24 @@ try:
                    if m.get("role") == "user"][-1]["content"]
     controlla("e scrivendo no", "<voce>" not in da_tastiera, da_tastiera[-120:])
 
+    print("\n10b. dall'harness la domanda porta con se' cosa c'e' aperto")
+    harness = ("\n\n<harness>\nIn primo piano: src/main.rs, riga 40\n</harness>")
+    with CoreClient(endpoint, timeout=60) as c:
+        c.request("agente/turno", {"testo": "cosa fa questa riga?",
+                                   "sessione": "dallharness", "postilla": harness})
+    dall_harness = [m for m in ultimo_turno()["messages"]
+                    if m.get("role") == "user"][-1]["content"]
+    controlla("il contesto dell'harness arriva in coda alla domanda",
+              dall_harness.startswith("cosa fa questa riga?")
+              and dall_harness.endswith(harness), f"...{dall_harness[-120:]!r}")
+    with CoreClient(endpoint, timeout=60) as c:
+        c.request("agente/turno", {"testo": "e con la voce?", "sessione": "dallharness",
+                                   "voce": True, "postilla": harness})
+    tutte_e_due = [m for m in ultimo_turno()["messages"]
+                   if m.get("role") == "user"][-1]["content"]
+    controlla("e con la voce vengono tutte e due, prima la voce",
+              tutte_e_due.endswith(POSTILLA_VOCE + harness), f"...{tutte_e_due[-160:]!r}")
+
     print("\n11. e si puo' chiedere dalla riga di comando")
     nome_cli = "nova.exe" if os.name == "nt" else "nova"
     cli = next((p for p in (RADICE / "core" / "target" / "release" / nome_cli,

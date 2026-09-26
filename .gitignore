@@ -75,3 +75,7 @@ _shell_*.txt
 _tast_prova.txt*
 _giro_prove.py
 importante'
+
+# L'editor dell'harness: lo porta `nova-shell/build.rs` dal registro npm, a
+# versione fissata e con l'impronta controllata (D336). Non e' sorgente.
+core/crates/nova-shell/ui/vendor/

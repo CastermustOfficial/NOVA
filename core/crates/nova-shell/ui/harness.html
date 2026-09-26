@@ -1,0 +1,1430 @@
+<meta charset="utf-8">
+<title>NOVA — harness</title>
+<link rel="stylesheet" href="tema.css">
+<style>
+/* ============================================================
+   L'harness: dove si lavora.
+
+   Cosa c'e' e perche' sta in docs/harness.md; l'aspetto segue la
+   bozza approvata (docs/harness_bozza.html). Tre colonne: i file a
+   sinistra, l'editor al centro, la chat a destra — e la chat e' la
+   stessa conversazione dell'orb, non una seconda.
+
+   Il colore resta dell'orb: qui il cromo e' neutro, e la brace
+   segna solo cio' che e' in primo piano.
+   ============================================================ */
+:root{
+  --fondo-2:#0f0d0c; --fondo-3:#141210;
+}
+body{font-size:13px;line-height:1.45}
+[hidden]{display:none !important}
+svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+
+.app{height:100vh;display:grid;grid-template-rows:38px 1fr 24px}
+
+/* --- la testa --- */
+.testa{display:flex;align-items:center;gap:14px;padding:0 10px 0 14px;border-bottom:1px solid var(--linea);
+  -webkit-user-select:none;user-select:none}
+.marchio{display:flex;align-items:center;gap:8px;font-weight:600;letter-spacing:.02em}
+.marchio canvas{width:18px;height:18px;display:block}
+.briciole{color:var(--fioco);font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.briciole b{color:var(--mezzo);font-weight:500}
+.briciole .io{color:var(--inchiostro)}
+.azioni{margin-left:auto;display:flex;gap:4px}
+.gesto{height:26px;padding:0 9px;border-radius:7px;display:flex;align-items:center;gap:6px;color:var(--mezzo);font-size:12px}
+.gesto:hover{background:var(--vetro-2);color:var(--inchiostro)}
+.gesto.si{color:var(--inchiostro);background:var(--vetro)}
+.gesto svg{width:15px;height:15px}
+
+/* --- il corpo --- */
+.corpo{display:grid;grid-template-columns:248px minmax(0,1fr) 380px;min-height:0}
+.corpo.senza-chat{grid-template-columns:248px minmax(0,1fr) 0}
+.corpo.senza-chat .chat{display:none}
+
+.lato{border-right:1px solid var(--linea);background:var(--fondo-2);display:flex;flex-direction:column;min-height:0}
+.sez{font-size:10.5px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--mezzo);
+  padding:11px 8px 7px 14px;display:flex;align-items:center;gap:6px}
+.sez span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sez button{margin-left:auto;width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:var(--fioco)}
+.sez button:hover{background:var(--vetro-2);color:var(--inchiostro)}
+.sez button svg{width:13px;height:13px}
+.albero{font-size:12.5px;padding:0 6px 12px;overflow:auto;flex:1;-webkit-user-select:none;user-select:none}
+.nodo{display:flex;align-items:center;gap:6px;height:24px;padding-right:8px;border-radius:6px;color:var(--mezzo);
+  white-space:nowrap;cursor:pointer}
+.nodo:hover{background:var(--vetro)}
+.nodo.aperto{background:var(--vetro-2);color:var(--inchiostro)}
+.nodo .ic{width:14px;flex:none;text-align:center;color:var(--fioco);font-size:10px}
+.nodo .n{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.nodo .seg{margin-left:auto;font-size:10px;color:var(--brace)}
+.albero .vuoto{color:var(--fioco);padding:8px 10px;line-height:1.6}
+
+/* --- il centro --- */
+.centro{display:flex;flex-direction:column;min-width:0;min-height:0}
+.schede{display:flex;height:34px;border-bottom:1px solid var(--linea);background:var(--fondo-2);flex:none}
+.schede .elenco{display:flex;overflow-x:auto;overflow-y:hidden;min-width:0;flex:1}
+.schede .elenco::-webkit-scrollbar{height:3px}
+.scheda{display:flex;align-items:center;gap:7px;padding:0 8px 0 12px;font-size:12.5px;color:var(--fioco);
+  border-right:1px solid var(--linea);white-space:nowrap;cursor:pointer;flex:none}
+.scheda:hover{color:var(--mezzo)}
+.scheda.si{color:var(--inchiostro);background:var(--fondo);box-shadow:inset 0 1px 0 var(--brace)}
+.scheda .x{width:18px;height:18px;border-radius:5px;display:grid;place-items:center;color:var(--fioco);font-size:11px}
+.scheda .x:hover{background:var(--vetro-2);color:var(--inchiostro)}
+.scheda.sporca .x::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--mezzo)}
+.scheda.sporca .x{font-size:0}
+.scheda.sporca .x:hover{font-size:11px}
+.scheda.sporca .x:hover::before{display:none}
+.tipo{font-family:var(--mono);font-size:9.5px;padding:1px 4px;border-radius:3px;background:var(--vetro-2);color:var(--mezzo)}
+.schede .dx{display:flex;align-items:center;gap:4px;padding:0 8px;flex:none}
+
+.avviso{display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid rgba(232,176,74,.3);
+  background:rgba(232,176,74,.08);font-size:12.5px;flex:none}
+.avviso .m{flex:1;min-width:0}
+.avviso button{padding:4px 11px;border-radius:7px;border:1px solid var(--linea-2);font-size:12px;color:var(--inchiostro)}
+.avviso button.primo{background:var(--brace);color:#160a06;border-color:transparent;font-weight:600}
+
+.area{flex:1;min-height:0;display:flex;position:relative}
+#editor{flex:1;min-width:0}
+#ripiego{flex:1;min-width:0;background:var(--fondo);border:none;outline:none;resize:none;padding:10px 14px;
+  font:13px/20px var(--mono);color:var(--inchiostro);tab-size:4;white-space:pre;overflow:auto}
+.anteprima,.documento{flex:1;min-width:0;overflow:auto;padding:26px 34px 60px;background:#12100f;
+  border-left:1px solid var(--linea);font-size:14px;line-height:1.65;color:#dcd8d3}
+.documento{border-left:none}
+.anteprima h1,.anteprima h2,.anteprima h3,.anteprima h4{margin:1.1em 0 .5em;line-height:1.3;color:var(--inchiostro)}
+.anteprima h1{font-size:22px}.anteprima h2{font-size:18px}.anteprima h3{font-size:15px}
+.anteprima p,.anteprima ul,.anteprima ol,.anteprima table,.anteprima pre,.anteprima blockquote{margin:0 0 .8em}
+.anteprima ul,.anteprima ol{padding-left:1.4em}
+.anteprima code{font-family:var(--mono);font-size:12px;background:rgba(255,255,255,.07);padding:1px 4px;border-radius:4px}
+.anteprima pre{background:rgba(0,0,0,.4);border:1px solid var(--linea);border-radius:8px;padding:10px;overflow-x:auto}
+.anteprima pre code{background:none;padding:0}
+.anteprima blockquote{border-left:2px solid var(--linea-2);padding-left:12px;color:var(--mezzo)}
+.anteprima table{border-collapse:collapse;font-size:13px}
+.anteprima th,.anteprima td{border:1px solid var(--linea);padding:5px 9px;text-align:left;vertical-align:top}
+.anteprima th{background:var(--vetro-2)}
+.anteprima a{color:var(--brace)}
+.anteprima hr{border:none;border-top:1px solid var(--linea);margin:1.2em 0}
+.documento .blocco{margin:0 0 .9em;max-width:760px}
+.documento .pag{font:10.5px var(--mono);color:var(--fioco);letter-spacing:.08em;margin:1.4em 0 .6em}
+.documento .intesta{color:var(--mezzo);font-size:12.5px;margin-bottom:1.4em;max-width:760px}
+
+.benvenuto{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--fondo)}
+.benvenuto .dentro{max-width:420px;text-align:center;color:var(--mezzo);line-height:1.7}
+.benvenuto h2{font-size:17px;color:var(--inchiostro);font-weight:600;margin-bottom:6px}
+.benvenuto .bottoni{display:flex;gap:8px;justify-content:center;margin:18px 0 8px}
+.benvenuto .recenti{margin-top:18px;text-align:left}
+.benvenuto .recenti b{display:block;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--fioco);margin-bottom:6px}
+.benvenuto .recenti button{display:block;width:100%;text-align:left;padding:5px 9px;border-radius:7px;color:var(--mezzo);
+  font:12px var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.benvenuto .recenti button:hover{background:var(--vetro-2);color:var(--inchiostro)}
+.benvenuto small{color:var(--fioco);font-size:12px}
+.manca{margin:0 auto 12px;max-width:520px;border:1px solid rgba(232,176,74,.3);background:rgba(232,176,74,.07);
+  border-radius:10px;padding:9px 12px;font-size:12px;color:var(--inchiostro);text-align:left}
+
+/* la riga indicata da NOVA, per un momento */
+.riga-indicata{background:rgba(232,115,74,.18)}
+
+/* --- la chat --- */
+.chat{border-left:1px solid var(--linea);background:var(--fondo-2);display:flex;flex-direction:column;min-height:0;min-width:0}
+.chat-testa{display:flex;align-items:center;gap:8px;height:40px;padding:0 8px 0 14px;border-bottom:1px solid var(--linea);flex:none}
+.chat-testa .stato{font-size:12px;color:var(--mezzo);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat-testa .stato.penso{color:var(--pensiero)} .chat-testa .stato.agisco{color:var(--pensiero)}
+.chat-testa .stato.ascolto{color:var(--ascolto)} .chat-testa .stato.parlo{color:var(--parola)}
+.chat-testa .stato.chiedo{color:var(--attenzione)}
+.chat-testa .gesto{padding:0 6px}
+#btnFerma{display:none;color:#ff6b6b}
+#btnFerma svg{fill:currentColor;stroke:none}
+body.lavora #btnFerma{display:flex}
+
+.discorso{flex:1;min-height:0;overflow-y:auto;padding:16px 14px;display:flex;flex-direction:column;gap:14px}
+.tua{align-self:flex-end;max-width:88%;background:var(--vetro-2);border:1px solid var(--linea);padding:8px 12px;
+  border-radius:12px 12px 4px 12px;white-space:pre-wrap;overflow-wrap:anywhere}
+.tua .dove{display:block;margin-top:4px;font:10.5px var(--mono);color:var(--fioco)}
+.sua{max-width:100%;color:#dcd8d3;overflow-wrap:anywhere}
+.sua.guaio{color:#f0a698}
+.sua p{margin:0 0 .55em}
+.sua p:last-child{margin-bottom:0}
+.sua ul,.sua ol{margin:0 0 .55em;padding-left:1.3em}
+.sua code{font-family:var(--mono);font-size:11.5px;background:rgba(255,255,255,.07);padding:1px 4px;border-radius:4px}
+.sua pre{background:rgba(0,0,0,.45);border:1px solid var(--linea);border-radius:8px;padding:8px 10px;overflow-x:auto;margin:.45em 0}
+.sua pre code{background:none;padding:0}
+.sua table{border-collapse:collapse;margin:.4em 0;font-size:12px}
+.sua th,.sua td{border:1px solid var(--linea);padding:3px 7px;text-align:left}
+.sua h3,.sua h4,.sua h5,.sua h6{font-size:13px;margin:.6em 0 .3em;color:var(--inchiostro)}
+.sua a{color:var(--brace)}
+.posto{display:inline;font:11.5px var(--mono);padding:1px 6px;border-radius:5px;cursor:pointer;
+  background:var(--brace-08);color:var(--brace);border:1px solid rgba(232,115,74,.25)}
+.posto:hover{background:var(--brace-16)}
+.nota{font-size:10.5px;color:var(--fioco);text-align:center;letter-spacing:.02em}
+.puntini{display:flex;gap:4px;padding:4px 0}
+.puntini i{width:5px;height:5px;border-radius:50%;background:var(--mezzo);animation:respira 1.2s ease-in-out infinite}
+.puntini i:nth-child(2){animation-delay:.15s}
+.puntini i:nth-child(3){animation-delay:.3s}
+@keyframes respira{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+.discorso .inizio{margin:auto;text-align:center;color:var(--fioco);font-size:12px;line-height:1.7;padding:0 12px}
+.discorso .inizio b{display:block;color:var(--mezzo);font-size:12.5px;margin-bottom:2px}
+
+.componi{margin:0 12px 12px;border:1px solid var(--linea-2);border-radius:12px;background:var(--fondo);padding:7px 9px;flex:none}
+.componi:focus-within{border-color:rgba(232,115,74,.45)}
+.contesto{display:flex;gap:6px;flex-wrap:wrap}
+.contesto:not(:empty){margin-bottom:6px}
+.pezzo{display:flex;align-items:center;gap:5px;font:11px var(--mono);padding:2px 4px 2px 7px;border-radius:5px;
+  background:var(--vetro-2);color:var(--mezzo);max-width:100%}
+.pezzo span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pezzo.via{opacity:.45;text-decoration:line-through}
+.pezzo button{width:15px;height:15px;border-radius:4px;display:grid;place-items:center;font-size:10px;color:var(--fioco)}
+.pezzo button:hover{background:var(--vetro-2);color:var(--inchiostro)}
+.componi textarea{width:100%;background:none;border:none;outline:none;resize:none;font-size:13px;line-height:1.45;
+  max-height:160px;padding:3px 2px}
+.componi textarea::placeholder{color:var(--fioco)}
+.componi .piede{display:flex;align-items:center;gap:10px;font-size:10.5px;color:var(--fioco)}
+.invia{margin-left:auto;width:28px;height:28px;border-radius:8px;background:var(--brace);display:grid;place-items:center;color:#160a06}
+.invia:disabled{opacity:.3;cursor:default}
+.invia svg{width:14px;height:14px;stroke-width:2}
+
+/* --- il piede --- */
+.piede-app{display:flex;align-items:center;gap:16px;padding:0 12px;border-top:1px solid var(--linea);font-size:11.5px;
+  color:var(--fioco);white-space:nowrap;overflow:hidden}
+.piede-app .dx{margin-left:auto;display:flex;gap:16px}
+.piede-app .perm{color:var(--attenzione)}
+.piede-app .sporchi{color:var(--mezzo)}
+.piede-app .messaggio{color:var(--mezzo);min-width:0;overflow:hidden;text-overflow:ellipsis}
+</style>
+
+<div class="app">
+  <header class="testa">
+    <div class="marchio"><canvas id="orbino"></canvas>NOVA</div>
+    <div class="briciole" id="briciole"></div>
+    <div class="azioni">
+      <button class="gesto" id="btnApriCartella" title="Apri una cartella (Ctrl+Maiusc+O)">
+        <svg viewBox="0 0 24 24"><path d="M4 5h6l2 2h8v12H4z"/></svg><span>Cartella</span>
+      </button>
+      <button class="gesto" id="btnApriFile" title="Apri un file (Ctrl+O)">
+        <svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg><span>File</span>
+      </button>
+      <button class="gesto si" id="btnChat" title="Mostra o nascondi la chat (Ctrl+J)">
+        <svg viewBox="0 0 24 24"><path d="M5 5h14v10H9l-4 4z"/></svg><span>Chat</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="corpo" id="corpo">
+    <aside class="lato">
+      <div class="sez">
+        <span id="nomeCartella">Esplora</span>
+        <button id="btnAggiorna" title="Rileggi la cartella">
+          <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg>
+        </button>
+      </div>
+      <div class="albero" id="albero"></div>
+    </aside>
+
+    <main class="centro">
+      <div class="schede">
+        <div class="elenco" id="schede"></div>
+        <div class="dx">
+          <button class="gesto" id="btnAnteprima" title="Anteprima accanto (Ctrl+Maiusc+V)" hidden>
+            <svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>Anteprima</span>
+          </button>
+        </div>
+      </div>
+      <div class="avviso" id="avviso" hidden></div>
+      <div class="area" id="area">
+        <div id="editor"></div>
+        <textarea id="ripiego" spellcheck="false" hidden></textarea>
+        <div class="anteprima" id="anteprima" hidden></div>
+        <div class="documento" id="documento" hidden></div>
+        <div class="benvenuto" id="benvenuto">
+          <div class="dentro">
+            <div class="manca" id="mancaEditor" hidden></div>
+            <h2>Apri qualcosa su cui lavorare</h2>
+            <div>Una cartella, e i suoi file compaiono a sinistra. Oppure chiedi a NOVA di aprirti un file.</div>
+            <div class="bottoni">
+              <button class="bottone primo" id="bvCartella">Apri una cartella</button>
+              <button class="bottone secondo" id="bvFile">Apri un file</button>
+            </div>
+            <div class="recenti" id="recenti" hidden><b>Aperte di recente</b></div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <section class="chat" id="chat">
+      <div class="chat-testa">
+        <div class="stato" id="turno">a riposo</div>
+        <button class="gesto" id="btnFerma" title="Ferma quello che sta facendo (Esc)">
+          <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+        </button>
+        <button class="gesto" id="btnNuova" title="Ricomincia da capo">
+          <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+        </button>
+      </div>
+      <div class="discorso" id="discorso">
+        <div class="inizio" id="inizio">
+          <b>Chiedimi dei file che hai aperto.</b>
+          So cosa hai davanti e cosa hai selezionato: «cosa fa questa funzione?», «c’è un errore qui?».
+        </div>
+      </div>
+      <div class="componi">
+        <div class="contesto" id="contesto"></div>
+        <textarea id="testo" rows="1" placeholder="Chiedi a NOVA…"></textarea>
+        <div class="piede">
+          <span>Invio per mandare · Maiusc+Invio per andare a capo</span>
+          <button class="invia" id="btnInvia" title="Invia (Invio)">
+            <svg viewBox="0 0 24 24"><path d="m5 12 14-7-5 7 5 7z"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="piede-app">
+    <span id="stCartella"></span>
+    <span class="sporchi" id="stSporchi"></span>
+    <span class="messaggio" id="stMessaggio"></span>
+    <div class="dx">
+      <span id="stPosizione"></span>
+      <span id="stLingua"></span>
+      <span id="stCodifica"></span>
+      <span id="stFine"></span>
+      <span class="perm" id="stPermessi"></span>
+    </div>
+  </footer>
+</div>
+
+<script>
+/* La rete fuori dal modulo: se il modulo ha un errore di sintassi non esegue
+   nemmeno una riga, e un gestore messo dentro di lui non servirebbe. */
+window.addEventListener('error', e => {
+  const m = `${e.message} @ ${e.filename}:${e.lineno}`;
+  try { window.__TAURI__?.core?.invoke('registra_diagnostica', { finestra: 'harness', messaggio: m }); }
+  catch (_) {}
+});
+</script>
+
+<script type="module">
+import { creaOrb } from './orb.js';
+import { rendi, pulisci } from './markdown.js';
+import { T, avviaLingua, traduciDocumento, linguaCorrente } from './lingue.js';
+import { sportello } from './permessi.js';
+
+const tauri = window.__TAURI__;
+const invoke = tauri?.core?.invoke;
+const ascolta = tauri?.event?.listen;
+const finestra = tauri?.window?.getCurrentWindow?.();
+const $ = id => document.getElementById(id);
+
+await avviaLingua(invoke);
+traduciDocumento(document);
+const orb = creaOrb($('orbino'));
+
+/* ======================================================= i percorsi ===
+ * Arrivano dal disco cosi' come sono: su Windows con la barra rovescia.
+ * Si confrontano senza maiuscole e con le barre uguali, perche' per Windows
+ * `C:\Progetto\a.rs` e `c:/progetto/a.rs` sono lo stesso file. */
+const chiave = p => String(p || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+const stesso = (a, b) => chiave(a) === chiave(b);
+const nomeDi = p => String(p || '').split(/[\\/]/).filter(Boolean).pop() || String(p || '');
+const genitore = p => {
+  const s = String(p || '').replace(/[\\/]+$/, '');
+  const i = Math.max(s.lastIndexOf('/'), s.lastIndexOf('\\'));
+  return i > 0 ? s.slice(0, i + (i === 2 && s[1] === ':' ? 1 : 0)) : s;
+};
+const barra = p => (String(p || '').includes('\\') ? '\\' : '/');
+const unisci = (a, b) => String(a).replace(/[\\/]+$/, '') + barra(a) + String(b).replace(/^[\\/]+/, '').replace(/[\\/]/g, barra(a));
+const dentro = (p, cartella) => !!cartella && chiave(p).startsWith(chiave(cartella) + '/');
+const relativo = (p, cartella) => dentro(p, cartella)
+  ? String(p).slice(String(cartella).replace(/[\\/]+$/, '').length + 1).replace(/\\/g, '/')
+  : String(p);
+const estensione = p => { const n = nomeDi(p).toLowerCase(); const i = n.lastIndexOf('.'); return i > 0 ? n.slice(i) : ''; };
+
+/* I documenti che l'editor non sa ancora mostrare (fase 4 di harness.md):
+   di loro si vede il testo che NOVA ci legge. */
+const DOCUMENTI = ['.pdf', '.docx'];
+const IMMAGINI = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico'];
+
+/* ===================================================== lo stato ===== */
+const stato = {
+  cartella: '',
+  schede: [],
+  attiva: null,
+  espanse: new Set(),
+  contenuti: new Map(),     // cartella -> voci
+  chat: true,
+};
+const attiva = () => stato.schede.find(s => s.percorso === stato.attiva) || null;
+
+/* La sessione si ricorda nel browser del guscio: le cartelle espanse, le
+   schede, quella in primo piano. La sessione vera — con le proposte in
+   sospeso — arriva con la quinta fase; questa basta a non ricominciare da
+   zero a ogni avvio. Il deposito puo' mancare o rifiutarsi: allora si
+   ricomincia da zero, senza rompere niente. */
+const DEPOSITO = 'nova.harness';
+function ricorda() {
+  try {
+    localStorage.setItem(DEPOSITO, JSON.stringify({
+      cartella: stato.cartella,
+      schede: stato.schede.filter(s => s.tipo !== 'altro').map(s => s.percorso),
+      attiva: stato.attiva,
+      espanse: [...stato.espanse],
+      chat: stato.chat,
+      recenti: recenti(),
+    }));
+  } catch (_) {}
+}
+function ricordato() {
+  try { return JSON.parse(localStorage.getItem(DEPOSITO) || '{}') || {}; } catch (_) { return {}; }
+}
+let _recenti = ricordato().recenti || [];
+function recenti(nuova) {
+  if (nuova) _recenti = [nuova, ..._recenti.filter(r => !stesso(r, nuova))].slice(0, 6);
+  return _recenti;
+}
+
+/* ================================================= il piede ========= */
+let _messaggioTimer = 0;
+function messaggio(testo, durata = 6000) {
+  $('stMessaggio').textContent = testo || '';
+  clearTimeout(_messaggioTimer);
+  if (testo && durata) _messaggioTimer = setTimeout(() => { $('stMessaggio').textContent = ''; }, durata);
+}
+
+function aggiornaPiede() {
+  const s = attiva();
+  $('stCartella').textContent = stato.cartella ? nomeDi(stato.cartella) : '';
+  const sporche = stato.schede.filter(x => x.sporco).length;
+  $('stSporchi').textContent = sporche ? (sporche === 1 ? T('1 file non salvato') : sporche + ' ' + T('file non salvati')) : '';
+  if (s && s.tipo === 'testo') {
+    const p = ed.posizione();
+    $('stPosizione').textContent = p ? `${T('Riga')} ${p.riga}, ${T('Col')} ${p.colonna}` : '';
+    $('stLingua').textContent = s.nomeLingua || '';
+    $('stCodifica').textContent = s.bom ? 'UTF-8 BOM' : 'UTF-8';
+    $('stFine').textContent = ed.fineRiga(s);
+  } else {
+    for (const id of ['stPosizione', 'stLingua', 'stCodifica', 'stFine']) $(id).textContent = '';
+  }
+}
+
+async function leggiPermessi() {
+  const nomi = { autonomous: T('fa da sola'), always_ask: T('chiede sempre'), ask_risky: T('chiede se rischioso') };
+  try {
+    const cfg = await invoke('config_leggi');
+    const a = cfg?.safety?.autonomy || 'ask_risky';
+    $('stPermessi').textContent = T('Permessi:') + ' ' + (nomi[a] || nomi.ask_risky);
+  } catch (_) {}
+}
+
+/* ================================================== l'editor ======== *
+ * Due motori dietro la stessa faccia: Monaco, l'editor di VS Code, e un
+ * foglio semplice per quando Monaco non c'e' (non e' stato scaricato
+ * compilando: vedi build.rs). Il resto della pagina parla solo con `ed`. */
+let monaco = null;
+
+const copione = src => new Promise(risolvi => {
+  const s = document.createElement('script');
+  s.src = src;
+  s.onload = () => risolvi(true);
+  s.onerror = () => risolvi(false);
+  document.head.appendChild(s);
+});
+
+async function caricaMonaco() {
+  /* Le parole di Monaco in italiano: il file delle traduzioni non e' un
+     modulo, e chiesto al caricatore di Monaco lo lascia ad aspettare per
+     sempre (misurato: l'editor non partiva). Si carica prima, come script
+     normale, e Monaco lo trova gia' li'. */
+  if (linguaCorrente() === 'it') await copione('vendor/monaco/vs/nls/lang/it.js');
+  if (!(await copione('vendor/monaco/vs/loader.js')) || !window.require?.config) return null;
+  return new Promise(risolvi => {
+    // Se una parte non arriva, il caricatore puo' non dire niente: un tetto
+    // di tempo evita una pagina ferma ad aspettare un editor che non c'e'.
+    const tetto = setTimeout(() => risolvi(null), 20000);
+    try {
+      window.require.config({ paths: { vs: 'vendor/monaco/vs' } });
+      window.require(['vs/editor/editor.main'],
+        () => { clearTimeout(tetto); risolvi(window.monaco || null); },
+        () => { clearTimeout(tetto); risolvi(null); });
+    } catch (_) { clearTimeout(tetto); risolvi(null); }
+  });
+}
+
+const TEMA = {
+  base: 'vs-dark', inherit: true,
+  rules: [
+    { token: 'comment', foreground: '6a645d', fontStyle: 'italic' },
+    { token: 'keyword', foreground: 'c792ea' },
+    { token: 'string', foreground: 'c3e88d' },
+    { token: 'number', foreground: 'f78c6c' },
+    { token: 'type', foreground: 'ffcb6b' },
+    { token: 'type.identifier', foreground: 'ffcb6b' },
+    { token: 'delimiter', foreground: '948d86' },
+  ],
+  colors: {
+    'editor.background': '#0a0908',
+    'editor.foreground': '#ece9e6',
+    'editorGutter.background': '#0a0908',
+    'editorLineNumber.foreground': '#3d3935',
+    'editorLineNumber.activeForeground': '#948d86',
+    'editor.lineHighlightBackground': '#ffffff07',
+    'editor.lineHighlightBorder': '#00000000',
+    'editor.selectionBackground': '#e8734a38',
+    'editor.inactiveSelectionBackground': '#e8734a1c',
+    'editorCursor.foreground': '#e8734a',
+    'editor.findMatchBackground': '#e8734a55',
+    'editor.findMatchHighlightBackground': '#e8734a26',
+    'editorIndentGuide.background1': '#ffffff0d',
+    'editorIndentGuide.activeBackground1': '#ffffff24',
+    'editorWidget.background': '#141210',
+    'editorWidget.border': '#ffffff26',
+    'editorSuggestWidget.background': '#141210',
+    'editorHoverWidget.background': '#141210',
+    'minimap.background': '#0a0908',
+    'scrollbarSlider.background': '#ffffff14',
+    'scrollbarSlider.hoverBackground': '#ffffff24',
+    'focusBorder': '#e8734a66',
+  },
+};
+
+/* La lingua di un file, per i colori: quella che Monaco associa alla sua
+   estensione o al suo nome. TOML Monaco non lo conosce: somiglia all'INI
+   abbastanza da colorarlo bene. */
+function linguaDi(percorso) {
+  const est = estensione(percorso);
+  const nome = nomeDi(percorso).toLowerCase();
+  if (!monaco) return { id: 'plaintext', nome: '' };
+  if (est === '.toml') return { id: 'ini', nome: 'TOML' };
+  for (const l of monaco.languages.getLanguages()) {
+    if ((l.extensions || []).some(e => e.toLowerCase() === est)
+        || (l.filenames || []).some(f => f.toLowerCase() === nome)) {
+      return { id: l.id, nome: (l.aliases && l.aliases[0]) || l.id };
+    }
+  }
+  return { id: 'plaintext', nome: T('Testo') };
+}
+
+const PROSA = ['.md', '.markdown', '.txt', '.rst', ''];
+
+const ed = {
+  monaco: null,      // l'istanza, se c'e'
+  _decorazioni: null,
+
+  async avvia() {
+    monaco = await caricaMonaco();
+    if (!monaco) {
+      $('editor').hidden = true;
+      const m = $('mancaEditor');
+      m.hidden = false;
+      m.textContent = T('L’editor completo non c’è: non è stato scaricato quando il guscio è stato compilato. '
+        + 'Uso un foglio semplice, senza colori. Per averlo, ricompila il guscio con la rete.');
+      $('ripiego').addEventListener('input', () => { const s = attiva(); if (s) segnaSporco(s); aggiornaAnteprima(); });
+      $('ripiego').addEventListener('keyup', aggiornaPiede);
+      $('ripiego').addEventListener('mouseup', () => { aggiornaPiede(); disegnaContesto(); });
+      $('ripiego').addEventListener('select', disegnaContesto);
+      return;
+    }
+    monaco.editor.defineTheme('nova', TEMA);
+    const e = monaco.editor.create($('editor'), {
+      theme: 'nova',
+      automaticLayout: true,
+      fontFamily: "'Cascadia Mono', 'Cascadia Code', Consolas, monospace",
+      fontSize: 13, lineHeight: 20,
+      minimap: { enabled: true, renderCharacters: false, scale: 1 },
+      scrollBeyondLastLine: false,
+      smoothScrolling: true,
+      renderWhitespace: 'selection',
+      // Il completamento mentre si scrive, il testo grigio da accettare con
+      // Tab: scelto di no (harness.md).
+      inlineSuggest: { enabled: false },
+      padding: { top: 8 },
+      model: null,
+    });
+    this.monaco = e;
+    this._decorazioni = e.createDecorationsCollection();
+    e.onDidChangeCursorPosition(() => aggiornaPiede());
+    e.onDidChangeCursorSelection(() => disegnaContesto());
+    e.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => salvaAttiva());
+    e.addAction({
+      id: 'nova.chiedi',
+      label: T('Chiedi a NOVA su questo'),
+      contextMenuGroupId: 'navigation',
+      contextMenuOrder: 0,
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyL],
+      run: () => { mostraChat(true); $('testo').focus(); },
+    });
+  },
+
+  mostra(s) {
+    if (this.monaco) {
+      this.monaco.setModel(s.modello);
+      if (s.vista) this.monaco.restoreViewState(s.vista);
+      this.monaco.updateOptions({ wordWrap: PROSA.includes(estensione(s.percorso)) ? 'on' : 'off' });
+      this.monaco.focus();
+    } else {
+      $('ripiego').hidden = false;
+      $('ripiego').value = s.testo;
+      $('ripiego').focus();
+    }
+  },
+
+  /* Prima di lasciare una scheda: il punto in cui si era, e nel foglio
+     semplice anche il testo, che non vive in un modello suo. */
+  lascia(s) {
+    if (!s || s.tipo !== 'testo') return;
+    if (this.monaco) s.vista = this.monaco.saveViewState();
+    else s.testo = $('ripiego').value;
+  },
+
+  crea(s, testo) {
+    const l = linguaDi(s.percorso);
+    s.nomeLingua = l.nome;
+    if (monaco) {
+      const uri = monaco.Uri.file(s.percorso);
+      monaco.editor.getModel(uri)?.dispose();
+      s.modello = monaco.editor.createModel(testo, l.id, uri);
+      s.modello.onDidChangeContent(() => { segnaSporco(s); aggiornaAnteprima(); });
+      s.salvato = s.modello.getAlternativeVersionId();
+    } else {
+      s.testo = testo;
+      s.salvato = testo;
+    }
+  },
+
+  /* Ricarica dal disco tenendo il punto in cui si era. */
+  sostituisci(s, testo) {
+    if (s.modello) {
+      const vista = s.percorso === stato.attiva && this.monaco ? this.monaco.saveViewState() : s.vista;
+      s.modello.setValue(testo);
+      s.salvato = s.modello.getAlternativeVersionId();
+      if (s.percorso === stato.attiva && vista) this.monaco.restoreViewState(vista);
+    } else {
+      s.testo = testo;
+      s.salvato = testo;
+      if (s.percorso === stato.attiva) $('ripiego').value = testo;
+    }
+  },
+
+  valore(s) {
+    if (s.modello) return s.modello.getValue();
+    return s.percorso === stato.attiva ? $('ripiego').value : s.testo;
+  },
+
+  cambiato(s) {
+    if (s.modello) return s.modello.getAlternativeVersionId() !== s.salvato;
+    return this.valore(s) !== s.salvato;
+  },
+
+  segnaSalvato(s) {
+    if (s.modello) s.salvato = s.modello.getAlternativeVersionId();
+    else { s.testo = this.valore(s); s.salvato = s.testo; }
+  },
+
+  chiudi(s) { s.modello?.dispose(); s.modello = null; },
+
+  posizione() {
+    if (this.monaco) {
+      const p = this.monaco.getPosition();
+      return p ? { riga: p.lineNumber, colonna: p.column } : null;
+    }
+    const t = $('ripiego');
+    const prima = t.value.slice(0, t.selectionStart);
+    const righe = prima.split('\n');
+    return { riga: righe.length, colonna: righe[righe.length - 1].length + 1 };
+  },
+
+  selezione() {
+    if (this.monaco) {
+      const m = this.monaco.getModel();
+      const s = this.monaco.getSelection();
+      if (!m || !s || s.isEmpty()) return null;
+      // Una selezione che finisce all'inizio di una riga non la comprende:
+      // e' il modo in cui si selezionano righe intere col mouse.
+      const a = s.endColumn === 1 && s.endLineNumber > s.startLineNumber ? s.endLineNumber - 1 : s.endLineNumber;
+      return { da: s.startLineNumber, a, testo: m.getValueInRange(s) };
+    }
+    const t = $('ripiego');
+    if (t.selectionStart === t.selectionEnd) return null;
+    const da = t.value.slice(0, t.selectionStart).split('\n').length;
+    const a = t.value.slice(0, t.selectionEnd).split('\n').length;
+    return { da, a, testo: t.value.slice(t.selectionStart, t.selectionEnd) };
+  },
+
+  vaiA(riga) {
+    if (this.monaco) {
+      const m = this.monaco.getModel();
+      if (!m) return;
+      const r = Math.max(1, Math.min(riga, m.getLineCount()));
+      this.monaco.revealLineInCenter(r);
+      this.monaco.setPosition({ lineNumber: r, column: 1 });
+      this._decorazioni.set([{ range: new monaco.Range(r, 1, r, 1),
+        options: { isWholeLine: true, className: 'riga-indicata' } }]);
+      setTimeout(() => this._decorazioni.clear(), 1800);
+      this.monaco.focus();
+      return;
+    }
+    const t = $('ripiego');
+    const righe = t.value.split('\n');
+    const r = Math.max(1, Math.min(riga, righe.length));
+    const i = righe.slice(0, r - 1).reduce((n, x) => n + x.length + 1, 0);
+    t.focus();
+    t.setSelectionRange(i, i + righe[r - 1].length);
+    t.scrollTop = Math.max(0, (r - 6) * 20);
+  },
+
+  fineRiga(s) {
+    if (s.modello) return s.modello.getEOL() === '\r\n' ? 'CRLF' : 'LF';
+    return /\r\n/.test(this.valore(s)) ? 'CRLF' : 'LF';
+  },
+};
+
+/* ================================================== le schede ======= */
+function segnaSporco(s) {
+  const prima = s.sporco;
+  s.sporco = ed.cambiato(s);
+  if (prima !== s.sporco) { disegnaSchede(); disegnaAlbero(); aggiornaPiede(); }
+}
+
+function disegnaSchede() {
+  const el = $('schede');
+  el.innerHTML = '';
+  for (const s of stato.schede) {
+    const d = document.createElement('div');
+    d.className = 'scheda' + (s.percorso === stato.attiva ? ' si' : '') + (s.sporco ? ' sporca' : '');
+    d.title = s.percorso;
+    const est = estensione(s.percorso).slice(1).toUpperCase();
+    if (s.tipo !== 'testo' && est) {
+      const t = document.createElement('span');
+      t.className = 'tipo';
+      t.textContent = est;
+      d.appendChild(t);
+    }
+    d.appendChild(document.createTextNode(s.nome));
+    const x = document.createElement('span');
+    x.className = 'x';
+    x.textContent = '✕';
+    x.title = T('Chiudi (Ctrl+W)');
+    x.onclick = ev => { ev.stopPropagation(); chiudiScheda(s); };
+    d.appendChild(x);
+    d.onclick = () => attiva() !== s && mostraScheda(s);
+    d.onauxclick = ev => { if (ev.button === 1) chiudiScheda(s); };
+    el.appendChild(d);
+    if (s.percorso === stato.attiva) requestAnimationFrame(() => d.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
+  }
+  $('benvenuto').hidden = stato.schede.length > 0;
+}
+
+function disegnaBriciole() {
+  const s = attiva();
+  const b = $('briciole');
+  b.innerHTML = '';
+  if (!s) return;
+  const pezzi = relativo(s.percorso, stato.cartella).split(/[\\/]/).filter(Boolean);
+  if (stato.cartella && dentro(s.percorso, stato.cartella)) pezzi.unshift(nomeDi(stato.cartella));
+  pezzi.forEach((p, i) => {
+    if (i) { const sep = document.createElement('b'); sep.textContent = ' › '; b.appendChild(sep); }
+    const n = document.createElement('span');
+    n.textContent = p;
+    if (i === pezzi.length - 1) n.className = 'io';
+    b.appendChild(n);
+  });
+  b.title = s.percorso;
+}
+
+function mostraScheda(s) {
+  ed.lascia(attiva());
+  stato.attiva = s.percorso;
+  $('editor').hidden = !(s.tipo === 'testo' && ed.monaco);
+  $('ripiego').hidden = true;
+  $('documento').hidden = s.tipo === 'testo';
+  $('anteprima').hidden = true;
+  if (s.tipo === 'testo') ed.mostra(s);
+  else disegnaDocumento(s);
+  $('btnAnteprima').hidden = !(s.tipo === 'testo' && ['.md', '.markdown'].includes(estensione(s.percorso)));
+  $('btnAnteprima').classList.toggle('si', !!s.anteprima);
+  aggiornaAnteprima();
+  disegnaSchede();
+  disegnaBriciole();
+  disegnaAlbero();
+  disegnaContesto();
+  aggiornaPiede();
+  ricorda();
+}
+
+function disegnaDocumento(s) {
+  const d = $('documento');
+  d.innerHTML = '';
+  const intesta = document.createElement('div');
+  intesta.className = 'intesta';
+  d.appendChild(intesta);
+  if (s.tipo === 'altro') {
+    intesta.textContent = s.messaggio || T('Questo file non si apre nell’editor.');
+    return;
+  }
+  if (!s.blocchi?.length) {
+    intesta.textContent = T('I PDF e i documenti Word si vedranno qui con le pagine vere: arrivano con la quarta fase. '
+      + 'Intanto chiedi a NOVA di aprirlo: te lo mostra nella finestra di prima, con le pagine, e puoi farle domande sopra.');
+    return;
+  }
+  intesta.textContent = T('Il testo che NOVA legge in questo documento. Le pagine vere arrivano con la quarta fase.');
+  let pagina = null;
+  for (const b of s.blocchi) {
+    if (b.pagina && b.pagina !== pagina) {
+      pagina = b.pagina;
+      const p = document.createElement('div');
+      p.className = 'pag';
+      p.textContent = T('PAGINA') + ' ' + pagina;
+      d.appendChild(p);
+    }
+    const x = document.createElement('div');
+    x.className = 'blocco';
+    x.id = 'blocco-' + b.id;
+    x.textContent = b.testo;
+    d.appendChild(x);
+  }
+}
+
+let _anteprimaTimer = 0;
+function aggiornaAnteprima() {
+  const s = attiva();
+  const a = $('anteprima');
+  const si = !!(s && s.tipo === 'testo' && s.anteprima);
+  a.hidden = !si;
+  if (!si) return;
+  clearTimeout(_anteprimaTimer);
+  _anteprimaTimer = setTimeout(() => { a.innerHTML = rendi(ed.valore(s), { documento: true }); }, 120);
+}
+
+/* Apre un file in una scheda, o porta davanti quella che c'e' gia'. */
+async function apriFile(percorso, { riga = 0, sessione = '' } = {}) {
+  let s = stato.schede.find(x => stesso(x.percorso, percorso));
+  if (!s) {
+    s = { percorso, nome: nomeDi(percorso), tipo: 'testo', sporco: false };
+    const est = estensione(percorso);
+    if (DOCUMENTI.includes(est)) {
+      s.tipo = 'documento';
+    } else if (IMMAGINI.includes(est)) {
+      s.tipo = 'altro';
+      s.messaggio = T('Le immagini non si aprono ancora nell’harness.');
+    } else {
+      try {
+        const r = await invoke('harness_leggi', { percorso });
+        s.bom = !!r.bom;
+        s.modificato = r.modificato;
+        ed.crea(s, r.testo);
+      } catch (e) {
+        const m = String(e);
+        if (/non e' un file di testo|UTF-8|troppo grande/.test(m)) {
+          s.tipo = 'altro';
+          s.messaggio = m;
+        } else {
+          messaggio(m, 9000);
+          return null;
+        }
+      }
+    }
+    stato.schede.push(s);
+  }
+  if (s.tipo === 'documento' && sessione && s.sessione !== sessione) {
+    try { s.blocchi = await invoke('harness_blocchi', { sessione }); s.sessione = sessione; }
+    catch (e) { console.warn('blocchi:', e); }
+  }
+  mostraScheda(s);
+  if (riga && s.tipo === 'testo') ed.vaiA(riga);
+  if (stato.cartella && dentro(percorso, stato.cartella)) rivela(percorso);
+  return s;
+}
+
+/* Una domanda, sopra l'editor: cosa fare, con i bottoni per dirlo.
+   Non si usano le finestre di conferma del sistema: dentro la finestra
+   web del guscio non ci sono, e una domanda che non compare e' una
+   domanda a cui si e' risposto «no» senza saperlo. */
+function chiediQui(testo, scelte) {
+  return new Promise(risolvi => {
+    const a = $('avviso');
+    a.innerHTML = '';
+    const m = document.createElement('div');
+    m.className = 'm';
+    m.textContent = testo;
+    a.appendChild(m);
+    const fine = v => { a.hidden = true; a.innerHTML = ''; risolvi(v); };
+    for (const c of scelte) {
+      const b = document.createElement('button');
+      b.textContent = c.testo;
+      if (c.primo) b.className = 'primo';
+      b.onclick = () => fine(c.valore);
+      a.appendChild(b);
+    }
+    a.hidden = false;
+  });
+}
+
+async function chiudiScheda(s) {
+  if (s.sporco) {
+    const v = await chiediQui(T('«') + s.nome + T('» ha modifiche non salvate.'), [
+      { testo: T('Salva'), valore: 'salva', primo: true },
+      { testo: T('Non salvare'), valore: 'butta' },
+      { testo: T('Annulla'), valore: null },
+    ]);
+    if (!v) return;
+    if (v === 'salva' && !(await salvaScheda(s))) return;
+  }
+  const i = stato.schede.indexOf(s);
+  if (i < 0) return;
+  stato.schede.splice(i, 1);
+  ed.chiudi(s);
+  if (stato.attiva === s.percorso) {
+    const prossima = stato.schede[Math.min(i, stato.schede.length - 1)];
+    stato.attiva = null;
+    if (prossima) mostraScheda(prossima);
+    else {
+      $('editor').hidden = true; $('ripiego').hidden = true; $('documento').hidden = true;
+      $('anteprima').hidden = true; $('btnAnteprima').hidden = true;
+      disegnaSchede(); disegnaBriciole(); disegnaAlbero(); disegnaContesto(); aggiornaPiede(); ricorda();
+    }
+  } else {
+    disegnaSchede(); ricorda();
+  }
+}
+
+/* Salva. Se sul disco il file e' cambiato dopo averlo aperto, non si
+   scrive sopra alla cieca: si chiede. */
+async function salvaScheda(s, { sopra = false } = {}) {
+  if (!s || s.tipo !== 'testo') return false;
+  const testo = ed.valore(s);
+  // Senza la versione attesa si scrive sopra e basta: e' il «si', sovrascrivi».
+  const atteso = sopra ? null : (s.modificato ?? null);
+  try {
+    const r = await invoke('harness_salva', { percorso: s.percorso, testo, bom: !!s.bom, atteso });
+    s.modificato = r.modificato;
+    ed.segnaSalvato(s);
+    s.sporco = false;
+    disegnaSchede(); disegnaAlbero(); aggiornaPiede();
+    messaggio(T('Salvato: ') + s.nome, 2500);
+    return true;
+  } catch (e) {
+    const m = String(e);
+    if (m.startsWith('CAMBIATO:')) {
+      const v = await chiediQui(T('«') + s.nome + T('» è stato cambiato sul disco dopo che l’hai aperto.'), [
+        { testo: T('Sovrascrivi'), valore: 'sopra', primo: true },
+        { testo: T('Ricarica dal disco'), valore: 'ricarica' },
+        { testo: T('Annulla'), valore: null },
+      ]);
+      if (v === 'sopra') return salvaScheda(s, { sopra: true });
+      if (v === 'ricarica') await ricarica(s);
+      return false;
+    }
+    messaggio(m, 10000);
+    return false;
+  }
+}
+const salvaAttiva = () => salvaScheda(attiva());
+
+async function ricarica(s) {
+  try {
+    const r = await invoke('harness_leggi', { percorso: s.percorso });
+    s.bom = !!r.bom;
+    s.modificato = r.modificato;
+    ed.sostituisci(s, r.testo);
+    s.sporco = false;
+    disegnaSchede(); disegnaAlbero(); aggiornaPiede(); aggiornaAnteprima();
+  } catch (e) { messaggio(String(e), 8000); }
+}
+
+/* Un file aperto cambiato da fuori — da NOVA, da un altro programma — si
+   ricarica da solo se qui non ci sono modifiche; se ci sono, si chiede.
+   Si guarda solo quando la finestra si vede: una finestra nascosta non ha
+   niente da mostrare. */
+let _guardaInCorso = false;
+async function guardaSulDisco() {
+  if (_guardaInCorso || document.visibilityState !== 'visible' || !invoke) return;
+  _guardaInCorso = true;
+  try {
+    for (const s of [...stato.schede]) {
+      if (s.tipo !== 'testo' || s.modificato == null || s.chiesto) continue;
+      const q = await invoke('harness_quando', { percorso: s.percorso });
+      if (q == null || Math.abs(q - s.modificato) <= 1) continue;
+      if (!s.sporco) {
+        await ricarica(s);
+        messaggio(T('Ricaricato, era cambiato sul disco: ') + s.nome, 4000);
+        continue;
+      }
+      s.chiesto = true;
+      const v = await chiediQui(T('«') + s.nome + T('» è cambiato sul disco, e qui hai modifiche non salvate.'), [
+        { testo: T('Tieni le mie'), valore: 'mie', primo: true },
+        { testo: T('Ricarica dal disco'), valore: 'ricarica' },
+      ]);
+      s.chiesto = false;
+      if (v === 'ricarica') await ricarica(s);
+      else s.modificato = q; // le mie: al prossimo salvataggio si scrive sopra quella versione
+    }
+  } finally { _guardaInCorso = false; }
+}
+
+/* ================================================== l'albero ======== */
+async function contenuto(cartella) {
+  if (stato.contenuti.has(chiave(cartella))) return stato.contenuti.get(chiave(cartella));
+  try {
+    const v = await invoke('harness_cartella', { percorso: cartella });
+    stato.contenuti.set(chiave(cartella), v);
+    return v;
+  } catch (e) {
+    messaggio(String(e), 8000);
+    return [];
+  }
+}
+
+async function apriCartella(cartella, { schede = null } = {}) {
+  stato.cartella = cartella;
+  stato.contenuti.clear();
+  stato.espanse = new Set();
+  recenti(cartella);
+  $('nomeCartella').textContent = nomeDi(cartella);
+  $('nomeCartella').title = cartella;
+  await contenuto(cartella);
+  disegnaAlbero();
+  disegnaBriciole();
+  aggiornaPiede();
+  ricorda();
+  if (schede) for (const p of schede) await apriFile(p);
+}
+
+/* Espande le cartelle fino a un file, perche' si veda dov'e'. */
+async function rivela(percorso) {
+  const catena = [];
+  for (let p = genitore(percorso); dentro(p, stato.cartella); p = genitore(p)) catena.unshift(p);
+  for (const c of catena) { stato.espanse.add(chiave(c)); await contenuto(c); }
+  disegnaAlbero();
+  requestAnimationFrame(() => document.querySelector('.nodo.aperto')?.scrollIntoView({ block: 'nearest' }));
+}
+
+function disegnaAlbero() {
+  const el = $('albero');
+  const alto = el.scrollTop;
+  el.innerHTML = '';
+  if (!stato.cartella) {
+    const v = document.createElement('div');
+    v.className = 'vuoto';
+    v.textContent = T('Nessuna cartella aperta.');
+    el.appendChild(v);
+    return;
+  }
+  const sporchi = new Set(stato.schede.filter(s => s.sporco).map(s => chiave(s.percorso)));
+  const giu = (cartella, livello) => {
+    for (const v of stato.contenuti.get(chiave(cartella)) || []) {
+      const n = document.createElement('div');
+      const aperta = v.cartella && stato.espanse.has(chiave(v.percorso));
+      n.className = 'nodo' + (!v.cartella && stesso(v.percorso, stato.attiva) ? ' aperto' : '');
+      n.style.paddingLeft = (8 + livello * 14) + 'px';
+      n.title = v.percorso;
+      const ic = document.createElement('span');
+      ic.className = 'ic';
+      ic.textContent = v.cartella ? (aperta ? '▾' : '▸') : '·';
+      const nome = document.createElement('span');
+      nome.className = 'n';
+      nome.textContent = v.nome;
+      n.append(ic, nome);
+      if (sporchi.has(chiave(v.percorso))) {
+        const seg = document.createElement('span');
+        seg.className = 'seg';
+        seg.textContent = '●';
+        seg.title = T('modifiche non salvate');
+        n.appendChild(seg);
+      }
+      n.onclick = async () => {
+        if (!v.cartella) { apriFile(v.percorso); return; }
+        const k = chiave(v.percorso);
+        if (stato.espanse.has(k)) stato.espanse.delete(k);
+        else { stato.espanse.add(k); await contenuto(v.percorso); }
+        disegnaAlbero();
+        ricorda();
+      };
+      el.appendChild(n);
+      if (aperta) giu(v.percorso, livello + 1);
+    }
+  };
+  giu(stato.cartella, 0);
+  if (!el.children.length) {
+    const v = document.createElement('div');
+    v.className = 'vuoto';
+    v.textContent = T('La cartella è vuota.');
+    el.appendChild(v);
+  }
+  el.scrollTop = alto;
+}
+
+async function aggiornaAlbero() {
+  if (!stato.cartella) return;
+  const da_rileggere = [stato.cartella, ...[...stato.espanse]];
+  stato.contenuti.clear();
+  for (const c of da_rileggere) {
+    // Le chiavi sono in minuscolo: per rileggere serve il percorso vero,
+    // che si ritrova nel contenuto gia' letto del genitore.
+    const vero = c === stato.cartella ? c : trovaPercorso(c);
+    if (vero) await contenuto(vero);
+  }
+  disegnaAlbero();
+}
+function trovaPercorso(k) {
+  for (const voci of stato.contenuti.values()) {
+    const v = voci.find(x => chiave(x.percorso) === k);
+    if (v) return v.percorso;
+  }
+  return null;
+}
+
+async function scegli(cartella) {
+  const p = await invoke('harness_scegli', { cartella });
+  if (!p) return;
+  if (cartella) await apriCartella(p);
+  else {
+    if (!stato.cartella) await apriCartella(genitore(p));
+    await apriFile(p);
+  }
+}
+
+function disegnaRecenti() {
+  const r = $('recenti');
+  r.querySelectorAll('button').forEach(b => b.remove());
+  const lista = recenti();
+  r.hidden = !lista.length;
+  for (const c of lista) {
+    const b = document.createElement('button');
+    b.textContent = c;
+    b.onclick = () => apriCartella(c);
+    r.appendChild(b);
+  }
+}
+
+/* ====================================================== la chat ===== */
+const TURNO = {
+  quiete: 'a riposo', ascolto: 'ti ascolto', penso: 'ci penso', agisco: 'sto facendo',
+  parlo: 'sto parlando', chiedo: 'aspetto un tuo ok', spento: 'demone spento',
+};
+const LAVORA = ['penso', 'agisco', 'parlo'];
+let passoCorrente = '';
+let turnoCorrente = 'quiete';
+
+function scriviTurno() {
+  const t = $('turno');
+  t.textContent = passoCorrente || T(TURNO[turnoCorrente] || TURNO.quiete);
+  t.className = 'stato ' + turnoCorrente;
+}
+function turno(nome) {
+  turnoCorrente = nome;
+  orb.stato(nome === 'spento' ? 'quiete' : nome);
+  scriviTurno();
+  document.body.classList.toggle('lavora', LAVORA.includes(nome));
+}
+function passo(testo) { passoCorrente = String(testo || ''); scriviTurno(); }
+
+async function ferma() {
+  if (!document.body.classList.contains('lavora')) return;
+  try { await invoke('demone_chiama', { capacita: 'azione.ferma', args: {} }); }
+  catch (e) { console.warn('ferma:', e); }
+  turno('quiete');
+}
+
+const fondo = () => { const d = $('discorso'); d.scrollTop = d.scrollHeight; };
+const togliInizio = () => $('inizio')?.remove();
+
+function nota(testo) {
+  const n = document.createElement('div');
+  n.className = 'nota';
+  n.textContent = testo;
+  $('discorso').appendChild(n);
+  fondo();
+}
+
+/* I posti nelle risposte: «lettura.rs:40» porta al file e alla riga,
+   «riga 40» alla riga del file che hai davanti. Si cercano nel testo gia'
+   reso, fuori dai link, e non si inventano: un nome che non corrisponde a
+   niente di aperto o di raggiungibile resta testo. */
+const POSTO = /((?:[A-Za-z]:)?[\w.\-\/\\]*[\w\-]\.[A-Za-z0-9]{1,8}):(\d{1,6})(?::\d+)?|\b(riga|righe)\s+(\d{1,6})(?:\s*[-–]\s*\d{1,6})?/g;
+
+function risolvi(nome) {
+  if (!nome) return attiva()?.percorso || '';
+  if (/^([A-Za-z]:[\\/]|\/)/.test(nome)) return nome;
+  const aperta = stato.schede.find(s => chiave(s.percorso).endsWith('/' + chiave(nome)) || stesso(s.nome, nome));
+  if (aperta) return aperta.percorso;
+  return stato.cartella ? unisci(stato.cartella, nome) : '';
+}
+
+function collegaPosti(radice) {
+  const cammina = document.createTreeWalker(radice, NodeFilter.SHOW_TEXT, {
+    acceptNode: n => n.parentElement?.closest('a,.posto') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+  });
+  const nodi = [];
+  while (cammina.nextNode()) nodi.push(cammina.currentNode);
+  for (const n of nodi) {
+    const t = n.nodeValue;
+    POSTO.lastIndex = 0;
+    if (!POSTO.test(t)) continue;
+    POSTO.lastIndex = 0;
+    const pezzi = document.createDocumentFragment();
+    let da = 0;
+    for (const m of t.matchAll(POSTO)) {
+      // «http://esempio.it:8080» non e' un file: l'indirizzo lo tradisce.
+      if (m[1] && (m[1].includes('//') || t.slice(Math.max(0, m.index - 3), m.index).endsWith(':'))) continue;
+      const riga = Number(m[2] || m[4]);
+      if (!riga) continue;
+      pezzi.appendChild(document.createTextNode(t.slice(da, m.index)));
+      const b = document.createElement('span');
+      b.className = 'posto';
+      b.textContent = m[0];
+      // Il file si cerca al clic, non adesso: una risposta di ieri, riletta
+      // dalla cronologia prima di aprire la cartella, deve portare al posto
+      // giusto lo stesso.
+      b.title = m[1] ? m[1] + ' — ' + T('riga') + ' ' + riga : T('riga') + ' ' + riga + ' ' + T('del file che hai davanti');
+      b.onclick = () => {
+        const file = risolvi(m[1] || '');
+        if (file) apriFile(file, { riga });
+        else messaggio(T('Non so a quale file si riferisce: apri la cartella del progetto.'), 6000);
+      };
+      pezzi.appendChild(b);
+      da = m.index + m[0].length;
+    }
+    if (!da) continue;
+    pezzi.appendChild(document.createTextNode(t.slice(da)));
+    n.replaceWith(pezzi);
+  }
+}
+
+function battuta(da, testo, dove = '') {
+  togliInizio();
+  const b = document.createElement('div');
+  if (da === 'utente') {
+    b.className = 'tua';
+    b.textContent = testo;
+    if (dove) {
+      const d = document.createElement('span');
+      d.className = 'dove';
+      d.textContent = dove;
+      b.appendChild(d);
+    }
+  } else {
+    b.className = 'sua' + (da === 'errore' ? ' guaio' : '');
+    b.innerHTML = rendi(pulisci(testo));
+    collegaPosti(b);
+  }
+  $('discorso').appendChild(b);
+  fondo();
+  return b;
+}
+
+function attesa() {
+  togliInizio();
+  const b = document.createElement('div');
+  b.className = 'sua';
+  b.innerHTML = '<div class="puntini"><i></i><i></i><i></i></div>';
+  $('discorso').appendChild(b);
+  fondo();
+  return b;
+}
+
+function riempi(b, testo, guaio) {
+  b.className = 'sua' + (guaio ? ' guaio' : '');
+  b.innerHTML = rendi(pulisci(testo));
+  collegaPosti(b);
+  fondo();
+}
+
+/* Cosa va con la domanda: il file davanti e la selezione, se non li si e'
+   tolti dai pezzetti sopra al campo. */
+const includi = { file: true, selezione: true };
+
+function contesto() {
+  const s = attiva();
+  const c = { cartella: stato.cartella || '', aperti: stato.schede.map(x => x.percorso) };
+  if (s && includi.file) {
+    c.attivo = { percorso: s.percorso };
+    if (s.tipo === 'testo') {
+      c.attivo.riga = ed.posizione()?.riga || 0;
+      c.attivo.modificato = !!s.sporco;
+      const sel = includi.selezione ? ed.selezione() : null;
+      if (sel && sel.testo.trim()) c.selezione = sel;
+    }
+  }
+  return c;
+}
+
+function disegnaContesto() {
+  const el = $('contesto');
+  el.innerHTML = '';
+  const s = attiva();
+  if (!s) return;
+  const pezzo = (testo, titolo, chiaveIncludi) => {
+    const p = document.createElement('div');
+    p.className = 'pezzo' + (includi[chiaveIncludi] ? '' : ' via');
+    const t = document.createElement('span');
+    t.textContent = testo;
+    p.title = titolo;
+    const x = document.createElement('button');
+    x.textContent = includi[chiaveIncludi] ? '✕' : '+';
+    x.title = includi[chiaveIncludi] ? T('Non mandarlo con la domanda') : T('Mandalo con la domanda');
+    x.onclick = () => { includi[chiaveIncludi] = !includi[chiaveIncludi]; disegnaContesto(); };
+    p.append(t, x);
+    el.appendChild(p);
+  };
+  pezzo(s.nome, s.percorso, 'file');
+  if (s.tipo === 'testo' && includi.file) {
+    const sel = ed.selezione();
+    if (sel && sel.testo.trim()) {
+      pezzo(sel.a > sel.da ? `${T('righe')} ${sel.da}–${sel.a}` : `${T('riga')} ${sel.da}`,
+            T('La selezione va con la domanda'), 'selezione');
+    }
+  }
+}
+
+let occupata = false;
+async function manda() {
+  const testo = $('testo').value.trim();
+  if (!testo || occupata || !invoke) return;
+  $('testo').value = '';
+  $('testo').style.height = 'auto';
+  occupata = true;
+  $('btnInvia').disabled = true;
+  const c = contesto();
+  const dove = c.selezione ? `${nomeDi(c.attivo.percorso)} · ${T('righe')} ${c.selezione.da}–${c.selezione.a}`
+    : c.attivo ? nomeDi(c.attivo.percorso) : '';
+  battuta('utente', testo, dove);
+  invoke('cronologia_aggiungi', { da: 'utente', testo });
+  turno('penso');
+  const b = attesa();
+  try {
+    const risposta = await invoke('parla', { testo, contesto: c });
+    riempi(b, risposta, false);
+    invoke('cronologia_aggiungi', { da: 'nova', testo: risposta });
+  } catch (e) {
+    riempi(b, String(e), true);
+  }
+  occupata = false;
+  $('btnInvia').disabled = false;
+  turno('quiete');
+  $('testo').focus();
+}
+
+function mostraChat(si) {
+  stato.chat = si;
+  $('corpo').classList.toggle('senza-chat', !si);
+  $('btnChat').classList.toggle('si', si);
+  ricorda();
+}
+
+const permessi = sportello({ discorso: $('discorso'), invoke, T, nota, fondo, prima: togliInizio });
+
+/* ============================================ cosa apre NOVA ======== *
+ * NOVA apre un file con lo strumento dell'harness; il guscio se ne
+ * accorge e lo mette in fila (vedi harness.rs). Qui si ritira la fila. */
+async function ritira() {
+  if (!invoke) return false;
+  let fila = [];
+  try { fila = await invoke('harness_in_attesa'); } catch (e) { console.warn(e); }
+  for (const a of fila) {
+    const file = String(a.file || '');
+    const cartella = String(a.cartella || '');
+    if (cartella && !stesso(cartella, stato.cartella)) await apriCartella(cartella);
+    else if (!stato.cartella && file) await apriCartella(genitore(file));
+    if (file) await apriFile(file, { riga: Number(a.riga) || 0, sessione: String(a.sessione || '') });
+  }
+  return fila.length > 0;
+}
+
+/* ============================================== i gesti ============= */
+$('btnApriCartella').onclick = () => scegli(true);
+$('btnApriFile').onclick = () => scegli(false);
+$('bvCartella').onclick = () => scegli(true);
+$('bvFile').onclick = () => scegli(false);
+$('btnAggiorna').onclick = aggiornaAlbero;
+$('btnChat').onclick = () => mostraChat(!stato.chat);
+$('btnAnteprima').onclick = () => {
+  const s = attiva();
+  if (!s) return;
+  s.anteprima = !s.anteprima;
+  $('btnAnteprima').classList.toggle('si', s.anteprima);
+  aggiornaAnteprima();
+};
+$('btnFerma').onclick = ferma;
+$('btnNuova').onclick = async () => {
+  try { await invoke('nuova_conversazione'); } catch (e) { console.warn(e); }
+  $('discorso').innerHTML = '';
+  nota(T('nuova conversazione — il filo di prima è chiuso'));
+};
+$('btnInvia').onclick = manda;
+$('testo').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); manda(); }
+});
+$('testo').addEventListener('input', function () {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 160) + 'px';
+});
+
+document.addEventListener('keydown', e => {
+  const ctrl = e.ctrlKey || e.metaKey;
+  const nellEditor = !!e.target.closest?.('.monaco-editor');
+  if (ctrl && !e.shiftKey && e.key.toLowerCase() === 's' && !nellEditor) { e.preventDefault(); salvaAttiva(); }
+  else if (ctrl && !e.shiftKey && e.key.toLowerCase() === 'w') { e.preventDefault(); const s = attiva(); if (s) chiudiScheda(s); }
+  else if (ctrl && !e.shiftKey && e.key.toLowerCase() === 'j') { e.preventDefault(); mostraChat(!stato.chat); }
+  else if (ctrl && !e.shiftKey && e.key.toLowerCase() === 'o') { e.preventDefault(); scegli(false); }
+  else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'o') { e.preventDefault(); scegli(true); }
+  else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'v') { e.preventDefault(); $('btnAnteprima').hidden || $('btnAnteprima').click(); }
+  else if (ctrl && e.key === 'Tab' && stato.schede.length > 1) {
+    e.preventDefault();
+    const i = stato.schede.indexOf(attiva());
+    const n = stato.schede.length;
+    mostraScheda(stato.schede[(i + (e.shiftKey ? n - 1 : 1)) % n]);
+  }
+  else if (e.key === 'Escape' && document.body.classList.contains('lavora')) ferma();
+});
+
+/* ======================================= quello che arriva da fuori === */
+ascolta?.('nova://stato', ev => turno(String(ev.payload?.stato || 'quiete')));
+ascolta?.('nova://passo', ev => passo(ev.payload?.testo));
+ascolta?.('nova://harness', () => ritira());
+ascolta?.('nova://evento', ev => permessi.evento(ev.payload || {}));
+/* La voce e la nuvoletta finiscono qui come nell'orb: la conversazione e'
+   una. */
+let inCorso = null;
+ascolta?.('nova://voce', ev => {
+  const v = ev.payload || {};
+  const testo = String(v.testo || '');
+  if (v.da === 'utente') { battuta('utente', testo); inCorso = attesa(); return; }
+  if (inCorso) { riempi(inCorso, testo, v.da === 'errore'); inCorso = null; }
+  else battuta(v.da === 'errore' ? 'errore' : 'nova', testo);
+});
+ascolta?.('nova://battuta', ev => {
+  const b = ev.payload || {};
+  if (!b.finestra || b.finestra === finestra?.label) return;
+  battuta(b.da, String(b.testo || ''));
+});
+
+setInterval(guardaSulDisco, 2500);
+window.addEventListener('focus', guardaSulDisco);
+
+/* ============================================ all'apertura ========== */
+(async function avvia() {
+  turno('quiete');
+  await ed.avvia();
+  disegnaSchede();
+  disegnaAlbero();
+  disegnaRecenti();
+  if (!invoke) return;
+  leggiPermessi();
+  permessi.inAttesa();
+  try {
+    const c = await invoke('cronologia_leggi');
+    for (const b of (c?.battute || []).slice(-60)) battuta(b.da, b.testo);
+  } catch (e) { console.warn(e); }
+  const r = ricordato();
+  mostraChat(r.chat !== false);
+  // Se NOVA ha appena aperto qualcosa, vince quello; altrimenti si riprende
+  // da dove si era.
+  if (!(await ritira()) && r.cartella) {
+    await apriCartella(r.cartella);
+    for (const k of r.espanse || []) {
+      const p = trovaPercorso(k);
+      if (p) { stato.espanse.add(k); await contenuto(p); }
+    }
+    for (const p of r.schede || []) await apriFile(p);
+    const a = stato.schede.find(s => stesso(s.percorso, r.attiva));
+    if (a) mostraScheda(a);
+    disegnaAlbero();
+  }
+})();
+</script>
