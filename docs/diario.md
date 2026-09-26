@@ -10832,3 +10832,20 @@ le guarda davvero.
   serve una password — gli estratti conto sono così. Adesso lo dice. La cura
   è `mupdf`, che serve comunque all'harness; è una decisione da prendere con
   Gio, perché su Windows vuole libclang per compilarsi.
+
+### mupdf, misurato e lasciato fuori
+
+Gio ha scelto di tenere `pdf-extract`. Quel che si è misurato, perché la
+domanda tornerà con l'harness:
+
+- **Qui (Linux) `mupdf` 0.8 funziona**: un minuto e mezzo di compilazione,
+  5,6 MB di binario con i soli caratteri di base, e legge tutti i PDF cifrati
+  del banco — anche quelli AES — e dice «protetto» solo per quelli con una
+  password vera. Senza i caratteri di base il testo esce vuoto: servono.
+- **Sul PC di Gio no.** `libclang` si procura senza permessi con
+  `pip install --user libclang` (la DLL sta in `clang/native`, e
+  `LIBCLANG_PATH` punta lì). Ma la 0.8 usa nel suo involucro C un
+  inizializzatore vuoto (`{}`) che il compilatore di Visual Studio 2019
+  rifiuta, e la 0.5 — che non lo usa — si ferma dentro il progetto di MuPDF,
+  quando `bin2coff` deve incorporare i caratteri. Serve Visual Studio Build
+  Tools **2022**; la CI su `windows-latest` lo ha già.
