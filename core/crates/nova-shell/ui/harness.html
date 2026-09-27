@@ -209,6 +209,50 @@ svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6;stroke
 .manca{margin:0 auto 12px;max-width:520px;border:1px solid rgba(232,176,74,.3);background:rgba(232,176,74,.07);
   border-radius:10px;padding:9px 12px;font-size:12px;color:var(--inchiostro);text-align:left}
 
+/* --- il PDF: le pagine vere --- */
+.pdf{flex:1;min-width:0;display:flex;flex-direction:column;background:#1a1816}
+.barra-pdf{display:flex;align-items:center;gap:8px;height:32px;padding:0 12px;border-bottom:1px solid var(--linea);
+  font-size:12px;color:var(--fioco);background:var(--fondo-2);flex:none}
+.barra-pdf b{color:var(--mezzo);font-weight:500}
+.barra-pdf input{width:46px;background:var(--vetro);border:1px solid var(--linea);border-radius:5px;padding:1px 5px;
+  color:var(--inchiostro);font:12px var(--mono);text-align:right}
+.barra-pdf button{min-width:24px;height:22px;border-radius:5px;color:var(--mezzo);padding:0 6px}
+.barra-pdf button:hover{background:var(--vetro-2);color:var(--inchiostro)}
+.barra-pdf .dx{margin-left:auto;display:flex;align-items:center;gap:4px}
+.barra-pdf .accesi{color:var(--brace)}
+.pagine-pdf{flex:1;overflow:auto;padding:18px 0 40px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.pagina-pdf{position:relative;background:#f6f3ee;box-shadow:0 18px 40px -18px rgba(0,0,0,.9);flex:none}
+.pagina-pdf canvas{position:absolute;inset:0;display:block}
+.pagina-pdf .numero-pdf{position:absolute;bottom:-17px;left:0;right:0;text-align:center;font:10px var(--mono);color:var(--fioco)}
+.pagina-pdf .textLayer{position:absolute;inset:0}
+.pagina-pdf .textLayer ::selection{background:rgba(232,115,74,.35)}
+.evid-pdf{position:absolute;background:rgba(232,115,74,.26);box-shadow:0 0 0 2px rgba(232,115,74,.28);border-radius:2px;
+  pointer-events:none;mix-blend-mode:multiply}
+
+/* --- il Word: paragrafo per paragrafo --- */
+.word{flex:1;min-width:0;overflow:auto;background:#1a1816;padding:22px 24px 60px}
+.foglio-word{max-width:780px;margin:0 auto;background:#f6f3ee;color:#2a2622;padding:48px 64px;border-radius:2px;
+  box-shadow:0 18px 40px -18px rgba(0,0,0,.9);font:14px/1.6 Georgia,'Times New Roman',serif}
+.nota-word{max-width:780px;margin:0 auto 12px;font-size:12px;color:var(--mezzo);line-height:1.5}
+.par-word{min-height:1.6em;margin:0 0 .55em;outline:none;border-radius:2px;white-space:pre-wrap}
+.par-word:focus{background:rgba(232,115,74,.07)}
+.par-word.cambiato{box-shadow:inset 3px 0 0 rgba(232,115,74,.6)}
+.par-word.h1{font-size:24px;font-weight:700;margin-top:.8em}
+.par-word.h2{font-size:19px;font-weight:700;margin-top:.7em}
+.par-word.h3{font-size:16px;font-weight:700}
+.par-word.titolo{font-size:30px;font-weight:700;text-align:center}
+.par-word.elenco{padding-left:1.4em;position:relative}
+.par-word.elenco::before{content:"•";position:absolute;left:.4em}
+.foglio-word table{border-collapse:collapse;margin:0 0 .9em;font-size:13px;width:100%}
+.foglio-word td{border:1px solid #c9c2b8;padding:4px 8px;vertical-align:top;white-space:pre-wrap;color:#2a2622}
+
+/* --- un'immagine --- */
+.immagine{flex:1;min-width:0;overflow:auto;display:flex;align-items:center;justify-content:center;background:#1a1816;padding:20px}
+.immagine img{max-width:100%;max-height:100%;box-shadow:0 18px 40px -18px rgba(0,0,0,.9);
+  background:repeating-conic-gradient(#2a2622 0 25%,#221f1c 0 50%) 0 0/16px 16px}
+.anteprima.pagina-web{padding:0;background:#fff}
+.anteprima.pagina-web iframe{width:100%;height:100%;border:0;display:block;background:#fff}
+
 /* la riga indicata da NOVA, per un momento */
 .riga-indicata{background:rgba(232,115,74,.18)}
 
@@ -353,6 +397,12 @@ body.lavora #btnFerma{display:flex}
         <textarea id="ripiego" spellcheck="false" hidden></textarea>
         <div class="anteprima" id="anteprima" hidden></div>
         <div class="documento" id="documento" hidden></div>
+        <div class="pdf" id="pdf" hidden>
+          <div class="barra-pdf" id="barraPdf"></div>
+          <div class="pagine-pdf" id="paginePdf"></div>
+        </div>
+        <div class="word" id="word" hidden></div>
+        <div class="immagine" id="immagine" hidden></div>
         <div id="confronto" hidden>
           <div class="barra-confronto" id="barraConfronto"></div>
           <div class="avviso" id="avvisoConfronto" hidden></div>
@@ -481,7 +531,6 @@ const estensione = p => { const n = nomeDi(p).toLowerCase(); const i = n.lastInd
 
 /* I documenti che l'editor non sa ancora mostrare (fase 4 di harness.md):
    di loro si vede il testo che NOVA ci legge. */
-const DOCUMENTI = ['.pdf', '.docx'];
 const IMMAGINI = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico'];
 
 /* ===================================================== lo stato ===== */
@@ -895,13 +944,19 @@ function mostraScheda(s) {
   stato.attiva = s.percorso;
   $('editor').hidden = !(s.tipo === 'testo' && ed.monaco);
   $('ripiego').hidden = true;
-  $('documento').hidden = s.tipo === 'testo' || s.tipo === 'proposta';
+  $('documento').hidden = !['documento', 'altro'].includes(s.tipo);
   $('confronto').hidden = s.tipo !== 'proposta';
+  $('pdf').hidden = s.tipo !== 'pdf';
+  $('word').hidden = s.tipo !== 'docx';
+  $('immagine').hidden = s.tipo !== 'immagine';
   $('anteprima').hidden = true;
   if (s.tipo === 'testo') ed.mostra(s);
   else if (s.tipo === 'proposta') mostraConfronto(s);
+  else if (s.tipo === 'pdf') mostraPdf(s);
+  else if (s.tipo === 'docx') mostraWord(s);
+  else if (s.tipo === 'immagine') mostraImmagine(s);
   else disegnaDocumento(s);
-  $('btnAnteprima').hidden = !(s.tipo === 'testo' && ['.md', '.markdown'].includes(estensione(s.percorso)));
+  $('btnAnteprima').hidden = !(s.tipo === 'testo' && ['.md', '.markdown', '.html', '.htm'].includes(estensione(s.percorso)));
   $('btnAnteprima').classList.toggle('si', !!s.anteprima);
   aggiornaAnteprima();
   disegnaSchede();
@@ -923,11 +978,11 @@ function disegnaDocumento(s) {
     return;
   }
   if (!s.blocchi?.length) {
-    intesta.textContent = T('I PDF e i documenti Word si vedranno qui con le pagine vere: arrivano con la quarta fase. '
-      + 'Intanto chiedi a NOVA di aprirlo: te lo mostra nella finestra di prima, con le pagine, e puoi farle domande sopra.');
+    intesta.textContent = T('Le pagine di questo PDF non si possono disegnare: pdf.js non è stato scaricato quando il guscio è stato compilato. '
+      + 'Chiedi a NOVA di aprirlo: qui compare il testo che lei ci legge.');
     return;
   }
-  intesta.textContent = T('Il testo che NOVA legge in questo documento. Le pagine vere arrivano con la quarta fase.');
+  intesta.textContent = T('Il testo che NOVA legge in questo documento. Le pagine vere non ci sono: pdf.js non è stato scaricato quando il guscio è stato compilato.');
   let pagina = null;
   for (const b of s.blocchi) {
     if (b.pagina && b.pagina !== pagina) {
@@ -952,27 +1007,464 @@ function aggiornaAnteprima() {
   const si = !!(s && s.tipo === 'testo' && s.anteprima);
   a.hidden = !si;
   if (!si) return;
+  if (eHtml(s.percorso)) { mostraPaginaWeb(s); return; }
+  a.classList.remove('pagina-web');
   clearTimeout(_anteprimaTimer);
   _anteprimaTimer = setTimeout(() => { a.innerHTML = rendi(ed.valore(s), { documento: true }); }, 120);
 }
 
+
+/* ============================================== i documenti ========= *
+ * Quarta fase di harness.md (D341): il PDF con le pagine vere, il Word da
+ * scrivere paragrafo per paragrafo, l'HTML disegnato, le immagini. I file
+ * arrivano per indirizzo dal guscio (`novafile`), solo dalle cartelle che
+ * l'harness ha aperto. */
+const SU_WINDOWS = navigator.userAgent.includes('Windows');
+function indirizzo(percorso, versione = '') {
+  const pezzi = String(percorso).split(/[\\/]/).map(encodeURIComponent).join('/');
+  return (SU_WINDOWS ? 'http://novafile.localhost/' : 'novafile://localhost/') + pezzi
+    + (versione ? '?v=' + encodeURIComponent(versione) : '');
+}
+async function consenti(percorso) {
+  try { await invoke('harness_consenti', { percorso }); } catch (e) { console.warn('consenti:', e); }
+}
+
+/* --- il PDF --- */
+let pdfjs = null;
+async function caricaPdfjs() {
+  if (pdfjs !== null) return pdfjs;
+  try {
+    pdfjs = await import('./vendor/pdfjs/build/pdf.min.mjs');
+    pdfjs.GlobalWorkerOptions.workerSrc = 'vendor/pdfjs/build/pdf.worker.min.mjs';
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = 'vendor/pdfjs/web/pdf_viewer.css';
+    document.head.appendChild(css);
+  } catch (e) {
+    console.warn('pdf.js:', e);
+    pdfjs = false;
+  }
+  return pdfjs;
+}
+
+async function apriPdf(s) {
+  const lib = await caricaPdfjs();
+  if (!lib) { s.tipo = 'documento'; return; }
+  await consenti(s.percorso);
+  try {
+    s.modificato = await invoke('harness_quando', { percorso: s.percorso });
+    s.doc = await lib.getDocument({
+      url: indirizzo(s.percorso, String(s.modificato || '')),
+      cMapUrl: 'vendor/pdfjs/cmaps/', cMapPacked: true,
+      standardFontDataUrl: 'vendor/pdfjs/standard_fonts/',
+      wasmUrl: 'vendor/pdfjs/wasm/', iccUrl: 'vendor/pdfjs/iccs/',
+      disableRange: true, disableStream: true, isEvalSupported: false,
+    }).promise;
+    s.pagine = s.doc.numPages;
+    const primo = (await s.doc.getPage(1)).getViewport({ scale: 1 });
+    s.formato = { l: primo.width, a: primo.height };
+    s.scala = s.scala || 1.3;
+    s.pagina = s.pagina || 1;
+  } catch (e) {
+    s.tipo = 'altro';
+    s.messaggio = T('Questo PDF non si apre: ') + String(e?.message || e);
+  }
+}
+
+let osservaPagine = null;
+function mostraPdf(s) {
+  const pagine = $('paginePdf');
+  pagine.innerHTML = '';
+  osservaPagine?.disconnect();
+  osservaPagine = new IntersectionObserver(voci => {
+    for (const v of voci) if (v.isIntersecting) disegnaPagina(s, Number(v.target.dataset.n));
+  }, { root: pagine, rootMargin: '800px 0px' });
+  for (let n = 1; n <= s.pagine; n++) {
+    const box = document.createElement('div');
+    box.className = 'pagina-pdf';
+    box.dataset.n = n;
+    box.style.width = (s.formato.l * s.scala) + 'px';
+    box.style.height = (s.formato.a * s.scala) + 'px';
+    const numero = document.createElement('div');
+    numero.className = 'numero-pdf';
+    numero.textContent = n;
+    box.appendChild(numero);
+    pagine.appendChild(box);
+    osservaPagine.observe(box);
+  }
+  pagine.onscroll = () => {
+    const alto = pagine.getBoundingClientRect().top + 40;
+    let corrente = 1;
+    for (const box of pagine.children) {
+      if (box.getBoundingClientRect().top <= alto) corrente = Number(box.dataset.n);
+      else break;
+    }
+    if (corrente !== s.pagina) { s.pagina = corrente; disegnaBarraPdf(s); }
+  };
+  disegnaBarraPdf(s);
+  requestAnimationFrame(() => vaiAPagina(s, s.pagina, false));
+}
+
+async function disegnaPagina(s, n) {
+  const box = $('paginePdf').querySelector(`.pagina-pdf[data-n="${n}"]`);
+  if (!box || box.dataset.scala === String(s.scala) || !s.doc) return;
+  box.dataset.scala = String(s.scala);
+  const pagina = await s.doc.getPage(n);
+  const vp = pagina.getViewport({ scale: s.scala });
+  box.style.width = vp.width + 'px';
+  box.style.height = vp.height + 'px';
+  for (const x of box.querySelectorAll('canvas,.textLayer,.evid-pdf')) x.remove();
+  const dpr = window.devicePixelRatio || 1;
+  const tela = document.createElement('canvas');
+  tela.width = Math.floor(vp.width * dpr);
+  tela.height = Math.floor(vp.height * dpr);
+  tela.style.width = vp.width + 'px';
+  tela.style.height = vp.height + 'px';
+  box.prepend(tela);
+  await pagina.render({
+    canvasContext: tela.getContext('2d'), canvas: tela, viewport: vp,
+    transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null,
+  }).promise.catch(e => console.warn('pagina', n, e));
+  const testo = document.createElement('div');
+  testo.className = 'textLayer';
+  testo.style.setProperty('--scale-factor', String(s.scala));
+  testo.style.setProperty('--total-scale-factor', String(s.scala));
+  testo.style.setProperty('--user-unit', '1');
+  box.appendChild(testo);
+  try {
+    await new pdfjs.TextLayer({ textContentSource: pagina.streamTextContent(), container: testo, viewport: vp }).render();
+  } catch (e) { console.warn('testo della pagina', n, e); }
+  evidenziaPagina(s, n);
+}
+
+/* I blocchi che NOVA ha indicato (harness_cerca, harness_leggi) con il
+   riquadro in cui stanno: coordinate dall'angolo in alto a sinistra, in
+   punti, come le da' PyMuPDF. */
+function evidenziaPagina(s, n) {
+  const box = $('paginePdf').querySelector(`.pagina-pdf[data-n="${n}"]`);
+  if (!box) return;
+  for (const x of box.querySelectorAll('.evid-pdf')) x.remove();
+  const accesi = new Set(s.evidenziati || []);
+  for (const b of s.blocchi || []) {
+    if (b.pagina !== n || !accesi.has(b.id) || !Array.isArray(b.riquadro)) continue;
+    const [x0, y0, x1, y1] = b.riquadro;
+    const e = document.createElement('div');
+    e.className = 'evid-pdf';
+    e.title = b.id;
+    Object.assign(e.style, {
+      left: (x0 * s.scala) + 'px', top: (y0 * s.scala) + 'px',
+      width: ((x1 - x0) * s.scala) + 'px', height: ((y1 - y0) * s.scala) + 'px',
+    });
+    box.appendChild(e);
+  }
+}
+
+function vaiAPagina(s, n, liscio = true) {
+  const pagine = $('paginePdf');
+  const box = pagine.querySelector(`.pagina-pdf[data-n="${Math.max(1, Math.min(n, s.pagine || 1))}"]`);
+  if (!box) return;
+  pagine.scrollTo({ top: box.offsetTop - 12, behavior: liscio ? 'smooth' : 'auto' });
+}
+
+function cambiaScala(s, nuova) {
+  s.scala = Math.max(0.4, Math.min(4, Math.round(nuova * 100) / 100));
+  const pagina = s.pagina;
+  mostraPdf(s);
+  s.pagina = pagina;
+  requestAnimationFrame(() => vaiAPagina(s, pagina, false));
+}
+
+function disegnaBarraPdf(s) {
+  const b = $('barraPdf');
+  b.innerHTML = '';
+  const bottone = (testo, titolo, fai) => {
+    const x = document.createElement('button');
+    x.textContent = testo;
+    x.title = titolo;
+    x.onclick = fai;
+    return x;
+  };
+  const campo = document.createElement('input');
+  campo.value = String(s.pagina || 1);
+  campo.title = T('Vai alla pagina');
+  campo.onkeydown = e => { if (e.key === 'Enter') vaiAPagina(s, Number(campo.value) || 1); };
+  const di = document.createElement('span');
+  di.textContent = `${T('di')} ${s.pagine || 0}`;
+  const pag = document.createElement('span');
+  pag.textContent = T('pagina');
+  b.append(pag, campo, di);
+  const accesi = (s.evidenziati || []).length;
+  if (accesi) {
+    const a = document.createElement('span');
+    a.className = 'accesi';
+    a.textContent = accesi === 1 ? T('1 punto indicato da NOVA') : `${accesi} ${T('punti indicati da NOVA')}`;
+    a.style.cursor = 'pointer';
+    a.onclick = () => vaiAlPrimoIndicato(s);
+    b.appendChild(a);
+  }
+  const dx = document.createElement('span');
+  dx.className = 'dx';
+  const z = document.createElement('b');
+  z.textContent = Math.round((s.scala || 1) * 100) + '%';
+  dx.append(
+    bottone('−', T('Rimpicciolisci'), () => cambiaScala(s, s.scala / 1.15)), z,
+    bottone('+', T('Ingrandisci'), () => cambiaScala(s, s.scala * 1.15)),
+    bottone(T('Adatta'), T('Adatta alla larghezza'), () => {
+      const largo = $('paginePdf').clientWidth - 48;
+      cambiaScala(s, largo / (s.formato?.l || 600));
+    }),
+  );
+  b.appendChild(dx);
+}
+
+function vaiAlPrimoIndicato(s) {
+  const accesi = new Set(s.evidenziati || []);
+  const primo = (s.blocchi || []).find(b => accesi.has(b.id) && b.pagina);
+  if (primo) vaiAPagina(s, primo.pagina);
+}
+
+/* Quello che NOVA sa del documento: i blocchi e quelli che ha appena
+   indicato. Cambia quando lei cerca, e la pagina ci scende sopra. */
+async function aggiornaSessione(s) {
+  if (!s.sessione || !invoke) return;
+  let d;
+  try { d = await invoke('harness_sessione', { sessione: s.sessione }); } catch (_) { return; }
+  const prima = JSON.stringify(s.evidenziati || []);
+  s.blocchi = d.blocchi || [];
+  s.evidenziati = d.evidenziati || [];
+  if (JSON.stringify(s.evidenziati) === prima) return;
+  if (s.tipo === 'pdf' && s.percorso === stato.attiva) {
+    for (let n = 1; n <= (s.pagine || 0); n++) evidenziaPagina(s, n);
+    disegnaBarraPdf(s);
+    vaiAlPrimoIndicato(s);
+  } else if (s.tipo === 'documento' && s.percorso === stato.attiva) {
+    disegnaDocumento(s);
+  }
+}
+
+/* La selezione dentro le pagine: il testo, e in che pagina sta. */
+function selezionePdf() {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || !$('paginePdf').contains(sel.anchorNode)) return null;
+  const testo = sel.toString();
+  const box = sel.anchorNode.parentElement?.closest('.pagina-pdf');
+  return testo.trim() ? { testo, pagina: Number(box?.dataset.n) || 0 } : null;
+}
+
+/* --- il Word --- */
+function classeWord(stile) {
+  const st = String(stile || '').toLowerCase().replace(/\s+/g, '');
+  if (/^(heading|titolo)1$/.test(st)) return 'h1';
+  if (/^(heading|titolo)2$/.test(st)) return 'h2';
+  if (/^(heading|titolo)[3-9]$/.test(st)) return 'h3';
+  if (st === 'title' || st === 'titolo') return 'titolo';
+  if (/list|elenco/.test(st)) return 'elenco';
+  return '';
+}
+
+async function apriWord(s) {
+  try {
+    const r = await invoke('harness_docx', { percorso: s.percorso });
+    s.pezzi = r.pezzi || [];
+    s.modificato = r.modificato;
+    s.sporco = false;
+  } catch (e) {
+    s.tipo = 'altro';
+    s.messaggio = String(e);
+  }
+}
+
+function mostraWord(s) {
+  const w = $('word');
+  w.innerHTML = '';
+  const nota = document.createElement('div');
+  nota.className = 'nota-word';
+  nota.textContent = T('Nei paragrafi che cambi, il testo prende la formattazione con cui il paragrafo cominciava: una parola in grassetto in mezzo non lo resta. Il resto del documento non si tocca. Invio fa un paragrafo nuovo; le tabelle, per ora, si leggono e basta.');
+  const foglio = document.createElement('div');
+  foglio.className = 'foglio-word';
+  w.append(nota, foglio);
+  for (const p of s.pezzi) {
+    if (p.tipo === 't') {
+      const t = document.createElement('table');
+      for (const riga of p.righe) {
+        const tr = document.createElement('tr');
+        for (const c of riga) { const td = document.createElement('td'); td.textContent = c; tr.appendChild(td); }
+        t.appendChild(tr);
+      }
+      foglio.appendChild(t);
+      continue;
+    }
+    foglio.appendChild(paragrafoWord(s, p.testo, p.stile, p.indice));
+  }
+  if (!s.pezzi.some(p => p.tipo === 'p')) foglio.appendChild(paragrafoWord(s, '', '', null));
+}
+
+function paragrafoWord(s, testo, stile, indice) {
+  const d = document.createElement('div');
+  d.className = 'par-word ' + classeWord(stile);
+  d.contentEditable = 'plaintext-only';
+  d.spellcheck = true;
+  d.textContent = testo;
+  if (indice != null) { d.dataset.indice = String(indice); d.dataset.originale = testo; }
+  else d.dataset.nuovo = '1';
+  d.dataset.stile = stile || '';
+  d.oninput = () => {
+    d.classList.toggle('cambiato', d.dataset.nuovo === '1' || d.textContent !== d.dataset.originale);
+    segnaWord(s);
+  };
+  d.onkeydown = e => {
+    const sel = window.getSelection();
+    if (e.key === 'Enter' && !e.shiftKey) {
+      // Invio divide il paragrafo dove sta il cursore, come in Word.
+      e.preventDefault();
+      const dove = sel?.anchorNode === d.firstChild ? sel.anchorOffset : d.textContent.length;
+      const resto = d.textContent.slice(dove);
+      d.textContent = d.textContent.slice(0, dove);
+      d.dispatchEvent(new Event('input'));
+      const nuovo = paragrafoWord(s, resto, d.dataset.stile, null);
+      nuovo.classList.add('cambiato');
+      d.after(nuovo);
+      nuovo.focus();
+      segnaWord(s);
+    } else if (e.key === 'Backspace' && !d.textContent && d.parentElement.querySelectorAll('.par-word').length > 1) {
+      // Un paragrafo vuoto se ne va, e il cursore torna su quello prima.
+      e.preventDefault();
+      const prima = d.previousElementSibling?.classList.contains('par-word') ? d.previousElementSibling : null;
+      d.remove();
+      segnaWord(s);
+      if (prima) {
+        prima.focus();
+        const r = document.createRange();
+        r.selectNodeContents(prima);
+        r.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(r);
+      }
+    }
+  };
+  return d;
+}
+
+function cambiWord(s) {
+  const foglio = $('word').querySelector('.foglio-word');
+  if (!foglio) return [];
+  const cambi = [];
+  const visti = new Set();
+  let ultimo = null;
+  const nuoviDopo = new Map();
+  for (const d of foglio.querySelectorAll('.par-word')) {
+    const testo = d.textContent.replace(/\n/g, ' ');
+    if (d.dataset.nuovo === '1') {
+      const k = ultimo === null ? 'testa' : String(ultimo);
+      if (!nuoviDopo.has(k)) nuoviDopo.set(k, []);
+      nuoviDopo.get(k).push(testo);
+      continue;
+    }
+    const i = Number(d.dataset.indice);
+    visti.add(i);
+    ultimo = i;
+    if (testo !== d.dataset.originale) cambi.push({ indice: i, testo });
+  }
+  for (const p of s.pezzi) if (p.tipo === 'p' && !visti.has(p.indice)) cambi.push({ indice: p.indice, togli: true });
+  for (const [k, testi] of nuoviDopo) cambi.push({ dopo: k === 'testa' ? null : Number(k), testi });
+  return cambi;
+}
+
+function segnaWord(s) {
+  const prima = s.sporco;
+  s.sporco = cambiWord(s).length > 0;
+  if (prima !== s.sporco) { disegnaSchede(); disegnaAlbero(); aggiornaPiede(); }
+}
+
+async function salvaWord(s, { sopra = false } = {}) {
+  const cambi = cambiWord(s);
+  if (!cambi.length) { s.sporco = false; return true; }
+  try {
+    const atteso = sopra ? null : (s.modificato ?? null);
+    const r = await invoke('harness_docx_salva', { percorso: s.percorso, cambi, atteso });
+    await apriWord(s);
+    if (s.percorso === stato.attiva) mostraWord(s);
+    disegnaSchede(); disegnaAlbero(); aggiornaPiede();
+    messaggio(T('Salvato: ') + s.nome + ` (${r.quante} ${T('paragrafi toccati')})`, 3500);
+    return true;
+  } catch (e) {
+    const m = String(e);
+    if (m.startsWith('CAMBIATO:')) {
+      const v = await chiediQui(T('«') + s.nome + T('» è stato cambiato sul disco dopo che l’hai aperto.'), [
+        { testo: T('Sovrascrivi'), valore: 'sopra', primo: true },
+        { testo: T('Ricarica dal disco'), valore: 'ricarica' },
+        { testo: T('Annulla'), valore: null },
+      ]);
+      if (v === 'sopra') return salvaWord(s, { sopra: true });
+      if (v === 'ricarica') { await apriWord(s); mostraWord(s); disegnaSchede(); }
+      return false;
+    }
+    messaggio(m, 10000);
+    return false;
+  }
+}
+
+function selezioneWord() {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || !$('word').contains(sel.anchorNode)) return null;
+  const testo = sel.toString();
+  return testo.trim() ? { testo } : null;
+}
+
+/* --- le immagini --- */
+async function mostraImmagine(s) {
+  await consenti(s.percorso);
+  const d = $('immagine');
+  d.innerHTML = '';
+  const img = document.createElement('img');
+  img.alt = s.nome;
+  img.src = indirizzo(s.percorso, String(s.modificato || ''));
+  img.onerror = () => { d.textContent = T('Questa immagine non si apre.'); };
+  d.appendChild(img);
+}
+
+/* --- l'HTML disegnato, accanto al sorgente --- */
+async function mostraPaginaWeb(s, ricarica = false) {
+  const a = $('anteprima');
+  a.classList.add('pagina-web');
+  let f = a.querySelector('iframe');
+  const dove = indirizzo(s.percorso, String(s.modificato || ''));
+  if (f && f.dataset.percorso === s.percorso && !ricarica) return;
+  await consenti(s.percorso);
+  a.innerHTML = '';
+  f = document.createElement('iframe');
+  // Gli script della pagina girano, ma in una scatola: niente accesso al
+  // guscio, niente alla finestra che la contiene.
+  f.setAttribute('sandbox', 'allow-scripts allow-forms allow-popups allow-modals');
+  f.dataset.percorso = s.percorso;
+  f.src = dove;
+  a.appendChild(f);
+}
+const eHtml = p => ['.html', '.htm'].includes(estensione(p));
+
 /* Apre un file in una scheda, o porta davanti quella che c'e' gia'. */
-async function apriFile(percorso, { riga = 0, sessione = '' } = {}) {
+async function apriFile(percorso, { riga = 0, sessione = '', pagina = 0 } = {}) {
   let s = stato.schede.find(x => stesso(x.percorso, percorso));
   if (!s) {
     s = { percorso, nome: nomeDi(percorso), tipo: 'testo', sporco: false };
     const est = estensione(percorso);
-    if (DOCUMENTI.includes(est)) {
-      s.tipo = 'documento';
+    if (est === '.pdf') {
+      s.tipo = 'pdf';
+      await apriPdf(s);
+    } else if (est === '.docx') {
+      s.tipo = 'docx';
+      await apriWord(s);
     } else if (IMMAGINI.includes(est)) {
-      s.tipo = 'altro';
-      s.messaggio = T('Le immagini non si aprono ancora nell’harness.');
+      s.tipo = 'immagine';
+      try { s.modificato = await invoke('harness_quando', { percorso }); } catch (_) {}
     } else {
       try {
         const r = await invoke('harness_leggi', { percorso });
         s.bom = !!r.bom;
         s.modificato = r.modificato;
         ed.crea(s, r.testo);
+        // Una pagina web si guarda disegnata, col sorgente accanto.
+        if (eHtml(percorso)) s.anteprima = true;
       } catch (e) {
         const m = String(e);
         if (/non e' un file di testo|UTF-8|troppo grande/.test(m)) {
@@ -986,12 +1478,17 @@ async function apriFile(percorso, { riga = 0, sessione = '' } = {}) {
     }
     stato.schede.push(s);
   }
-  if (s.tipo === 'documento' && sessione && s.sessione !== sessione) {
-    try { s.blocchi = await invoke('harness_blocchi', { sessione }); s.sessione = sessione; }
-    catch (e) { console.warn('blocchi:', e); }
+  if ((s.tipo === 'documento' || s.tipo === 'pdf') && sessione && s.sessione !== sessione) {
+    s.sessione = sessione;
+    s.evidenziati = null;
+    await aggiornaSessione(s);
   }
   mostraScheda(s);
   if (riga && s.tipo === 'testo') ed.vaiA(riga);
+  if (s.tipo === 'pdf') {
+    if (pagina) requestAnimationFrame(() => vaiAPagina(s, pagina));
+    else if (sessione) requestAnimationFrame(() => vaiAlPrimoIndicato(s));
+  }
   if (stato.cartella && dentro(percorso, stato.cartella)) rivela(percorso);
   return s;
 }
@@ -1034,6 +1531,7 @@ async function chiudiScheda(s) {
   if (i < 0) return;
   stato.schede.splice(i, 1);
   ed.chiudi(s);
+  s.doc?.destroy?.();
   chiudiConfronto(s);
   if (stato.attiva === s.percorso) {
     const prossima = stato.schede[Math.min(i, stato.schede.length - 1)];
@@ -1042,6 +1540,7 @@ async function chiudiScheda(s) {
     else {
       $('editor').hidden = true; $('ripiego').hidden = true; $('documento').hidden = true;
       $('confronto').hidden = true;
+      $('pdf').hidden = $('word').hidden = $('immagine').hidden = true;
       $('anteprima').hidden = true; $('btnAnteprima').hidden = true;
       disegnaSchede(); disegnaBriciole(); disegnaAlbero(); disegnaContesto(); aggiornaPiede(); ricorda();
     }
@@ -1053,6 +1552,7 @@ async function chiudiScheda(s) {
 /* Salva. Se sul disco il file e' cambiato dopo averlo aperto, non si
    scrive sopra alla cieca: si chiede. */
 async function salvaScheda(s, { sopra = false } = {}) {
+  if (s?.tipo === 'docx') return salvaWord(s, { sopra });
   if (!s || s.tipo !== 'testo') return false;
   const testo = ed.valore(s);
   // Senza la versione attesa si scrive sopra e basta: e' il «si', sovrascrivi».
@@ -1064,6 +1564,7 @@ async function salvaScheda(s, { sopra = false } = {}) {
     s.sporco = false;
     disegnaSchede(); disegnaAlbero(); aggiornaPiede();
     messaggio(T('Salvato: ') + s.nome, 2500);
+    if (s.anteprima && eHtml(s.percorso) && s.percorso === stato.attiva) mostraPaginaWeb(s, true);
     return true;
   } catch (e) {
     const m = String(e);
@@ -1104,6 +1605,26 @@ async function guardaSulDisco() {
   _guardaInCorso = true;
   try {
     for (const s of [...stato.schede]) {
+      if (s.sessione) await aggiornaSessione(s);
+      if (['pdf', 'docx', 'immagine'].includes(s.tipo) && s.modificato != null && !s.chiesto) {
+        const q = await invoke('harness_quando', { percorso: s.percorso });
+        if (q == null || Math.abs(q - s.modificato) <= 1) continue;
+        if (s.tipo === 'docx' && s.sporco) {
+          s.chiesto = true;
+          const v = await chiediQui(T('«') + s.nome + T('» è cambiato sul disco, e qui hai modifiche non salvate.'), [
+            { testo: T('Tieni le mie'), valore: 'mie', primo: true },
+            { testo: T('Ricarica dal disco'), valore: 'ricarica' },
+          ]);
+          s.chiesto = false;
+          if (v !== 'ricarica') { s.modificato = q; continue; }
+        }
+        if (s.tipo === 'pdf') { s.doc?.destroy?.(); s.doc = null; await apriPdf(s); }
+        else if (s.tipo === 'docx') await apriWord(s);
+        else s.modificato = q;
+        if (s.percorso === stato.attiva) mostraScheda(s);
+        messaggio(T('Ricaricato, era cambiato sul disco: ') + s.nome, 4000);
+        continue;
+      }
       if (s.tipo !== 'testo' || s.modificato == null || s.chiesto) continue;
       const q = await invoke('harness_quando', { percorso: s.percorso });
       if (q == null || Math.abs(q - s.modificato) <= 1) continue;
@@ -1304,7 +1825,7 @@ function nota(testo) {
    «riga 40» alla riga del file che hai davanti. Si cercano nel testo gia'
    reso, fuori dai link, e non si inventano: un nome che non corrisponde a
    niente di aperto o di raggiungibile resta testo. */
-const POSTO = /((?:[A-Za-z]:)?[\w.\-\/\\]*[\w\-]\.[A-Za-z0-9]{1,8}):(\d{1,6})(?::\d+)?|\b(riga|righe)\s+(\d{1,6})(?:\s*[-–]\s*\d{1,6})?/g;
+const POSTO = /((?:[A-Za-z]:)?[\w.\-\/\\]*[\w\-]\.[A-Za-z0-9]{1,8}):(\d{1,6})(?::\d+)?|\b(riga|righe)\s+(\d{1,6})(?:\s*[-–]\s*\d{1,6})?|\b(pagina|pag\.)\s+(\d{1,5})/g;
 
 function risolvi(nome) {
   if (!nome) return attiva()?.percorso || '';
@@ -1330,6 +1851,23 @@ function collegaPosti(radice) {
     for (const m of t.matchAll(POSTO)) {
       // «http://esempio.it:8080» non e' un file: l'indirizzo lo tradisce.
       if (m[1] && (m[1].includes('//') || t.slice(Math.max(0, m.index - 3), m.index).endsWith(':'))) continue;
+      if (m[6]) {
+        // «pagina 12»: la pagina del PDF che si ha davanti.
+        const n = Number(m[6]);
+        pezzi.appendChild(document.createTextNode(t.slice(da, m.index)));
+        const b = document.createElement('span');
+        b.className = 'posto';
+        b.textContent = m[0];
+        b.title = T('pagina') + ' ' + n + ' ' + T('del PDF che hai davanti');
+        b.onclick = () => {
+          const s = attiva()?.tipo === 'pdf' ? attiva() : stato.schede.find(x => x.tipo === 'pdf');
+          if (s) { if (attiva() !== s) mostraScheda(s); vaiAPagina(s, n); }
+          else messaggio(T('Non c’è un PDF aperto a cui portarti.'), 5000);
+        };
+        pezzi.appendChild(b);
+        da = m.index + m[0].length;
+        continue;
+      }
       const riga = Number(m[2] || m[4]);
       if (!riga) continue;
       pezzi.appendChild(document.createTextNode(t.slice(da, m.index)));
@@ -1407,6 +1945,12 @@ function contesto() {
       c.attivo.modificato = !!s.sporco;
       const sel = includi.selezione ? ed.selezione() : null;
       if (sel && sel.testo.trim()) c.selezione = sel;
+    } else if (s.tipo === 'pdf') {
+      c.attivo.pagina = s.pagina || 0;
+      if (includi.selezione && s.selezione) c.selezione = s.selezione;
+    } else if (s.tipo === 'docx') {
+      c.attivo.modificato = !!s.sporco;
+      if (includi.selezione && s.selezione) c.selezione = s.selezione;
     }
   }
   return c;
@@ -1437,6 +1981,13 @@ function disegnaContesto() {
       pezzo(sel.a > sel.da ? `${T('righe')} ${sel.da}–${sel.a}` : `${T('riga')} ${sel.da}`,
             T('La selezione va con la domanda'), 'selezione');
     }
+  } else if ((s.tipo === 'pdf' || s.tipo === 'docx') && includi.file) {
+    const sel = s.selezione;
+    if (sel) {
+      const corta = sel.testo.replace(/\s+/g, ' ').trim();
+      pezzo((sel.pagina ? `p. ${sel.pagina} · ` : '') + '«' + (corta.length > 24 ? corta.slice(0, 23) + '…' : corta) + '»',
+            T('La selezione va con la domanda'), 'selezione');
+    }
   }
 }
 
@@ -1449,8 +2000,11 @@ async function manda() {
   occupata = true;
   $('btnInvia').disabled = true;
   const c = contesto();
-  const dove = c.selezione ? `${nomeDi(c.attivo.percorso)} · ${T('righe')} ${c.selezione.da}–${c.selezione.a}`
-    : c.attivo ? nomeDi(c.attivo.percorso) : '';
+  const dove = !c.attivo ? ''
+    : c.selezione?.da ? `${nomeDi(c.attivo.percorso)} · ${T('righe')} ${c.selezione.da}–${c.selezione.a}`
+    : c.selezione?.pagina ? `${nomeDi(c.attivo.percorso)} · ${T('pagina')} ${c.selezione.pagina} · ${T('selezione')}`
+    : c.selezione ? `${nomeDi(c.attivo.percorso)} · ${T('selezione')}`
+    : nomeDi(c.attivo.percorso);
   battuta('utente', testo, dove);
   invoke('cronologia_aggiungi', { da: 'utente', testo });
   turno('penso');
@@ -2295,6 +2849,22 @@ ascolta?.('nova://battuta', ev => {
 });
 
 setInterval(guardaSulDisco, 2500);
+/* La selezione dentro un PDF o un Word va con la domanda: il pezzetto sopra
+   al campo deve comparire mentre si seleziona. */
+let _selTimer = 0;
+document.addEventListener('selectionchange', () => {
+  const s = attiva();
+  if (!s || (s.tipo !== 'pdf' && s.tipo !== 'docx')) return;
+  // La selezione si tiene: scrivere la domanda sposta il fuoco nel campo, e
+  // per la pagina la selezione sparisce proprio mentre la si sta usando.
+  // Cambia solo quando si seleziona, o si clicca, dentro il documento.
+  const sel = window.getSelection();
+  const foglio = $(s.tipo === 'pdf' ? 'paginePdf' : 'word');
+  if (!sel?.anchorNode || !foglio.contains(sel.anchorNode)) return;
+  s.selezione = s.tipo === 'pdf' ? selezionePdf() : selezioneWord();
+  clearTimeout(_selTimer);
+  _selTimer = setTimeout(disegnaContesto, 150);
+});
 window.addEventListener('focus', guardaSulDisco);
 
 /* ============================================ all'apertura ========== */

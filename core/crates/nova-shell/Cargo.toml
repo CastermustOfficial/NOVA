@@ -27,6 +27,8 @@ nova-platform = { path = "../nova-platform" }
 # Quali cartelle un progetto non mostra, e come si parla a NOVA di cio' che
 # e' aperto: l'harness del guscio usa le stesse regole di quello di NOVA.
 nova-harness = { path = "../nova-harness" }
+# Il Word nell'harness: letto nel suo ordine, riscritto solo dove cambia.
+nova-docx = { path = "../nova-docx" }
 tauri = { version = "2", features = ["tray-icon"] }
 # La guardia di istanza singola: due doppi clic non devono dare due orb.
 # Vedi `finestre::richiama` per cosa fa il secondo.

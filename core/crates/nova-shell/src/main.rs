@@ -21,9 +21,10 @@ mod bus;
 mod cervelli;
 mod cervello;
 mod componenti;
-mod cronologia;
 mod config;
+mod cronologia;
 mod demone;
+mod documenti;
 mod finestre;
 mod harness;
 mod modelli;
@@ -67,7 +68,9 @@ fn crea_nuvoletta(app: &tauri::AppHandle) -> tauri::Result<tauri::WebviewWindow>
 /// rientrata nel monitor: l'orb vive spesso appoggiato a un bordo, e una
 /// nuvoletta che esce dallo schermo è una nuvoletta che non si legge.
 fn posiziona_nuvoletta(orb: &tauri::WebviewWindow, chat: &tauri::WebviewWindow) {
-    let (Ok(po), Ok(so)) = (orb.outer_position(), orb.outer_size()) else { return };
+    let (Ok(po), Ok(so)) = (orb.outer_position(), orb.outer_size()) else {
+        return;
+    };
     let scala = orb.scale_factor().unwrap_or(1.0);
     let l = (NUVOLETTA_L * scala) as i32;
     let a = (NUVOLETTA_A * scala) as i32;
@@ -192,8 +195,10 @@ fn nuova_conversazione() -> Result<(), String> {
 
 /// Chiede qualcosa al demone, se e' fra le cose che l'interfaccia puo' chiedere.
 #[tauri::command]
-async fn demone_chiama(capacita: String, args: Option<serde_json::Value>)
-    -> Result<serde_json::Value, String> {
+async fn demone_chiama(
+    capacita: String,
+    args: Option<serde_json::Value>,
+) -> Result<serde_json::Value, String> {
     demone::chiama(&capacita, args.unwrap_or_else(|| serde_json::json!({})))
         .await
         .map_err(|e| e.to_string())
@@ -223,7 +228,9 @@ fn registra_diagnostica(finestra: String, messaggio: String) -> Result<(), Strin
 /// I fatti, non le intenzioni: demone acceso, pezzi della voce, memoria.
 #[tauri::command]
 async fn stato_sistema() -> Result<serde_json::Value, String> {
-    tokio::task::spawn_blocking(stato::tutto).await.map_err(|e| e.to_string())
+    tokio::task::spawn_blocking(stato::tutto)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// La configurazione in vigore, cosi' com'e' sul disco.
@@ -289,8 +296,8 @@ fn mostra_o_crea(
 /// nessuno a guardare uno schermo. Un avvio che fallisce in silenzio e' un
 /// avvio che non si puo' riparare.
 fn avvia_registro() {
-    let filtro = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| "info".into());
+    let filtro =
+        tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into());
     let cartella = stato::radice().join("runtime");
     let _ = std::fs::create_dir_all(&cartella);
     match std::fs::OpenOptions::new()
@@ -327,11 +334,18 @@ fn main() {
         // di piu' e' un altro: chi riapre il collegamento non vuole un
         // secondo orb, vuole quello che c'e' — e di solito perche' non lo
         // trova. Vedi `finestre::richiama`.
-        .plugin(tauri_plugin_single_instance::init(|app, _argomenti, _cartella| {
-            tracing::info!("NOVA e' gia' aperta: richiamo l'orb invece di aprirne un altro");
-            finestre::richiama(app);
-        }))
+        .plugin(tauri_plugin_single_instance::init(
+            |app, _argomenti, _cartella| {
+                tracing::info!("NOVA e' gia' aperta: richiamo l'orb invece di aprirne un altro");
+                finestre::richiama(app);
+            },
+        ))
         .plugin(tauri_plugin_dialog::init())
+        // I file dei documenti alla finestra dell'harness, per indirizzo:
+        // cosi' un HTML trova il suo foglio di stile accanto (D341).
+        .register_uri_scheme_protocol(documenti::PROTOCOLLO_DEI_FILE, |_ctx, richiesta| {
+            documenti::rispondi(&richiesta)
+        })
         .invoke_handler(tauri::generate_handler![
             apri_chat,
             mostra_chat,
@@ -362,7 +376,10 @@ fn main() {
             harness::harness_leggi,
             harness::harness_salva,
             harness::harness_quando,
-            harness::harness_blocchi,
+            harness::harness_sessione,
+            documenti::harness_consenti,
+            documenti::harness_docx,
+            documenti::harness_docx_salva,
             harness::harness_scegli,
             terminale::terminale_apri,
             terminale::terminale_scrivi,

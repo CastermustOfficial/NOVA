@@ -37,7 +37,7 @@ struct Pacchetto {
     serve: fn(&str) -> Option<String>,
 }
 
-const PACCHETTI: [Pacchetto; 3] = [
+const PACCHETTI: [Pacchetto; 4] = [
     Pacchetto {
         nome: "monaco-editor",
         versione: "0.57.0",
@@ -58,6 +58,13 @@ const PACCHETTI: [Pacchetto; 3] = [
         impronta: "sha512-jYcgT6xtVYhnhgxh3QgYDnnNMYTcf8ElbxxFzX0IZo+vabQqSPAjC3c1wJrKB5E19VwQei89QCiZZP86DCPF7g==",
         cartella: "xterm-fit",
         serve: serve_xterm,
+    },
+    Pacchetto {
+        nome: "pdfjs-dist",
+        versione: "6.3.289",
+        impronta: "sha512-ZHjSVpDa3D6izMq8/04lvkhkATUmL9px6ChPaXc1k6nU2Mrhlg1/7F0bdUqCwUjw3NsPTfPZsMDUU6ZIcRaeQw==",
+        cartella: "pdfjs",
+        serve: serve_pdfjs,
     },
 ];
 
@@ -175,6 +182,34 @@ fn serve_monaco(nome: &str) -> Option<String> {
         return None;
     }
     Some(dentro.to_string())
+}
+
+/// Di pdf.js si tiene la libreria e il suo lavoratore, ridotti, e quel che
+/// servono per disegnare i PDF veri: le tabelle dei caratteri orientali
+/// (`cmaps`), i caratteri standard che un PDF puo' non contenere, i profili
+/// di colore e i moduli `wasm` per le immagini JPEG 2000. Il visualizzatore
+/// completo di Mozilla no: le pagine le disegna l'harness.
+///
+/// La libreria e' quella **legacy**, con dentro i rattoppi per i motori un
+/// po' indietro: quella normale usa `Map.getOrInsertComputed`, che Chromium
+/// 140 non ha ancora (misurato: le pagine restavano bianche), e la finestra
+/// web di Windows si aggiorna quando vuole lei. Si mette dove la pagina la
+/// cerca, in `build/`.
+fn serve_pdfjs(nome: &str) -> Option<String> {
+    let dentro = nome.strip_prefix("package/")?;
+    if dentro.contains("..") || dentro.ends_with(".map") {
+        return None;
+    }
+    match dentro {
+        "legacy/build/pdf.min.mjs" => return Some("build/pdf.min.mjs".into()),
+        "legacy/build/pdf.worker.min.mjs" => return Some("build/pdf.worker.min.mjs".into()),
+        "web/pdf_viewer.css" | "LICENSE" => return Some(dentro.to_string()),
+        _ => {}
+    }
+    ["cmaps/", "standard_fonts/", "wasm/", "iccs/"]
+        .iter()
+        .any(|c| dentro.starts_with(c))
+        .then(|| dentro.to_string())
 }
 
 /// Di xterm.js e del suo adattatore si tiene lo script da caricare con un

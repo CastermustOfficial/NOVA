@@ -11,9 +11,9 @@
 //! se non lo e', accende quella vecchia in Qt. Il guscio si presenta come
 //! **la** finestra dell'harness: scrive il suo pid in `finestra.json` e segue
 //! il puntatore. Cosi' lo strumento non cambia di una riga, e la finestra che
-//! si apre e' questa (D337) — tranne per PDF, Word e HTML, che questa non
-//! mostra ancora come si deve e che vanno alla finestra di prima, accesa dal
-//! guscio, fino alla quarta fase.
+//! si apre e' questa (D337). Dalla quarta fase anche per PDF, Word e HTML
+//! (D341); alla finestra di prima restano solo le **proposte** su un PDF o
+//! un Word, che qui non si applicano ancora.
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -144,10 +144,6 @@ pub fn segui(app: AppHandle) {
             vista = ora.clone();
             let Some(id) = ora else { continue };
             match leggi_sessione(&base, &id) {
-                Some(s) if alla_finestra_di_prima(s["file"].as_str().unwrap_or("")) => {
-                    tracing::info!(file = %s["file"], "un documento per la finestra di prima");
-                    finestra_di_prima();
-                }
                 Some(s) => {
                     tracing::info!(file = %s["file"], "NOVA apre un file nell'harness");
                     apri(&app, s);
@@ -156,16 +152,6 @@ pub fn segui(app: AppHandle) {
             }
         }
     });
-}
-
-/// I documenti che questa finestra non mostra ancora come si deve: il PDF
-/// con le pagine vere, il Word, l'HTML disegnato arrivano con la quarta
-/// fase. Fino ad allora li apre la finestra di prima, quella in Qt, che li
-/// sa mostrare — portarli qui come testo nudo sarebbe un passo indietro.
-const ALLA_FINESTRA_DI_PRIMA: [&str; 4] = [".pdf", ".docx", ".html", ".htm"];
-
-fn alla_finestra_di_prima(file: &str) -> bool {
-    ALLA_FINESTRA_DI_PRIMA.contains(&nova_harness::estensione(file).as_str())
 }
 
 /// Le proposte di NOVA sul disco (`proposta-*.json`, vedi
@@ -491,10 +477,11 @@ pub fn harness_quando(percorso: String) -> Option<f64> {
     modificato_il(Path::new(&percorso))
 }
 
-/// I blocchi di una sessione di NOVA: per i documenti che l'editor non sa
-/// ancora mostrare, si mostra quello che NOVA ci legge.
+/// Quello che NOVA sa di un documento aperto nella sua sessione: i blocchi
+/// e quelli che ha appena indicato. Per un PDF, i blocchi hanno il riquadro
+/// in cui stanno sulla pagina, e quelli indicati si evidenziano li'.
 #[tauri::command]
-pub fn harness_blocchi(sessione: String) -> Result<Vec<Value>, String> {
+pub fn harness_sessione(sessione: String) -> Result<Value, String> {
     if !nome_di_sessione_valido(&sessione) {
         return Err("sessione sconosciuta".into());
     }
@@ -502,10 +489,11 @@ pub fn harness_blocchi(sessione: String) -> Result<Vec<Value>, String> {
     let t = std::fs::read_to_string(&f).map_err(|e| e.to_string())?;
     let s: Value =
         serde_json::from_str(t.trim_start_matches('\u{feff}')).map_err(|e| e.to_string())?;
-    Ok(s.get("blocchi")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default())
+    Ok(json!({
+        "file": s.get("file").cloned().unwrap_or(Value::Null),
+        "blocchi": s.get("blocchi").cloned().unwrap_or_else(|| json!([])),
+        "evidenziati": s.get("evidenziati").cloned().unwrap_or_else(|| json!([])),
+    }))
 }
 
 /// La finestra del sistema per scegliere una cartella, o un file.
@@ -687,26 +675,5 @@ mod prove {
         assert_ne!(tre, due, "una che se ne va e' un cambiamento");
         assert!(nuove(&due, &tre).is_empty());
         let _ = std::fs::remove_dir_all(&d);
-    }
-
-    #[test]
-    fn pdf_word_e_html_vanno_ancora_alla_finestra_di_prima() {
-        for f in [
-            "C:\\a\\libro.PDF",
-            "/a/tesi.docx",
-            "/a/pagina.html",
-            "/a/p.htm",
-        ] {
-            assert!(alla_finestra_di_prima(f), "{f}");
-        }
-        for f in [
-            "/a/main.rs",
-            "/a/note.md",
-            "/a/x.txt",
-            "/a/pdf",
-            "/a/.docx.rs",
-        ] {
-            assert!(!alla_finestra_di_prima(f), "{f}");
-        }
     }
 }
