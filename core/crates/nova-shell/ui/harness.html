@@ -85,13 +85,31 @@ svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6;stroke
   font:13px/20px var(--mono);color:var(--inchiostro);white-space:pre;overflow:auto}
 
 /* --- il pannello di sotto: l'uscita delle prove --- */
-.sotto{height:220px;flex:none;border-top:1px solid var(--linea);display:flex;flex-direction:column;min-height:0;background:var(--fondo)}
-.sotto .testa-sotto{display:flex;align-items:center;gap:10px;height:30px;padding:0 8px 0 14px;border-bottom:1px solid var(--linea);
-  font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;color:var(--inchiostro)}
-.sotto .testa-sotto span{letter-spacing:0;text-transform:none;font-weight:400;color:var(--mezzo);font-size:12px;min-width:0;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sotto .testa-sotto button{margin-left:auto;width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:var(--fioco);letter-spacing:0}
-.sotto .testa-sotto button:hover{background:var(--vetro-2);color:var(--inchiostro)}
+.sotto{height:240px;flex:none;border-top:1px solid var(--linea);display:flex;flex-direction:column;min-height:0;background:var(--fondo)}
+.sotto .testa-sotto{display:flex;align-items:center;gap:4px;height:30px;padding:0 8px 0 6px;border-bottom:1px solid var(--linea);flex:none}
+.linguetta{height:30px;padding:0 10px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;color:var(--fioco);
+  display:flex;align-items:center;gap:6px}
+.linguetta:hover{color:var(--mezzo)}
+.linguetta.si{color:var(--inchiostro);box-shadow:inset 0 -1px 0 var(--brace)}
+.conta-sotto{min-width:14px;height:14px;padding:0 3px;border-radius:7px;background:var(--brace);color:#160a06;font-size:9px;
+  letter-spacing:0;display:grid;place-items:center}
+#testaProva{color:var(--mezzo);font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:8px;flex:0 1 auto}
+.testa-sotto .spazio{flex:1}
+.terminali-schede{display:flex;gap:4px}
+.terminali-schede button{font:11px var(--mono);padding:2px 8px;border-radius:5px;color:var(--fioco)}
+.terminali-schede button.si{background:var(--vetro-2);color:var(--inchiostro)}
+.gesto-sotto{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:var(--fioco)}
+.gesto-sotto:hover{background:var(--vetro-2);color:var(--inchiostro)}
+.pannello-sotto{flex:1;min-height:0}
+#pTerminale{display:flex;flex-direction:column;padding:4px 0 0 10px;background:var(--fondo)}
+#terminali{flex:1;min-height:0;position:relative}
+#terminali .terminale{position:absolute;inset:0}
+#terminali .manca{margin:14px}
+.comando{border-left:2px solid var(--brace);padding:2px 0 2px 10px;margin:6px 0}
+.comando .riga-cmd{color:var(--inchiostro)}
+.comando .dim{color:var(--fioco)}
+.comando details summary{cursor:pointer;color:var(--fioco);font-size:11px}
+.comando pre{white-space:pre-wrap;margin:4px 0 0;color:#cfcac4}
 .uscita{flex:1;overflow:auto;padding:8px 14px;font:12px/18px var(--mono);color:#cfcac4;white-space:pre-wrap}
 .uscita .ok{color:var(--ascolto)} .uscita .ko{color:var(--pericolo)} .uscita .dim{color:var(--fioco)}
 
@@ -355,10 +373,19 @@ body.lavora #btnFerma{display:flex}
         </div>
       </div>
       <div class="sotto" id="sotto" hidden>
-        <div class="testa-sotto">Test <span id="testaProva"></span>
-          <button id="btnChiudiSotto" title="Chiudi">✕</button>
+        <div class="testa-sotto">
+          <button class="linguetta si" data-pannello="terminale">Terminale</button>
+          <button class="linguetta" data-pannello="test">Test</button>
+          <button class="linguetta" data-pannello="comandi">Comandi di NOVA<span class="conta-sotto" id="contaComandi" hidden></span></button>
+          <span id="testaProva"></span>
+          <span class="spazio"></span>
+          <span class="terminali-schede" id="schedeTerminali"></span>
+          <button class="gesto-sotto" id="btnNuovoTerminale" title="Nuovo terminale">+</button>
+          <button class="gesto-sotto" id="btnChiudiSotto" title="Chiudi il pannello (Ctrl+ò)">✕</button>
         </div>
-        <div class="uscita" id="uscitaProva"></div>
+        <div class="pannello-sotto" id="pTerminale"><div id="terminali"></div></div>
+        <div class="uscita pannello-sotto" id="uscitaProva" hidden></div>
+        <div class="uscita pannello-sotto" id="comandiNova" hidden></div>
       </div>
     </main>
 
@@ -1900,7 +1927,212 @@ function aggiornaCarta() {
 }
 
 /* ===================================================== le prove ===== */
-function mostraSotto(si = true) { $('sotto').hidden = !si; }
+/* ============================================ il pannello di sotto == *
+ * Tre cose, una alla volta: il terminale di Gio, l'uscita delle prove, e
+ * i comandi che ha eseguito NOVA. Il terminale e' suo: NOVA non ci scrive
+ * dentro, e quel che fa lei si legge nella linguetta accanto (D340). */
+let pannello = 'terminale';
+function mostraSotto(si = true, quale = null) {
+  $('sotto').hidden = !si;
+  if (!si) return;
+  if (quale) pannello = quale;
+  for (const l of document.querySelectorAll('.linguetta')) l.classList.toggle('si', l.dataset.pannello === pannello);
+  $('pTerminale').hidden = pannello !== 'terminale';
+  $('uscitaProva').hidden = pannello !== 'test';
+  $('comandiNova').hidden = pannello !== 'comandi';
+  $('testaProva').hidden = pannello !== 'test';
+  $('schedeTerminali').hidden = $('btnNuovoTerminale').hidden = pannello !== 'terminale';
+  if (pannello === 'comandi') { nonLetti = 0; disegnaContaComandi(); }
+  if (pannello === 'terminale') {
+    if (!terminali.size) nuovoTerminale();
+    else requestAnimationFrame(adattaTerminale);
+  }
+}
+
+/* --- il terminale --- */
+let xtermPronto = null;
+function caricaXterm() {
+  if (!xtermPronto) {
+    xtermPronto = (async () => {
+      const css = document.createElement('link');
+      css.rel = 'stylesheet';
+      css.href = 'vendor/xterm/css/xterm.css';
+      document.head.appendChild(css);
+      // xterm.js si carica come modulo AMD se trova il `define` del
+      // caricatore di Monaco, e allora `window.Terminal` non c'e' (misurato:
+      // «Can only have one anonymous define call»). Per il tempo di caricarlo
+      // il `define` si mette da parte.
+      const define = window.define;
+      window.define = undefined;
+      try {
+        const ok = await copione('vendor/xterm/lib/xterm.js') && await copione('vendor/xterm-fit/lib/addon-fit.js');
+        return ok && !!window.Terminal && !!window.FitAddon;
+      } finally {
+        window.define = define;
+      }
+    })();
+  }
+  return xtermPronto;
+}
+
+const terminali = new Map();   // id -> { term, adatta, el, nome, finito }
+let terminaleAttivo = null;
+
+const TEMA_TERMINALE = {
+  background: '#0a0908', foreground: '#cfcac4', cursor: '#e8734a', cursorAccent: '#0a0908',
+  selectionBackground: '#e8734a44',
+  black: '#1a1816', red: '#e8604a', green: '#7df0b2', yellow: '#e8b04a', blue: '#7aa2f7',
+  magenta: '#e08bd0', cyan: '#89ddff', white: '#cfcac4',
+  brightBlack: '#5d5852', brightRed: '#ff7b63', brightGreen: '#a6f5cb', brightYellow: '#ffcb6b',
+  brightBlue: '#9ab8ff', brightMagenta: '#f0a8e0', brightCyan: '#b0ecff', brightWhite: '#ece9e6',
+};
+
+async function nuovoTerminale() {
+  if (!invoke) return;
+  if (!(await caricaXterm())) {
+    $('terminali').innerHTML = '';
+    const m = document.createElement('div');
+    m.className = 'manca';
+    m.textContent = T('Il terminale non c’è: non è stato scaricato quando il guscio è stato compilato. Ricompila il guscio con la rete.');
+    $('terminali').appendChild(m);
+    return;
+  }
+  const el = document.createElement('div');
+  el.className = 'terminale';
+  $('terminali').appendChild(el);
+  const term = new window.Terminal({
+    fontFamily: "'Cascadia Mono', 'Cascadia Code', Consolas, monospace",
+    fontSize: 13, lineHeight: 1.15, cursorBlink: true, scrollback: 5000, theme: TEMA_TERMINALE,
+  });
+  const adatta = new window.FitAddon.FitAddon();
+  term.loadAddon(adatta);
+  term.open(el);
+  try { adatta.fit(); } catch (_) {}
+  let id;
+  try {
+    id = await invoke('terminale_apri', { cartella: stato.cartella || null, colonne: term.cols, righe: term.rows });
+  } catch (e) {
+    term.write(`\x1b[31m${String(e)}\x1b[0m\r\n`);
+    return;
+  }
+  term.onData(d => invoke('terminale_scrivi', { id, dati: d }).catch(() => {}));
+  term.onResize(({ cols, rows }) => invoke('terminale_dimensioni', { id, colonne: cols, righe: rows }).catch(() => {}));
+  const numero = [...terminali.values()].reduce((n, t) => Math.max(n, t.numero), 0) + 1;
+  terminali.set(id, { term, adatta, el, numero, finito: false });
+  mostraTerminale(id);
+}
+
+function mostraTerminale(id) {
+  terminaleAttivo = id;
+  for (const [k, t] of terminali) t.el.hidden = k !== id;
+  disegnaSchedeTerminali();
+  requestAnimationFrame(() => { adattaTerminale(); terminali.get(id)?.term.focus(); });
+}
+
+function adattaTerminale() {
+  const t = terminali.get(terminaleAttivo);
+  if (!t || $('sotto').hidden || $('pTerminale').hidden) return;
+  try { t.adatta.fit(); } catch (_) {}
+}
+
+function chiudiTerminale(id) {
+  const t = terminali.get(id);
+  if (!t) return;
+  invoke('terminale_chiudi', { id }).catch(() => {});
+  t.term.dispose();
+  t.el.remove();
+  terminali.delete(id);
+  if (terminaleAttivo === id) {
+    const altro = [...terminali.keys()].pop();
+    if (altro) mostraTerminale(altro);
+    else { terminaleAttivo = null; mostraSotto(false); }
+  }
+  disegnaSchedeTerminali();
+}
+
+function disegnaSchedeTerminali() {
+  const el = $('schedeTerminali');
+  el.innerHTML = '';
+  if (terminali.size < 2) return;
+  for (const [id, t] of terminali) {
+    const b = document.createElement('button');
+    b.textContent = `${t.numero}${t.finito ? ' ·' : ''}`;
+    b.title = T('Terminale') + ' ' + t.numero + ' — ' + T('clic col tasto centrale per chiuderlo');
+    b.className = id === terminaleAttivo ? 'si' : '';
+    b.onclick = () => mostraTerminale(id);
+    b.onauxclick = ev => { if (ev.button === 1) chiudiTerminale(id); };
+    el.appendChild(b);
+  }
+}
+
+function daBase64(b64) {
+  const s = atob(b64);
+  const u = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i);
+  return u;
+}
+
+ascolta?.('nova://terminale', ev => {
+  const d = ev.payload || {};
+  const t = terminali.get(d.id);
+  if (!t) return;
+  if (d.dati) t.term.write(daBase64(d.dati));
+  if (d.fine) {
+    t.finito = true;
+    t.term.write(`\r\n\x1b[90m${T('[la shell è uscita — premi + per aprirne un’altra]')}\x1b[0m\r\n`);
+    disegnaSchedeTerminali();
+  }
+});
+
+new ResizeObserver(() => adattaTerminale()).observe($('terminali'));
+
+/* --- i comandi di NOVA --- */
+let nonLetti = 0;
+function disegnaContaComandi() {
+  const c = $('contaComandi');
+  c.hidden = !nonLetti;
+  c.textContent = String(nonLetti);
+}
+
+function comandoDiNova(d) {
+  const el = $('comandiNova');
+  el.querySelector('.vuoto')?.remove();
+  const c = document.createElement('div');
+  c.className = 'comando';
+  const r = document.createElement('div');
+  r.className = 'riga-cmd';
+  r.textContent = '› ' + String(d.command || '');
+  const info = document.createElement('div');
+  info.className = 'dim';
+  const esito = d.code === 0 ? T('uscito con 0') : d.code == null ? T('interrotto') : T('uscito con') + ' ' + d.code;
+  info.textContent = [d.cwd, esito, d.ms != null ? `${(d.ms / 1000).toFixed(1)}s` : ''].filter(Boolean).join(' · ');
+  if (d.code !== 0) info.classList.add('ko');
+  c.append(r, info);
+  const uscita = [d.stdout, d.stderr].filter(x => x && String(x).trim()).join('\n');
+  if (uscita) {
+    const det = document.createElement('details');
+    const sum = document.createElement('summary');
+    sum.textContent = T('cosa ha scritto');
+    const pre = document.createElement('pre');
+    pre.textContent = uscita;
+    det.append(sum, pre);
+    if (d.code !== 0) det.open = true;
+    c.appendChild(det);
+  }
+  el.appendChild(c);
+  el.scrollTop = el.scrollHeight;
+  if ($('sotto').hidden || pannello !== 'comandi') { nonLetti++; disegnaContaComandi(); }
+}
+
+(function () {
+  const v = document.createElement('div');
+  v.className = 'vuoto dim';
+  v.textContent = T('Qui compaiono i comandi che NOVA esegue, con quel che hanno scritto. Nel terminale accanto scrivi solo tu.');
+  $('comandiNova').appendChild(v);
+})();
+
+for (const l of document.querySelectorAll('.linguetta')) l.onclick = () => mostraSotto(true, l.dataset.pannello);
+$('btnNuovoTerminale').onclick = () => nuovoTerminale();
 
 function righinaProva(testo, classe = '') {
   const r = document.createElement('div');
@@ -1911,7 +2143,7 @@ function righinaProva(testo, classe = '') {
 }
 
 function inizioProva(titolo) {
-  mostraSotto();
+  mostraSotto(true, 'test');
   $('uscitaProva').innerHTML = '';
   $('testaProva').textContent = titolo;
   $('sintesiProva').textContent = titolo;
@@ -2013,6 +2245,10 @@ $('testo').addEventListener('input', function () {
 document.addEventListener('keydown', e => {
   const ctrl = e.ctrlKey || e.metaKey;
   const nellEditor = !!e.target.closest?.('.monaco-editor');
+  // Nel terminale i tasti sono della shell: Ctrl+W cancella una parola,
+  // Esc serve a vim. Passa solo il tasto che apre e chiude il pannello.
+  const alPannello = ctrl && (e.key === 'ò' || e.code === 'Backquote');
+  if (e.target.closest?.('.xterm') && !alPannello) return;
   if (ctrl && !e.shiftKey && e.key.toLowerCase() === 's' && !nellEditor) { e.preventDefault(); salvaAttiva(); }
   else if (ctrl && !e.shiftKey && e.key.toLowerCase() === 'w') { e.preventDefault(); const s = attiva(); if (s) chiudiScheda(s); }
   else if (ctrl && !e.shiftKey && e.key.toLowerCase() === 'j') { e.preventDefault(); mostraChat(!stato.chat); }
@@ -2027,6 +2263,7 @@ document.addEventListener('keydown', e => {
     const n = stato.schede.length;
     mostraScheda(stato.schede[(i + (e.shiftKey ? n - 1 : 1)) % n]);
   }
+  else if (ctrl && (e.key === 'ò' || e.code === 'Backquote')) { e.preventDefault(); mostraSotto($('sotto').hidden); }
   else if (e.key === 'Escape' && document.body.classList.contains('lavora')) ferma();
 });
 
@@ -2038,6 +2275,7 @@ ascolta?.('nova://evento', ev => {
   const e = ev.payload || {};
   permessi.evento(e);
   if (e.topic === 'harness.prova') eventoProva(e.dati || {});
+  if (e.topic === 'shell.executed') comandoDiNova(e.dati || {});
 });
 ascolta?.('nova://proposte', () => caricaProposte());
 /* La voce e la nuvoletta finiscono qui come nell'orb: la conversazione e'

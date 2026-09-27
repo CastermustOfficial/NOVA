@@ -134,6 +134,15 @@ in aggiunta, come quello del Python.
   `.prima`.
 - Le proposte su PDF e Word si guardano ancora nella finestra di prima.
 
+**Fase 3 — fatta** (D340). Il pannello di sotto ha tre linguette:
+
+- **Terminale**: una console vera, nella cartella del progetto, con la
+  shell di tutti i giorni. Se ne aprono quante se ne vuole (+), e Ctrl+ò lo
+  apre e lo chiude. Dentro, i tasti sono della shell.
+- **Test**: l'uscita delle prove, un pezzo alla volta.
+- **Comandi di NOVA**: quel che NOVA ha eseguito, dove, con che esito e
+  cosa ha scritto. Nel terminale scrive solo Gio.
+
 ## Dopo
 
 - Le porzioni di Word seguite mentre si scrive, così il grassetto dentro un
