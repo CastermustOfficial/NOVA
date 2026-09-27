@@ -172,7 +172,13 @@ def apri(motivo: str = "") -> dict:
 
 
 def _intoccabile(rel: str) -> bool:
-    r = rel.replace("\\", "/").lstrip("./")
+    # Si tolgono i «./» in testa, non ogni punto: `lstrip("./")` faceva di
+    # «.env» un «env», e «.env» usciva dal perimetro (trovato portandolo in
+    # Rust, D349).
+    r = rel.replace("\\", "/")
+    while r.startswith("./"):
+        r = r[2:]
+    r = r.lstrip("/")
     return any(r == p.rstrip("/") or r.startswith(p) for p in INTOCCABILI)
 
 
