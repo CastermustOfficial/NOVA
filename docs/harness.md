@@ -177,6 +177,29 @@ in aggiunta, come quello del Python.
   mostra subito il documento. Con lei se ne vanno PyQt6, PyQt6-WebEngine e
   Pygments.
 
+**Fase 5 — fatta** (D343):
+
+- ***Cerca*** (Ctrl+Maiusc+F): una stringa in tutti i file della cartella,
+  con maiuscole distinte, parola intera, espressione regolare — e anche
+  dentro PDF e Word, dove il posto è la pagina o il paragrafo. Si guarda
+  quel che guarda *Esplora*. Un clic sul risultato apre il file sul punto,
+  con la parola selezionata. Quel che è selezionato nell'editor diventa la
+  domanda.
+- **Riaprire e ritrovare**: il ricordo sta sul disco, accanto alle sessioni
+  di NOVA (`schede.json`): la cartella, le schede e il punto in ciascuna (la
+  riga e lo scorrimento, la pagina e lo zoom del PDF), la vista a sinistra,
+  la ricerca, il pannello di sotto. E le **bozze**: un file cambiato e non
+  salvato torna cambiato anche dopo aver chiuso il guscio; se nel frattempo
+  il file sul disco è cambiato, si chiede quale tenere.
+- Se NOVA apre un file mentre la finestra riparte, si apre **sopra** a
+  quel che c'era, invece di prenderne il posto.
+- Il diario della finestra (`schede.jsonl`): cosa si è aperto, salvato,
+  chiuso, applicato, scartato.
+- Le proposte in sospeso c'erano già: stanno nei loro file.
+
+Con questo le cinque fasi sono fatte. Il passo dopo non è della finestra: è
+portare gli strumenti `harness_*` di NOVA dal Python al demone.
+
 ## Dopo
 
 - Le porzioni di Word seguite mentre si scrive, così il grassetto dentro un
