@@ -560,7 +560,7 @@ every change.
 | | |
 |---|---|
 | System | **Windows 10/11, 64 bit** |
-| Python | optional, 3.10 or newer: needed for the automations NOVA writes for itself, voice and downloadable components |
+| Python | optional, 3.10 or newer: needed for the automations NOVA writes for itself |
 | Disk | 3 GB for the minimum; 15-30 GB if you choose a local model |
 | GPU | optional: only needed for the local model |
 

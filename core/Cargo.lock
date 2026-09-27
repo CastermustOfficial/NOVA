@@ -2974,11 +2974,14 @@ dependencies = [
  "anyhow",
  "clap",
  "nova-cervelli",
+ "nova-componenti",
  "nova-configurazione",
  "nova-modelli",
  "nova-proto",
  "serde_json",
  "tokio",
+ "ureq",
+ "zip 2.4.2",
 ]
 
 [[package]]
