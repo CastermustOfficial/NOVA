@@ -143,6 +143,24 @@ in aggiunta, come quello del Python.
 - **Comandi di NOVA**: quel che NOVA ha eseguito, dove, con che esito e
   cosa ha scritto. Nel terminale scrive solo Gio.
 
+**Fase 4, prima metà — fatta** (D341):
+
+- **PDF**: le pagine vere, disegnate man mano che si scorre, col testo che
+  si seleziona; pagina, zoom, «adatta alla larghezza». I punti che NOVA ha
+  appena indicato si accendono sulla pagina, e la pagina ci scende sopra.
+  «pagina 12» nelle risposte si clicca.
+- **Word**: il documento paragrafo per paragrafo, da scrivere: Invio fa un
+  paragrafo nuovo, Backspace su un paragrafo vuoto lo toglie, Ctrl+S salva.
+  Si toccano solo i paragrafi cambiati (vedi sopra per il grassetto). Le
+  tabelle per ora si leggono.
+- **HTML**: disegnato accanto al sorgente; si ridisegna quando si salva.
+- **Immagini**: si guardano.
+- La selezione in un PDF o in un Word va con la domanda, con la pagina.
+
+Resta la seconda metà: le proposte di NOVA su PDF e Word — annotazioni e
+paragrafi — guardate e applicate qui, in Rust. Allora la finestra Qt se ne
+va.
+
 ## Dopo
 
 - Le porzioni di Word seguite mentre si scrive, così il grassetto dentro un

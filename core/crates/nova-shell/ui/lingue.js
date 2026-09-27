@@ -355,6 +355,26 @@ export const LINGUE = {
     'Comandi di NOVA': 'NOVA’s commands',
     'Nuovo terminale': 'New terminal',
     'Chiudi il pannello (Ctrl+ò)': 'Close the panel (Ctrl+ò)',
+
+    /* --- harness: PDF, Word, HTML --- */
+    'Il testo che NOVA legge in questo documento. Le pagine vere non ci sono: pdf.js non è stato scaricato quando il guscio è stato compilato.': 'The text NOVA reads in this document. The real pages are missing: pdf.js was not downloaded when the shell was built.',
+    'Le pagine di questo PDF non si possono disegnare: pdf.js non è stato scaricato quando il guscio è stato compilato. Chiedi a NOVA di aprirlo: qui compare il testo che lei ci legge.': 'The pages of this PDF cannot be drawn: pdf.js was not downloaded when the shell was built. Ask NOVA to open it: the text she reads in it appears here.',
+    'Questo PDF non si apre: ': 'This PDF does not open: ',
+    'Vai alla pagina': 'Go to page',
+    'di': 'of',
+    'pagina': 'page',
+    '1 punto indicato da NOVA': '1 spot pointed out by NOVA',
+    'punti indicati da NOVA': 'spots pointed out by NOVA',
+    'Rimpicciolisci': 'Zoom out',
+    'Ingrandisci': 'Zoom in',
+    'Adatta': 'Fit',
+    'Adatta alla larghezza': 'Fit to width',
+    'Nei paragrafi che cambi, il testo prende la formattazione con cui il paragrafo cominciava: una parola in grassetto in mezzo non lo resta. Il resto del documento non si tocca. Invio fa un paragrafo nuovo; le tabelle, per ora, si leggono e basta.': 'In the paragraphs you change, the text takes the formatting the paragraph started with: a bold word in the middle does not stay bold. The rest of the document is untouched. Enter makes a new paragraph; tables, for now, are read-only.',
+    'paragrafi toccati': 'paragraphs touched',
+    'Questa immagine non si apre.': 'This image does not open.',
+    'del PDF che hai davanti': 'of the PDF in front of you',
+    'Non c’è un PDF aperto a cui portarti.': 'There is no open PDF to take you to.',
+    'selezione': 'selection',
   },
 };
 

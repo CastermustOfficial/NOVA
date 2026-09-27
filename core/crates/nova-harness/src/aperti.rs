@@ -112,6 +112,9 @@ pub fn postilla(contesto: &Value) -> String {
         let mut r = format!("In primo piano: {}", come_si_dice(percorso, cartella));
         if let Some(n) = numero(&attivo, "riga") {
             r.push_str(&format!(", riga {n}"));
+        } else if let Some(n) = numero(&attivo, "pagina") {
+            // Un PDF non ha righe: ha pagine.
+            r.push_str(&format!(", pagina {n}"));
         }
         if attivo.get("modificato").and_then(Value::as_bool) == Some(true) {
             r.push_str(" (con modifiche non ancora salvate: su disco c'e' la versione di prima)");
@@ -136,7 +139,10 @@ pub fn postilla(contesto: &Value) -> String {
         let dove = match (numero(&selezione, "da"), numero(&selezione, "a")) {
             (Some(da), Some(a)) if a > da => format!("le righe {da}-{a} di {}", nome(percorso)),
             (Some(da), _) => format!("un pezzo della riga {da} di {}", nome(percorso)),
-            _ => format!("un pezzo di {}", nome(percorso)),
+            _ => match numero(&selezione, "pagina") {
+                Some(n) => format!("un pezzo della pagina {n} di {}", nome(percorso)),
+                None => format!("un pezzo di {}", nome(percorso)),
+            },
         };
         let quanti = scelto.chars().count();
         let mostrato: String = scelto.chars().take(SELEZIONE_MAX).collect();
@@ -191,7 +197,8 @@ mod prove {
 
     #[test]
     fn la_riga_zero_e_le_modifiche_assenti_non_si_dicono() {
-        let p = postilla(&json!({"attivo": {"percorso": "/a/b.rs", "riga": 0, "modificato": false}}));
+        let p =
+            postilla(&json!({"attivo": {"percorso": "/a/b.rs", "riga": 0, "modificato": false}}));
         assert!(p.contains("In primo piano: /a/b.rs\n"), "{p}");
     }
 
@@ -199,6 +206,27 @@ mod prove {
     fn anche_gli_altri_aperti_si_dicono_relativi() {
         let p = postilla(&json!({"cartella": "/p", "aperti": ["/p/src/a.rs"]}));
         assert!(p.contains("Aperti anche: src/a.rs\n"), "{p}");
+    }
+
+    #[test]
+    fn in_un_pdf_si_dice_la_pagina() {
+        let p = postilla(&json!({
+            "attivo": {"percorso": "/s/libro.pdf", "pagina": 12},
+            "selezione": {"pagina": 12, "testo": "entropia"},
+        }));
+        assert!(
+            p.contains("In primo piano: /s/libro.pdf, pagina 12\n"),
+            "{p}"
+        );
+        assert!(
+            p.contains("Ha selezionato un pezzo della pagina 12 di libro.pdf:"),
+            "{p}"
+        );
+        let r = postilla(&json!({"attivo": {"percorso": "/a.rs", "riga": 3, "pagina": 9}}));
+        assert!(
+            r.contains(", riga 3\n") && !r.contains("pagina 9"),
+            "la riga vince: {r}"
+        );
     }
 
     #[test]

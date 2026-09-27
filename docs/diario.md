@@ -10951,3 +10951,27 @@ di Monaco si mette da parte.
 
 Deciso con Gio: le automazioni passano in Rust, e gli script che NOVA si
 scrive restano in Python. Le riparazioni si decidono quando ci si arriva.
+
+## 27 settembre 2026 — L'harness, quarta fase: PDF, Word, HTML
+
+Prima un giro di CI rosso, e per una ragione che non c'entrava col codice:
+la prova della documentazione guarda la data dell'ultima voce del diario, e
+le tre voci dell'harness le avevo scritte senza. Per lei il diario era
+fermo al 19. Adesso le voci hanno la data, anche questa.
+
+Poi la prima metà della quarta fase (D341). Il PDF si disegna con pdf.js,
+il Word si scrive paragrafo per paragrafo e si salva con la chirurgia di
+`nova-docx` — l'ho riaperto con python-docx dopo averlo salvato, e i
+paragrafi, gli stili e la tabella c'erano —, l'HTML si guarda disegnato
+accanto al sorgente, e le immagini si guardano.
+
+Due cose trovate solo aprendo la pagina. pdf.js nella versione normale usa
+una funzione di JavaScript cosi' nuova che Chromium non ce l'ha ancora: le
+pagine restavano bianche, senza un errore visibile. Si usa la versione con i
+rattoppi per i motori piu' vecchi. E la selezione dentro un PDF spariva nel
+momento in cui la si usava: per scrivere la domanda si clicca nel campo, e
+la pagina perde la selezione. Adesso l'harness se la tiene.
+
+I file arrivano alla finestra per indirizzo, da un protocollo del guscio che
+serve solo dentro le cartelle aperte: cosi' un HTML trova da se' il suo
+foglio di stile, e la prova lo controlla col colore del titolo.

@@ -29,6 +29,9 @@
 // Leggere com'e' scritto, per chi deve solo sapere cosa c'e' dentro.
 pub mod lettura;
 
+// Scriverlo paragrafo per paragrafo, per chi lo modifica nell'harness.
+pub mod scrittura;
+
 use std::io::{Read, Write};
 use std::path::Path;
 
