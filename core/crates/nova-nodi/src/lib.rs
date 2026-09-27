@@ -42,6 +42,10 @@ pub mod deposito;
 // niente.
 pub mod disco_vero;
 
+// Cosa si impara da uno scambio: la domanda al modello, come si legge la
+// risposta e cosa se ne tiene. Il modello e il disco li mette il demone.
+pub mod imparare;
+
 pub const STATUS_ATTIVO: &str = "attivo";
 pub const STATUS_ARCHIVIATO: &str = "archiviato";
 

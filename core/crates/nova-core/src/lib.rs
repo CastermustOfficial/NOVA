@@ -45,6 +45,7 @@ pub mod interruzione;
 pub mod osserva;
 pub mod policy;
 pub mod memoria;
+pub mod imparare;
 pub mod recinto_comando;
 pub mod registro;
 pub mod ricette;

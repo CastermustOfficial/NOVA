@@ -130,6 +130,7 @@ impl Esecutore for EsecutoreDemone {
         // modello, la frase e' per la persona. Si prende dal registro qui,
         // che e' l'unico posto dove sono tutt'e due in mano insieme.
         let info = cap.info();
+        crate::imparare::nota(&info.name);
         self.server.ctx.bus.emit(
             "agente.strumento",
             json!({ "nome": nome, "stato": "inizio", "descrizione": info.description }),
@@ -446,6 +447,7 @@ pub async fn fai_un_turno(
         ultima: crate::mondo::Ultima::default(),
     };
     let inizio = std::time::Instant::now();
+    let sguardi_prima = crate::imparare::sguardi();
     let righe_prima = mondo.sessione.messaggi.len();
     let fine = turno(&mut mondo, &mano).await;
     let consegnato = mondo.consegnato.clone();
@@ -481,6 +483,12 @@ pub async fn fai_un_turno(
     // andava attesa fino a trenta secondi con un filo apposta; il demone
     // resta acceso, e puo' semplicemente farlo dopo.
     impara_dopo(server, &cfg, testo, &risposta, &strumenti_usati, durata);
+    // E i fatti durevoli, come `agent._impara`: non da un turno fermato a
+    // meta', e non da uno che ha guardato lo schermo.
+    if matches!(fine, Fine::Risposto(_) | Fine::PassiFiniti(_)) {
+        let riservato = crate::imparare::sguardi() != sguardi_prima;
+        crate::imparare::osserva(server, &cfg, testo, &risposta, riservato);
+    }
     Ok(json!({
         "risposta": risposta,
         "esito": esito,
@@ -567,13 +575,23 @@ fn impara_dopo(
 /// servizio — ricostruire una procedura, estrarre un fatto — e non deve
 /// toccare la conversazione dell'utente ne' avere strumenti in mano.
 pub async fn chiedi_e_basta(gradini: &[crate::mondo::Gradino], richiesta: &str) -> Option<String> {
+    chiedi_con(gradini, richiesta, 400).await
+}
+
+/// Come [`chiedi_e_basta`], con quanti gettoni puo' spendere il modello: il
+/// modulo di memoria ne concede 700, come `memory.py`.
+pub async fn chiedi_con(
+    gradini: &[crate::mondo::Gradino],
+    richiesta: &str,
+    gettoni: u32,
+) -> Option<String> {
     let gradino = gradini.iter().find(|g| g.indirizzo().is_some())?;
     let (base_url, modello, intestazioni, in_casa) = gradino.indirizzo()?;
     let trasporto = ReteNelDemone(Rete::nuova(ATTESA_COLLEGAMENTO, ATTESA_RISPOSTA));
     let corpo = json!({
         "model": modello,
         "messages": [{ "role": "user", "content": richiesta }],
-        "max_tokens": 400,
+        "max_tokens": gettoni,
     });
     let r = nova_cervelli::rete::chiedi(
         &trasporto,

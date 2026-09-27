@@ -18,10 +18,11 @@ nova-guasti = { path = "../nova-guasti" }
 # stare dentro uno dei due (D73).
 nova-potatura = { path = "../nova-potatura" }
 serde = { workspace = true, features = ["derive"], optional = true }
-serde_json = { workspace = true, optional = true }
+# Le risposte del modulo di memoria arrivano in JSON (`imparare`).
+serde_json = { workspace = true }
 
 [features]
-banco = ["dep:serde", "dep:serde_json"]
+banco = ["dep:serde"]
 
 [[bin]]
 name = "banco-nodi"

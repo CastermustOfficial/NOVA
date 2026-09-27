@@ -11079,3 +11079,21 @@ controlla che ogni strumento nominato esista davvero. Ne mancano tre, che
 sono ancora solo Python: il fascicolo, il registro delle azioni fatte a nome
 della persona, ed eseguire codice.
 
+## 27 settembre 2026, mattina — Il demone impara da solo
+
+L'ultimo pezzo della memoria che restava al Python: dopo un turno, chiedere
+al modello cosa c'era di durevole e scriverlo nel vault (D348). Le regole
+sono le stesse, e un banco lo verifica su quarantaquattro casi, compresi i
+modelli che rispondono male: pensieri tra i piedi, JSON nel recinto, una
+confidenza scritta come testo.
+
+La parte interessante era lo schermo. Un turno che ha guardato le finestre
+non deve insegnare niente, e il Python lo sapeva guardando gli strumenti
+del turno. Col demone non basta: quando risponde Claude Code, gli strumenti
+passano da un'altra porta e la conversazione non li vede. Allora il demone
+li conta lui, a ogni chiamata, da qualunque parte arrivi.
+
+Una prova col demone vero: un fatto entra, un titolo di finestra no, una
+domanda corta non disturba il modello, un turno che ha guardato le finestre
+non lascia niente.
+

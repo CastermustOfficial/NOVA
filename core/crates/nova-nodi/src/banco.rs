@@ -1,6 +1,7 @@
 //! Il banco: una riga JSON per domanda, per il confronto col Python.
 
 use nova_nodi::fusione;
+use nova_nodi::imparare;
 use nova_nodi::deposito::{Deposito, Disco, DiscoScrivibile, Impronta, NessunControllo};
 use nova_nodi::posto;
 use std::collections::{BTreeMap, HashMap};
@@ -82,6 +83,25 @@ enum Domanda {
         riattiva: Vec<String>,
         oggi: String,
         oggi_italiano: String,
+    },
+    /// La risposta del modello di memoria: quali nodi ne escono.
+    #[serde(rename = "impara")]
+    Impara { testo: String },
+    #[serde(rename = "finestra")]
+    Finestra { titolo: String, testo: String },
+    #[serde(rename = "noti")]
+    Noti {
+        #[serde(default)]
+        nodi: Vec<NodoJson>,
+        scambio: String,
+    },
+    #[serde(rename = "richiesta")]
+    Richiesta {
+        utente_nome: String,
+        noti: String,
+        parziale: String,
+        utente: String,
+        assistente: String,
     },
     #[serde(rename = "slug_libero")]
     SlugLibero {
@@ -185,6 +205,8 @@ struct Risposta {
     #[serde(skip_serializing_if = "Option::is_none")]
     esiti: Option<Vec<bool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    imparati: Option<Vec<NodoJson>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     errore: Option<String>,
 }
 
@@ -238,7 +260,8 @@ fn vuota() -> Risposta {
     Risposta { slug: None, markdown: None, nodo: None, relazioni: None,
                lista: None, frontmatter: None, corpo: None, testo: None,
                pezzi: None, passi: None, disco: None, rifiuti: None,
-               conto: None, indice: None, esiti: None, errore: None }
+               conto: None, indice: None, esiti: None, imparati: None,
+               errore: None }
 }
 
 fn main() {
@@ -254,6 +277,25 @@ fn main() {
             // fa passare un confronto che non e' mai avvenuto.
             Err(e) => Risposta { errore: Some(format!("{e}")), ..vuota() },
             Ok(Domanda::Slug { testo }) => Risposta { slug: Some(slug(&testo)), ..vuota() },
+            Ok(Domanda::Impara { testo }) => Risposta {
+                imparati: Some(
+                    imparare::nodi_dalla_risposta(&testo).into_iter().map(Into::into).collect(),
+                ),
+                ..vuota()
+            },
+            Ok(Domanda::Finestra { titolo, testo }) => Risposta {
+                esiti: Some(vec![imparare::e_una_finestra(&titolo, &testo)]),
+                ..vuota()
+            },
+            Ok(Domanda::Noti { nodi, scambio }) => {
+                let nodi: Vec<Nodo> = nodi.into_iter().map(Into::into).collect();
+                let (elenco, parziale) = imparare::gia_noti(&nodi, &scambio);
+                Risposta { pezzi: Some(vec![elenco, parziale]), ..vuota() }
+            }
+            Ok(Domanda::Richiesta { utente_nome, noti, parziale, utente, assistente }) => Risposta {
+                testo: Some(imparare::richiesta(&utente_nome, &noti, &parziale, &utente, &assistente)),
+                ..vuota()
+            },
             Ok(Domanda::Scrivi { nodo, oggi }) => {
                 let n: Nodo = nodo.into();
                 Risposta { markdown: Some(n.a_markdown(&oggi)), ..vuota() }
