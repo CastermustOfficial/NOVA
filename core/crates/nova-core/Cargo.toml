@@ -58,6 +58,8 @@ nova-documenti = { path = "../nova-documenti" }
 nova-harness = { path = "../nova-harness" }
 # Le proposte sui Word: la modifica chirurgica di `word/document.xml`.
 nova-docx = { path = "../nova-docx" }
+# I promemoria e i compiti di NOVA: l'attivita' di Windows descritta come dato (D345).
+nova-pianificazione = { path = "../nova-pianificazione" }
 # I nomi dei file dell'harness: le stesse impronte del Python (D344).
 sha1 = "0.10"
 tokio.workspace = true

@@ -61,6 +61,14 @@ enum Cmd {
         /// Butta quel che si erano detti e ricomincia.
         #[arg(long)]
         nuova: bool,
+        /// La domanda sta in un file UTF-8: e' cosi' che la passano le
+        /// attivita' pianificate, senza virgolette da tenere insieme (D149).
+        #[arg(long = "da-file")]
+        da_file: Option<std::path::PathBuf>,
+        /// Se il demone non risponde, accendilo: all'ora di un compito
+        /// pianificato il PC puo' essersi appena acceso (D345).
+        #[arg(long)]
+        accendi: bool,
     },
     /// Le conversazioni aperte nel demone.
     Sessioni,
@@ -129,10 +137,26 @@ async fn main() -> Result<()> {
             testo,
             sessione,
             nuova,
+            da_file,
+            accendi,
         } => {
-            let domanda = testo.join(" ");
+            let mut domanda = testo.join(" ");
+            if domanda.trim().is_empty() {
+                if let Some(f) = &da_file {
+                    domanda = std::fs::read_to_string(f)
+                        .map_err(|e| anyhow!("non riesco a leggere «{}»: {e}", f.display()))?
+                        .trim()
+                        .to_string();
+                    if domanda.is_empty() {
+                        return Err(anyhow!("«{}» e' vuoto: non c'e' niente da chiedere", f.display()));
+                    }
+                }
+            }
             if domanda.trim().is_empty() {
                 return Err(anyhow!("e la domanda?"));
+            }
+            if accendi {
+                accendi_il_demone(&endpoint).await?;
             }
             let r = chiamata_singola(
                 &endpoint,
@@ -274,6 +298,39 @@ async fn connetti(endpoint: &str) -> Result<tokio::net::UnixStream> {
     tokio::net::UnixStream::connect(endpoint).await.map_err(|e| {
         anyhow!("nova-core non risponde su {endpoint} ({e}). E' avviato? Prova: novad")
     })
+}
+
+/// Accende il demone se non risponde: `novad` accanto a questo eseguibile.
+async fn accendi_il_demone(endpoint: &str) -> Result<()> {
+    if connetti(endpoint).await.is_ok() {
+        return Ok(());
+    }
+    let exe = std::env::current_exe()?;
+    let novad = exe.with_file_name(if cfg!(windows) { "novad.exe" } else { "novad" });
+    if !novad.is_file() {
+        return Err(anyhow!(
+            "il demone non risponde e non trovo «{}» da accendere",
+            novad.display()
+        ));
+    }
+    let mut c = std::process::Command::new(&novad);
+    c.arg("--endpoint").arg(endpoint).stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        c.creation_flags(0x0800_0000);
+    }
+    c.spawn()
+        .map_err(|e| anyhow!("non riesco ad accendere {}: {e}", novad.display()))?;
+    for _ in 0..120 {
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        if connetti(endpoint).await.is_ok() {
+            return Ok(());
+        }
+    }
+    Err(anyhow!("il demone si e' acceso ma non risponde dopo trenta secondi"))
 }
 
 async fn chiamata_singola(endpoint: &str, metodo: &str, params: Value) -> Result<Value> {

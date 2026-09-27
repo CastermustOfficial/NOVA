@@ -2464,7 +2464,7 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    | file | 14 | 13 |
    | memoria | 8 | 8 |
    | shell | 3 | 3 |
-   | sistema | 22 | 8 |
+   | sistema | 22 | 12 |
    | app / finestre | 6 | 6 |
    | web | 3 | 3 |
    | deleghe | 3 | 3 |

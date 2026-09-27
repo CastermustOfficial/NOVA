@@ -17,6 +17,8 @@
 //! resta la parte che non cambia mai, e che si puo' provare senza aspettare
 //! le due di notte dell'ultima domenica di ottobre.
 
+pub mod attivita;
+
 use nova_calendario::DataOra;
 
 /// I nomi dei giorni, con lunedi' = 0 come in Python. Con e senza accento,

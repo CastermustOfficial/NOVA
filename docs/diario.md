@@ -11036,3 +11036,15 @@ nella cartella da cui era partito lui — cioe' in una cartella a caso.
 Il pezzo nuovo sono i PDF: niente PyMuPDF, i blocchi li fa `pdf-extract` con
 due regole. Sullo stesso PDF lo stesso testo, e riquadri a un paio di punti
 da quelli di prima.
+
+## 27 settembre 2026, a mezzanotte — Promemoria e compiti senza Python
+
+I promemoria e le cose che NOVA si da' da fare piu' tardi adesso le mette in
+calendario il demone (D345). L'XML per l'Utilita' di pianificazione e' lo
+stesso del Python byte per byte — il banco lo confronta con l'orologio
+fermo, cosi' «alle 9» vuol dire la stessa cosa oggi e a Capodanno.
+
+La differenza e' all'ora giusta: prima partiva Python a fare il turno, ora
+parte `nova chiedi`, che accende il demone se serve e legge la domanda dal
+suo file. La prova lo fa col demone spento, e una domanda piena di
+apostrofi, virgolette e a capo: arriva intera.
