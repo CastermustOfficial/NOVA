@@ -1195,7 +1195,7 @@ autenticato. NOVA:
 - gli espone la memoria a grafo come **server MCP** (`nova/mcp_kb.py`), quindi
   Claude usa `mcp__nova__kb_search` e `mcp__nova__kb_note`: stessa pipeline di
   retrieval del modello locale, stesso formato dei nodi. Se l'MCP non parte,
-  ricade sulla lettura diretta dei file .md del vault. Quel server oggi ha 24
+  ricade sulla lettura diretta dei file .md del vault. Quel server oggi ha 20
   strumenti, e si svuota man mano che passano al demone: gli `harness_*`, per
   esempio, adesso li da' il demone, a Claude e a tutti gli altri cervelli.
 - riporta costo e token di ogni turno nel registro azioni.

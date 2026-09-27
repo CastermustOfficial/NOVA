@@ -11048,3 +11048,20 @@ La differenza e' all'ora giusta: prima partiva Python a fare il turno, ora
 parte `nova chiedi`, che accende il demone se serve e legge la domanda dal
 suo file. La prova lo fa col demone spento, e una domanda piena di
 apostrofi, virgolette e a capo: arriva intera.
+
+## 27 settembre 2026, notte fonda — Le automazioni: il meccanismo in Rust
+
+Come deciso con Gio: il meccanismo delle automazioni passa in Rust, e gli
+script che NOVA si scrive restano Python (D346). Il demone scrive lo stesso
+file del Python intorno al corpo che scrive il modello, lo controlla, lo
+collauda, e solo se regge lo salva; poi lo fa girare in un processo a parte.
+
+La novita' che non si vede: un'automazione appena nata diventa uno
+strumento senza riavviare il demone. Fin qui l'elenco degli strumenti si
+fissava all'avvio.
+
+E il calendario: ogni cinque minuti Windows lancia `nova pianificate`, che
+chiede al demone il giro. Il banco ne fa due, con un prezzo che cambia in
+mezzo: le due meta' vedono lo stesso cambiamento e lasciano lo stesso avviso.
+Trentuno controlli, tutti verdi al primo giro — ho stampato le risposte per
+esser sicuro che non fossero verdi per niente.

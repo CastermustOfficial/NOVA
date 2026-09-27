@@ -237,55 +237,6 @@ STRUMENTI = [
         },
     },
     {
-        "name": "pianifica_crea",
-        "description": (
-            "Mette in calendario un'automazione GIA' ESISTENTE, perche' parta da "
-            "sola. «quando»: «ogni giorno 08:00», «ogni lunedi 09:00», «ogni 30 "
-            "minuti», «ogni ora». Con sentinella=true non esegue e basta: guarda "
-            "il risultato e lascia un avviso solo se e' CAMBIATO rispetto alla "
-            "volta prima - e' il modo di accorgersi di una risposta arrivata, di "
-            "un prezzo sceso, di un file diverso. La prima volta registra da se' "
-            "l'attivita' di sistema che fa partire tutto."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "nome": {"type": "string", "description": "Come chiamarla"},
-                "automazione": {"type": "string", "description": "Nome di un'automazione esistente"},
-                "quando": {"type": "string", "description": "«ogni giorno 08:00», «ogni 30 minuti», ..."},
-                "dati": {"type": "object", "description": "Parametri da passarle"},
-                "sentinella": {"type": "boolean", "description": "Avvisa solo se il risultato cambia"},
-                "guarda": {"type": "string", "description": "Quale campo del risultato guardare (vuoto = tutto)"},
-            },
-            "required": ["nome", "automazione", "quando"],
-        },
-    },
-    {
-        "name": "pianifica_elenco",
-        "description": "Cosa parte da solo, quando, e com'e' andata l'ultima volta.",
-        "inputSchema": {"type": "object", "properties": {}},
-    },
-    {
-        "name": "pianifica_elimina",
-        "description": "Toglie una voce dal calendario (l'automazione resta).",
-        "inputSchema": {
-            "type": "object",
-            "properties": {"nome": {"type": "string"}},
-            "required": ["nome"],
-        },
-    },
-    {
-        "name": "avvisi_recenti",
-        "description": (
-            "Gli avvisi lasciati dalle sentinelle mentre nessuno guardava. "
-            "Da leggere quando l'utente torna e chiede «novita'?»."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "properties": {"quanti": {"type": "integer"}},
-        },
-    },
-    {
         "name": "azione_registra",
         "description": (
             "Annota un'azione CHE NON SI PUO' ANNULLARE, appena l'hai fatta: "
@@ -740,45 +691,6 @@ class ServerKB:
         coda = f"\n[...tagliato: {d['caratteri']} caratteri in tutto]" if d.get("tagliato") else ""
         return f"{d['nome']}\n\n{d['testo']}{coda}"
 
-    def pianifica_crea(self, nome: str, automazione: str, quando: str,
-                       dati: dict | None = None, sentinella: bool = False,
-                       guarda: str = "") -> str:
-        from . import pianificazione as pi
-        r = pi.crea(nome, automazione, quando, dati=dati,
-                    sentinella=bool(sentinella), guarda=guarda)
-        if not r.get("ok"):
-            return f"ERRORE: {r.get('motivo')}"
-        coda = ""
-        if not pi.attivita_installata():
-            m = pi.installa_attivita()
-            coda = ("\n(registrata anche l'attivita' di sistema che fa partire "
-                    f"tutto, ogni {m.get('ogni_minuti')} minuti)" if m.get("ok")
-                    else f"\nATTENZIONE: il motore non e' attivo — {m.get('motivo')}")
-        return (f"«{nome}» in calendario: {automazione}, {quando}. "
-                f"Prima volta il {r.get('prossimo')}.{coda}")
-
-    def pianifica_elenco(self) -> str:
-        from .pianificazione import racconta
-        return racconta()
-
-    def pianifica_elimina(self, nome: str) -> str:
-        from .pianificazione import elimina
-        return (f"«{nome}» tolta dal calendario" if elimina(nome)
-                else f"ERRORE: nessuna voce «{nome}»")
-
-    def avvisi_recenti(self, quanti: int = 20) -> str:
-        from .pianificazione import avvisi
-        a = avvisi(quanti)
-        if not a:
-            return "Nessun avviso: nessuna sentinella ha visto cambiare niente."
-        righe = [f"{len(a)} avvisi, dal piu' recente:"]
-        for x in a:
-            righe.append(f"  {x.get('quando', '')[5:16].replace('T', ' ')}  "
-                         f"{x.get('testo')}")
-            if x.get("valore"):
-                righe.append(f"      {str(x['valore'])[:200]}")
-        return "\n".join(righe)
-
     def azione_registra(self, azione: str, dove: str = "",
                         dettagli: str = "") -> str:
         from .registro import annota
@@ -964,10 +876,6 @@ class ServerKB:
             "web_scrivi": self.web_scrivi,
             "fascicolo": self.fascicolo,
             "fascicolo_leggi": self.fascicolo_leggi,
-            "pianifica_crea": self.pianifica_crea,
-            "pianifica_elenco": self.pianifica_elenco,
-            "pianifica_elimina": self.pianifica_elimina,
-            "avvisi_recenti": self.avvisi_recenti,
             "azione_registra": self.azione_registra,
             "azioni_recenti": self.azioni_recenti,
             "dati_dove": self.dati_dove,

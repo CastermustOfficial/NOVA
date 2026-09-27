@@ -341,9 +341,9 @@ k = riga.index("--allowedTools")
 controlla("gli strumenti permessi sono un argomento solo",
           riga[k + 2].startswith("--"),
           f"dopo l'elenco c'e' {riga[k + 2]!r}, che il CLI non legge come permesso")
-# Ventinove: i quattro `harness_*` del Python sono passati al demone, che
-# Claude ha gia' tutto intero con `mcp__nova-core` (D344).
-controlla("e sono ventinove", len(riga[k + 1].split(",")) == 29,
+# Venticinque: i quattro `harness_*` e i quattro del calendario sono passati
+# al demone, che Claude ha gia' tutto intero con `mcp__nova-core` (D344, D346).
+controlla("e sono venticinque", len(riga[k + 1].split(",")) == 25,
           str(len(riga[k + 1].split(","))))
 
 print("\n2. il prompt di sistema")

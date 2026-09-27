@@ -1191,7 +1191,7 @@ already authenticated. NOVA:
   Claude uses `mcp__nova__kb_search` and `mcp__nova__kb_note`: the same
   retrieval pipeline as the local model, the same node format. If the MCP
   doesn't start, it falls back to reading the vault's .md files directly.
-  That server has 24 tools today, and it empties as they move to the daemon:
+  That server has 20 tools today, and it empties as they move to the daemon:
   the `harness_*` ones, for instance, now come from the daemon, to Claude and
   to every other brain.
 - reports cost and tokens for every turn in the action log.

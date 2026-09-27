@@ -484,8 +484,9 @@ mod prove {
     #[test]
     fn le_dichiarazioni_si_rileggono_come_json() {
         let v: Value = serde_json::from_str(STRUMENTI_JSON).unwrap();
-        // Ventiquattro: gli strumenti `harness_*` sono passati al demone (D344).
-        assert_eq!(v.as_array().unwrap().len(), 24);
+        // Venti: gli strumenti `harness_*` (D344) e quelli del calendario
+        // (D346) sono passati al demone.
+        assert_eq!(v.as_array().unwrap().len(), 20);
         assert_eq!(v[0]["name"], "kb_search");
     }
 

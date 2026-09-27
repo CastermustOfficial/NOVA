@@ -70,6 +70,13 @@ enum Cmd {
         #[arg(long)]
         accendi: bool,
     },
+    /// Esegue le automazioni in calendario che sono dovute. La lancia
+    /// l'attivita' di sistema ogni cinque minuti (D346).
+    Pianificate {
+        /// Se il demone non risponde, accendilo.
+        #[arg(long)]
+        accendi: bool,
+    },
     /// Le conversazioni aperte nel demone.
     Sessioni,
     /// Le richieste di permesso in attesa, una per una: si' o no.
@@ -177,6 +184,28 @@ async fn main() -> Result<()> {
                 if esito != "risposto" {
                     eprintln!("[{esito}]");
                 }
+            }
+        }
+
+        Cmd::Pianificate { accendi } => {
+            if accendi {
+                accendi_il_demone(&endpoint).await?;
+            }
+            let r = chiamata_singola(
+                &endpoint,
+                "capabilities/call",
+                json!({ "name": "pianificazione.dovute", "args": {} }),
+            )
+            .await?;
+            for x in r.get("fatte").and_then(|v| v.as_array()).cloned().unwrap_or_default() {
+                let testo = |k: &str| x.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let cambiato = x.get("cambiato").and_then(|v| v.as_bool()).unwrap_or(false);
+                println!(
+                    "{}: {}{}",
+                    testo("nome"),
+                    testo("esito"),
+                    if cambiato { "  (cambiato)" } else { "" }
+                );
             }
         }
 

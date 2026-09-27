@@ -63,6 +63,9 @@ pub enum Ripeti {
     Giorno,
     Settimana(String),
     Mese,
+    /// Ogni tanti minuti, per sempre: il motore delle automazioni
+    /// pianificate (il Python lo registrava con `schtasks /SC MINUTE`).
+    OgniMinuti(u32),
 }
 
 fn trigger(dt: DataOra, ripeti: &Ripeti) -> String {
@@ -75,6 +78,13 @@ fn trigger(dt: DataOra, ripeti: &Ripeti) -> String {
             return format!(
                 "<TimeTrigger><StartBoundary>{inizio}</StartBoundary>\
                  <EndBoundary>{fine}</EndBoundary><Enabled>true</Enabled></TimeTrigger>"
+            );
+        }
+        Ripeti::OgniMinuti(n) => {
+            return format!(
+                "<TimeTrigger><Repetition><Interval>PT{n}M</Interval>\
+                 <StopAtDurationEnd>false</StopAtDurationEnd></Repetition>\
+                 <StartBoundary>{inizio}</StartBoundary><Enabled>true</Enabled></TimeTrigger>"
             );
         }
         Ripeti::Giorno => {
@@ -551,6 +561,16 @@ mod prove {
             "il 27/9/2026 e' domenica"
         );
         assert!(!x.contains("DeleteExpired"));
+        let motore = xml(
+            d("2026-09-27T08:00:00"),
+            "a",
+            "",
+            "",
+            &Ripeti::OgniMinuti(5),
+            "PT30M",
+        );
+        assert!(motore.contains("<Repetition><Interval>PT5M</Interval>"));
+        assert!(!motore.contains("EndBoundary") && !motore.contains("DeleteExpired"));
         let una = xml(d("2026-12-31T23:00:00"), "a", "", "", &Ripeti::Mai, "PT5M");
         assert!(una.contains("<EndBoundary>2027-01-01T23:00:00</EndBoundary>"));
         assert!(una.contains("<DeleteExpiredTaskAfter>PT1M</DeleteExpiredTaskAfter>"));

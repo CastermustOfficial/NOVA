@@ -60,6 +60,14 @@ pub fn quante_capacita() -> usize {
 #[derive(Default)]
 pub struct Registry {
     caps: BTreeMap<String, Arc<dyn Capability>>,
+    /// Chi da' capacita' che cambiano mentre il demone gira: le automazioni,
+    /// che nascono e muoiono senza riavviarlo (D346).
+    fornitori: Vec<Arc<dyn Fornitore>>,
+}
+
+/// Capacita' che non si sanno all'avvio: si chiedono ogni volta.
+pub trait Fornitore: Send + Sync {
+    fn capacita(&self) -> Vec<Arc<dyn Capability>>;
 }
 
 impl Registry {
@@ -76,20 +84,45 @@ impl Registry {
         QUANTE.store(self.caps.len(), std::sync::atomic::Ordering::Relaxed);
     }
 
+    /// Aggiunge chi da' capacita' che cambiano.
+    pub fn fornitore(&mut self, f: Arc<dyn Fornitore>) {
+        self.fornitori.push(f);
+    }
+
+    fn dinamiche(&self) -> Vec<Arc<dyn Capability>> {
+        self.fornitori.iter().flat_map(|f| f.capacita()).collect()
+    }
+
     pub fn get(&self, name: &str) -> Option<Arc<dyn Capability>> {
         if let Some(c) = self.caps.get(name) {
             return Some(c.clone());
         }
         // Chi arriva da MCP chiede «ui_windows», perche' e' cosi' che gli e'
         // stato presentato: vedi `nome_mcp`.
-        self.caps
+        if let Some(c) = self
+            .caps
             .iter()
             .find(|(n, _)| nome_mcp(n) == name)
             .map(|(_, c)| c.clone())
+        {
+            return Some(c);
+        }
+        self.dinamiche().into_iter().find(|c| {
+            let n = c.info().name;
+            n == name || nome_mcp(&n) == name
+        })
     }
 
     pub fn list(&self) -> Vec<CapabilityInfo> {
-        self.caps.values().map(|c| c.info()).collect()
+        let mut v: Vec<CapabilityInfo> = self.caps.values().map(|c| c.info()).collect();
+        let fisse: std::collections::BTreeSet<String> = self.caps.keys().cloned().collect();
+        v.extend(
+            self.dinamiche()
+                .into_iter()
+                .map(|c| c.info())
+                .filter(|i| !fisse.contains(&i.name)),
+        );
+        v
     }
 
     /// Quelle che un modello puo' vedere: tutte tranne quelle che usa solo

@@ -75,7 +75,9 @@ for f in sorted((CRATES / "nova-core" / "src").glob("caps*.rs")):
                                f.read_text(encoding="utf-8", errors="replace")))
 
 print("\n1. gli elenchi di nomi veri non sono vuoti")
-controlla(f"il server MCP di NOVA espone {len(NOSTRI)} strumenti", len(NOSTRI) > 20)
+# Il server del Python si svuota apposta, man mano che gli strumenti passano
+# al demone (D344, D346): il tetto dice solo che l'elenco si e' letto.
+controlla(f"il server MCP di NOVA espone {len(NOSTRI)} strumenti", len(NOSTRI) >= 10)
 controlla(f"il demone dichiara {len(CAPACITA)} capacita'", len(CAPACITA) > 30)
 
 
@@ -214,7 +216,7 @@ for n in ast.walk(alb):
             and all(isinstance(v, ast.Attribute)
                     and getattr(v.value, "id", "") == "self" for v in n.values)):
         GESTITI = [k.value for k in n.keys]
-controlla(f"il server smista {len(GESTITI)} nomi", len(GESTITI) > 20,
+controlla(f"il server smista {len(GESTITI)} nomi", len(GESTITI) >= 10,
           "non ho ritrovato la tabella di smistamento")
 orfani = sorted(NOSTRI - set(GESTITI))
 controlla("ogni strumento dichiarato ha chi lo esegue", not orfani,
