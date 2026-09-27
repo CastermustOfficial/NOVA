@@ -16,12 +16,15 @@
 //!     nova modelli trova --secondi 20
 //!     nova modelli verifica C:\modelli\x.gguf
 //!     nova cli-predefinite
+//!     nova componenti elenco
+//!     nova componenti scarica voce_locale
 
 use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
 use serde_json::{json, Value};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
+mod componenti;
 mod locali;
 
 #[derive(Parser, Debug)]
@@ -121,6 +124,11 @@ enum Cmd {
         #[command(subcommand)]
         azione: ModelliAzione,
     },
+    /// I pezzi che servono a voce e ascolto: cosa c'e', e procurarli.
+    Componenti {
+        #[command(subcommand)]
+        azione: ComponentiAzione,
+    },
     /// Le CLI agentiche che NOVA conosce da sola.
     CliPredefinite {
         /// Le dichiarazioni intere, come vanno in `brains.cli`.
@@ -140,6 +148,14 @@ enum ConfigAzione {
         #[arg(long)]
         stdin: bool,
     },
+}
+
+#[derive(Subcommand, Debug)]
+enum ComponentiAzione {
+    /// Cosa serve a ogni funzione, e cosa manca. Non tocca la rete.
+    Elenco,
+    /// Procura i pezzi che mancano: una riga JSON per evento.
+    Scarica { nome: String },
 }
 
 #[derive(Subcommand, Debug)]
@@ -196,6 +212,23 @@ async fn main() -> Result<()> {
         Cmd::CliPredefinite { tutto } => {
             println!("{}", serde_json::to_string(&locali::cli_predefinite(*tutto))?);
             return Ok(());
+        }
+        Cmd::Componenti { azione: ComponentiAzione::Elenco } => {
+            println!("{}", serde_json::to_string(&componenti::elenco())?);
+            return Ok(());
+        }
+        Cmd::Componenti { azione: ComponentiAzione::Scarica { nome } } => {
+            let nome = nome.clone();
+            let ok = tokio::task::spawn_blocking(move || {
+                componenti::scarica(&nome, &mut |e| {
+                    use std::io::Write;
+                    let mut out = std::io::stdout().lock();
+                    let _ = writeln!(out, "{e}");
+                    let _ = out.flush();
+                })
+            })
+            .await?;
+            std::process::exit(if ok { 0 } else { 1 });
         }
         _ => {}
     }
@@ -383,7 +416,11 @@ async fn main() -> Result<()> {
             let r = chiamata_singola(&endpoint, "daemon/shutdown", json!({})).await?;
             println!("{}", serde_json::to_string_pretty(&r)?);
         }
-        Cmd::Config { .. } | Cmd::Configura { .. } | Cmd::Modelli { .. } | Cmd::CliPredefinite { .. } => {
+        Cmd::Config { .. }
+        | Cmd::Configura { .. }
+        | Cmd::Modelli { .. }
+        | Cmd::Componenti { .. }
+        | Cmd::CliPredefinite { .. } => {
             unreachable!("gestiti prima di cercare il demone")
         }
     }

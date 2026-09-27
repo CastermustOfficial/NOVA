@@ -9,8 +9,7 @@
 
   Non serve ne' Rust ne' Visual Studio: il core arriva gia' compilato.
   Python (3.10+) non serve per installare ne' per far girare NOVA: serve
-  alle automazioni che NOVA si scrive da sola, e finche' ci sono, ai pezzi
-  che vivono ancora in Python (la voce, lo scaricamento dei componenti).
+  alle automazioni che NOVA si scrive da sola.
 #>
 param(
     [switch]$Silenzioso,
@@ -377,14 +376,13 @@ Titolo "Python e dipendenze"
 
 # Python non e' piu' un prerequisito (D350): quello che l'installatore gli
 # chiedeva — la configurazione, i modelli, le CLI note — lo chiede a
-# `nova.exe`. Resta utile, e lo si dice: e' la lingua in cui NOVA scrive le
-# sue automazioni (D346), e ci vivono ancora la voce e lo scaricamento dei
-# componenti.
+# `nova.exe`, e i componenti li scarica `nova componenti` (D351). Resta
+# utile, e lo si dice: e' la lingua in cui NOVA scrive le sue automazioni
+# (D346).
 $py = Trova-Python
 if (-not $py) {
     Warn "Python non c'e': NOVA si installa e funziona lo stesso."
-    Warn "Senza, non potra' scriversi automazioni, e la voce e i componenti"
-    Warn "scaricabili restano spenti. Si aggiunge quando vuoi da"
+    Warn "Senza, non potra' scriversi automazioni. Si aggiunge quando vuoi da"
     Warn "https://www.python.org/downloads/ (spunta «Add python.exe to PATH»)."
 } else {
 Ok "Python $(& $py -c "import sys;print('%d.%d.%d'%sys.version_info[:3])")"
@@ -1105,32 +1103,24 @@ Titolo "Come ti ascolta"
 
 function Procura-Componenti($nomi, $etichetta) {
     if ($Prova) { Info "[prova] scaricherei: $($nomi -join ', ')"; return $true }
-    if (-not $py) {
-        Warn "$etichetta - lo scaricamento dei componenti vuole ancora Python."
-        Warn "Si fa dopo dalle impostazioni, sezione Componenti, quando c'e'."
-        return $false
-    }
-    # Cosa serve, dove si prende e come si mette a posto lo sa
-    # nova/componenti.py - lo stesso posto che usa il pannello quando qualcuno
-    # cambia idea dopo. Due copie della stessa procedura sono due procedure che
-    # divergono.
+    # Cosa serve, dove si prende e come si mette a posto lo sa `nova
+    # componenti` (D351) - lo stesso che usa il pannello quando qualcuno
+    # cambia idea dopo. Due copie della stessa procedura sono due procedure
+    # che divergono.
     $completa = $true
-    Push-Location $Root
-    try {
-        foreach ($c in $nomi) {
-            Info "Procuro: $c"
-            $ultimo = ''
-            & $py -m nova.componenti --scarica $c 2>&1 | ForEach-Object {
-                $riga = "$_"
-                if ($riga -match '"evento":\s*"(errore|finito|interrotto)"') { $ultimo = $riga }
-            }
-            if ($LASTEXITCODE -ne 0 -or $ultimo -match '"evento":\s*"errore"') {
-                $completa = $false
-                Warn "«$c» non e' stato completato."
-                if ($ultimo) { Warn "  $ultimo" }
-            }
+    foreach ($c in $nomi) {
+        Info "Procuro: $c"
+        $ultimo = ''
+        & $novaCli componenti scarica $c 2>&1 | ForEach-Object {
+            $riga = "$_"
+            if ($riga -match '"evento":\s*"(errore|finito|interrotto)"') { $ultimo = $riga }
         }
-    } finally { Pop-Location }
+        if ($LASTEXITCODE -ne 0 -or $ultimo -match '"evento":\s*"errore"') {
+            $completa = $false
+            Warn "«$c» non e' stato completato."
+            if ($ultimo) { Warn "  $ultimo" }
+        }
+    }
     if (-not $completa) {
         Warn "$etichetta - qualche pezzo manca. NOVA funziona lo stesso, e i pezzi"
         Warn "che mancano si scaricano dalle impostazioni, sezione Componenti."

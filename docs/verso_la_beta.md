@@ -2479,8 +2479,8 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    pannello delle impostazioni — si sposta quando il resto e' fermo, non
    prima: e' la parte che si vede, e romperla si vede subito.
    L'installatore non lo pretende piu' (D350): configurazione, modelli e CLI
-   note li chiede a `nova.exe`. Restano in Python lo scaricamento dei
-   componenti e il rendiconto dei dati alla disinstallazione.
+   note li chiede a `nova.exe`, e i componenti li scarica `nova componenti`
+   (D351). Resta in Python il rendiconto dei dati alla disinstallazione.
 
 **L'ordine dal 22 settembre**, deciso con Gio guardando i numeri contati
 quel giorno (68.000 righe di Rust in 37 crate, 24.000 di Python, 35 strumenti

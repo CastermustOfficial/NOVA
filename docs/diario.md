@@ -11129,3 +11129,19 @@ La prova confronta le risposte coi moduli Python sugli stessi file finti,
 compreso un GGUF scaricato a meta': tutt'e due lo scartano, con la stessa
 frase.
 
+## 27 settembre 2026, sera — La voce si scarica senza Python
+
+Il pannello, per scaricare Kokoro o whisper, lanciava Python (D351). Adesso
+lo fa `nova componenti`, con le stesse regole — che stavano gia' in Rust,
+gemellate — e il pezzo che mancava: scaricare, estrarre, appiattire.
+
+La prova non scarica da internet: accende uno specchio in casa con gli
+stessi percorsi di GitHub e HuggingFace, e dice a NOVA di chiedere li'. Uno
+zip con dentro tre dll ne lascia due, quelle col nome giusto; uno zip con
+l'eseguibile in una sottocartella lo porta in cima; un file che non c'e'
+esce con un 404 e senza lasciare mezzi file.
+
+Restano tre angoli in Python — il rendiconto quando si disinstalla, i
+numeri della memoria nel pannello, il ripiego del guscio quando il demone non
+risponde — e poi, per scelta, le automazioni.
+

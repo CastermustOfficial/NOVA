@@ -6,12 +6,13 @@
 //! capace di scaricare qualcosa era l'installer — cioe' ogni ripensamento
 //! costava una reinstallazione.
 //!
-//! Cosa serve e da dove si prende lo sa Python (`nova/componenti.py`), che e'
+//! Cosa serve e da dove si prende lo sa `nova componenti` (D351), che e'
 //! anche il posto da cui lo prende l'installer: qui non si duplica nessun
-//! indirizzo. Questo modulo fa tre cose e basta — chiedere l'elenco, avviare
-//! lo scaricamento, fermarlo — e riporta alla finestra riga per riga, perche'
-//! una barra che salta da zero a cento dopo mezz'ora di silenzio sembra un
-//! programma piantato.
+//! indirizzo. Fino al 27 settembre era `python -m nova.componenti`, cioe'
+//! serviva Python per scaricare una voce. Questo modulo fa tre cose e basta —
+//! chiedere l'elenco, avviare lo scaricamento, fermarlo — e riporta alla
+//! finestra riga per riga, perche' una barra che salta da zero a cento dopo
+//! mezz'ora di silenzio sembra un programma piantato.
 
 use std::io::{BufRead, BufReader};
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -19,7 +20,6 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter};
 
-use crate::cervello::radice_progetto;
 use crate::processo;
 
 /// Il pid dello scaricamento in corso, 0 se non ce n'e' nessuno.
@@ -29,20 +29,21 @@ use crate::processo;
 /// bisogno di prendere Kokoro e whisper nello stesso istante.
 static IN_CORSO: AtomicU32 = AtomicU32::new(0);
 
-fn python() -> String {
-    std::env::var("NOVA_PYTHON").unwrap_or_else(|_| {
-        if cfg!(windows) { "python".into() } else { "python3".into() }
-    })
+/// `nova.exe`, accanto al guscio: e' li' che lo mettono l'installatore e
+/// la costruzione.
+fn nova() -> String {
+    let exe = std::env::current_exe().unwrap_or_default();
+    exe.with_file_name(if cfg!(windows) { "nova.exe" } else { "nova" })
+        .to_string_lossy()
+        .to_string()
 }
 
 /// Cosa serve a ogni funzione, e cosa manca. Non tocca la rete.
 #[tauri::command]
 pub async fn componenti_elenco() -> Result<Value, String> {
     tokio::task::spawn_blocking(|| {
-        let uscita = processo::comando(&python())
-            .env("PYTHONIOENCODING", "utf-8")
-            .args(["-m", "nova.componenti", "--elenco"])
-            .current_dir(radice_progetto())
+        let uscita = processo::comando(&nova())
+            .args(["componenti", "elenco"])
             .output()
             .map_err(|e| format!("non riesco a chiedere l'elenco: {e}"))?;
         let testo = String::from_utf8_lossy(&uscita.stdout);
@@ -72,10 +73,8 @@ pub async fn componenti_scarica(app: AppHandle, nome: String) -> Result<(), Stri
     }
 
     std::thread::spawn(move || {
-        let avviato = processo::comando(&python())
-            .env("PYTHONIOENCODING", "utf-8")
-            .args(["-m", "nova.componenti", "--scarica", &nome])
-            .current_dir(radice_progetto())
+        let avviato = processo::comando(&nova())
+            .args(["componenti", "scarica", &nome])
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .spawn();

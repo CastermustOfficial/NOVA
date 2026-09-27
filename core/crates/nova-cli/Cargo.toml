@@ -16,6 +16,11 @@ nova-proto = { path = "../nova-proto" }
 nova-configurazione = { path = "../nova-configurazione" }
 nova-modelli = { path = "../nova-modelli" }
 nova-cervelli = { path = "../nova-cervelli" }
+# `nova componenti` (D351): il catalogo e le regole stanno li', la rete e gli
+# zip qui.
+nova-componenti = { path = "../nova-componenti" }
+ureq = { version = "2", features = ["json"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
 tokio.workspace = true
 anyhow.workspace = true
 clap.workspace = true

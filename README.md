@@ -549,7 +549,7 @@ browser — e non conta come fallimento: contarla bloccherebbe ogni modifica.
 | | |
 |---|---|
 | Sistema | **Windows 10/11 a 64 bit** |
-| Python | facoltativo, 3.10 o superiore: serve alle automazioni che NOVA si scrive, alla voce e ai componenti scaricabili |
+| Python | facoltativo, 3.10 o superiore: serve alle automazioni che NOVA si scrive |
 | Disco | 3 GB per il minimo; 15-30 GB se scegli un modello locale |
 | GPU | facoltativa: serve solo per il modello locale |
 
