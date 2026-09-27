@@ -2515,6 +2515,14 @@ da sola, e riparare se stessa vorrebbe dire compilare Rust sul PC
 dell'utente? — piu' il motore di ricalcolo dei fogli, CANT-12, le impronte dei
 binari, `build.ps1` e il cancello della beta.
 
+> **Deciso il 26 settembre, per le automazioni:** il meccanismo passa in
+> Rust, e gli script che NOVA si scrive restano in Python. Python resta sul
+> PC come **lingua in cui NOVA scrive**, non come qualcosa da cui dipende per
+> funzionare: senza Python NOVA va, e le automazioni dicono che manca.
+> Le **riparazioni** sono un'altra cosa — NOVA che corregge il proprio
+> codice su un banco — e con NOVA in Rust vorrebbero dire compilare sul PC:
+> si decidono quando ci si arriva.
+
 La regola che tiene insieme le sei mosse: **nessuna cancella niente**. Il
 Python resta finche' il Rust non fa la stessa cosa, e la prova che lo dice e'
 un banco gemello o una prova che accende tutti e due. Una migrazione che

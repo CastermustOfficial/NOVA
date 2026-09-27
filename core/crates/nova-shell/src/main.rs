@@ -29,6 +29,7 @@ mod harness;
 mod modelli;
 mod processo;
 mod stato;
+mod terminale;
 mod voce;
 
 /// La nuvoletta: quanto è grande, e quanto sta staccata dall'orb.
@@ -362,7 +363,11 @@ fn main() {
             harness::harness_salva,
             harness::harness_quando,
             harness::harness_blocchi,
-            harness::harness_scegli
+            harness::harness_scegli,
+            terminale::terminale_apri,
+            terminale::terminale_scrivi,
+            terminale::terminale_dimensioni,
+            terminale::terminale_chiudi
         ])
         .setup(|app| {
             // L'orb non deve comparire nella barra delle applicazioni ne'

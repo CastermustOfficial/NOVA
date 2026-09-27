@@ -10930,3 +10930,24 @@ Il conto «+3 −1» e' una sottosequenza comune piu' lunga, con le righe
 uguali in testa e in coda tolte prima; oltre un certo prodotto di righe si
 conta alla grossa, e una prova lo dice. Le mutazioni ne hanno trovate due
 che le prove non vedevano, e adesso le vedono.
+
+## L'harness, terza fase: il terminale
+
+Il pannello di sotto dell'harness ha il terminale: una console vera, con la
+shell di tutti i giorni, nella cartella del progetto (D340). La prova in
+Rust apre una console, ci scrive, e controlla che arrivi quel che la shell
+risponde — accenti compresi — e che dall'altra parte ci sia davvero un
+terminale e non un tubo.
+
+Accanto, «Comandi di NOVA»: quello che NOVA esegue con `shell.exec`, dove,
+con che esito e cosa ha scritto. Il terminale resta di Gio; e dentro il
+terminale i tasti sono della shell — Ctrl+W, che nell'harness chiude una
+scheda, li' cancella una parola.
+
+Una cosa trovata solo aprendo la pagina: xterm.js, trovato il caricatore di
+Monaco, si registrava come modulo invece di mettersi dove la pagina lo
+cercava, e il terminale non c'era. Per il tempo di caricarlo, il caricatore
+di Monaco si mette da parte.
+
+Deciso con Gio: le automazioni passano in Rust, e gli script che NOVA si
+scrive restano in Python. Le riparazioni si decidono quando ci si arriva.

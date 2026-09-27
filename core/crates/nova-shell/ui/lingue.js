@@ -341,6 +341,20 @@ export const LINGUE = {
     'Le scrive, prova il progetto, e le toglie se un test che passava cade': 'Writes them, tests the project, and removes them if a test that passed now fails',
     'Riconosco da solo come si provano i test: cargo, npm, go, pytest, o gli script di prova.': 'I recognise on my own how the tests run: cargo, npm, go, pytest, or test scripts.',
     'Chiudi': 'Close',
+
+    /* --- harness: il terminale --- */
+    'Il terminale non c’è: non è stato scaricato quando il guscio è stato compilato. Ricompila il guscio con la rete.': 'The terminal is missing: it was not downloaded when the shell was built. Rebuild the shell with a network connection.',
+    'Terminale': 'Terminal',
+    'clic col tasto centrale per chiuderlo': 'middle-click to close it',
+    '[la shell è uscita — premi + per aprirne un’altra]': '[the shell exited — press + to open another]',
+    'uscito con 0': 'exited with 0',
+    'interrotto': 'interrupted',
+    'uscito con': 'exited with',
+    'cosa ha scritto': 'what it printed',
+    'Qui compaiono i comandi che NOVA esegue, con quel che hanno scritto. Nel terminale accanto scrivi solo tu.': 'The commands NOVA runs appear here, with what they printed. Only you type in the terminal next to it.',
+    'Comandi di NOVA': 'NOVA’s commands',
+    'Nuovo terminale': 'New terminal',
+    'Chiudi il pannello (Ctrl+ò)': 'Close the panel (Ctrl+ò)',
   },
 };
 

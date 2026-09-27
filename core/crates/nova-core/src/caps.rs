@@ -398,6 +398,19 @@ impl Capability for FsStatCap {
 
 // ----------------------------------------------------------------- shell
 
+/// Quanto di un'uscita va sul bus per chi guarda: la coda, dove sta
+/// l'errore, e non piu' di qualche pagina.
+pub const CODA_PER_CHI_GUARDA: usize = 4_000;
+
+fn coda_per_chi_guarda(testo: &str) -> String {
+    let n = testo.chars().count();
+    if n <= CODA_PER_CHI_GUARDA {
+        return testo.to_string();
+    }
+    let resto: String = testo.chars().skip(n - CODA_PER_CHI_GUARDA).collect();
+    format!("…{resto}")
+}
+
 struct ShellExecCap;
 
 #[async_trait]
@@ -499,14 +512,25 @@ impl Capability for ShellExecCap {
         // sono i job object di Windows, ed e' una questione aperta.
         cmd.kill_on_drop(true);
 
+        let inizio = std::time::Instant::now();
         let esito =
             tokio::time::timeout(std::time::Duration::from_secs(timeout.max(1)), cmd.output())
                 .await
                 .map_err(|_| anyhow!("comando interrotto dopo {timeout}s"))??;
 
+        // Con la coda di quel che ha scritto: l'harness lo mostra accanto al
+        // terminale di Gio, nei «Comandi di NOVA», perche' si sappia cosa ha
+        // fatto senza che NOVA scriva nel suo terminale (D340).
         ctx.bus.emit(
             "shell.executed",
-            json!({ "command": comando, "code": esito.status.code() }),
+            json!({
+                "command": comando,
+                "code": esito.status.code(),
+                "cwd": arg_str_opt(&args, "cwd").unwrap_or_default(),
+                "ms": inizio.elapsed().as_millis() as u64,
+                "stdout": coda_per_chi_guarda(&String::from_utf8_lossy(&esito.stdout)),
+                "stderr": coda_per_chi_guarda(&String::from_utf8_lossy(&esito.stderr)),
+            }),
         );
 
         // **Ogni** comando lascia una riga nel registro delle azioni, non solo
@@ -1223,5 +1247,21 @@ impl Capability for OsservaTogliCap {
             return Err(anyhow!("non sto guardando niente con il numero {id}"));
         }
         Ok(json!({ "tolta": id }))
+    }
+}
+
+#[cfg(test)]
+mod prove_coda {
+    use super::*;
+
+    #[test]
+    fn a_chi_guarda_va_la_coda_dell_uscita() {
+        assert_eq!(coda_per_chi_guarda("breve"), "breve");
+        let giusta = "è".repeat(CODA_PER_CHI_GUARDA);
+        assert_eq!(coda_per_chi_guarda(&giusta), giusta);
+        let lunga = format!("{}fine", "a".repeat(CODA_PER_CHI_GUARDA));
+        let c = coda_per_chi_guarda(&lunga);
+        assert!(c.starts_with('…') && c.ends_with("fine"), "{c}");
+        assert_eq!(c.chars().count(), CODA_PER_CHI_GUARDA + 1);
     }
 }

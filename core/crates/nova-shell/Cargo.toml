@@ -33,6 +33,13 @@ tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-single-instance = "2"
 # «Apri cartella» nell'harness: la finestra di scelta del sistema.
 tauri-plugin-dialog = "2"
+# Il terminale dell'harness: una console vera (ConPTY su Windows), non un
+# processo con i tubi — i programmi che chiedono qualcosa, i colori, le
+# frecce funzionano solo se credono di parlare a un terminale.
+portable-pty = "0.9"
+# Quel che il terminale scrive viaggia verso la pagina come testo: byte
+# qualunque, anche meta' di una lettera accentata, dentro una stringa.
+base64 = "0.22"
 serde.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true

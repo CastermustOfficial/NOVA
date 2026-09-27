@@ -1,17 +1,22 @@
-//! Prima di compilare il guscio: l'editor dell'harness, e poi Tauri.
+//! Prima di compilare il guscio: l'editor e il terminale dell'harness, e poi
+//! Tauri.
 //!
-//! **Monaco non sta nel repository** (D336). Sono venticinque megabyte di
-//! JavaScript ridotto, che cambiano tutti a ogni versione: tenerli in git
-//! vorrebbe dire un repository che ingrassa di dieci mega a ogni
-//! aggiornamento dell'editor, per un file che nessuno legge. Qui si scarica
-//! **una versione fissata**, si controlla l'impronta che il registro npm
-//! pubblica per quella versione, e si tiene solo la parte che una pagina
-//! carica davvero — misurata aprendo l'editor e guardando cosa chiede.
+//! **Monaco e xterm.js non stanno nel repository** (D336). Monaco sono
+//! venticinque megabyte di JavaScript ridotto, che cambiano tutti a ogni
+//! versione: tenerli in git vorrebbe dire un repository che ingrassa di dieci
+//! mega a ogni aggiornamento dell'editor, per un file che nessuno legge. Qui
+//! si scarica **una versione fissata** di ciascun pacchetto, si controlla
+//! l'impronta che il registro npm pubblica per quella versione, e si tiene
+//! solo la parte che una pagina carica davvero — misurata aprendo la pagina
+//! e guardando cosa chiede.
 //!
 //! Senza rete non si ferma niente: il guscio si compila lo stesso, e
-//! l'harness dice che l'editor manca invece di non aprirsi. Una compilazione
-//! che fallisce perche' manca un editor sarebbe il guasto sbagliato nel posto
-//! sbagliato — l'orb e la voce non c'entrano.
+//! l'harness dice cosa manca invece di non aprirsi. Una compilazione che
+//! fallisce perche' manca un editor sarebbe il guasto sbagliato nel posto
+//! sbagliato — l'orb e la voce non c'entrano. Chi compila senza rete, o
+//! dietro un proxy che il client HTTP non riconosce, mette i `.tgz` in una
+//! cartella e la indica con `NOVA_PACCHETTI`: l'impronta si controlla lo
+//! stesso.
 
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -19,42 +24,87 @@ use std::path::{Path, PathBuf};
 use base64::Engine as _;
 use sha2::Digest as _;
 
-/// La versione di Monaco, e l'impronta con cui npm la pubblica
-/// (`npm view monaco-editor@0.57.0 dist.integrity`).
-const MONACO: &str = "0.57.0";
-const IMPRONTA: &str =
-    "sha512-5BkI9KGoqrNvBGUe15/QlZq3OooZ8WLg1AxTpaqHRCP3HNpzPPZKE2EDz8M7c+VRmCeUw1Brp4cx/PWm3kI/5A==";
+/// Un pacchetto npm da portare nel guscio.
+struct Pacchetto {
+    /// Il nome sul registro, con l'ambito se c'e' (`@xterm/xterm`).
+    nome: &'static str,
+    versione: &'static str,
+    /// `npm view <nome>@<versione> dist.integrity`.
+    impronta: &'static str,
+    /// Dove finisce, sotto `ui/vendor`.
+    cartella: &'static str,
+    /// Quali file tenere, e dove: `None` per quelli che non servono.
+    serve: fn(&str) -> Option<String>,
+}
+
+const PACCHETTI: [Pacchetto; 3] = [
+    Pacchetto {
+        nome: "monaco-editor",
+        versione: "0.57.0",
+        impronta: "sha512-5BkI9KGoqrNvBGUe15/QlZq3OooZ8WLg1AxTpaqHRCP3HNpzPPZKE2EDz8M7c+VRmCeUw1Brp4cx/PWm3kI/5A==",
+        cartella: "monaco",
+        serve: serve_monaco,
+    },
+    Pacchetto {
+        nome: "@xterm/xterm",
+        versione: "6.0.0",
+        impronta: "sha512-TQwDdQGtwwDt+2cgKDLn0IRaSxYu1tSUjgKarSDkUM0ZNiSRXFpjxEsvc/Zgc5kq5omJ+V0a8/kIM2WD3sMOYg==",
+        cartella: "xterm",
+        serve: serve_xterm,
+    },
+    Pacchetto {
+        nome: "@xterm/addon-fit",
+        versione: "0.11.0",
+        impronta: "sha512-jYcgT6xtVYhnhgxh3QgYDnnNMYTcf8ElbxxFzX0IZo+vabQqSPAjC3c1wJrKB5E19VwQei89QCiZZP86DCPF7g==",
+        cartella: "xterm-fit",
+        serve: serve_xterm,
+    },
+];
 
 fn main() {
-    let dove = PathBuf::from("ui").join("vendor").join("monaco");
-    let segno = dove.join("VERSIONE");
-    println!("cargo:rerun-if-changed={}", segno.display());
-    if std::fs::read_to_string(&segno).is_ok_and(|v| v.trim() == MONACO) {
-        // gia' qui
-    } else if let Err(e) = porta_monaco(&dove) {
-        println!(
-            "cargo:warning=l'editor dell'harness (Monaco {MONACO}) non e' stato scaricato: {e}. \
-             Il guscio funziona lo stesso; per avere l'editor ricompila con la rete."
-        );
+    println!("cargo:rerun-if-env-changed=NOVA_PACCHETTI");
+    for p in &PACCHETTI {
+        let dove = PathBuf::from("ui").join("vendor").join(p.cartella);
+        let segno = dove.join("VERSIONE");
+        println!("cargo:rerun-if-changed={}", segno.display());
+        if std::fs::read_to_string(&segno).is_ok_and(|v| v.trim() == p.versione) {
+            continue;
+        }
+        if let Err(e) = porta(p, &dove) {
+            println!(
+                "cargo:warning={} {} non e' stato scaricato: {e}. Il guscio funziona lo stesso; \
+                 per averlo ricompila con la rete, o indica i pacchetti con NOVA_PACCHETTI.",
+                p.nome, p.versione
+            );
+        }
     }
     tauri_build::build()
 }
 
-/// Il pacchetto: dal registro npm, o da un file gia' scaricato indicato con
-/// `NOVA_MONACO_TGZ` — per chi compila senza rete, o dietro un proxy che
-/// il client HTTP non riconosce. L'impronta si controlla lo stesso.
-fn pacchetto() -> Result<Vec<u8>, String> {
-    println!("cargo:rerun-if-env-changed=NOVA_MONACO_TGZ");
-    if let Some(f) = std::env::var_os("NOVA_MONACO_TGZ") {
-        return std::fs::read(&f).map_err(|e| format!("leggendo {}: {e}", Path::new(&f).display()));
+/// Il nome del file che `npm pack` scrive per quel pacchetto.
+fn nome_del_file(p: &Pacchetto) -> String {
+    format!(
+        "{}-{}.tgz",
+        p.nome.trim_start_matches('@').replace('/', "-"),
+        p.versione
+    )
+}
+
+/// Il pacchetto: da `NOVA_PACCHETTI`, se c'e', o dal registro npm.
+fn scarica(p: &Pacchetto) -> Result<Vec<u8>, String> {
+    if let Some(d) = std::env::var_os("NOVA_PACCHETTI") {
+        let f = Path::new(&d).join(nome_del_file(p));
+        return std::fs::read(&f).map_err(|e| format!("leggendo {}: {e}", f.display()));
     }
-    let url = format!("https://registry.npmjs.org/monaco-editor/-/monaco-editor-{MONACO}.tgz");
+    let breve = p.nome.rsplit('/').next().unwrap_or(p.nome);
+    let url = format!(
+        "https://registry.npmjs.org/{}/-/{breve}-{}.tgz",
+        p.nome, p.versione
+    );
     let risposta = ureq::get(&url)
         .timeout(std::time::Duration::from_secs(180))
         .call()
-        .map_err(|e| {
-            format!("scaricando {url}: {e} (senza rete: NOVA_MONACO_TGZ=<pacchetto .tgz>)")
-        })?;
+        .map_err(|e| format!("scaricando {url}: {e}"))?;
     let mut compresso = Vec::new();
     risposta
         .into_reader()
@@ -64,16 +114,16 @@ fn pacchetto() -> Result<Vec<u8>, String> {
     Ok(compresso)
 }
 
-fn porta_monaco(dove: &Path) -> Result<(), String> {
-    let compresso = pacchetto()?;
-
+fn porta(p: &Pacchetto, dove: &Path) -> Result<(), String> {
+    let compresso = scarica(p)?;
     let impronta = format!(
         "sha512-{}",
         base64::engine::general_purpose::STANDARD.encode(sha2::Sha512::digest(&compresso))
     );
-    if impronta != IMPRONTA {
+    if impronta != p.impronta {
         return Err(format!(
-            "l'impronta non torna: attesa {IMPRONTA}, arrivata {impronta}"
+            "l'impronta non torna: attesa {}, arrivata {impronta}",
+            p.impronta
         ));
     }
 
@@ -83,12 +133,12 @@ fn porta_monaco(dove: &Path) -> Result<(), String> {
         .map_err(|e| format!("decomprimendo: {e}"))?;
 
     // Si scrive accanto e si sposta alla fine: un'interruzione a meta' non
-    // deve lasciare un editor mezzo copiato con scritto sopra «fatto».
+    // deve lasciare un pacchetto mezzo copiato con scritto sopra «fatto».
     let provvisoria = dove.with_extension("nuova");
     let _ = std::fs::remove_dir_all(&provvisoria);
     let mut quanti = 0;
     for (nome, dati) in voci_tar(&tar)? {
-        let Some(relativo) = serve(&nome) else {
+        let Some(relativo) = (p.serve)(&nome) else {
             continue;
         };
         let f = provvisoria.join(relativo);
@@ -101,21 +151,19 @@ fn porta_monaco(dove: &Path) -> Result<(), String> {
     if quanti == 0 {
         return Err("nel pacchetto non c'era niente di cio' che serve".into());
     }
-    std::fs::write(provvisoria.join("VERSIONE"), format!("{MONACO}\n"))
+    std::fs::write(provvisoria.join("VERSIONE"), format!("{}\n", p.versione))
         .map_err(|e| e.to_string())?;
     let _ = std::fs::remove_dir_all(dove);
     std::fs::rename(&provvisoria, dove).map_err(|e| e.to_string())?;
     Ok(())
 }
 
-/// Dove va un file del pacchetto, o `None` se non serve.
-///
-/// Si tiene `min/vs` — l'editor come lo carica una pagina — tranne:
+/// Di Monaco si tiene `min/vs` — l'editor come lo carica una pagina — tranne:
 /// - `language/`: il sorgente dei servizi di lingua, che l'editor non chiede
 ///   (li chiede gia' impacchettati, da `assets/`);
 /// - le traduzioni dell'interfaccia di Monaco, tranne l'italiano;
 /// - le dichiarazioni di tipo e le mappe, che servono a chi sviluppa Monaco.
-fn serve(nome: &str) -> Option<String> {
+fn serve_monaco(nome: &str) -> Option<String> {
     let dentro = nome.strip_prefix("package/min/")?;
     if !dentro.starts_with("vs/")
         || dentro.starts_with("vs/language/")
@@ -127,6 +175,17 @@ fn serve(nome: &str) -> Option<String> {
         return None;
     }
     Some(dentro.to_string())
+}
+
+/// Di xterm.js e del suo adattatore si tiene lo script da caricare con un
+/// `<script>` e il foglio di stile: niente moduli, niente mappe.
+fn serve_xterm(nome: &str) -> Option<String> {
+    let dentro = nome.strip_prefix("package/")?;
+    let tenuto =
+        (dentro.starts_with("lib/") && dentro.ends_with(".js") && !dentro.ends_with(".mjs"))
+            || dentro == "css/xterm.css"
+            || dentro == "LICENSE";
+    (tenuto && !dentro.contains("..")).then(|| dentro.to_string())
 }
 
 /// Le voci di un archivio tar: nome e contenuto dei file normali.
