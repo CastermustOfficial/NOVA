@@ -112,6 +112,18 @@ pub enum Cambio {
         indice: Option<usize>,
         testi: Vec<String>,
     },
+    /// Dei paragrafi nuovi subito prima del paragrafo `indice`, vestiti
+    /// come lui: e' lui il paragrafo di cui si sta parlando, non quello
+    /// sopra, che puo' essere un titolo.
+    Prima { indice: usize, testi: Vec<String> },
+    /// Una riga di tabella con le celle nuove, da sinistra. Ogni cella tiene
+    /// il primo paragrafo, col suo vestito, e perde gli altri; le celle in
+    /// piu' di quelle date restano come sono.
+    Riga {
+        tabella: usize,
+        riga: usize,
+        celle: Vec<String>,
+    },
 }
 
 /// Il documento con le modifiche, e quante se ne sono fatte.
@@ -189,6 +201,36 @@ pub fn applica(xml: &str, cambi: &[Cambio]) -> Result<(String, usize), String> {
                     nuovi,
                 ));
             }
+            Cambio::Prima { indice, testi } => {
+                if testi.is_empty() {
+                    continue;
+                }
+                if let Some(e) = fuori_misura(*indice) {
+                    return Err(e);
+                }
+                let modello = par[*indice];
+                let nuovi: String = testi
+                    .iter()
+                    .map(|t| con_testo(modello.dentro(xml), t))
+                    .collect();
+                lavori.push((
+                    modello.da,
+                    0,
+                    Dove {
+                        da: modello.da,
+                        a: modello.da,
+                    },
+                    nuovi,
+                ));
+            }
+            Cambio::Riga {
+                tabella,
+                riga,
+                celle,
+            } => {
+                let (dove, nuova) = riga_nuova(xml, *tabella, *riga, celle)?;
+                lavori.push((dove.da, 1, dove, nuova));
+            }
         }
     }
     lavori.sort_by_key(|l| std::cmp::Reverse((l.0, l.1)));
@@ -197,6 +239,75 @@ pub fn applica(xml: &str, cambi: &[Cambio]) -> Result<(String, usize), String> {
         fatto = sostituisci(&fatto, *dove, nuovo);
     }
     Ok((fatto, lavori.len()))
+}
+
+/// La riga `riga` della tabella `tabella`, e come diventa con le celle
+/// nuove.
+fn riga_nuova(
+    xml: &str,
+    tabella: usize,
+    riga: usize,
+    celle: &[String],
+) -> Result<(Dove, String), String> {
+    let tabelle = elementi(xml, "w:tbl");
+    let t = tabelle.get(tabella).ok_or_else(|| {
+        format!(
+            "la tabella {tabella} non c'e': il documento ne ha {}",
+            tabelle.len()
+        )
+    })?;
+    let dentro_t = t.dentro(xml);
+    let righe = elementi(dentro_t, "w:tr");
+    let r = righe.get(riga).ok_or_else(|| {
+        format!(
+            "la riga {riga} della tabella {tabella} non c'e': ne ha {}",
+            righe.len()
+        )
+    })?;
+    let vecchia = r.dentro(dentro_t);
+    let mut nuova = String::with_capacity(vecchia.len());
+    let mut ultimo = 0usize;
+    for (c, testo) in elementi(vecchia, "w:tc").iter().zip(celle) {
+        nuova.push_str(&vecchia[ultimo..c.da]);
+        nuova.push_str(&cella_nuova(c.dentro(vecchia), testo));
+        ultimo = c.a;
+    }
+    nuova.push_str(&vecchia[ultimo..]);
+    Ok((
+        Dove {
+            da: t.da + r.da,
+            a: t.da + r.a,
+        },
+        nuova,
+    ))
+}
+
+/// Una cella con un testo solo: nel primo paragrafo, e gli altri via.
+fn cella_nuova(cella: &str, testo: &str) -> String {
+    let par = elementi(cella, "w:p");
+    let Some(primo) = par.first() else {
+        // Una cella senza paragrafi non e' valida per Word, ma se c'e' si
+        // scrive lo stesso, prima della chiusura.
+        return match cella.rfind("</w:tc>") {
+            Some(i) => format!(
+                "{}{}{}",
+                &cella[..i],
+                con_testo("<w:p/>", testo),
+                &cella[i..]
+            ),
+            None => cella.to_string(),
+        };
+    };
+    let mut fuori = String::with_capacity(cella.len() + testo.len());
+    fuori.push_str(&cella[..primo.da]);
+    fuori.push_str(&con_testo(primo.dentro(cella), testo));
+    let mut ultimo = primo.a;
+    for p in &par[1..] {
+        fuori.push_str(&cella[ultimo..p.da]);
+        ultimo = p.a;
+    }
+    fuori.push_str(&cella[ultimo..]);
+    fuori
 }
 
 #[cfg(test)]
@@ -420,5 +531,112 @@ mod prove {
         )
         .unwrap();
         assert_eq!((uguale, zero), (xml, 0));
+    }
+
+    #[test]
+    fn prima_di_un_paragrafo_col_suo_vestito() {
+        let xml = doc(&format!(
+            "<w:p><w:pPr><w:pStyle w:val=\"Titolo1\"/></w:pPr><w:r><w:t>T</w:t></w:r></w:p>{}",
+            "<w:p><w:pPr><w:pStyle w:val=\"Elenco\"/></w:pPr><w:r><w:t>b</w:t></w:r></w:p>"
+        ));
+        let (fatto, quante) = applica(
+            &xml,
+            &[
+                Cambio::Prima {
+                    indice: 1,
+                    testi: vec!["a".into()],
+                },
+                Cambio::Testo {
+                    indice: 1,
+                    testo: "B".into(),
+                },
+            ],
+        )
+        .unwrap();
+        assert_eq!(quante, 2);
+        let c = corpo(&fatto);
+        assert_eq!(
+            c[1],
+            Pezzo::Paragrafo {
+                indice: 1,
+                testo: "a".into(),
+                stile: "Elenco".into()
+            },
+            "prende lo stile del paragrafo davanti a cui sta, non del titolo sopra"
+        );
+        assert_eq!(
+            c[2],
+            Pezzo::Paragrafo {
+                indice: 2,
+                testo: "B".into(),
+                stile: "Elenco".into()
+            }
+        );
+        assert!(applica(
+            &xml,
+            &[Cambio::Prima {
+                indice: 5,
+                testi: vec!["x".into()]
+            }]
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn una_riga_di_tabella_cambia_cella_per_cella() {
+        let xml = doc(&format!(
+            "{}<w:tbl><w:tblPr/><w:tr><w:tc><w:tcPr/><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>a</w:t></w:r></w:p><w:p><w:r><w:t>a2</w:t></w:r></w:p></w:tc>\
+             <w:tc>{}</w:tc><w:tc>{}</w:tc></w:tr><w:tr><w:tc>{}</w:tc></w:tr></w:tbl>{}",
+            p("prima"),
+            p("b"),
+            p("c"),
+            p("sotto"),
+            p("dopo")
+        ));
+        let (fatto, _) = applica(
+            &xml,
+            &[
+                Cambio::Riga {
+                    tabella: 0,
+                    riga: 0,
+                    celle: vec!["A".into(), "B & b".into()],
+                },
+                Cambio::Testo {
+                    indice: 1,
+                    testo: "DOPO".into(),
+                },
+            ],
+        )
+        .unwrap();
+        let c = corpo(&fatto);
+        assert_eq!(
+            c[1],
+            Pezzo::Tabella {
+                indice: 0,
+                righe: vec![
+                    vec!["A".into(), "B & b".into(), "c".into()],
+                    vec!["sotto".into()]
+                ]
+            }
+        );
+        assert!(
+            fatto.contains("<w:tcPr/>") && fatto.contains("<w:b/>"),
+            "{fatto}"
+        );
+        assert!(!fatto.contains("a2"));
+        match &c[2] {
+            Pezzo::Paragrafo { testo, .. } => assert_eq!(testo, "DOPO"),
+            altro => panic!("{altro:?}"),
+        }
+        assert!(applica(
+            &xml,
+            &[Cambio::Riga {
+                tabella: 0,
+                riga: 9,
+                celle: vec![]
+            }]
+        )
+        .unwrap_err()
+        .contains("riga 9"));
     }
 }

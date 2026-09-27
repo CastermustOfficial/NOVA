@@ -157,13 +157,30 @@ in aggiunta, come quello del Python.
 - **Immagini**: si guardano.
 - La selezione in un PDF o in un Word va con la domanda, con la pagina.
 
-Resta la seconda metà: le proposte di NOVA su PDF e Word — annotazioni e
-paragrafi — guardate e applicate qui, in Rust. Allora la finestra Qt se ne
-va.
+**Fase 4, seconda metà — fatta** (D342):
+
+- Le proposte di NOVA su un **Word** o un **PDF** si guardano qui, **voce
+  per voce**: cosa c'era e cosa diventa, il paragrafo aggiunto con quello
+  accanto, il pezzo di pagina da evidenziare, la nota. Ogni voce ha la sua
+  casella; «Vedi nel documento» apre il PDF alla pagina, col riquadro dove
+  andrebbe il segno, o il Word al paragrafo.
+- Le scrive il demone. Nel Word si toccano solo i paragrafi e le righe di
+  tabella della proposta; nel PDF le evidenziazioni e le note vanno **in
+  coda al file**, e quel che c'era resta byte per byte. Accanto resta la
+  copia `.prima`.
+- Una voce su un paragrafo cambiato dopo la proposta si spegne, e dice
+  perché; le altre si possono scegliere lo stesso.
+- Le note gialle di un PDF si vedono sulla pagina, col testo passandoci
+  sopra.
+- **La finestra Qt non c'è più.** Quando NOVA apre un documento e il
+  guscio è spento, lo strumento accende il guscio con `--harness`, che
+  mostra subito il documento. Con lei se ne vanno PyQt6, PyQt6-WebEngine e
+  Pygments.
 
 ## Dopo
 
 - Le porzioni di Word seguite mentre si scrive, così il grassetto dentro un
   paragrafo cambiato resta.
-- Le note e le evidenziazioni che restano su un PDF.
+- Evidenziare e annotare un PDF a mano, non solo accettando quel che propone
+  NOVA.
 - Git: cosa è cambiato dall'ultimo commit.

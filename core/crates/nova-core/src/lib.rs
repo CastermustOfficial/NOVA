@@ -24,6 +24,7 @@ pub mod permessi;
 pub mod agente;
 pub mod caps_file;
 pub mod caps_harness;
+pub mod harness_documenti;
 pub mod caps_memoria;
 pub mod caps_registro;
 pub mod caps_rete;

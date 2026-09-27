@@ -30,6 +30,7 @@ use nova_proto::{CapabilityInfo, Risk};
 use serde_json::{json, Value};
 
 use crate::capability::{arg_bool, arg_str_opt, schema, Capability, Ctx, Registry};
+use crate::harness_documenti::{self, Contenuto, Formato};
 
 pub fn register(reg: &mut Registry) {
     reg.add(Arc::new(Proposte));
@@ -145,13 +146,38 @@ fn racconta_proposta(dove: &Path, p: &Value) -> Value {
         "quante": p.get("modifiche").and_then(Value::as_array).map_or(0, Vec::len),
     });
     let o = fuori.as_object_mut().expect("e' un oggetto");
+    if let Some(formato) = Formato::di(&est) {
+        // Un Word o un PDF: non c'e' un testo da confrontare riga per riga,
+        // ci sono delle voci — questo paragrafo diventa quest'altro, qui va
+        // una nota — e chi guarda sceglie quali.
+        o.insert("qui".into(), json!(true));
+        o.insert("tipo".into(), json!(formato.nome()));
+        o.insert("modificato".into(), json!(modificato_il(f)));
+        let base = dove.parent().unwrap_or(Path::new("."));
+        let blocchi = blocchi_della_sessione(base, p);
+        let voci = harness_documenti::voci(p, blocchi.as_ref());
+        match harness_documenti::controlla(formato, f, &voci) {
+            Err(e) => {
+                o.insert("errore".into(), json!(e));
+                o.insert("voci".into(), harness_documenti::in_json(&voci, &[]));
+            }
+            Ok(guai) => {
+                let perche: Vec<&String> = guai.iter().flatten().collect();
+                o.insert("fatte".into(), json!(voci.len() - perche.len()));
+                o.insert("saltate".into(), json!(perche));
+                o.insert("voci".into(), harness_documenti::in_json(&voci, &guai));
+            }
+        }
+        return fuori;
+    }
     if !nova_harness::modifica::si_riscrive(&est) {
-        // PDF e Word: le proposte si guardano ancora nella finestra di
-        // prima, che sa disegnarle (quarta fase di harness.md).
+        // Un formato che NOVA non sa riscrivere: la proposta si vede, ma
+        // qui non si applica.
         o.insert("qui".into(), json!(false));
         return fuori;
     }
     o.insert("qui".into(), json!(true));
+    o.insert("tipo".into(), json!("testo"));
     match leggi_testo(f) {
         Err(e) => {
             o.insert("errore".into(), json!(e.to_string()));
@@ -177,6 +203,22 @@ fn racconta_proposta(dove: &Path, p: &Value) -> Value {
         }
     }
     fuori
+}
+
+/// I blocchi della sessione di una proposta, se la sessione c'e' ancora:
+/// servono a sapere dove sta un blocco di PDF quando la proposta non lo dice.
+fn blocchi_della_sessione(base: &Path, p: &Value) -> Option<Value> {
+    let sessione = p.get("sessione").and_then(Value::as_str)?;
+    if sessione.is_empty()
+        || !sessione
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+    {
+        return None;
+    }
+    let t = std::fs::read_to_string(base.join(format!("{sessione}.json"))).ok()?;
+    let s: Value = serde_json::from_str(t.trim_start_matches('\u{feff}')).ok()?;
+    s.get("blocchi").cloned()
 }
 
 /// Una riga nel diario della sessione, come `harness._annota` in Python.
@@ -234,19 +276,44 @@ fn rileggi_sessione(base: &Path, file: &str) {
         if !stesso(s.get("file").and_then(Value::as_str).unwrap_or(""), file) {
             continue;
         }
-        let Ok((testo, _)) = leggi_testo(Path::new(file)) else {
-            continue;
-        };
         let blocchi = match nova_harness::taglio_di(file) {
-            nova_harness::Taglio::Righe => nova_harness::per_righe(&testo),
-            nova_harness::Taglio::Paragrafi => nova_harness::per_paragrafi(&testo),
+            nova_harness::Taglio::Righe => match leggi_testo(Path::new(file)) {
+                Ok((testo, _)) => nova_harness::per_righe(&testo),
+                Err(_) => continue,
+            },
+            nova_harness::Taglio::Paragrafi => match leggi_testo(Path::new(file)) {
+                Ok((testo, _)) => nova_harness::per_paragrafi(&testo),
+                Err(_) => continue,
+            },
+            nova_harness::Taglio::Docx => match harness_documenti::blocchi_word(Path::new(file)) {
+                Ok(b) => b,
+                Err(_) => continue,
+            },
+            // Un PDF annotato ha lo stesso testo di prima, negli stessi
+            // posti: i blocchi valgono ancora.
             _ => continue,
         };
         let validi: Vec<String> = blocchi.iter().map(|b| b.id.clone()).collect();
         if let Some(o) = s.as_object_mut() {
+            // I blocchi di un Word, per il Python, non hanno righe: la
+            // chiave non c'e' proprio, e la sessione si scrive come lui.
+            let senza_righe = matches!(nova_harness::taglio_di(file), nova_harness::Taglio::Docx);
             o.insert(
                 "blocchi".into(),
-                Value::Array(blocchi.iter().map(nova_harness::in_json).collect()),
+                Value::Array(
+                    blocchi
+                        .iter()
+                        .map(|b| {
+                            let mut j = nova_harness::in_json(b);
+                            if senza_righe {
+                                if let Some(m) = j.as_object_mut() {
+                                    m.remove("righe");
+                                }
+                            }
+                            j
+                        })
+                        .collect(),
+                ),
             );
             let evidenziati: Vec<Value> = o
                 .get("evidenziati")
@@ -636,8 +703,9 @@ struct Applica;
 /// Un file da scrivere: dove, cosa, e la versione che si e' guardata.
 struct DaScrivere {
     file: PathBuf,
-    testo: String,
-    bom: bool,
+    contenuto: Contenuto,
+    /// Quante modifiche ci sono dentro (per un testo, una: il file).
+    quante: usize,
     proposta: PathBuf,
     sessione: String,
     radice: String,
@@ -655,11 +723,10 @@ fn prepara(b: &Path, voce: &Value) -> Result<DaScrivere> {
     if !f.is_file() {
         bail!("il file non c'e' piu': {}", f.display());
     }
-    if !nova_harness::modifica::si_riscrive(&nova_harness::estensione(&file)) {
-        bail!(
-            "dentro {} qui non si scrive: si applica dalla finestra di prima",
-            f.display()
-        );
+    let est = nova_harness::estensione(&f.to_string_lossy());
+    let formato = Formato::di(&est);
+    if formato.is_none() && !nova_harness::modifica::si_riscrive(&est) {
+        bail!("non so scrivere dentro un {est}");
     }
     // La versione che chi guarda aveva davanti: se il file e' cambiato
     // dopo, quel che ha deciso non vale piu' (D273).
@@ -673,6 +740,49 @@ fn prepara(b: &Path, voce: &Value) -> Result<DaScrivere> {
                 f.display()
             );
         }
+    }
+    let sessione = p
+        .get("sessione")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let radice = std::fs::read_to_string(b.join(format!("{sessione}.json")))
+        .ok()
+        .and_then(|t| serde_json::from_str::<Value>(t.trim_start_matches('\u{feff}')).ok())
+        .and_then(|s| s.get("radice").and_then(Value::as_str).map(str::to_string))
+        .unwrap_or_default();
+    if let Some(formato) = formato {
+        // Le voci scelte da chi guarda; senza scelta, tutte.
+        let tutte = harness_documenti::voci(&p, blocchi_della_sessione(b, &p).as_ref());
+        let scelte: Vec<harness_documenti::Voce> =
+            match voce.get("scelte").and_then(Value::as_array) {
+                None => tutte,
+                Some(n) => {
+                    let mut v = Vec::new();
+                    for x in n {
+                        let i = x
+                            .as_u64()
+                            .and_then(|i| usize::try_from(i).ok())
+                            .filter(|i| *i < tutte.len())
+                            .ok_or_else(|| {
+                                anyhow!("la proposta su {} non ha la voce {x}", f.display())
+                            })?;
+                        v.push(tutte[i].clone());
+                    }
+                    v
+                }
+            };
+        let f2 = f.clone();
+        let (contenuto, quante) = harness_documenti::applica(formato, &f2, &scelte)
+            .map_err(|e| anyhow!("{}: {e}", f.display()))?;
+        return Ok(DaScrivere {
+            file: f,
+            contenuto,
+            quante,
+            proposta: dove,
+            sessione,
+            radice,
+        });
     }
     let (originale, bom) = leggi_testo(&f)?;
     let testo = match voce.get("testo").and_then(Value::as_str) {
@@ -691,20 +801,15 @@ fn prepara(b: &Path, voce: &Value) -> Result<DaScrivere> {
             t
         }
     };
-    let sessione = p
-        .get("sessione")
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_string();
-    let radice = std::fs::read_to_string(b.join(format!("{sessione}.json")))
-        .ok()
-        .and_then(|t| serde_json::from_str::<Value>(t.trim_start_matches('\u{feff}')).ok())
-        .and_then(|s| s.get("radice").and_then(Value::as_str).map(str::to_string))
-        .unwrap_or_default();
+    let mut dati = Vec::with_capacity(testo.len() + 3);
+    if bom {
+        dati.extend_from_slice(b"\xEF\xBB\xBF");
+    }
+    dati.extend_from_slice(testo.as_bytes());
     Ok(DaScrivere {
         file: f,
-        testo,
-        bom,
+        contenuto: Contenuto::Byte(dati),
+        quante: 1,
         proposta: dove,
         sessione,
         radice,
@@ -847,12 +952,13 @@ impl Capability for Applica {
             })?;
         }
         for (i, d) in da_fare.iter().enumerate() {
-            let mut dati = Vec::with_capacity(d.testo.len() + 3);
-            if d.bom {
-                dati.extend_from_slice(b"\xEF\xBB\xBF");
-            }
-            dati.extend_from_slice(d.testo.as_bytes());
-            if let Err(e) = scrivi_intero(&d.file, &dati) {
+            let scritto = match &d.contenuto {
+                Contenuto::Byte(dati) => scrivi_intero(&d.file, dati).map_err(|e| e.to_string()),
+                Contenuto::CorpoWord(xml) => {
+                    nova_docx::riscrivi_parte(&d.file, "word/document.xml", xml).map(|_| ())
+                }
+            };
+            if let Err(e) = scritto {
                 rimetti(&da_fare[..=i]);
                 bail!(
                     "non riesco a scrivere {}: {e} — i file sono stati rimessi com'erano",
@@ -911,7 +1017,12 @@ impl Capability for Applica {
             let _ = std::fs::remove_file(&d.proposta);
             let f = d.file.to_string_lossy().to_string();
             rileggi_sessione(&b, &f);
-            annota_sessione(&b, &d.sessione, "applicata", json!({ "file": f }));
+            annota_sessione(
+                &b,
+                &d.sessione,
+                "applicata",
+                json!({ "file": f, "quante": d.quante }),
+            );
             let copia = copia_di(&d.file);
             crate::registro::annota(
                 "modificato un documento",
@@ -926,7 +1037,9 @@ impl Capability for Applica {
                 "documento",
                 "ok",
             );
-            file.push(json!({ "file": f, "modificato": modificato_il(&d.file) }));
+            file.push(
+                json!({ "file": f, "modificato": modificato_il(&d.file), "quante": d.quante }),
+            );
             copie.push(copia.to_string_lossy().to_string());
         }
         let o = esito.as_object_mut().expect("oggetto");
@@ -1021,9 +1134,33 @@ mod prove_locali {
         assert_eq!(r["proposto"], "fn a() {}\r\nfn c() {}\r\n");
         assert_eq!((r["piu"].as_u64(), r["meno"].as_u64()), (Some(1), Some(1)));
         assert_eq!(r["saltate"].as_array().map(Vec::len), Some(0));
-        let pdf = racconta_proposta(&d.join("proposta-y.json"), &json!({"file": "C:\\x.pdf"}));
-        assert_eq!(pdf["qui"], false);
+        assert_eq!(r["tipo"], "testo");
+        // Un PDF si guarda qui anche lui, a voci; il riquadro che la
+        // proposta non porta viene dalla sessione.
+        std::fs::write(
+            d.join("s1.json"),
+            r#"{"blocchi": [{"id": "p0b2", "riquadro": [1, 2, 3, 4]}]}"#,
+        )
+        .unwrap();
+        let pdf = racconta_proposta(
+            &d.join("proposta-y.json"),
+            &json!({"file": d.join("x.pdf"), "sessione": "s1", "modifiche": [
+                {"azione": "evidenzia", "blocco": "p0b2", "prima": "Titolo", "pagina": 1},
+                {"azione": "nota", "blocco": "p0b3", "testo": "", "prima": "", "pagina": 1}]}),
+        );
+        assert_eq!(
+            (pdf["qui"].clone(), pdf["tipo"].clone()),
+            (json!(true), json!("pdf"))
+        );
         assert!(pdf.get("proposto").is_none());
+        assert_eq!(pdf["voci"][0]["riquadro"], json!([1.0, 2.0, 3.0, 4.0]));
+        assert_eq!(pdf["fatte"], 1);
+        assert_eq!(
+            pdf["voci"][1]["guaio"],
+            "non so dove sta «p0b3» sulla pagina: riapri il documento e fai riproporre"
+        );
+        let altro = racconta_proposta(&d.join("proposta-z.json"), &json!({"file": "C:\\x.odt"}));
+        assert_eq!(altro["qui"], false);
         let _ = std::fs::remove_dir_all(&d);
     }
 

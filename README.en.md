@@ -485,10 +485,10 @@ left, the file tree when there is a project, and the conversation on the right
 
 | Format | How it opens |
 |---|---|
-| `.pdf` | the **real pages**, drawn as images, not the extracted text |
-| `.docx` | read-only, with the structure |
-| `.md` `.txt` | on a white sheet you can write on, with the usual tools |
-| `.html` | **rendered**, with Chromium: it's an artifact, you look at what it does |
+| `.pdf` | the **real pages**, drawn, with selectable text and the yellow notes |
+| `.docx` | paragraph by paragraph, and you can write: the rest of the file stays as it was |
+| `.md` `.txt` | in the editor, with the preview next to it |
+| `.html` | **rendered**: it's an artifact, you look at what it does |
 
 Asking «where does it talk about entropy» doesn't return a sentence: it
 returns a **position** — file and page — and the document scrolls onto it and
@@ -499,10 +499,10 @@ not «where is it in this file» but «which file is it in».
 ### Code
 
 Thirty-two extensions, from Python to Rust to Vue. Code opens on a dark
-background, with Pygments colours — five hundred languages, not the four we
-would have hand-written — and line numbers, because that's how you name an
-error: file and line. An `.html` shows the result, and the source is one click
-away: you change it, you save, and the page redraws.
+background, in the same editor as Visual Studio Code, with line numbers,
+because that's how you name an error: file and line. Below there is a real
+terminal. An `.html` shows the result, and the source is one click away: you
+change it, you save, and the page redraws.
 
 ### And NOVA writes inside, but not behind your back
 
@@ -758,9 +758,6 @@ nova/
   harness.py          documents and projects: open, search, point at
   harness_modifica.py propose changes, and apply them only on request
   harness_prova.py    the project's tests: apply only if it doesn't worsen
-  harness_finestra.py the window: document, tree, chat
-  evidenzia.py        code colours (Pygments) and line numbers
-  markdown_qt.py      faithful Markdown, there and back
   mcp_kb.py           the 32 tools exposed to an agentic brain
   kb_setup.py         wiring the memory: vault, engine, learning
   tools/

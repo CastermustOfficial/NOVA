@@ -46,8 +46,6 @@ NOMI = {
     "win32api": "pywin32",
     "pythoncom": "pywin32",
     "pywinctl": "pywinctl",
-    "pygments": "Pygments",
-    "PyQt6": "PyQt6",
     "faster_whisper": "faster-whisper",
     "sounddevice": "sounddevice",
     "send2trash": "send2trash",

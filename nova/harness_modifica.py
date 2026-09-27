@@ -112,10 +112,16 @@ def proponi(modifiche: list[dict], sessione: str = "",
             guai.append(f"modifica {n + 1}: dentro una tabella si sostituisce "
                         f"la riga, non se ne aggiungono")
             continue
-        pronte.append({"azione": azione, "blocco": blocco, "testo": testo,
-                       "prima": per_id[blocco]["testo"],
-                       "righe": per_id[blocco].get("righe"),
-                       "pagina": per_id[blocco].get("pagina")})
+        pronta = {"azione": azione, "blocco": blocco, "testo": testo,
+                  "prima": per_id[blocco]["testo"],
+                  "righe": per_id[blocco].get("righe"),
+                  "pagina": per_id[blocco].get("pagina")}
+        if est == ".pdf":
+            # Dove sta, dentro la proposta: chi la applica (il demone) non
+            # ha un lettore di PDF che conti i blocchi come questo, e senza
+            # riquadro non saprebbe dove mettere il segno.
+            pronta["riquadro"] = per_id[blocco].get("riquadro")
+        pronte.append(pronta)
     if guai:
         return {"ok": False, "motivo": "; ".join(guai)}
 
@@ -419,9 +425,20 @@ def _inizio(blocco: str) -> int | None:
 
 
 def _applica_docx(f: Path, modifiche: list[dict]) -> int:
+    """I numeri dei blocchi sono quelli del documento **com'era**.
+
+    **Qui c'era un errore.** Le modifiche si applicavano una dopo l'altra
+    contando i paragrafi ogni volta da capo: dopo un «aggiungi dopo p0»,
+    quello che era p2 diventava p3, e un «elimina p2» nella stessa proposta
+    toglieva il paragrafo sbagliato — in silenzio. L'ha trovato il banco
+    contro il demone, che lavora sugli indici di prima (D342). Adesso i
+    paragrafi si prendono tutti all'inizio, e ogni modifica tocca il suo.
+    """
     import docx
     d = docx.Document(str(f))
+    paragrafi = list(d.paragraphs)
     fatte = 0
+    togli = []
     for m in modifiche:
         b = m["blocco"]
         if b.startswith("t"):
@@ -429,25 +446,26 @@ def _applica_docx(f: Path, modifiche: list[dict]) -> int:
                 fatte += 1
             continue
         try:
-            i = int(b[1:])
-            par = d.paragraphs[i]
+            par = paragrafi[int(b[1:])]
         except (ValueError, IndexError):
             continue
         if m["azione"] == "sostituisci":
             _scrivi_paragrafo(par, m["testo"])
         elif m["azione"] == "elimina":
-            par._element.getparent().remove(par._element)
+            # In fondo: un paragrafo tolto adesso non potrebbe piu' fare da
+            # punto di riferimento per un'aggiunta che viene dopo.
+            togli.append(par)
         elif m["azione"] == "prima":
             nuovo = par.insert_paragraph_before(m["testo"])
             nuovo.style = par.style
         elif m["azione"] == "dopo":
-            dopo = d.paragraphs[i + 1] if i + 1 < len(d.paragraphs) else None
-            if dopo is not None:
-                nuovo = dopo.insert_paragraph_before(m["testo"])
-                nuovo.style = par.style
-            else:
-                d.add_paragraph(m["testo"], style=par.style)
+            nuovo = par.insert_paragraph_before(m["testo"])
+            nuovo.style = par.style
+            par._element.addnext(nuovo._element)
         fatte += 1
+    for par in togli:
+        if par._element.getparent() is not None:
+            par._element.getparent().remove(par._element)
     d.save(str(f))
     return fatte
 
@@ -501,7 +519,11 @@ def _applica_pdf(f: Path, modifiche: list[dict]) -> int:
         if riquadro is None:
             continue
         if m["azione"] == "evidenzia":
-            pagina.add_highlight_annot(riquadro)
+            # Firmata anche lei: chi apre il PDF deve sapere chi ha
+            # colorato, come per le note.
+            giallo = pagina.add_highlight_annot(riquadro)
+            giallo.set_info(title="NOVA")
+            giallo.update()
         elif m["azione"] == "nota":
             nota = pagina.add_text_annot(
                 fitz.Point(riquadro.x1 + 4, riquadro.y0), m["testo"])

@@ -81,6 +81,23 @@ svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6;stroke
 .barra-confronto button.primo{background:var(--brace);color:#160a06;border-color:transparent;font-weight:600}
 .barra-confronto .dx{margin-left:auto;display:flex;gap:6px}
 #confrontoEd{flex:1;min-height:0}
+/* --- una proposta su un PDF o un Word: voce per voce --- */
+#confrontoVoci{flex:1;min-height:0;overflow:auto;padding:14px 18px 40px;display:flex;flex-direction:column;gap:10px}
+.voce-doc{border:1px solid var(--linea-2);border-radius:10px;background:var(--fondo);padding:10px 12px;display:grid;
+  grid-template-columns:auto 1fr;gap:4px 10px;align-items:start}
+.voce-doc.spenta{opacity:.55}
+.voce-doc input{margin-top:3px;accent-color:var(--brace)}
+.voce-doc .cosa{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mezzo)}
+.voce-doc .cosa b{color:var(--inchiostro);font-weight:600}
+.voce-doc .cosa button{margin-left:auto;font-size:11.5px;padding:2px 8px;border-radius:6px;border:1px solid var(--linea-2);color:var(--mezzo)}
+.voce-doc .cosa button:hover{color:var(--inchiostro);background:var(--vetro-2)}
+.voce-doc .testi{grid-column:2;display:flex;flex-direction:column;gap:4px;font-size:13px;line-height:1.5;white-space:pre-wrap}
+.voce-doc .via{color:var(--pericolo);text-decoration:line-through;text-decoration-color:rgba(255,120,120,.5)}
+.voce-doc .arriva{color:var(--ascolto)}
+.voce-doc .intorno{color:var(--fioco)}
+.voce-doc .giallo{background:rgba(255,214,0,.22);border-radius:3px;padding:0 2px}
+.voce-doc .nota-voce{border-left:3px solid rgba(255,214,0,.7);padding:2px 8px;color:var(--inchiostro)}
+.voce-doc .guaio{grid-column:2;font-size:11.5px;color:var(--attenzione)}
 #confrontoRipiego{flex:1;min-height:0;background:var(--fondo);border:none;outline:none;resize:none;padding:10px 14px;
   font:13px/20px var(--mono);color:var(--inchiostro);white-space:pre;overflow:auto}
 
@@ -228,6 +245,9 @@ svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6;stroke
 .pagina-pdf .textLayer ::selection{background:rgba(232,115,74,.35)}
 .evid-pdf{position:absolute;background:rgba(232,115,74,.26);box-shadow:0 0 0 2px rgba(232,115,74,.28);border-radius:2px;
   pointer-events:none;mix-blend-mode:multiply}
+.evid-proposta{position:absolute;border:2px dashed rgba(232,115,74,.9);border-radius:3px;pointer-events:none}
+.evid-proposta.giallo{background:rgba(255,214,0,.25)}
+.nota-pdf{position:absolute;width:16px;height:16px;border-radius:3px;background:#f5d000;box-shadow:0 1px 3px rgba(0,0,0,.4);cursor:help}
 
 /* --- il Word: paragrafo per paragrafo --- */
 .word{flex:1;min-width:0;overflow:auto;background:#1a1816;padding:22px 24px 60px}
@@ -237,6 +257,7 @@ svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6;stroke
 .par-word{min-height:1.6em;margin:0 0 .55em;outline:none;border-radius:2px;white-space:pre-wrap}
 .par-word:focus{background:rgba(232,115,74,.07)}
 .par-word.cambiato{box-shadow:inset 3px 0 0 rgba(232,115,74,.6)}
+.par-word.indicato{background:rgba(232,115,74,.14);transition:background .6s}
 .par-word.h1{font-size:24px;font-weight:700;margin-top:.8em}
 .par-word.h2{font-size:19px;font-weight:700;margin-top:.7em}
 .par-word.h3{font-size:16px;font-weight:700}
@@ -408,6 +429,7 @@ body.lavora #btnFerma{display:flex}
           <div class="avviso" id="avvisoConfronto" hidden></div>
           <div id="confrontoEd"></div>
           <textarea id="confrontoRipiego" spellcheck="false" hidden></textarea>
+          <div id="confrontoVoci" hidden></div>
         </div>
         <div class="benvenuto" id="benvenuto">
           <div class="dentro">
@@ -1113,7 +1135,7 @@ async function disegnaPagina(s, n) {
   const vp = pagina.getViewport({ scale: s.scala });
   box.style.width = vp.width + 'px';
   box.style.height = vp.height + 'px';
-  for (const x of box.querySelectorAll('canvas,.textLayer,.evid-pdf')) x.remove();
+  for (const x of box.querySelectorAll('canvas,.textLayer,.evid-pdf,.evid-proposta,.nota-pdf')) x.remove();
   const dpr = window.devicePixelRatio || 1;
   const tela = document.createElement('canvas');
   tela.width = Math.floor(vp.width * dpr);
@@ -1134,6 +1156,19 @@ async function disegnaPagina(s, n) {
   try {
     await new pdfjs.TextLayer({ textContentSource: pagina.streamTextContent(), container: testo, viewport: vp }).render();
   } catch (e) { console.warn('testo della pagina', n, e); }
+  // Le note gialle: la tela disegna solo le annotazioni che portano il loro
+  // aspetto, e una nota non lo porta — ogni lettore la disegna a modo suo.
+  try {
+    for (const a of await pagina.getAnnotations()) {
+      if (a.subtype !== 'Text' || !Array.isArray(a.rect)) continue;
+      const [x0, y0] = vp.convertToViewportPoint(a.rect[0], a.rect[3]);
+      const d = document.createElement('div');
+      d.className = 'nota-pdf';
+      d.title = [a.titleObj?.str, a.contentsObj?.str].filter(Boolean).join(': ');
+      Object.assign(d.style, { left: x0 + 'px', top: y0 + 'px' });
+      box.appendChild(d);
+    }
+  } catch (e) { console.warn('note della pagina', n, e); }
   evidenziaPagina(s, n);
 }
 
@@ -1143,7 +1178,20 @@ async function disegnaPagina(s, n) {
 function evidenziaPagina(s, n) {
   const box = $('paginePdf').querySelector(`.pagina-pdf[data-n="${n}"]`);
   if (!box) return;
-  for (const x of box.querySelectorAll('.evid-pdf')) x.remove();
+  for (const x of box.querySelectorAll('.evid-pdf,.evid-proposta')) x.remove();
+  // Dove andrebbero i segni di una proposta che si sta guardando.
+  for (const v of s.segniProposti || []) {
+    if (v.pagina !== n || !Array.isArray(v.riquadro)) continue;
+    const [x0, y0, x1, y1] = v.riquadro;
+    const e = document.createElement('div');
+    e.className = 'evid-proposta' + (v.azione === 'evidenzia' ? ' giallo' : '');
+    e.title = v.azione === 'nota' ? T('Nota proposta: ') + v.testo : T('Evidenziazione proposta');
+    Object.assign(e.style, {
+      left: (x0 * s.scala) + 'px', top: (y0 * s.scala) + 'px',
+      width: ((x1 - x0) * s.scala) + 'px', height: ((y1 - y0) * s.scala) + 'px',
+    });
+    box.appendChild(e);
+  }
   const accesi = new Set(s.evidenziati || []);
   for (const b of s.blocchi || []) {
     if (b.pagina !== n || !accesi.has(b.id) || !Array.isArray(b.riquadro)) continue;
@@ -2062,6 +2110,14 @@ async function caricaProposte() {
   for (const s of stato.schede.filter(x => x.tipo === 'proposta')) {
     const p = proposte.find(x => stesso(x.file, s.file));
     if (!p) { await chiudiScheda(s); continue; }
+    if (aVoci(p) && (p.quando !== s.proposta.quando || p.modificato !== s.proposta.modificato)) {
+      // Una proposta a voci si rilegge anche quando cambia il documento:
+      // una voce puo' non applicarsi piu', e va spenta.
+      s.proposta = p;
+      creaModelliProposta(s);
+      if (s.percorso === stato.attiva) mostraConfronto(s);
+      continue;
+    }
     if (p.quando !== s.proposta.quando && !s.ritoccata) {
       s.proposta = p;
       creaModelliProposta(s);
@@ -2073,10 +2129,18 @@ async function caricaProposte() {
   aggiornaPiede();
 }
 
+/* Una proposta su un PDF o un Word non ha righe: ha voci, da scegliere. */
+const aVoci = p => p?.tipo === 'pdf' || p?.tipo === 'docx';
+
 function contaDi(p) {
   const c = document.createElement('span');
   c.className = 'conta';
-  if (!p.qui) { c.textContent = T('PDF/Word'); return c; }
+  if (!p.qui) { c.textContent = '—'; return c; }
+  if (aVoci(p)) {
+    const n = (p.voci || []).length;
+    c.textContent = n === 1 ? T('1 voce') : n + ' ' + T('voci');
+    return c;
+  }
   const piu = document.createElement('span'); piu.className = 'piu'; piu.textContent = '+' + (p.piu || 0);
   const meno = document.createElement('span'); meno.className = 'meno'; meno.textContent = ' −' + (p.meno || 0);
   c.append(piu, meno);
@@ -2121,7 +2185,7 @@ function disegnaModifiche() {
       d.appendChild(m);
     }
     const guaio = p.errore || (p.saltate?.length ? T('in parte non si applica più: il file è cambiato') : '')
-      || (!p.qui ? T('si guarda nella finestra di prima') : '');
+      || (!p.qui ? T('qui non si applica') : '');
     if (guaio) {
       const g = document.createElement('div');
       g.className = 'guaio';
@@ -2136,6 +2200,11 @@ function disegnaModifiche() {
 function creaModelliProposta(s) {
   const p = s.proposta;
   s.ritoccata = false;
+  if (aVoci(p)) {
+    // Scelte all'inizio: tutte quelle che si applicano ancora.
+    s.scelte = new Set((p.voci || []).filter(v => !v.guaio).map(v => v.n));
+    return;
+  }
   if (monaco) {
     const l = linguaDi(p.file);
     s.nomeLingua = l.nome;
@@ -2155,7 +2224,7 @@ async function apriConfronto(file) {
   let p = proposte.find(x => stesso(x.file, file));
   if (!p) { await caricaProposte(); p = proposte.find(x => stesso(x.file, file)); }
   if (!p) return null;
-  if (!p.qui) { messaggio(T('Questa proposta è su un PDF o un Word: si guarda nella finestra di prima.'), 7000); return null; }
+  if (!p.qui) { messaggio(T('Su questo tipo di file NOVA può proporre, ma qui non si applica.'), 7000); return null; }
   if (p.errore) { messaggio(p.errore, 9000); return null; }
   const chiaveScheda = 'proposta:' + p.file;
   let s = stato.schede.find(x => x.percorso === chiaveScheda);
@@ -2195,6 +2264,19 @@ function assicuraConfronto() {
 }
 
 function mostraConfronto(s) {
+  if (aVoci(s.proposta)) {
+    $('confrontoEd').hidden = true;
+    $('confrontoRipiego').hidden = true;
+    $('confrontoVoci').hidden = false;
+    const a = $('avvisoConfronto');
+    const guai = s.proposta.errore ? [s.proposta.errore] : (s.proposta.saltate || []);
+    a.hidden = !guai.length;
+    a.textContent = guai.length ? T('Non tutto si applica più: ') + guai.join(' · ') : '';
+    disegnaVoci(s);
+    disegnaBarraConfronto();
+    return;
+  }
+  $('confrontoVoci').hidden = true;
   const c = assicuraConfronto();
   if (c) {
     $('confrontoEd').hidden = false;
@@ -2216,14 +2298,88 @@ function mostraConfronto(s) {
   disegnaBarraConfronto();
 }
 
+/* Le voci di una proposta su un documento: cosa c'era, cosa diventa, e la
+   casella per sceglierla. Una voce che non si applica piu' — il paragrafo
+   e' cambiato da quando NOVA l'ha proposta — si vede, spenta, col perche'. */
+const NOMI_AZIONI = {
+  sostituisci: 'Sostituisce', elimina: 'Toglie', prima: 'Aggiunge prima di', dopo: 'Aggiunge dopo',
+  evidenzia: 'Evidenzia', nota: 'Nota su',
+};
+function disegnaVoci(s) {
+  const el = $('confrontoVoci');
+  el.innerHTML = '';
+  const riga = (classe, testo) => {
+    const d = document.createElement('div');
+    d.className = classe;
+    d.textContent = testo;
+    return d;
+  };
+  for (const v of s.proposta.voci || []) {
+    const c = document.createElement('div');
+    c.className = 'voce-doc' + (v.guaio ? ' spenta' : '');
+    const casella = document.createElement('input');
+    casella.type = 'checkbox';
+    casella.checked = s.scelte.has(v.n);
+    casella.disabled = !!v.guaio;
+    casella.onchange = () => {
+      if (casella.checked) s.scelte.add(v.n); else s.scelte.delete(v.n);
+      disegnaBarraConfronto();
+    };
+    const cosa = document.createElement('div');
+    cosa.className = 'cosa';
+    const b = document.createElement('b');
+    b.textContent = T(NOMI_AZIONI[v.azione] || v.azione);
+    const dove = document.createElement('span');
+    dove.textContent = v.pagina ? T('pagina') + ' ' + v.pagina : v.blocco;
+    const vedi = document.createElement('button');
+    vedi.textContent = T('Vedi nel documento');
+    vedi.onclick = () => vediVoce(s, v);
+    cosa.append(b, dove, vedi);
+    const testi = document.createElement('div');
+    testi.className = 'testi';
+    if (v.azione === 'sostituisci') testi.append(riga('via', v.prima), riga('arriva', v.testo));
+    else if (v.azione === 'elimina') testi.append(riga('via', v.prima));
+    else if (v.azione === 'prima') testi.append(riga('arriva', v.testo), riga('intorno', v.prima));
+    else if (v.azione === 'dopo') testi.append(riga('intorno', v.prima), riga('arriva', v.testo));
+    else if (v.azione === 'evidenzia') { const g = riga('', ''); const x = document.createElement('span'); x.className = 'giallo'; x.textContent = v.prima; g.appendChild(x); testi.append(g); }
+    else if (v.azione === 'nota') testi.append(riga('intorno', v.prima), riga('nota-voce', v.testo));
+    else testi.append(riga('', v.testo));
+    c.append(casella, cosa, testi);
+    if (v.guaio) c.appendChild(riga('guaio', v.guaio));
+    el.appendChild(c);
+  }
+}
+
+/* La voce nel documento vero: il PDF alla sua pagina, col riquadro dove
+   andrebbe il segno; il Word al suo paragrafo. */
+async function vediVoce(s, v) {
+  const d = await apriFile(s.file, { pagina: v.pagina || 0 });
+  if (!d) return;
+  if (d.tipo === 'pdf') {
+    d.segniProposti = (s.proposta.voci || []).filter(x => s.scelte.has(x.n) || x.n === v.n);
+    for (const n of new Set(d.segniProposti.map(x => x.pagina))) evidenziaPagina(d, n);
+  } else if (d.tipo === 'docx') {
+    const i = /^p(\d+)$/.exec(v.blocco)?.[1];
+    const par = i != null && $('word').querySelector(`.par-word[data-indice="${i}"]`);
+    if (par) {
+      par.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      par.classList.add('indicato');
+      setTimeout(() => par.classList.remove('indicato'), 1800);
+    }
+  }
+}
+
 function lasciaConfronto(s) {
-  if (!s || s.tipo !== 'proposta') return;
+  if (!s || s.tipo !== 'proposta' || aVoci(s.proposta)) return;
   if (confronto) s.vista = confronto.getModifiedEditor().saveViewState();
   else s.testo = $('confrontoRipiego').value;
 }
 
 function chiudiConfronto(s) {
   if (s.tipo !== 'proposta') return;
+  // I segni di prova sul PDF se ne vanno con la proposta.
+  const pdf = stato.schede.find(x => x.tipo === 'pdf' && stesso(x.percorso, s.file));
+  if (pdf?.segniProposti) { pdf.segniProposti = null; for (let n = 1; n <= (pdf.pagine || 0); n++) evidenziaPagina(pdf, n); }
   if (confronto && confronto.getModel()?.modified === s.modificato) confronto.setModel(null);
   s.originale?.dispose();
   s.modificato?.dispose();
@@ -2314,6 +2470,20 @@ function disegnaBarraConfronto() {
     m.title = s.proposta.motivo;
     b.appendChild(m);
   }
+  if (aVoci(s.proposta)) {
+    const dx = document.createElement('span');
+    dx.className = 'dx';
+    const n = s.scelte.size, tot = (s.proposta.voci || []).length;
+    dx.append(
+      bottone(T('Scarta'), () => scartaProposta(s.file)),
+      bottone(n === tot ? T('Accetta') : T('Accetta') + ` ${n}/${tot}`, () => accettaScheda(s),
+        { primo: true, spento: !n, titolo: s.proposta.tipo === 'pdf'
+          ? T('Mette nel PDF le evidenziazioni e le note scelte; la copia di prima resta accanto')
+          : T('Scrive nel Word le voci scelte; il resto del documento resta com’era, e la copia di prima accanto') }),
+    );
+    b.appendChild(dx);
+    return;
+  }
   if (confronto) {
     const tutti = pezzi();
     const nav = document.createElement('span');
@@ -2346,6 +2516,10 @@ function disegnaBarraConfronto() {
 
 async function accettaScheda(s, opzioni = {}) {
   if (!s || s.tipo !== 'proposta') return false;
+  if (aVoci(s.proposta)) {
+    if (!s.scelte.size) return false;
+    return applicaProposte([{ file: s.file, scelte: [...s.scelte].sort((a, b) => a - b), atteso: s.proposta.modificato ?? null }], opzioni);
+  }
   lasciaConfronto(s);
   return applicaProposte([{ file: s.file, testo: valoreProposta(s), atteso: s.proposta.modificato ?? null }], opzioni);
 }
@@ -2355,10 +2529,16 @@ async function accettaScheda(s, opzioni = {}) {
 function tutteLeProposte() {
   return proposte.filter(p => p.qui && !p.errore).map(p => {
     const s = stato.schede.find(x => x.tipo === 'proposta' && stesso(x.file, p.file));
+    if (aVoci(p)) {
+      // Aperta, vale quel che si e' scelto; chiusa, le voci che si
+      // applicano ancora.
+      const scelte = s ? [...s.scelte] : (p.voci || []).filter(v => !v.guaio).map(v => v.n);
+      return scelte.length ? { file: p.file, scelte: scelte.sort((a, b) => a - b), atteso: p.modificato ?? null } : null;
+    }
     if (s) lasciaConfronto(s);
     return s ? { file: p.file, testo: valoreProposta(s), atteso: p.modificato ?? null }
              : { file: p.file, atteso: p.modificato ?? null };
-  });
+  }).filter(Boolean);
 }
 
 let applicando = false;
@@ -2392,8 +2572,17 @@ async function applicaProposte(modifiche, { verifica = false } = {}) {
   for (const f of r.file || []) {
     const s = stato.schede.find(x => x.tipo === 'proposta' && stesso(x.file, f.file));
     if (s) await chiudiScheda(s);
-    const aperta = stato.schede.find(x => x.tipo === 'testo' && stesso(x.percorso, f.file));
-    if (aperta && !aperta.sporco) await ricarica(aperta);
+    const aperta = stato.schede.find(x => ['testo', 'pdf', 'docx'].includes(x.tipo) && stesso(x.percorso, f.file));
+    if (aperta?.tipo === 'testo' && !aperta.sporco) await ricarica(aperta);
+    else if (aperta?.tipo === 'pdf') {
+      aperta.segniProposti = null;
+      aperta.doc?.destroy?.(); aperta.doc = null;
+      await apriPdf(aperta);
+      if (aperta.percorso === stato.attiva) mostraScheda(aperta);
+    } else if (aperta?.tipo === 'docx' && !aperta.sporco) {
+      await apriWord(aperta);
+      if (aperta.percorso === stato.attiva) mostraScheda(aperta);
+    }
   }
   const n = r.applicate || 0;
   messaggio((n === 1 ? T('Applicata') : T('Applicate') + ` ${n}`) + (r.verdetto ? ' · ' + r.verdetto : '')

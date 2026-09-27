@@ -16,6 +16,8 @@
 //! banco confronta tutto il resto — le pagine, le intestazioni, i tagli, gli
 //! errori — e delle pagine le parole, senza gli spazi.
 
+pub mod annota;
+
 use std::path::{Path, PathBuf};
 
 /// Oltre questa soglia si taglia: un PDF di trecento pagine riempirebbe il

@@ -22,10 +22,11 @@ finto = Path(tempfile.mkdtemp(prefix="nova_harness_"))
 os.environ["APPDATA"] = str(finto)
 
 from nova import harness           # noqa: E402
-from nova import harness_finestra  # noqa: E402
 
-# Questa prova riguarda l'ancoraggio, non il vetro: la finestra non si apre.
-harness_finestra.apri_se_serve = lambda *a, **k: {
+# Questa prova riguarda l'ancoraggio, non il vetro: la finestra non si apre
+# (tranne in fondo, dove si prova proprio come si accende).
+_accendi = harness.apri_se_serve
+harness.apri_se_serve = lambda *a, **k: {
     "viva": False, "accesa_adesso": False, "motivo": "non in una prova"}
 
 passati = 0
@@ -255,6 +256,42 @@ harness.apri(str(biblioteca / "libro_due.md"))
 solo = harness.cerca_progetto("entropia")
 controlla("passando a un file, il progetto resta cercabile",
           solo.get("ok") and solo.get("cercati") == 3, str(solo.get("motivo")))
+
+print("\n9. la finestra e' quella del guscio, e si accende da se'")
+import json as _json                                   # noqa: E402
+import os as _os                                       # noqa: E402
+import stat as _stat                                   # noqa: E402
+from nova import main as _main                         # noqa: E402
+viva = harness._base() / "finestra.json"
+viva.parent.mkdir(parents=True, exist_ok=True)
+viva.write_text(_json.dumps({"pid": _os.getpid()}), encoding="utf-8")
+r = _accendi(attendi=2)
+controlla("se e' gia' viva non si riaccende",
+          r == {"viva": True, "accesa_adesso": False, "motivo": ""}, str(r))
+viva.write_text(_json.dumps({"pid": 4_000_000}), encoding="utf-8")
+_vero_guscio = _main.guscio
+_main.guscio = lambda: None
+r = _accendi(attendi=2)
+controlla("senza guscio lo dice, e dice cosa fare",
+          r.get("viva") is False and "install.ps1" in r.get("motivo", ""), str(r))
+if _os.name != "nt":
+    # Un guscio finto: scrive il suo pid dove lo scrive quello vero, e si
+    # ricorda con che cosa e' stato acceso.
+    finto_guscio = finto / "bin" / "nova-shell"
+    finto_guscio.parent.mkdir(parents=True, exist_ok=True)
+    finto_guscio.write_text(
+        "#!/bin/sh\n"
+        f"echo \"$@\" > '{finto / 'argomenti.txt'}'\n"
+        f"echo \"{{\\\"pid\\\": $$}}\" > '{viva}'\n"
+        "sleep 3\n", encoding="utf-8")
+    finto_guscio.chmod(finto_guscio.stat().st_mode | _stat.S_IEXEC)
+    _main.guscio = lambda: finto_guscio
+    r = _accendi(attendi=5)
+    controlla("il guscio si accende, e dice di essere vivo",
+              r == {"viva": True, "accesa_adesso": True, "motivo": ""}, str(r))
+    controlla("acceso con --harness, per mostrare subito il documento",
+              (finto / "argomenti.txt").read_text().strip() == "--harness")
+_main.guscio = _vero_guscio
 
 print(f"\n{passati}/{passati + len(falliti)} passati")
 for x in falliti:

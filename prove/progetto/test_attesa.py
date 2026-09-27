@@ -130,18 +130,7 @@ controlla("tutti gli stati passano da un posto solo",
           inspect.getsource(Agent).count("cb.on_status") == 2,
           "qualcuno scavalca il battito")
 
-print("\n5. anche la finestra dell'harness")
-finestra = (RADICE / "nova" / "harness_finestra.py").read_text(encoding="utf-8")
-controlla("l'harness accende il battito mentre NOVA pensa",
-          "Battito(self.sig_stato.emit)" in finestra)
-# Toccare una QLabel da un altro thread e' il modo classico di far cadere Qt
-# in un punto che non c'entra niente.
-controlla("e lo fa passare da un segnale, non dal thread",
-          "sig_stato = pyqtSignal(str)" in finestra)
-controlla("e lo spegne quando la risposta arriva",
-          "battito.fermati()" in finestra)
-
-print("\n6. e lo stato arriva davvero fuori dal processo")
+print("\n5. e lo stato arriva davvero fuori dal processo")
 # Fin qui NOVA sapeva dire «Apro il portale delle offerte, 12s» e lo diceva
 # a `lambda s: None`: in --ask, che e' come il guscio la interroga, lo stato
 # veniva calcolato a ogni passo e buttato. Chi guardava l'orb vedeva un

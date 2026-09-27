@@ -335,7 +335,14 @@ fn main() {
         // secondo orb, vuole quello che c'e' — e di solito perche' non lo
         // trova. Vedi `finestre::richiama`.
         .plugin(tauri_plugin_single_instance::init(
-            |app, _argomenti, _cartella| {
+            |app, argomenti, _cartella| {
+                // Acceso da NOVA per mostrare un documento: la finestra
+                // dell'harness, non l'orb.
+                if argomenti.iter().any(|a| a == "--harness") {
+                    tracing::info!("NOVA e' gia' aperta: apro l'harness");
+                    harness::apri_corrente(app);
+                    return;
+                }
                 tracing::info!("NOVA e' gia' aperta: richiamo l'orb invece di aprirne un altro");
                 finestre::richiama(app);
             },
@@ -418,7 +425,10 @@ fn main() {
             // L'orecchio sul demone: da qui in poi l'orb cambia colore da solo.
             bus::ascolta(app.handle().clone());
             // Quando NOVA apre un file nell'harness, la finestra e' questa.
-            harness::segui(app.handle().clone());
+            // Con `--harness` (lo accende lo strumento di NOVA), il
+            // documento appena aperto si mostra subito.
+            let subito = std::env::args().any(|a| a == "--harness");
+            harness::segui(app.handle().clone(), subito);
             Ok(())
         })
         .run(tauri::generate_context!())
