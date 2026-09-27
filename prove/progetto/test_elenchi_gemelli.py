@@ -316,6 +316,11 @@ ALTROVE = {
 #: dichiarazione, non una scappatoia: chi legge sa che quella riga non ha
 #: nessuno che la controlli dall'altra parte.
 SENZA_GEMELLO: dict[str, str] = {
+    # I nomi Python che il prompt usa e che nel demone si chiamano in un
+    # altro modo. Il Python non traduce niente: i nomi del prompt sono gia'
+    # i suoi (D347).
+    "NEL_DEMONE": "come si chiamano nel demone gli strumenti che il prompt nomina "
+                  "col nome Python; dalla parte Python non c'e' niente da tradurre",
     # Gli strumenti del server Python che Claude Code non deve vedere due
     # volte. Il Python non ha un demone da cui toglierli; la prova in
     # `caps_web.rs` controlla che ognuno ci sia davvero nel demone (D334).

@@ -11065,3 +11065,17 @@ chiede al demone il giro. Il banco ne fa due, con un prezzo che cambia in
 mezzo: le due meta' vedono lo stesso cambiamento e lasciano lo stesso avviso.
 Trentuno controlli, tutti verdi al primo giro — ho stampato le risposte per
 esser sicuro che non fossero verdi per niente.
+
+## 27 settembre 2026, all'alba — Il demone sa chi e'
+
+Scoperta scomoda: il demone mandava al modello il prompt della
+configurazione e basta. Niente regole operative, niente lingua. Col prompt
+di fabbrica funzionava per caso, perche' le regole ci stanno dentro; con uno
+scritto a mano il modello restava senza istruzioni.
+
+Adesso il prompt si compone come in `agent.py`, e poi si traduce: dove il
+Python dice `type_text`, il demone dice `sys_digita` (D347). Una prova
+controlla che ogni strumento nominato esista davvero. Ne mancano tre, che
+sono ancora solo Python: il fascicolo, il registro delle azioni fatte a nome
+della persona, ed eseguire codice.
+

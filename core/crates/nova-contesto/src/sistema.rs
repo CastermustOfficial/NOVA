@@ -128,10 +128,86 @@ pub fn clausola(codice: &str) -> String {
     )
 }
 
+// ------------------------------------------------------- nel demone
+
+/// I nomi degli strumenti come li chiama il Python, e come si chiamano nel
+/// demone (D347).
+///
+/// Le regole operative sono scritte coi nomi del Python — `type_text`,
+/// `kb_search` — e il modello che lavora nel demone ha `sys_digita` e
+/// `kb_cerca`: un prompt che insegna un nome che non c'e' e' un modello che
+/// chiama uno strumento inesistente, o che non chiama quello giusto. Il
+/// testo resta uno solo, e i nomi si traducono quando lo si manda.
+///
+/// Quelli uguali nelle due meta' (`ui_find`, `web_apri`, `harness_*`,
+/// `pianifica_crea`...) non stanno qui.
+pub const NEL_DEMONE: [(&str, &str); 10] = [
+    ("type_text", "sys_digita"),
+    ("press_keys", "sys_tasti"),
+    ("delega", "cervelli_delega"),
+    ("web_cerca", "rete_cerca"),
+    ("web_prendi", "rete_leggi"),
+    ("kb_search", "kb_cerca"),
+    ("kb_note", "kb_nota"),
+    ("kb_forget", "kb_dimentica"),
+    ("azioni_recenti", "registro_racconta"),
+    ("screenshot", "schermo_cattura"),
+];
+
+fn parte_di_un_nome(c: char) -> bool {
+    c.is_ascii_alphanumeric() || c == '_'
+}
+
+/// Il testo coi nomi del demone.
+///
+/// Fra accenti gravi un nome si traduce sempre; fuori, solo se ha una
+/// sottolineatura — «delega» e «screenshot» sono anche parole italiane, e
+/// «Delega SUBITO» deve restare una frase.
+pub fn per_il_demone(testo: &str) -> String {
+    let mut fuori = testo.to_string();
+    for (py, rs) in NEL_DEMONE {
+        fuori = fuori.replace(&format!("`{py}`"), &format!("`{rs}`"));
+        if !py.contains('_') {
+            continue;
+        }
+        let mut nuovo = String::with_capacity(fuori.len());
+        let mut resto = fuori.as_str();
+        while let Some(i) = resto.find(py) {
+            let prima = resto[..i].chars().next_back();
+            let dopo = resto[i + py.len()..].chars().next();
+            nuovo.push_str(&resto[..i]);
+            if prima.is_some_and(parte_di_un_nome) || dopo.is_some_and(parte_di_un_nome) {
+                nuovo.push_str(py);
+            } else {
+                nuovo.push_str(rs);
+            }
+            resto = &resto[i + py.len()..];
+        }
+        nuovo.push_str(resto);
+        fuori = nuovo;
+    }
+    fuori
+}
+
 #[cfg(test)]
 mod prove {
     use super::*;
     use crate::testi::PROMPT_PREDEFINITO;
+
+    #[test]
+    fn nel_demone_gli_strumenti_hanno_i_loro_nomi() {
+        let t = "usa `type_text` o `delega`. Delega SUBITO; una delega. kb_search, \
+                 prima; -> kb_note. `kb_search_x` e mykb_search restano. uno screenshot";
+        assert_eq!(
+            per_il_demone(t),
+            "usa `sys_digita` o `cervelli_delega`. Delega SUBITO; una delega. kb_cerca, \
+             prima; -> kb_nota. `kb_search_x` e mykb_search restano. uno screenshot"
+        );
+        let regole = per_il_demone(REGOLE_OPERATIVE);
+        for (py, _) in NEL_DEMONE {
+            assert!(!regole.contains(&format!("`{py}`")), "{py} e' rimasto");
+        }
+    }
 
     #[test]
     fn i_tre_segnaposto_spariscono() {

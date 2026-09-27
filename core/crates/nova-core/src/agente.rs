@@ -188,21 +188,46 @@ pub(crate) fn sistema(cfg: &Value) -> String {
         .unwrap_or("")
         .trim()
         .to_string();
-    if scritto.is_empty() {
-        return "Sei NOVA, l'assistente locale di chi ti sta parlando. \
-                (La configurazione non contiene un prompt di sistema: questo e' \
-                un ripiego, apri il pannello e scrivine uno.)"
-            .to_string();
-    }
+    // Come `config.py`: il vuoto qui **non** vince. Un prompt svuotato da un
+    // salvataggio andato male lascerebbe NOVA senza istruzioni.
+    let modello = if scritto.is_empty() {
+        nova_contesto::testi::PROMPT_PREDEFINITO.to_string()
+    } else {
+        scritto
+    };
     let t = nova_platform::orologio::adesso();
-    let adesso = nova_calendario::da_istante(t, nova_platform::fuso_secondi(t)).iso();
+    let adesso = come_python(&nova_calendario::da_istante(t, nova_platform::fuso_secondi(t)));
     let casa = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .unwrap_or_default();
     let utente = std::env::var("USER")
         .or_else(|_| std::env::var("USERNAME"))
         .unwrap_or_default();
-    crate::dalla_configurazione::con_segnaposto(&scritto, &utente, &adesso, &casa)
+    let lingua = cfg
+        .get("ui")
+        .and_then(|u| u.get("lingua"))
+        .and_then(Value::as_str)
+        .unwrap_or("it");
+    let intero = nova_contesto::sistema::componi(&modello, &utente, &adesso, &casa, lingua);
+    nova_contesto::sistema::per_il_demone(&intero)
+}
+
+/// `datetime.now().strftime("%A %d/%m/%Y %H:%M")`, cioe' cio' che mette
+/// `agent.py` al posto di `{now}`: il giorno in inglese, come lo scrive
+/// Python con la locale di base. Lo stesso prompt deve dire la stessa ora
+/// nello stesso modo, da qualunque meta' arrivi.
+fn come_python(d: &nova_calendario::DataOra) -> String {
+    const GIORNI: [&str; 7] =
+        ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    format!(
+        "{} {:02}/{:02}/{:04} {:02}:{:02}",
+        GIORNI[d.giorno_settimana() as usize % 7],
+        d.giorno,
+        d.mese,
+        d.anno,
+        d.ora,
+        d.minuto
+    )
 }
 
 /// Il turno, il demone lo sa fare **adesso**?
@@ -566,6 +591,54 @@ pub async fn chiedi_e_basta(gradini: &[crate::mondo::Gradino], richiesta: &str) 
 mod prove {
     use super::*;
 
+    #[test]
+    fn l_ora_si_scrive_come_la_scrive_python() {
+        // Il 27 settembre 2026 e' una domenica.
+        let d = nova_calendario::DataOra::nuova(2026, 9, 27, 7, 5, 0);
+        assert_eq!(come_python(&d), "Sunday 27/09/2026 07:05");
+    }
+
+    #[test]
+    fn un_prompt_vuoto_prende_quello_di_fabbrica_con_le_regole() {
+        let p = sistema(&serde_json::json!({"system_prompt": "  "}));
+        assert!(p.starts_with("Sei NOVA"));
+        assert!(p.contains(nova_contesto::testi::INIZIO_REGOLE));
+        assert!(!p.contains("{user}") && !p.contains("{now}") && !p.contains("{home}"));
+    }
+
+    /// Ogni strumento che il prompt nomina tra apici inversi il demone lo
+    /// deve avere. Un nome che non c'e' e' un'istruzione che il modello
+    /// segue e che finisce in «strumento sconosciuto».
+    #[test]
+    fn il_prompt_nomina_solo_strumenti_che_il_demone_ha() {
+        let server = crate::build(crate::config::Config::default()).unwrap();
+        let nomi: std::collections::BTreeSet<String> = server
+            .registry
+            .as_openai_tools()
+            .iter()
+            .filter_map(|t| t["function"]["name"].as_str().map(String::from))
+            .collect();
+        // Quelli che vivono ancora solo nella meta' Python (il modello che
+        // gira li' li ha, quello del demone no), piu' `automation_id`, che
+        // non e' uno strumento ma un argomento di `ui_find`. Quando uno di
+        // questi arriva nel demone, esce da qui.
+        const SOLO_PYTHON: [&str; 4] =
+            ["automation_id", "azione_registra", "fascicolo_leggi", "run_python"];
+        let p = sistema(&serde_json::json!({}));
+        let mut mancano = Vec::new();
+        for pezzo in p.split('`').skip(1).step_by(2) {
+            let parola = pezzo.split('(').next().unwrap_or("");
+            let e_un_nome = parola.contains('_')
+                && parola.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_');
+            if e_un_nome && !nomi.contains(parola) && !SOLO_PYTHON.contains(&parola) {
+                mancano.push(parola.to_string());
+            }
+        }
+        mancano.sort();
+        mancano.dedup();
+        assert!(mancano.is_empty(), "il prompt nomina strumenti che il demone non ha: {mancano:?}");
+    }
+
     #[tokio::test]
     async fn una_domanda_vuota_non_e_un_turno() {
         let server = crate::build(crate::config::Config::default()).unwrap();
@@ -618,16 +691,18 @@ mod prove {
     }
 
     #[test]
-    fn senza_prompt_di_sistema_si_dice_che_manca() {
-        let p = sistema(&json!({}));
-        assert!(p.contains("ripiego"), "{p}");
-        assert!(!p.is_empty());
-    }
-
-    #[test]
     fn e_con_il_prompt_i_segnaposto_spariscono() {
         let p = sistema(&json!({ "system_prompt": "Sei NOVA. Sono le {now}." }));
         assert!(!p.contains("{now}"), "{p}");
         assert!(p.starts_with("Sei NOVA."));
+        assert!(p.contains(nova_contesto::testi::INIZIO_REGOLE), "le regole si aggiungono anche a un prompt scritto a mano");
+    }
+
+    #[test]
+    fn la_lingua_dell_interfaccia_arriva_nel_prompt() {
+        let it = sistema(&json!({}));
+        let en = sistema(&json!({ "ui": { "lingua": "en" } }));
+        assert_ne!(it, en);
+        assert!(en.ends_with(&nova_contesto::sistema::clausola("en")));
     }
 }
