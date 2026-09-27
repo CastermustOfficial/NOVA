@@ -2466,7 +2466,7 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    | file | 14 | 13 |
    | memoria | 8 | 8 |
    | shell | 3 | 3 |
-   | sistema | 22 | 12 |
+   | sistema | 22 | 22 |
    | app / finestre | 6 | 6 |
    | web | 3 | 3 |
    | deleghe | 3 | 3 |
@@ -2524,6 +2524,13 @@ binari, `build.ps1` e il cancello della beta.
 > Le **riparazioni** sono un'altra cosa — NOVA che corregge il proprio
 > codice su un banco — e con NOVA in Rust vorrebbero dire compilare sul PC:
 > si decidono quando ci si arriva.
+>
+> **Deciso il 27 settembre, per le riparazioni:** la riparazione vera, col
+> compilatore (D349). Il banco e' lo stesso del Python — copia git, misura di
+> partenza, «nessuna verde diventa rossa», originali da parte — ma le prove
+> sono quelle di `cargo test` e applicare vuol dire anche ricostruire i
+> binari e sostituirli. Costa Rust sul PC (1-2 GB) e i sorgenti: chi non li
+> ha lo sa prima di aprire un banco.
 
 La regola che tiene insieme le sei mosse: **nessuna cancella niente**. Il
 Python resta finche' il Rust non fa la stessa cosa, e la prova che lo dice e'

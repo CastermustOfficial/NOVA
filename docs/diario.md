@@ -11097,3 +11097,19 @@ Una prova col demone vero: un fatto entra, un titolo di finestra no, una
 domanda corta non disturba il modello, un turno che ha guardato le finestre
 non lascia niente.
 
+## 27 settembre 2026, a mezzogiorno — NOVA si ripara col compilatore
+
+Gio ha scelto la strada piu' lunga per le riparazioni: quella vera, con
+Rust sul PC (D349). Il banco e' quello di sempre, ma adesso una misura vuol
+dire `cargo test`, e applicare vuol dire ricostruire i binari e metterli al
+posto di quelli che girano. Su Windows un programma acceso non si
+sovrascrive: si rinomina, e il nuovo prende il suo posto al prossimo avvio.
+
+Le misure durano minuti, quindi girano in sottofondo e il modello richiama.
+La prova lo fa su un NOVA finto, un crate con due prove: una modifica che
+rompe, una che non compila, una che ripara; applicata, il binario accanto
+dice «versione due»; annullata, torna quello di prima.
+
+E una sorpresa dal Python: il suo perimetro lasciava passare `.env`, perche'
+togliere «./» in testa con `lstrip` toglie anche il punto. Corretto tutt'e due.
+
