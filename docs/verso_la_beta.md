@@ -2430,7 +2430,9 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    fuori l'imparare **automatico** della memoria: i fatti durevoli li estrae
    ancora solo il Python. Ma NOVA in Rust adesso ci **scrive**, quando e'
    l'utente a dirglielo: sei capacita' `kb.*`, con il guardiano dei segreti
-   dentro la porta (D319).
+   dentro la porta (D319). ~~Resta fuori l'imparare automatico~~: dal 27
+   settembre lo fa anche il demone, con la domanda, la fila e i filtri di
+   `memory.py` confrontati da un banco (D348).
 3-bis. ~~**Il turno sa parlare solo in HTTP.**~~ Fatto. Meta' della scala di
    NOVA non sta dietro a un indirizzo (D219): `claude`, `gemini`, `glm` sono
    binari da lanciare, e a quelli il turno rispondeva «non so ancora farlo».
@@ -2470,10 +2472,9 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    | deleghe | 3 | 3 |
    | schermo | 1 | 1 |
    | harness | 9 | 9 |
-5. **Il prompt.** Le regole operative stanno in `nova/config.py` come testo, e
-   il turno del demone oggi manda solo cio' che l'utente ha in `config.json`.
-   E' l'ultima cosa da spostare, perche' finche' le due strade coesistono
-   devono dire la stessa cosa.
+5. ~~**Il prompt.**~~ Fatto (D347). Il demone compone il prompt come
+   `agent.py` — quello di fabbrica se il salvato e' vuoto, le regole
+   operative, la lingua — e ci mette i nomi dei suoi strumenti.
 6. **Quel che resta del Python** — l'installatore, il primo avvio, il
    pannello delle impostazioni — si sposta quando il resto e' fermo, non
    prima: e' la parte che si vede, e romperla si vede subito.
@@ -2501,13 +2502,13 @@ su 60 nel demone, 10 crate scritti e non ancora usati):
    `docs/harness.md`); gli strumenti `harness_*` del modello restano in
    Python finche' non arriva la loro fase; promemoria e attivita'
    pianificate, che vogliono prima l'Utilita' di pianificazione in Rust.
-3. **Le istruzioni operative nel prompt** (mossa 5).
+3. ~~**Le istruzioni operative nel prompt**~~ (mossa 5). Fatto (D347).
 4. **Installatore, primo avvio, pannello** (mossa 6).
 
    ~~**Le conferme nel demone.**~~ Fatto (D333), fuori elenco perche' non si
    poteva arrivare alla beta senza: un modello che agisce dal demone chiede
    come chiedeva il Python, e la chat ha il bottone per rispondere.
-5. **L'apprendimento automatico della memoria**, che oggi fa solo il Python.
+5. ~~**L'apprendimento automatico della memoria**~~. Fatto (D348).
 
 E le decisioni che non sono codice e spettano a Gio: **automazioni e
 riparazioni** — NOVA oggi si scrive strumenti in Python e si ripara provando

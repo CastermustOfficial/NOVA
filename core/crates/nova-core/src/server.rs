@@ -285,6 +285,7 @@ impl Server {
             }
         }
 
+        crate::imparare::nota(&cap.info().name);
         let esito = if richiesta.name.starts_with("azione.") {
             cap.call(richiesta.args.clone(), &self.ctx).await
         } else {

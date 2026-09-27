@@ -429,6 +429,20 @@ impl Memoria {
         Ok(esito)
     }
 
+    /// Gli slug da dire al modulo di memoria come «gia' noti», i piu'
+    /// pertinenti a questo scambio. Solo i nodi vivi, come `vault.all()`.
+    pub fn gia_noti(&self, cfg: &Value, scambio: &str) -> (String, String) {
+        let radice = percorso(cfg, &radice_progetto());
+        if radice.is_dir() {
+            self.prepara(&radice);
+        }
+        let dentro = self.dentro.lock().unwrap();
+        match dentro.as_ref() {
+            Some(a) => nova_nodi::imparare::gia_noti(a.deposito.attivi(), scambio),
+            None => nova_nodi::imparare::gia_noti(std::iter::empty(), scambio),
+        }
+    }
+
     /// Quanti nodi sono in memoria adesso. Zero anche quando non e' mai
     /// stata aperta: e' cio' che si vuole sapere davvero.
     pub fn quanti(&self) -> usize {
