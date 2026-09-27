@@ -39,7 +39,7 @@ def controlla(nome, condizione, dettaglio=""):
 print("\n1. i conteggi sono quelli veri")
 from nova.mcp_kb import STRUMENTI                              # noqa: E402
 import re as _re_d                                             # noqa: E402
-_re_dem = _re_d.compile(r'"(harness\.[a-z_]+)"')
+_re_dem = _re_d.compile(r'"((?:harness|pianifica|avvisi|automazione|automazioni|sys)\.[a-z_]+)"')
 for m in ["apps", "automazioni", "deleghe", "documenti", "files", "kb",
           "procedure", "riparazione", "schermo", "shell", "system", "tempo",
           "web"]:
@@ -159,9 +159,9 @@ controlla("e dice la differenza col controllo remoto",
 from nova.mcp_kb import STRUMENTI as _S                        # noqa: E402
 # Gli strumenti che sono passati al demone esistono lo stesso: li si legge
 # da dove sono dichiarati (D344).
-_demone = {n.replace(".", "_") for n in _re_dem.findall(
-    (RADICE / "core" / "crates" / "nova-core" / "src" / "caps_harness_strumenti.rs")
-    .read_text(encoding="utf-8"))}
+_demone = {n.replace(".", "_") for f in ("caps_harness_strumenti.rs", "caps_automazioni.rs", "caps_tempo.rs")
+           for n in _re_dem.findall((RADICE / "core" / "crates" / "nova-core" / "src" / f)
+                                    .read_text(encoding="utf-8"))}
 nomi = {s["name"] for s in _S} | _demone
 
 # Ogni caso mostra la catena di strumenti che lo rende vero: e' la

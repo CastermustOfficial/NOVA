@@ -91,6 +91,7 @@ fn attivita(tipo: &str, v: &serde_json::Value) -> serde_json::Value {
         a::Ripeti::Giorno => json!(["giorno", ""]),
         a::Ripeti::Settimana(g) => json!(["settimana", g]),
         a::Ripeti::Mese => json!(["mese", ""]),
+        a::Ripeti::OgniMinuti(n) => json!(["minuti", n.to_string()]),
     };
     match tipo {
         "xml" => {

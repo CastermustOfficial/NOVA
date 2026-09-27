@@ -44,12 +44,15 @@ use crate::capability::{Capability, Ctx};
 /// con il suo strumento e applica con il suo (`harness.*`), che passa dal
 /// suo cancello; un modello che potesse premere «accetta» si accetterebbe da
 /// solo le proposte che fa (D339, D344).
-pub const SOLO_PER_LA_PERSONA: [&str; 5] = [
+pub const SOLO_PER_LA_PERSONA: [&str; 6] = [
     "approvazione.rispondi",
     "finestra.applica",
     "finestra.proposte",
     "finestra.prova",
     "finestra.scarta",
+    // Il giro del calendario: lo fa partire l'attivita' di sistema, non un
+    // modello (D346).
+    "pianificazione.dovute",
 ];
 
 /// Il testo che il modello legge quando la persona ha detto di no. E' quello

@@ -273,8 +273,6 @@ class ClaudeCodeBrain:
                  "mcp__nova__web_cerca,mcp__nova__web_prendi,"
                  "mcp__nova__azione_registra,mcp__nova__azioni_recenti,"
                  "mcp__nova__fascicolo,mcp__nova__fascicolo_leggi,"
-                 "mcp__nova__pianifica_crea,mcp__nova__pianifica_elenco,"
-                 "mcp__nova__pianifica_elimina,mcp__nova__avvisi_recenti,"
                  # Gli equivalenti nativi di Claude Code. Restano permessi
                  # perche' sono buoni, ma il prompt insegna quelli di NOVA:
                  # questi non esistono per chi la fa ragionare con Gemini,
