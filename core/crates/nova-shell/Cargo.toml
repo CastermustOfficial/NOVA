@@ -16,6 +16,7 @@ base64 = "0.22"
 
 [dependencies]
 nova-proto = { path = "../nova-proto" }
+nova-configurazione = { path = "../nova-configurazione" }
 # Cercare i GGUF e dire se un cervello e' pronto sono cose gia' portate:
 # il guscio le chiede, non le rifa'.
 nova-modelli = { path = "../nova-modelli" }

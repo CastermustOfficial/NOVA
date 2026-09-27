@@ -2973,6 +2973,9 @@ version = "0.1.1"
 dependencies = [
  "anyhow",
  "clap",
+ "nova-cervelli",
+ "nova-configurazione",
+ "nova-modelli",
  "nova-proto",
  "serde_json",
  "tokio",
@@ -3238,6 +3241,7 @@ dependencies = [
  "base64 0.22.1",
  "flate2",
  "nova-cervelli",
+ "nova-configurazione",
  "nova-documenti",
  "nova-docx",
  "nova-guasti",

@@ -51,32 +51,8 @@ pub fn leggi() -> Result<Value> {
 /// che il pannello non conosce — e ce ne sono, perche' il resto del sistema ne
 /// usa piu' di quante ne mostri qui.
 pub fn applica(modifica: &Value) -> Result<Value> {
-    let mut attuale = leggi()?;
-    fondi(&mut attuale, modifica);
+    // La fusione e la scrittura atomica stanno in `nova-configurazione`: la
+    // usa anche `nova config imposta`, e due copie divergono.
     let p = percorso()?;
-    if let Some(dir) = p.parent() {
-        std::fs::create_dir_all(dir)?;
-    }
-    // Scrittura atomica: un pannello che si chiude a meta' salvataggio non
-    // deve poter lasciare sul disco un file JSON troncato.
-    let temporaneo = p.with_extension("json.nuovo");
-    std::fs::write(&temporaneo, serde_json::to_string_pretty(&attuale)? + "\n")?;
-    std::fs::rename(&temporaneo, &p)?;
-    Ok(attuale)
-}
-
-fn fondi(base: &mut Value, sopra: &Value) {
-    match (base, sopra) {
-        (Value::Object(b), Value::Object(s)) => {
-            for (k, v) in s {
-                match b.get_mut(k) {
-                    Some(esistente) => fondi(esistente, v),
-                    None => {
-                        b.insert(k.clone(), v.clone());
-                    }
-                }
-            }
-        }
-        (b, s) => *b = s.clone(),
-    }
+    nova_configurazione::dove::scrivi_fondendo_in(&p, modifica).map_err(|e| anyhow::anyhow!(e))
 }

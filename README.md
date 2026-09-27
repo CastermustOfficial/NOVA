@@ -20,7 +20,7 @@ tastiera, cosi' puoi continuare a lavorare mentre lei fa il suo pezzo.
 Questo documento e' lungo. Se sei arrivato qui per capire se NOVA ti serve,
 questa e' la parte corta.
 
-**Installi** (Windows, Python 3.10+, tre minuti):
+**Installi** (Windows, tre minuti; Python 3.10+ facoltativo):
 
 ```powershell
 git clone https://github.com/CastermustOfficial/NOVA.git
@@ -549,7 +549,7 @@ browser — e non conta come fallimento: contarla bloccherebbe ogni modifica.
 | | |
 |---|---|
 | Sistema | **Windows 10/11 a 64 bit** |
-| Python | 3.10 o superiore |
+| Python | facoltativo, 3.10 o superiore: serve alle automazioni che NOVA si scrive, alla voce e ai componenti scaricabili |
 | Disco | 3 GB per il minimo; 15-30 GB se scegli un modello locale |
 | GPU | facoltativa: serve solo per il modello locale |
 

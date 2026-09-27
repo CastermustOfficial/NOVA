@@ -8,7 +8,9 @@
     .\install.ps1 -Disinstalla     toglie avvio automatico e collegamento
 
   Non serve ne' Rust ne' Visual Studio: il core arriva gia' compilato.
-  Serve Python 3.10+.
+  Python (3.10+) non serve per installare ne' per far girare NOVA: serve
+  alle automazioni che NOVA si scrive da sola, e finche' ci sono, ai pezzi
+  che vivono ancora in Python (la voce, lo scaricamento dei componenti).
 #>
 param(
     [switch]$Silenzioso,
@@ -373,12 +375,18 @@ if ($wv) {
 # ------------------------------------------------------------------ Python
 Titolo "Python e dipendenze"
 
+# Python non e' piu' un prerequisito (D350): quello che l'installatore gli
+# chiedeva — la configurazione, i modelli, le CLI note — lo chiede a
+# `nova.exe`. Resta utile, e lo si dice: e' la lingua in cui NOVA scrive le
+# sue automazioni (D346), e ci vivono ancora la voce e lo scaricamento dei
+# componenti.
 $py = Trova-Python
 if (-not $py) {
-    Err "Serve Python 3.10 o piu' recente."
-    Err "Scaricalo da https://www.python.org/downloads/ e spunta «Add python.exe to PATH»."
-    exit 1
-}
+    Warn "Python non c'e': NOVA si installa e funziona lo stesso."
+    Warn "Senza, non potra' scriversi automazioni, e la voce e i componenti"
+    Warn "scaricabili restano spenti. Si aggiunge quando vuoi da"
+    Warn "https://www.python.org/downloads/ (spunta «Add python.exe to PATH»)."
+} else {
 Ok "Python $(& $py -c "import sys;print('%d.%d.%d'%sys.version_info[:3])")"
 
 # Si installano solo le dipendenze che mancano davvero: reinstallare tutto a
@@ -403,6 +411,7 @@ if ($mancanti -and $mancanti.Trim()) {
     }
 } else {
     Ok "Tutte le dipendenze sono gia' a posto."
+}
 }
 
 # --------------------------------------------------------------- core Rust
@@ -534,6 +543,15 @@ else {
     }
 }
 Ok "Core pronto in $BinDir"
+
+# `nova.exe` risponde da qui in poi a cio' che prima si chiedeva a Python:
+# configurazione, modelli, CLI note (D350). Senza demone: all'installazione
+# non c'e' ancora niente da accendere.
+$novaCli = Join-Path $BinDir 'nova.exe'
+function Nova-Locale {
+    if (-not (Test-Path $novaCli)) { return $null }
+    try { return (& $novaCli @args 2>$null | Out-String) } catch { return $null }
+}
 # ------------------------------------------------------------------- lingua
 Titolo "La lingua"
 
@@ -671,10 +689,11 @@ function Verdetto-Modello($famiglia, $vramGb) {
 }
 
 function Trova-Gguf {
-    if (-not $py) { return @() }
+    $grezzo = Nova-Locale modelli trova --secondi 20
+    if (-not $grezzo -and -not $py) { return @() }
     Push-Location $Root
     try {
-        $grezzo = & $py -m nova.modelli_trova --secondi 20 2>$null | Out-String
+        if (-not $grezzo) { $grezzo = & $py -m nova.modelli_trova --secondi 20 2>$null | Out-String }
         if (-not $grezzo.Trim()) { return @() }
         $r = $grezzo | ConvertFrom-Json
         if ($r.troncato) {
@@ -685,6 +704,8 @@ function Trova-Gguf {
 }
 
 function Verifica-Gguf($percorso) {
+    $grezzo = Nova-Locale modelli verifica "$percorso"
+    if ($grezzo) { try { return ($grezzo | ConvertFrom-Json) } catch { } }
     if (-not $py) { return $null }
     Push-Location $Root
     try { return (& $py -m nova.modelli_trova --verifica "$percorso" 2>$null | Out-String | ConvertFrom-Json) }
@@ -711,7 +732,15 @@ function Elenco-Cli {
     # predefinite perche' ha un modulo suo in NOVA - sessioni, permessi, MCP -
     # e non una voce in `brains.cli`.
     $note = @(@{ nome = 'claude'; binario = 'claude'; etichetta = 'Claude Code' })
-    if ($py) {
+    $lette = Nova-Locale cli-predefinite
+    if ($lette -and $lette.Trim()) {
+        try {
+            foreach ($v in ($lette | ConvertFrom-Json)) {
+                $note += @{ nome = $v.nome; binario = $v.binario; etichetta = $v.etichetta }
+            }
+        } catch { }
+    }
+    if ($note.Count -le 1 -and $py) {
         Push-Location $Root
         try {
             $grezzo = & $py -c "import json,sys; sys.path.insert(0,'.'); from nova.routing import cli_predefinite; print(json.dumps([{'nome':k,'binario':v.get('binary',k),'etichetta':v.get('etichetta',k)} for k,v in cli_predefinite().items()]))" 2>$null
@@ -1076,6 +1105,11 @@ Titolo "Come ti ascolta"
 
 function Procura-Componenti($nomi, $etichetta) {
     if ($Prova) { Info "[prova] scaricherei: $($nomi -join ', ')"; return $true }
+    if (-not $py) {
+        Warn "$etichetta - lo scaricamento dei componenti vuole ancora Python."
+        Warn "Si fa dopo dalle impostazioni, sezione Componenti, quando c'e'."
+        return $false
+    }
     # Cosa serve, dove si prende e come si mette a posto lo sa
     # nova/componenti.py - lo stesso posto che usa il pannello quando qualcuno
     # cambia idea dopo. Due copie della stessa procedura sono due procedure che
@@ -1193,7 +1227,7 @@ Titolo "Configurazione"
 
 Info "Rilevo runtime e modelli gia' presenti..."
 Push-Location $Root
-try { if ($Prova) { Info "[prova] rileverei modello e runtime e salverei la configurazione" } else { & $py -c "from nova.config import Config;from nova.setup_wizard import autoconfigure;c=Config.load();[print('  ',n) for n in autoconfigure(c,force=True)];c.save()" } }
+try { if ($Prova) { Info "[prova] rileverei modello e runtime e salverei la configurazione" } else { & $novaCli configura --forza } }
 finally { Pop-Location }
 
 # Le scelte fatte qui sopra vanno scritte DOPO autoconfigure, che altrimenti
@@ -1201,26 +1235,13 @@ finally { Pop-Location }
 if ($cfgPatch.Count -gt 0 -and $Prova) {
     Info "[prova] scriverei in configurazione: $($cfgPatch.Keys -join ', ')"
 } elseif ($cfgPatch.Count -gt 0) {
+    # Su stdin e non come argomento: PowerShell 5.1 mangia le virgolette
+    # dentro gli argomenti dei programmi nativi, e un JSON senza virgolette
+    # non e' piu' JSON.
     $json = ($cfgPatch | ConvertTo-Json -Depth 5 -Compress)
-    $tmpJson = Join-Path $env:TEMP 'nova_patch.json'
-    [IO.File]::WriteAllText($tmpJson, $json, (New-Object Text.UTF8Encoding($false)))
-    Push-Location $Root
-    try {
-        & $py -c @"
-import json, sys
-from nova.config import Config
-patch = json.load(open(r'$tmpJson', encoding='utf-8'))
-c = Config.load()
-for sezione, valori in patch.items():
-    obj = getattr(c, sezione, None)
-    if obj is None: continue
-    for k, v in valori.items():
-        if hasattr(obj, k): setattr(obj, k, v)
-c.save()
-print('  configurazione aggiornata:', ', '.join(patch))
-"@
-    } finally { Pop-Location }
-    Remove-Item $tmpJson -Force -ErrorAction SilentlyContinue
+    $json | & $novaCli config imposta --stdin
+    if ($LASTEXITCODE -eq 0) { Info "   configurazione aggiornata: $($cfgPatch.Keys -join ', ')" }
+    else { Warn "Non sono riuscito a scrivere le scelte nella configurazione." }
 }
 # ------------------------------------------------------------ avvio e scorciatoie
 Titolo "Avvio"
@@ -1328,17 +1349,19 @@ $esiti += [pscustomobject]@{ Cosa = 'il demone risponde'; Ok = $demoneVivo }
 
 # La prova vera: il cervello sa rispondere a una domanda?
 $cervelloOk = $false
-$cfgFinale = & $py -c "from nova.config import Config;c=Config.load();print(c.brains.active + '|' + (c.server.model_path or '') + '|' + (c.brains.api_key or ''))" 2>$null
-$parti = ($cfgFinale -split '\|')
-$attivo = $parti[0]
-$haCervello = ($attivo -eq 'locale' -and $parti[1]) -or ($attivo -eq 'api' -and $parti[2]) -or ($attivo -eq 'claude')
+function Chiave($k) { $v = Nova-Locale config leggi $k; if ($v) { $v.Trim() } else { '' } }
+$attivo = Chiave 'brains.active'
+if (-not $attivo) { $attivo = 'locale' }   # il predefinito di NOVA
+$haCervello = ($attivo -eq 'locale' -and (Chiave 'server.model_path')) -or
+              ($attivo -eq 'api' -and (Chiave 'brains.api_key')) -or ($attivo -eq 'claude')
 if ($haCervello) {
     Info "Provo a fargli una domanda (puo' volerci un minuto: carica il modello)..."
-    Push-Location $Root
+    # Il turno lo fa il demone, come lo fara' dopo: provarlo con Python
+    # vorrebbe dire provare un'altra strada da quella che si usera'.
     try {
-        $risposta = & $py -m nova --ask "Rispondi solo con la parola: pronto" 2>$null | Out-String
+        $risposta = & $cli chiedi --accendi "Rispondi solo con la parola: pronto" 2>$null | Out-String
         $cervelloOk = ($risposta -match '(?i)pronto')
-    } catch { $cervelloOk = $false } finally { Pop-Location }
+    } catch { $cervelloOk = $false }
 } 
 $esiti += [pscustomobject]@{ Cosa = 'il cervello risponde'; Ok = $cervelloOk }
 
@@ -1360,7 +1383,7 @@ if ($tuttoOk) {
             Warn "imposta una chiave API o un modello dalle impostazioni."
         } else {
             Warn "Il cervello e' configurato ma non ha risposto. Prova a mano con:"
-            Warn "  python -m nova --ask \"ciao\""
+            Warn "  $cli chiedi ciao"
             Warn "cosi' vedi l'errore per esteso."
         }
     }

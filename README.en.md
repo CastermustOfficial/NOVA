@@ -29,7 +29,7 @@ mouse and keyboard, so you can keep working while it does its part.
 This document is long. If you came here to work out whether NOVA is for you,
 this is the short part.
 
-**You install it** (Windows, Python 3.10+, three minutes):
+**You install it** (Windows, three minutes; Python 3.10+ optional):
 
 ```powershell
 git clone https://github.com/CastermustOfficial/NOVA.git
@@ -560,7 +560,7 @@ every change.
 | | |
 |---|---|
 | System | **Windows 10/11, 64 bit** |
-| Python | 3.10 or newer |
+| Python | optional, 3.10 or newer: needed for the automations NOVA writes for itself, voice and downloadable components |
 | Disk | 3 GB for the minimum; 15-30 GB if you choose a local model |
 | GPU | optional: only needed for the local model |
 

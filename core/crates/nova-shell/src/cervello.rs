@@ -279,19 +279,9 @@ pub fn eseguibile_python() -> String {
 /// piani sopra. Si risale dall'eseguibile invece di fidarsi della cartella
 /// corrente, che dipende da come e' stato lanciato.
 pub fn radice_progetto() -> std::path::PathBuf {
-    if let Ok(p) = std::env::var("NOVA_HOME") {
-        return std::path::PathBuf::from(p);
-    }
-    let mut d = std::env::current_exe().unwrap_or_default();
-    for _ in 0..6 {
-        if !d.pop() {
-            break;
-        }
-        if d.join("nova").join("__main__.py").exists() || d.join("run_nova.pyw").exists() {
-            return d;
-        }
-    }
-    std::env::current_dir().unwrap_or_default()
+    // La regola sta in `nova-configurazione`: la usa anche `nova configura`,
+    // e la cartella del progetto deve essere la stessa per tutti e due.
+    nova_configurazione::dove::radice_progetto()
 }
 
 /// Taglia il filo del discorso, da tutte e due le parti.
