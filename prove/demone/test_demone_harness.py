@@ -12,7 +12,10 @@ che ha le sue prove:
 3. applicata col testo ritoccato da chi guarda, il file cambia, la copia
    `.prima` c'e', la proposta se ne va e la sessione ha i blocchi nuovi;
 4. buttata, se ne va senza toccare il file;
-5. sono della persona: un modello non le vede e non le puo' chiamare.
+5. sono della persona: un modello non le vede e non le puo' chiamare;
+6. su un Word e su un PDF il demone scrive **come il Python** — le stesse
+   modifiche applicate dalle due parti a due copie dello stesso file danno
+   lo stesso documento — e una voce che non vale piu' si ferma (D342).
 
 Esce 2 — «qui non si puo' provare» — se il demone non e' costruito.
 """
@@ -176,6 +179,139 @@ try:
                   not any(n.startswith("harness_") for n in elenco), str(sorted(elenco))[:200])
         r = c.request("tools/call", {"name": "harness_applica", "arguments": {"modifiche": []}})
         controlla("e non le puo' chiamare", bool(r.get("isError")), str(r)[:200])
+
+        print("\n7. un Word, dal demone come dal Python")
+        import shutil
+        import docx as pydocx
+        doc = pydocx.Document()
+        doc.add_heading("Contratto", level=1)
+        doc.add_paragraph("Il canone e' di 500 euro.")
+        doc.add_paragraph("Da togliere.")
+        doc.add_paragraph("Firma")
+        t = doc.add_table(rows=2, cols=2)
+        t.cell(0, 0).text, t.cell(0, 1).text = "voce", "importo"
+        t.cell(1, 0).text, t.cell(1, 1).text = "canone", "500"
+        word_a = progetto / "contratto.docx"
+        doc.save(str(word_a))
+        word_b = Path(casa) / "gemello.docx"
+        shutil.copy2(word_a, word_b)
+        modifiche_word = [
+            {"azione": "sostituisci", "blocco": "p1", "testo": "Il canone e' di 550 euro."},
+            {"azione": "dopo", "blocco": "p0", "testo": "Tra le parti."},
+            {"azione": "prima", "blocco": "p3", "testo": "Luogo e data."},
+            {"azione": "elimina", "blocco": "p2"},
+            {"azione": "sostituisci", "blocco": "t0r1", "testo": "canone | 550"},
+        ]
+
+        def com_e(f):
+            d = pydocx.Document(str(f))
+            return ([(x.text, x.style.name) for x in d.paragraphs],
+                    [[c.text for c in r.cells] for tb in d.tables for r in tb.rows])
+
+        assert harness.apri(str(word_b)).get("ok")
+        assert harness_modifica.proponi(modifiche_word).get("ok")
+        py = harness_modifica.applica()
+        controlla("il Python applica", py.get("ok"), str(py)[:200])
+        aperta_w = harness.apri(str(word_a), radice=str(progetto))
+        assert harness_modifica.proponi(modifiche_word, motivo="contratto").get("ok")
+        p = next((x for x in c.call("harness.proposte")["proposte"] if x["file"].endswith("contratto.docx")), {})
+        controlla("la proposta si guarda qui, a voci",
+                  p.get("qui") is True and p.get("tipo") == "docx" and len(p.get("voci", [])) == 5
+                  and not p.get("saltate"), str(p)[:300])
+        r = c.call("harness.applica", {"modifiche": [{"file": p.get("file", ""), "atteso": p.get("modificato")}]})
+        controlla("il demone applica", r.get("ok") is True and r["file"][0]["quante"] == 5, str(r)[:300])
+        # Gli indici sono quelli del documento com'era: «elimina p2» toglie
+        # «Da togliere» anche se prima, nella stessa proposta, si e' aggiunto
+        # un paragrafo sopra.
+        atteso = ([("Contratto", "Heading 1"), ("Tra le parti.", "Heading 1"),
+                   ("Il canone e' di 550 euro.", "Normal"), ("Luogo e data.", "Normal"),
+                   ("Firma", "Normal")],
+                  [["voce", "importo"], ["canone", "550"]])
+        controlla("il documento e' quello chiesto", com_e(word_a) == atteso, str(com_e(word_a)))
+        controlla("e lo stesso del Python", com_e(word_a) == com_e(word_b),
+                  f"\n     rust {com_e(word_a)}\n     py   {com_e(word_b)}")
+        controlla("la copia di prima sta accanto", (progetto / "contratto.docx.prima").is_file())
+        stato = json.loads((nova_dir / "harness" / f"{aperta_w['sessione']}.json").read_text(encoding="utf-8"))
+        controlla("e la sessione ha i blocchi nuovi, gli stessi del Python",
+                  stato["blocchi"] == harness._leggi_documento(word_a),
+                  f"\n     rust {stato['blocchi']}\n     py   {harness._leggi_documento(word_a)}")
+
+        print("\n8. una voce che non vale piu' si ferma, le altre si scelgono")
+        harness.apri(str(word_a), radice=str(progetto))
+        assert harness_modifica.proponi([
+            {"azione": "sostituisci", "blocco": "p2", "testo": "Il canone e' di 600 euro."},
+            {"azione": "sostituisci", "blocco": "p0", "testo": "Contratto di locazione"},
+        ]).get("ok")
+        d = pydocx.Document(str(word_a))
+        d.paragraphs[2].runs[0].text = "Il canone e' di 580 euro."
+        d.save(str(word_a))
+        p = next((x for x in c.call("harness.proposte")["proposte"] if x["file"].endswith("contratto.docx")), {})
+        voci = p.get("voci", [])
+        controlla("la voce sul paragrafo cambiato e' spenta, col perche'",
+                  len(voci) == 2 and "un'altra cosa" in (voci[0].get("guaio") or "") and voci[1].get("guaio") is None,
+                  str(voci)[:300])
+        try:
+            c.call("harness.applica", {"modifiche": [{"file": p["file"]}]})
+            controlla("applicarla tutta non scrive niente", False, "ha scritto")
+        except Exception as e:                                  # noqa: BLE001
+            controlla("applicarla tutta non scrive niente",
+                      "non si applica piu' per intero" in str(e)
+                      and com_e(word_a)[0][2][0] == "Il canone e' di 580 euro.", str(e)[:200])
+        r = c.call("harness.applica", {"modifiche": [{"file": p["file"], "scelte": [1]}]})
+        controlla("scelta solo quella buona, passa solo quella",
+                  r.get("ok") and com_e(word_a)[0][0][0] == "Contratto di locazione"
+                  and com_e(word_a)[0][2][0] == "Il canone e' di 580 euro.", str(com_e(word_a))[:200])
+
+        print("\n9. un PDF, annotato dal demone come dal Python")
+        import fitz
+        pdf = fitz.open()
+        pag = pdf.new_page(width=595, height=842)
+        pag.insert_text((72, 100), "Articolo 1. Il canone.", fontsize=12)
+        pag.insert_text((72, 300), "Articolo 2. La durata.", fontsize=12)
+        pag2 = pdf.new_page(width=595, height=842)
+        pag2.insert_text((72, 150), "Allegato ruotato.", fontsize=12)
+        pag2.set_rotation(90)
+        pdf_a = progetto / "contratto.pdf"
+        pdf.save(str(pdf_a))
+        pdf.close()
+        pdf_b = Path(casa) / "gemello.pdf"
+        shutil.copy2(pdf_a, pdf_b)
+        segni = [
+            {"azione": "evidenzia", "blocco": "p0b0"},
+            {"azione": "nota", "blocco": "p0b1", "testo": "Durata: perché tre anni?"},
+            {"azione": "evidenzia", "blocco": "p1b0"},
+        ]
+
+        def annotazioni(f):
+            d = fitz.open(str(f))
+            # Dove sta il giallo sono i quattro angoli (`vertices`), non il
+            # rettangolo dell'annotazione: PyMuPDF lo allarga di qualche
+            # punto per sicurezza, e chi legge colora gli angoli.
+            fuori = [(n, a.type[1],
+                      [round(c) for v in (a.vertices or []) for c in v] if a.type[1] == "Highlight"
+                      else [round(x) for x in a.rect],
+                      a.info.get("content", ""), a.info.get("title", ""))
+                     for n, pg in enumerate(d) for a in pg.annots()]
+            d.close()
+            return fuori
+
+        assert harness.apri(str(pdf_b)).get("ok")
+        assert harness_modifica.proponi(segni).get("ok")
+        py = harness_modifica.applica()
+        controlla("il Python annota", py.get("ok"), str(py)[:200])
+        prima = pdf_a.read_bytes()
+        harness.apri(str(pdf_a), radice=str(progetto))
+        assert harness_modifica.proponi(segni).get("ok")
+        p = next((x for x in c.call("harness.proposte")["proposte"] if x["file"].endswith("contratto.pdf")), {})
+        controlla("la proposta porta dove stanno i blocchi",
+                  p.get("tipo") == "pdf" and all(v.get("riquadro") for v in p.get("voci", [])), str(p)[:300])
+        r = c.call("harness.applica", {"modifiche": [{"file": p.get("file", ""), "atteso": p.get("modificato")}]})
+        controlla("il demone annota", r.get("ok") is True and r["file"][0]["quante"] == 3, str(r)[:300])
+        controlla("le stesse annotazioni del Python, negli stessi punti",
+                  annotazioni(pdf_a) == annotazioni(pdf_b),
+                  f"\n     rust {annotazioni(pdf_a)}\n     py   {annotazioni(pdf_b)}")
+        controlla("scritte in coda: il file di prima e' intatto dentro quello nuovo",
+                  pdf_a.read_bytes().startswith(prima))
 
 finally:
     processo.terminate()

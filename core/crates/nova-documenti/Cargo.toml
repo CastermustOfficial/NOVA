@@ -13,6 +13,9 @@ description = "Leggere il contenuto di un PDF, di un Word, di un foglio di calco
 # che per compilarsi chiede libclang su Windows e' un demone che non si
 # compila.
 pdf-extract = "0.12"
+# Per scrivere nel PDF: le annotazioni dell'harness (`annota`). E' la stessa
+# versione che porta gia' `pdf-extract`, che lo usa per leggere.
+lopdf = "0.42"
 nova-docx = { path = "../nova-docx" }
 nova-fogli = { path = "../nova-fogli" }
 nova-pitone = { path = "../nova-pitone" }

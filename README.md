@@ -474,10 +474,10 @@ conversazione** del resto di NOVA, non una seconda.
 
 | Formato | Come si apre |
 |---|---|
-| `.pdf` | le **pagine vere**, disegnate come immagini, non il testo estratto |
-| `.docx` | in lettura, con la struttura |
-| `.md` `.txt` | su un foglio bianco che si scrive, con i ferri del mestiere |
-| `.html` | **reso**, con Chromium: e' un artifact, si guarda per quello che fa |
+| `.pdf` | le **pagine vere**, disegnate, col testo selezionabile e le note gialle |
+| `.docx` | paragrafo per paragrafo, e si scrive: il resto del file resta com'era |
+| `.md` `.txt` | nell'editor, con l'anteprima accanto |
+| `.html` | **reso**: e' un artifact, si guarda per quello che fa |
 
 Chiedere «dove si parla di entropia» non torna una frase: torna una
 **posizione** — file e pagina — e il documento ci scende sopra e la evidenzia.
@@ -488,10 +488,10 @@ questo file» ma «in quale file sta».
 ### Codice
 
 Trentadue estensioni, dal Python al Rust al Vue. Il codice si apre su fondo
-scuro, con i colori di Pygments — cinquecento linguaggi, non i quattro che
-avremmo scritto a mano — e i numeri di riga, perche' un errore si dice cosi':
-file e riga. Un `.html` mostra il risultato, e il sorgente e' a un click:
-si cambia, si salva, e la pagina si ridisegna.
+scuro, nello stesso editor di Visual Studio Code, con i numeri di riga,
+perche' un errore si dice cosi': file e riga. Sotto c'e' un terminale vero.
+Un `.html` mostra il risultato, e il sorgente e' a un click: si cambia, si
+salva, e la pagina si ridisegna.
 
 ### E NOVA scrive dentro, ma non di nascosto
 
@@ -748,9 +748,6 @@ nova/
   harness.py          documenti e progetti: aprire, cercare, indicare
   harness_modifica.py proporre modifiche, e applicarle solo su richiesta
   harness_prova.py    i test del progetto: si applica se non peggiora
-  harness_finestra.py la finestra: documento, albero, chat
-  evidenzia.py        i colori del codice (Pygments) e i numeri di riga
-  markdown_qt.py      Markdown fedele in andata e ritorno
   mcp_kb.py           i 32 strumenti esposti a un cervello agentico
   kb_setup.py         regia della memoria: vault, motore, apprendimento
   tools/

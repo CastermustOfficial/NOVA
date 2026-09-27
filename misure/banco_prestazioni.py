@@ -65,7 +65,6 @@ def avvio_a_freddo() -> None:
         ("import nova", "import nova"),
         ("+ config", "import nova; from nova.config import Config; Config.load()"),
         ("+ tutti i tool", "import nova; import nova.tools"),
-        ("+ PyQt6", "import nova; from PyQt6 import QtWidgets"),
     ]
     for nome, codice in prove:
         tempi = []

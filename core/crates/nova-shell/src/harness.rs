@@ -7,13 +7,13 @@
 //!
 //! **Come NOVA apre un file qui.** Lo strumento `harness_apri` (oggi in
 //! Python) scrive la sessione su disco e il puntatore `corrente.json`, e poi
-//! controlla con `finestra.json` se una finestra dell'harness e' gia' viva;
-//! se non lo e', accende quella vecchia in Qt. Il guscio si presenta come
-//! **la** finestra dell'harness: scrive il suo pid in `finestra.json` e segue
-//! il puntatore. Cosi' lo strumento non cambia di una riga, e la finestra che
-//! si apre e' questa (D337). Dalla quarta fase anche per PDF, Word e HTML
-//! (D341); alla finestra di prima restano solo le **proposte** su un PDF o
-//! un Word, che qui non si applicano ancora.
+//! controlla con `finestra.json` se una finestra dell'harness e' gia' viva.
+//! Il guscio si presenta come **la** finestra dell'harness: scrive il suo
+//! pid in `finestra.json` e segue il puntatore. Cosi' lo strumento non
+//! cambia di una riga, e la finestra che si apre e' questa (D337). Dalla
+//! quarta fase anche per PDF, Word e HTML (D341), e anche le proposte su un
+//! PDF o un Word si guardano e si applicano qui (D342): la finestra di prima,
+//! in Qt, non si accende piu'.
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -94,9 +94,32 @@ pub fn apri(app: &AppHandle, apertura: Value) {
 
 // ------------------------------------------------ seguire NOVA
 
+/// Apre nella finestra il documento del puntatore, adesso.
+///
+/// E' quel che chiede `--harness`: lo strumento di NOVA accende il guscio
+/// perche' ha appena aperto un documento, e aspettare il puntatore
+/// *successivo* vorrebbe dire non mostrarlo mai.
+pub fn apri_corrente(app: &AppHandle) {
+    let sessione = base()
+        .ok()
+        .and_then(|b| sessione_corrente(&b).and_then(|id| leggi_sessione(&b, &id)));
+    match sessione {
+        Some(s) => apri(app, s),
+        None => {
+            if let Err(e) = mostra(app) {
+                tracing::warn!(errore = %e, "la finestra dell'harness non si apre");
+            }
+        }
+    }
+}
+
 /// Il guscio si dichiara finestra dell'harness, e comincia a seguire il
-/// puntatore che scrive lo strumento.
-pub fn segui(app: AppHandle) {
+/// puntatore che scrive lo strumento. Con `subito`, il documento del
+/// puntatore si apre gia' adesso (vedi [`apri_corrente`]).
+pub fn segui(app: AppHandle, subito: bool) {
+    if subito {
+        apri_corrente(&app);
+    }
     tauri::async_runtime::spawn(async move {
         let Ok(base) = base() else {
             tracing::warn!("non so dove sta l'harness: non seguiro' NOVA");
@@ -108,29 +131,22 @@ pub fn segui(app: AppHandle) {
         let mut vista = sessione_corrente(&base);
         let mut proposte = proposte_su_disco(&base);
         loop {
-            // A ogni giro, non solo all'avvio: se la finestra di prima si e'
-            // chiusa, nel file resta il suo pid morto, e lo strumento la
-            // riaccenderebbe per un file che si apre qui.
-            if let Err(e) = segna_viva(&base, figlio_vivo()) {
+            // A ogni giro (vedi `segna_viva`).
+            if let Err(e) = segna_viva(&base) {
                 tracing::debug!(errore = %e, "non riesco a dichiarare la finestra dell'harness");
             }
             tokio::time::sleep(OGNI).await;
-            // Una proposta di NOVA si guarda qui, come confronto da accettare
-            // a pezzi. Quelle su un PDF o un Word le sa disegnare solo la
-            // finestra di prima, fino alla quarta fase.
+            // Una proposta di NOVA si guarda qui: come confronto da accettare
+            // a pezzi se e' su un testo, voce per voce se e' su un PDF o un
+            // Word.
             let ora_proposte = proposte_su_disco(&base);
             if ora_proposte != proposte {
                 for file in nuove(&proposte, &ora_proposte) {
-                    if nova_harness::modifica::si_riscrive(&nova_harness::estensione(&file)) {
-                        tracing::info!(file = %file, "una proposta di NOVA da guardare");
-                        apri(
-                            &app,
-                            json!({ "file": file, "proposta": true, "da": "nova" }),
-                        );
-                    } else {
-                        tracing::info!(file = %file, "una proposta per la finestra di prima");
-                        finestra_di_prima();
-                    }
+                    tracing::info!(file = %file, "una proposta di NOVA da guardare");
+                    apri(
+                        &app,
+                        json!({ "file": file, "proposta": true, "da": "nova" }),
+                    );
                 }
                 // Anche quando se ne vanno: applicate o buttate da NOVA, la
                 // finestra deve smettere di mostrarle.
@@ -191,55 +207,18 @@ fn nuove(prima: &Proposte, ora: &Proposte) -> Vec<String> {
         .collect()
 }
 
-/// La finestra di prima, se l'ha accesa il guscio.
-static FIGLIO: Mutex<Option<std::process::Child>> = Mutex::new(None);
-
-/// Il pid della finestra di prima, se l'ha accesa il guscio ed e' ancora viva.
-fn figlio_vivo() -> Option<u32> {
-    let mut f = FIGLIO.lock().ok()?;
-    match f.as_mut().map(|c| c.try_wait()) {
-        Some(Ok(None)) => f.as_ref().map(std::process::Child::id),
-        _ => {
-            *f = None;
-            None
-        }
-    }
-}
-
-/// Accende la finestra di prima, se non c'e' gia'. Segue il puntatore da
-/// se', come ha sempre fatto: non serve dirle cosa aprire.
-fn finestra_di_prima() {
-    if figlio_vivo().is_some() {
-        return;
-    }
-    let figlio = crate::processo::comando(&crate::cervello::eseguibile_python())
-        .args(["-m", "nova", "--harness"])
-        .current_dir(crate::cervello::radice_progetto())
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .spawn();
-    match figlio {
-        Ok(c) => {
-            if let Ok(mut f) = FIGLIO.lock() {
-                *f = Some(c);
-            }
-        }
-        Err(e) => tracing::warn!(errore = %e, "la finestra di prima non parte"),
-    }
-}
-
-/// Scrive in `finestra.json` che la finestra dell'harness c'e': il guscio,
-/// o la finestra di prima che il guscio ha acceso e che e' ancora viva —
-/// quella scrive il suo pid appena parte, e va lasciato.
-fn segna_viva(base: &Path, figlio: Option<u32>) -> std::io::Result<()> {
+/// Scrive in `finestra.json` che la finestra dell'harness c'e', ed e' il
+/// guscio. A ogni giro, non solo all'avvio: se qualcuno ci ha scritto sopra
+/// un altro pid — un NOVA vecchio che ha acceso la sua finestra — il posto
+/// si riprende, e i file si aprono qui.
+fn segna_viva(base: &Path) -> std::io::Result<()> {
     let f = base.join("finestra.json");
     let mio = std::process::id();
     let gia = std::fs::read_to_string(&f)
         .ok()
         .and_then(|t| serde_json::from_str::<Value>(&t).ok())
         .and_then(|v| v.get("pid").and_then(Value::as_u64));
-    if gia == Some(u64::from(mio)) || (gia.is_some() && gia == figlio.map(u64::from)) {
+    if gia == Some(u64::from(mio)) {
         return Ok(());
     }
     std::fs::create_dir_all(base)?;
@@ -633,16 +612,12 @@ mod prove {
             serde_json::from_str::<Value>(&t).unwrap()["pid"].as_u64()
         };
         let mio = Some(u64::from(std::process::id()));
-        segna_viva(&d, None).unwrap();
+        segna_viva(&d).unwrap();
         assert_eq!(pid(&d), mio);
-        // Il pid della finestra di prima, morta: si riprende il posto.
+        // Un altro pid, di una finestra di prima: si riprende il posto.
         std::fs::write(d.join("finestra.json"), r#"{"pid": 4000000}"#).unwrap();
-        segna_viva(&d, None).unwrap();
+        segna_viva(&d).unwrap();
         assert_eq!(pid(&d), mio);
-        // Quella accesa dal guscio e ancora viva: si lascia.
-        std::fs::write(d.join("finestra.json"), r#"{"pid": 4000000}"#).unwrap();
-        segna_viva(&d, Some(4_000_000)).unwrap();
-        assert_eq!(pid(&d), Some(4_000_000));
         let _ = std::fs::remove_dir_all(&d);
     }
 

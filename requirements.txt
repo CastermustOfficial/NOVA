@@ -1,5 +1,6 @@
 # --- nucleo (obbligatorie) ---
-PyQt6>=6.6
+# PyQt6 non c'e' piu': l'ultima finestra Python era quella dell'harness, e
+# adesso l'harness e' nel guscio (D342).
 requests>=2.31
 
 # --- consigliate (migliorano i tool, l'app funziona anche senza) ---
@@ -48,10 +49,3 @@ numpy>=1.24
 # Solo se si vuole trascrivere senza far uscire l'audio dal PC:
 # stt_engine: "faster-whisper" nella configurazione.
 # faster-whisper>=1.0
-# Per vedere un artifact reso invece del suo sorgente. Pesa (Chromium),
-# ma senza, QTextBrowser disegnerebbe una pagina moderna sbagliata
-# invece di disegnarla approssimata: l'harness allora mostra il codice.
-PyQt6-WebEngine>=6.6
-# I colori del codice nell'harness. Cinquecento linguaggi invece dei
-# quattro che avremmo scritto a mano - e sbagliato su tutti gli altri.
-Pygments>=2.15

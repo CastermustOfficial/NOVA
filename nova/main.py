@@ -338,8 +338,6 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--no-server", action="store_true",
                     help="non avviare llama-server (usa un server gia' attivo)")
     ap.add_argument("--config", action="store_true", help="stampa il percorso di configurazione")
-    ap.add_argument("--harness", action="store_true",
-                    help="apre la finestra dell'harness e la tiene aggiornata")
     ap.add_argument("--pianificate", action="store_true",
                     help="esegue le automazioni pianificate che sono dovute")
     ap.add_argument("--list-tools", action="store_true", help="elenca i tool disponibili")
@@ -391,13 +389,6 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         print(racconta(righe=righe))
         return 0
-
-    if args.harness:
-        # Prima di tutto il resto: non serve ne' la configurazione ne' un
-        # cervello, questa finestra legge un file e disegna.
-        from .harness_finestra import avvia, segna_viva
-        segna_viva()
-        return avvia()
 
     if args.pianificate:
         # Il giro che chiama l'attivita' pianificata del sistema. Non passa da

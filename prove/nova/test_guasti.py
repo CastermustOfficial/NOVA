@@ -142,12 +142,9 @@ righe_prima = [r.strip() for r in prima_della_rete.splitlines()[1:]
                if r.strip() and not r.strip().startswith("#")]
 controlla("main() stende la rete quasi per prima",
           righe_prima in ([], ["_console_in_italiano()"]), str(righe_prima))
-# La finestra dell'harness e' l'unica interfaccia Python che resta accesa a
-# lungo: e' li' che un guasto si puo' dire invece che solo scrivere. Prima
-# stava nella finestra di chat PyQt, che non c'e' piu'.
-finestra = (RADICE / "nova" / "harness_finestra.py").read_text(encoding="utf-8")
-controlla("e l'unica finestra che resta accesa la ristende con un avviso",
-          "riscrivi=True" in finestra and "QMessageBox" in finestra)
+# Di finestre Python accese a lungo non ce ne sono piu': l'ultima era
+# quella dell'harness, in Qt, e l'harness adesso e' nel guscio (D342). Un
+# guasto lo dice chi ha una finestra, cioe' il guscio.
 
 print("\n6. il nome della classe non torna nei messaggi per l'utente")
 # Questa e' la guardia che serve fra sei mesi: e' facile riscrivere

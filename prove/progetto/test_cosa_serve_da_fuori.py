@@ -61,7 +61,6 @@ DA_FUORI = {
     "mss": "catturare lo schermo.",
     "sounddevice": "sentire il microfono. Senza, NOVA legge e scrive ma non ascolta.",
     "faster-whisper": "trascrivere in casa, senza mandare l'audio fuori.",
-    "PyQt6-WebEngine": "vedere una pagina resa nell'harness. Senza, resta il sorgente.",
     "Claude Code": "il cervello agentico. Senza, restano il locale e le API.",
     "Edge": "guidare una pagina web. Senza, la ricerca funziona lo stesso.",
     "Chrome": "guidare una pagina web. Senza, la ricerca funziona lo stesso.",
@@ -128,7 +127,7 @@ def messaggi_di_assenza() -> list[tuple[str, int, str]]:
 
     Si guardano **tutti** i testi, non solo quelli che si sollevano: alcune
     di queste cose non fanno fallire niente, lo dicono e basta — «senza
-    PyQt6-WebEngine resta il sorgente» e' scritto, non lanciato. Guardare
+    sounddevice NOVA non ascolta» e' scritto, non lanciato. Guardare
     solo i `raise` vuol dire non vedere proprio i messaggi piu' gentili.
 
     E un messaggio interpolato si rimette **insieme** prima di leggerlo. Un

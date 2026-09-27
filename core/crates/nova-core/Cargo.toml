@@ -56,6 +56,8 @@ nova-cdp = { path = "../nova-cdp" }
 nova-documenti = { path = "../nova-documenti" }
 # Le proposte dell'harness: come diventa il testo, come si prova (D339).
 nova-harness = { path = "../nova-harness" }
+# Le proposte sui Word: la modifica chirurgica di `word/document.xml`.
+nova-docx = { path = "../nova-docx" }
 tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -72,3 +74,8 @@ features = [
     "Win32_Foundation",
     "Win32_Security_Cryptography",
 ]
+
+[dev-dependencies]
+# Per fabbricare i Word delle prove (`harness_documenti`): la stessa versione
+# di `nova-docx`.
+zip = { version = "2", default-features = false, features = ["deflate"] }

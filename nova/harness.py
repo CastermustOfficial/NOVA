@@ -341,7 +341,6 @@ def apri(percorso: str, profilo: str = "studio", radice: str = "",
     # perde la meta' che si guarda, e va detto con il motivo, non con un
     # booleano che nasconde uno schermo vuoto.
     try:
-        from .harness_finestra import apri_se_serve
         finestra = apri_se_serve()
     except Exception as e:
         finestra = {"viva": False, "accesa_adesso": False,
@@ -351,6 +350,80 @@ def apri(percorso: str, profilo: str = "studio", radice: str = "",
             "blocchi": len(blocchi), "pagine": len(pagine) or None,
             "caratteri": sum(len(b["testo"]) for b in blocchi),
             "finestra": finestra}
+
+
+# ------------------------------------------------------------ la finestra
+
+def gia_aperta() -> bool:
+    """C'e' gia' una finestra viva? Il pid si scrive, e si verifica."""
+    try:
+        d = json.loads((_base() / "finestra.json").read_text(encoding="utf-8"))
+        pid = int(d.get("pid") or 0)
+    except Exception:                                          # noqa: BLE001
+        return False
+    if not pid:
+        return False
+    try:
+        if os.name == "nt":
+            import subprocess
+            r = subprocess.run(["tasklist", "/fi", f"PID eq {pid}", "/nh"],
+                               capture_output=True, text=True, timeout=10)
+            return str(pid) in (r.stdout or "")
+        os.kill(pid, 0)
+        return True
+    except Exception:                                          # noqa: BLE001
+        return False
+
+
+def apri_se_serve(attendi: float = 12.0) -> dict:
+    """Accende la finestra se non c'e', e **verifica** che sia viva.
+
+    La finestra e' quella del guscio (`nova-shell`): segue il puntatore
+    `corrente.json` e scrive il suo pid in `finestra.json`. Se il guscio non
+    e' acceso lo si accende con `--harness`, che gli dice di aprire subito
+    il documento del puntatore invece di aspettare il prossimo. La finestra
+    di prima, in Qt, non c'e' piu' (D342).
+
+    Non torna un True dopo aver lanciato: lanciare non e' accendere, e la
+    differenza fra le due cose e' uno schermo vuoto con scritto «fatto».
+    """
+    import subprocess
+    if gia_aperta():
+        return {"viva": True, "accesa_adesso": False, "motivo": ""}
+    from .main import guscio
+    exe = guscio()
+    if exe is None:
+        return {"viva": False, "accesa_adesso": False,
+                "motivo": ("non trovo la finestra di NOVA (nova-shell): dovrebbe "
+                           "stare in bin\\ se hai installato con install.ps1. "
+                           "Il documento e' aperto lo stesso, e la ricerca "
+                           "funziona lo stesso")}
+    try:
+        (_base() / "finestra.json").unlink(missing_ok=True)
+    except Exception:                                          # noqa: BLE001
+        pass
+    try:
+        from .processi import SENZA_FINESTRA
+        figlio = subprocess.Popen([str(exe), "--harness"], cwd=str(exe.parent.parent),
+                                  creationflags=SENZA_FINESTRA)
+    except Exception as e:                                     # noqa: BLE001
+        return {"viva": False, "accesa_adesso": False, "motivo": spiega(e)}
+    scadenza = time.time() + attendi
+    while time.time() < scadenza:
+        if gia_aperta():
+            return {"viva": True, "accesa_adesso": True, "motivo": ""}
+        if figlio.poll() is not None and not gia_aperta():
+            # Il guscio c'era gia': il secondo si e' fatto da parte dopo
+            # aver passato la parola al primo, che apre lui. Si aspetta che
+            # lo dica.
+            if figlio.returncode == 0:
+                time.sleep(0.25)
+                continue
+            return {"viva": False, "accesa_adesso": False,
+                    "motivo": f"e' uscita subito (codice {figlio.returncode})"}
+        time.sleep(0.25)
+    return {"viva": False, "accesa_adesso": False,
+            "motivo": f"non ha dato segno di vita entro {attendi:.0f}s"}
 
 
 def _stato(sessione: str = "") -> dict | None:

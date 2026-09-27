@@ -386,7 +386,7 @@ Ok "Python $(& $py -c "import sys;print('%d.%d.%d'%sys.version_info[:3])")"
 Info "Controllo le dipendenze..."
 $mancanti = & $py -c @"
 import importlib.util, sys
-moduli = {'PyQt6':'PyQt6','requests':'requests','psutil':'psutil','pywinctl':'pywinctl',
+moduli = {'requests':'requests','psutil':'psutil','pywinctl':'pywinctl',
           'keyboard':'keyboard','send2trash':'send2trash','pycaw':'pycaw','comtypes':'comtypes',
           'sounddevice':'sounddevice'}
 print(' '.join(p for m,p in moduli.items() if importlib.util.find_spec(m) is None))

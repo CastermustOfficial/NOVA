@@ -41,8 +41,7 @@ from nova import harness                      # noqa: E402
 from nova import harness_modifica as mod      # noqa: E402
 
 # La finestra non si apre: qui si prova il testo, non il vetro.
-import nova.harness_finestra as hf            # noqa: E402
-hf.apri_se_serve = lambda *a, **k: {"viva": False, "accesa_adesso": False}
+harness.apri_se_serve = lambda *a, **k: {"viva": False, "accesa_adesso": False}
 
 lavoro = Path(tempfile.mkdtemp(prefix="nova_doc_"))
 
@@ -182,6 +181,24 @@ try:
                            "testo": "x"}])
     controlla("dentro una tabella non si aggiungono righe alla cieca",
               dentro.get("ok") is False, str(dentro))
+
+    # I numeri sono quelli del documento com'era: un'aggiunta in testa non
+    # sposta il paragrafo che la stessa proposta toglie (D342).
+    d = docx.Document()
+    for t in ("uno", "due", "tre", "quattro"):
+        d.add_paragraph(t)
+    indici = lavoro / "indici.docx"
+    d.save(str(indici))
+    harness.apri(str(indici))
+    mod.proponi([{"blocco": "p0", "azione": "dopo", "testo": "uno e mezzo"},
+                 {"blocco": "p2", "azione": "elimina"},
+                 {"blocco": "p3", "azione": "prima", "testo": "tre e mezzo"},
+                 {"blocco": "p1", "azione": "sostituisci", "testo": "DUE"}])
+    e = mod.applica()
+    testi = [x.text for x in docx.Document(str(indici)).paragraphs]
+    controlla("ogni modifica tocca il paragrafo che indicava",
+              e.get("ok") and testi == ["uno", "uno e mezzo", "DUE", "tre e mezzo", "quattro"],
+              str(testi))
 except ImportError:
     print("  (python-docx non c'e': salto)")
 

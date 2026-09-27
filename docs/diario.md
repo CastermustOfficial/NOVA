@@ -10975,3 +10975,28 @@ la pagina perde la selezione. Adesso l'harness se la tiene.
 I file arrivano alla finestra per indirizzo, da un protocollo del guscio che
 serve solo dentro le cartelle aperte: cosi' un HTML trova da se' il suo
 foglio di stile, e la prova lo controlla col colore del titolo.
+
+## 27 settembre 2026, sera — L'harness, quarta fase finita: la finestra Qt se ne va
+
+Le proposte di NOVA su un Word o su un PDF adesso si guardano nell'harness
+e le scrive il demone (D342). Non c'e' un testo da confrontare riga per
+riga, quindi si guardano a voci: questo paragrafo diventa quest'altro, qui
+va una nota gialla, questo pezzo di pagina si evidenzia. Ogni voce ha la sua
+casella, e «Vedi nel documento» apre il PDF alla pagina col riquadro dove
+andrebbe il segno.
+
+Il banco ha fatto le stesse modifiche dalle due parti, il Python e il
+demone, su due copie dello stesso file. Sul PDF i segni sono finiti negli
+stessi punti, anche su una pagina ruotata. Sul Word i due documenti erano
+diversi, e aveva torto il Python: contava i paragrafi ogni volta da capo, e
+dopo un paragrafo aggiunto in testa «togli il terzo» toglieva quello
+sbagliato. Corretto anche li', con una prova.
+
+Poi la finestra Qt: non serviva piu', e se n'e' andata, con i colori del
+codice e il Markdown in Qt che usava solo lei. Quando NOVA apre un documento
+e il guscio e' spento, lo accende lei. Tre pacchetti in meno da installare,
+e uno di questi era un Chromium intero.
+
+A meta' lavoro il disco del cantiere si e' riempito, e `git stash pop` si e'
+fermato a meta'. Il lavoro c'era tutto: l'ho confrontato con lo stash prima
+di buttarlo.

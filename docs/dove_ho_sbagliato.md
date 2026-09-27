@@ -1195,3 +1195,14 @@ file nuovi ancora fuori dall'indice — e per lei non esistevano. Cosi' un
 percorso di prova con dentro il nome di una persona e' arrivato fino alla CI,
 che l'ha fermato. La regola adesso: le prove del progetto si fanno girare
 **dopo** aver messo i file nell'indice, come li vedra' chi li riceve.
+
+## Il Python applicava le modifiche a un Word contando da capo
+
+`_applica_docx` prendeva il paragrafo `pN` dal documento **mentre lo stava
+cambiando**: dopo un «aggiungi dopo p0», quello che era `p2` diventava `p3`,
+e un «togli p2» nella stessa proposta toglieva il paragrafo accanto. Senza
+errori e senza avvisi: il documento usciva con un paragrafo in meno, quello
+sbagliato. Le prove del Python facevano una modifica per volta, e una
+modifica da sola non sposta niente. L'ha trovato il banco contro il demone,
+che lavora sugli indici del documento com'era. La regola: una prova di
+modifiche a indici ne fa **piu' di una insieme**, e di tipo diverso.
