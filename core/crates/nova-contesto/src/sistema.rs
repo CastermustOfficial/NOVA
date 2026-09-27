@@ -141,7 +141,7 @@ pub fn clausola(codice: &str) -> String {
 ///
 /// Quelli uguali nelle due meta' (`ui_find`, `web_apri`, `harness_*`,
 /// `pianifica_crea`...) non stanno qui.
-pub const NEL_DEMONE: [(&str, &str); 10] = [
+pub const NEL_DEMONE: [(&str, &str); 11] = [
     ("type_text", "sys_digita"),
     ("press_keys", "sys_tasti"),
     ("delega", "cervelli_delega"),
@@ -152,6 +152,7 @@ pub const NEL_DEMONE: [(&str, &str); 10] = [
     ("kb_forget", "kb_dimentica"),
     ("azioni_recenti", "registro_racconta"),
     ("screenshot", "schermo_cattura"),
+    ("fascicolo", "fascicolo_indice"),
 ];
 
 fn parte_di_un_nome(c: char) -> bool {

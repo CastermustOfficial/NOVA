@@ -11,6 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 nova-core = { path = "../nova-core" }
+nova-configurazione = { path = "../nova-configurazione" }
 nova-proto = { path = "../nova-proto" }
 tokio.workspace = true
 anyhow.workspace = true

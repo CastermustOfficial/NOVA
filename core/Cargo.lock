@@ -3020,6 +3020,7 @@ dependencies = [
  "nova-ciclo",
  "nova-configurazione",
  "nova-contesto",
+ "nova-dati",
  "nova-documenti",
  "nova-docx",
  "nova-guasti",
@@ -3301,6 +3302,7 @@ version = "0.1.1"
 dependencies = [
  "anyhow",
  "clap",
+ "nova-configurazione",
  "nova-core",
  "nova-proto",
  "serde_json",

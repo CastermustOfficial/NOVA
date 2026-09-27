@@ -174,7 +174,17 @@ if ($Disinstalla) {
     #
     # Si chiede **prima** di cancellare: dopo, le dimensioni sono tutte zero.
     $rendiconto = $null
-    $pyR = Trova-Python
+    # Prima il demone, che sa dove scrive ogni pezzo (D352): `novad --dati
+    # --json` risponde e termina, senza accendere niente. Python resta il
+    # ripiego per un'installazione di prima.
+    $novadR = Join-Path $BinDir 'novad.exe'
+    if (Test-Path $novadR) {
+        try {
+            $grezzo = & $novadR --dati --json 2>$null
+            if ($grezzo) { $rendiconto = $grezzo | ConvertFrom-Json }
+        } catch { $rendiconto = $null }
+    }
+    $pyR = if ($rendiconto) { $null } else { Trova-Python }
     if ($pyR) {
         # Dalla cartella del progetto, se no `-m nova.dati` non trova il
         # pacchetto: chi disinstalla lancia lo script per percorso, e la
@@ -198,7 +208,7 @@ if ($Disinstalla) {
         foreach ($v in $restano) {
             Info ("[prova] resterebbe: {0} — {1} — {2}" -f $v.che_cos_e, $v.misura, $v.dove)
         }
-        if (-not $rendiconto) { Warn "[prova] senza Python non so dirti cosa resterebbe." }
+        if (-not $rendiconto) { Warn "[prova] senza il demone ne' Python non so dirti cosa resterebbe." }
         exit 0
     }
 
@@ -277,8 +287,8 @@ if ($Disinstalla) {
         Warn "Il resto e' fuori dalla cartella di NOVA e si cancella a mano:"
         Warn "sono file tuoi, o file che usano anche altri programmi."
     } elseif (-not $rendiconto) {
-        Warn "Non ho trovato Python, quindi non posso dirti cosa resta."
-        Warn "Con Python:    python -m nova --dati"
+        Warn "Non ho trovato ne' il demone ne' Python, quindi non posso dirti cosa resta."
+        Warn "Dal demone:    $BinDir\novad.exe --dati"
     } else {
         Ok "Non e' rimasto niente di NOVA fuori dalla cartella del progetto."
     }

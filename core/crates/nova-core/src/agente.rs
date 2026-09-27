@@ -640,8 +640,7 @@ mod prove {
         // gira li' li ha, quello del demone no), piu' `automation_id`, che
         // non e' uno strumento ma un argomento di `ui_find`. Quando uno di
         // questi arriva nel demone, esce da qui.
-        const SOLO_PYTHON: [&str; 4] =
-            ["automation_id", "azione_registra", "fascicolo_leggi", "run_python"];
+        const SOLO_PYTHON: [&str; 2] = ["automation_id", "run_python"];
         let p = sistema(&serde_json::json!({}));
         let mut mancano = Vec::new();
         for pezzo in p.split('`').skip(1).step_by(2) {

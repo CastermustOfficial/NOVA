@@ -3,6 +3,7 @@
 //!     novad                 avvia in primo piano
 //!     novad --print-config  mostra la configurazione effettiva e il percorso
 //!     novad --init          scrive la configurazione di default e termina
+//!     novad --dati [--json] dove NOVA tiene le cose dell'utente, e termina
 
 use std::sync::Arc;
 
@@ -31,11 +32,32 @@ struct Args {
     /// Stampa la configurazione effettiva e termina.
     #[arg(long)]
     print_config: bool,
+
+    /// Dove NOVA tiene le cose dell'utente, quanto pesano e cosa succede se
+    /// le cancelli; poi termina. Lo chiede il disinstallatore (D352).
+    #[arg(long)]
+    dati: bool,
+
+    /// Con `--dati`: l'inventario in JSON.
+    #[arg(long)]
+    json: bool,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
+    // Prima di tutto il resto: il disinstallatore lo chiede senza voler
+    // accendere niente, e un avviso sulla configurazione del demone qui
+    // sarebbe rumore dentro un JSON.
+    if args.dati {
+        let cfg = nova_configurazione::dove::leggi();
+        if args.json {
+            println!("{}", nova_core::dati::rendiconto(&cfg));
+        } else {
+            println!("{}", nova_core::dati::racconto(&cfg));
+        }
+        return Ok(());
+    }
     let mut config = Config::load();
     if let Some(e) = args.endpoint {
         config.endpoint = e;

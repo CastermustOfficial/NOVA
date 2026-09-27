@@ -73,7 +73,7 @@ pub fn register(reg: &mut Registry) {
 // ------------------------------------------------------------ il browser
 
 /// Il profilo del browser di NOVA: accanto a `config.json`, come in Python.
-fn profilo() -> PathBuf {
+pub(crate) fn profilo() -> PathBuf {
     crate::mondo::cartella_nova().join("browser")
 }
 

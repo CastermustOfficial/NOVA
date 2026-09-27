@@ -26,6 +26,8 @@ nova-ricette = { path = "../nova-ricette" }
 nova-nodi = { path = "../nova-nodi" }
 nova-memoria = { path = "../nova-memoria" }
 nova-calendario = { path = "../nova-calendario" }
+# Dove sono i miei dati (D352): il racconto e il rendiconto stanno li.
+nova-dati = { path = "../nova-dati" }
 nova-potatura = { path = "../nova-potatura" }
 nova-voce = { path = "../nova-voce" }
 # La decisione di cosa fare quando il modello non parte sta li', confrontata

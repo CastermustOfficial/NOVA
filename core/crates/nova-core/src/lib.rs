@@ -28,6 +28,8 @@ pub mod caps_harness_strumenti;
 pub mod caps_tempo;
 pub mod caps_automazioni;
 pub mod caps_riparazione;
+pub mod dati;
+pub mod fascicolo;
 pub mod riparazione;
 pub mod automazioni;
 pub mod pianificate;
@@ -130,6 +132,7 @@ pub fn build(config: Config) -> Result<Arc<Server>> {
     caps_tempo::register(&mut registry);
     caps_automazioni::register(&mut registry);
     caps_riparazione::register(&mut registry);
+    fascicolo::register(&mut registry);
 
     let server = Server::new(Arc::new(registry), ctx, config);
     // La memoria vive nel server perche' deve sopravvivere ai turni; le
