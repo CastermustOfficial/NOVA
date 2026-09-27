@@ -475,6 +475,90 @@ pub fn harness_sessione(sessione: String) -> Result<Value, String> {
     }))
 }
 
+// ------------------------------------------------ riaprire e ritrovare
+
+/// Dove la finestra si ricorda com'era: la cartella, le schede e il punto
+/// in ciascuna, le bozze non salvate. Accanto alle sessioni di NOVA, nella
+/// stessa cartella: e' la stessa storia vista da chi guarda.
+const RICORDO: &str = "schede.json";
+/// Il diario della finestra: cosa si e' aperto, salvato, chiuso.
+const DIARIO: &str = "schede.jsonl";
+/// Oltre questa grandezza il ricordo non si scrive: una bozza enorme non
+/// vale un file di stato da cento mega riscritto a ogni tasto.
+const RICORDO_MAX: usize = 24 * 1024 * 1024;
+/// Oltre questa grandezza il diario ricomincia, e il vecchio resta in `.1`.
+const DIARIO_MAX: u64 = 1024 * 1024;
+
+/// Scrive il ricordo, di fianco e poi sopra: un ricordo mezzo scritto
+/// farebbe ripartire da zero, che e' proprio quel che si voleva evitare.
+pub fn ricorda_in(base: &Path, stato: &Value) -> Result<(), String> {
+    let testo = stato.to_string();
+    if testo.len() > RICORDO_MAX {
+        return Err("troppo grande da ricordare".into());
+    }
+    std::fs::create_dir_all(base).map_err(|e| e.to_string())?;
+    let f = base.join(RICORDO);
+    let accanto = base.join(format!(".{RICORDO}.nuovo"));
+    std::fs::write(&accanto, testo.as_bytes()).map_err(|e| e.to_string())?;
+    std::fs::rename(&accanto, &f).map_err(|e| {
+        let _ = std::fs::remove_file(&accanto);
+        e.to_string()
+    })
+}
+
+pub fn ricordato_in(base: &Path) -> Value {
+    std::fs::read_to_string(base.join(RICORDO))
+        .ok()
+        .and_then(|t| serde_json::from_str(t.trim_start_matches('\u{feff}')).ok())
+        .unwrap_or(Value::Null)
+}
+
+/// Una riga nel diario della finestra.
+pub fn annota_in(base: &Path, evento: &str, file: &str) -> Result<(), String> {
+    use std::io::Write;
+    std::fs::create_dir_all(base).map_err(|e| e.to_string())?;
+    let f = base.join(DIARIO);
+    if std::fs::metadata(&f).map(|m| m.len()).unwrap_or(0) > DIARIO_MAX {
+        let _ = std::fs::rename(&f, base.join(format!("{DIARIO}.1")));
+    }
+    let quando = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+    let mut o = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&f)
+        .map_err(|e| e.to_string())?;
+    writeln!(
+        o,
+        "{}",
+        json!({ "quando": quando, "evento": evento, "file": file })
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn harness_ricorda(stato: Value) -> Result<(), String> {
+    let b = base()?;
+    tokio::task::spawn_blocking(move || ricorda_in(&b, &stato))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub fn harness_ricordato() -> Value {
+    base().map(|b| ricordato_in(&b)).unwrap_or(Value::Null)
+}
+
+#[tauri::command]
+pub fn harness_annota(evento: String, file: String) -> Result<(), String> {
+    const EVENTI: [&str; 5] = ["aperto", "salvato", "chiuso", "applicata", "scartata"];
+    if !EVENTI.contains(&evento.as_str()) {
+        return Err(format!("evento sconosciuto: {evento}"));
+    }
+    annota_in(&base()?, &evento, &file)
+}
+
 /// La finestra del sistema per scegliere una cartella, o un file.
 #[tauri::command]
 pub async fn harness_scegli(app: AppHandle, cartella: bool) -> Option<String> {
@@ -601,6 +685,46 @@ mod prove {
         assert!(leggi_sessione(&d, "a.b").is_none(), "niente punti nel nome");
         assert!(leggi_sessione(&d, "").is_none());
         assert!(leggi_sessione(&d, "manca").is_none());
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn la_finestra_si_ricorda_com_era() {
+        let d = cartella_di_prova("ricordo");
+        assert_eq!(
+            ricordato_in(&d),
+            Value::Null,
+            "la prima volta non c'e' niente"
+        );
+        let stato =
+            json!({"cartella": "/p", "schede": [{"percorso": "/p/a.rs", "bozza": {"testo": "è"}}]});
+        ricorda_in(&d, &stato).unwrap();
+        assert_eq!(ricordato_in(&d), stato);
+        assert!(
+            !d.join(".schede.json.nuovo").exists(),
+            "niente avanzi di fianco"
+        );
+        std::fs::write(d.join(RICORDO), "{rotto").unwrap();
+        assert_eq!(
+            ricordato_in(&d),
+            Value::Null,
+            "un ricordo rotto vale come nessuno"
+        );
+        let enorme = json!({"x": "a".repeat(RICORDO_MAX)});
+        assert!(ricorda_in(&d, &enorme).is_err());
+
+        annota_in(&d, "aperto", "/p/a.rs").unwrap();
+        annota_in(&d, "salvato", "/p/a.rs").unwrap();
+        let righe: Vec<Value> = std::fs::read_to_string(d.join(DIARIO))
+            .unwrap()
+            .lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
+        assert_eq!(righe.len(), 2);
+        assert_eq!(
+            (righe[1]["evento"].as_str(), righe[1]["file"].as_str()),
+            (Some("salvato"), Some("/p/a.rs"))
+        );
         let _ = std::fs::remove_dir_all(&d);
     }
 

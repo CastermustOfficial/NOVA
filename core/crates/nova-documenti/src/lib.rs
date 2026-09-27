@@ -136,7 +136,7 @@ pub fn rendi_docx(letto: &nova_docx::lettura::Letto) -> String {
 /// `pdf-extract` su certi caratteri incorporati va in panico invece di
 /// tornare un errore: qui il panico diventa un «non si legge», e il demone
 /// resta in piedi.
-fn pagine_pdf(p: &Path) -> Result<Vec<Result<String, String>>, String> {
+pub fn pagine_pdf(p: &Path) -> Result<Vec<Result<String, String>>, String> {
     let byte = std::fs::read(p).map_err(|e| e.to_string())?;
     let esito = std::panic::catch_unwind(|| pdf_extract::extract_text_from_mem_by_pages(&byte));
     match esito {

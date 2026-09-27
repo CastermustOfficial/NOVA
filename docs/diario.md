@@ -11000,3 +11000,21 @@ e uno di questi era un Chromium intero.
 A meta' lavoro il disco del cantiere si e' riempito, e `git stash pop` si e'
 fermato a meta'. Il lavoro c'era tutto: l'ho confrontato con lo stash prima
 di buttarlo.
+
+## 27 settembre 2026, notte — L'harness, quinta fase: Cerca, e la finestra che si ricorda
+
+*Cerca* c'e' (D343): una parola in tutti i file della cartella, come in un
+editor, e anche dentro i PDF e i Word, dove il risultato dice la pagina o il
+paragrafo. Un clic apre il file con la parola gia' selezionata.
+
+E la finestra si ricorda sul disco com'era: le schede e il punto in
+ciascuna, la pagina del PDF, la ricerca, e le bozze. Un file cambiato e non
+salvato torna cambiato anche dopo aver chiuso tutto; se nel frattempo il
+file e' cambiato sul disco, chiede quale tenere invece di scegliere da sola.
+
+La prova sulla pagina ha trovato una cosa sola: la ricerca di prima si
+rifaceva all'avvio solo se non si era sulla vista *Cerca* — cioe' proprio
+quando serviva, no. Una condizione girata al contrario.
+
+Le cinque fasi dell'harness sono fatte. Adesso gli strumenti `harness_*`
+passano dal Python al demone.

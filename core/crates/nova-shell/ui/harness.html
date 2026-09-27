@@ -50,6 +50,29 @@ svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6;stroke
   color:#160a06;font-size:9px;font-weight:700;display:grid;place-items:center}
 .vista{display:flex;flex-direction:column;min-height:0;flex:1}
 .elenco-vista{overflow:auto;flex:1;padding:0 6px 12px}
+/* --- Cerca --- */
+.campo-cerca{margin:0 10px 6px;display:flex;align-items:center;gap:2px;border:1px solid var(--linea-2);border-radius:8px;
+  background:var(--fondo);padding:0 3px 0 8px}
+.campo-cerca:focus-within{border-color:rgba(232,115,74,.55)}
+.campo-cerca input{flex:1;min-width:0;height:28px;background:transparent;border:none;outline:none;color:var(--inchiostro);font:12.5px var(--testo)}
+.campo-cerca button{width:24px;height:22px;border-radius:5px;font:11px var(--mono);color:var(--fioco)}
+.campo-cerca button:hover{color:var(--inchiostro);background:var(--vetro-2)}
+.campo-cerca button.si{color:var(--inchiostro);background:rgba(232,115,74,.22)}
+.opzioni-cerca{display:flex;align-items:center;gap:6px;padding:0 12px 8px;font-size:11.5px;color:var(--mezzo)}
+.opzioni-cerca input{accent-color:var(--brace)}
+.sintesi-cerca{padding:0 12px 6px;font-size:11.5px;color:var(--fioco)}
+.sintesi-cerca.guaio{color:var(--attenzione)}
+.file-trovato{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:6px;cursor:pointer;font-size:12.5px;color:var(--inchiostro)}
+.file-trovato:hover{background:var(--vetro)}
+.file-trovato .freccia{width:10px;color:var(--fioco);font-size:10px}
+.file-trovato .n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-trovato .dove{color:var(--fioco);font-size:11px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-trovato .conta{margin-left:auto;font:10.5px var(--mono);color:var(--mezzo);background:var(--vetro-2);border-radius:8px;padding:0 6px}
+.riga-trovata{display:flex;gap:8px;padding:2px 6px 2px 22px;border-radius:5px;cursor:pointer;font:12px/1.55 var(--mono);color:var(--mezzo);white-space:pre;overflow:hidden}
+.riga-trovata:hover{background:var(--vetro);color:var(--inchiostro)}
+.riga-trovata .dove{color:var(--fioco);flex:none;min-width:22px;text-align:right}
+.riga-trovata .t{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.riga-trovata mark{background:rgba(232,115,74,.32);color:var(--inchiostro);border-radius:2px}
 .elenco-vista .vuoto{color:var(--fioco);padding:8px 10px;line-height:1.6}
 .azioni-vista{display:flex;flex-wrap:wrap;gap:6px;padding:0 12px 10px}
 .azioni-vista button{font-size:11.5px;padding:4px 9px;border-radius:7px;border:1px solid var(--linea-2);color:var(--mezzo)}
@@ -366,6 +389,9 @@ body.lavora #btnFerma{display:flex}
       <button class="si" id="attEsplora" title="Esplora (Ctrl+Maiusc+E)">
         <svg viewBox="0 0 24 24"><path d="M4 5h6l2 2h8v12H4z"/></svg>
       </button>
+      <button id="attCerca" title="Cerca in tutti i file (Ctrl+Maiusc+F)">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></svg>
+      </button>
       <button id="attModifiche" title="Modifiche proposte da NOVA (Ctrl+Maiusc+M)">
         <svg viewBox="0 0 24 24"><path d="M6 3v12M18 9v12M6 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM18 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM18 9c0 4-12 2-12 6"/></svg>
         <span class="pallino" id="pallinoModifiche" hidden></span>
@@ -384,6 +410,18 @@ body.lavora #btnFerma{display:flex}
           </button>
         </div>
         <div class="albero" id="albero"></div>
+      </div>
+      <div class="vista" id="vCerca" hidden>
+        <div class="sez"><span>Cerca</span></div>
+        <div class="campo-cerca">
+          <input id="campoCerca" placeholder="Cerca in tutti i file" spellcheck="false" autocomplete="off">
+          <button id="cercaMaiuscole" title="Maiuscole e minuscole diverse">Aa</button>
+          <button id="cercaParola" title="Parola intera">ab</button>
+          <button id="cercaRegex" title="Espressione regolare">.*</button>
+        </div>
+        <label class="opzioni-cerca"><input type="checkbox" id="cercaDocumenti" checked> <span>anche dentro PDF e Word</span></label>
+        <div class="sintesi-cerca" id="sintesiCerca"></div>
+        <div class="elenco-vista" id="elencoCerca"></div>
       </div>
       <div class="vista" id="vModifiche" hidden>
         <div class="sez"><span>Modifiche</span></div>
@@ -566,26 +604,71 @@ const stato = {
 };
 const attiva = () => stato.schede.find(s => s.percorso === stato.attiva) || null;
 
-/* La sessione si ricorda nel browser del guscio: le cartelle espanse, le
-   schede, quella in primo piano. La sessione vera — con le proposte in
-   sospeso — arriva con la quinta fase; questa basta a non ricominciare da
-   zero a ogni avvio. Il deposito puo' mancare o rifiutarsi: allora si
-   ricomincia da zero, senza rompere niente. */
+/* Chiusa e riaperta, la finestra ritrova com'era (harness.md, «Riaprire e
+   ritrovare»): la cartella, le schede e il punto in ciascuna — la riga in
+   un file, la pagina e lo zoom in un PDF —, la vista a sinistra, la
+   ricerca, il pannello di sotto, e le **bozze**: un file cambiato e non
+   salvato torna cambiato, anche se il guscio si e' chiuso nel frattempo.
+   Il ricordo sta sul disco, accanto alle sessioni di NOVA (`schede.json`);
+   il deposito del browser resta come copia senza bozze, per quando il
+   disco non risponde. */
 const DEPOSITO = 'nova.harness';
+/* Oltre questa grandezza una bozza non si ricorda: e' un file enorme, e il
+   ricordo si riscrive a ogni pausa mentre si scrive. */
+const BOZZA_MAX = 2 * 1024 * 1024;
+let _ricordaTimer = 0;
+function fotografia({ bozze = false } = {}) {
+  const a = attiva();
+  if (a?.tipo === 'testo' && ed.monaco && a.modello) a.vista = ed.monaco.saveViewState();
+  return {
+    cartella: stato.cartella,
+    schede: stato.schede.filter(s => s.tipo !== 'altro' && s.tipo !== 'proposta').map(s => {
+      const x = { percorso: s.percorso };
+      if (s.tipo === 'testo' && s.vista) x.vista = s.vista;
+      if (s.tipo === 'pdf') { x.pagina = s.pagina || 1; x.scala = s.scala || null; }
+      if (bozze && s.tipo === 'testo' && s.sporco) {
+        const testo = ed.valore(s);
+        if (testo.length <= BOZZA_MAX) x.bozza = { testo, modificato: s.modificato ?? null };
+      }
+      return x;
+    }),
+    attiva: stato.attiva,
+    espanse: [...stato.espanse],
+    chat: stato.chat,
+    vista: stato.vista || 'esplora',
+    cerca: { testo: $('campoCerca')?.value || '', ...cercaOpzioni },
+    sotto: { aperto: !$('sotto').hidden, pannello },
+    recenti: recenti(),
+  };
+}
 function ricorda() {
-  try {
-    localStorage.setItem(DEPOSITO, JSON.stringify({
-      cartella: stato.cartella,
-      schede: stato.schede.filter(s => s.tipo !== 'altro' && s.tipo !== 'proposta').map(s => s.percorso),
-      attiva: stato.attiva,
-      espanse: [...stato.espanse],
-      chat: stato.chat,
-      recenti: recenti(),
-    }));
-  } catch (_) {}
+  try { localStorage.setItem(DEPOSITO, JSON.stringify(fotografia())); } catch (_) {}
+  clearTimeout(_ricordaTimer);
+  _ricordaTimer = setTimeout(ricordaSulDisco, 1200);
+}
+async function ricordaSulDisco() {
+  clearTimeout(_ricordaTimer);
+  if (!invoke || !_ripreso) return;
+  try { await invoke('harness_ricorda', { stato: fotografia({ bozze: true }) }); }
+  catch (e) { console.warn('ricordo:', e); }
 }
 function ricordato() {
   try { return JSON.parse(localStorage.getItem(DEPOSITO) || '{}') || {}; } catch (_) { return {}; }
+}
+async function ricordatoSulDisco() {
+  try {
+    const r = invoke ? await invoke('harness_ricordato') : null;
+    if (r && typeof r === 'object') return r;
+  } catch (e) { console.warn('ricordo:', e); }
+  return ricordato();
+}
+/* Finche' non si e' ripreso quel che c'era, non si scrive: il primo
+   ricordo scritto all'avvio, con la finestra ancora vuota, cancellerebbe
+   quello di ieri. */
+let _ripreso = false;
+/* Il diario della finestra, sul disco: cosa si e' aperto, salvato, chiuso. */
+function annota(evento, file) {
+  if (invoke) invoke('harness_annota', { evento, file: String(file || '') }).catch(() => {});
 }
 let _recenti = ricordato().recenti || [];
 function recenti(nuova) {
@@ -904,6 +987,9 @@ function segnaSporco(s) {
   const prima = s.sporco;
   s.sporco = ed.cambiato(s);
   if (prima !== s.sporco) { disegnaSchede(); disegnaAlbero(); aggiornaPiede(); }
+  // La bozza va sul disco a ogni pausa: se il guscio si chiude adesso,
+  // quel che si e' scritto non si perde.
+  if (s.sporco || prima) ricorda();
 }
 
 function disegnaSchede() {
@@ -1121,7 +1207,7 @@ function mostraPdf(s) {
       if (box.getBoundingClientRect().top <= alto) corrente = Number(box.dataset.n);
       else break;
     }
-    if (corrente !== s.pagina) { s.pagina = corrente; disegnaBarraPdf(s); }
+    if (corrente !== s.pagina) { s.pagina = corrente; disegnaBarraPdf(s); ricorda(); }
   };
   disegnaBarraPdf(s);
   requestAnimationFrame(() => vaiAPagina(s, s.pagina, false));
@@ -1434,6 +1520,7 @@ async function salvaWord(s, { sopra = false } = {}) {
     if (s.percorso === stato.attiva) mostraWord(s);
     disegnaSchede(); disegnaAlbero(); aggiornaPiede();
     messaggio(T('Salvato: ') + s.nome + ` (${r.quante} ${T('paragrafi toccati')})`, 3500);
+    annota('salvato', s.percorso);
     return true;
   } catch (e) {
     const m = String(e);
@@ -1525,6 +1612,7 @@ async function apriFile(percorso, { riga = 0, sessione = '', pagina = 0 } = {}) 
       }
     }
     stato.schede.push(s);
+    annota('aperto', percorso);
   }
   if ((s.tipo === 'documento' || s.tipo === 'pdf') && sessione && s.sessione !== sessione) {
     s.sessione = sessione;
@@ -1578,6 +1666,7 @@ async function chiudiScheda(s) {
   const i = stato.schede.indexOf(s);
   if (i < 0) return;
   stato.schede.splice(i, 1);
+  if (s.tipo !== 'proposta') annota('chiuso', s.percorso);
   ed.chiudi(s);
   s.doc?.destroy?.();
   chiudiConfronto(s);
@@ -1612,6 +1701,8 @@ async function salvaScheda(s, { sopra = false } = {}) {
     s.sporco = false;
     disegnaSchede(); disegnaAlbero(); aggiornaPiede();
     messaggio(T('Salvato: ') + s.nome, 2500);
+    annota('salvato', s.percorso);
+    ricorda();
     if (s.anteprima && eHtml(s.percorso) && s.percorso === stato.attiva) mostraPaginaWeb(s, true);
     return true;
   } catch (e) {
@@ -2080,12 +2171,128 @@ function mostraChat(si) {
 const permessi = sportello({ discorso: $('discorso'), invoke, T, nota, fondo, prima: togliInizio });
 
 /* ============================================ le viste a sinistra === */
-const VISTE = ['esplora', 'modifiche', 'test'];
+const VISTE = ['esplora', 'cerca', 'modifiche', 'test'];
 const maiuscola = x => x[0].toUpperCase() + x.slice(1);
 function mostraVista(v) {
   for (const x of VISTE) {
     $('v' + maiuscola(x)).hidden = x !== v;
     $('att' + maiuscola(x)).classList.toggle('si', x === v);
+  }
+  stato.vista = v;
+  if (v === 'cerca') {
+    // Quel che e' selezionato nell'editor diventa la domanda, come in VS Code.
+    const sel = attiva()?.tipo === 'testo' ? ed.selezione() : null;
+    if (sel && !sel.testo.includes('\n') && sel.testo.length < 200) { $('campoCerca').value = sel.testo; cercaPresto(); }
+    $('campoCerca').focus();
+    $('campoCerca').select();
+  }
+  ricorda();
+}
+
+/* ================================================== Cerca ============ *
+ * La stringa in tutti i file della cartella, anche dentro PDF e Word. La
+ * ricerca la fa il guscio (cerca.rs); una nuova ferma quella di prima, e
+ * qui si mostra solo l'ultima arrivata. */
+const cercaOpzioni = { maiuscole: false, parola: false, regex: false, documenti: true };
+let _cercaTimer = 0, _cercaN = 0;
+const chiusiCerca = new Set();
+function cercaPresto() { clearTimeout(_cercaTimer); _cercaTimer = setTimeout(cercaOra, 250); }
+async function cercaOra() {
+  clearTimeout(_cercaTimer);
+  const testo = $('campoCerca').value;
+  const n = ++_cercaN;
+  const sintesi = $('sintesiCerca');
+  sintesi.classList.remove('guaio');
+  if (!testo) { $('elencoCerca').innerHTML = ''; sintesi.textContent = ''; ricorda(); return; }
+  if (!stato.cartella) { sintesi.textContent = T('Apri una cartella per cercare nei suoi file.'); return; }
+  sintesi.textContent = T('cerco…');
+  let r;
+  try {
+    r = await invoke('harness_cerca', { cartella: stato.cartella, testo, ...cercaOpzioni });
+  } catch (e) {
+    if (n !== _cercaN) return;
+    sintesi.textContent = String(e);
+    sintesi.classList.add('guaio');
+    $('elencoCerca').innerHTML = '';
+    return;
+  }
+  if (n !== _cercaN || r.superata) return;
+  disegnaCerca(r);
+  ricorda();
+}
+
+function disegnaCerca(r) {
+  const el = $('elencoCerca');
+  el.innerHTML = '';
+  const sintesi = $('sintesiCerca');
+  const nf = r.trovati.length;
+  sintesi.textContent = !r.quante
+    ? T('Niente, in') + ` ${r.file_guardati} ` + T('file')
+    : `${r.quante} ` + (r.quante === 1 ? T('risultato') : T('risultati')) + ' ' + T('in') + ` ${nf} ` + T('file')
+      + (r.troncato ? ' · ' + T('non tutti mostrati') : '');
+  if (r.illeggibili?.length) sintesi.title = T('Non letti: ') + r.illeggibili.join(' · ');
+  for (const f of r.trovati) {
+    const testa = document.createElement('div');
+    testa.className = 'file-trovato';
+    testa.title = f.file;
+    const freccia = document.createElement('span');
+    freccia.className = 'freccia';
+    const chiuso = chiusiCerca.has(f.file);
+    freccia.textContent = chiuso ? '▸' : '▾';
+    const nome = document.createElement('span');
+    nome.className = 'n';
+    nome.textContent = nomeDi(f.relativo);
+    const dove = document.createElement('span');
+    dove.className = 'dove';
+    dove.textContent = genitore(f.relativo) === f.relativo ? '' : genitore(f.relativo);
+    const conta = document.createElement('span');
+    conta.className = 'conta';
+    conta.textContent = String(f.quante);
+    testa.append(freccia, nome, dove, conta);
+    testa.onclick = () => { if (chiuso) chiusiCerca.delete(f.file); else chiusiCerca.add(f.file); disegnaCerca(r); };
+    el.appendChild(testa);
+    if (chiuso) continue;
+    for (const x of f.righe) {
+      const riga = document.createElement('div');
+      riga.className = 'riga-trovata';
+      const d = document.createElement('span');
+      d.className = 'dove';
+      d.textContent = x.pagina ? 'p. ' + x.pagina : x.blocco || String(x.riga);
+      const t = document.createElement('span');
+      t.className = 't';
+      let fin = 0;
+      for (const [a, b] of x.pezzi) {
+        t.append(document.createTextNode(x.testo.slice(fin, a)));
+        const m = document.createElement('mark');
+        m.textContent = x.testo.slice(a, b);
+        t.appendChild(m);
+        fin = b;
+      }
+      t.append(document.createTextNode(x.testo.slice(fin)));
+      riga.append(d, t);
+      riga.title = x.testo;
+      riga.onclick = () => vaiAlTrovato(f, x);
+      el.appendChild(riga);
+    }
+  }
+}
+
+async function vaiAlTrovato(f, x) {
+  if (f.tipo === 'pdf') { await apriFile(f.file, { pagina: x.pagina || 1 }); return; }
+  const s = await apriFile(f.file, { riga: x.riga || 0 });
+  if (!s) return;
+  if (s.tipo === 'docx' && x.blocco) {
+    const i = /^p(\d+)$/.exec(x.blocco)?.[1];
+    const par = i != null && $('word').querySelector(`.par-word[data-indice="${i}"]`);
+    if (par) {
+      par.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      par.classList.add('indicato');
+      setTimeout(() => par.classList.remove('indicato'), 1800);
+    }
+  } else if (s.tipo === 'testo' && ed.monaco && x.riga) {
+    const r = new monaco.Range(x.riga, x.colonna, x.riga, x.colonna + x.lunghezza);
+    ed.monaco.setSelection(r);
+    ed.monaco.revealRangeInCenter(r);
   }
 }
 
@@ -2570,6 +2777,7 @@ async function applicaProposte(modifiche, { verifica = false } = {}) {
     return false;
   }
   for (const f of r.file || []) {
+    annota('applicata', f.file);
     const s = stato.schede.find(x => x.tipo === 'proposta' && stesso(x.file, f.file));
     if (s) await chiudiScheda(s);
     const aperta = stato.schede.find(x => ['testo', 'pdf', 'docx'].includes(x.tipo) && stesso(x.percorso, f.file));
@@ -2594,6 +2802,7 @@ async function applicaProposte(modifiche, { verifica = false } = {}) {
 async function scartaProposta(file) {
   try { await chiama('harness.scarta', { file }); }
   catch (e) { messaggio(String(e), 8000); return; }
+  annota('scartata', file);
   const s = stato.schede.find(x => x.tipo === 'proposta' && stesso(x.file, file));
   if (s) await chiudiScheda(s);
   await caricaProposte();
@@ -2677,8 +2886,9 @@ function aggiornaCarta() {
 let pannello = 'terminale';
 function mostraSotto(si = true, quale = null) {
   $('sotto').hidden = !si;
-  if (!si) return;
   if (quale) pannello = quale;
+  if (_ripreso) ricorda();
+  if (!si) return;
   for (const l of document.querySelectorAll('.linguetta')) l.classList.toggle('si', l.dataset.pannello === pannello);
   $('pTerminale').hidden = pannello !== 'terminale';
   $('uscitaProva').hidden = pannello !== 'test';
@@ -2929,6 +3139,13 @@ async function provaProgetto() {
 }
 
 $('attEsplora').onclick = () => mostraVista('esplora');
+$('attCerca').onclick = () => mostraVista('cerca');
+$('campoCerca').addEventListener('input', cercaPresto);
+$('campoCerca').addEventListener('keydown', e => { if (e.key === 'Enter') cercaOra(); });
+for (const [id, k] of [['cercaMaiuscole', 'maiuscole'], ['cercaParola', 'parola'], ['cercaRegex', 'regex']]) {
+  $(id).onclick = () => { cercaOpzioni[k] = !cercaOpzioni[k]; $(id).classList.toggle('si', cercaOpzioni[k]); cercaOra(); };
+}
+$('cercaDocumenti').onchange = () => { cercaOpzioni.documenti = $('cercaDocumenti').checked; cercaOra(); };
 $('attModifiche').onclick = () => mostraVista('modifiche');
 $('attTest').onclick = () => mostraVista('test');
 $('stProposte').onclick = () => mostraVista('modifiche');
@@ -2999,6 +3216,7 @@ document.addEventListener('keydown', e => {
   else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'o') { e.preventDefault(); scegli(true); }
   else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'e') { e.preventDefault(); mostraVista('esplora'); }
   else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'm') { e.preventDefault(); mostraVista('modifiche'); }
+  else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'f') { e.preventDefault(); mostraVista('cerca'); }
   else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'v') { e.preventDefault(); $('btnAnteprima').hidden || $('btnAnteprima').click(); }
   else if (ctrl && e.key === 'Tab' && stato.schede.length > 1) {
     e.preventDefault();
@@ -3057,6 +3275,70 @@ document.addEventListener('selectionchange', () => {
 window.addEventListener('focus', guardaSulDisco);
 
 /* ============================================ all'apertura ========== */
+/* Riprende la finestra com'era. Una bozza torna com'era scritta se il file
+   sul disco e' quello su cui la si scriveva; se nel frattempo e' cambiato,
+   si chiede quale tenere — scegliere da soli vorrebbe dire buttare via il
+   lavoro di qualcuno. */
+async function riprendi(r) {
+  if (r.cerca) {
+    Object.assign(cercaOpzioni, {
+      maiuscole: !!r.cerca.maiuscole, parola: !!r.cerca.parola, regex: !!r.cerca.regex,
+      documenti: r.cerca.documenti !== false,
+    });
+    $('cercaMaiuscole').classList.toggle('si', cercaOpzioni.maiuscole);
+    $('cercaParola').classList.toggle('si', cercaOpzioni.parola);
+    $('cercaRegex').classList.toggle('si', cercaOpzioni.regex);
+    $('cercaDocumenti').checked = cercaOpzioni.documenti;
+    $('campoCerca').value = r.cerca.testo || '';
+  }
+  if (Array.isArray(r.recenti)) { _recenti = r.recenti.slice(0, 6); disegnaRecenti(); }
+  if (!r.cartella) return;
+  await apriCartella(r.cartella);
+  for (const k of r.espanse || []) {
+    const p = trovaPercorso(k);
+    if (p) { stato.espanse.add(k); await contenuto(p); }
+  }
+  // Le schede di prima si possono dare come percorsi (il ricordo vecchio,
+  // nel browser) o con il punto in cui si era.
+  for (const x of r.schede || []) {
+    const q = typeof x === 'string' ? { percorso: x } : x;
+    if (!q?.percorso) continue;
+    const s = await apriFile(q.percorso);
+    if (!s) continue;
+    if (s.tipo === 'testo') {
+      if (q.vista) s.vista = q.vista;
+      if (q.bozza && typeof q.bozza.testo === 'string') await rimettiBozza(s, q.bozza);
+    } else if (s.tipo === 'pdf') {
+      if (q.scala) s.scala = q.scala;
+      if (q.pagina) s.pagina = q.pagina;
+    }
+  }
+  const a = stato.schede.find(s => stesso(s.percorso, r.attiva)) || stato.schede[stato.schede.length - 1];
+  if (a) mostraScheda(a);
+  disegnaAlbero();
+  if (r.vista && VISTE.includes(r.vista)) mostraVista(r.vista);
+  // La ricerca di prima si rifa': i file possono essere cambiati.
+  if ($('campoCerca').value) cercaOra();
+  if (r.sotto?.aperto) mostraSotto(true, r.sotto.pannello || null);
+}
+
+async function rimettiBozza(s, bozza) {
+  if (bozza.testo === ed.valore(s)) return;
+  const stessoFile = bozza.modificato == null || s.modificato == null || Math.abs(bozza.modificato - s.modificato) <= 1;
+  if (!stessoFile) {
+    mostraScheda(s);
+    const v = await chiediQui(T('Di «') + s.nome + T('» c’era una bozza non salvata, ma il file è cambiato sul disco da allora.'), [
+      { testo: T('Tieni la bozza'), valore: 'bozza', primo: true },
+      { testo: T('Tieni il file'), valore: 'file' },
+    ]);
+    if (v !== 'bozza') return;
+  }
+  // Il testo cambia ma quello salvato resta quello del disco: la scheda
+  // risulta non salvata, com'era.
+  if (s.modello) s.modello.setValue(bozza.testo);
+  else { s.testo = bozza.testo; segnaSporco(s); }
+}
+
 (async function avvia() {
   turno('quiete');
   await ed.avvia();
@@ -3071,20 +3353,12 @@ window.addEventListener('focus', guardaSulDisco);
     const c = await invoke('cronologia_leggi');
     for (const b of (c?.battute || []).slice(-60)) battuta(b.da, b.testo);
   } catch (e) { console.warn(e); }
-  const r = ricordato();
+  const r = await ricordatoSulDisco();
   mostraChat(r.chat !== false);
-  // Se NOVA ha appena aperto qualcosa, vince quello; altrimenti si riprende
-  // da dove si era.
-  if (!(await ritira()) && r.cartella) {
-    await apriCartella(r.cartella);
-    for (const k of r.espanse || []) {
-      const p = trovaPercorso(k);
-      if (p) { stato.espanse.add(k); await contenuto(p); }
-    }
-    for (const p of r.schede || []) await apriFile(p);
-    const a = stato.schede.find(s => stesso(s.percorso, r.attiva));
-    if (a) mostraScheda(a);
-    disegnaAlbero();
-  }
+  await riprendi(r);
+  _ripreso = true;
+  // Se NOVA ha appena aperto qualcosa, si apre sopra a quel che c'era.
+  await ritira();
+  ricorda();
 })();
 </script>

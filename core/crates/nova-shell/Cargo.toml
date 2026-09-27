@@ -29,6 +29,10 @@ nova-platform = { path = "../nova-platform" }
 nova-harness = { path = "../nova-harness" }
 # Il Word nell'harness: letto nel suo ordine, riscritto solo dove cambia.
 nova-docx = { path = "../nova-docx" }
+# *Cerca* dentro i PDF: il testo delle pagine (D343).
+nova-documenti = { path = "../nova-documenti" }
+# *Cerca*: la parola intera e le espressioni regolari (D343).
+regex = "1"
 tauri = { version = "2", features = ["tray-icon"] }
 # La guardia di istanza singola: due doppi clic non devono dare due orb.
 # Vedi `finestre::richiama` per cosa fa il secondo.

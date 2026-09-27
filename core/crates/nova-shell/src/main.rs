@@ -18,6 +18,7 @@
 use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 mod bus;
+mod cerca;
 mod cervelli;
 mod cervello;
 mod componenti;
@@ -388,6 +389,10 @@ fn main() {
             documenti::harness_docx,
             documenti::harness_docx_salva,
             harness::harness_scegli,
+            cerca::harness_cerca,
+            harness::harness_ricorda,
+            harness::harness_ricordato,
+            harness::harness_annota,
             terminale::terminale_apri,
             terminale::terminale_scrivi,
             terminale::terminale_dimensioni,
