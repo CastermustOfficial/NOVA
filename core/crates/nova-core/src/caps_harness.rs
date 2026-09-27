@@ -1,18 +1,17 @@
 //! Le proposte di NOVA nell'harness: guardarle, accettarle, provarle.
 //!
 //! E' la seconda fase di `docs/harness.md`. NOVA propone con lo strumento
-//! `harness_proponi` (oggi in Python), che scrive la proposta in un file
+//! `harness_proponi` ([`crate::caps_harness_strumenti`]), che scrive la proposta in un file
 //! suo — `proposta-<impronta>.json`, accanto alle sessioni — e non tocca
 //! niente. Da qui la finestra dell'harness le vede tutte, anche su piu' file,
 //! le mostra come confronto, e chi guarda le accetta intere o a pezzi, le
 //! ritocca, le butta, oppure le applica **e prova**: la modifica resta solo
 //! se i test non peggiorano (D277, D278).
 //!
-//! Queste capacita' sono **della persona** (`permessi::SOLO_PER_LA_PERSONA`):
-//! il modello propone e basta, e per applicare ha il suo strumento, che
-//! passa dal suo cancello. Quando gli strumenti `harness_*` arriveranno nel
-//! demone, con il loro banco contro il Python, useranno queste stesse
-//! funzioni.
+//! Queste capacita' (`finestra.*`) sono **della persona**
+//! (`permessi::SOLO_PER_LA_PERSONA`): il modello propone e basta, e per
+//! applicare ha il suo strumento (`harness.applica`), che passa dal suo
+//! cancello e scrive con queste stesse funzioni (D344).
 //!
 //! Le regole stanno in `nova_harness` — come diventa il testo
 //! ([`nova_harness::proposta`]), come si sceglie e si giudica una prova
@@ -222,7 +221,7 @@ fn blocchi_della_sessione(base: &Path, p: &Value) -> Option<Value> {
 }
 
 /// Una riga nel diario della sessione, come `harness._annota` in Python.
-fn annota_sessione(base: &Path, sessione: &str, evento: &str, dati: Value) {
+pub(crate) fn annota_sessione(base: &Path, sessione: &str, evento: &str, dati: Value) {
     if sessione.is_empty()
         || !sessione
             .chars()
@@ -567,7 +566,7 @@ struct Proposte;
 impl Capability for Proposte {
     fn info(&self) -> CapabilityInfo {
         CapabilityInfo {
-            name: "harness.proposte".into(),
+            name: "finestra.proposte".into(),
             description: "Le modifiche proposte da NOVA ancora in attesa, per ogni file: il testo \
                           com'e' e come sarebbe, quante righe cambiano, e quelle che non si possono \
                           piu' applicare perche' il file e' cambiato."
@@ -604,7 +603,7 @@ struct Scarta;
 impl Capability for Scarta {
     fn info(&self) -> CapabilityInfo {
         CapabilityInfo {
-            name: "harness.scarta".into(),
+            name: "finestra.scarta".into(),
             description: "Butta la proposta di NOVA su un file, senza toccare il file.".into(),
             risk: Risk::Safe,
             category: "harness".into(),
@@ -642,7 +641,7 @@ struct Prova;
 impl Capability for Prova {
     fn info(&self) -> CapabilityInfo {
         CapabilityInfo {
-            name: "harness.prova".into(),
+            name: "finestra.prova".into(),
             description: "Esegue i test del progetto, riconoscendo da solo come si provano \
                           (cargo, npm, go, pytest, script di prova). Con `file` sceglie la suite \
                           della lingua di quel file."
@@ -675,6 +674,15 @@ impl Capability for Prova {
     async fn call(&self, args: Value, ctx: &Ctx) -> Result<Value> {
         let cartella = arg_str_opt(&args, "cartella").unwrap_or_default();
         let file = arg_str_opt(&args, "file").unwrap_or_default();
+        prova_in(&cartella, &file, ctx).await
+    }
+}
+
+/// Prova il progetto in `cartella`, con la suite della lingua di `file`: il
+/// bottone *Test* e lo strumento del modello (`harness.prova`, D344).
+pub(crate) async fn prova_in(cartella: &str, file: &str, ctx: &Ctx) -> Result<Value> {
+    {
+        let (cartella, file) = (cartella.to_string(), file.to_string());
         let r = PathBuf::from(&cartella);
         let b = tokio::task::spawn_blocking(move || banchi(&r))
             .await
@@ -852,7 +860,7 @@ fn rimetti(scritti: &[DaScrivere]) {
 impl Capability for Applica {
     fn info(&self) -> CapabilityInfo {
         CapabilityInfo {
-            name: "harness.applica".into(),
+            name: "finestra.applica".into(),
             description: "Applica le proposte di NOVA su uno o piu' file, col testo che chi guarda \
                           ha deciso (anche solo alcuni pezzi, o ritoccato). Prima mette da parte una \
                           copia di ogni file. Con `verifica` prova il progetto prima e dopo, e se cade \
@@ -888,6 +896,14 @@ impl Capability for Applica {
     }
 
     async fn call(&self, args: Value, ctx: &Ctx) -> Result<Value> {
+        applica_voci(args, ctx).await
+    }
+}
+
+/// Scrive le proposte scelte: il bottone della finestra e lo strumento del
+/// modello (`harness.applica`, D344) passano da qui.
+pub(crate) async fn applica_voci(args: Value, ctx: &Ctx) -> Result<Value> {
+    {
         let voci = args
             .get("modifiche")
             .and_then(Value::as_array)

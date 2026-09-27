@@ -197,8 +197,11 @@ in aggiunta, come quello del Python.
   chiuso, applicato, scartato.
 - Le proposte in sospeso c'erano già: stanno nei loro file.
 
-Con questo le cinque fasi sono fatte. Il passo dopo non è della finestra: è
-portare gli strumenti `harness_*` di NOVA dal Python al demone.
+Con questo le cinque fasi sono fatte.
+
+**E gli strumenti di NOVA** (D344): `harness_apri`, `harness_cerca` e gli
+altri sette sono nel demone, e li ha ogni cervello, non solo Claude Code. I
+bottoni della finestra si chiamano `finestra.*`.
 
 ## Dopo
 

@@ -2301,7 +2301,7 @@ async function vaiAlTrovato(f, x) {
  * qui la si guarda come confronto dentro l'editor — cio' che se ne va e
  * cio' che arriva — e la si accetta intera o a pezzi, la si ritocca, la
  * si butta, o la si applica e prova. A scrivere e' il demone
- * (`harness.applica`): una copia accanto, e con la prova, se un test che
+ * (`finestra.applica`): una copia accanto, e con la prova, se un test che
  * passava cade, tutto torna com'era (D339). */
 let proposte = [];
 
@@ -2309,7 +2309,7 @@ const chiama = (capacita, args = {}) => invoke('demone_chiama', { capacita, args
 
 async function caricaProposte() {
   if (!invoke) return;
-  try { proposte = (await chiama('harness.proposte'))?.proposte || []; }
+  try { proposte = (await chiama('finestra.proposte'))?.proposte || []; }
   catch (e) { console.warn('proposte:', e); return; }
   // Una scheda di confronto la cui proposta non c'e' piu' — applicata o
   // buttata da NOVA, o da un'altra parte — si chiude; una riscritta si
@@ -2755,7 +2755,7 @@ async function applicaProposte(modifiche, { verifica = false } = {}) {
   if (verifica) inizioProva(T('provo prima e dopo le modifiche…'));
   let r;
   try {
-    r = await chiama('harness.applica', { modifiche, verifica, cartella: stato.cartella || '' });
+    r = await chiama('finestra.applica', { modifiche, verifica, cartella: stato.cartella || '' });
   } catch (e) {
     applicando = false;
     const m = String(e);
@@ -2800,7 +2800,7 @@ async function applicaProposte(modifiche, { verifica = false } = {}) {
 }
 
 async function scartaProposta(file) {
-  try { await chiama('harness.scarta', { file }); }
+  try { await chiama('finestra.scarta', { file }); }
   catch (e) { messaggio(String(e), 8000); return; }
   annota('scartata', file);
   const s = stato.schede.find(x => x.tipo === 'proposta' && stesso(x.file, file));
@@ -2815,7 +2815,7 @@ async function scartaTutte() {
     [{ testo: T('Scarta'), valore: true, primo: true }, { testo: T('Annulla'), valore: false }]);
   if (!v) return;
   for (const p of proposte.filter(x => x.qui)) {
-    try { await chiama('harness.scarta', { file: p.file }); } catch (e) { messaggio(String(e), 8000); }
+    try { await chiama('finestra.scarta', { file: p.file }); } catch (e) { messaggio(String(e), 8000); }
     const s = stato.schede.find(x => x.tipo === 'proposta' && stesso(x.file, p.file));
     if (s) await chiudiScheda(s);
   }
@@ -3131,7 +3131,7 @@ async function provaProgetto() {
   if (!stato.cartella) { messaggio(T('Apri prima la cartella del progetto.'), 5000); return; }
   inizioProva(T('provo il progetto…'));
   try {
-    const r = await chiama('harness.prova', { cartella: stato.cartella });
+    const r = await chiama('finestra.prova', { cartella: stato.cartella });
     fineProva(r.provabile ? r : null, r.provabile ? '' : r.motivo);
   } catch (e) {
     fineProva(null, String(e));

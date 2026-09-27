@@ -58,6 +58,8 @@ nova-documenti = { path = "../nova-documenti" }
 nova-harness = { path = "../nova-harness" }
 # Le proposte sui Word: la modifica chirurgica di `word/document.xml`.
 nova-docx = { path = "../nova-docx" }
+# I nomi dei file dell'harness: le stesse impronte del Python (D344).
+sha1 = "0.10"
 tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true

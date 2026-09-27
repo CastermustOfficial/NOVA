@@ -1,11 +1,11 @@
-//! Le trentatre' dichiarazioni degli strumenti che NOVA apre a un altro
+//! Le dichiarazioni degli strumenti che NOVA apre a un altro
 //! programma.
 //!
 //! **Generato da `attrezzi/_estrai_mcp.py`. Non si modifica a mano.** Sono
 //! ventitremila caratteri di schema che Claude Code rilegge a ogni sessione e
 //! su cui sceglie quale strumento di NOVA usare: una parola diversa e' un
 //! comportamento diverso che nessun tipo intercetta (D112). Ricopiarle
-//! sarebbe stato trentatre' occasioni di sbagliarne una.
+//! sarebbe stato un'occasione di sbagliarne una per ciascuna.
 //!
 //! «Non a mano» non e' solo perche' l'estrattore riscrive il file intero: la
 //! prova degli elenchi gemelli **salta i file generati**, fidandosi di questa
@@ -266,165 +266,6 @@ pub const STRUMENTI_JSON: &str = r#"[
       "required": [
         "selettore"
       ]
-    }
-  },
-  {
-    "name": "harness_apri",
-    "description": "Apre un documento nell'harness: il documento sta a sinistra, la conversazione resta qui. Apre .pdf .docx .txt .md. Da usare quando il lavoro ha un POSTO che dura piu' di un turno - studiare un documento, controllarlo, cercarci dentro. All'harness il materiale, alla chat il verdetto: qui dentro scrivi due righe, non il rapporto.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "percorso": {
-          "type": "string",
-          "description": "Percorso del documento"
-        },
-        "profilo": {
-          "type": "string",
-          "description": "Per ora solo «studio» (sola lettura)"
-        }
-      },
-      "required": [
-        "percorso"
-      ]
-    }
-  },
-  {
-    "name": "harness_cerca",
-    "description": "Dove sta, nel documento aperto, quello che si sta cercando. Torna una POSIZIONE - identificativo del blocco, pagina, testo - e la fa evidenziare a sinistra. Rispondi citando quella posizione: «lo trovi a pagina 12». Se non c'e', dillo: qui non si deduce, si indica.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "domanda": {
-          "type": "string",
-          "description": "Cosa cercare"
-        },
-        "quanti": {
-          "type": "integer",
-          "description": "Quanti punti (default 5)"
-        }
-      },
-      "required": [
-        "domanda"
-      ]
-    }
-  },
-  {
-    "name": "harness_leggi",
-    "description": "Il testo attorno a un punto del documento, per capire in che contesto quella cosa sta. Senza «intorno» da' l'inizio.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "intorno": {
-          "type": "string",
-          "description": "Identificativo di blocco dato da harness_cerca"
-        },
-        "blocchi": {
-          "type": "integer",
-          "description": "Quanti blocchi prima e dopo (default 3)"
-        }
-      }
-    }
-  },
-  {
-    "name": "harness_stato",
-    "description": "Cosa c'e' aperto nell'harness adesso, e cosa e' evidenziato.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {}
-    }
-  },
-  {
-    "name": "harness_cerca_progetto",
-    "description": "Cerca in TUTTI i file aperti come progetto, non solo in quello che si sta guardando. Serve quando la pila e' piu' alta di un documento: sei PDF di un esame, una documentazione, il codice di un progetto. Torna file + blocco + pagina, cioe' un posto che si puo' controllare. Poi con harness_apri vai sul file giusto e con harness_cerca ti fermi sul punto.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "domanda": {
-          "type": "string",
-          "description": "Cosa cerchi, a parole tue"
-        },
-        "quanti": {
-          "type": "integer",
-          "description": "Quanti risultati (default 8)"
-        }
-      },
-      "required": [
-        "domanda"
-      ]
-    }
-  },
-  {
-    "name": "harness_proponi",
-    "description": "Cambia il documento aperto - ma non subito: la modifica compare nella finestra con il prima e il dopo, e l'utente sceglie se applicarla. QUESTO E' IL MODO DI SCRIVERE in un documento suo. I blocchi si prendono da harness_cerca o harness_leggi. Su .md e .txt e su .docx: sostituisci, prima, dopo, elimina. Su .pdf il testo non si riscrive - le lettere stanno in un punto della pagina, non in paragrafi - ma si puo' evidenzia e nota. Dopo aver proposto DILLO e fermati: applicare non tocca a te.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "modifiche": {
-          "type": "array",
-          "description": "Una per ogni punto da cambiare",
-          "items": {
-            "type": "object",
-            "properties": {
-              "blocco": {
-                "type": "string",
-                "description": "Identificativo del blocco (es. r12, p3, p0b4)"
-              },
-              "azione": {
-                "type": "string",
-                "description": "sostituisci | prima | dopo | elimina | evidenzia | nota"
-              },
-              "testo": {
-                "type": "string",
-                "description": "Il testo nuovo (non serve per elimina/evidenzia)"
-              }
-            },
-            "required": [
-              "blocco"
-            ]
-          }
-        },
-        "motivo": {
-          "type": "string",
-          "description": "Una riga sul perche', che l'utente legge accanto ai bottoni"
-        }
-      },
-      "required": [
-        "modifiche"
-      ]
-    }
-  },
-  {
-    "name": "harness_applica",
-    "description": "Applica la proposta in attesa. Usalo SOLO se l'utente lo ha chiesto dopo averla vista: di norma il bottone lo preme lui. Su codice passa verifica=true: prova il progetto prima e dopo, e se cade qualcosa che prima passava rimette il file com'era.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "verifica": {
-          "type": "boolean",
-          "description": "Prova i test del progetto e applica solo se non peggiora niente. Su codice, si'."
-        }
-      }
-    }
-  },
-  {
-    "name": "harness_prova",
-    "description": "Esegue i test del progetto aperto e dice cosa passa e cosa cade. Serve per sapere da che punto si parte prima di toccare il codice, e per raccontare all'utente come sta il progetto. Riconosce da solo come si prova: cargo, npm, go, pytest, oppure gli script test_*.py.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "file": {
-          "type": "string",
-          "description": "Il file su cui stai lavorando: serve a scegliere quale suite provare invece di provarle tutte."
-        }
-      }
-    }
-  },
-  {
-    "name": "harness_scarta",
-    "description": "Butta via la proposta in attesa senza applicarla.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {}
     }
   },
   {

@@ -219,12 +219,13 @@ controlla("e dopo la modifica rotta cade davvero", dopo["cadute"] == ["prove/tes
 shutil.rmtree(pyc, ignore_errors=True)
 
 print("\n7. il modello lo puo' chiedere")
-from nova.mcp_kb import STRUMENTI                                # noqa: E402
-nomi = {s["name"] for s in STRUMENTI}
-controlla("harness_prova e' fra gli strumenti", "harness_prova" in nomi)
-schema = next(s for s in STRUMENTI if s["name"] == "harness_applica")
+# Gli strumenti `harness_*` li da' il demone (D344): si guarda dove sono
+# dichiarati. Che rispondano davvero lo prova test_demone_harness_strumenti.
+dichiarati = (Path(__file__).resolve().parents[2] / "core" / "crates" / "nova-core"
+              / "src" / "caps_harness_strumenti.rs").read_text(encoding="utf-8")
+controlla("harness_prova e' fra gli strumenti", '"harness.prova"' in dichiarati)
 controlla("e harness_applica sa verificare",
-          "verifica" in schema["inputSchema"]["properties"])
+          '"harness.applica"' in dichiarati and '"verifica"' in dichiarati)
 
 print(f"\n{passati}/{passati + len(falliti)} passati")
 for x in falliti:

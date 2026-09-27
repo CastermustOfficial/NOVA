@@ -758,7 +758,7 @@ nova/
   harness.py          documents and projects: open, search, point at
   harness_modifica.py propose changes, and apply them only on request
   harness_prova.py    the project's tests: apply only if it doesn't worsen
-  mcp_kb.py           the 32 tools exposed to an agentic brain
+  mcp_kb.py           the tools exposed to an agentic brain that the daemon doesn't have yet
   kb_setup.py         wiring the memory: vault, engine, learning
   tools/
     base.py           registry, OpenAI schemas, risk levels
@@ -1191,6 +1191,9 @@ already authenticated. NOVA:
   Claude uses `mcp__nova__kb_search` and `mcp__nova__kb_note`: the same
   retrieval pipeline as the local model, the same node format. If the MCP
   doesn't start, it falls back to reading the vault's .md files directly.
+  That server has 24 tools today, and it empties as they move to the daemon:
+  the `harness_*` ones, for instance, now come from the daemon, to Claude and
+  to every other brain.
 - reports cost and tokens for every turn in the action log.
 
 Careful with `brains.claude_model`: on older CLIs the `opus` alias points at

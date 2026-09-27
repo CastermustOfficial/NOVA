@@ -116,7 +116,7 @@ try:
 
     with CoreClient(endpoint, timeout=120) as c:
         print("\n1. la proposta si vede com'e' e come sarebbe")
-        tutte = c.call("harness.proposte")["proposte"]
+        tutte = c.call("finestra.proposte")["proposte"]
         p = tutte[0] if tutte else {}
         controlla("c'e' una proposta, sul file giusto",
                   len(tutte) == 1 and Path(p.get("file", "")).name == "conti.py", str(tutte)[:200])
@@ -132,18 +132,18 @@ try:
         # quasi sempre nello stesso secondo in cui la prova di prima l'ha
         # compilato, che e' il caso in cui Python eseguiva la copia vecchia.
         os.utime(modulo, None)
-        p["modificato"] = c.call("harness.proposte")["proposte"][0]["modificato"]
-        r = c.call("harness.applica", {"modifiche": [{"file": p["file"], "atteso": p["modificato"]}],
+        p["modificato"] = c.call("finestra.proposte")["proposte"][0]["modificato"]
+        r = c.call("finestra.applica", {"modifiche": [{"file": p["file"], "atteso": p["modificato"]}],
                                        "verifica": True, "cartella": str(progetto)})
         controlla("non applicata, e lo dice coi test", r.get("ok") is False and r.get("verificato")
                   and "cade quello che prima passava" in r.get("motivo", ""), str(r)[:300])
         controlla("il file e' com'era", modulo.read_bytes() == b"def somma(a, b):\r\n    return a + b\r\n",
                   repr(modulo.read_bytes()))
-        controlla("e la proposta e' ancora li'", len(c.call("harness.proposte")["proposte"]) == 1)
+        controlla("e la proposta e' ancora li'", len(c.call("finestra.proposte")["proposte"]) == 1)
 
         print("\n3. ritoccata da chi guarda, e provata")
         ritoccato = "def somma(a, b):\r\n    # ritoccata\r\n    return a + b\r\n"
-        r = c.call("harness.applica", {"modifiche": [{"file": p["file"], "testo": ritoccato}],
+        r = c.call("finestra.applica", {"modifiche": [{"file": p["file"], "testo": ritoccato}],
                                        "verifica": True, "cartella": str(progetto)})
         controlla("applicata, i test passano come prima",
                   r.get("ok") is True and "uguale" in r.get("verdetto", ""), str(r)[:300])
@@ -151,7 +151,7 @@ try:
                   repr(modulo.read_bytes()))
         controlla("la copia di prima sta accanto",
                   (progetto / "conti.py.prima").read_bytes() == b"def somma(a, b):\r\n    return a + b\r\n")
-        controlla("la proposta se n'e' andata", c.call("harness.proposte")["proposte"] == [])
+        controlla("la proposta se n'e' andata", c.call("finestra.proposte")["proposte"] == [])
         stato = json.loads((nova_dir / "harness" / f"{aperta['sessione']}.json").read_text(encoding="utf-8"))
         controlla("e la sessione ha i blocchi nuovi, gli stessi del Python",
                   stato["blocchi"] == harness._leggi_documento(modulo), str(stato["blocchi"])[:200])
@@ -159,25 +159,25 @@ try:
         print("\n4. buttata, se ne va senza toccare il file")
         proponi("    return 0")
         prima = modulo.read_bytes()
-        r = c.call("harness.scarta", {"file": str(modulo)})
+        r = c.call("finestra.scarta", {"file": str(modulo)})
         controlla("scartata", r == {"ok": True, "scartata": True}, str(r))
         controlla("il file non e' cambiato", modulo.read_bytes() == prima)
-        controlla("e non c'e' piu' niente in attesa", c.call("harness.proposte")["proposte"] == [])
+        controlla("e non c'e' piu' niente in attesa", c.call("finestra.proposte")["proposte"] == [])
 
         print("\n5. i test del progetto, da soli")
-        r = c.call("harness.prova", {"cartella": str(progetto), "file": str(modulo)})
+        r = c.call("finestra.prova", {"cartella": str(progetto), "file": str(modulo)})
         controlla("riconosce gli script di prova e li esegue",
                   r.get("provabile") and r.get("banco") == "script"
                   and r.get("passate") == ["prove/test_conti.py"], str(r)[:300])
-        r = c.call("harness.prova", {"cartella": str(Path(casa) / "vuota")})
+        r = c.call("finestra.prova", {"cartella": str(Path(casa) / "vuota")})
         controlla("dove non c'e' niente da provare lo dice",
                   r.get("provabile") is False and "non ho riconosciuto" in r.get("motivo", ""), str(r))
 
         print("\n6. sono bottoni della persona")
         elenco = {t["name"] for t in c.request("tools/list")["tools"]}
         controlla("un modello non le vede",
-                  not any(n.startswith("harness_") for n in elenco), str(sorted(elenco))[:200])
-        r = c.request("tools/call", {"name": "harness_applica", "arguments": {"modifiche": []}})
+                  not any(n.startswith("finestra_") for n in elenco), str(sorted(elenco))[:200])
+        r = c.request("tools/call", {"name": "finestra_applica", "arguments": {"modifiche": []}})
         controlla("e non le puo' chiamare", bool(r.get("isError")), str(r)[:200])
 
         print("\n7. un Word, dal demone come dal Python")
@@ -214,11 +214,11 @@ try:
         controlla("il Python applica", py.get("ok"), str(py)[:200])
         aperta_w = harness.apri(str(word_a), radice=str(progetto))
         assert harness_modifica.proponi(modifiche_word, motivo="contratto").get("ok")
-        p = next((x for x in c.call("harness.proposte")["proposte"] if x["file"].endswith("contratto.docx")), {})
+        p = next((x for x in c.call("finestra.proposte")["proposte"] if x["file"].endswith("contratto.docx")), {})
         controlla("la proposta si guarda qui, a voci",
                   p.get("qui") is True and p.get("tipo") == "docx" and len(p.get("voci", [])) == 5
                   and not p.get("saltate"), str(p)[:300])
-        r = c.call("harness.applica", {"modifiche": [{"file": p.get("file", ""), "atteso": p.get("modificato")}]})
+        r = c.call("finestra.applica", {"modifiche": [{"file": p.get("file", ""), "atteso": p.get("modificato")}]})
         controlla("il demone applica", r.get("ok") is True and r["file"][0]["quante"] == 5, str(r)[:300])
         # Gli indici sono quelli del documento com'era: «elimina p2» toglie
         # «Da togliere» anche se prima, nella stessa proposta, si e' aggiunto
@@ -245,19 +245,19 @@ try:
         d = pydocx.Document(str(word_a))
         d.paragraphs[2].runs[0].text = "Il canone e' di 580 euro."
         d.save(str(word_a))
-        p = next((x for x in c.call("harness.proposte")["proposte"] if x["file"].endswith("contratto.docx")), {})
+        p = next((x for x in c.call("finestra.proposte")["proposte"] if x["file"].endswith("contratto.docx")), {})
         voci = p.get("voci", [])
         controlla("la voce sul paragrafo cambiato e' spenta, col perche'",
                   len(voci) == 2 and "un'altra cosa" in (voci[0].get("guaio") or "") and voci[1].get("guaio") is None,
                   str(voci)[:300])
         try:
-            c.call("harness.applica", {"modifiche": [{"file": p["file"]}]})
+            c.call("finestra.applica", {"modifiche": [{"file": p["file"]}]})
             controlla("applicarla tutta non scrive niente", False, "ha scritto")
         except Exception as e:                                  # noqa: BLE001
             controlla("applicarla tutta non scrive niente",
                       "non si applica piu' per intero" in str(e)
                       and com_e(word_a)[0][2][0] == "Il canone e' di 580 euro.", str(e)[:200])
-        r = c.call("harness.applica", {"modifiche": [{"file": p["file"], "scelte": [1]}]})
+        r = c.call("finestra.applica", {"modifiche": [{"file": p["file"], "scelte": [1]}]})
         controlla("scelta solo quella buona, passa solo quella",
                   r.get("ok") and com_e(word_a)[0][0][0] == "Contratto di locazione"
                   and com_e(word_a)[0][2][0] == "Il canone e' di 580 euro.", str(com_e(word_a))[:200])
@@ -302,10 +302,10 @@ try:
         prima = pdf_a.read_bytes()
         harness.apri(str(pdf_a), radice=str(progetto))
         assert harness_modifica.proponi(segni).get("ok")
-        p = next((x for x in c.call("harness.proposte")["proposte"] if x["file"].endswith("contratto.pdf")), {})
+        p = next((x for x in c.call("finestra.proposte")["proposte"] if x["file"].endswith("contratto.pdf")), {})
         controlla("la proposta porta dove stanno i blocchi",
                   p.get("tipo") == "pdf" and all(v.get("riquadro") for v in p.get("voci", [])), str(p)[:300])
-        r = c.call("harness.applica", {"modifiche": [{"file": p.get("file", ""), "atteso": p.get("modificato")}]})
+        r = c.call("finestra.applica", {"modifiche": [{"file": p.get("file", ""), "atteso": p.get("modificato")}]})
         controlla("il demone annota", r.get("ok") is True and r["file"][0]["quante"] == 3, str(r)[:300])
         controlla("le stesse annotazioni del Python, negli stessi punti",
                   annotazioni(pdf_a) == annotazioni(pdf_b),

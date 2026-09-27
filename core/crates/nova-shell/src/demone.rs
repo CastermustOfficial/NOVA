@@ -36,10 +36,10 @@ const CONSENTITE: &[&str] = &[
     "approvazione.rispondi",
     // I bottoni dell'harness: guardare, accettare, buttare e provare le
     // proposte di NOVA (D339).
-    "harness.proposte",
-    "harness.applica",
-    "harness.scarta",
-    "harness.prova",
+    "finestra.proposte",
+    "finestra.applica",
+    "finestra.scarta",
+    "finestra.prova",
 ];
 
 #[cfg(windows)]
@@ -133,7 +133,7 @@ const ATTESA_CAPACITA: u64 = 120;
 /// «non risponde» mentre il demone sta ancora provando.
 fn attesa_per(capacita: &str) -> u64 {
     match capacita {
-        "harness.prova" | "harness.applica" => 2 * nova_harness::prova::ATTESA_PROVE_S + 60,
+        "finestra.prova" | "finestra.applica" => 2 * nova_harness::prova::ATTESA_PROVE_S + 60,
         _ => ATTESA_CAPACITA,
     }
 }
@@ -272,9 +272,9 @@ mod prove {
 
     #[test]
     fn le_prove_si_aspettano_due_volte_e_il_resto_no() {
-        assert_eq!(attesa_per("harness.applica"), 660);
-        assert_eq!(attesa_per("harness.prova"), 660);
-        assert_eq!(attesa_per("harness.proposte"), ATTESA_CAPACITA);
+        assert_eq!(attesa_per("finestra.applica"), 660);
+        assert_eq!(attesa_per("finestra.prova"), 660);
+        assert_eq!(attesa_per("finestra.proposte"), ATTESA_CAPACITA);
     }
 
     #[test]

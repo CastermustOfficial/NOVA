@@ -2469,6 +2469,7 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    | web | 3 | 3 |
    | deleghe | 3 | 3 |
    | schermo | 1 | 1 |
+   | harness | 9 | 9 |
 5. **Il prompt.** Le regole operative stanno in `nova/config.py` come testo, e
    il turno del demone oggi manda solo cio' che l'utente ha in `config.json`.
    E' l'ultima cosa da spostare, perche' finche' le due strade coesistono

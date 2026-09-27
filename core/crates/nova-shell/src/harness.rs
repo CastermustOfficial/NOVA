@@ -5,8 +5,8 @@
 //! la meta' Rust della prima fase — l'albero di una cartella, un file letto
 //! e salvato, la finestra che si apre da sola.
 //!
-//! **Come NOVA apre un file qui.** Lo strumento `harness_apri` (oggi in
-//! Python) scrive la sessione su disco e il puntatore `corrente.json`, e poi
+//! **Come NOVA apre un file qui.** Lo strumento `harness_apri` (nel demone,
+//! D344; prima nel Python) scrive la sessione su disco e il puntatore `corrente.json`, e poi
 //! controlla con `finestra.json` se una finestra dell'harness e' gia' viva.
 //! Il guscio si presenta come **la** finestra dell'harness: scrive il suo
 //! pid in `finestra.json` e segue il puntatore. Cosi' lo strumento non
