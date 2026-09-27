@@ -10850,7 +10850,7 @@ domanda tornerà con l'harness:
   quando `bin2coff` deve incorporare i caratteri. Serve Visual Studio Build
   Tools **2022**; la CI su `windows-latest` lo ha già.
 
-## L'harness, prima fase: la finestra
+## 26 settembre 2026 — L'harness, prima fase: la finestra
 
 Discusso con Gio cosa deve avere (docs/harness.md), approvata la bozza
 (docs/harness_bozza.html), e fatta la prima delle cinque fasi: la finestra
@@ -10893,7 +10893,7 @@ Lo sportello dei permessi è uscito dalla nuvoletta ed è andato in
 volte è una carta che un giorno dice due cose diverse. Il Markdown ha
 imparato le tabelle, e per i documenti unisce le righe in paragrafi.
 
-## L'harness, seconda fase: le proposte
+## 26 settembre 2026, sera — L'harness, seconda fase: le proposte
 
 Quando NOVA propone una modifica, adesso la si guarda nell'harness: la
 finestra si apre sul confronto, dentro l'editor, e nella chat compare una
@@ -10931,7 +10931,7 @@ uguali in testa e in coda tolte prima; oltre un certo prodotto di righe si
 conta alla grossa, e una prova lo dice. Le mutazioni ne hanno trovate due
 che le prove non vedevano, e adesso le vedono.
 
-## L'harness, terza fase: il terminale
+## 26 settembre 2026, notte — L'harness, terza fase: il terminale
 
 Il pannello di sotto dell'harness ha il terminale: una console vera, con la
 shell di tutti i giorni, nella cartella del progetto (D340). La prova in
