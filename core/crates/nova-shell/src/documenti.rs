@@ -267,12 +267,12 @@ mod prove {
     #[test]
     fn l_indirizzo_torna_percorso_accenti_compresi() {
         assert_eq!(
-            percorso_da("/C%3A/Users/gio/perch%C3%A9.pdf"),
-            PathBuf::from("C:/Users/gio/perché.pdf")
+            percorso_da("/D%3A/Studio/perch%C3%A9.pdf"),
+            PathBuf::from("D:/Studio/perché.pdf")
         );
         assert_eq!(
-            percorso_da("//home/gio/a%20b.html"),
-            PathBuf::from("/home/gio/a b.html")
+            percorso_da("//srv/sito/a%20b.html"),
+            PathBuf::from("/srv/sito/a b.html")
         );
         assert_eq!(
             percorso_da("/x%zz.pdf"),

@@ -1186,3 +1186,12 @@ direttamente, e passava; nessuno provava cosa mandava **il guscio**.
 L'ho visto solo perché dovevo aggiungere un argomento a quella funzione. La
 richiesta adesso la costruisce una funzione sola, con una prova che dice che
 la voce è una bandierina e non una sessione (D338).
+
+## Ho fatto girare le prove del progetto con i file nuovi fuori da git
+
+La prova dei dati personali guarda i file **tracciati**: quelli che git
+pubblicherebbe. Io la facevo girare prima di preparare il commit, con i
+file nuovi ancora fuori dall'indice — e per lei non esistevano. Cosi' un
+percorso di prova scritto come `C:/Users/gio/...` e' arrivato fino alla CI,
+che l'ha fermato. La regola adesso: le prove del progetto si fanno girare
+**dopo** aver messo i file nell'indice, come li vedra' chi li riceve.
