@@ -275,6 +275,11 @@ try:
               str(sistema)[:150])
     controlla("con i segnaposto sostituiti",
               "{user}" not in sistema.get("content", ""), sistema.get("content", ""))
+    controlla("con le regole operative in coda, come le mette agent.py (D347)",
+              "Come si lavora su questo PC:" in sistema.get("content", ""))
+    controlla("e i nomi degli strumenti sono quelli del demone",
+              "`sys_digita`" in sistema.get("content", "")
+              and "`type_text`" not in sistema.get("content", ""))
 
     print("\n5. quel che ha gia' imparato torna in coda alla domanda")
     with CoreClient(endpoint, timeout=60) as c:
