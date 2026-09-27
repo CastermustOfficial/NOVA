@@ -11113,3 +11113,19 @@ dice «versione due»; annullata, torna quello di prima.
 E una sorpresa dal Python: il suo perimetro lasciava passare `.env`, perche'
 togliere «./» in testa con `lstrip` toglie anche il punto. Corretto tutt'e due.
 
+## 27 settembre 2026, pomeriggio — Si installa senza Python
+
+L'installatore pretendeva Python per cose che con l'installare non
+c'entravano: scrivere due chiavi nella configurazione, cercare i modelli,
+sapere quali CLI esistono (D350). Adesso lo chiede a `nova.exe`, che c'e'
+comunque, e senza accendere il demone.
+
+Python resta benvenuto — le automazioni si scrivono li' — ma se manca
+l'installatore lo dice e prosegue. Due cose lo vogliono ancora: scaricare i
+componenti della voce e il rendiconto dei dati quando si disinstalla. Sono le
+prossime.
+
+La prova confronta le risposte coi moduli Python sugli stessi file finti,
+compreso un GGUF scaricato a meta': tutt'e due lo scartano, con la stessa
+frase.
+

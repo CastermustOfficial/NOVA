@@ -60,6 +60,76 @@ pub fn leggi_da(p: &std::path::Path) -> (Value, String) {
     }
 }
 
+/// Fonde `sopra` dentro `base`: gli oggetti si uniscono chiave per chiave,
+/// tutto il resto si sostituisce.
+pub fn fondi(base: &mut Value, sopra: &Value) {
+    match (base, sopra) {
+        (Value::Object(b), Value::Object(s)) => {
+            for (k, v) in s {
+                match b.get_mut(k) {
+                    Some(esistente) => fondi(esistente, v),
+                    None => {
+                        b.insert(k.clone(), v.clone());
+                    }
+                }
+            }
+        }
+        (b, s) => *b = s.clone(),
+    }
+}
+
+/// Applica una modifica parziale al file e torna la configurazione intera.
+///
+/// `{"safety": {"autonomy": "ask_risky"}}` tocca solo quella chiave:
+/// riscrivere l'oggetto intero vorrebbe dire cancellare le chiavi che chi
+/// scrive non conosce. Un file **storto** non si sovrascrive: sarebbe
+/// buttare la configurazione di qualcuno per aver cambiato una riga.
+/// Scrittura atomica: chi si chiude a meta' non lascia un JSON troncato.
+pub fn scrivi_fondendo(modifica: &Value) -> Result<Value, String> {
+    scrivi_fondendo_in(&percorso(), modifica)
+}
+
+/// Come [`scrivi_fondendo`], in un file scelto.
+pub fn scrivi_fondendo_in(p: &std::path::Path, modifica: &Value) -> Result<Value, String> {
+    let (mut attuale, perche) = leggi_da(p);
+    if !perche.is_empty() {
+        return Err(perche);
+    }
+    fondi(&mut attuale, modifica);
+    if let Some(dir) = p.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    let temporaneo = p.with_extension("json.nuovo");
+    let testo = serde_json::to_string_pretty(&attuale).map_err(|e| e.to_string())? + "\n";
+    std::fs::write(&temporaneo, testo).map_err(|e| e.to_string())?;
+    std::fs::rename(&temporaneo, p).map_err(|e| e.to_string())?;
+    Ok(attuale)
+}
+
+/// La cartella del progetto: quella dell'installazione, dove stanno `bin`,
+/// `runtime` e i modelli scaricati.
+///
+/// `NOVA_HOME` se c'e'; se no si sale dal programma che gira finche' non si
+/// trova una cartella che ha l'aria di NOVA — l'installatore, il pacchetto
+/// Python o la cartella dei motori. I binari stanno in `bin` (installati) o
+/// in `core/target/release` (in sviluppo): da tutt'e due si arriva qui.
+pub fn radice_progetto() -> PathBuf {
+    if let Some(p) = std::env::var_os("NOVA_HOME") {
+        return PathBuf::from(p);
+    }
+    let exe = std::env::current_exe().unwrap_or_default();
+    exe.ancestors()
+        .skip(1)
+        .take(6)
+        .find(|d| {
+            d.join("install.ps1").is_file()
+                || d.join("nova").join("__main__.py").is_file()
+                || d.join("run_nova.pyw").is_file()
+        })
+        .map(std::path::Path::to_path_buf)
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default())
+}
+
 #[cfg(test)]
 mod prove {
     use super::*;
@@ -69,6 +139,21 @@ mod prove {
         let _ = std::fs::remove_dir_all(&p);
         std::fs::create_dir_all(&p).unwrap();
         p
+    }
+
+    #[test]
+    fn una_modifica_parziale_lascia_il_resto() {
+        let d = cartella("fondi");
+        let f = d.join("config.json");
+        std::fs::write(&f, "\u{feff}{\"a\": {\"b\": 1, \"c\": 2}, \"x\": [1]}").unwrap();
+        let v = scrivi_fondendo_in(&f, &serde_json::json!({"a": {"b": 5}, "x": [2, 3], "n": true})).unwrap();
+        assert_eq!(v, serde_json::json!({"a": {"b": 5, "c": 2}, "x": [2, 3], "n": true}));
+        assert_eq!(leggi_da(&f).0, v);
+        std::fs::write(&f, "{ rotto").unwrap();
+        assert!(scrivi_fondendo_in(&f, &serde_json::json!({"a": 1})).is_err());
+        assert_eq!(std::fs::read_to_string(&f).unwrap(), "{ rotto", "un file storto non si butta");
+        let nuovo = d.join("sotto").join("config.json");
+        assert_eq!(scrivi_fondendo_in(&nuovo, &serde_json::json!({"a": 1})).unwrap(), serde_json::json!({"a": 1}));
     }
 
     #[test]

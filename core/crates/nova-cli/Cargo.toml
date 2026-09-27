@@ -11,6 +11,11 @@ path = "src/main.rs"
 
 [dependencies]
 nova-proto = { path = "../nova-proto" }
+# I comandi che non passano dal demone (D350): configurazione e modelli, per
+# l'installatore, che senza questi voleva Python.
+nova-configurazione = { path = "../nova-configurazione" }
+nova-modelli = { path = "../nova-modelli" }
+nova-cervelli = { path = "../nova-cervelli" }
 tokio.workspace = true
 anyhow.workspace = true
 clap.workspace = true

@@ -20,6 +20,58 @@ pub const ULTIMI_SCAMBI: usize = 6;
 /// gia' cominciato sul computer dell'utente.
 pub const SECONDI_PREDEFINITI: u64 = 600;
 
+/// Le CLI agentiche che NOVA conosce da sola: il predefinito di
+/// `brains.cli`, gemello di `cli_predefinite()` in `nova/routing.py` (una
+/// prova confronta i due). Serve a chi scrive la configurazione da zero —
+/// l'installatore, `nova configura` — che senza Python non ha piu' un
+/// `Config` coi suoi predefiniti da salvare.
+///
+/// Il modello resta vuoto di proposito: ogni CLI ha il suo predefinito, che
+/// cambia piu' spesso di quanto si aggiorni un file di configurazione.
+pub fn predefinite() -> Value {
+    serde_json::json!({
+        "codex": {
+            "etichetta": "Codex (OpenAI)",
+            "binary": "codex",
+            "args": ["exec", "--skip-git-repo-check"],
+            "model": "",
+            "prompt": "argomento",
+            "timeout": 900,
+            "a_consumo": false,
+        },
+        // Il sostituto di Gemini CLI per gli account personali, dal 18
+        // giugno 2026. `--dangerously-skip-permissions`: una CLI agentica
+        // agisce con le proprie mani, non passando dalle guardie di NOVA.
+        "antigravity": {
+            "etichetta": "Antigravity (Google)",
+            "binary": "agy",
+            "args": ["--dangerously-skip-permissions", "-p"],
+            "model": "",
+            "prompt": "argomento",
+            "timeout": 600,
+            "a_consumo": false,
+        },
+        "gemini": {
+            "etichetta": "Gemini (licenza enterprise o chiave API)",
+            "binary": "gemini",
+            "args": ["--approval-mode", "yolo", "-p"],
+            "model": "",
+            "prompt": "argomento",
+            "timeout": 600,
+            "a_consumo": false,
+        },
+        "qwen": {
+            "etichetta": "Qwen Code",
+            "binary": "qwen",
+            "args": ["-p"],
+            "model": "",
+            "prompt": "argomento",
+            "timeout": 600,
+            "a_consumo": false,
+        },
+    })
+}
+
 /// Com'e' dichiarata una CLI in `brains.cli`.
 ///
 /// E' cio' che serve per **lanciarla**, e non una copia del pezzo di file:

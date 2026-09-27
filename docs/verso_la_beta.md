@@ -2478,6 +2478,9 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
 6. **Quel che resta del Python** — l'installatore, il primo avvio, il
    pannello delle impostazioni — si sposta quando il resto e' fermo, non
    prima: e' la parte che si vede, e romperla si vede subito.
+   L'installatore non lo pretende piu' (D350): configurazione, modelli e CLI
+   note li chiede a `nova.exe`. Restano in Python lo scaricamento dei
+   componenti e il rendiconto dei dati alla disinstallazione.
 
 **L'ordine dal 22 settembre**, deciso con Gio guardando i numeri contati
 quel giorno (68.000 righe di Rust in 37 crate, 24.000 di Python, 35 strumenti

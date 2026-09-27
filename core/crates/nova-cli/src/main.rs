@@ -7,11 +7,22 @@
 //!     nova watch "proc.*" "daemon.*"
 //!     nova mcp                     ponte stdio: Claude Code parla col demone
 //!     nova shutdown
+//!
+//! Senza demone (D350), per l'installatore:
+//!
+//!     nova config leggi server.model_path
+//!     nova config imposta '{"ui": {"lingua": "en"}}'
+//!     nova configura --forza
+//!     nova modelli trova --secondi 20
+//!     nova modelli verifica C:\modelli\x.gguf
+//!     nova cli-predefinite
 
 use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
 use serde_json::{json, Value};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+
+mod locali;
 
 #[derive(Parser, Debug)]
 #[command(name = "nova", about = "Client di nova-core.")]
@@ -93,11 +104,101 @@ enum Cmd {
     Mcp,
     /// Ferma il demone.
     Shutdown,
+    /// La configurazione di NOVA, senza demone.
+    Config {
+        #[command(subcommand)]
+        azione: ConfigAzione,
+    },
+    /// Completa la configurazione con quello che c'e' sul PC: modello,
+    /// motore, CLI agentiche note.
+    Configura {
+        /// Cerca di nuovo anche se modello e motore ci sono gia'.
+        #[arg(long)]
+        forza: bool,
+    },
+    /// I modelli GGUF sul PC, senza demone.
+    Modelli {
+        #[command(subcommand)]
+        azione: ModelliAzione,
+    },
+    /// Le CLI agentiche che NOVA conosce da sola.
+    CliPredefinite {
+        /// Le dichiarazioni intere, come vanno in `brains.cli`.
+        #[arg(long)]
+        tutto: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum ConfigAzione {
+    /// Stampa la configurazione, o una chiave puntata (`server.model_path`).
+    Leggi { chiave: Option<String> },
+    /// Fonde un oggetto JSON nella configurazione.
+    Imposta {
+        /// L'oggetto JSON; con `--stdin`, si legge da li'.
+        json: Option<String>,
+        #[arg(long)]
+        stdin: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum ModelliAzione {
+    /// Cerca i GGUF nei posti dove finiscono davvero.
+    Trova {
+        /// Il tetto di tempo: scaduto, si torna con quel che si e' visto.
+        #[arg(long, default_value_t = 20.0)]
+        secondi: f64,
+        /// Una cartella in piu' da guardare per prima.
+        #[arg(long)]
+        cartella: Vec<std::path::PathBuf>,
+    },
+    /// Controlla un file: c'e', e' un GGUF, e' intero?
+    Verifica { percorso: String },
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
+    // Prima i comandi che non parlano col demone: non devono nemmeno
+    // provarci.
+    match &args.cmd {
+        Cmd::Config { azione: ConfigAzione::Leggi { chiave } } => {
+            std::process::exit(locali::config_leggi(chiave.as_deref())?);
+        }
+        Cmd::Config { azione: ConfigAzione::Imposta { json, stdin } } => {
+            let testo = if *stdin {
+                let mut buf = String::new();
+                std::io::Read::read_to_string(&mut std::io::stdin(), &mut buf)?;
+                buf
+            } else {
+                json.clone().ok_or_else(|| anyhow!("manca l'oggetto JSON da impostare"))?
+            };
+            locali::config_imposta(&testo)?;
+            return Ok(());
+        }
+        Cmd::Configura { forza } => {
+            for n in locali::configura(*forza)? {
+                println!("   {n}");
+            }
+            return Ok(());
+        }
+        Cmd::Modelli { azione: ModelliAzione::Trova { secondi, cartella } } => {
+            let (s, c) = (*secondi, cartella.clone());
+            let r = tokio::task::spawn_blocking(move || locali::modelli_trova(s, &c)).await?;
+            println!("{}", serde_json::to_string(&r)?);
+            return Ok(());
+        }
+        Cmd::Modelli { azione: ModelliAzione::Verifica { percorso } } => {
+            println!("{}", serde_json::to_string(&locali::modelli_verifica(percorso))?);
+            return Ok(());
+        }
+        Cmd::CliPredefinite { tutto } => {
+            println!("{}", serde_json::to_string(&locali::cli_predefinite(*tutto))?);
+            return Ok(());
+        }
+        _ => {}
+    }
     let endpoint = args.endpoint.unwrap_or_else(nova_proto::endpoint_default);
 
     match args.cmd {
@@ -281,6 +382,9 @@ async fn main() -> Result<()> {
         Cmd::Shutdown => {
             let r = chiamata_singola(&endpoint, "daemon/shutdown", json!({})).await?;
             println!("{}", serde_json::to_string_pretty(&r)?);
+        }
+        Cmd::Config { .. } | Cmd::Configura { .. } | Cmd::Modelli { .. } | Cmd::CliPredefinite { .. } => {
+            unreachable!("gestiti prima di cercare il demone")
         }
     }
     Ok(())
