@@ -176,6 +176,9 @@ def coppie_rust(percorso: Path, nome: str) -> list[tuple[str, str]] | None:
 #
 # (file Rust, nome, come si prende in Python, ordine conta, nota sulla forma)
 GEMELLI = [
+    ("nova-pianificazione/src/attivita.rs", "GIORNI_XML",
+     lambda: dizionario("nova/attivita.py", "GIORNI_XML"), True,
+     "coppie: in Python e' un dizionario"),
     ("nova-core/src/caps_harness_strumenti.rs", "PROFILI",
      lambda: list(costante("nova/harness.py", "PROFILI")), True,
      "in Python e' un dizionario col resto del profilo: contano i nomi"),

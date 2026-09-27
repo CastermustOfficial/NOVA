@@ -60,10 +60,6 @@ SCOLLEGATI: dict[str, str] = {
                       "dal PC. Attaccarlo e' CANT-12, che e' aperto apposta",
     "nova-mcp-cliente": "NOVA che usa un server MCP di qualcun altro: non c'e' "
                         "ancora il posto da cui si configurano quei server",
-    "nova-pianificazione": "«quando tocca di nuovo». Oggi a far ripartire le "
-                           "attivita' e' l'Utilita' di pianificazione di "
-                           "Windows, che sopravvive al riavvio: attaccarlo qui "
-                           "vuol dire decidere chi dei due comanda",
 }
 
 # ----------------------------------------------------------------- lettura

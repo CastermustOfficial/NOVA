@@ -171,6 +171,116 @@ for (q, m), r in zip([(f, m) for m in MOMENTI for f in buone], r_av):
 controlla("nessuna frase valida guarda all'indietro", not indietro,
           "; ".join(indietro[:3]))
 
+# --------------------------------------------- le attivita' di Windows
+print("\n=== Le attivita' di Windows: l'XML, i compiti, i promemoria, l'elenco ===")
+import datetime as _dt                                          # noqa: E402
+import types as _types                                          # noqa: E402
+from nova import attivita as _att                               # noqa: E402
+from nova.tools import tempo as _tempo, system as _system       # noqa: E402
+from nova.tools.base import ToolError                           # noqa: E402
+
+
+def banco_attivita(righe: list[dict]) -> list[dict]:
+    p = subprocess.run([str(BINARIO)], input="\n".join(json.dumps(r, ensure_ascii=False) for r in righe),
+                       capture_output=True, text=True, encoding="utf-8")
+    return [json.loads(x) for x in p.stdout.splitlines() if x.strip()]
+
+
+XML = [
+    ("2026-09-27T08:00:00", "C:\\NOVA\\bin\\nova.exe", 'chiedi --da-file "C:\\t\\x.txt"',
+     "controlla l'agenda & <tutto> \"subito\"", "", "", "PT30M"),
+    ("2026-12-31T23:00:00", "nova-notifica.exe", '--da-file "x"', "è" * 500, "", "", "PT5M"),
+    ("2026-09-27T08:00:00", "a", "b", "c", "giorno", "", "PT30M"),
+    ("2026-09-27T08:00:00", "a", "b", "c", "settimana", "", "PT30M"),
+    ("2026-09-29T08:00:00", "a", "b", "c", "settimana", "venerdi", "PT30M"),
+    ("2026-01-31T08:00:00", "a", "b", "c", "mese", "", "PT30M"),
+]
+r = banco_attivita([{"tipo": "xml", "dt": d, "comando": c, "argomenti": a, "descrizione": ds,
+                     "ogni": o, "giorno": g, "durata": du} for d, c, a, ds, o, g, du in XML])
+diversi = [x for x, y in zip(XML, r)
+           if _att.xml(_dt.datetime.fromisoformat(x[0]), x[1], x[2], x[3], x[4], x[5], x[6]) != y.get("xml")]
+controlla(f"i {len(XML)} XML sono identici, byte per byte", not diversi and len(r) == len(XML), str(diversi[:1]))
+
+
+def fermo(adesso: str):
+    """Il modulo `datetime` con l'orologio fermo su `adesso`."""
+    t = _dt.datetime.fromisoformat(adesso)
+
+    class D(_dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return t
+
+    class G(_dt.date):
+        @classmethod
+        def today(cls):
+            return t.date()
+    m = _types.SimpleNamespace(**{k: getattr(_dt, k) for k in dir(_dt) if not k.startswith("__")})
+    m.datetime, m.date = D, G
+    return m
+
+
+ADESSO = "2026-09-27T20:30:00"
+COMPITI = [
+    ("controlla l'agenda", "21:05", "", ""), ("backup", "9:05", "ogni giorno", "Il mio backup!"),
+    ("x", "2026-12-31 23:59", "ogni lunedi'", ""), ("x", "2026-12-31T08:00:30", "settimanale", ""),
+    ("x", "2026-12-31", "mensile", ""), ("", "10:00", "", ""), ("x", "domani", "", ""),
+    ("x", "25:00", "", ""), ("x", "10:00", "ogni tanto", ""), ("   ", "10:00", "", ""),
+    ("!!!", "10:00", "", ""), ("una istruzione lunghissima che supera i quaranta caratteri di sicuro", "10:00", "", ""),
+    ("x", "20:30", "", ""), ("x", "2026-02-30 10:00", "", ""),
+]
+presi = []
+_tempo.attivita.crea = lambda nome, dt, *a, ripeti="", giorno="", **k: presi.append((nome, dt, ripeti, giorno))
+_tempo.scrivi = lambda *a, **k: None
+_tempo.datetime = fermo(ADESSO)
+attesi = []
+for ist, q, rip, nome in COMPITI:
+    presi.clear()
+    try:
+        _tempo.pianifica(ist, q, rip, nome)
+        n, d, o, g = presi[0]
+        attesi.append({"nome": n, "dt": d.isoformat(), "ripeti": [o, g]})
+    except ToolError as e:
+        attesi.append({"errore": str(e)})
+r = banco_attivita([{"tipo": "compito", "istruzione": i, "quando": q, "ripeti": rp, "nome": n,
+                     "adesso": ADESSO} for i, q, rp, n in COMPITI])
+diversi = [(c, a, b) for c, a, b in zip(COMPITI, attesi, r) if a != b]
+controlla(f"i {len(COMPITI)} compiti hanno lo stesso nome, la stessa ora e la stessa ripetizione",
+          not diversi and len(r) == len(COMPITI), str(diversi[:2]))
+
+PROMEMORIA = ["21:05", "20:30", "20:29", "2026-09-27 20:30", "2026-09-27 20:31", "2026-12-31",
+              "domani", " 22:00 ", "2025-01-01 10:00"]
+_system.datetime = fermo(ADESSO)
+_system._promemoria = lambda dt, message: {"nome": "NOVA_Promemoria_" + dt.strftime("%Y%m%d%H%M%S"),
+                                           "dt": dt.isoformat()}
+attesi = []
+for q in PROMEMORIA:
+    try:
+        attesi.append(_system.create_reminder("x", q))
+    except ToolError as e:
+        attesi.append({"errore": str(e)})
+r = banco_attivita([{"tipo": "promemoria", "quando": q, "adesso": ADESSO} for q in PROMEMORIA])
+diversi = [(q, a, b) for q, a, b in zip(PROMEMORIA, attesi, r) if a != b]
+controlla(f"i {len(PROMEMORIA)} promemoria suonano alla stessa ora", not diversi and len(r) == len(PROMEMORIA), str(diversi[:2]))
+
+USCITE = [
+    "Nome host: PC\nNome attivit\u00e0: \\NOVA_Compito_backup\nProssima esecuzione: 28/09/2026 09:00:00\n"
+    "Attivit\u00e0 da eseguire: C:\\n\\nova.exe chiedi\n\nNome attivit\u00e0: \\Altro\nStato: Pronto\n",
+    "TaskName: \\NOVA_Compito_x\nNext Run Time: 9/28/2026 9:00:00 AM\nTask To Run: nova.exe\n\n"
+    "TaskName: \\NOVA_Compito_y\nNext Run Time: N/A\nTask To Run: nova.exe chiedi\n",
+]
+_tempo.subprocess = _types.SimpleNamespace(run=lambda *a, **k: _types.SimpleNamespace(
+    returncode=0, stdout=_uscita, stderr=""))
+buone = True
+for _uscita in USCITE:
+    detto = _tempo.pianifica_elenco()
+    rust_l = banco_attivita([{"tipo": "elenco", "uscita": _uscita, "prefisso": "NOVA_Compito_"}])[0]
+    atteso = "In programma:\n" + "\n".join(f"- {n}\n    quando: {p}\n    fara': {a}" for n, p, a in rust_l)
+    buone = buone and detto == atteso
+    if detto != atteso:
+        print(f"     py {detto!r}\n     rs {atteso!r}")
+controlla("l'elenco di schtasks si legge uguale, in italiano e in inglese", buone)
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")

@@ -3022,6 +3022,7 @@ dependencies = [
  "nova-memoria",
  "nova-modelli",
  "nova-nodi",
+ "nova-pianificazione",
  "nova-pitone",
  "nova-platform",
  "nova-potatura",
