@@ -11,21 +11,10 @@ use crate::processo::comando;
 
 use serde_json::{json, Value};
 
-/// La cartella di NOVA, risalendo dall'eseguibile.
+/// La cartella di NOVA: la stessa regola di tutti gli altri
+/// (`nova_configurazione::dove::radice_progetto`).
 pub fn radice() -> PathBuf {
-    if let Ok(p) = std::env::var("NOVA_HOME") {
-        return PathBuf::from(p);
-    }
-    let mut d = std::env::current_exe().unwrap_or_default();
-    for _ in 0..6 {
-        if !d.pop() {
-            break;
-        }
-        if d.join("run_nova.pyw").exists() {
-            return d;
-        }
-    }
-    std::env::current_dir().unwrap_or_default()
+    nova_configurazione::dove::radice_progetto()
 }
 
 /// Il client del demone: **prima accanto a me**, poi dove lo mette cargo.
@@ -106,19 +95,19 @@ fn voce() -> Value {
     json!({"pezzi": stato, "mancanti": mancanti, "pronta": mancanti.is_empty()})
 }
 
+/// I numeri della memoria, chiesti al demone (`kb.stato`). Fino al 27
+/// settembre li dava `python -m nova --kb-stats`: un processo Python ogni
+/// quindici secondi, finche' il pannello restava aperto (D353).
 fn memoria() -> Value {
-    let radice = radice();
-    let python = std::env::var("NOVA_PYTHON")
-        .unwrap_or_else(|_| if cfg!(windows) { "python".into() } else { "python3".into() });
-    match comando(&python)
-        .arg("-m").arg("nova").arg("--kb-stats")
-        .current_dir(&radice)
-        .output()
-    {
-        Ok(u) => {
-            let testo = String::from_utf8_lossy(&u.stdout);
-            primo_json(&testo).unwrap_or_else(|| json!({"nota": "statistiche illeggibili"}))
-        }
+    let cli = cli_nova();
+    if !cli.exists() {
+        return json!({"nota": "il client del demone non e' compilato"});
+    }
+    match comando(&cli.to_string_lossy()).args(["call", "kb.stato"]).output() {
+        Ok(u) => primo_json(&String::from_utf8_lossy(&u.stdout)).unwrap_or_else(|| {
+            let e = String::from_utf8_lossy(&u.stderr);
+            json!({"nota": if e.trim().is_empty() { "il demone non risponde".to_string() } else { e.trim().chars().take(160).collect() }})
+        }),
         Err(e) => json!({"nota": format!("{e}")}),
     }
 }

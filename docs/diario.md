@@ -11158,3 +11158,10 @@ La prova confronta il JSON del demone con quello del Python sugli stessi
 file: identici. Il disinstallatore chiede `novad --dati --json`, che risponde
 e si spegne.
 
+## 27 settembre 2026, notte — Il pannello smette di chiamare Python
+
+Una cosa piccola, ma girava sempre: il pannello, aperto, lanciava Python
+ogni quindici secondi per contare i nodi della memoria (D353). Adesso lo
+chiede al demone. Al guscio resta un solo Python, il ripiego quando il
+demone non risponde: e' il prossimo.
+
