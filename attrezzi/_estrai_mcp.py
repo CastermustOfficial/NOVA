@@ -53,14 +53,14 @@ def delimitatore(t: str) -> str:
 d = delimitatore(testo)
 quante = len(VERSIONI_NOTE)
 note = ", ".join(f'"{v}"' for v in VERSIONI_NOTE)
-fuori = f'''//! Le trentatre' dichiarazioni degli strumenti che NOVA apre a un altro
+fuori = f'''//! Le dichiarazioni degli strumenti che NOVA apre a un altro
 //! programma.
 //!
-//! **Generato da `_estrai_mcp.py`. Non si modifica a mano.** Sono
+//! **Generato da `attrezzi/_estrai_mcp.py`. Non si modifica a mano.** Sono
 //! ventitremila caratteri di schema che Claude Code rilegge a ogni sessione e
 //! su cui sceglie quale strumento di NOVA usare: una parola diversa e' un
 //! comportamento diverso che nessun tipo intercetta (D112). Ricopiarle
-//! sarebbe stato trentatre' occasioni di sbagliarne una.
+//! sarebbe stato un'occasione di sbagliarne una per ciascuna.
 //!
 //! «Non a mano» non e' solo perche' l'estrattore riscrive il file intero: la
 //! prova degli elenchi gemelli **salta i file generati**, fidandosi di questa

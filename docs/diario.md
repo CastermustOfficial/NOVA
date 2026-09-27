@@ -11018,3 +11018,21 @@ quando serviva, no. Una condizione girata al contrario.
 
 Le cinque fasi dell'harness sono fatte. Adesso gli strumenti `harness_*`
 passano dal Python al demone.
+
+## 27 settembre 2026, tarda notte — Gli strumenti dell'harness nel demone
+
+I nove strumenti con cui NOVA lavora nell'harness adesso sono del demone
+(D344). Fino a ieri li aveva solo Claude Code, perche' stavano nel server
+MCP del Python; il cervello in casa non poteva aprire un documento.
+
+Il banco fa lavorare le due meta' sugli stessi documenti, ciascuna nella sua
+cartella, e confronta tutto: le risposte, le sessioni, gli indici, le
+proposte, i documenti dopo averle applicate. Ottantatre' controlli. Ne sono
+caduti due. L'ordine dei file di un progetto: il Python ordina i percorsi per
+cartelle e il Rust li ordinava per lettere, e `src.txt` finiva prima di
+`src/a.py`. E la prova del progetto con niente aperto, che il Python faceva
+nella cartella da cui era partito lui — cioe' in una cartella a caso.
+
+Il pezzo nuovo sono i PDF: niente PyMuPDF, i blocchi li fa `pdf-extract` con
+due regole. Sullo stesso PDF lo stesso testo, e riquadri a un paio di punti
+da quelli di prima.

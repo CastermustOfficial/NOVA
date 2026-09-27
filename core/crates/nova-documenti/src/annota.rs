@@ -110,7 +110,7 @@ pub fn annota(dati: &[u8], segni: &[Segno]) -> Result<(Vec<u8>, usize), String> 
 /// E' il CropBox se c'e', altrimenti il MediaBox; tutti e due si possono
 /// ereditare dalle cartelle di pagine sopra, e chi li scrive non sempre
 /// mette prima l'angolo piu' piccolo.
-fn riquadro_visibile(doc: &lopdf::Document, pagina: ObjectId) -> Result<[f64; 4], String> {
+pub(crate) fn riquadro_visibile(doc: &lopdf::Document, pagina: ObjectId) -> Result<[f64; 4], String> {
     let media = ereditato(doc, pagina, b"MediaBox")
         .and_then(|o| quattro(doc, &o))
         .unwrap_or([0.0, 0.0, 612.0, 792.0]);

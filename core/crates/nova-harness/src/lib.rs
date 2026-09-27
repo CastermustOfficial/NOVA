@@ -396,9 +396,27 @@ pub fn albero(file: &[SulDisco]) -> Vec<String> {
         .filter(|f| f.byte <= FILE_MAX)
         .map(|f| f.dove.replace('\\', "/"))
         .collect();
-    dentro.sort();
+    dentro.sort_by_key(|d| ordine(d));
     dentro.truncate(ALBERO_MAX);
     dentro
+}
+
+/// L'ordine dei percorsi di `sorted(radice.rglob("*"))`: **per pezzi**, non
+/// per lettere. Come stringhe `src.txt` viene prima di `src/a.py` (il punto
+/// sta prima della barra); come percorsi viene dopo, perche' `src` e' piu'
+/// corto di `src.txt`. E su Windows senza maiuscole, come le confronta lui.
+/// L'ha trovato il banco degli strumenti contro il demone (D344).
+fn ordine(percorso: &str) -> Vec<String> {
+    percorso
+        .split('/')
+        .map(|p| {
+            if cfg!(windows) {
+                p.to_lowercase()
+            } else {
+                p.to_string()
+            }
+        })
+        .collect()
 }
 
 /// Da quale file si parte, guardando un progetto.

@@ -190,7 +190,27 @@ fn lalbero_tiene_solo_quel_che_si_apre_e_ci_sta() {
         },
     ];
     let a = albero(&f);
-    assert_eq!(a, vec!["Makefile", "README.md", "giusto.py", "src/main.py"]);
+    // Come `sorted()` dei percorsi: su Windows senza guardare le maiuscole.
+    if cfg!(windows) {
+        assert_eq!(a, vec!["giusto.py", "Makefile", "README.md", "src/main.py"]);
+    } else {
+        assert_eq!(a, vec!["Makefile", "README.md", "giusto.py", "src/main.py"]);
+    }
+}
+
+#[test]
+fn l_albero_va_per_cartelle_non_per_lettere() {
+    let f: Vec<SulDisco> = ["src.txt", "src/a.b.py", "src/conti.py", "src-2.md"]
+        .iter()
+        .map(|d| SulDisco {
+            dove: d.to_string(),
+            byte: 1,
+        })
+        .collect();
+    assert_eq!(
+        albero(&f),
+        vec!["src/a.b.py", "src/conti.py", "src-2.md", "src.txt"]
+    );
 }
 
 #[test]

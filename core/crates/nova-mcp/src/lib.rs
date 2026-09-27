@@ -10,7 +10,7 @@
 //! ## Cosa sta dentro e cosa sta fuori
 //!
 //! Dentro: la busta JSON-RPC, il **dispacciamento** dei metodi, le
-//! trentatre' dichiarazioni, e le due cose che l'utente vede quando un altro
+//! dichiarazioni degli strumenti, e le due cose che l'utente vede quando un altro
 //! programma gli chiede il permesso di fare qualcosa sul suo PC — quanto pesa
 //! (`rischio`) e cosa succede detto in italiano (`in_chiaro`).
 //!
@@ -482,9 +482,10 @@ mod prove {
     }
 
     #[test]
-    fn le_trentatre_dichiarazioni_si_rileggono_come_json() {
+    fn le_dichiarazioni_si_rileggono_come_json() {
         let v: Value = serde_json::from_str(STRUMENTI_JSON).unwrap();
-        assert_eq!(v.as_array().unwrap().len(), 33);
+        // Ventiquattro: gli strumenti `harness_*` sono passati al demone (D344).
+        assert_eq!(v.as_array().unwrap().len(), 24);
         assert_eq!(v[0]["name"], "kb_search");
     }
 

@@ -38,6 +38,8 @@ def controlla(nome, condizione, dettaglio=""):
 
 print("\n1. i conteggi sono quelli veri")
 from nova.mcp_kb import STRUMENTI                              # noqa: E402
+import re as _re_d                                             # noqa: E402
+_re_dem = _re_d.compile(r'"(harness\.[a-z_]+)"')
 for m in ["apps", "automazioni", "deleghe", "documenti", "files", "kb",
           "procedure", "riparazione", "schermo", "shell", "system", "tempo",
           "web"]:
@@ -155,7 +157,12 @@ controlla("c'e' il caso di chi il PC fa fatica a usarlo",
 controlla("e dice la differenza col controllo remoto",
           "non prende il mouse" in elenco)
 from nova.mcp_kb import STRUMENTI as _S                        # noqa: E402
-nomi = {s["name"] for s in _S}
+# Gli strumenti che sono passati al demone esistono lo stesso: li si legge
+# da dove sono dichiarati (D344).
+_demone = {n.replace(".", "_") for n in _re_dem.findall(
+    (RADICE / "core" / "crates" / "nova-core" / "src" / "caps_harness_strumenti.rs")
+    .read_text(encoding="utf-8"))}
+nomi = {s["name"] for s in _S} | _demone
 
 # Ogni caso mostra la catena di strumenti che lo rende vero: e' la
 # differenza fra «NOVA sa fare X» e «ecco come». Ogni nome citato in una
@@ -171,8 +178,7 @@ tutti = nomi | set(REGISTRY)
 fantasmi = sorted(citati - tutti)
 controlla("e ogni strumento citato esiste", not fantasmi, str(fantasmi))
 # Ogni famiglia di esempi deve corrispondere a strumenti che esistono.
-from nova.mcp_kb import STRUMENTI as _S                        # noqa: E402
-nomi = {s["name"] for s in _S}
+nomi = {s["name"] for s in _S} | _demone
 for cosa, strumento in [("candidarsi in un modulo web", "web_scrivi"),
                         ("incollare molti dati", "web_incolla"),
                         ("cercare senza aprire il browser", "web_cerca"),

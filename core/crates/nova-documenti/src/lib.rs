@@ -17,6 +17,7 @@
 //! errori — e delle pagine le parole, senza gli spazi.
 
 pub mod annota;
+pub mod blocchi;
 
 use std::path::{Path, PathBuf};
 

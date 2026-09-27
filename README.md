@@ -748,7 +748,7 @@ nova/
   harness.py          documenti e progetti: aprire, cercare, indicare
   harness_modifica.py proporre modifiche, e applicarle solo su richiesta
   harness_prova.py    i test del progetto: si applica se non peggiora
-  mcp_kb.py           i 32 strumenti esposti a un cervello agentico
+  mcp_kb.py           gli strumenti esposti a un cervello agentico che il demone non ha ancora
   kb_setup.py         regia della memoria: vault, motore, apprendimento
   tools/
     base.py           registry, schemi OpenAI, livelli di rischio
@@ -1195,7 +1195,9 @@ autenticato. NOVA:
 - gli espone la memoria a grafo come **server MCP** (`nova/mcp_kb.py`), quindi
   Claude usa `mcp__nova__kb_search` e `mcp__nova__kb_note`: stessa pipeline di
   retrieval del modello locale, stesso formato dei nodi. Se l'MCP non parte,
-  ricade sulla lettura diretta dei file .md del vault.
+  ricade sulla lettura diretta dei file .md del vault. Quel server oggi ha 24
+  strumenti, e si svuota man mano che passano al demone: gli `harness_*`, per
+  esempio, adesso li da' il demone, a Claude e a tutti gli altri cervelli.
 - riporta costo e token di ogni turno nel registro azioni.
 
 Attenzione a `brains.claude_model`: l'alias `opus` su CLI datate punta a
