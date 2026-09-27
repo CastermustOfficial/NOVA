@@ -176,6 +176,13 @@ def coppie_rust(percorso: Path, nome: str) -> list[tuple[str, str]] | None:
 #
 # (file Rust, nome, come si prende in Python, ordine conta, nota sulla forma)
 GEMELLI = [
+    ("nova-core/src/fascicolo.rs", "TESTO",
+     lambda: costante("nova/fascicolo.py", "TESTO"), False, ""),
+    ("nova-core/src/fascicolo.rs", "DA_APRIRE",
+     # `LEGGIBILI = TESTO | {...}`: il gemello e' la parte a destra.
+     lambda: next(valore(n.value.right) for n in albero("nova/fascicolo.py").body
+                  if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "LEGGIBILI"),
+     False, "LEGGIBILI meno TESTO"),
     ("nova-core/src/riparazione.rs", "INTOCCABILI",
      lambda: costante("nova/banco.py", "INTOCCABILI"), True, ""),
     ("nova-nodi/src/imparare.rs", "FORME_DI_TITOLO",

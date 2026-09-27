@@ -179,7 +179,8 @@ sorgente = (RADICE / "install.ps1").read_text(encoding="utf-8-sig")
 ramo = sorgente[sorgente.index("if ($Disinstalla) {"):]
 ramo = ramo[:ramo.index("Write-Host \"\"\nWrite-Host \"   NOVA\"")] if \
     "Write-Host \"   NOVA\"" in ramo else ramo
-controlla("il ramo chiede il rendiconto a NOVA", "nova.dati --json" in ramo)
+controlla("il ramo chiede il rendiconto a NOVA: prima al demone (D352)",
+          "--dati --json" in ramo and ramo.index("$novadR --dati --json") < ramo.index("nova.dati --json"))
 controlla("lo chiede prima di cancellare, se no pesa tutto zero",
           ramo.index("nova.dati --json") < ramo.index("Remove-Item $dati"))
 controlla("non promette piu' genericamente che «restano dove sono»",
@@ -190,8 +191,8 @@ controlla("non cancella il fascicolo", "fascicolo" not in
           " ".join(l for l in ramo.splitlines() if "Remove-Item" in l))
 controlla("non cancella il vault", "vault" not in
           " ".join(l for l in ramo.splitlines() if "Remove-Item" in l))
-controlla("e sopravvive a un PC senza Python",
-          "Non ho trovato Python" in ramo)
+controlla("e sopravvive a un PC senza demone ne' Python",
+          "Non ho trovato ne' il demone ne' Python" in ramo)
 
 print(f"\n{passati}/{passati + len(falliti)} passati")
 for x in falliti:

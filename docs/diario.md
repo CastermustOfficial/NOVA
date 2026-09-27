@@ -11145,3 +11145,16 @@ Restano tre angoli in Python — il rendiconto quando si disinstalla, i
 numeri della memoria nel pannello, il ripiego del guscio quando il demone non
 risponde — e poi, per scelta, le automazioni.
 
+## 27 settembre 2026, a cena — Claude Code non ha piu' bisogno del Python
+
+Quattro strumenti tenevano in vita il server MCP del Python accanto al
+demone: il fascicolo, la sua lettura, il registro delle azioni dichiarate e
+«dove sono i miei dati» (D352). Adesso li ha il demone, e quando Claude Code
+parte collegato al demone, di Python non ne parte nessuno.
+
+L'inventario dei dati era la cosa piu' delicata: e' la risposta a una
+domanda di fiducia, e il disinstallatore ci conta sopra per dire cosa resta.
+La prova confronta il JSON del demone con quello del Python sugli stessi
+file: identici. Il disinstallatore chiede `novad --dati --json`, che risponde
+e si spegne.
+

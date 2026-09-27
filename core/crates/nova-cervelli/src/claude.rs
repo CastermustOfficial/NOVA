@@ -334,10 +334,11 @@ pub fn dichiarato(cfg: &serde_json::Value) -> Dichiarato {
 ///   file, memoria, sistema, applicazioni, finestre — e lo sportello dei
 ///   permessi, che quindi e' il suo;
 /// - **`nova`**, il server Python, **copiato** dal collegamento che il Python
-///   ha scritto nel vault. Porta cio' che il demone non ha ancora (il
-///   browser guidato, le deleghe, `harness_*`), e si svuota man mano che le
-///   famiglie arrivano di qua. Non lo si ricostruisce: il comando giusto per
-///   avviarlo lo sa chi l'ha scritto.
+///   ha scritto nel vault — **solo quando il demone non c'e'**. Portava cio'
+///   che il demone non aveva ancora, e dal 27 settembre non porta piu' niente
+///   (D352: gli ultimi erano il fascicolo, `azione_registra` e `dati_dove`).
+///   Accanto al demone sarebbe un secondo processo Python per strumenti
+///   doppi.
 ///
 /// Se non ce n'e' nessuno torna `None`, e Claude parte senza strumenti di
 /// NOVA: funziona, e il prompt glielo dice invece di promettergli strumenti
@@ -355,8 +356,10 @@ pub fn collegamento(
             json!({"command": ponte, "args": ["--endpoint", endpoint, "mcp"]}),
         );
     }
-    if let Some(p) = python.filter(|p| p.is_object()) {
-        server.insert("nova".into(), p.clone());
+    if ponte.is_empty() {
+        if let Some(p) = python.filter(|p| p.is_object()) {
+            server.insert("nova".into(), p.clone());
+        }
     }
     if server.is_empty() {
         return None;
@@ -574,6 +577,11 @@ mod prove {
             "senza il demone lo sportello e' quello del Python"
         );
         assert_eq!(v["mcpServers"]["nova"], py);
+        let (v, _) = collegamento("C:\\nova.exe", "x", Some(&py)).unwrap();
+        assert!(
+            v["mcpServers"].get("nova").is_none(),
+            "accanto al demone il server Python non serve piu' (D352)"
+        );
     }
 
     #[test]
