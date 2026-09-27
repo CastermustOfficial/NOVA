@@ -283,13 +283,19 @@ try:
                   "Sei NOVA di prova, per Claude." in testo_prompt
                   and "Sei il cervello di NOVA" in testo_prompt, testo_prompt[:200])
 
-    print("\n4. il collegamento MCP: il demone e il server Python, copiato")
+    print("\n4. il collegamento MCP: il demone, e il Python solo se il demone manca")
     mcp = dopo(argv, "--mcp-config")
     collegamento = json.loads(Path(mcp).read_text(encoding="utf-8")) if mcp else {}
     server = collegamento.get("mcpServers", {})
     ponte = (DEMONE.parent / ("nova.exe" if os.name == "nt" else "nova")).is_file()
-    controlla("il server Python e' copiato com'era, non ricostruito",
-              server.get("nova") == SERVER_PYTHON, str(server.get("nova")))
+    # Dal D352 il demone ha anche gli ultimi strumenti che stavano solo nel
+    # server Python: accanto al ponte, il Python non si avvia piu'.
+    if ponte:
+        controlla("accanto al demone il server Python non c'e' (D352)",
+                  "nova" not in server, str(server.get("nova")))
+    else:
+        controlla("senza ponte il server Python e' copiato com'era, non ricostruito",
+                  server.get("nova") == SERVER_PYTHON, str(server.get("nova")))
     if ponte:
         controlla("il demone c'e', attraverso il ponte, e col suo indirizzo",
                   server.get("nova-core", {}).get("args") == ["--endpoint", endpoint, "mcp"],
