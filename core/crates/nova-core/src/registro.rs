@@ -150,8 +150,104 @@ pub fn cerca_in(dove: &Path, f: &Filtro, fra_quante: usize) -> Vec<Riga> {
         .collect()
 }
 
+/// Quanto c'e' dentro, di che tipo, da quando, e dove sta il file: la
+/// risposta a «che cos'e' questo registro», come `registro.riassunto` del
+/// Python.
+pub fn riassunto_in(f: &Path) -> String {
+    let righe = leggi_da(f, 100_000);
+    if righe.is_empty() {
+        return format!("Il registro e' vuoto.\nSta in {}", f.display());
+    }
+    let r = nova_registro::riassunto(&righe);
+    let quando = if r.prima == r.ultima {
+        format!("dal {}", nova_registro::data_italiana(&r.prima))
+    } else {
+        format!("dal {} al {}", nova_registro::data_italiana(&r.prima), nova_registro::data_italiana(&r.ultima))
+    };
+    let tipi: Vec<String> = r.tipi.iter().map(|(k, n)| format!("{n} {k}")).collect();
+    format!(
+        "{} azioni registrate, {quando}.\n  {}\nSta in {}",
+        r.quante,
+        tipi.join(", "),
+        f.display()
+    )
+}
+
+/// `novad --registro [PAROLE] [--giorni N]`: quello che faceva
+/// `python -m nova --registro` (D357).
+///
+/// Legge un file e lo racconta, senza configurazione e senza cervello: deve
+/// rispondere anche quando NOVA non parte piu', perche' e' proprio il momento
+/// in cui serve sapere cosa aveva fatto. Senza parole e senza giorni comincia
+/// col riassunto; con delle parole che non trovano niente lo dice, invece di
+/// un racconto vuoto che sembra un registro vuoto.
+pub fn per_chi_chiede(parole: &str, giorni: f64) -> String {
+    let t = nova_platform::orologio::adesso();
+    per_chi_chiede_in(&percorso(), parole, giorni, t, nova_platform::fuso_secondi(t))
+}
+
+/// Come [`per_chi_chiede`], con il file, l'ora e il fuso passati da fuori.
+pub fn per_chi_chiede_in(f: &Path, parole: &str, giorni: f64, ora: i64, fuso: i64) -> String {
+    let parole = parole.trim();
+    let mut fuori = String::new();
+    if parole.is_empty() && giorni <= 0.0 {
+        fuori.push_str(&riassunto_in(f));
+        fuori.push_str("\n\n");
+    }
+    let non_prima_di = if giorni > 0.0 {
+        quando(ora - (giorni * 86_400.0) as i64, fuso)
+    } else {
+        String::new()
+    };
+    let filtro = Filtro {
+        testo: parole.to_string(),
+        non_prima_di,
+        quante: 40,
+        ..Filtro::default()
+    };
+    let righe = cerca_in(f, &filtro, 10_000);
+    if !parole.is_empty() && righe.is_empty() {
+        return format!("Niente che contenga «{parole}».");
+    }
+    let oggi: String = quando(ora, fuso).chars().take(10).collect();
+    let prestate: Vec<&Riga> = righe.iter().collect();
+    fuori.push_str(&nova_registro::racconta(&prestate, &oggi));
+    fuori
+}
+
 #[cfg(test)]
 mod prove {
+    /// `novad --registro`: il riassunto quando non si cerca niente, il
+    /// «niente» quando si cerca e non si trova, e la finestra dei giorni.
+    #[test]
+    fn per_chi_chiede_riassume_cerca_e_taglia() {
+        let dir = std::env::temp_dir().join(format!("nova-reg-cli-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("azioni.jsonl");
+        // 2026-09-28T12:00:00 UTC, fuso zero: le righe hanno l'ora cosi'.
+        let ora = 1_790_596_800;
+        std::fs::write(
+            &f,
+            "{\"quando\": \"2026-09-20T10:00:00\", \"tipo\": \"file\", \"azione\": \"cancellato\", \"dove\": \"vecchio.txt\", \"dettagli\": \"\", \"esito\": \"ok\"}\n\
+             {\"quando\": \"2026-09-28T09:00:00\", \"tipo\": \"browser\", \"azione\": \"inviato modulo\", \"dove\": \"Societa' Rossi\", \"dettagli\": \"\", \"esito\": \"ok\"}\n",
+        )
+        .unwrap();
+        let tutto = per_chi_chiede_in(&f, "", 0.0, ora, 0);
+        assert!(tutto.starts_with("2 azioni registrate, dal 20/09/2026 al 28/09/2026."), "{tutto}");
+        assert!(tutto.contains("Sta in "), "{tutto}");
+        let cercato = per_chi_chiede_in(&f, "societa", 0.0, ora, 0);
+        assert!(!cercato.contains("azioni registrate"), "{cercato}");
+        assert!(cercato.contains("inviato modulo") && !cercato.contains("vecchio.txt"), "{cercato}");
+        let niente = per_chi_chiede_in(&f, "banca", 0.0, ora, 0);
+        assert_eq!(niente, "Niente che contenga «banca».");
+        let ultimi = per_chi_chiede_in(&f, "", 2.0, ora, 0);
+        assert!(ultimi.contains("inviato modulo") && !ultimi.contains("vecchio.txt"), "{ultimi}");
+        let vuoto = per_chi_chiede_in(&dir.join("non_c_e.jsonl"), "", 0.0, ora, 0);
+        assert!(vuoto.starts_with("Il registro e' vuoto."), "{vuoto}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     use super::*;
 
     /// Una cartella che si cancella da sola.
