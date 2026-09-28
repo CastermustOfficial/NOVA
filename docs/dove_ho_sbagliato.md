@@ -1206,3 +1206,17 @@ sbagliato. Le prove del Python facevano una modifica per volta, e una
 modifica da sola non sposta niente. L'ha trovato il banco contro il demone,
 che lavora sugli indici del documento com'era. La regola: una prova di
 modifiche a indici ne fa **piu' di una insieme**, e di tipo diverso.
+
+## Ho spostato il turno e ho lasciato indietro quello che gli stava davanti
+
+Quando il turno e' passato dal Python al demone (D305) ho confrontato il
+turno: la domanda, gli strumenti, le risposte, la conversazione. Non ho
+guardato cosa faceva `python -m nova --ask` **prima** del turno: accendeva
+llama-server se il cervello era quello di casa. Quel passo non e' venuto con
+il turno, e per giorni chi aveva solo il modello locale non ha avuto
+risposte. Io non me ne sono accorto perche' sulla scala di Gio il primo
+gradino e' Claude. L'ho trovato riscrivendo il README, cercando chi
+chiamasse `modello.accendi`: nessuno (D358). La regola: quando si porta una
+funzione, si porta anche quello che le succede intorno, e si cerca chi
+chiama davvero cio' che si lascia al suo posto.
+

@@ -123,17 +123,9 @@ pub fn modelli_verifica(percorso: &str) -> Value {
 /// di LM Studio e le variabili di chi llama.cpp se l'e' messo a mano. Le
 /// stesse di `runtime.discover_runtimes()`.
 fn radici_dei_motori(progetto: &Path) -> Vec<PathBuf> {
-    let mut r = vec![progetto.join("runtime")];
-    let lmstudio = casa().join(".lmstudio").join("extensions").join("backends");
-    if lmstudio.exists() {
-        r.push(lmstudio);
-    }
-    for v in ["LLAMA_CPP_HOME", "LLAMACPP_HOME"] {
-        if let Some(p) = std::env::var_os(v) {
-            r.push(PathBuf::from(p));
-        }
-    }
-    r
+    nova_modelli::motore::radici_note(progetto, &casa(), &|v| {
+        std::env::var_os(v).map(|p| p.to_string_lossy().into_owned())
+    })
 }
 
 fn esiste(v: Option<&Value>) -> bool {
