@@ -4,6 +4,8 @@
 //!     novad --print-config  mostra la configurazione effettiva e il percorso
 //!     novad --init          scrive la configurazione di default e termina
 //!     novad --dati [--json] dove NOVA tiene le cose dell'utente, e termina
+//!     novad --registro [PAROLE] [--giorni N]
+//!                           cosa NOVA ha fatto e non si annulla, e termina
 
 use std::sync::Arc;
 
@@ -41,6 +43,15 @@ struct Args {
     /// Con `--dati`: l'inventario in JSON.
     #[arg(long)]
     json: bool,
+
+    /// Cosa NOVA ha fatto e non si puo' annullare; con delle parole, cerca
+    /// fra le azioni. Legge un file e termina, senza accendere niente (D357).
+    #[arg(long, value_name = "PAROLE", num_args = 0..=1, default_missing_value = "")]
+    registro: Option<String>,
+
+    /// Con `--registro`: solo gli ultimi N giorni.
+    #[arg(long, default_value_t = 0.0)]
+    giorni: f64,
 }
 
 #[tokio::main]
@@ -56,6 +67,10 @@ async fn main() -> Result<()> {
         } else {
             println!("{}", nova_core::dati::racconto(&cfg));
         }
+        return Ok(());
+    }
+    if let Some(parole) = &args.registro {
+        println!("{}", nova_core::registro::per_chi_chiede(parole, args.giorni));
         return Ok(());
     }
     let mut config = Config::load();
