@@ -2419,6 +2419,8 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    avanzamenti che scorrono sul bus invece che su stderr, e la conversazione
    che vive nel demone invece che in un file. Il ripiego su Python resta, e
    la scelta si fa **prima** di imboccare una strada (D305, D306, D307).
+   ~~Il ripiego~~ tolto il 28 settembre (D354): il guscio non accende piu'
+   Python per nessuna ragione.
 3. ~~**La memoria e le procedure dentro il turno.**~~ Fatto: tre crate
    attaccati in un colpo (`nova-nodi`, `nova-memoria`, `nova-ricette`). Il
    contesto che il demone compone e' **identico** a quello del Python — la
@@ -2480,7 +2482,11 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    prima: e' la parte che si vede, e romperla si vede subito.
    L'installatore non lo pretende piu' (D350): configurazione, modelli e CLI
    note li chiede a `nova.exe`, e i componenti li scarica `nova componenti`
-   (D351). Resta in Python il rendiconto dei dati alla disinstallazione.
+   (D351). ~~Resta in Python il rendiconto dei dati alla disinstallazione~~:
+   lo da' `novad --dati` (D352), e Python resta come ripiego per le
+   installazioni di prima. Il pannello chiede i numeri della memoria al
+   demone (D353), e il guscio non ha piu' una strada Python per le domande
+   (D354).
 
 **L'ordine dal 22 settembre**, deciso con Gio guardando i numeri contati
 quel giorno (68.000 righe di Rust in 37 crate, 24.000 di Python, 35 strumenti
@@ -2582,6 +2588,13 @@ Con `NOVA_CERVELLO` si forza la strada: `python` non chiede niente a
 nessuno, `demone` non ripiega mai. La seconda serve a noi, ed e' il motivo
 per cui esiste — senza, la meta' Rust puo' restare indietro per mesi mentre
 ogni singola domanda ripiega e risponde lo stesso.
+
+**Dal 28 settembre il ripiego non c'e' piu'** (D354), e `NOVA_CERVELLO` con
+lui. Quando il demone dice «non pronto», il motivo e' la configurazione, e
+la meta' Python sbatteva contro lo stesso muro. Quando il demone non
+risponde, il guscio lo ha gia' riacceso; se resta muto e' un guasto, e
+rispondere dal Python lo nascondeva. Adesso l'utente legge cosa non va e
+dove guardare.
 
 
 ## Le mani sul disco, e chi dice dove si puo' mettere
@@ -2705,6 +2718,39 @@ CANT-12:
 - [rizzo-flow](https://github.com/Rizzo-AI-Academy/rizzo-flow) — gia' studiato;
   la meta' pura sta in `nova-giudizio` e il ramo con le tre correzioni e' stato
   consegnato (vedi sopra).
+
+**Aggiunto da Gio il 28 settembre:**
+
+- [CLM-v0.1-8B](https://huggingface.co/Contrastive-LM/CLM-v0.1-8B)
+  ([codice](https://github.com/Contrastive-LM/CLM)) — un sostituto aperto di
+  Jev, Apache 2.0, che sul suo banco rende quanto Jev o meglio e risponde
+  prima. E' la forma di jevlike, non quella di Rizzo Flow: un **Qwen3-8B
+  congelato** da cui si prende il vettore dell'ultimo token, e sopra **due
+  teste** addestrate con InfoNCE, una per lo stato e una per le azioni (circa
+  20M parametri l'una: il file e' di 76 MB). Il punteggio e' il prodotto
+  scalare fra i due vettori, diviso per la temperatura, e poi softmax sui
+  candidati. Le domande hanno gli stessi tre tipi del censimento: *choice*,
+  *score* e *noul*. La confidenza e' la probabilita' piu' alta meno la media
+  delle altre. Non genera testo: ordina solo i candidati che gli si danno.
+  Il riferimento gira su vLLM (`--runner pooling`, 2048 token) piu' un
+  server Python, `clm-serve`.
+
+  **Perche' interessa a NOVA:** non serve vLLM. Il vettore lo da'
+  llama-server, che NOVA gia' accende (`--embeddings --pooling last`), e le
+  due teste sono qualche prodotto di matrici. Si scrivono in Rust accanto a
+  `nova-giudizio`, dopo aver convertito una volta sola il file `.pt`.
+  Tre cose da misurare **prima** di scriverci sopra:
+
+  1. il Qwen3-8B quantizzato in GGUF sposta i vettori rispetto a vLLM in
+     bf16? Serve un banco che confronti i giudizi delle due strade sulle
+     stesse domande, con il conto pubblicato di quanti cambiano, come per
+     `cache_prompt`;
+  2. le teste sono addestrate su testi inglesi. Quanto rendono sulle
+     domande del censimento scritte in italiano?
+  3. 8B e' il cervello intero di chi ha un PC modesto. Se l'utente usa gia'
+     un Qwen3-8B, forse il vettore puo' venire dallo **stesso** llama-server
+     (da verificare: `--embeddings` e la chat nello stesso processo). Se no,
+     e' un secondo modello da tenere acceso.
 
 
 ## Il confine che tiene il kernel

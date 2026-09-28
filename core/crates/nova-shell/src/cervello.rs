@@ -1,125 +1,71 @@
-//! Dove va a finire una domanda: al demone, o alla meta' Python.
+//! Dove va a finire una domanda: al demone, e basta.
 //!
-//! Sono due strade vere, e la scelta si fa **prima** di imboccarne una.
+//! Il turno gira dentro `novad`, in Rust: stessa configurazione, stessi
+//! strumenti, stessa memoria, stesse procedure. Fino al 28 settembre c'era
+//! una seconda strada, `python -m nova --ask`, un processo per messaggio, su
+//! cui si ripiegava quando il demone non rispondeva o non era pronto (D305).
+//! Adesso non c'e' piu' (D354), e per due ragioni.
 //!
-//! - **Il demone.** Il turno gira dentro `novad`, in Rust: stessa
-//!   configurazione, stessi strumenti, stessa memoria, stesse procedure.
-//!   Niente processo per messaggio, niente interprete da accendere, e la
-//!   conversazione vive nel demone invece che in un file.
-//! - **`python -m nova --ask`.** Un processo per messaggio. Regge cose che
-//!   il turno in Rust non sa ancora fare — prima fra tutte un gradino che
-//!   e' una CLI da lanciare, tipo `claude`.
+//! **Quando il demone non e' pronto, il Python non stava meglio.**
+//! `agente/pronto` dice di no solo per un motivo di configurazione: nessun
+//! cervello, il binario della CLI che non c'e', Claude Code senza accesso.
+//! La meta' Python leggeva la stessa configurazione e sbatteva contro lo
+//! stesso muro, un minuto dopo e con un messaggio peggiore.
 //!
-//! Si chiede al demone `agente/pronto`, che costa quanto un ping, e si
-//! decide. **Non** si prova il turno per poi ripiegare: un turno che muore a
-//! meta' ha gia' eseguito degli strumenti, e rifarlo dall'altra parte li
-//! farebbe due volte. Con `NOVA_CERVELLO` si forza la strada: `demone` non
-//! ripiega mai, `python` non prova nemmeno.
+//! **Quando il demone non risponde, il ripiego nascondeva il guasto.** Il
+//! guscio il demone lo accende da solo (`demone::assicura_avviato`). Se
+//! nemmeno cosi' risponde, e' rotto, e rispondere lo stesso dal Python
+//! voleva dire che nessuno se ne accorgeva: esattamente quello da cui
+//! metteva in guardia `NOVA_CERVELLO=demone`. Adesso l'utente lo legge.
+//!
+//! Resta la regola di prima: si chiede `agente/pronto` **prima** di mandare
+//! la domanda, e non si prova il turno per poi vedere. Un turno che muore a
+//! meta' ha gia' eseguito degli strumenti.
 
-use std::collections::VecDeque;
-use std::io::{BufRead, BufReader, Read};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use serde_json::json;
 use tauri::{AppHandle, Emitter};
 
-use crate::processo;
-
-/// Come la parte Python marca le righe di stato su stderr. Il separatore di
-/// unita' dell'ASCII: un carattere che nessuno scrive per sbaglio, quindi
-/// non serve inventarsi un formato per distinguere «questo e' lo stato» da
-/// una riga di diagnostica qualunque.
-const MARCA_STATO: &str = "\u{1f}NOVA-STATO\u{1f}";
-
-/// Il processo del cervello mentre sta pensando. 0 = non sta pensando.
-static PENSANTE: AtomicU32 = AtomicU32::new(0);
-
 /// Quanti turni stanno girando **dentro il demone** adesso.
 ///
-/// Non e' un doppione di `PENSANTE`: li' c'e' un pid da ammazzare, qui non
-/// c'e' niente da ammazzare perche' il turno non e' un processo del guscio.
+/// Non c'e' niente da ammazzare, perche' il turno non e' un processo del
+/// guscio: il demone si ferma da solo quando gli si chiede di fermarsi.
 /// Serve lo stesso, e per una ragione sola: «ferma» deve poter rispondere
-/// «si', c'era qualcosa». Senza, chi preme ferma durante un turno del
-/// demone non si sente dire niente — e il silenzio, dopo aver chiesto di
-/// fermarsi, si legge come «non mi ha sentito».
+/// «si', c'era qualcosa». Senza, chi preme ferma durante un turno non si
+/// sente dire niente, e il silenzio, dopo aver chiesto di fermarsi, si legge
+/// come «non mi ha sentito».
 static NEL_DEMONE: AtomicU32 = AtomicU32::new(0);
 
-/// Ferma il cervello se sta ragionando. Ritorna true se c'era qualcosa da
-/// fermare.
+/// Dice se c'era un turno da fermare.
 ///
-/// Si usa `taskkill /T` perche' il cervello puo' aver avviato a sua volta
-/// altri processi — la CLI di un modello, per esempio. Ucciderlo da solo
-/// lascerebbe i figli a girare, ed e' esattamente il modo in cui «fermare»
-/// diventa una bugia.
+/// Il turno del demone si ferma da solo: il demone ha gia' alzato la
+/// generazione dell'interruzione, ed e' per questo che si passa di qui.
+/// Qui si dice solo se c'era qualcosa che si e' fermato.
 pub fn ferma_cervello() -> bool {
-    // Il turno del demone si ferma da solo: il demone ha gia' alzato la
-    // generazione dell'interruzione, ed e' proprio per questo che siamo
-    // qui. Qui si dice solo che c'era qualcosa che si e' fermato.
-    let nel_demone = NEL_DEMONE.load(Ordering::SeqCst) > 0;
-    let pid = PENSANTE.swap(0, Ordering::SeqCst);
-    if pid == 0 {
-        return nel_demone;
-    }
-    #[cfg(windows)]
-    {
-        let _ = processo::comando("taskkill")
-            .args(["/PID", &pid.to_string(), "/T", "/F"])
-            .output();
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = processo::comando("kill").args(["-TERM", &pid.to_string()]).output();
-    }
-    tracing::info!(pid, "cervello fermato");
-    true
+    NEL_DEMONE.load(Ordering::SeqCst) > 0
 }
 
-/// Sta pensando adesso?
-pub fn sta_pensando() -> bool {
-    PENSANTE.load(Ordering::SeqCst) != 0 || NEL_DEMONE.load(Ordering::SeqCst) > 0
-}
-
-/// Quale strada prende una domanda.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Strada {
-    Demone,
-    Python,
-}
-
-/// Cosa ha chiesto l'utente con `NOVA_CERVELLO`.
+/// Si puo' mandare la domanda al demone? E se no, cosa si dice all'utente.
 ///
+/// `risposta` e' quello che ha detto `agente/pronto`: `Err` quando al
+/// demone non si e' potuto nemmeno chiedere, neanche dopo averlo acceso.
 /// E' una funzione a parte, e pura, perche' e' la sola parte di questa
-/// decisione che si puo' provare senza un demone acceso: il resto dipende
-/// da com'e' configurata la scala su quel PC.
-///
-/// - `demone` — usa il demone e basta. Se non e' pronto, e' un errore: e'
-///   il modo di accorgersi che la meta' Rust non copre ancora un caso,
-///   invece di scoprirlo fra sei mesi guardando i log.
-/// - `python` — non chiede nemmeno.
-/// - tutto il resto, vuoto compreso — si chiede al demone e si ripiega.
-pub fn imposizione(valore: &str) -> Option<Strada> {
-    match valore.trim().to_ascii_lowercase().as_str() {
-        "demone" | "daemon" | "rust" => Some(Strada::Demone),
-        "python" | "py" => Some(Strada::Python),
-        _ => None,
-    }
-}
-
-/// La strada, viste l'imposizione e la risposta del demone.
-///
-/// `pronto` e' `None` quando al demone non si e' potuto nemmeno chiedere.
-pub fn strada(imposta: Option<Strada>, pronto: Option<bool>) -> Result<Strada, String> {
-    match (imposta, pronto) {
-        (Some(Strada::Python), _) => Ok(Strada::Python),
-        (Some(Strada::Demone), Some(true)) => Ok(Strada::Demone),
-        (Some(Strada::Demone), Some(false)) => {
-            Err("NOVA_CERVELLO=demone, ma il demone non e' pronto a fare il turno".to_string())
-        }
-        (Some(Strada::Demone), None) => {
-            Err("NOVA_CERVELLO=demone, ma il demone non risponde".to_string())
-        }
-        (None, Some(true)) => Ok(Strada::Demone),
-        (None, _) => Ok(Strada::Python),
+/// decisione che si prova senza un demone acceso.
+pub fn si_puo(risposta: Result<(bool, String), String>) -> Result<(), String> {
+    match risposta {
+        Ok((true, _)) => Ok(()),
+        // Il motivo e' gia' scritto per l'utente: nessun cervello, un
+        // binario che manca, Claude Code senza accesso. Non si riscrive.
+        Ok((false, perche)) if !perche.trim().is_empty() => Err(perche),
+        Ok((false, _)) => Err("NOVA non e' pronta a rispondere, e non dice perche'. \
+                               Guarda il pannello dei cervelli."
+            .to_string()),
+        Err(e) => Err(format!(
+            "Il demone di NOVA non risponde, nemmeno dopo averlo riacceso ({e}). \
+             Chiudi NOVA e riaprila; se succede ancora, in runtime\\novad.err \
+             c'e' scritto perche'."
+        )),
     }
 }
 
@@ -143,136 +89,19 @@ pub async fn chiedi(
     if domanda.is_empty() {
         return Ok(String::new());
     }
-    let imposta = imposizione(&std::env::var("NOVA_CERVELLO").unwrap_or_default());
-    // Al demone si chiede solo se ha senso chiederglielo: con `python`
-    // imposto, accenderlo per sentirsi dire una cosa che non si usera'
-    // sarebbe solo un ritardo prima di ogni risposta.
-    let pronto = if imposta == Some(Strada::Python) {
-        None
-    } else {
-        match crate::demone::pronto_al_turno().await {
-            Ok((si, perche)) => {
-                if !si && !perche.is_empty() {
-                    tracing::info!(perche = %perche, "il turno non lo fa il demone");
-                }
-                Some(si)
-            }
-            Err(e) => {
-                tracing::info!(errore = %e, "il demone non dice se e' pronto");
-                None
-            }
-        }
-    };
-    match strada(imposta, pronto)? {
-        Strada::Demone => {
-            // Gli avanzamenti li porta il bus: qui si aspetta e basta. Lo
-            // stato si spegne comunque vada, come dall'altra parte — un orb
-            // fermo sull'ultimo passo racconta una cosa che e' finita.
-            NEL_DEMONE.fetch_add(1, Ordering::SeqCst);
-            let esito = crate::demone::turno(&domanda, dalla_voce, &postilla).await;
-            NEL_DEMONE.fetch_sub(1, Ordering::SeqCst);
-            let _ = app.emit("nova://passo", json!({ "testo": "" }));
-            esito.map_err(|e| e.to_string())
-        }
-        Strada::Python => chiedi_a_python(app, domanda, dalla_voce, postilla).await,
+    let pronto = crate::demone::pronto_al_turno().await.map_err(|e| e.to_string());
+    if let Err(e) = si_puo(pronto) {
+        tracing::warn!(errore = %e, "il demone non fa il turno");
+        return Err(e);
     }
-}
-
-/// La strada vecchia: un processo per messaggio.
-async fn chiedi_a_python(
-    app: AppHandle,
-    domanda: String,
-    dalla_voce: bool,
-    postilla: String,
-) -> Result<String, String> {
-    tokio::task::spawn_blocking(move || {
-        let radice = radice_progetto();
-        let mut figlio = processo::comando(&eseguibile_python())
-            // Senza, su Windows Python scrive con la codifica locale e gli
-            // accenti italiani arrivano qui come byte non validi.
-            .env("PYTHONIOENCODING", "utf-8")
-            .arg("-m")
-            .arg("nova")
-            .arg("--ask")
-            .arg(&domanda)
-            .args(if dalla_voce { &["--voce"][..] } else { &[][..] })
-            .args(if postilla.is_empty() {
-                Vec::new()
-            } else {
-                vec!["--postilla".to_string(), postilla.clone()]
-            })
-            .current_dir(&radice)
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .spawn()
-            .map_err(|e| format!("non riesco ad avviare NOVA: {e}"))?;
-        // Si annota il pid finche' pensa: senza, «ferma» non ha niente da
-        // fermare e il cervello continua a ragionare per conto suo mentre
-        // l'utente crede di averlo interrotto.
-        PENSANTE.store(figlio.id(), Ordering::SeqCst);
-
-        // Stdout su un filo suo. Prima si leggeva tutto alla fine con
-        // `wait_with_output`, e andava bene finche' stderr non serviva a
-        // niente. Adesso stderr si legge mentre scorre, e leggere un tubo
-        // per volta significa riempire l'altro e restare li': una risposta
-        // lunga bloccherebbe il cervello a meta' frase.
-        let uscita = figlio.stdout.take();
-        let filo_uscita = std::thread::spawn(move || {
-            let mut testo = String::new();
-            if let Some(u) = uscita {
-                let _ = BufReader::new(u).read_to_string(&mut testo);
-            }
-            testo
-        });
-
-        // Stderr riga per riga, mentre arriva: le righe marcate sono lo
-        // stato di NOVA e vanno all'orb subito - e' tutto il punto, un
-        // «Apro il portale delle offerte, 12s» che arriva alla fine non e'
-        // uno stato, e' un ricordo. Le altre sono diagnostica, e servono
-        // solo se la risposta non arriva: si tiene la coda, che e' dove
-        // sta scritto cosa e' andato storto.
-        let mut coda: VecDeque<String> = VecDeque::new();
-        if let Some(errori) = figlio.stderr.take() {
-            for riga in BufReader::new(errori).lines() {
-                let Ok(riga) = riga else { break };
-                if let Some(stato) = riga.strip_prefix(MARCA_STATO) {
-                    let _ = app.emit("nova://passo", json!({ "testo": stato }));
-                } else if !riga.trim().is_empty() {
-                    coda.push_back(riga);
-                    if coda.len() > 60 {
-                        coda.pop_front();
-                    }
-                }
-            }
-        }
-
-        let _ = figlio.wait();
-        PENSANTE.store(0, Ordering::SeqCst);
-        // Lo stato si spegne comunque vada: lasciarlo acceso sull'ultimo
-        // passo vorrebbe dire dire che NOVA sta ancora facendo una cosa che
-        // ha finito.
-        let _ = app.emit("nova://passo", json!({ "testo": "" }));
-
-        let testo_uscita = filo_uscita.join().unwrap_or_default().trim().to_string();
-        if testo_uscita.is_empty() {
-            let errore = coda.into_iter().collect::<Vec<_>>().join("\n");
-            let errore = errore.trim();
-            return Err(if errore.is_empty() {
-                "NOVA non ha risposto".to_string()
-            } else {
-                errore.chars().rev().take(600).collect::<Vec<_>>().into_iter().rev().collect()
-            });
-        }
-        Ok(testo_uscita)
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-
-pub fn eseguibile_python() -> String {
-    std::env::var("NOVA_PYTHON").unwrap_or_else(|_| {
-        if cfg!(windows) { "python".into() } else { "python3".into() }
-    })
+    // Gli avanzamenti li porta il bus: qui si aspetta e basta. Lo stato si
+    // spegne comunque vada: un orb fermo sull'ultimo passo racconta una cosa
+    // che e' finita.
+    NEL_DEMONE.fetch_add(1, Ordering::SeqCst);
+    let esito = crate::demone::turno(&domanda, dalla_voce, &postilla).await;
+    NEL_DEMONE.fetch_sub(1, Ordering::SeqCst);
+    let _ = app.emit("nova://passo", json!({ "testo": "" }));
+    esito.map_err(|e| e.to_string())
 }
 
 /// La cartella del progetto: il guscio vive in core/target/..., NOVA sta due
@@ -284,18 +113,17 @@ pub fn radice_progetto() -> std::path::PathBuf {
     nova_configurazione::dove::radice_progetto()
 }
 
-/// Taglia il filo del discorso, da tutte e due le parti.
+/// Taglia il filo del discorso.
 ///
-/// Sono due memorie diverse e vanno dimenticate tutte e due, perche' la
-/// strada puo' cambiare da un messaggio all'altro: dalla parte Python la
-/// continuita' sta in un file — la sessione di Claude Code sopravvive al
-/// processo perche' il suo identificativo e' scritto su disco — e dalla
-/// parte del demone sta in memoria, nell'agente.
+/// La conversazione vive nel demone, nell'agente: si dimentica li'. Prima si
+/// cancellava anche `sessione.json`, il filo della meta' Python con Claude
+/// Code; il guscio quella strada non la prende piu', e il file resta di chi
+/// usa `python -m nova` dal terminale.
 ///
 /// Se il demone non risponde non e' un errore: un demone spento non ha
 /// niente da dimenticare, e dire di no a chi ha chiesto «ricominciamo»
-/// perche' la meta' che non stava rispondendo non era raggiungibile
-/// sarebbe la risposta sbagliata alla domanda giusta.
+/// perche' il demone non era raggiungibile sarebbe la risposta sbagliata
+/// alla domanda giusta.
 pub fn dimentica() -> Result<(), String> {
     for sessione in ["", "voce"] {
         let s = sessione.to_string();
@@ -305,21 +133,7 @@ pub fn dimentica() -> Result<(), String> {
             }
         });
     }
-    dimentica_il_file()
-}
-
-fn dimentica_il_file() -> Result<(), String> {
-    let base = if cfg!(windows) {
-        std::env::var_os("APPDATA").map(std::path::PathBuf::from)
-    } else {
-        std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".config"))
-    }
-    .ok_or_else(|| "cartella di configurazione sconosciuta".to_string())?;
-    match std::fs::remove_file(base.join("NOVA").join("sessione.json")) {
-        Ok(()) => Ok(()),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(e) => Err(e.to_string()),
-    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -327,39 +141,27 @@ mod prove {
     use super::*;
 
     #[test]
-    fn la_scelta_si_legge_dall_ambiente() {
-        assert_eq!(imposizione("demone"), Some(Strada::Demone));
-        assert_eq!(imposizione("  DEMONE "), Some(Strada::Demone));
-        assert_eq!(imposizione("rust"), Some(Strada::Demone));
-        assert_eq!(imposizione("python"), Some(Strada::Python));
-        assert_eq!(imposizione("py"), Some(Strada::Python));
-        assert_eq!(imposizione(""), None);
-        assert_eq!(imposizione("boh"), None);
+    fn pronto_vuol_dire_si() {
+        assert_eq!(si_puo(Ok((true, String::new()))), Ok(()));
+        assert_eq!(si_puo(Ok((true, "ignorato".into()))), Ok(()));
     }
 
+    /// Il motivo del demone arriva all'utente cosi' com'e': e' gia' scritto
+    /// per lui, e riscriverlo lo manderebbe a cercare dalla parte sbagliata.
     #[test]
-    fn senza_imposizione_si_ripiega_sempre() {
-        assert_eq!(strada(None, Some(true)), Ok(Strada::Demone));
-        assert_eq!(strada(None, Some(false)), Ok(Strada::Python));
-        // Demone irraggiungibile: la domanda non si perde.
-        assert_eq!(strada(None, None), Ok(Strada::Python));
+    fn non_pronto_dice_il_motivo_del_demone() {
+        let m = "non c'e' nessun cervello configurato";
+        assert_eq!(si_puo(Ok((false, m.into()))), Err(m.to_string()));
+        let vuoto = si_puo(Ok((false, "  ".into()))).unwrap_err();
+        assert!(vuoto.contains("pannello dei cervelli"), "{vuoto}");
     }
 
-    /// Chi impone il demone vuole **accorgersi** che non e' pronto.
-    ///
-    /// E' il motivo per cui questa variabile esiste: senza, la meta' Rust
-    /// puo' restare indietro per mesi senza che nessuno se ne accorga,
-    /// perche' ogni volta ripiega e risponde lo stesso.
+    /// Niente ripiego: un demone che non risponde e' un guasto da vedere,
+    /// e il messaggio dice dove guardare.
     #[test]
-    fn imporre_il_demone_non_ripiega_mai() {
-        assert_eq!(strada(Some(Strada::Demone), Some(true)), Ok(Strada::Demone));
-        assert!(strada(Some(Strada::Demone), Some(false)).is_err());
-        assert!(strada(Some(Strada::Demone), None).is_err());
-    }
-
-    #[test]
-    fn imporre_python_non_chiede_niente_a_nessuno() {
-        assert_eq!(strada(Some(Strada::Python), Some(true)), Ok(Strada::Python));
-        assert_eq!(strada(Some(Strada::Python), None), Ok(Strada::Python));
+    fn demone_muto_non_ripiega_e_dice_dove_guardare() {
+        let e = si_puo(Err("pipe chiusa".into())).unwrap_err();
+        assert!(e.contains("pipe chiusa"), "{e}");
+        assert!(e.contains("novad.err"), "{e}");
     }
 }
