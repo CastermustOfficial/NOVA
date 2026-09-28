@@ -149,6 +149,56 @@ pub fn manopole(cfg: &Value) -> Manopole {
     }
 }
 
+/// Come si accende il modello di casa: la sezione `server` di
+/// `config.json`, con i valori di fabbrica del Python (`ServerConfig`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ModelloDiCasa {
+    /// Vuoto = lo si cerca fra i motori noti.
+    pub binario: String,
+    pub modello: String,
+    pub host: String,
+    pub porta: u16,
+    pub contesto: i64,
+    pub paralleli: i64,
+    pub fili: i64,
+    pub tipo_kv: String,
+    pub argomenti_extra: Vec<String>,
+    /// `n_gpu_layers`: sotto 99 e' una scelta, da 99 in su vuol dire «stima».
+    pub strati: i64,
+    /// `auto_tune_gpu_layers`: si puo' scendere di gradino.
+    pub auto: bool,
+    /// `startup_timeout`, in secondi.
+    pub attesa_s: u64,
+    /// `autostart_model`: accenderlo quando serve.
+    pub accendi_da_solo: bool,
+}
+
+/// La sezione `server`, letta (D358).
+pub fn modello_di_casa(cfg: &Value) -> ModelloDiCasa {
+    let s = cfg.get("server").cloned().unwrap_or(Value::Null);
+    let intero = |k: &str, se_manca: i64| s.get(k).and_then(Value::as_i64).unwrap_or(se_manca);
+    let host = testo(&s, &["host"]);
+    ModelloDiCasa {
+        binario: testo(&s, &["binary"]).trim().to_string(),
+        modello: testo(&s, &["model_path"]).trim().to_string(),
+        host: if host.trim().is_empty() { "127.0.0.1".into() } else { host.trim().to_string() },
+        porta: numero(&s, &["port"], 8420) as u16,
+        contesto: intero("ctx_size", 16384),
+        paralleli: intero("n_parallel", 1),
+        fili: intero("threads", 0),
+        tipo_kv: testo(&s, &["kv_cache_type"]),
+        argomenti_extra: s
+            .get("extra_args")
+            .and_then(Value::as_array)
+            .map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_string)).collect())
+            .unwrap_or_default(),
+        strati: intero("n_gpu_layers", 999),
+        auto: vero(&s, &["auto_tune_gpu_layers"], true),
+        attesa_s: numero(&s, &["startup_timeout"], 600),
+        accendi_da_solo: vero(&s, &["autostart_model"], true),
+    }
+}
+
 /// Entro quanto deve stare la conversazione.
 pub fn misure(cfg: &Value) -> Misure {
     let mut m = Misure::default();

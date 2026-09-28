@@ -11200,3 +11200,13 @@ settimane. Lo aveva sistemato il turno nel demone, dagli eventi del bus, e la
 riga in tabella era rimasta a raccontare un difetto che non c'era. Restava
 solo un comando morto, e una prova che lo dichiarava «lavoro a meta'».
 
+## 28 settembre 2026, notte — Il modello di casa non si accendeva piu'
+
+Riscrivendo il README, alla sezione «Runtime del modello», sono andato a
+vedere chi accende llama-server adesso. Nessuno. Lo faceva il Python a ogni
+domanda, e col turno nel demone il passo si era perso: chi aveva solo il
+modello di casa scriveva e non riceveva risposta. Da questa sera lo accende
+il demone, prima del turno, con le regole del Python (D358). E il registro
+delle azioni ora si legge con `novad --registro`, come prometteva il README
+(D357). Il README vero e proprio e' il prossimo passo.
+

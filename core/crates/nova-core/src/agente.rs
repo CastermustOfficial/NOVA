@@ -362,6 +362,16 @@ pub async fn fai_un_turno(
     let conf = crate::dalla_configurazione::scala(&cfg);
     let recapiti = crate::dalla_configurazione::recapiti(&cfg, &|n| std::env::var(n).ok());
     let gradini = crate::mondo::scala_vera(&conf, &recapiti);
+    // Il modello di casa si accende qui, prima del turno, se e' da li' che il
+    // turno comincia: lo faceva il Python a ogni domanda, e col turno nel
+    // demone non lo faceva piu' nessuno (D358).
+    if let Some(g) = gradini.first() {
+        if crate::modello_locale::e_il_modello_di_casa(g, &recapiti) {
+            crate::modello_locale::assicura(server, &cfg, &recapiti.locale_url)
+                .await
+                .map_err(|e| anyhow!("{e}"))?;
+        }
+    }
     let mano = crate::dalla_configurazione::manopole(&cfg);
     let misure = crate::dalla_configurazione::misure(&cfg);
     let prompt = sistema(&cfg);

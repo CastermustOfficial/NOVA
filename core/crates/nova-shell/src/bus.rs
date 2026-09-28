@@ -35,7 +35,9 @@ fn stato_da_evento(topic: &str, dati: &Value) -> Option<&'static str> {
         // questi due non esistevano e l'orb li imparava da `stato.cambiato`;
         // adesso che il turno e' qui dentro, l'orb li sente da chi li vive.
         "agente.stato" => match dati.get("fase").and_then(|f| f.as_str()) {
-            Some("penso") => Some("penso"),
+            // Accendere il modello di casa e' gia' lavoro: chi guarda l'orb
+            // deve vedere che NOVA sta facendo qualcosa, non che dorme (D358).
+            Some("penso") | Some("modello") => Some("penso"),
             Some("finito") => Some("quiete"),
             _ => None,
         },
@@ -69,6 +71,9 @@ fn passo_da_evento(topic: &str, dati: &Value) -> Option<String> {
     match topic {
         "agente.stato" => match dati.get("fase").and_then(|f| f.as_str()) {
             Some("penso") => Some("Sto pensando...".to_string()),
+            // Il primo messaggio aspetta che il modello si carichi, e sono
+            // decine di secondi: senza questa riga sembrerebbe NOVA bloccata.
+            Some("modello") => Some("Accendo il modello locale: la prima volta ci vuole un po'...".to_string()),
             Some("finito") => Some(String::new()),
             _ => None,
         },

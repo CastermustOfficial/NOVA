@@ -287,6 +287,33 @@ pub fn motori(radici: &[PathBuf], in_casa: Option<&Path>) -> Vec<Motore> {
     fuori
 }
 
+/// Dove si cercano i motori, nell'ordine di `discover_runtimes`: la cartella
+/// `runtime` del progetto, i backend di LM Studio se ci sono, e le cartelle
+/// indicate da `LLAMA_CPP_HOME` o `LLAMACPP_HOME`.
+///
+/// Sta qui e non in chi lo chiede perche' lo chiedono in due: `nova
+/// configura`, che scrive il motore nella configurazione, e il demone, che lo
+/// cerca quando deve accendere il modello e la configurazione non lo dice
+/// (D358). Due elenchi scritti a mano sarebbero due risposte alla stessa
+/// domanda.
+pub fn radici_note(
+    progetto: &Path,
+    casa: &Path,
+    ambiente: &dyn Fn(&str) -> Option<String>,
+) -> Vec<PathBuf> {
+    let mut r = vec![progetto.join("runtime")];
+    let lmstudio = casa.join(".lmstudio").join("extensions").join("backends");
+    if lmstudio.exists() {
+        r.push(lmstudio);
+    }
+    for v in ["LLAMA_CPP_HOME", "LLAMACPP_HOME"] {
+        if let Some(p) = ambiente(v).filter(|p| !p.trim().is_empty()) {
+            r.push(PathBuf::from(p));
+        }
+    }
+    r
+}
+
 #[cfg(test)]
 mod prove {
     use super::*;
