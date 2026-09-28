@@ -2816,6 +2816,17 @@ Non e' una data, sono cinque frasi che devono essere vere insieme:
    README. Nessuna promessa in sospeso.
 5. **I numeri del README sono misurati**, anche quelli dei modelli consigliati.
 
+> **Il 28 settembre, sulla quarta e la quinta** (D359). Il README e' stato
+> riscritto sul NOVA di oggi, e la tabella dei backend dice cosa c'e': UI
+> Automation, DPAPI e il cestino su Windows, Landlock su Linux, e «manca» dove
+> manca. ETW, VSS, EndpointSecurity, eBPF e APFS erano promesse senza codice,
+> e sono uscite. Restano da misurare sul demone tre numeri che il README oggi
+> dichiara presi dalla versione Python: i tempi di `web_incolla` e
+> `web_tabella`, la ricerca senza browser, e il prompt a freddo, che col
+> demone porta 129 schemi invece di sessanta. E restano due cose che il
+> Python faceva e il demone no, dette nel README come «manca»: la mappatura
+> iniziale del PC (seed) e i vettori chiesti a un modello di embedding.
+
 > **Primo passo sulla prima frase, il 6 settembre.** Non si puo' installare
 > NOVA su un'altra macchina da questa, ma si puo' leggere **cosa NOVA dice a
 > chi non ha gia' tutto**. I percorsi personali erano gia' a posto, e i

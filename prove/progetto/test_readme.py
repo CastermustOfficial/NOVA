@@ -37,15 +37,44 @@ def controlla(nome, condizione, dettaglio=""):
 
 
 print("\n1. i conteggi sono quelli veri")
-from nova.mcp_kb import STRUMENTI                              # noqa: E402
-import re as _re_d                                             # noqa: E402
-_re_dem = _re_d.compile(r'"((?:harness|pianifica|avvisi|automazione|automazioni|sys)\.[a-z_]+)"')
-for m in ["apps", "automazioni", "deleghe", "documenti", "files", "kb",
-          "procedure", "riparazione", "schermo", "shell", "system", "tempo",
-          "web"]:
-    __import__(f"nova.tools.{m}")
-from nova.tools.base import REGISTRY                           # noqa: E402
-from nova.harness import LEGGIBILI, CODICE                     # noqa: E402
+# Dal 28 settembre si contano dal Rust (D358): e' il demone che offre gli
+# strumenti ai cervelli, e l'harness che apre i file. La versione Python
+# resta come termine di paragone dei banchi, non come misura del README.
+CORE = RADICE / "core" / "crates"
+
+
+def capacita_del_demone() -> set[str]:
+    """I nomi che il demone registra, letti da dove sono dichiarati."""
+    nomi: set[str] = set()
+    for f in (CORE / "nova-core" / "src").glob("*.rs"):
+        t = f.read_text(encoding="utf-8").split("#[cfg(test)]")[0]
+        nomi |= set(re.findall(r'name:\s*"([a-z_]+\.[a-z_]+)"\.into\(\)', t))
+        nomi |= set(re.findall(r'info\(\s*"([a-z_]+\.[a-z_]+)"', t))
+        nomi |= set(re.findall(r'\("([a-z_]+\.[a-z_]+)",\s*Risk::', t))
+    return nomi
+
+
+def solo_per_la_persona() -> set[str]:
+    t = (CORE / "nova-core" / "src" / "permessi.rs").read_text(encoding="utf-8")
+    blocco = t[t.index("SOLO_PER_LA_PERSONA"):]
+    blocco = blocco[:blocco.index("];")]
+    return set(re.findall(r'"([a-z_]+\.[a-z_]+)"', blocco))
+
+
+def elenco_rust(file: Path, nome: str) -> list[str]:
+    t = file.read_text(encoding="utf-8")
+    m = re.search(rf"pub const {nome}: \[&str; \d+\] = \[(.*?)\];", t, re.S)
+    return re.findall(r'"([^"]+)"', m.group(1)) if m else []
+
+
+CAPACITA = capacita_del_demone()
+# Il modello vede quelle che non sono riservate alla persona, col punto
+# diventato trattino basso (`nome_mcp`): sono gli stessi nomi che vede un
+# cervello agentico via MCP.
+PER_I_MODELLI = {n.replace(".", "_") for n in CAPACITA - solo_per_la_persona()}
+HARNESS = CORE / "nova-harness" / "src" / "lib.rs"
+CODICE = elenco_rust(HARNESS, "CODICE")
+LEGGIBILI = CODICE + elenco_rust(HARNESS, "A_RIGHE_IN_PIU") + elenco_rust(HARNESS, "DOCUMENTI")
 
 # Un numero puo' essere scritto in cifre o a parole, e «trentadue
 # estensioni» si legge meglio di «32 estensioni». Contano tutti e due.
@@ -57,8 +86,8 @@ def nominato(n: int) -> bool:
     return str(n) in README or PAROLE.get(n, "\x00").lower() in README.lower()
 
 
-for quanti, cosa in [(len(REGISTRY), "strumenti locali"),
-                     (len(STRUMENTI), "strumenti MCP"),
+controlla("il demone registra delle capacita'", len(CAPACITA) > 100, str(len(CAPACITA)))
+for quanti, cosa in [(len(PER_I_MODELLI), "strumenti per i cervelli"),
                      (len(LEGGIBILI), "formati che l'harness apre"),
                      (len(CODICE), "estensioni di codice")]:
     controlla(f"il README dice {quanti} per «{cosa}»",
@@ -74,18 +103,17 @@ controlla(f"il README nomina «{radice_nome}»", radice_nome in README)
 sbagliate = set(re.findall(r"Qwen3\.\d+", README)) - {radice_nome}
 controlla("e non ne nomina un'altra versione", not sbagliate, str(sbagliate))
 
-print("\n3. i file che l'albero elenca esistono")
+print("\n3. i crate che l'albero elenca esistono, e ci sono tutti")
 albero = README[README.index("## Architettura"):]
 albero = albero[:albero.index("```", albero.index("```") + 3)]
-citati = re.findall(r"^\s{2,}([\w/]+\.py)\s", albero, re.M)
-controlla("l'albero elenca dei moduli", len(citati) >= 15, str(len(citati)))
-# L'albero e' indentato: «base.py» sta sotto «tools/», e il nome da solo non
-# dice dove. Si cerca dovunque dentro nova/ e nel core.
-esistenti = {p.name for p in (RADICE / "nova").rglob("*.py")}
-esistenti |= {str(p.relative_to(RADICE / "nova")).replace("\\", "/")
-              for p in (RADICE / "nova").rglob("*.py")}
-mancanti = [c for c in citati if c not in esistenti and c.split("/")[-1] not in esistenti]
-controlla("e ognuno esiste davvero", not mancanti, str(mancanti))
+citati = set(re.findall(r"^\s{2,}(nova[\w-]*|novad)/", albero, re.M))
+veri = {d.name for d in CORE.iterdir() if (d / "Cargo.toml").is_file()}
+controlla("l'albero elenca i crate", len(citati) >= 30, str(len(citati)))
+controlla("e ognuno esiste davvero", not (citati - veri), str(sorted(citati - veri)))
+controlla("e non ne manca nessuno", not (veri - citati), str(sorted(veri - citati)))
+# Il README non deve tornare a promettere backend che non ci sono (D359).
+for promessa in ["EndpointSecurity", "overlayfs"]:
+    controlla(f"non promette {promessa}", promessa not in README)
 
 print("\n4. le parti nuove sono spiegate")
 # Erano le tre assenze segnalate: perche' Rust, l'harness, come si sceglie un
@@ -108,14 +136,16 @@ print("\n5. le ricette sono spiegate come sono fatte")
 # Il pezzo che il README non nominava affatto: come NOVA ritrova una strada
 # gia' fatta. Le costanti citate devono essere quelle vere, se no si spiega
 # un meccanismo che non esiste.
-from nova import ricette                                       # noqa: E402
+RICETTE = (CORE / "nova-ricette" / "src" / "lib.rs").read_text(encoding="utf-8")
+SOGLIA = re.search(r"pub const SOGLIA: f64 = ([\d.]+);", RICETTE).group(1)
+MASSIME = int(re.search(r"pub const MASSIME: usize = (\d+);", RICETTE).group(1))
 controlla("c'e' la sezione sulle ricette", "## Le ricette" in README)
 controlla("dice la soglia vera",
-          str(ricette.SOGLIA) in README.replace(",", "."),
-          f"nel codice e' {ricette.SOGLIA}")
+          SOGLIA.rstrip("0") in README.replace(",", "."),
+          f"nel codice e' {SOGLIA}")
 controlla("e quante se ne tengono",
-          str(ricette.MASSIME) in README or "sessanta" in README.lower(),
-          f"nel codice sono {ricette.MASSIME}")
+          str(MASSIME) in README or PAROLE.get(MASSIME, "\x00") in README.lower(),
+          f"nel codice sono {MASSIME}")
 controlla("nomina i tri-grammi", "tri-grammi" in README or "trigrammi" in README)
 controlla("e la rarita' come e' scritta nel codice",
           "1 + N/(1+n)" in README)
@@ -156,13 +186,7 @@ controlla("c'e' il caso di chi il PC fa fatica a usarlo",
           "Chi il PC fa fatica a usarlo" in elenco)
 controlla("e dice la differenza col controllo remoto",
           "non prende il mouse" in elenco)
-from nova.mcp_kb import STRUMENTI as _S                        # noqa: E402
-# Gli strumenti che sono passati al demone esistono lo stesso: li si legge
-# da dove sono dichiarati (D344).
-_demone = {n.replace(".", "_") for f in ("caps_harness_strumenti.rs", "caps_automazioni.rs", "caps_tempo.rs")
-           for n in _re_dem.findall((RADICE / "core" / "crates" / "nova-core" / "src" / f)
-                                    .read_text(encoding="utf-8"))}
-nomi = {s["name"] for s in _S} | _demone
+nomi = PER_I_MODELLI
 
 # Ogni caso mostra la catena di strumenti che lo rende vero: e' la
 # differenza fra «NOVA sa fare X» e «ecco come». Ogni nome citato in una
@@ -174,14 +198,12 @@ controlla("i casi mostrano la catena degli strumenti", len(catene) >= 5,
 citati = set()
 for c in catene:
     citati |= set(_re.findall(r"`(\w+)`", c))
-tutti = nomi | set(REGISTRY)
-fantasmi = sorted(citati - tutti)
+fantasmi = sorted(citati - nomi)
 controlla("e ogni strumento citato esiste", not fantasmi, str(fantasmi))
 # Ogni famiglia di esempi deve corrispondere a strumenti che esistono.
-nomi = {s["name"] for s in _S} | _demone
 for cosa, strumento in [("candidarsi in un modulo web", "web_scrivi"),
                         ("incollare molti dati", "web_incolla"),
-                        ("cercare senza aprire il browser", "web_cerca"),
+                        ("cercare senza aprire il browser", "rete_cerca"),
                         ("leggere il fascicolo", "fascicolo_leggi"),
                         ("cercare in una pila di documenti", "harness_cerca_progetto"),
                         ("proporre una correzione", "harness_proponi"),
@@ -206,12 +228,17 @@ controlla("e nessun dato personale e' finito negli esempi",
           not personali, str(personali))
 
 print("\n5. niente promesse che il codice non mantiene")
-from nova.harness import LEGGIBILI as L                        # noqa: E402
 for est in [".pdf", ".docx", ".html", ".md"]:
     if f"`{est}`" in README:
-        controlla(f"il README promette {est} e l'harness lo apre", est in L)
+        controlla(f"il README promette {est} e l'harness lo apre", est in LEGGIBILI)
 controlla("non si promette piu' una «fase 2» per la voce",
           "Fase 2 - comandi vocali" not in README)
+
+controlla("i comandi di tutti i giorni non passano da Python",
+          README.count("python -m nova") <= 1,
+          f"{README.count('python -m nova')} volte")
+controlla("e dicono novad --dati e --registro",
+          "novad --dati" in README and "novad --registro" in README)
 
 print("\n6. la traduzione inglese non si scolla dall'originale")
 # Due README si scollano in fretta: si aggiunge una sezione a uno e l'altro
@@ -232,8 +259,7 @@ controlla("ha lo stesso scheletro di titoli dell'italiano",
 controlla("l'italiano rimanda all'inglese", "README.en.md" in README)
 controlla("e l'inglese rimanda all'italiano", "(README.md)" in EN)
 # I conteggi sono la parte che invecchia per prima, e vale per tutti e due.
-for quanti, cosa in [(len(REGISTRY), "strumenti locali"),
-                     (len(STRUMENTI), "strumenti MCP"),
+for quanti, cosa in [(len(PER_I_MODELLI), "strumenti per i cervelli"),
                      (len(LEGGIBILI), "formati")]:
     controlla(f"anche l'inglese dice {quanti} per «{cosa}»", str(quanti) in EN,
               "il numero non compare nella traduzione")

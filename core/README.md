@@ -4,8 +4,10 @@ Il demone di NOVA, in Rust. Un processo che **vive nel sistema** invece di una
 applicazione che apri: possiede il bus di eventi, il registro delle capacita',
 i processi lunghi (llama-server per primo) e il server RPC locale.
 
-Le interfacce — la finestra PyQt, la CLI, la voce, Claude Code — diventano
-client sottili: possono morire e ripartire senza fermare NOVA.
+Le interfacce — l'orb e le sue finestre, la CLI, la voce, Claude Code — sono
+client sottili: possono morire e ripartire senza fermare NOVA. Da settembre
+2026 il demone fa anche il turno, gli strumenti e la memoria: NOVA non ha piu'
+bisogno di Python per funzionare.
 
 ## Perche' non un OS
 
@@ -20,8 +22,9 @@ esistono gia' in ogni sistema operativo, esposte in userspace:
 | Canale locale | named pipe | socket unix | socket unix |
 
 Ogni riga e' la stessa capacita' con tre nomi. Il demone e' costruito attorno
-a questa forma: **un trait, tre backend**. L'ultima riga e' gia' implementata
-(`server.rs`); le altre tre sono i prossimi strati.
+a questa forma: **un trait, tre backend**. Ad oggi ci sono il canale locale
+(`server.rs`) e UI Automation su Windows; osservazione e istantanee sono
+ancora un piano, e il README principale dice cosa c'e' sistema per sistema.
 
 ## Struttura
 
@@ -141,11 +144,13 @@ with CoreClient() as c:
 ## Prossimi strati
 
 1. `nova-platform`: trait `UiTree` con backend UIA / AX / AT-SPI — controllare
-   qualunque applicazione senza visione.
+   qualunque applicazione senza visione. **Fatto su Windows** (UIA); AX e
+   AT-SPI mancano.
 2. Osservazione: ETW / EndpointSecurity / eBPF dietro un trait `Observer`.
 3. Snapshot: VSS / APFS / overlayfs dietro un trait `Snapshot`, per poter
    osare e tornare indietro.
-4. Migrazione progressiva di tool e KB dal lato Python al demone.
+4. ~~Migrazione progressiva di tool e KB dal lato Python al demone.~~ Fatta:
+   vedi `docs/verso_la_beta.md`.
 
 ---
 

@@ -41,7 +41,10 @@ README_EN = (RADICE / "README.en.md").read_text(encoding="utf-8-sig")
 DIARIO = (DOCS / "diario.md").read_text(encoding="utf-8")
 ARCH = (DOCS / "architettura.md").read_text(encoding="utf-8")
 BETA = (DOCS / "verso_la_beta.md").read_text(encoding="utf-8")
-TUTTO = README + DIARIO + ARCH + BETA
+# La mappa della prima versione, in Python, sta accanto a lei (D359): il
+# README descrive il NOVA di oggi, cioe' i crate.
+PRIMA = (RADICE / "nova" / "README.md").read_text(encoding="utf-8")
+TUTTO = README + DIARIO + ARCH + BETA + PRIMA
 
 print("\n1. i documenti ci sono e si raggiungono")
 for f in ["architettura.md", "diario.md", "verso_la_beta.md"]:
