@@ -58,8 +58,8 @@ chiedile quando lavori meglio.
 fidarsi e utili se un giorno NOVA non parte:
 
 ```powershell
-python -m nova --dati        # dove tiene le tue cose, quanto pesano, cosa succede se le cancelli
-python -m nova --registro    # cosa ha fatto e non si puo' annullare
+.\bin\novad --dati          # dove tiene le tue cose, quanto pesano, cosa succede se le cancelli
+.\bin\novad --registro      # cosa ha fatto e non si puo' annullare
 ```
 
 Se qualcosa non funziona, il resto del documento spiega perche'.
@@ -68,8 +68,8 @@ Se qualcosa non funziona, il resto del documento spiega perche'.
 ## Cosa sa fare
 
 Un elenco di aggettivi non dice niente. Questi sono i numeri, contati dal
-codice: **60 strumenti** per il modello che gira sul tuo PC, **32** per un
-cervello agentico che lavora per conto suo, **38 formati** di file che sa
+codice: **129 strumenti**, gli stessi per il modello che gira sul tuo PC e
+per un cervello agentico come Claude Code, **38 formati** di file che sa
 aprire e mostrare.
 
 ### Agisce sul sistema, e non ti ruba il posto
@@ -99,7 +99,10 @@ chiamata invece di cinque, e leggere una tabella intera ne costa una sola.
 |---|---|
 | `web_incolla` — cinque valori in tre campi | 35 ms |
 | `web_tabella` — una tabella 5x4 letta tutta | 33 ms |
-| `web_cerca` — cercare senza aprire il browser | ~0,9 s |
+| `rete_cerca` — cercare senza aprire il browser | ~0,9 s |
+
+Misurati sulla prima versione di NOVA, quella in Python. Il demone fa le
+stesse chiamate con un codice suo, e questi tre numeri vanno rimisurati li'.
 
 L'ultima riga e' quella che cambia il carattere dell'assistente: **prima di
 aprire una pagina, NOVA cerca**. Un browser che si apre e' una finestra che
@@ -115,7 +118,8 @@ dopo. Le procedure si ritrovano anche quando la richiesta e' scritta in modo
 diverso o con un refuso, perche' il confronto passa da tri-grammi di caratteri
 e non da un'uguaglianza di stringhe.
 
-Sul disco di chi scrive queste righe, adesso: 138 note e 28 procedure imparate.
+Sul disco di chi scrive queste righe, il 28 settembre: 143 note e 31 procedure
+imparate.
 
 ### Custodisce le credenziali senza farle vedere al modello
 
@@ -323,13 +327,13 @@ finestra di dialogo. Nessun tasto premuto, nessuna finestra che salta davanti.
 
 > «Fammi il punto sullo stato dell'arte dei modelli aperti, con le fonti.»
 
-`web_cerca` trova senza aprire il browser, `web_prendi` scarica una pagina
+`rete_cerca` trova senza aprire il browser, `rete_leggi` scarica una pagina
 come testo in mezzo secondo invece di sei, e i documenti che hai gia' sul
 disco entrano nell'harness. La differenza rispetto a farsi riassumere le cose
 da una chat e' che la risposta dice **dove**: file e pagina, non «mi risulta
 che».
 
-**La catena:** `web_cerca` -> `web_prendi` -> `harness_apri` ->
+**La catena:** `rete_cerca` -> `rete_leggi` -> `harness_apri` ->
 `harness_cerca_progetto` -> `harness_proponi` (il testo nasce nel documento)
 
 ### Sorvegliare qualcosa e parlare solo se cambia
@@ -363,7 +367,7 @@ niente - e quando il compito lo merita **delega**: un ragionamento difficile,
 del codice delicato, una decisione che pesa. Chi riceve il compito non vede la
 conversazione, quindi NOVA glielo riscrive per intero.
 
-**La catena:** `modelli` (chi c'e') -> `delega` -> la risposta torna dentro
+**La catena:** `cervelli_stato` (chi c'e') -> `cervelli_delega` -> la risposta torna dentro
 la stessa conversazione
 
 ### Capire perche' il PC va piano
@@ -375,7 +379,7 @@ layer del modello stanno davvero in VRAM. Su Windows, quando la VRAM finisce,
 il driver ripiega in silenzio sulla RAM condivisa e il modello va dieci volte
 piu' piano senza dire niente - NOVA lo vede e lo dice.
 
-**La catena:** `system_info` -> `list_processes` -> `run_powershell`
+**La catena:** `sys_info` -> `app_processi` -> `shell_exec`
 
 ### Smettere di rifare a mano una cosa gia' fatta tre volte
 
@@ -393,8 +397,9 @@ giri di modello invece di dieci.
 
 Nell'archivio c'e' «git tag e push». NOVA lavora sul progetto che la contiene:
 apre i propri sorgenti nell'harness, li legge con i colori, propone modifiche
-e le applica quando glielo dici. Il **banco** (`nova/banco.py`) le permette di
-provare una riparazione su una copia prima di toccare l'originale.
+e le applica quando glielo dici. Il **banco** (`ripara_apri`, D349) le
+permette di provare una riparazione su una copia, con `cargo test`, prima di
+toccare l'originale: si applica solo se nessuna prova verde diventa rossa.
 
 ---
 
@@ -594,9 +599,9 @@ macchina, e solo dopo propone di scaricare.
 
 Nessuna di queste e' obbligatoria all'installazione: si puo' rispondere
 «decido dopo» e cambiare idea dal menu **Cervello**, o da `brains.active` in
-`config.json`. Le CLI riconosciute sono descritte in `nova/routing.py`
-(`cli_predefinite`): aggiungerne una non richiede codice, solo una voce sotto
-`brains.cli`.
+`config.json`. Le CLI riconosciute le elenca `.\bin\nova cli-predefinite`:
+aggiungerne una non richiede codice, solo una voce sotto `brains.cli`, o il
+pannello.
 
 Il modello indicato a mano viene controllato davvero: i primi quattro byte di
 un GGUF sono `GGUF`, e uno scaricamento interrotto non li ha. Se accanto al
@@ -627,8 +632,10 @@ configurazione. Vivono in `%APPDATA%\NOVA` — ma «vivono in una cartella» non
 e' una risposta, quindi c'e' un comando che la da' per intero:
 
 ```powershell
-python -m nova --dati        # cosa c'e', dove, quanto pesa, e cosa succede se lo cancelli
-python -m nova --registro    # cosa NOVA ha fatto e non si puo' annullare
+.\bin\novad --dati                    # cosa c'e', dove, quanto pesa, e cosa succede se lo cancelli
+.\bin\novad --registro                # cosa NOVA ha fatto e non si puo' annullare
+.\bin\novad --registro fattura        # le azioni che nominano una fattura
+.\bin\novad --registro --giorni 7     # quelle dell'ultima settimana
 ```
 
 Tutti e due leggono il disco e basta: niente configurazione, niente cervello
@@ -654,7 +661,7 @@ compare il nome, e il fatto che l'archivio esiste.
 ## Per chi sviluppa
 
 ```powershell
-.\build.ps1              # compila il core Rust (release)
+.\build.ps1              # compila il core Rust (release) e lo pubblica in bin\
 .\build.ps1 -Test        # esegue i test Rust
 foreach ($f in Get-ChildItem -Path prove -Recurse -Filter "test_*.py") { python $f.FullName }
 ```
@@ -685,115 +692,91 @@ lunghi non e' un messaggio d'errore, e' un assistente che si spegne mentre
 lavori.
 
 **Perche' le capacita' che servono sono la stessa cosa con tre nomi.** Il
-demone e' costruito come *un trait, tre backend*:
+demone e' costruito come *un trait, tre backend*: la stessa domanda — «che
+finestre ci sono?», «metti questo nel cestino» — con una risposta per ogni
+sistema. Oggi il backend completo e' uno solo, quello di Windows, e la tabella
+dice cosa c'e' davvero:
 
-| Serve per | Windows | macOS | Linux |
+| Serve per | Windows | Linux | macOS |
 |---|---|---|---|
-| Controllare qualsiasi app | UI Automation | Accessibility API | AT-SPI2 |
-| Osservare tutto il sistema | ETW | EndpointSecurity | eBPF |
-| Annullare cio' che si e' fatto | VSS | snapshot APFS | overlayfs / btrfs |
+| Controllare qualsiasi app | UI Automation | **manca** (AT-SPI2) | **manca** (Accessibility API) |
+| Chiudere un comando in un recinto | **manca** | Landlock | **manca** |
+| Annullare cio' che si e' fatto | giornale + Cestino | giornale + cestino freedesktop | giornale + `~/.Trash` |
+| Custodire le credenziali | DPAPI | **manca** | **manca** |
 | Canale locale | named pipe | socket unix | socket unix |
 
-Il vincolo vero e' la portabilita', non il ring 0: queste capacita' esistono
-gia' in userspace su ogni sistema. Non serve un sistema operativo, serve un
-processo scritto attorno a quella forma.
+Su Linux e macOS il demone compila, gira, e fa quello che non ha bisogno
+delle finestre: file, memoria, cervelli, web. Le prove del core girano anche
+li', a ogni push, in CI. Osservare tutto il sistema (ETW, eBPF) e le istantanee del
+disco (VSS, APFS) erano scritti qui come piano: codice non ce n'e', e finche'
+non c'e' non stanno in tabella.
 
 **Perche' un binario e' un binario.** Il demone si scarica compilato: chi
 installa NOVA non ha bisogno ne' di Rust ne' di Visual Studio.
 
-Quello che resta in Python e' il ciclo dell'agente, gli strumenti e la
-memoria — dove le idee cambiano ogni settimana e la velocita' di modifica vale
-piu' della velocita' di esecuzione. Il confine fra i due e' voluto e sta
-scritto in [`core/README.md`](core/README.md).
+**E Python?** NOVA e' nata in Python, e per mesi le due meta' hanno convissuto:
+il demone in Rust per i processi lunghi, il ciclo dell'agente, gli strumenti e
+la memoria in Python. Da settembre 2026 fa tutto il Rust — le domande, gli
+strumenti, la memoria, i cervelli, l'installatore — e NOVA funziona senza
+Python. Ogni pezzo e' stato portato con un banco gemello che confronta le
+due versioni sugli stessi casi, e `nova/` resta per questo: e' il termine di
+paragone delle prove, e chi vuole puo' ancora usarla dal terminale con
+`python -m nova`. Python sul PC serve a una cosa sola: e' la lingua in cui
+NOVA scrive le sue automazioni. Il percorso e' raccontato in
+[`docs/verso_la_beta.md`](docs/verso_la_beta.md), e la mappa della versione
+Python sta in [`nova/README.md`](nova/README.md).
 
 ## Architettura
 
 ```
-bin/nova-shell.exe    l'orb e le finestre (avviato all'accensione)
+bin/                  i binari: l'orb, il demone, la riga di comando, gli aiutanti
 install.ps1           installazione, runtime CUDA, avvio automatico, collegamento
-nova/
-  main.py             entrypoint: accende l'orb, oppure la CLI
-  config.py           configurazione persistente (%APPDATA%\NOVA\config.json)
-  setup_wizard.py     rilevamento automatico di modello GGUF e runtime
-  modelli_trova.py    dove cercare un .gguf che l'utente ha gia'
-  catalogo.py         quale modello ha senso qui, e quale non si scarica
-  cartelle.py         se una cartella la sincronizza qualcun altro col cloud
-  componenti.py       cosa serve a ogni funzione, e come procurarlo
-  runtime.py          avvia/sorveglia/spegne llama-server.exe (+ auto-tuning GPU)
-  daemon.py           accende nova-core quando non gira
-  core_client.py      il canale verso il demone: capacita', processi, eventi
-  agent.py            ciclo agente: modello <-> tool, sicurezza, approvazioni
-  routing.py          chi risponde a cosa: gradini, delega, ripiego sulla quota
-  brains/
-    base.py           cosa deve saper fare un cervello, e `LimiteUso`
-    openai_compat.py  il modello locale e le API esterne: stesso dialetto
-    claude_cli.py     Claude Code in headless, con la memoria come server MCP
-    cli_generic.py    le altre CLI agentiche, dichiarate senza scrivere codice
-  guasti.py           un guasto detto in italiano; il traceback va nel file
-  attesa.py           l'attesa che si vede passare, senza fingere una percentuale
-  dati.py             dove NOVA tiene le tue cose, e cosa succede se le cancelli
-  processi.py         nessun processo di NOVA apre una finestra nera
-  lingue.py           in che lingua risponde, e i nomi dell'interfaccia
-  browser.py          pilota Edge o Chrome in CDP: incolla, tabelle, caricamenti
-  cerca.py            ricerca web senza aprire un browser sullo schermo
-  immagini.py         le schermate che il modello puo' guardare
-  ricette.py          le procedure imparate, ritrovate anche con un refuso
-  automazioni.py      il guscio degli strumenti che NOVA scrive da se'
-  banco.py            la copia su cui si prova una riparazione
-  registro.py         cio' che non si annulla, si annota - e si ricerca
-  rotazione.py        nessun diario cresce per sempre: due MB, uno storico
-  pianificazione.py   attivita' ricorrenti e sentinelle
-  fascicolo.py        i fatti veri sull'utente: CV, esperienze, testi suoi
-  fogli.py            i fogli di calcolo: riferimenti, celle, come si rende
-  harness.py          documenti e progetti: aprire, cercare, indicare
-  harness_modifica.py proporre modifiche, e applicarle solo su richiesta
-  harness_prova.py    i test del progetto: si applica se non peggiora
-  mcp_kb.py           gli strumenti esposti a un cervello agentico che il demone non ha ancora
-  kb_setup.py         regia della memoria: vault, motore, apprendimento
-  tools/
-    base.py           registry, schemi OpenAI, livelli di rischio
-    files.py          leggere, scrivere, cercare, spostare, aprire
-    apps.py           avviare app, elencare/focalizzare/chiudere finestre
-    shell.py          PowerShell, CMD, Python
-    web.py            ricerca web, lettura pagine, apertura nel browser
-    documenti.py      leggere dentro pdf, docx, fogli
-    system.py         appunti, tasti, volume, notifiche, promemoria, info PC
-    tempo.py          promemoria e cose in programma
-    schermo.py        schermate, quando leggere il sistema non basta
-    deleghe.py        passare la palla a un gradino piu' alto
-    kb.py             i sei strumenti con cui il modello usa la memoria
-    automazioni.py    strumenti che NOVA scrive da se'
-    procedure.py      come ha risolto una richiesta, per rifarla
-    riparazione.py    il banco: si ripara da sola senza rompersi
-  kb/
-    schema.py         nodo + frontmatter
-    store.py          il vault su disco, indice, relazioni, audit
-    retrieval.py      BM25 + embedder + RRF + espansione grafo
-    memory.py         cosa imparare da uno scambio, e cosa no
-    riservatezza.py   cosa non entra in memoria nemmeno se passa di li'
-    seed.py           la prima mappatura del PC
-  voice/
-    stt.py            ascolto: whisper, push-to-talk o parola di richiamo
-    tts.py            voce: SAPI di Windows, zero dipendenze
-    audio.py          microfono e altoparlanti
-    elevenlabs.py     voce e trascrizione via ElevenLabs
-    openai_audio.py   voce e trascrizione via API compatibili
+build.ps1             compila il core e lo pubblica in bin/
 core/crates/
-  nova-core/          il demone: bus, capacita', processi lunghi, RPC
-  nova-ricette/       le ricette in Rust, e il banco che le confronta col Python
-  nova-pitone/        le abitudini di Python che il porto deve rispettare
-  nova-memoria/       BM25, fusione e coseno in Rust, con il loro banco
-  nova-registro/      cercare e raccontare il registro, in Rust
-  nova-scala/         chi risponde a cosa: gradini, salite obbligate, ripieghi
+  novad/              il demone: bus, capacita', processi lunghi, RPC locale
+  nova-shell/         l'orb e le finestre (Tauri): chat, impostazioni, harness
+  nova-cli/           `nova`: parlare al demone, e configurare senza di lui
+  nova-core/          il motore: registro delle capacita', turno, permessi, giornale
+  nova-proto/         JSON-RPC su named pipe o socket unix, della forma di MCP
+  nova-mcp/           NOVA come server MCP per un cervello agentico
+  nova-mcp-cliente/   NOVA come cliente dei server MCP di altri
+  nova-platform/      il sistema: UI Automation, finestre, audio, cestino, GPU
+  nova-ciclo/         il turno: chiedi, esegui, rileggi
   nova-contesto/      quanto della conversazione ci sta, e cosa si butta quando no
-  nova-mcp/           il protocollo con cui un altro programma entra in NOVA
-  nova-browser/       il codice che gira dentro la pagina, e cosa di una pagina e' testo
-  nova-cervelli/      cosa NOVA dice a un cervello che vive fuori: riga di comando, prompt, payload
+  nova-scala/         chi risponde a cosa: gradini, deleghe, ripieghi sulla quota
+  nova-salita/        quando si sale di gradino, e quando si gira a vuoto
+  nova-cervelli/      cosa NOVA dice a un cervello che vive fuori: CLI, Claude Code, API
+  nova-strumenti/     gli strumenti e le guardie dell'autonomia
+  nova-nodi/          la memoria: un nodo per file .md, e le regole per impararne
+  nova-memoria/       BM25, embedding di casa, fusione, scelta
+  nova-ricette/       le procedure imparate, ritrovate anche con un refuso
+  nova-registro/      cercare e raccontare il registro delle azioni
+  nova-potatura/      nessun diario cresce per sempre: due MB, uno storico
+  nova-modelli/       trovare i GGUF e llama-server, e i conti sulla VRAM
+  nova-catalogo/      quale modello ha senso su questa macchina
+  nova-componenti/    cosa serve a ogni funzione, e come procurarlo
+  nova-cartelle/      se una cartella la sincronizza qualcun altro col cloud
+  nova-voce/          voce e ascolto in casa: Kokoro, whisper.cpp; ElevenLabs a scelta
+  nova-browser/       il codice che gira dentro la pagina
+  nova-cdp/           il protocollo per parlare a Edge e Chrome
+  nova-harness/       documenti e progetti: cercare una posizione, proporre, provare
+  nova-docx/          modificare un .docx senza rifarlo da capo
+  nova-fogli/         i fogli di calcolo: celle, riferimenti, scrittura senza perdite
+  nova-documenti/     leggere dentro pdf, docx, fogli
+  nova-configurazione/ la configurazione: il file dell'utente sopra quella di fabbrica
+  nova-dati/          dove NOVA tiene le tue cose, e cosa succede se le cancelli
   nova-guasti/        un guasto detto in italiano, e le chiavi che non escono
-  nova-modelli/       trovare i GGUF e llama-server sul disco, e i conti sulla VRAM
-  nova-voce/          audio, Kokoro, whisper, Scribe: niente Python
-  nova-shell/         l'orb e le finestre (Tauri)
+  nova-calendario/    i conti sulle date, con l'ora passata da fuori
+  nova-pianificazione/ «ogni giorno alle 8», e l'attivita' di Windows che lo fa
+  nova-pitone/        le abitudini di Python che il porto doveva rispettare
+  nova-decisioni/     quali decisioni possono uscire dal PC (CANT-12)
+  nova-giudizio/      decisioni tipizzate lette dai logit (CANT-12)
+nova/                 la prima versione, in Python: termine di paragone dei banchi
+prove/                le prove, divise per cosa serve a farle girare
 ```
+
+Trentotto crate. Gli ultimi due sono il terreno di CANT-12 e non li usa
+ancora nessun binario; lo stesso vale per `nova-mcp-cliente`.
 
 ## Livelli di autonomia
 
@@ -805,8 +788,8 @@ Impostabili al volo dal menu in alto a destra (o in `config.json`):
 | `ask_risky` | conferma solo per le azioni `DANGEROUS` (shell, delete, chiusura app, tasti) |
 | `autonomous` | nessuna conferma, tutto tracciato nel registro azioni |
 
-Ogni tool e' classificato `SAFE` / `MODERATE` / `DANGEROUS`. Oltre
-all'autonomia valgono sempre due guardie non aggirabili dal modello:
+Ogni capacita' e' classificata `safe` / `moderate` / `dangerous`. Oltre
+all'autonomia valgono sempre tre guardie non aggirabili dal modello:
 
 - `safety.protected_paths` - percorsi mai scrivibili (Windows, Program Files, ...)
 - `safety.forbidden_command_patterns` - regex di comandi bloccati (format, diskpart, ...)
@@ -814,59 +797,85 @@ all'autonomia valgono sempre due guardie non aggirabili dal modello:
 
 ## Runtime del modello
 
-All'avvio NOVA cerca un `llama-server.exe`, in quest'ordine:
+Il modello di casa lo accende il demone, quando serve: se il primo gradino
+della scala e' il modello locale, prima di rispondere guarda se all'indirizzo
+di `server.host`/`server.port` risponde qualcuno. Se si', usa quello — anche
+LM Studio o Ollama. Se no, lo accende e aspetta che sia pronto (D358).
+
+`llama-server` si cerca in quest'ordine, se `server.binary` non lo indica:
 
 1. `NOVA\runtime\` (build CUDA scaricata da `get_cuda_runtime.ps1`)
 2. i backend gia' presenti in `%USERPROFILE%\.lmstudio\extensions\backends`
-3. `LLAMA_CPP_HOME`
+3. `LLAMA_CPP_HOME` o `LLAMACPP_HOME`
 
-Poi lancia il server come processo figlio e lo spegne alla chiusura. Se il
-modello non entra in VRAM, `auto_tune_gpu_layers` riprova da solo scalando i
-layer offloadati finche' non parte.
+Prima di accenderlo stima quanti layer entrano nella memoria video, e se il
+modello non ci sta lo riaccende con sei layer in meno, finche' non parte. Il
+processo e' del demone: chiudere la finestra non lo scarica.
 
-## Aggiungere un tool
+## Aggiungere una capacita'
 
-```python
-from nova.tools.base import Risk, tool
+Una capacita' e' una cosa che il demone sa fare, con un nome, una descrizione
+per il modello, un rischio e uno schema degli argomenti. La stessa capacita'
+la vedono il modello di casa, un cervello agentico via MCP, la chat e la riga
+di comando.
 
-@tool(
-    "invia_email",
-    "Invia una email tramite Outlook.",
-    {"to": {"type": "string", "description": "Destinatario"},
-     "subject": {"type": "string", "description": "Oggetto"},
-     "body": {"type": "string", "description": "Testo"}},
-    Risk.DANGEROUS, category="mail",
-    preview=lambda a: f"Invia email a {a['to']}: {a['subject']}",
-)
-def invia_email(to: str, subject: str, body: str) -> str:
-    ...
-    return "Email inviata."
+```rust
+struct OraCap;
+
+#[async_trait]
+impl Capability for OraCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "sys.ora".into(),
+            description: "Data e ora correnti del PC.".into(),
+            risk: Risk::Safe,
+            category: "sys".into(),
+            schema: schema(&[]),
+        }
+    }
+
+    async fn call(&self, _args: Value, _ctx: &Ctx) -> Result<Value> {
+        Ok(json!("lunedi 28/09/2026 21:00"))
+    }
+}
 ```
 
-Importa il modulo in `nova/tools/__init__.py` e il modello lo vede subito.
+Si registra con `reg.add(Arc::new(OraCap))` nella funzione `register` di un
+file `caps_*.rs` di `nova-core`, e il modello la vede come `sys_ora`. Chi
+cambia qualcosa implementa anche `anteprima`: e' quello che si mostra nella
+richiesta di conferma. Senza, a chi chiede di provarla «per finta» il demone
+risponde di no, invece di eseguirla davvero.
 
 ## Voce
 
-`nova/voice/` e' gia' predisposto: `stt.py` (faster-whisper, push-to-talk o
-wake word) e `tts.py` (SAPI di Windows, zero dipendenze). Per attivarli:
+Tutto in casa, senza Python: la voce e' Kokoro (ONNX, con espeak-ng per la
+pronuncia), l'ascolto e' whisper.cpp. ElevenLabs e' una scelta, per chi la
+vuole, e se la quota finisce si torna alla voce di casa. I pezzi si scaricano
+quando servono:
 
 ```powershell
-pip install faster-whisper sounddevice
+.\bin\nova componenti elenco               # cosa c'e' e cosa manca
+.\bin\nova componenti scarica voce_locale  # Kokoro, e allo stesso modo onnx, espeak, ascolto_locale
 ```
 
-poi `voice.enabled = true` in `config.json`.
+Poi si accende dal pannello, alla voce **Voce**. NOVA risponde al proprio
+nome: non c'e' un modello apposta per la parola di richiamo, e' whisper che
+trascrive e il nome che apre la frase.
 
 ## Prestazioni e tuning
 
-NOVA calcola da sola quanti layer entrano in VRAM (`nova/gguf.py` legge i
-metadati del modello, `estimate_gpu_layers` li confronta con la VRAM libera).
+NOVA calcola da sola quanti layer entrano in VRAM (`nova-modelli` legge i
+metadati del GGUF e li confronta con la VRAM libera).
 Serve perche' su Windows, quando la VRAM finisce, il driver NVIDIA ripiega in
 silenzio sulla memoria condivisa: il modello parte lo stesso ma va ~10x piu'
 lento.
 
 Misure su RTX 4060 Ti 16 GB con Qwen3.8-27B Q4_K_M (15,7 GB), con il prompt
-vero di NOVA — 12.492 token fra regole e schemi dei sessanta strumenti. Il
-banco e' `misure/banco_modello.py`, e le misura da solo.
+vero di NOVA — 12.492 token fra regole e schemi dei sessanta strumenti della
+versione Python. Il demone ne offre 129, quindi il suo prompt e' piu' lungo e
+il numero a freddo va rimisurato; quelli sui flag e sui layer dipendono da
+llama-server, non da chi lo chiama. Il banco e' `misure/banco_modello.py`, e
+le misura da solo.
 
 **Il primo numero da guardare non e' la velocita', e' il divario fra freddo e
 caldo:**
@@ -917,7 +926,7 @@ E si rimisura, perche' la VRAM libera dipende da cos'altro c'e' acceso:
 python misure/banco_modello.py            # tutte le configurazioni
 python misure/banco_modello.py kv8-60     # una sola
 python misure/banco_taglio.py             # quanto costa accorciare la conversazione
-python misure/banco_cervello.py           # sa scegliere il tool giusto fra sessanta?
+python misure/banco_cervello.py           # sa scegliere lo strumento giusto? (quelli della versione Python)
 ```
 
 L'ultimo misura una cosa diversa dalle altre: non quanto e' veloce un modello,
@@ -996,7 +1005,7 @@ avanti.
 Per NOVA in particolare, due dettagli di Gemma 4 pesano piu' dei benchmark:
 e' **multimodale** — quindi le schermate funzionano anche con il cervello di
 casa, non solo con quello in rete — e ha la **chiamata di funzione nativa**,
-che e' esattamente il modo in cui NOVA parla ai suoi sessanta strumenti.
+che e' esattamente il modo in cui NOVA parla ai suoi strumenti.
 
 **Come sceglierne uno diverso.** `models.json` non e' codice, e' un dato: il
 migliore cambia ogni mese, e se stesse nel codice ogni modello nuovo sarebbe
@@ -1049,8 +1058,8 @@ NOVA ha una memoria a lungo termine che sopravvive alle sessioni: un **vault
 markdown in `NOVA\vault`, apribile in Obsidian cosi' com'e'** (frontmatter +
 `[[wikilink]]`, quindi la vista a grafo di Obsidian funziona senza plugin).
 
-La pipeline di retrieval e' il porting Python di
-`knowledge-lab/backend/src/retrival`:
+La pipeline di retrieval viene da `knowledge-lab/backend/src/retrival`, ed e'
+in `nova-memoria`:
 
 ```
 query
@@ -1067,14 +1076,12 @@ query
 ### Struttura
 
 ```
-nova/kb/
-  schema.py     nodo + frontmatter (parser proprio, come nodeLoader.ts)
-  store.py      vault su disco, indice, relazioni bidirezionali, dedup, audit
-  retrieval.py  BM25 + embedder + RRF + espansione grafo + KBEngine
-  memory.py     apprendimento automatico dalle conversazioni
-  seed.py       mappatura iniziale del PC
-nova/kb_setup.py  regia: vault + motore + memoria
-nova/tools/kb.py  i 6 tool con cui il modello usa la memoria
+core/crates/
+  nova-nodi/      nodo + frontmatter, il vault su disco, il guardiano dei segreti
+  nova-memoria/   BM25 + embedding di casa + RRF + scelta
+  nova-ricette/   le procedure imparate
+  nova-core/      memoria.rs (la ricerca nel turno), imparare.rs (i fatti
+                  durevoli), caps_memoria.rs (gli strumenti kb_*)
 ```
 
 ### Il vault
@@ -1098,32 +1105,37 @@ vince sempre su `auto`.
 
 ### Come impara
 
-- **Seed**: alla prima esecuzione mappa profilo, progetti, ambiente e persone.
-- **Automatico**: dopo ogni scambio un thread in background estrae i fatti
+- **Seed**: la prima mappatura di profilo, progetti, ambiente e persone la
+  faceva la versione Python; nel demone **manca**, e un vault nuovo parte
+  vuoto finche' NOVA non impara.
+- **Automatico**: dopo ogni scambio una fila in background estrae i fatti
   *durevoli* (preferenze, progetti, persone, decisioni) e li scrive. Non
   memorizza richieste una tantum, output di comandi o orari.
-- **Esplicito**: i tool `kb_note`, `kb_link`, `kb_forget` quando dici
-  "ricordati che...".
-- **Iniezione**: prima di ogni turno i nodi rilevanti finiscono nel prompt di
-  sistema, cosi' NOVA non ti richiede cose che gia' sa.
+  Non impara da un turno che ha guardato lo schermo.
+- **Esplicito**: gli strumenti `kb_nota`, `kb_collega`, `kb_dimentica` quando
+  dici "ricordati che...". Un testo che somiglia a una credenziale non entra.
+- **Iniezione**: prima di ogni turno i nodi rilevanti finiscono **in coda alla
+  domanda**, non nel prompt di sistema: cosi' la cache del prompt resta buona e
+  NOVA non ti richiede cose che gia' sa.
 
-### Tool esposti al modello
+### Strumenti esposti al modello
 
-| Tool | Cosa fa |
+| Strumento | Cosa fa |
 |---|---|
-| `kb_search` | cerca nella memoria (pipeline ibrida completa) |
-| `kb_note` | crea o aggiorna un nodo |
-| `kb_link` | collega due nodi (grafo non orientato) |
-| `kb_neighbors` | esplora i collegamenti di un nodo |
-| `kb_forget` | archivia un nodo superato (il file resta sul disco) |
-| `kb_stats` | nodi, tipi, collegamenti, nodi isolati |
+| `kb_cerca` | cerca nella memoria (pipeline ibrida completa) |
+| `kb_nota` | crea o aggiorna un nodo |
+| `kb_collega` | collega due nodi (grafo non orientato) |
+| `kb_vicini` | esplora i collegamenti di un nodo |
+| `kb_dimentica` | archivia un nodo superato (il file resta sul disco) |
+| `kb_stato` | nodi, tipi, collegamenti, nodi isolati |
+| `kb_procedure` | le procedure imparate |
+| `kb_procedura_dimentica` | toglie una procedura sbagliata |
 
 ### Da riga di comando
 
 ```powershell
-python -m nova --kb "orario di lavoro"    # interroga la memoria
-python -m nova --kb-stats                 # stato della KB
-python -m nova --seed-kb                  # ri-mappa il PC (idempotente)
+.\bin\nova call kb.cerca query="orario di lavoro"    # interroga la memoria
+.\bin\nova call kb.stato                             # stato della memoria
 ```
 
 ### Configurazione (`kb` in config.json)
@@ -1132,18 +1144,17 @@ python -m nova --seed-kb                  # ri-mappa il PC (idempotente)
 |---|---|---|
 | `enabled` | `true` | attiva la memoria |
 | `vault_path` | `NOVA\vault` | dove vivono i nodi |
-| `auto_seed` | `true` | mappatura iniziale del PC |
+| `auto_seed` | `true` | mappatura iniziale del PC (solo la versione Python) |
 | `auto_learn` | `true` | scrittura automatica dopo ogni scambio |
 | `inject_context` | `true` | iniezione del contesto prima del turno |
 | `top_k` | `5` | quanti nodi entrano nel prompt |
 | `min_confidence` | `0.25` | sotto questa soglia un nodo non viene usato |
-| `embedder` | `hash` | `hash` (offline) oppure `llama` |
-| `embedder_url` | `:8421` | secondo llama-server con un modello di embedding |
+| `embedder` | `hash` | `hash`, l'embedding di casa: offline, niente modelli |
 
-Con `embedder: "llama"` NOVA usa un vero modello di embedding servito su
-un'altra porta (es. `nomic-embed-text`), guadagnando sulle riformulazioni.
-Se non risponde, ricade da sola sull'embedder locale: la KB non si rompe mai
-per colpa di un server spento.
+L'embedding di casa non capisce i sinonimi: e' un hashing di parole, e il
+lavoro vero lo fa BM25. La versione Python sapeva anche chiedere i vettori a
+un modello di embedding su un'altra porta (`embedder: "llama"`); nel demone
+quella strada **manca**, e la configurazione che la chiede usa quello di casa.
 
 ## Nota sul ragionamento
 
@@ -1157,13 +1168,14 @@ mettilo a `0` per disattivare del tutto il ragionamento.
 
 ## Tre cervelli intercambiabili
 
-Quello che *pensa* sta dietro l'astrazione `nova/brains`. Si cambia a caldo
-dal menu **Cervello** in alto, senza perdere la conversazione ne' la memoria.
+Quello che *pensa* sta dietro `nova-cervelli`. Si cambia a caldo dal menu
+**Cervello**, senza perdere la conversazione ne' la memoria.
 
 | Cervello | Cos'e' | Agentico |
 |---|---|---|
 | `locale` | il GGUF servito da llama-server sul tuo PC | no |
 | `claude` | Claude Code CLI in headless | si' |
+| una CLI | Codex, Gemini, Qwen, o una dichiarata in `brains.cli` | si' |
 | `api` | qualunque endpoint OpenAI-compatibile | no |
 
 **Agentico** e' la differenza che conta. `locale` e `api` *propongono* tool
@@ -1172,9 +1184,8 @@ mani proprie: NOVA gli fa da tramite, gli passa il contesto e la memoria, e
 riporta cosa ha fatto, in quanti turni e quanto e' costato.
 
 ```powershell
-python -m nova --brains                    # chi c'e' e chi e' pronto
-python -m nova --brain claude              # cambia e avvia
-python -m nova --brain claude --ask "..."  # una richiesta sola
+.\bin\nova call cervelli.stato    # chi c'e' e chi e' pronto
+.\bin\nova chiedi "..."           # una richiesta sola, dal demone
 ```
 
 ### Claude Code come cervello
@@ -1182,27 +1193,27 @@ python -m nova --brain claude --ask "..."  # una richiesta sola
 Serve `npm install -g @anthropic-ai/claude-code` e un `claude` gia'
 autenticato. NOVA:
 
-- lo lancia in headless (`-p --output-format json`), prompt via stdin
+- lo lancia in headless (`-p --output-format json`): la domanda passa dallo
+  standard input e il prompt di sistema da un file, perche' su Windows una
+  riga di comando si ferma a 8191 caratteri
 - mantiene la sessione fra un turno e l'altro con `--resume <session_id>`
 - traduce i **tuoi** livelli di autonomia nei suoi permessi:
 
   | Autonomia NOVA | `--permission-mode` |
   |---|---|
-  | Conferma sempre | `plan` (analizza e propone, non tocca nulla) |
+  | Conferma sempre | `default` (chiede per ogni azione, con lo sportello di NOVA) |
   | Conferma azioni rischiose | `acceptEdits` |
   | Autonomo | `bypassPermissions` |
 
-- gli espone la memoria a grafo come **server MCP** (`nova/mcp_kb.py`), quindi
-  Claude usa `mcp__nova__kb_search` e `mcp__nova__kb_note`: stessa pipeline di
-  retrieval del modello locale, stesso formato dei nodi. Se l'MCP non parte,
-  ricade sulla lettura diretta dei file .md del vault. Quel server oggi ha 20
-  strumenti, e si svuota man mano che passano al demone: gli `harness_*`, per
-  esempio, adesso li da' il demone, a Claude e a tutti gli altri cervelli.
+- gli collega il demone come **server MCP** (`nova mcp`, un ponte fra lo
+  standard input e il canale del demone): Claude vede gli stessi 129
+  strumenti del modello di casa, da `mcp__nova-core__kb_cerca` in giu', con le
+  stesse guardie. Le conferme passano dallo sportello di NOVA
+  (`--permission-prompt-tool`), cioe' dal bottone nella chat.
 - riporta costo e token di ogni turno nel registro azioni.
 
-Attenzione a `brains.claude_model`: l'alias `opus` su CLI datate punta a
-`claude-opus-4-1`, che e' stato ritirato e risponde 404. Il default e'
-`sonnet`, che funziona.
+Attenzione a `brains.claude_model`: su una CLI datata un alias puo' puntare
+a un modello ritirato, che risponde 404. Nel dubbio si scrive il nome intero.
 
 ### API esterna
 
@@ -1222,8 +1233,8 @@ Il selettore e' li' apposta: per il lavoro sensibile torna su `locale`.
 
 ## Il modello appartiene al demone
 
-Da quando c'e' `core/` (vedi `core/README.md`), NOVA non genera piu' llama-server
-come processo figlio: lo affida a **nova-core**, che lo supervisiona.
+llama-server non e' un processo della finestra: e' del demone, che lo accende
+quando serve e lo supervisiona.
 
 ```
 llama-server pid 2760 -> padre: novad
@@ -1235,25 +1246,24 @@ Conseguenze pratiche:
 |---|---|---|
 | Chiudi la finestra | il modello si scarica | resta caricato |
 | Riapri NOVA | ~2 minuti di caricamento | **2 secondi** |
-| Il server cade | resta giu' | il demone lo rialza |
+| Il server cade | resta giu' | si riaccende alla domanda dopo |
 | Log del modello | file che nessuno legge | eventi `proc.output` sul bus, piu' buffer circolare |
 
-All'avvio NOVA prova nella sequenza: *il demone possiede gia' il modello?* →
-lo **adotta** (recupera anche con quanti `-ngl` era partito, chiedendolo al
-demone); *c'e' qualcosa sulla porta?* → lo riusa; altrimenti chiede a nova-core
-di avviarlo, e solo se il demone manca ricade sul vecchio processo figlio. Se
-`core/` non e' compilato NOVA funziona esattamente come prima.
+Prima di un turno che comincia dal modello di casa il demone prova nella
+sequenza: *qualcuno risponde gia' sulla porta?* → lo usa, che sia il suo o un
+altro; *e' il suo e si sta caricando?* → aspetta; altrimenti lo accende
+(D358).
 
 Chiavi in `server` di `config.json`:
 
 | Chiave | Default | Cosa fa |
 |---|---|---|
-| `use_daemon` | `true` | affida il modello a nova-core |
-| `daemon_autostart` | `true` | accende nova-core se non gira |
-| `stop_model_on_exit` | `false` | chiudere NOVA **non** scarica il modello |
+| `autostart_model` | `true` | accende il modello quando un turno ne ha bisogno |
+| `binary` | vuoto | quale llama-server; vuoto = il migliore fra quelli trovati |
+| `n_gpu_layers` | `999` | sotto 99 e' una scelta tua, da 99 in su lo stima NOVA |
+| `startup_timeout` | `600` | quanto aspettare il caricamento, in secondi |
 
-La finestra si sottoscrive a `proc.*` e mostra nel registro azioni i log del
-modello presi dal bus, non piu' da un processo che possiede lei.
+La finestra si sottoscrive a `proc.*` e ha i log del modello dal bus.
 
 ---
 
@@ -1269,26 +1279,26 @@ potenza. Quelli predefiniti:
 | Gradino | Cervello | Modello | Quando |
 |---|---|---|---|
 | `locale` | GGUF sul PC | Qwen3.8-27B | orchestrazione e compiti semplici |
-| `standard` | Claude Code | `sonnet` | il cavallo da lavoro |
-| `difficile` | Claude Code | `claude-opus-4-5-20251101` | quando il compito lo merita |
+| `standard` | Claude Code | `claude-sonnet-5` | il cavallo da lavoro |
+| `difficile` | Claude Code | `claude-opus-5` | quando il compito lo merita |
 | `alternativo` | Gemini CLI | `gemini-2.5-pro` | seconda opinione |
 
 ```powershell
-python -m nova --modelli     # gradini, stato, speso / tetto
+.\bin\nova call cervelli.stato     # gradini, stato, speso / tetto
 ```
 
 ### Come passa la palla
 
 Tre strade, in ordine di intelligenza:
 
-1. **`delega`** — il modello sceglie. Scrive il compito per intero (chi lo
+1. **`cervelli_delega`** — il modello sceglie. Scrive il compito per intero (chi lo
    riceve non vede la conversazione) e passa i **percorsi** dei file in `file`:
    li allega NOVA, gratis. Poi riprende lui con la risposta.
-2. **Escalation automatica** — se NOVA sbaglia due volte di fila, o fa sei
+2. **Escalation automatica** — se NOVA sbaglia due volte di fila, o fa quattro
    chiamate senza arrivare a una risposta, sale di gradino da sola e infila il
    risultato nella conversazione. Sono due modi diversi di non farcela:
    sbattere contro un muro, e girare a vuoto.
-3. **`secondo_parere`** — la stessa domanda a due gradini, per confrontare.
+3. **`cervelli_secondo_parere`** — la stessa domanda a due gradini, per confrontare.
 
 ### Guardie
 
@@ -1297,8 +1307,8 @@ Tre strade, in ordine di intelligenza:
 | `orchestratore` | `locale` | chi guida la conversazione |
 | `escalation_automatica` | `true` | sale da sola quando serve |
 | `fallimenti_prima_di_salire` | `2` | tentativi andati male |
-| `passi_prima_di_salire` | `6` | chiamate senza risposta |
-| `salite_massime` | `1` | quante volte per turno |
+| `passi_prima_di_salire` | `4` | chiamate senza risposta |
+| `salite_massime` | `2` | quante volte per turno |
 | `tetto_usd_sessione` | `5.0` | oltre, le deleghe a pagamento si fermano |
 | `solo_locale` | `false` | `true` = niente esce dal PC, punto |
 
@@ -1350,7 +1360,7 @@ allega i file e riprende il controllo con la risposta.
 
 ## Lo screenshot è un accessorio
 
-C'è un tool `screenshot`, e serve per le domande sull'aspetto delle cose
+C'è uno strumento, `schermo_cattura`, e serve per le domande sull'aspetto delle cose
 («che ne pensi di questa interfaccia?»). **Non è una fondamenta**: per *agire*
 su un'applicazione NOVA usa l'albero di accessibilità, che è preciso,
 istantaneo e non costa niente. Dare la vista a un modello per fargli premere
@@ -1388,7 +1398,7 @@ una cosa diversa da un errore: non vuol dire «non ci riesco», vuol dire
 «riprova più tardi». NOVA la tratta come tale:
 
 1. riconosce il messaggio di quota esaurita (`usage limit`, `rate limit`, 429, …)
-   e solleva `LimiteUso`, non un errore generico;
+   come «non adesso», non come un errore generico;
 2. mette **quel gradino in pausa** per il tempo indicato;
 3. **ripiega su un altro fornitore** — non su un altro modello dello stesso,
    perché il limite è sul conto, non sul modello — e in ultima istanza torna

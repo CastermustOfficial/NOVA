@@ -11210,3 +11210,12 @@ il demone, prima del turno, con le regole del Python (D358). E il registro
 delle azioni ora si legge con `novad --registro`, come prometteva il README
 (D357). Il README vero e proprio e' il prossimo passo.
 
+## 28 settembre 2026, notte fonda — Il README, finalmente vero
+
+Il README descriveva un NOVA che non c'e' piu': Python al centro, sessanta
+strumenti, una tabella di backend per tre sistemi di cui due mai scritti.
+Riscritto in italiano e in inglese (D359). Riscrivendolo ho trovato il
+modello di casa che non si accendeva (D358), e due cose che il demone non fa
+e il Python si': la prima mappatura del PC e l'embedding da un modello vero.
+Adesso sono scritte nel README come «manca», invece di stare zitte.
+
