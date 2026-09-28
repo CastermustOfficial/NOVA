@@ -54,11 +54,6 @@ SENZA_CHIAMATE: dict[str, str] = {
         "la chiama il Rust, non la pagina: `bus.rs` la usa quando il demone "
         "manda qualcosa da mostrare. Registrata perche' e' la stessa cosa "
         "che farebbe un bottone.",
-    "stato_orb":
-        "aggancio dichiarato e non ancora collegato: il commento nel codice "
-        "dice «la chiamera' il demone quando NOVA pensa, ascolta o parla», e "
-        "finche' resta cosi' l'orb non cambia aspetto. Non e' codice morto "
-        "per errore, e' un lavoro a meta' che qui resta visibile.",
 }
 
 

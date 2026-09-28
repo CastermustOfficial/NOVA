@@ -173,14 +173,6 @@ async fn menu_orb(app: tauri::AppHandle) -> Result<(), String> {
     apri_impostazioni(app).await
 }
 
-/// Cambia lo stato dell'orb. La chiamera' il demone quando NOVA pensa,
-/// ascolta o parla; per ora la si puo' chiamare a mano per provare.
-#[tauri::command]
-fn stato_orb(app: tauri::AppHandle, stato: String) -> Result<(), String> {
-    app.emit("nova://stato", serde_json::json!({ "stato": stato }))
-        .map_err(|e| e.to_string())
-}
-
 /// Dimentica la conversazione e ricomincia da capo.
 ///
 /// Il filo del discorso sopravvive fra un messaggio e l'altro perche' viene
@@ -362,7 +354,6 @@ fn main() {
             cronologia_aggiungi,
             apri_impostazioni,
             menu_orb,
-            stato_orb,
             config_leggi,
             config_scrivi,
             parla,

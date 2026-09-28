@@ -11191,3 +11191,12 @@ guscio e demone non lo chiamano per nessuna ragione. Restava l'installatore,
 che se trovava Python ci metteva dentro sedici pacchetti che nessuno usa
 piu'. Adesso ne mette due, quelli delle automazioni (D355).
 
+## 28 settembre 2026, sera — Tre pezzi piccoli
+
+Dalla tabella dei «pezzi piccoli» (D356). Il campo per dire come una CLI
+riceve la richiesta, e le impronte in `bin\` che `build.ps1` adesso riscrive.
+Il terzo e' la lezione: «l'orb non cambia mai faccia» non era piu' vero da
+settimane. Lo aveva sistemato il turno nel demone, dagli eventi del bus, e la
+riga in tabella era rimasta a raccontare un difetto che non c'era. Restava
+solo un comando morto, e una prova che lo dichiarava «lavoro a meta'».
+

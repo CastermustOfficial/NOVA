@@ -184,6 +184,19 @@ if (-not $Test -and -not $Controlla) {
                 $saltati += "$n (in uso?)"
             }
         }
+        # Le impronte di cio' che c'e' in bin\ adesso, nella stessa forma
+        # della release. Prima il file restava quello di un build di agosto:
+        # tre righe per quindici eseguibili, e nessuna giusta. Un elenco di
+        # impronte che non corrisponde ai file dice il falso proprio a chi
+        # lo apre per controllare. Si scrive dai file che ci sono, anche da
+        # quelli che non si sono potuti sostituire: descrive bin\, non il
+        # build.
+        $presenti = @($nomi | ForEach-Object { Join-Path $bin $_ } | Where-Object { Test-Path $_ })
+        if ($presenti.Count) {
+            Get-FileHash $presenti -Algorithm SHA256 |
+                ForEach-Object { "{0}  {1}" -f $_.Hash.ToLower(), (Split-Path $_.Path -Leaf) } |
+                Set-Content (Join-Path $bin 'SHA256SUMS.txt') -Encoding ascii
+        }
         Write-Host "[nova] pubblicati in bin\: $messi su $($nomi.Count)" -ForegroundColor Cyan
         if ($saltati.Count) {
             Write-Host "[nova] non copiati: $($saltati -join ', ')" -ForegroundColor Yellow
