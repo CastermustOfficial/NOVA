@@ -1,0 +1,12 @@
+# Quello che l'installatore mette nel Python dell'utente (D355).
+#
+# NOVA non usa piu' Python per funzionare: il guscio e il demone sono Rust.
+# Python resta la lingua in cui NOVA scrive le sue automazioni (D346), e
+# questi sono i due pacchetti che quegli script chiedono piu' spesso: parlare
+# col web e guardare i processi. Tutto il resto si installa quando serve: una
+# automazione che importa un pacchetto che manca non passa la prova, e quindi
+# non nasce.
+#
+# Chi usa `python -m nova` dal terminale installa requirements.txt.
+requests>=2.31
+psutil>=5.9

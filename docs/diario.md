@@ -11184,3 +11184,10 @@ E una notizia di Gio per CANT-12: CLM-v0.1-8B, un sostituto aperto di Jev.
 L'ho annotato fra i riferimenti, con le tre cose da misurare prima di
 scriverci sopra.
 
+## 28 settembre 2026, sera — L'installatore smette di riempire Python
+
+Guardando cosa restava, il Python nel funzionamento di NOVA non c'e' piu':
+guscio e demone non lo chiamano per nessuna ragione. Restava l'installatore,
+che se trovava Python ci metteva dentro sedici pacchetti che nessuno usa
+piu'. Adesso ne mette due, quelli delle automazioni (D355).
+

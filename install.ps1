@@ -382,7 +382,7 @@ if ($wv) {
     }
 }
 # ------------------------------------------------------------------ Python
-Titolo "Python e dipendenze"
+Titolo "Python, per le automazioni"
 
 # Python non e' piu' un prerequisito (D350): quello che l'installatore gli
 # chiedeva — la configurazione, i modelli, le CLI note — lo chiede a
@@ -397,28 +397,27 @@ if (-not $py) {
 } else {
 Ok "Python $(& $py -c "import sys;print('%d.%d.%d'%sys.version_info[:3])")"
 
-# Si installano solo le dipendenze che mancano davvero: reinstallare tutto a
-# ogni esecuzione fa perdere minuti e non serve a niente.
-Info "Controllo le dipendenze..."
+# Solo i due pacchetti che le automazioni usano piu' spesso (D355). Prima
+# qui si installava tutto requirements.txt: sedici pacchetti, fra cui
+# PyMuPDF, numpy e sounddevice, per un programma che Python non lo usa piu'.
+# Minuti e centinaia di MB per niente. Chi usa `python -m nova` dal
+# terminale installa requirements.txt da se'.
+Info "Controllo i pacchetti per le automazioni..."
 $mancanti = & $py -c @"
-import importlib.util, sys
-moduli = {'requests':'requests','psutil':'psutil','pywinctl':'pywinctl',
-          'keyboard':'keyboard','send2trash':'send2trash','pycaw':'pycaw','comtypes':'comtypes',
-          'sounddevice':'sounddevice'}
-print(' '.join(p for m,p in moduli.items() if importlib.util.find_spec(m) is None))
+import importlib.util
+print(' '.join(m for m in ('requests', 'psutil') if importlib.util.find_spec(m) is None))
 "@
 if ($mancanti -and $mancanti.Trim()) {
     Info "Mancano: $mancanti"
     if ($Prova) {
         Info "[prova] installerei: $mancanti"
     } else {
-    & $py -m pip install --upgrade pip --quiet 2>&1 | Out-Null
-    & $py -m pip install -r (Join-Path $Root 'requirements.txt') --quiet
-    if ($LASTEXITCODE -ne 0) { Warn "Qualche dipendenza opzionale non e' entrata: NOVA parte lo stesso." }
-    else { Ok "Dipendenze installate." }
+    & $py -m pip install -r (Join-Path $Root 'requirements-automazioni.txt') --quiet
+    if ($LASTEXITCODE -ne 0) { Warn "Non sono entrati: le automazioni che li usano diranno che mancano. NOVA parte lo stesso." }
+    else { Ok "Pacchetti per le automazioni installati." }
     }
 } else {
-    Ok "Tutte le dipendenze sono gia' a posto."
+    Ok "I pacchetti per le automazioni ci sono gia'."
 }
 }
 

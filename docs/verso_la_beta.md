@@ -2487,6 +2487,8 @@ attaccarsi il giorno stesso. Per questo e' la prima mossa e non l'ultima.
    installazioni di prima. Il pannello chiede i numeri della memoria al
    demone (D353), e il guscio non ha piu' una strada Python per le domande
    (D354).
+   L'installatore non riempie piu' il Python dell'utente: solo requests e
+   psutil, per le automazioni (D355).
 
 **L'ordine dal 22 settembre**, deciso con Gio guardando i numeri contati
 quel giorno (68.000 righe di Rust in 37 crate, 24.000 di Python, 35 strumenti
