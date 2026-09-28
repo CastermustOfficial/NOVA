@@ -110,6 +110,10 @@ build = (RADICE / "build.ps1").read_text(encoding="utf-8-sig")
 controlla("build.ps1 copia i binari in bin/", "binari.json" in build and "bin" in build,
           "chi sviluppa continuerebbe a far girare qualcosa di diverso "
           "da quello che gira all'utente")
+# Le impronte in bin\ si riscrivono a ogni pubblicazione (D356): quelle di
+# un build vecchio dicevano il falso a chi le apriva per controllare.
+controlla("e ne riscrive le impronte, come la release",
+          "SHA256SUMS.txt" in build and "Get-FileHash" in build)
 
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:

@@ -161,8 +161,14 @@ controlla("la pagina le elenca insieme agli altri", "function cervelliTutti" in 
 controlla("e ne salta una tolta", "if(!v) continue" in html)
 for campo, cosa in [("cliBinario", "il comando"), ("cliArgs", "gli argomenti"),
                     ("cliModello", "il modello"), ("cliTimeout", "il tempo"),
+                    ("cliPrompt", "come riceve la richiesta"),
                     ("cliRimuovi", "il modo di toglierla")]:
     controlla(f"di una CLI si puo' cambiare {cosa}", f'id="{campo}"' in html)
+# I due valori che leggono il demone (`nova_cervelli::cli`) e il Python
+# (`cli_generic`): «stdin» o vuoto vuol dire standard input, il resto argomento.
+controlla("e i valori sono quelli che il demone capisce (D356)",
+          'value="argomento"' in html and 'value="stdin"' in html
+          and "salvaCli('prompt'" in html)
 controlla("e se ne puo' aggiungere una che non c'era",
           'id="nuovaCliAgg"' in html)
 

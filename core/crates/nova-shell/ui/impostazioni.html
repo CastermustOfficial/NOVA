@@ -873,6 +873,14 @@ function formCli(nome, spec){
              placeholder="vuoto = quello predefinito della CLI">
       <p class="aiuto">Vuoto e' spesso la scelta giusta: il predefinito di una
         CLI cambia piu' spesso di quanto si aggiorni un file.</p></div>
+    <div class="campo"><label>Come riceve la richiesta</label>
+      <select id="cliPrompt">
+        <option value="argomento"${spec.prompt === 'argomento' ? ' selected' : ''}>come ultimo argomento</option>
+        <option value="stdin"${spec.prompt === 'argomento' ? '' : ' selected'}>sullo standard input</option>
+      </select>
+      <p class="aiuto">Quasi tutte la vogliono come argomento, dopo <b>-p</b>.
+        Lo standard input serve alle CLI che leggono da li', e regge richieste
+        lunghe: su Windows una riga di comando si ferma a 8191 caratteri.</p></div>
     <div class="campo"><label>Tetto di tempo (secondi)</label>
       <input type="text" id="cliTimeout" value="${esc(spec.timeout||600)}"></div>
     <div class="campo">
@@ -888,8 +896,9 @@ function formAggiungiCli(){
         <input type="text" id="nuovaCliCmd" placeholder="comando (es. deepseek)">
         <button class="bottone secondo" id="nuovaCliAgg">Aggiungi</button>
       </div>
-      <p class="aiuto">Qualunque CLI che accetti una richiesta come argomento e
-        risponda sullo standard output. NOVA la pilotera' come le altre.</p></div>
+      <p class="aiuto">Qualunque CLI che riceva una richiesta come argomento o
+        sullo standard input, e risponda sullo standard output. NOVA la
+        pilotera' come le altre; come la riceve lo scegli dopo.</p></div>
   </div>`;
 }
 
@@ -940,6 +949,7 @@ function legaDettaglioCervello(quale, nome){
     $('cliEtichetta').onchange = e => salvaCli('etichetta', e.target.value.trim());
     $('cliBinario').onchange   = e => salvaCli('binary', e.target.value.trim());
     $('cliModello').onchange   = e => salvaCli('model', e.target.value.trim());
+    $('cliPrompt').onchange    = e => salvaCli('prompt', e.target.value);
     $('cliTimeout').onchange   = e => {
       const n = parseInt(e.target.value, 10);
       if(!isNaN(n) && n > 0) salvaCli('timeout', n);
