@@ -147,20 +147,16 @@ righe = [r for r in principale.splitlines() if "MARCA_STATO}" in r]
 controlla("e va su stderr, non su stdout",
           righe and all("stderr" in r for r in righe), str(righe))
 
-cervello = (RADICE / "core" / "crates" / "nova-shell" / "src" / "cervello.rs")
-rust = cervello.read_text(encoding="utf-8")
-controlla("il guscio conosce la stessa marca", "NOVA-STATO" in rust)
-# Uno stato che arriva alla fine non e' uno stato, e' un ricordo.
-# Il commento spiega perche' non si usa piu': si guarda il codice, non la
-# prosa che lo racconta.
-codice = "\n".join(r for r in rust.splitlines() if not r.strip().startswith("//"))
-controlla("e legge stderr mentre scorre, non alla fine",
-          "wait_with_output" not in codice and ".lines()" in codice)
-# Leggere un tubo per volta significa riempire l'altro e restare li'.
-controlla("mentre stdout se lo legge un filo suo",
-          "thread::spawn" in rust and "read_to_string" in rust)
+# Il guscio non accende piu' Python (D354): lo stato gli arriva dal demone,
+# sul bus, e la nuvoletta lo mostra da li'.
+bus = (RADICE / "core" / "crates" / "nova-shell" / "src" / "bus.rs").read_text(encoding="utf-8")
+controlla("nel guscio lo stato arriva dal bus del demone", "nova://passo" in bus)
+cervello = (RADICE / "core" / "crates" / "nova-shell" / "src" / "cervello.rs").read_text(encoding="utf-8")
+codice = "\n".join(r for r in cervello.splitlines() if not r.strip().startswith("//"))
+controlla("e il guscio non lancia piu' `python -m nova --ask`",
+          '"--ask"' not in codice and "eseguibile_python" not in codice)
 controlla("lo stato si spegne comunque vada",
-          'json!({ "testo": "" })' in rust)
+          'json!({ "testo": "" })' in cervello)
 
 nuvoletta = (RADICE / "core" / "crates" / "nova-shell" / "ui" / "index.html").read_text(encoding="utf-8")
 controlla("la nuvoletta mostra il passo", "nova://passo" in nuvoletta)

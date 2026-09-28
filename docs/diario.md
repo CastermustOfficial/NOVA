@@ -11165,3 +11165,22 @@ ogni quindici secondi per contare i nodi della memoria (D353). Adesso lo
 chiede al demone. Al guscio resta un solo Python, il ripiego quando il
 demone non risponde: e' il prossimo.
 
+## 28 settembre 2026 — Il guscio smette di ripiegare su Python
+
+Prima una notte e una giornata spese a rimediare a un mio errore: nei commit
+avevo messo le righe di attribuzione e il link della sessione, e Gio ha
+dovuto ricreare la repo per togliere «claude» dai contributori. La regola
+adesso sta scritta dove sopravvive alle compattazioni, e un hook la fa
+rispettare anche quando io me ne scordo.
+
+Poi il lavoro: l'ultimo Python del guscio (D354). Prima di toglierlo sono
+andato a vedere cosa copriva davvero, e la risposta era: niente che il
+demone non copra. Quando il demone dice «non pronto» il motivo e' la
+configurazione, e il Python ci sbatteva contro uguale. Quando il demone non
+risponde, il ripiego rispondeva lo stesso e nascondeva il guasto. Adesso chi
+scrive nella chat legge cosa non va.
+
+E una notizia di Gio per CANT-12: CLM-v0.1-8B, un sostituto aperto di Jev.
+L'ho annotato fra i riferimenti, con le tre cose da misurare prima di
+scriverci sopra.
+
