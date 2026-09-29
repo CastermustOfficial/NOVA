@@ -1,16 +1,17 @@
 # Le prove
 
-Centodieci file, in cinque cartelle. La cartella dice **cosa serve per
+Le prove stanno in cinque cartelle, e la cartella dice **cosa serve per
 farle girare**, che e' l'unica domanda che ci si pone davanti a una prova
-che non si conosce.
+che non si conosce. L'indice di tutte, una per una, sta in
+[`test/README.md`](../test/README.md).
 
 | cartella | quante | cosa serve | se non c'e' |
 | --- | ---: | --- | --- |
-| `gemelli/` | 23 | un banco Rust costruito con `cargo` | esce 2 e stampa la riga per costruirlo |
-| `demone/` | 5 | il binario `novad` costruito | esce 2 |
-| `macchina/` | 18 | una macchina vera: Windows, uno schermo, l'audio, Chrome | esce 2 |
-| `progetto/` | 26 | niente: guarda il repository stesso | — |
-| `nova/` | 38 | niente: sono prove di unita' in puro Python | — |
+| `gemelli/` | 28 | un banco Rust costruito con `cargo` | esce 2 e stampa la riga per costruirlo |
+| `demone/` | 24 | il binario `novad` costruito | esce 2 |
+| `macchina/` | 16 | una macchina vera: Windows, uno schermo, l'audio, Chrome | esce 2 |
+| `progetto/` | 27 | niente: guarda il repository stesso | — |
+| `nova/` | 40 | niente: sono prove di unita' in puro Python | — |
 
 **Uscita 0 passata, 1 rossa, 2 «qui non si puo' fare».** Il 2 non e' un
 fallimento ed e' importante che resti distinto: una prova che non si puo'
@@ -59,4 +60,4 @@ sparire da tutti i giri della CI in silenzio.
   giri di mutazione con cui si verifica che un banco gemello guardi davvero.
 - `misure/` — i banchi di **prestazione**: quanto costa un turno, quanto
   costa tagliare la conversazione, se un modello piu' piccolo sa ancora
-  scegliere lo strumento giusto fra sessanta.
+  scegliere lo strumento giusto fra i sessanta della versione Python.

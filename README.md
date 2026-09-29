@@ -658,6 +658,13 @@ compare il nome, e il fatto che l'archivio esiste.
   in cui ho creduto una cosa falsa, e come me ne sono accorto.
 - [Come contribuire](CONTRIBUTING.md)
 
+Nella radice ci sono cinque cartelle che fanno da indice, le stesse in ogni
+progetto: [`errori/`](errori/README.md) (gli sbagli, e la regola che ne
+viene), [`piano/`](piano/README.md) (cosa resta da fare, in ordine),
+[`idea/`](idea/README.md) (le migliorie possibili, anche solo teoriche),
+[`test/`](test/README.md) (ogni prova, una per una) e
+[`analisi/`](analisi/README.md) (le decisioni confermate).
+
 ## Per chi sviluppa
 
 ```powershell

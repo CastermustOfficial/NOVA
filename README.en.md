@@ -667,6 +667,13 @@ appears in either: its name does, and the fact that the store exists.
   times I believed something false, and how I found out. *(in Italian)*
 - [How to contribute](CONTRIBUTING.md)
 
+At the root there are five folders that act as an index, the same in every
+project: [`errori/`](errori/README.md) (mistakes, and the rule each one
+leaves), [`piano/`](piano/README.md) (what's left to do, in order),
+[`idea/`](idea/README.md) (possible improvements, even purely theoretical
+ones), [`test/`](test/README.md) (every test, one by one) and
+[`analisi/`](analisi/README.md) (the confirmed decisions). *(in Italian)*
+
 ## For developers
 
 ```powershell

@@ -11219,3 +11219,12 @@ modello di casa che non si accendeva (D358), e due cose che il demone non fa
 e il Python si': la prima mappatura del PC e l'embedding da un modello vero.
 Adesso sono scritte nel README come «manca», invece di stare zitte.
 
+## 29 settembre 2026 — Le cinque cartelle
+
+Due regole nuove di Gio per ogni progetto. La prima e' il rigore: un refuso
+vale quanto un bug. La seconda sono cinque cartelle, `errori/`, `piano/`,
+`idea/`, `test/` e `analisi/` (D360). In NOVA sono indici verso i documenti che
+c'erano gia'. Scrivendo l'indice delle prove e' saltato fuori subito un
+esempio di quello che la regola vuole evitare: `prove/README.md` diceva 110
+prove, ed erano 135. Adesso quei numeri li controlla una prova.
+
