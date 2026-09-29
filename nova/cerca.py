@@ -152,14 +152,26 @@ def cerca(domanda: str, quanti: int = 8, porta: int = PORTA,
         codice = _ESTRAI % (200, max(1, min(quanti, 25)))
         scadenza = time.time() + attesa
         d = {}
+        ultimo = ""
         while time.time() < scadenza:
-            d = browser.valuta(codice, sid, porta) or {}
+            # Anche leggere la pagina e' parlare col browser, e fino al D364
+            # un errore qui usciva come stack, contro la promessa di sopra.
+            # Una pagina ancora a meta' puo' rispondere con un errore: si
+            # riprova fino alla scadenza, come il gemello del demone
+            # (`caps_rete`), e se l'ultima lettura e' fallita lo si dice.
+            try:
+                d = browser.valuta(codice, sid, porta) or {}
+                ultimo = ""
+            except Exception as e:                             # noqa: BLE001
+                d, ultimo = {}, spiega(e)
             if d.get("quanti"):
                 break
             time.sleep(0.4)
         if not d.get("quanti"):
-            return {"ok": False,
-                    "motivo": "il motore non ha dato risultati leggibili"}
+            motivo = "il motore non ha dato risultati leggibili"
+            if ultimo:
+                motivo += f"; l'ultima lettura della pagina ha dato: {ultimo}"
+            return {"ok": False, "motivo": motivo}
         return {"ok": True, "domanda": domanda,
                 "risultati": d.get("risultati") or []}
     finally:

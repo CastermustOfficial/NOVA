@@ -11266,3 +11266,16 @@ Edge apre le sue schede, e `web.incolla` senza scheda lavora sulla prima: il
 primo giro si e' fermato li'. L'ho rifatto partendo da un profilo nuovo, prima
 col banco vecchio, che si e' fermato di nuovo, e poi con quello nuovo, che
 nomina la scheda ed e' andato.
+
+## 29 settembre 2026, notte — La CI rossa dopo la ricerca
+
+La CI di D363 e' rossa in un job solo, Python 3.12 su Windows, e su una prova
+che D363 non tocca: `test_cerca.py`. Il registro del job non si legge senza
+accesso, e le annotazioni non dicevano l'errore. L'ho rifatta sul PC di Gio con
+un `APPDATA` vuoto ed e' andata allo stesso modo: la prova accendeva un Edge
+vero, lo lasciava acceso, e dentro c'era un errore che usciva come stack.
+Adesso la prova non accende niente e l'errore diventa un motivo (D364).
+
+La prova che era rossa passava nei dieci commit prima. Quale errore abbia
+avuto sulla CI non lo so; so che la prova, dove Edge c'e', dipendeva da Edge
+e da Bing, e un verde che dipende da loro non dice niente sul codice.

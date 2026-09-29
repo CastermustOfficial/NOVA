@@ -1260,3 +1260,25 @@ successo a ciascuno (D363).
 La regola: una nota «questo manca ancora» nel codice e' un debito con un
 nome. Quando arriva il pezzo che mancava, si cercano tutte le note che lo
 nominano, e anche i messaggi che lo raccontano.
+
+## Ho scritto «come il Python» senza guardare il Python
+
+Portando la ricerca nel demone (D363) ho scritto nel ciclo che legge la
+pagina: «si riprova fino alla scadenza, come il Python». Il Python non
+riprovava. Un errore nella lettura della pagina usciva da `cerca.cerca` come
+stack, fuori dal `try` che prometteva un motivo. Me ne sono accorto per la
+CI rossa del commit dopo: la prova che doveva provare proprio quella
+promessa accendeva un Edge vero e dipendeva da Bing (D364).
+
+Anche quella prova credeva una cosa falsa: «la porta e' chiusa, quindi non
+serve un browser». Ma `cerca.cerca` il browser lo accende, e sulla CI Windows
+Edge c'e'. L'Edge acceso dalla prova restava vivo, teneva occupato il profilo,
+e la parte 4 della stessa prova non poteva piu' accendere il suo: sulla CI
+di `c45dc0a` si e' dichiarata non provabile, e sul PC di Gio pure.
+
+Adesso il Python riprova come il Rust, tutti e due dicono l'ultimo errore, e
+la prova non accende niente.
+
+La regola: «come il Python» in un commento e' un'affermazione come un'altra,
+e si verifica sul codice prima di scriverla. E una prova che dice «qui non
+serve X» deve togliere X, non sperare che manchi.
