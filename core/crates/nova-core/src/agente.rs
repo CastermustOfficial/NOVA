@@ -373,8 +373,11 @@ pub async fn fai_un_turno(
         }
     }
     let mano = crate::dalla_configurazione::manopole(&cfg);
-    let misure = crate::dalla_configurazione::misure(&cfg);
     let prompt = sistema(&cfg);
+    // A un cervello in HTTP gli schemi viaggiano dentro ogni richiesta, e
+    // tutti e 129 non stanno nel contesto del modello di casa: se ne offrono
+    // 58, sempre gli stessi (D361). Claude e le CLI non li ricevono da qui.
+    let strumenti = crate::strumenti_in_http::schemi(&server.registry);
 
     let nome = if nome_sessione.trim().is_empty() {
         SESSIONE_PREDEFINITA
@@ -401,7 +404,9 @@ pub async fn fai_un_turno(
         let (mcp, sportello) = collegamento_claude(server, &recapiti.claude, &vault);
         crate::mondo::collega_claude(&mut s.gradini, &vault.to_string_lossy(), &mcp, &sportello);
     }
-    s.misure = misure;
+    // Si conta il prompt della sessione, non quello appena letto: e' lui
+    // che viaggia nella richiesta.
+    s.misure = crate::dalla_configurazione::misure(&cfg, s.sistema(), &strumenti);
     // Quel che si sa gia' va **in coda alla domanda**, mai nel prompt di
     // sistema: il messaggio numero zero e' la regione su cui i fornitori
     // tengono la cache, e cambiarlo a ogni turno vuol dire rielaborare tutta
@@ -445,7 +450,6 @@ pub async fn fai_un_turno(
     let esecutore = EsecutoreDemone {
         server: server.clone(),
     };
-    let strumenti = server.registry.as_openai_tools();
     let quanti_strumenti = strumenti.len();
     let mut mondo = MondoVero {
         trasporto: &trasporto,

@@ -168,6 +168,10 @@ pub fn token_dei(messaggi: &[Messaggio]) -> u32 {
 /// token: quel che avanza e' molto meno di quanto sessanta messaggi possano
 /// pesare.
 ///
+/// Era il conto di allora. Il 29 settembre 2026, con questa stessa stima, il
+/// prompt e i sessanta schemi della versione Python lasciavano 1.832 token;
+/// il demone, con i suoi 58 (D361), ne lascia 2.549.
+///
 /// `contesto` a zero vuol dire «non lo so» e si torna zero: vale solo il
 /// taglio a messaggi.
 pub fn spazio_per_la_conversazione(

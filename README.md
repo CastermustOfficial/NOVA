@@ -68,8 +68,9 @@ Se qualcosa non funziona, il resto del documento spiega perche'.
 ## Cosa sa fare
 
 Un elenco di aggettivi non dice niente. Questi sono i numeri, contati dal
-codice: **129 strumenti**, gli stessi per il modello che gira sul tuo PC e
-per un cervello agentico come Claude Code, **38 formati** di file che sa
+codice: **129 strumenti** per un cervello agentico come Claude Code, e **58**
+per il modello che gira sul tuo PC e per le API, sempre gli stessi, perche'
+tutti insieme non starebbero nel suo contesto; **38 formati** di file che sa
 aprire e mostrare.
 
 ### Agisce sul sistema, e non ti ruba il posto
@@ -879,10 +880,10 @@ lento.
 
 Misure su RTX 4060 Ti 16 GB con Qwen3.8-27B Q4_K_M (15,7 GB), con il prompt
 vero di NOVA — 12.492 token fra regole e schemi dei sessanta strumenti della
-versione Python. Il demone ne offre 129, quindi il suo prompt e' piu' lungo e
-il numero a freddo va rimisurato; quelli sui flag e sui layer dipendono da
-llama-server, non da chi lo chiama. Il banco e' `misure/banco_modello.py`, e
-le misura da solo.
+versione Python. Al modello di casa il demone ne offre 58, con nomi e
+descrizioni propri, quindi il numero a freddo va rimisurato; quelli sui flag e
+sui layer dipendono da llama-server, non da chi lo chiama. Il banco e'
+`misure/banco_modello.py`, e le misura da solo.
 
 **Il primo numero da guardare non e' la velocita', e' il divario fra freddo e
 caldo:**
@@ -1213,9 +1214,10 @@ autenticato. NOVA:
   | Autonomo | `bypassPermissions` |
 
 - gli collega il demone come **server MCP** (`nova mcp`, un ponte fra lo
-  standard input e il canale del demone): Claude vede gli stessi 129
-  strumenti del modello di casa, da `mcp__nova-core__kb_cerca` in giu', con le
-  stesse guardie. Le conferme passano dallo sportello di NOVA
+  standard input e il canale del demone): Claude vede tutti i 129
+  strumenti, da `mcp__nova-core__kb_cerca` in giu', con le stesse guardie del
+  modello di casa, che ne riceve 58 perche' nel suo contesto tutti non ci
+  stanno. Le conferme passano dallo sportello di NOVA
   (`--permission-prompt-tool`), cioe' dal bottone nella chat.
 - riporta costo e token di ogni turno nel registro azioni.
 

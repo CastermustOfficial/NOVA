@@ -14,14 +14,17 @@ frase. Cosi' il giro e' vero per intero — configurazione, scala dei cervelli,
 schemi degli strumenti, esecuzione dentro le capacita' del demone,
 conversazione — senza dipendere da un modello scaricato.
 
-Quattro cose che non si vedono e valgono la prova:
+Cinque cose che non si vedono e valgono la prova:
 
 1. gli strumenti offerti al modello sono **le capacita' del demone**, cioe'
    quelle con le guardie: percorsi protetti, comandi vietati, giornale;
 2. la risposta dello strumento torna in conversazione con `role: tool`;
 3. la conversazione **resta** fra un turno e l'altro, e `nuova` la butta;
 4. il prompt di sistema e i cervelli vengono dallo stesso `config.json` che
-   legge NOVA, non da una configurazione del demone.
+   legge NOVA, non da una configurazione del demone;
+5. a un cervello in HTTP se ne offrono 58, sempre gli stessi, e la
+   conversazione si taglia sul contesto che resta tolti prompt e schemi:
+   tutti e 129 non stavano nel contesto del modello di casa (D361).
 
 Esce 2 — «qui non si puo' provare» — se il demone non e' costruito.
 """
@@ -258,6 +261,20 @@ try:
               r.get("strumenti_offerti") == len(offerti),
               f"{r.get('strumenti_offerti')} vs {len(offerti)}")
 
+    print("\n2b. ma a un cervello in HTTP non tutte: 58, sempre le stesse (D361)")
+    with CoreClient(endpoint, timeout=60) as c:
+        per_claude = {t["name"] for t in c.request("tools/list")["tools"]}
+    # Quanti ne vede Claude li conta il registro; qui conta che siano di piu'
+    # e che il pezzo offerto stia tutto dentro. Una casa nuova non ha
+    # automazioni, quindi nessun `auto_*` si aggiunge ai 58.
+    controlla("al modello di casa ne arrivano 58", len(offerti) == 58, str(len(offerti)))
+    controlla("tutti fra quelli che vede Claude, che ne vede di piu'",
+              set(offerti) < per_claude, f"{len(offerti)} contro {len(per_claude)}")
+    controlla("quelli del Python ci sono, quelli nuovi del browser no",
+              {"fs_read", "shell_exec", "rete_cerca", "sys_info"} <= set(offerti)
+              and "web_apri" not in offerti and "web_apri" in per_claude,
+              str(sorted(offerti)[:8]))
+
     print("\n3. lo strumento l'ha eseguito il demone davvero")
     secondo = ricevute[1]["messages"]
     tool = [m for m in secondo if m.get("role") == "tool"]
@@ -476,6 +493,20 @@ try:
                    if m.get("role") == "user"][-1]["content"]
     controlla("e con la voce vengono tutte e due, prima la voce",
               tutte_e_due.endswith(POSTILLA_VOCE + harness), f"...{tutte_e_due[-160:]!r}")
+
+    print("\n10c. la conversazione si taglia su quel che resta, non sul contesto intero")
+    # Il config di questa prova non dice `ctx_size`: vale 16.384, come per chi
+    # accende il server. Prompt, schemi e riserva se ne prendono circa
+    # 12.500, quindi una domanda da ~12.000 token non ci sta e si accorcia.
+    # Prima si contava tutto il contesto, e arrivava intera: llama-server
+    # l'avrebbe rifiutata con un 400.
+    lunga = "parola " * 6000
+    with CoreClient(endpoint, timeout=60) as c:
+        c.request("agente/turno", {"testo": lunga, "sessione": "lunga"})
+    arrivata = [m for m in ultimo_turno()["messages"]
+                if m.get("role") == "user"][-1]["content"]
+    controlla("una domanda che non ci sta arriva accorciata",
+              len(arrivata) < len(lunga) // 2, f"{len(arrivata)} caratteri su {len(lunga)}")
 
     print("\n11. e si puo' chiedere dalla riga di comando")
     nome_cli = "nova.exe" if os.name == "nt" else "nova"

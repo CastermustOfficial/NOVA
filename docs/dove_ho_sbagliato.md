@@ -1220,3 +1220,22 @@ chiamasse `modello.accendi`: nessuno (D358). La regola: quando si porta una
 funzione, si porta anche quello che le succede intorno, e si cerca chi
 chiama davvero cio' che si lascia al suo posto.
 
+## Ho mandato al modello di casa un prompt che non ci stava
+
+Quando il turno e' passato nel demone (D305), gli strumenti per i cervelli in
+HTTP sono diventati tutto il registro: 129 invece dei sessanta del Python. Ci
+avevo scritto sopra anche il perche', «due elenchi sarebbero due NOVA», e una
+prova controllava che il prompt nominasse solo strumenti veri. Ma non ho
+misurato quanto pesava la richiesta: 20.939 token, contro un contesto di
+16.384. llama-server rifiutava ogni domanda, e chi aveva solo il modello di
+casa non riceveva risposte. Non me ne sono accorto perche' sulla scala di
+Gio il primo gradino e' Claude. L'ha trovato il banco del prompt, il 29
+settembre, cercando un numero per il README (D361).
+
+Nello stesso punto c'era un secondo errore dello stesso tipo. Il taglio della
+conversazione usava tutto il contesto come se fosse libero, e il Python
+invece toglieva prima il prompt e gli schemi.
+
+La regola: quando cambia quello che va dentro una richiesta, si misura contro
+il contesto piu' piccolo su cui deve girare, e una prova tiene quel conto.
+Portando una funzione, si porta anche il conto che le stava intorno.

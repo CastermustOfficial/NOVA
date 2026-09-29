@@ -2827,6 +2827,11 @@ Non e' una data, sono cinque frasi che devono essere vere insieme:
 > Python faceva e il demone no, dette nel README come «manca»: la mappatura
 > iniziale del PC (seed) e i vettori chiesti a un modello di embedding.
 
+> **Il 29 settembre, misurando il prompt a freddo** (D361). Il prompt del
+> demone, con 129 schemi, non stava nel contesto di serie, e il modello di
+> casa non rispondeva a niente. Adesso ne riceve 58, gli stessi del Python con i
+> nomi del demone, e il numero a freddo si misura su quelli.
+
 > **Primo passo sulla prima frase, il 6 settembre.** Non si puo' installare
 > NOVA su un'altra macchina da questa, ma si puo' leggere **cosa NOVA dice a
 > chi non ha gia' tutto**. I percorsi personali erano gia' a posto, e i

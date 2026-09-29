@@ -71,6 +71,10 @@ pub mod processo;
 
 // La conversazione, fra un turno e l'altro.
 pub mod sessione;
+// Gli strumenti che si offrono a un cervello in HTTP: gli stessi sessanta
+// della versione Python, perche' tutti e 129 non ci stanno nel contesto del
+// modello di casa (D361).
+pub mod strumenti_in_http;
 
 use std::sync::Arc;
 

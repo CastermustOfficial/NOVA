@@ -11228,3 +11228,17 @@ c'erano gia'. Scrivendo l'indice delle prove e' saltato fuori subito un
 esempio di quello che la regola vuole evitare: `prove/README.md` diceva 110
 prove, ed erano 135. Adesso quei numeri li controlla una prova.
 
+## 29 settembre 2026, sera — Il modello di casa non poteva rispondere
+
+Dovevo solo rimisurare il prompt a freddo per il README. Il banco ha mandato
+a llama-server il prompt vero del demone, e llama-server ha risposto 400: il
+prompt non ci stava. Tutti i 129 strumenti, con le regole, fanno 20.939
+token, e il contesto di serie e' di 16.384. Il Python ne offriva sessanta, e
+il turno nel demone li offriva tutti. Non l'avevo visto perche' sulla scala
+di Gio il primo gradino e' Claude, che gli strumenti li prende via MCP.
+
+Con Gio abbiamo scelto di dare al modello di casa gli stessi sessanta del
+Python, con i nomi del demone, cioe' 58 capacita' (D361). Guardando il taglio
+della conversazione e' saltato fuori il secondo pezzo: il demone contava come
+spazio libero tutto il contesto, prompt e schemi compresi. Adesso fa il conto
+del Python.
