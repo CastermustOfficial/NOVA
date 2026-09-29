@@ -200,12 +200,30 @@ pub fn modello_di_casa(cfg: &Value) -> ModelloDiCasa {
 }
 
 /// Entro quanto deve stare la conversazione.
-pub fn misure(cfg: &Value) -> Misure {
+///
+/// `ctx_size` e' quanto il server di casa tiene in finestra: dirlo qui vuol
+/// dire tagliare **prima** di sentirsi rispondere «non ci sta», che e' un
+/// errore da prevenire e non da tradurre bene. Se manca vale 16.384, come
+/// per chi accende il server ([`modello_di_casa`]) e come nel Python. Prima,
+/// se mancava, qui valeva zero: il server partiva a 16.384 e la
+/// conversazione non la tagliava a token nessuno. Zero scritto a mano resta
+/// «non lo so».
+///
+/// Ma la finestra non e' tutta della conversazione: il messaggio di sistema,
+/// gli schemi degli strumenti e la riserva per la risposta viaggiano dentro
+/// ogni richiesta. Si tolgono quelli, con lo stesso conto del Python
+/// (`_spazio_per_la_conversazione`). Prima il demone passava il contesto
+/// intero, e una conversazione cresceva fin oltre la finestra prima di
+/// essere tagliata (D361).
+pub fn misure(cfg: &Value, sistema: &str, strumenti: &[Value]) -> Misure {
     let mut m = Misure::default();
-    // `ctx_size` e' quanto il server di casa tiene in finestra: dirlo qui
-    // vuol dire tagliare **prima** di sentirsi rispondere «non ci sta», che
-    // e' un errore da prevenire e non da tradurre bene.
-    m.disponibili = numero(cfg, &["server", "ctx_size"], 0) as u32;
+    let contesto = u32::try_from(modello_di_casa(cfg).contesto).unwrap_or(0);
+    let schemi = if strumenti.is_empty() {
+        String::new()
+    } else {
+        Value::Array(strumenti.to_vec()).to_string()
+    };
+    m.disponibili = nova_contesto::spazio_per_la_conversazione(contesto, sistema, Some(&schemi));
     m
 }
 
@@ -362,6 +380,37 @@ mod prove {
             fuori.contains("{\"a\": 1}"),
             "una graffa non e' un segnaposto"
         );
+    }
+
+    /// Alla conversazione resta il contesto meno il prompt, gli schemi e la
+    /// riserva per la risposta: non il contesto intero (D361).
+    #[test]
+    fn alla_conversazione_resta_il_contesto_meno_il_prefisso() {
+        let sistema = "s".repeat(7_000);
+        let strumenti = vec![json!({"type": "function", "function": {"name": "fs_read"}})];
+        let schemi = Value::Array(strumenti.clone()).to_string();
+        let m = misure(&configurazione(), &sistema, &strumenti);
+        let atteso = 16_384
+            - nova_contesto::stima_token(&sistema)
+            - nova_contesto::stima_token(&schemi)
+            - nova_contesto::RISERVA_RISPOSTA_TOKEN;
+        assert_eq!(m.disponibili, atteso);
+        assert!(m.disponibili < 16_384 - 2_000, "il prompt si conta");
+        // Senza strumenti gli schemi non pesano niente.
+        let senza = misure(&configurazione(), &sistema, &[]);
+        assert_eq!(senza.disponibili, atteso + nova_contesto::stima_token(&schemi));
+    }
+
+    /// Senza `ctx_size` vale quello con cui si accende il server; zero
+    /// scritto a mano vuol dire «non lo so», e vale solo il taglio a numero
+    /// di messaggi.
+    #[test]
+    fn senza_contesto_vale_quello_di_serie_e_zero_e_non_lo_so() {
+        let di_serie = misure(&json!({}), "sistema", &[]).disponibili;
+        let scritto = misure(&json!({"server": {"ctx_size": 16384}}), "sistema", &[]).disponibili;
+        assert_eq!(di_serie, scritto);
+        assert_eq!(modello_di_casa(&json!({})).contesto, 16384);
+        assert_eq!(misure(&json!({"server": {"ctx_size": 0}}), "sistema", &[]).disponibili, 0);
     }
 }
 

@@ -162,6 +162,18 @@ def elenco_rust(percorso: Path, nome: str) -> list[str] | None:
     return [sciogli(x) for x in re.findall(r'"((?:[^"\\]|\\.)*)"', m.group(1))]
 
 
+def strumenti_python() -> list[str]:
+    """I nomi degli strumenti che il Python offre a un cervello in HTTP.
+
+    Non stanno in una costante: sono quelli che i decoratori registrano
+    importando `nova.tools`, e il turno li manda tutti (`openai_schema()`
+    senza argomenti). L'albero non li raggiunge, quindi si importa.
+    """
+    import nova.tools  # noqa: F401
+    from nova.tools.base import REGISTRY
+    return sorted(REGISTRY)
+
+
 def coppie_rust(percorso: Path, nome: str) -> list[tuple[str, str]] | None:
     testo = percorso.read_text(encoding="utf-8", errors="replace")
     m = re.search(rf"pub (?:const|static) {nome}: \[\(&str, &str\); \d+\] =\s*\[(.*?)\];",
@@ -262,6 +274,13 @@ GEMELLI = [
     ("nova-harness/src/lib.rs", "PRIMI",
      lambda: costante("nova/harness.py", "PRIMI"), True,
      "qui l'ordine **conta**: e' l'ordine in cui si sceglie da dove partire"),
+    # Il lato sinistro delle coppie: il nome Python di ogni strumento offerto
+    # a un cervello in HTTP. Il lato destro, la capacita' del demone che fa
+    # lo stesso lavoro, il Python non ce l'ha; che esista lo prova `nova-core`
+    # (D361).
+    ("nova-core/src/strumenti_in_http.rs", "DAL_PYTHON",
+     strumenti_python, False,
+     "coppie in Rust, nomi in Python: si confronta il nome Python"),
 ]
 
 #: I **numeri** dichiarati da tutte e due le parti, che devono dire lo stesso.
@@ -390,6 +409,9 @@ for percorso, nome, prendi, ordinato, nota in GEMELLI:
         controlla(f"{nome}: ritrovato in {percorso}", False, "non c'e' piu'")
         continue
     py = list(prendi())
+    # Coppie da una parte e nomi dall'altra: il gemello e' il lato sinistro.
+    if rs and isinstance(rs[0], tuple) and py and isinstance(py[0], str):
+        rs = [sinistra for sinistra, _ in rs]
     a, b = (rs, py) if ordinato else (sorted(rs), sorted(py))
     dettaglio = ""
     if a != b:

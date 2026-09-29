@@ -26,6 +26,14 @@ Aggiornato al 29 settembre 2026. Le idee che c'erano già erano sparse nei docum
 
 **Cosa costerebbe.** Da stimare: di codice non ce n'è. Il vecchio README le dava come fatte, e D359 le ha tolte per questo.
 
+## Un prompt su misura per il modello di casa
+
+**Cosa.** Le regole del prompt nominano 26 strumenti che al modello di casa non si offrono: `web_*`, `ui_*` tranne `ui_windows`, `harness_*`, `fascicolo_*`, `avvisi_recenti`, `azione_registra`, `registro_racconta`. Il modello li può chiamare lo stesso per nome, ma senza schema indovina gli argomenti. Si potrebbe comporre il prompt dal pezzo offerto: per il modello di casa solo le regole degli strumenti che ha.
+
+**Perché.** Il Python aveva la stessa incoerenza. Un'istruzione che nomina uno strumento senza schema porta a chiamate con argomenti sbagliati, e ogni tentativo costa un giro.
+
+**Cosa costerebbe.** Aggiungere quegli strumenti al pezzo fisso non si può: prompt e schemi passerebbero da circa 44.800 a circa 61.800 caratteri, cioè circa 15.500 token al rapporto misurato di 0,25 token a carattere. Su 16.384 non resterebbe quasi niente per la conversazione (D361). Servirebbe dividere le regole per strumento, in `nova-contesto`, e una prova che il prompt di ogni cervello nomini solo strumenti che quel cervello riceve.
+
 ## Il modello di casa acceso all'avvio
 
 **Cosa.** Accendere llama-server quando parte il demone, invece che alla prima domanda.

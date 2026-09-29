@@ -72,6 +72,12 @@ CAPACITA = capacita_del_demone()
 # diventato trattino basso (`nome_mcp`): sono gli stessi nomi che vede un
 # cervello agentico via MCP.
 PER_I_MODELLI = {n.replace(".", "_") for n in CAPACITA - solo_per_la_persona()}
+# Al modello di casa e alle API ne arriva un pezzo fisso (D361): le capacita'
+# che fanno il lavoro dei sessanta strumenti del Python, senza ripetizioni.
+IN_HTTP = set(re.findall(
+    r'\("[a-z_]+", "([a-z_]+\.[a-z_]+)"\)',
+    (CORE / "nova-core" / "src" / "strumenti_in_http.rs").read_text(encoding="utf-8")
+    .split("#[cfg(test)]")[0]))
 HARNESS = CORE / "nova-harness" / "src" / "lib.rs"
 CODICE = elenco_rust(HARNESS, "CODICE")
 LEGGIBILI = CODICE + elenco_rust(HARNESS, "A_RIGHE_IN_PIU") + elenco_rust(HARNESS, "DOCUMENTI")
@@ -87,7 +93,11 @@ def nominato(n: int) -> bool:
 
 
 controlla("il demone registra delle capacita'", len(CAPACITA) > 100, str(len(CAPACITA)))
+controlla("il pezzo per i cervelli in HTTP e' fatto di capacita' che i modelli vedono",
+          bool(IN_HTTP) and {n.replace(".", "_") for n in IN_HTTP} <= PER_I_MODELLI,
+          str(sorted(IN_HTTP - CAPACITA)))
 for quanti, cosa in [(len(PER_I_MODELLI), "strumenti per i cervelli"),
+                     (len(IN_HTTP), "strumenti per il modello di casa"),
                      (len(LEGGIBILI), "formati che l'harness apre"),
                      (len(CODICE), "estensioni di codice")]:
     controlla(f"il README dice {quanti} per «{cosa}»",
@@ -260,6 +270,7 @@ controlla("l'italiano rimanda all'inglese", "README.en.md" in README)
 controlla("e l'inglese rimanda all'italiano", "(README.md)" in EN)
 # I conteggi sono la parte che invecchia per prima, e vale per tutti e due.
 for quanti, cosa in [(len(PER_I_MODELLI), "strumenti per i cervelli"),
+                     (len(IN_HTTP), "strumenti per il modello di casa"),
                      (len(LEGGIBILI), "formati")]:
     controlla(f"anche l'inglese dice {quanti} per «{cosa}»", str(quanti) in EN,
               "il numero non compare nella traduzione")

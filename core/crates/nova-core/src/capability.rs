@@ -149,6 +149,12 @@ impl Registry {
     /// elenchi sarebbero due NOVA con strumenti diversi a seconda di chi
     /// chiede, e la differenza si scoprirebbe il giorno in cui uno dei due
     /// non sa fare una cosa che l'altro fa.
+    ///
+    /// A un cervello in HTTP pero' non si manda tutta: gli schemi viaggiano
+    /// dentro ogni richiesta, e tutti insieme non stanno nel contesto del
+    /// modello di casa. Il turno ne prende un pezzo fisso, scritto in
+    /// [`crate::strumenti_in_http`], e il pezzo si prende **da qui**: le
+    /// descrizioni e gli schemi restano quelli, cambia solo quanti (D361).
     pub fn as_openai_tools(&self) -> Vec<Value> {
         let mut fuori: Vec<Value> = self
             .per_i_modelli()

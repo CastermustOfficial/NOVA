@@ -76,8 +76,10 @@ If something doesn't work, the rest of the document explains why.
 ## What it can do
 
 A list of adjectives says nothing. These are the numbers, counted from the
-code: **129 tools**, the same for the model running on your PC and for an
-agentic brain like Claude Code, **38 file formats** it can open and show.
+code: **129 tools** for an agentic brain like Claude Code, and **58** for the
+model running on your PC and for the APIs, always the same ones, because all
+of them together wouldn't fit in its context; **38 file formats** it can open
+and show.
 
 ### It acts on the system, and doesn't take your seat
 
@@ -887,10 +889,10 @@ falls back to shared memory: the model still starts but runs ~10x slower.
 
 Measurements on an RTX 4060 Ti 16 GB with Qwen3.8-27B Q4_K_M (15.7 GB), using
 NOVA's real prompt — 12,492 tokens of rules and the schemas of the Python
-version's sixty tools. The daemon offers 129, so its prompt is longer and the
-cold number has to be measured again; the ones about flags and layers depend on
-llama-server, not on who calls it. The bench is `misure/banco_modello.py`, and
-it measures them itself.
+version's sixty tools. The daemon offers the home model 58, with its own names
+and descriptions, so the cold number has to be measured again; the ones about
+flags and layers depend on llama-server, not on who calls it. The bench is
+`misure/banco_modello.py`, and it measures them itself.
 
 **The first number to look at isn't the speed, it's the gap between cold and
 warm:**
@@ -1204,8 +1206,9 @@ already authenticated. NOVA:
   | Autonomous | `bypassPermissions` |
 
 - connects it to the daemon as an **MCP server** (`nova mcp`, a bridge between
-  standard input and the daemon's channel): Claude sees the same 129 tools as
-  the home model, from `mcp__nova-core__kb_cerca` down, with the same guards.
+  standard input and the daemon's channel): Claude sees all 129 tools, from
+  `mcp__nova-core__kb_cerca` down, with the same guards as the home model,
+  which gets 58 because they don't all fit in its context.
   Confirmations go through NOVA's counter (`--permission-prompt-tool`), that is
   the button in the chat.
 - reports cost and tokens for every turn in the action log.
