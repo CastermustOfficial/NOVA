@@ -11242,3 +11242,14 @@ Python, con i nomi del demone, cioe' 58 capacita' (D361). Guardando il taglio
 della conversazione e' saltato fuori il secondo pezzo: il demone contava come
 spazio libero tutto il contesto, prompt e schemi compresi. Adesso fa il conto
 del Python.
+
+## 29 settembre 2026, sera tardi — I numeri del demone
+
+Con D361 dentro, il banco del prompt ha dato i numeri che cercavo dall'inizio:
+il demone e il Python costano quasi uguale al modello di casa, 5,9 s a
+freddo tutti e due. Il browser e' molto piu' svelto di prima: 2,9 ms per incollare cinque
+righe, contro 35. La ricerca invece non funziona: cinque ricerche, cinque
+vuote. DuckDuckGo risponde a una richiesta semplice con pagine senza
+risultati, e il demone non ha il browser senza finestra che il Python usava
+per cercare su Bing. Il README adesso lo dice, e sistemarla e' il primo punto
+del piano (D362).

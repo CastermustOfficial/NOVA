@@ -2832,6 +2832,12 @@ Non e' una data, sono cinque frasi che devono essere vere insieme:
 > casa non rispondeva a niente. Adesso ne riceve 58, gli stessi del Python con i
 > nomi del demone, e il numero a freddo si misura su quelli.
 
+> **Il 29 settembre, sera** (D362). I numeri sono presi dal demone: il
+> prompt costa quasi quanto quello del Python, il browser e' piu' svelto. La
+> ricerca senza browser invece oggi non trova niente, e il README lo dice.
+> Per la quinta frase resta quella: un numero misurato che dice «non va» e'
+> onesto, ma la frase si chiude quando la ricerca torna a funzionare.
+
 > **Primo passo sulla prima frase, il 6 settembre.** Non si puo' installare
 > NOVA su un'altra macchina da questa, ma si puo' leggere **cosa NOVA dice a
 > chi non ha gia' tutto**. I percorsi personali erano gia' a posto, e i

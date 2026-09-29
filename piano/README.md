@@ -8,9 +8,9 @@ Aggiornato al 29 settembre 2026.
 
 ## Da fare
 
-1. **Rimisurare sul demone quattro numeri del README.** Sono i tempi di `web_incolla`, di `web_tabella` e della ricerca senza browser, e il prompt a freddo, che col demone porta 58 schemi (D361). Oggi il README li dichiara presi dalla versione Python (D359). Si misurano sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X). Misurando il prompt si è visto che il modello di casa non poteva rispondere: corretto con D361.
-2. **La prima mappatura del PC (seed) nel demone.** La versione Python riempiva la memoria al primo avvio con profilo, progetti, ambiente e persone. Nel demone manca, e un'installazione nuova parte con la memoria vuota (D359).
-3. **Il cancello della beta, le frasi che si verificano da qui.** La quarta e la quinta sono avanzate con D359: restano i numeri del punto 1. La prima, la seconda e la terza vogliono una macchina che non sia quella di Gio.
+1. **La ricerca del demone rimessa in piedi.** Il 29 settembre `rete_cerca` ha fallito cinque ricerche su cinque (D362): DuckDuckGo, chiesto con una richiesta semplice, risponde con pagine senza risultati. La versione Python in quel caso cercava su Bing con un browser senza finestra, su una porta e un profilo suoi (`nova/cerca.py`, porta 9223); nel demone quella strada manca. Anche il messaggio d'errore è sbagliato: dice che «il browser guidato non è ancora collegato al demone», e invece `web_*` nel demone c'è (`nova-browser/src/scaricata.rs`, `nessun_risultato`). Proposto per primo perché senza ricerca il modello di casa, per sapere qualcosa del mondo fuori, deve già conoscere l'indirizzo della pagina; l'ordine va confermato con Gio.
+2. **La prima mappatura del PC (seed) nel demone.** La versione Python riempiva la memoria al primo avvio con profilo, progetti, ambiente e persone. Nel demone manca, e un'installazione nuova parte con la memoria vuota (D359). Scelto con Gio: profilo, ambiente, applicazioni e progetti; niente persone e niente email di altri; il profilo tiene il nome git ma non l'email; la lingua viene dalla configurazione.
+3. **Il cancello della beta, le frasi che si verificano da qui.** La quarta e la quinta sono avanzate con D359 e D362: i numeri del README adesso sono presi dal demone, e quello della ricerca dice che oggi non funziona. La prima, la seconda e la terza vogliono una macchina che non sia quella di Gio.
 4. **Le decisioni che spettano a Gio** (da `verso_la_beta.md`):
    - il motore di ricalcolo dei fogli: `nova-fogli` legge i valori già calcolati e non ricalcola le formule (D281);
    - `build.ps1`: cosa diventa per Mac e Linux;
@@ -24,7 +24,8 @@ Aggiornato al 29 settembre 2026.
 
 Quando una voce si chiude la si sposta qui, con la data e il commit.
 
-- 29/09/2026: al modello di casa 58 strumenti fissi, e la conversazione si taglia su quel che resta del contesto (D361).
+- 29/09/2026: i numeri del browser e del prompt nel README, misurati sul demone (D362).
+- 29/09/2026: al modello di casa 58 strumenti fissi, e la conversazione si taglia su quel che resta del contesto (D361, `cdcff8a`).
 - 29/09/2026: le cinque cartelle di ogni progetto, in NOVA come indici (D360, `47401b4`).
 - 28/09/2026: il README descrive il NOVA di oggi (D359, `df563d6`).
 - 28/09/2026: il demone accende il modello di casa quando serve (D358, `790c791`).

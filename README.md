@@ -98,17 +98,23 @@ chiamata invece di cinque, e leggere una tabella intera ne costa una sola.
 
 | Operazione | Misurato |
 |---|---|
-| `web_incolla` — cinque valori in tre campi | 35 ms |
-| `web_tabella` — una tabella 5x4 letta tutta | 33 ms |
-| `rete_cerca` — cercare senza aprire il browser | ~0,9 s |
+| `web_incolla` — cinque righe in tre colonne | 2,9 ms |
+| `web_tabella` — una tabella 5x4 letta tutta | 1,5 ms |
+| `rete_cerca` — cercare senza aprire il browser | **oggi non trova niente** |
 
-Misurati sulla prima versione di NOVA, quella in Python. Il demone fa le
-stesse chiamate con un codice suo, e questi tre numeri vanno rimisurati li'.
+Misurati sul demone il 29 settembre con `misure/banco_web_demone.py`: la
+mediana di venti chiamate, andata e ritorno sul canale locale. Nella versione
+Python le prime due costavano 35 e 33 ms.
 
-L'ultima riga e' quella che cambia il carattere dell'assistente: **prima di
-aprire una pagina, NOVA cerca**. Un browser che si apre e' una finestra che
-compare sul tuo schermo; una ricerca che passa da un browser senza volto non
-lo e'.
+L'ultima riga e' quella che dovrebbe cambiare il carattere dell'assistente:
+**prima di aprire una pagina, NOVA cerca**. Un browser che si apre e' una
+finestra che compare sul tuo schermo; una ricerca che passa da un browser
+senza volto non lo e'. La versione Python lo faceva in circa 0,9 s, con un
+browser senza finestra che cerca su Bing (`nova/cerca.py`). Il demone quel
+browser non ce l'ha ancora: prova DuckDuckGo con una richiesta semplice, e
+DuckDuckGo risponde con pagine senza risultati. Il 29 settembre, su cinque
+ricerche, cinque sono tornate vuote. Rimetterla in piedi e' nel
+[piano](piano/README.md).
 
 ### Ricorda, e quello che impara resta tuo
 
@@ -879,11 +885,15 @@ silenzio sulla memoria condivisa: il modello parte lo stesso ma va ~10x piu'
 lento.
 
 Misure su RTX 4060 Ti 16 GB con Qwen3.8-27B Q4_K_M (15,7 GB), con il prompt
-vero di NOVA — 12.492 token fra regole e schemi dei sessanta strumenti della
-versione Python. Al modello di casa il demone ne offre 58, con nomi e
-descrizioni propri, quindi il numero a freddo va rimisurato; quelli sui flag e
-sui layer dipendono da llama-server, non da chi lo chiama. Il banco e'
-`misure/banco_modello.py`, e le misura da solo.
+vero della versione Python: 12.492 token fra regole e schemi dei sessanta
+strumenti. Quelle sui flag e sui layer dipendono da llama-server, non da chi
+lo chiama. Il banco e' `misure/banco_modello.py`, e le misura da solo.
+
+Il prompt del demone l'ha misurato `misure/banco_prompt_demone.py` il 29
+settembre, sulla stessa scheda ma con Gemma 4 26B-A4B IQ3_XXS e 30 layer in
+GPU (il modello e' spiegato piu' sotto). Il demone manda 58 schemi e la
+versione Python sessanta, e per il modello costano quasi uguale: 11.486 token contro
+11.685, 5,9 s a freddo tutti e due, 146 ms a caldo contro 123.
 
 **Il primo numero da guardare non e' la velocita', e' il divario fra freddo e
 caldo:**
@@ -933,17 +943,20 @@ E si rimisura, perche' la VRAM libera dipende da cos'altro c'e' acceso:
 ```powershell
 python misure/banco_modello.py            # tutte le configurazioni
 python misure/banco_modello.py kv8-60     # una sola
+python misure/banco_prompt_demone.py --demone core\target\release\novad.exe
+                                          # il prompt del demone contro quello del Python
+python misure/banco_web_demone.py         # web_incolla, web_tabella e rete_cerca, chiesti al demone acceso
 python misure/banco_taglio.py             # quanto costa accorciare la conversazione
 python misure/banco_cervello.py           # sa scegliere lo strumento giusto? (quelli della versione Python)
 ```
 
-L'ultimo misura una cosa diversa dalle altre: non quanto e' veloce un modello,
-ma se **sa usare gli strumenti**. Un modello puo' fare quaranta token al
-secondo e non saper chiamare un tool, e allora quei token non servono a
-niente. Gemma 4 26B-A4B e Qwen3.8 27B fanno tutti e due 7 su 8, senza
+`banco_cervello.py` misura una cosa diversa dalle altre: non quanto e' veloce
+un modello, ma se **sa usare gli strumenti**. Un modello puo' fare quaranta
+token al secondo e non saper chiamare un tool, e allora quei token non servono
+a niente. Gemma 4 26B-A4B e Qwen3.8 27B fanno tutti e due 7 su 8, senza
 inventare strumenti e senza chiamarne quando basta rispondere a parole.
 
-Quell'ultimo misura una cosa che non si vede: quando la conversazione si
+`banco_taglio.py` misura una cosa che non si vede: quando la conversazione si
 allunga NOVA la accorcia, e accorciarla butta via la cache del prompt. Se lo
 si fa a ogni turno — ed e' quello che succedeva — da un certo punto in poi
 ogni risposta rielabora tutto da capo e non si torna piu' indietro. Ora si

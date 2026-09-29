@@ -106,17 +106,22 @@ instead of five, and reading a whole table costs one.
 
 | Operation | Measured |
 |---|---|
-| `web_incolla` (paste) — five values into three fields | 35 ms |
-| `web_tabella` (table) — a whole 5x4 table read at once | 33 ms |
-| `rete_cerca` (search) — searching without opening the browser | ~0.9 s |
+| `web_incolla` (paste) — five rows into three columns | 2.9 ms |
+| `web_tabella` (table) — a whole 5x4 table read at once | 1.5 ms |
+| `rete_cerca` (search) — searching without opening the browser | **finds nothing today** |
 
-Measured on the first version of NOVA, the Python one. The daemon makes the
-same calls with its own code, and these three numbers have to be measured
-again there.
+Measured on the daemon on 29 September with `misure/banco_web_demone.py`: the
+median of twenty calls, round trip over the local channel. In the Python
+version the first two cost 35 and 33 ms.
 
-The last row is the one that changes the assistant's character: **before
-opening a page, NOVA searches**. A browser that opens is a window appearing on
-your screen; a search that goes through a faceless browser is not.
+The last row is the one that should change the assistant's character:
+**before opening a page, NOVA searches**. A browser that opens is a window
+appearing on your screen; a search that goes through a faceless browser is
+not. The Python version did it in about 0.9 s, with a windowless browser
+searching on Bing (`nova/cerca.py`). The daemon doesn't have that browser
+yet: it tries DuckDuckGo with a plain request, and DuckDuckGo answers with
+pages that have no results. On 29 September, five searches out of five came
+back empty. Getting it back on its feet is in the [plan](piano/README.md).
 
 ### It remembers, and what it learns stays yours
 
@@ -888,11 +893,16 @@ This matters because on Windows, when VRAM runs out, the NVIDIA driver quietly
 falls back to shared memory: the model still starts but runs ~10x slower.
 
 Measurements on an RTX 4060 Ti 16 GB with Qwen3.8-27B Q4_K_M (15.7 GB), using
-NOVA's real prompt — 12,492 tokens of rules and the schemas of the Python
-version's sixty tools. The daemon offers the home model 58, with its own names
-and descriptions, so the cold number has to be measured again; the ones about
-flags and layers depend on llama-server, not on who calls it. The bench is
-`misure/banco_modello.py`, and it measures them itself.
+the Python version's real prompt: 12,492 tokens of rules and the schemas of
+its sixty tools. The ones about flags and layers depend on llama-server, not
+on who calls it. The bench is `misure/banco_modello.py`, and it measures them
+itself.
+
+The daemon's prompt was measured by `misure/banco_prompt_demone.py` on 29
+September, on the same card but with Gemma 4 26B-A4B IQ3_XXS and 30 layers on
+the GPU (the model is explained further down). The daemon sends 58 schemas and
+the Python version sixty, and for the model they cost almost the same: 11,486 tokens
+against 11,685, 5.9 s cold for both, 146 ms warm against 123.
 
 **The first number to look at isn't the speed, it's the gap between cold and
 warm:**
@@ -942,7 +952,25 @@ And measure again, because free VRAM depends on what else is running:
 ```powershell
 python misure/banco_modello.py            # every configuration
 python misure/banco_modello.py kv8-60     # just one
+python misure/banco_prompt_demone.py --demone core\target\release\novad.exe
+                                          # the daemon's prompt against the Python one
+python misure/banco_web_demone.py         # web_incolla, web_tabella and rete_cerca, asked of the running daemon
+python misure/banco_taglio.py             # how much shortening the conversation costs
+python misure/banco_cervello.py           # can it pick the right tool? (the Python version's tools)
 ```
+
+`banco_cervello.py` measures something different from the others: not how fast
+a model is, but whether it **can use the tools**. A model can do forty tokens a
+second and not know how to call a tool, and then those tokens are useless.
+Gemma 4 26B-A4B and Qwen3.8 27B both score 7 out of 8, without inventing tools
+and without calling one when an answer in words is enough.
+
+`banco_taglio.py` measures something you don't see: when the conversation gets
+long NOVA shortens it, and shortening it throws away the prompt cache. Doing
+it at every turn, which is what used to happen, means that from some point on
+every answer reprocesses everything from scratch and never recovers. Now it
+cuts rarely: three times in sixty turns instead of thirty-one, and the turn
+after a cut goes back to costing 231 ms instead of 1,748.
 
 A 27B at Q4 doesn't fit entirely in 16 GB, and five layers on the CPU stay the
 bottleneck. To go much faster there are two roads, both one line away in
