@@ -154,6 +154,32 @@ controlla("spiega perche' non basta il registro delle modifiche",
 controlla("e dice che ci vanno anche gli errori",
           "errori" in DIARIO.lower() or "errore" in DIARIO.lower())
 
+print("\n7. le cinque cartelle di ogni progetto ci sono, e dicono il vero")
+# Regola di Gio dal 29 settembre: errori, piano, idea, test, analisi. In NOVA
+# sono indici che rimandano ai documenti che c'erano gia' (D360).
+for nome in ["errori", "piano", "idea", "test", "analisi"]:
+    indice = RADICE / nome / "README.md"
+    controlla(f"{nome}/ ha il suo README", indice.is_file())
+    if not indice.is_file():
+        continue
+    testo = indice.read_text(encoding="utf-8")
+    rotti = [d for d in re.findall(r"\]\(([^)#:]+\.md)\)", testo)
+             if not (indice.parent / d).resolve().is_file()]
+    controlla(f"{nome}/: nessun rimando a un documento che non c'e'",
+              not rotti, str(rotti))
+
+INDICE_PROVE = (RADICE / "test" / "README.md").read_text(encoding="utf-8")
+PROVE_README = (RADICE / "prove" / "README.md").read_text(encoding="utf-8")
+tutte = sorted((RADICE / "prove").glob("*/test_*.py"))
+assenti = [f"{f.parent.name}/{f.name}" for f in tutte if f"`{f.name}`" not in INDICE_PROVE]
+controlla("ogni prova compare nell'indice test/README.md", not assenti, str(assenti))
+for cartella in sorted({f.parent.name for f in tutte}):
+    quante = len([f for f in tutte if f.parent.name == cartella])
+    controlla(f"l'indice conta giusto prove/{cartella}/ ({quante})",
+              f"## `prove/{cartella}/`: {quante} prove" in INDICE_PROVE)
+    controlla(f"e prove/README.md anche",
+              re.search(rf"\| `{cartella}/` \| {quante} \|", PROVE_README) is not None)
+
 print(f"\n{passati}/{passati + len(falliti)} passati")
 for x in falliti:
     print("  FALLITO:", x)
