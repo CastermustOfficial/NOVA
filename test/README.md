@@ -155,7 +155,7 @@ Cosa serve: un banco Rust costruito con `cargo`: la prova stampa la riga per cos
 | `test_scala_rust.py` | La scala in Rust deve decidere esattamente come decide in Python. |
 | `test_strumenti_rust.py` | Gli strumenti dichiarati allo stesso modo, in Rust. |
 
-## `prove/demone/`: 24 prove
+## `prove/demone/`: 25 prove
 
 Cosa serve: il binario `novad` costruito.
 
@@ -180,6 +180,7 @@ Cosa serve: il binario `novad` costruito.
 | `test_demone_recinto.py` | Il confine vale anche **dopo** che il comando e' partito. |
 | `test_demone_registro.py` | Quello che fa il demone finisce nello stesso registro di quello che fa NOVA. |
 | `test_demone_rete.py` | Il web senza browser, le cartelle note e le procedure, dal demone. |
+| `test_demone_ricerca.py` | La ricerca del demone, col browser senza finestra, con un browser vero. |
 | `test_demone_riparazione.py` | NOVA si ripara in Rust: banco, prove, binari nuovi, e ritorno (D349). |
 | `test_demone_schermo.py` | Lo schermo in un'immagine, dal demone. |
 | `test_demone_sistema.py` | Gli appunti, il volume, le notifiche, l'ora e com'e' fatto il PC, dal demone. |

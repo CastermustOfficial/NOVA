@@ -82,6 +82,9 @@ struct Dentro {
     /// (caratteri, quanti) per il copione dei risultati.
     #[serde(default)]
     risultati: Vec<(i64, i64)>,
+    /// Domande di cui comporre l'indirizzo della ricerca col browser.
+    #[serde(default)]
+    ricerche: Vec<String>,
     /// Pagine HTML di DuckDuckGo da raschiare, con quanti risultati tenere.
     #[serde(default)]
     ddg_html: Vec<(String, usize)>,
@@ -132,6 +135,7 @@ struct Fuori {
     errori: Vec<Option<String>>,
     params: Vec<Value>,
     risultati: Vec<String>,
+    ricerche: Vec<String>,
     ddg_html: Vec<Vec<(String, String, String)>>,
     ddg_lite: Vec<Vec<(String, String, String)>>,
     rimbalzi: Vec<String>,
@@ -246,6 +250,7 @@ fn main() {
         errori: d.risposte.iter().map(errore_di_pagina).collect(),
         params: d.espressioni.iter().map(|e| valuta_params(e)).collect(),
         risultati: d.risultati.iter().map(|(c, q)| risultati(*c, *q)).collect(),
+        ricerche: d.ricerche.iter().map(|q| nova_browser::ricerca::indirizzo(q)).collect(),
         ddg_html: d
             .ddg_html
             .iter()

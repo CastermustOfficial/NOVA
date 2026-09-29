@@ -3,28 +3,32 @@
 //! Cercare, leggere una pagina, aprirne una nel browser dell'utente: sono i
 //! tre strumenti `web_search`, `fetch_url` e `open_in_browser` del Python, e
 //! qui si chiamano `rete.*` apposta. Il browser guidato — quello che apre una
-//! pagina vera, ci clicca e ci scrive — arrivera' con i suoi nomi, e due
-//! famiglie diverse con lo stesso prefisso sarebbero due cose diverse che il
-//! modello crede una.
+//! pagina vera, ci clicca e ci scrive — ha i suoi nomi, `web.*`, in
+//! [`crate::caps_web`]: due famiglie diverse con lo stesso prefisso sarebbero
+//! due cose diverse che il modello crede una.
 //!
 //! Come per le altre famiglie qui c'e' un **ponte**: cosa si chiede e cosa
 //! si dice della risposta sta in [`nova_browser::scaricata`] e
 //! [`nova_browser::motori`], confrontati col Python da un banco. Qui c'e' la
 //! rete, che e' l'unica cosa che un banco non puo' fare.
 //!
-//! **Una differenza dal Python.** `web_search` di la' prova prima col browser
-//! e poi raschiando l'HTML. Qui il browser non c'e' ancora, quindi si
-//! raschia e basta — e quando non trova niente lo dice, motore per motore,
-//! invece di dire «non raggiungibile» per un motore che ha risposto
-//! benissimo.
+//! **Come il Python, `rete.cerca` prova prima col browser e poi raschiando
+//! l'HTML.** Il browser e' un altro da quello di lavoro: senza finestra, su
+//! una porta e un profilo suoi ([`nova_browser::ricerca`]). Fino a D363 qui
+//! si raschiava e basta, e DuckDuckGo a una richiesta semplice risponde con
+//! pagine senza risultati: il 29 settembre cinque ricerche su cinque sono
+//! tornate vuote (D362). Quando non trova niente lo dice, il browser e poi
+//! motore per motore, invece di dire «non raggiungibile» per un motore che ha
+//! risposto benissimo.
 
 use std::io::Read;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use nova_browser::motori;
+use nova_browser::ricerca;
 use nova_browser::scaricata::{self, BYTE_PAGINA_MASSIMI, DDG_HTML, DDG_LITE, SECONDI, UA};
 use nova_proto::{CapabilityInfo, Risk};
 use serde_json::{json, Value};
@@ -132,7 +136,99 @@ fn prova_motore(
     }
 }
 
+// ------------------------------------------------- cercare col browser
+
+/// Il profilo del browser delle ricerche: accanto a `config.json`, come in
+/// Python, e mai quello del browser di lavoro.
+fn profilo_ricerca() -> std::path::PathBuf {
+    crate::mondo::cartella_nova().join(ricerca::PROFILO)
+}
+
+/// Accende il browser delle ricerche, o si attacca a quello gia' acceso.
+fn avvia_ricerca(porta: u16) -> Result<(), String> {
+    if nova_cdp::versione(porta).is_some() {
+        return Ok(());
+    }
+    let eseguibile =
+        crate::caps_web::eseguibile().map_err(|_| "non trovo ne' Edge ne' Chrome".to_string())?;
+    let p = profilo_ricerca();
+    std::fs::create_dir_all(&p).map_err(|e| format!("non posso creare {}: {e}", p.display()))?;
+    let mut c = std::process::Command::new(eseguibile);
+    c.args(ricerca::argomenti(porta, &p.display().to_string(), nova_cdp::ORIGINE))
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        c.creation_flags(0x0800_0000); // CREATE_NO_WINDOW, come il Python
+    }
+    c.spawn()
+        .map_err(|e| format!("non riesco ad avviare il browser: {e}"))?;
+    let scadenza = Instant::now() + Duration::from_secs(ricerca::ATTESA_AVVIO_S);
+    while Instant::now() < scadenza {
+        if nova_cdp::versione(porta).is_some() {
+            return Ok(());
+        }
+        std::thread::sleep(Duration::from_millis(300));
+    }
+    Err(format!("il browser da ricerca non ha aperto la porta {porta}"))
+}
+
+/// I risultati letti dalla pagina del motore, aspettando che ci siano.
+fn risultati_nella(scheda: &Value, quanti: usize) -> Result<Vec<motori::Risultato>, String> {
+    let t = nova_cdp::Scheda::da(scheda)
+        .ok_or_else(|| "il browser non ha detto come parlare alla scheda".to_string())?;
+    let codice = nova_browser::risultati(ricerca::CARATTERI_RIASSUNTO, ricerca::da_chiedere(quanti));
+    let scadenza = Instant::now() + Duration::from_secs(ricerca::ATTESA_RISULTATI_S);
+    while Instant::now() < scadenza {
+        // Una pagina ancora a meta' puo' rispondere con un errore: si
+        // riprova fino alla scadenza, come il Python, e si dice il motivo
+        // solo alla fine.
+        if let Ok(r) = nova_cdp::chiedi(
+            &t,
+            "Runtime.evaluate",
+            nova_browser::valuta_params(&codice),
+            Duration::from_secs(nova_cdp::ATTESA_S),
+        ) {
+            if nova_browser::errore_di_pagina(&r).is_none() {
+                let letti =
+                    ricerca::letti(nova_browser::valore_di(&r).unwrap_or(&Value::Null), quanti);
+                if !letti.is_empty() {
+                    return Ok(letti);
+                }
+            }
+        }
+        std::thread::sleep(Duration::from_millis(ricerca::PASSO_MS));
+    }
+    Err("il motore non ha dato risultati leggibili".into())
+}
+
+/// Cercare col browser delle ricerche, sulla porta data.
+///
+/// La porta e' un argomento perche' una prova possa metterci davanti un
+/// browser finto; il demone passa sempre `nova_browser::PORTA_RICERCA`.
+fn col_browser(porta: u16, domanda: &str, quanti: usize) -> Result<Vec<motori::Risultato>, String> {
+    // Accendere il browser e aprirci una scheda e' una conversazione che si
+    // puo' rompere in tutti i modi: al modello arriva una frase, non uno
+    // stack, come nel Python.
+    let guida = |e: String| format!("non riesco a guidare il browser: {e}");
+    avvia_ricerca(porta).map_err(guida)?;
+    let scheda = nova_cdp::nuova(porta, &ricerca::indirizzo(domanda)).map_err(guida)?;
+    let id = scheda.get("id").and_then(Value::as_str).unwrap_or("").to_string();
+    let esito = risultati_nella(&scheda, quanti);
+    // La scheda si chiude sempre, trovato o no.
+    if !id.is_empty() {
+        nova_cdp::chiudi_scheda(porta, &id);
+    }
+    esito
+}
+
 fn cerca(query: &str, quanti: usize) -> Result<String, String> {
+    let dal_browser = match col_browser(nova_browser::PORTA_RICERCA, query, quanti) {
+        Ok(r) => return Ok(scaricata::elenco(&r)),
+        Err(e) => e,
+    };
     let mut perche = Vec::new();
     let html = esito(cliente(DDG_HTML).post(DDG_HTML).send_form(&[("q", query)]));
     match prova_motore("DuckDuckGo html", html, motori::da_html, quanti) {
@@ -144,7 +240,7 @@ fn cerca(query: &str, quanti: usize) -> Result<String, String> {
         Ok(r) => return Ok(scaricata::elenco(&r)),
         Err(e) => perche.push(e),
     }
-    Err(scaricata::nessun_risultato(query, &perche))
+    Err(scaricata::nessun_risultato(query, &dal_browser, &perche))
 }
 
 // ------------------------------------------------------------------ cercare
@@ -284,6 +380,126 @@ impl Capability for ReteApri {
 #[cfg(test)]
 mod prove {
     use super::*;
+    use std::io::Write;
+    use std::net::{TcpListener, TcpStream};
+    use std::sync::Mutex;
+
+    /// Cosa ha visto il browser finto.
+    #[derive(Default)]
+    struct Visto {
+        aperti: Vec<String>,
+        chiusi: Vec<String>,
+        domande: usize,
+    }
+
+    /// Un browser finto su una porta sua: risponde a `/json/version`, apre
+    /// una scheda con `/json/new`, la chiude con `/json/close`, e sulla
+    /// websocket risponde a `Runtime.evaluate` con quello che `pagine` dice,
+    /// una risposta per domanda (l'ultima si ripete).
+    fn browser_finto(nuova_va: bool, pagine: Vec<Value>) -> (u16, Arc<Mutex<Visto>>) {
+        let l = TcpListener::bind("127.0.0.1:0").unwrap();
+        let porta = l.local_addr().unwrap().port();
+        let visto = Arc::new(Mutex::new(Visto::default()));
+        let v = visto.clone();
+        std::thread::spawn(move || {
+            for s in l.incoming().flatten() {
+                let v = v.clone();
+                let pagine = pagine.clone();
+                std::thread::spawn(move || servi(s, porta, nuova_va, &pagine, &v));
+            }
+        });
+        (porta, visto)
+    }
+
+    fn servi(mut s: TcpStream, porta: u16, nuova_va: bool, pagine: &[Value], v: &Mutex<Visto>) {
+        let mut testa = [0u8; 4096];
+        let n = s.peek(&mut testa).unwrap_or(0);
+        let testa = String::from_utf8_lossy(&testa[..n]).to_string();
+        if testa.to_ascii_lowercase().contains("upgrade: websocket") {
+            let mut ws = tungstenite::accept(s).unwrap();
+            while let Ok(m) = ws.read() {
+                let tungstenite::Message::Text(t) = m else { continue };
+                let d: Value = serde_json::from_str(&t).unwrap();
+                let i = {
+                    let mut v = v.lock().unwrap();
+                    v.domande += 1;
+                    v.domande - 1
+                };
+                let pagina = pagine.get(i).or(pagine.last()).cloned().unwrap_or(Value::Null);
+                let r = json!({"id": d["id"], "result": {"result": {"type": "object", "value": pagina}}});
+                let _ = ws.send(tungstenite::Message::Text(r.to_string().into()));
+            }
+            return;
+        }
+        let mut buf = vec![0u8; n];
+        let _ = std::io::Read::read_exact(&mut s, &mut buf);
+        let riga = testa.lines().next().unwrap_or("").to_string();
+        let percorso = riga.split(' ').nth(1).unwrap_or("").to_string();
+        let (codice, corpo) = if percorso == "/json/version" {
+            (200, json!({"Browser": "finto"}).to_string())
+        } else if let Some(url) = percorso.strip_prefix("/json/new?") {
+            v.lock().unwrap().aperti.push(url.to_string());
+            if nuova_va {
+                let ws = format!("ws://127.0.0.1:{porta}/devtools/page/s1");
+                (200, json!({"id": "s1", "type": "page", "url": url, "webSocketDebuggerUrl": ws}).to_string())
+            } else {
+                (500, "no".to_string())
+            }
+        } else if let Some(id) = percorso.strip_prefix("/json/close/") {
+            v.lock().unwrap().chiusi.push(id.to_string());
+            (200, "Target is closing".to_string())
+        } else {
+            (404, String::new())
+        };
+        let _ = write!(
+            s,
+            "HTTP/1.1 {codice} X\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{corpo}",
+            corpo.len()
+        );
+    }
+
+    /// La ricerca va sul motore giusto, aspetta che la pagina abbia i
+    /// risultati, li legge e chiude la scheda.
+    #[test]
+    fn col_browser_si_aspettano_i_risultati_e_si_chiude_la_scheda() {
+        let (porta, visto) = browser_finto(
+            true,
+            vec![
+                json!({"quanti": 0, "risultati": []}),
+                json!({"quanti": 2, "risultati": [
+                    {"titolo": "Gatti", "url": "https://gatti.it", "testo": "tutto sui gatti"},
+                    {"titolo": "Neri", "url": "https://neri.it", "testo": ""},
+                ]}),
+            ],
+        );
+        let r = col_browser(porta, "gatti neri", 6).unwrap();
+        assert_eq!(
+            scaricata::elenco(&r),
+            "1. Gatti\n   https://gatti.it\n   tutto sui gatti\n2. Neri\n   https://neri.it"
+        );
+        let v = visto.lock().unwrap();
+        assert_eq!(v.aperti, ["https://www.bing.com/search?q=gatti+neri"]);
+        assert_eq!(v.domande, 2, "la prima pagina era ancora vuota");
+        assert_eq!(v.chiusi, ["s1"]);
+    }
+
+    /// Una pagina che non mostra mai risultati: si aspetta fino alla
+    /// scadenza, lo si dice come il Python, e la scheda si chiude lo stesso.
+    #[test]
+    fn col_browser_senza_risultati_si_dice_e_si_chiude_lo_stesso() {
+        let (porta, visto) = browser_finto(true, vec![json!({"quanti": 0, "risultati": []})]);
+        let e = col_browser(porta, "gatti", 6).unwrap_err();
+        assert_eq!(e, "il motore non ha dato risultati leggibili");
+        assert_eq!(visto.lock().unwrap().chiusi, ["s1"]);
+    }
+
+    /// Un browser che non apre la scheda: una frase, non uno stack.
+    #[test]
+    fn col_browser_una_scheda_che_non_si_apre_e_una_frase() {
+        let (porta, _visto) = browser_finto(false, vec![]);
+        let e = col_browser(porta, "gatti", 6).unwrap_err();
+        assert!(e.starts_with("non riesco a guidare il browser: "), "{e}");
+    }
 
     #[test]
     fn il_codice_si_dice_come_requests() {

@@ -15,6 +15,12 @@ demone gira con un proxy **finto** nell'ambiente e con 127.0.0.1 in
 se ignorasse il proxy DuckDuckGo risponderebbe davvero — qui invece deve
 fallire, e dire perche'.
 
+Dal D363 `rete.cerca` prova prima il browser delle ricerche, sulla porta
+9223. Perche' non ne parta uno vero, che cercherebbe su Bing davvero, la
+prova ci mette davanti un browser finto che risponde «ci sono» e poi rifiuta
+di aprire la scheda. Se la porta e' gia' occupata, quella parte si salta: la
+ricerca col browser vero la prova `test_demone_ricerca.py`.
+
 Esce 2 — «qui non si puo' provare» — se il demone non e' costruito.
 """
 import http.server
@@ -92,6 +98,37 @@ class Pagine(http.server.BaseHTTPRequestHandler):
 server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Pagine)
 threading.Thread(target=server.serve_forever, daemon=True).start()
 BASE = f"http://127.0.0.1:{server.server_address[1]}"
+
+
+class BrowserFinto(http.server.BaseHTTPRequestHandler):
+    """Dice di essere un browser acceso, e poi non apre la scheda."""
+
+    aperte: list[str] = []
+
+    def log_message(self, *_a):
+        pass
+
+    def _rispondi(self):
+        if self.path == "/json/version":
+            dati = b'{"Browser": "finto"}'
+            self.send_response(200)
+        else:
+            BrowserFinto.aperte.append(self.path)
+            dati = b"no"
+            self.send_response(500)
+        self.send_header("Content-Length", str(len(dati)))
+        self.end_headers()
+        self.wfile.write(dati)
+
+    do_GET = _rispondi                                            # noqa: N815
+    do_PUT = _rispondi                                            # noqa: N815
+
+
+try:
+    FINTO = http.server.ThreadingHTTPServer(("127.0.0.1", 9223), BrowserFinto)
+    threading.Thread(target=FINTO.serve_forever, daemon=True).start()
+except OSError:
+    FINTO = None
 
 # ------------------------------------------------------------- il demone
 casa = tempfile.mkdtemp(prefix="nova-rete-")
@@ -185,15 +222,27 @@ try:
               err_m and f"404 Client Error: Not Found for url: {BASE}/non-c-e" in manca,
               repr(manca)[:200])
 
-    print("\n3. cercare senza rete: dice perche', motore per motore")
-    with CoreClient(endpoint, timeout=90) as c:
-        cercato, err_c = testo_mcp(c, "rete_cerca", {"query": "gatti"})
+    print("\n3. cercare senza rete: dice perche', il browser e poi motore per motore")
+    if FINTO is None:
+        print("  (la porta 9223 e' gia' occupata: la ricerca si salta, per non usare "
+              "il browser di qualcun altro)")
+    else:
+        with CoreClient(endpoint, timeout=90) as c:
+            cercato, err_c = testo_mcp(c, "rete_cerca", {"query": "gatti neri"})
+        controlla("una ricerca che non arriva e' un errore",
+                  err_c and "non ho trovato niente per «gatti neri»" in cercato,
+                  repr(cercato)[:200])
+        controlla("prima ha provato il browser delle ricerche, sul motore del Python",
+                  BrowserFinto.aperte[:1] == ["/json/new?https://www.bing.com/search?q=gatti+neri"],
+                  repr(BrowserFinto.aperte))
+        controlla("e dice cosa e' successo col browser, senza dire che non e' collegato",
+                  "Col browser: non riesco a guidare il browser: " in cercato
+                  and "non e' ancora collegato" not in cercato, repr(cercato)[:300])
+        controlla("e che i motori non hanno risposto, non che non li ha capiti",
+                  "DuckDuckGo html non ha risposto" in cercato
+                  and "DuckDuckGo lite non ha risposto" in cercato, repr(cercato)[:400])
+    with CoreClient(endpoint, timeout=30) as c:
         vuota, err_v = testo_mcp(c, "rete_cerca", {"query": "   "})
-    controlla("una ricerca che non arriva e' un errore",
-              err_c and "non ho trovato niente per «gatti»" in cercato, repr(cercato)[:200])
-    controlla("e dice che i motori non hanno risposto, non che non li ha capiti",
-              "DuckDuckGo html non ha risposto" in cercato
-              and "DuckDuckGo lite non ha risposto" in cercato, repr(cercato)[:300])
     controlla("una ricerca vuota non parte nemmeno", err_v and "query vuota" in vuota,
               repr(vuota))
 
@@ -257,6 +306,8 @@ try:
 
 finally:
     server.shutdown()
+    if FINTO is not None:
+        FINTO.shutdown()
     processo.terminate()
     try:
         processo.wait(timeout=10)

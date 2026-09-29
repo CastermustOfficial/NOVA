@@ -225,6 +225,18 @@ pub fn nuova(porta: u16, url: &str) -> Result<Value, String> {
         .ok_or_else(|| "il browser non ha detto quale scheda ha aperto".to_string())
 }
 
+/// Chiude una scheda, senza dire se ci e' riuscito.
+///
+/// Come `_chiudi` del Python: e' la pulizia dopo una ricerca, e una pulizia
+/// che fallisce non deve far fallire la ricerca che l'ha preceduta. Il
+/// browser delle ricerche che accumula schede diventa lento e poi muore, per
+/// questo si chiude sempre.
+pub fn chiudi_scheda(porta: u16, id: &str) {
+    let _ = agente(Duration::from_secs(5))
+        .get(&format!("http://127.0.0.1:{porta}/json/close/{id}"))
+        .call();
+}
+
 /// Una domanda sola a una scheda, su una connessione che si chiude subito.
 pub fn chiedi(
     scheda: &Scheda,

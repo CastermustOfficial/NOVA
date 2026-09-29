@@ -40,6 +40,7 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 from nova.core_client import CoreClient, CoreError                 # noqa: E402
 
+TITOLO = "banco del demone"
 PAGINA = """<!doctype html><meta charset=utf-8><title>banco del demone</title>
 <div id=griglia tabindex=0>griglia</div>
 <table id=quotazioni>
@@ -121,10 +122,16 @@ def main() -> int:
         time.sleep(1.0)
 
         print(f"\nIl demone, {time.strftime('%d/%m/%Y %H:%M')}\n")
-        tempi, esito = misura(c, a.giri, "web.incolla", testo=TSV, selettore="#griglia")
+        # La scheda si nomina: senza, si lavora sulla prima dell'elenco, e un
+        # profilo nuovo di Edge ne apre di sue (benvenuto, ricerca). Il primo
+        # giro sul PC di Gio, il 29 settembre, si e' fermato proprio li':
+        # «nessun elemento su cui incollare».
+        tempi, esito = misura(c, a.giri, "web.incolla", testo=TSV, selettore="#griglia",
+                              scheda=TITOLO)
         print(riga("web.incolla — 5 righe x 3 colonne", tempi))
         print(f"    esito dell'ultimo: {str(esito)[:120]}")
-        tempi, esito = misura(c, a.giri, "web.tabella", selettore="#quotazioni")
+        tempi, esito = misura(c, a.giri, "web.tabella", selettore="#quotazioni",
+                              scheda=TITOLO)
         print(riga("web.tabella — una tabella 5x4", tempi))
         print(f"    esito dell'ultimo: {str(esito)[:120]}")
 
@@ -138,6 +145,8 @@ def main() -> int:
                 continue
             tempi.append((time.perf_counter() - t0) * 1000)
         if tempi:
+            # La prima ricerca accende il browser delle ricerche: la mediana
+            # la assorbe, il massimo no.
             print(riga("rete.cerca — cercare senza aprire il browser", tempi))
     server.shutdown()
     return 0

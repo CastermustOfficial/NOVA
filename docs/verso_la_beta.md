@@ -2838,6 +2838,11 @@ Non e' una data, sono cinque frasi che devono essere vere insieme:
 > Per la quinta frase resta quella: un numero misurato che dice «non va» e'
 > onesto, ma la frase si chiude quando la ricerca torna a funzionare.
 
+> **Il 29 settembre, notte** (D363). La ricerca torna a funzionare: il
+> demone cerca come il Python, col browser senza finestra, e il README dice
+> 0,46 s misurati. Per la quinta frase, i numeri che D359 dichiarava presi
+> dal Python adesso sono presi tutti dal demone.
+
 > **Primo passo sulla prima frase, il 6 settembre.** Non si puo' installare
 > NOVA su un'altra macchina da questa, ma si puo' leggere **cosa NOVA dice a
 > chi non ha gia' tutto**. I percorsi personali erano gia' a posto, e i

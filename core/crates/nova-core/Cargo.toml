@@ -85,3 +85,6 @@ features = [
 # Per fabbricare i Word delle prove (`harness_documenti`): la stessa versione
 # di `nova-docx`.
 zip = { version = "2", default-features = false, features = ["deflate"] }
+# Il browser finto delle prove di `caps_rete`: parla il DevTools Protocol su
+# una websocket, con la stessa libreria di `nova-cdp`.
+tungstenite = "0.28"
