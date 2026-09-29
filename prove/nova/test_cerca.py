@@ -58,16 +58,53 @@ controlla("una domanda vuota viene rifiutata", not r.get("ok"), str(r))
 # si ritrovava in mano uno stack di `requests`. Al modello uno stack non dice
 # se riprovare, se cambiare strada o se dirlo all'utente. Una frase si'.
 #
-# La porta e' chiusa apposta: questa prova non ha bisogno di un browser, e
-# quindi gira dappertutto.
+# La porta e' chiusa apposta, e qui nessun browser si accende: i due `avvia`,
+# quello del browser delle ricerche e quello del browser di lavoro che
+# `browser.apri` chiama da se', sono sostituiti da finti che non fanno niente.
+# Fino al D364 `cerca.cerca` li chiamava veri. Dove Edge c'e', come sulla CI
+# Windows e sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X), si accendeva un Edge vero sulla porta 59999, col
+# profilo delle ricerche, e restava acceso dopo la prova. La prova allora
+# dipendeva da Bing, e la parte 4 non poteva piu' accendere il suo browser
+# sulla 9223, perche' il profilo era gia' in uso.
+avvia_vero, avvia_lavoro_vero = cerca.avvia, cerca.browser.avvia
+apri_vero, valuta_vero, chiudi_vero = cerca.browser.apri, cerca.browser.valuta, cerca._chiudi
+cerca.avvia = cerca.browser.avvia = lambda *_a, **_k: {}
 try:
-    r = cerca.cerca("qualcosa", porta=59999, attesa=1)
-    esploso = ""
-except Exception as e:                                         # noqa: BLE001
-    r, esploso = {}, f"{type(e).__name__}: {e}"
-controlla("con il browser irraggiungibile torna un motivo, non uno stack",
-          not esploso and not r.get("ok") and bool(r.get("motivo")),
-          esploso or str(r))
+    try:
+        r = cerca.cerca("qualcosa", porta=59999, attesa=1)
+        esploso = ""
+    except Exception as e:                                     # noqa: BLE001
+        r, esploso = {}, f"{type(e).__name__}: {e}"
+    controlla("con il browser irraggiungibile torna un motivo, non uno stack",
+              not esploso and not r.get("ok")
+              and (r.get("motivo") or "").startswith("non riesco a guidare il browser: "),
+              esploso or str(r))
+
+    # Anche leggere la pagina e' parlare col browser. Fino al D364 un errore
+    # qui usciva come stack: la scheda si apre, e poi ogni lettura fallisce.
+    chiuse: list[str] = []
+
+    def valuta_rotta(*_a, **_k):
+        raise RuntimeError("TypeError: document.body is null")
+
+    cerca.browser.apri = lambda *_a, **_k: {"id": "s1"}
+    cerca.browser.valuta = valuta_rotta
+    cerca._chiudi = lambda sid, _porta: chiuse.append(sid)
+    try:
+        r = cerca.cerca("qualcosa", porta=59999, attesa=1)
+        esploso = ""
+    except Exception as e:                                     # noqa: BLE001
+        r, esploso = {}, f"{type(e).__name__}: {e}"
+    controlla("una pagina che non si lascia leggere e' un motivo, col suo errore",
+              not esploso and not r.get("ok")
+              and r.get("motivo") == ("il motore non ha dato risultati leggibili; "
+                                      "l'ultima lettura della pagina ha dato: "
+                                      "TypeError: document.body is null"),
+              esploso or str(r))
+    controlla("e la scheda si chiude lo stesso", chiuse == ["s1"], str(chiuse))
+finally:
+    cerca.avvia, cerca.browser.avvia = avvia_vero, avvia_lavoro_vero
+    cerca.browser.apri, cerca.browser.valuta, cerca._chiudi = apri_vero, valuta_vero, chiudi_vero
 
 print("\n2. da HTML a testo")
 grezzo = ("<html><head><title>Prova &amp; C.</title><style>p{color:red}</style>"

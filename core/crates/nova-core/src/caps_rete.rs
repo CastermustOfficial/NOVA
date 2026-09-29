@@ -181,27 +181,44 @@ fn risultati_nella(scheda: &Value, quanti: usize) -> Result<Vec<motori::Risultat
         .ok_or_else(|| "il browser non ha detto come parlare alla scheda".to_string())?;
     let codice = nova_browser::risultati(ricerca::CARATTERI_RIASSUNTO, ricerca::da_chiedere(quanti));
     let scadenza = Instant::now() + Duration::from_secs(ricerca::ATTESA_RISULTATI_S);
+    // L'errore dell'ultima lettura, se l'ultima lettura e' fallita.
+    let mut ultimo: Option<String> = None;
     while Instant::now() < scadenza {
         // Una pagina ancora a meta' puo' rispondere con un errore: si
-        // riprova fino alla scadenza, come il Python, e si dice il motivo
-        // solo alla fine.
-        if let Ok(r) = nova_cdp::chiedi(
+        // riprova fino alla scadenza, come il Python dal D364, e se l'ultima
+        // lettura e' fallita lo si dice alla fine.
+        let r = nova_cdp::chiedi(
             &t,
             "Runtime.evaluate",
             nova_browser::valuta_params(&codice),
             Duration::from_secs(nova_cdp::ATTESA_S),
-        ) {
-            if nova_browser::errore_di_pagina(&r).is_none() {
-                let letti =
-                    ricerca::letti(nova_browser::valore_di(&r).unwrap_or(&Value::Null), quanti);
-                if !letti.is_empty() {
-                    return Ok(letti);
+        );
+        ultimo = match r {
+            Err(e) => Some(e),
+            Ok(r) => match nova_browser::errore_di_pagina(&r) {
+                Some(e) => Some(e),
+                None => {
+                    let letti =
+                        ricerca::letti(nova_browser::valore_di(&r).unwrap_or(&Value::Null), quanti);
+                    if !letti.is_empty() {
+                        return Ok(letti);
+                    }
+                    None
                 }
-            }
-        }
+            },
+        };
         std::thread::sleep(Duration::from_millis(ricerca::PASSO_MS));
     }
-    Err("il motore non ha dato risultati leggibili".into())
+    Err(senza_risultati(ultimo.as_deref()))
+}
+
+/// Il motivo quando la pagina non ha dato risultati, come lo dice il Python.
+fn senza_risultati(ultimo: Option<&str>) -> String {
+    let base = "il motore non ha dato risultati leggibili";
+    match ultimo {
+        Some(e) => format!("{base}; l'ultima lettura della pagina ha dato: {e}"),
+        None => base.to_string(),
+    }
 }
 
 /// Cercare col browser delle ricerche, sulla porta data.
@@ -426,7 +443,15 @@ mod prove {
                     v.domande - 1
                 };
                 let pagina = pagine.get(i).or(pagine.last()).cloned().unwrap_or(Value::Null);
-                let r = json!({"id": d["id"], "result": {"result": {"type": "object", "value": pagina}}});
+                // Una pagina `{"__errore__": "..."}` risponde come una pagina
+                // il cui copione e' esploso.
+                let r = match pagina.get("__errore__") {
+                    Some(e) => json!({"id": d["id"], "result": {
+                        "result": {"type": "object"},
+                        "exceptionDetails": {"text": "Uncaught", "exception": {"description": e}},
+                    }}),
+                    None => json!({"id": d["id"], "result": {"result": {"type": "object", "value": pagina}}}),
+                };
                 let _ = ws.send(tungstenite::Message::Text(r.to_string().into()));
             }
             return;
@@ -490,6 +515,41 @@ mod prove {
         let (porta, visto) = browser_finto(true, vec![json!({"quanti": 0, "risultati": []})]);
         let e = col_browser(porta, "gatti", 6).unwrap_err();
         assert_eq!(e, "il motore non ha dato risultati leggibili");
+        assert_eq!(visto.lock().unwrap().chiusi, ["s1"]);
+    }
+
+    /// Una pagina che risponde con un errore non ferma la ricerca: si
+    /// riprova, e quando i risultati arrivano si leggono.
+    #[test]
+    fn col_browser_un_errore_della_pagina_si_riprova() {
+        let (porta, visto) = browser_finto(
+            true,
+            vec![
+                json!({"__errore__": "TypeError: document.body is null"}),
+                json!({"quanti": 1, "risultati": [
+                    {"titolo": "Gatti", "url": "https://gatti.it", "testo": ""},
+                ]}),
+            ],
+        );
+        let r = col_browser(porta, "gatti", 6).unwrap();
+        assert_eq!(scaricata::elenco(&r), "1. Gatti\n   https://gatti.it");
+        let v = visto.lock().unwrap();
+        assert_eq!(v.domande, 2);
+        assert_eq!(v.chiusi, ["s1"]);
+    }
+
+    /// Una pagina che risponde sempre con un errore: alla scadenza si dice
+    /// qual era l'ultimo, come il Python, e la scheda si chiude lo stesso.
+    #[test]
+    fn col_browser_l_ultimo_errore_della_pagina_si_dice() {
+        let (porta, visto) =
+            browser_finto(true, vec![json!({"__errore__": "TypeError: document.body is null"})]);
+        let e = col_browser(porta, "gatti", 6).unwrap_err();
+        assert_eq!(
+            e,
+            "il motore non ha dato risultati leggibili; l'ultima lettura della pagina ha dato: \
+             TypeError: document.body is null"
+        );
         assert_eq!(visto.lock().unwrap().chiusi, ["s1"]);
     }
 

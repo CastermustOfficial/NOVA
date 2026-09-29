@@ -23,7 +23,8 @@ Aggiornato al 29 settembre 2026.
 
 Quando una voce si chiude la si sposta qui, con la data e il commit.
 
-- 29/09/2026: `rete.cerca` cerca prima col browser senza finestra, come il Python (D363).
+- 29/09/2026: `rete.cerca` cerca prima col browser senza finestra, come il Python (D363, `c45dc0a`).
+- 29/09/2026: leggere la pagina dei risultati non solleva più, e `test_cerca.py` non accende un Edge vero (D364).
 - 29/09/2026: i numeri del browser e del prompt nel README, misurati sul demone (D362, `c617080`).
 - 29/09/2026: al modello di casa 58 strumenti fissi, e la conversazione si taglia su quel che resta del contesto (D361, `cdcff8a`).
 - 29/09/2026: le cinque cartelle di ogni progetto, in NOVA come indici (D360, `47401b4`).
