@@ -24,6 +24,7 @@ Aggiornato al 29 settembre 2026.
 
 Quando una voce si chiude la si sposta qui, con la data e il commit.
 
+- 29/09/2026: le cinque cartelle di ogni progetto, in NOVA come indici (D360, `47401b4`).
 - 28/09/2026: il README descrive il NOVA di oggi (D359, `df563d6`).
 - 28/09/2026: il demone accende il modello di casa quando serve (D358, `790c791`).
 - 28/09/2026: `novad --registro` (D357, `074273d`).
