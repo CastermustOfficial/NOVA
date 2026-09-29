@@ -11253,3 +11253,16 @@ vuote. DuckDuckGo risponde a una richiesta semplice con pagine senza
 risultati, e il demone non ha il browser senza finestra che il Python usava
 per cercare su Bing. Il README adesso lo dice, e sistemarla e' il primo punto
 del piano (D362).
+
+## 29 settembre 2026, notte — La ricerca torna a trovare
+
+Gio ha scelto di sistemare prima la ricerca. Il Python cercava con un browser
+senza finestra, e il demone non l'aveva mai fatto: avevo portato solo il
+ripiego (D363). Adesso lo fa, sulla stessa porta e con lo stesso profilo. Sul
+PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X) cinque ricerche su cinque, con mezzo secondo di mediana.
+
+Misurando ho trovato un difetto del banco, non di NOVA. Con un profilo nuovo
+Edge apre le sue schede, e `web.incolla` senza scheda lavora sulla prima: il
+primo giro si e' fermato li'. L'ho rifatto partendo da un profilo nuovo, prima
+col banco vecchio, che si e' fermato di nuovo, e poi con quello nuovo, che
+nomina la scheda ed e' andato.

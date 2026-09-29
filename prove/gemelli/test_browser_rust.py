@@ -16,7 +16,8 @@ Si confrontano nove cose:
    ma il **contenuto di un'altra pagina**;
 4. l'errore della pagina, quando c'e';
 5. i parametri di `Runtime.evaluate`;
-6. il copione che legge i risultati del motore di ricerca;
+6. il copione che legge i risultati del motore di ricerca, e l'indirizzo
+   della ricerca col browser senza finestra (D363);
 7. i due raschiatori che leggono la pagina di DuckDuckGo quando il browser
    non c'e' — dove sbagliare vuol dire mandare chi legge su un altro sito;
 8. cosa, di una pagina, e' testo: `html_a_testo.a_testo` e `titolo_di`;
@@ -263,6 +264,11 @@ TITOLI = [("<html><head><TITLE>Perch&#233; s&igrave;</TITLE>", 120),
 
 RISULTATI = [(200, 8), (200, 1), (200, 25)]
 
+# Le domande di cui si compone l'indirizzo della ricerca: spazi, accenti,
+# segni che in un indirizzo vogliono dire altro, e un'emoji.
+RICERCHE = ["gatti neri", "perché sì?", "a+b&c=d/e#f%g", "_.-~", "  spazi  ",
+            "C++ \"virgolette\" 'apici'", "😀 emoji", ""]
+
 fuori = rust({
     "valori": VALORI, "trova": [list(x) for x in TROVA],
     "per_testo": [list(x) for x in PER_TESTO], "clicca": CLICCA,
@@ -271,6 +277,7 @@ fuori = rust({
     "tabella": [list(x) for x in TABELLA], "leggi": LEGGI,
     "schede": SCHEDE, "risposte": RISPOSTE, "espressioni": ESPRESSIONI,
     "risultati": [list(x) for x in RISULTATI],
+    "ricerche": RICERCHE,
     "ddg_html": [list(x) for x in DDG_HTML], "ddg_lite": [list(x) for x in DDG_LITE],
     "rimbalzi": RIMBALZI, "entita": ENTITA, "pagine": PAGINE,
     "titoli": [list(x) for x in TITOLI],
@@ -379,6 +386,14 @@ controlla("i parametri di Runtime.evaluate sono quelli", fuori["params"] == atte
 print("\n5. i risultati del motore, letti dalla pagina")
 confronta("risultati", RISULTATI, fuori["risultati"],
           lambda c, q: S["_ESTRAI"] % (c, q))
+# L'indirizzo: `MOTORE.format(q=quote_plus(domanda))`, come in `cerca()`.
+exec(RICERCA[RICERCA.index("MOTORE = "):RICERCA.index("\nUA = ")], S)
+from urllib.parse import quote_plus                              # noqa: E402
+diverse = [f"{q!r}: rust {r!r} vs python {S['MOTORE'].format(q=quote_plus(q))!r}"
+           for q, r in zip(RICERCHE, fuori["ricerche"])
+           if r != S["MOTORE"].format(q=quote_plus(q))]
+controlla(f"l'indirizzo della ricerca col browser e' quello del Python ({len(RICERCHE)} domande)",
+          not diverse and len(fuori["ricerche"]) == len(RICERCHE), " | ".join(diverse[:2]))
 
 print("\n6. i due raschiatori, contro il Python vero")
 

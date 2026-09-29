@@ -106,22 +106,24 @@ instead of five, and reading a whole table costs one.
 
 | Operation | Measured |
 |---|---|
-| `web_incolla` (paste) — five rows into three columns | 2.9 ms |
-| `web_tabella` (table) — a whole 5x4 table read at once | 1.5 ms |
-| `rete_cerca` (search) — searching without opening the browser | **finds nothing today** |
+| `web_incolla` (paste) — five rows into three columns | 2.5 ms |
+| `web_tabella` (table) — a whole 5x4 table read at once | 1.4 ms |
+| `rete_cerca` (search) — searching without opening the browser | 0.46 s |
 
-Measured on the daemon on 29 September with `misure/banco_web_demone.py`: the
-median of twenty calls, round trip over the local channel. In the Python
-version the first two cost 35 and 33 ms.
+Measured on the daemon on 29 September with `misure/banco_web_demone.py`,
+round trip over the local channel: the median of twenty calls for the first
+two, and of five real searches for the last one. The slowest of the five took
+3 s: the first one also has to start the search browser. In the Python version
+they were 35 ms, 33 ms and about 0.9 s.
 
-The last row is the one that should change the assistant's character:
-**before opening a page, NOVA searches**. A browser that opens is a window
-appearing on your screen; a search that goes through a faceless browser is
-not. The Python version did it in about 0.9 s, with a windowless browser
-searching on Bing (`nova/cerca.py`). The daemon doesn't have that browser
-yet: it tries DuckDuckGo with a plain request, and DuckDuckGo answers with
-pages that have no results. On 29 September, five searches out of five came
-back empty. Getting it back on its feet is in the [plan](piano/README.md).
+The last row is the one that changes the assistant's character: **before
+opening a page, NOVA searches**. A browser that opens is a window appearing on
+your screen; a search that goes through a faceless browser is not. The daemon
+searches like the Python version: with a windowless browser, on a port and a
+profile of its own, searching on Bing. If there's neither Edge nor Chrome it
+tries DuckDuckGo with a plain request, which however today answers with pages
+that have no results. Until 29 September the daemon had only this second road,
+and five searches out of five came back empty (D362, D363).
 
 ### It remembers, and what it learns stays yours
 

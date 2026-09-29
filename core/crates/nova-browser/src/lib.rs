@@ -36,6 +36,8 @@ pub mod motori;
 // Cosa si dice al modello dopo aver guidato il browser.
 pub mod racconti;
 pub mod regole;
+// Cercare col browser senza finestra, come `nova/cerca.py` (D363).
+pub mod ricerca;
 pub mod scaricata;
 pub mod testo;
 

@@ -98,23 +98,25 @@ chiamata invece di cinque, e leggere una tabella intera ne costa una sola.
 
 | Operazione | Misurato |
 |---|---|
-| `web_incolla` — cinque righe in tre colonne | 2,9 ms |
-| `web_tabella` — una tabella 5x4 letta tutta | 1,5 ms |
-| `rete_cerca` — cercare senza aprire il browser | **oggi non trova niente** |
+| `web_incolla` — cinque righe in tre colonne | 2,5 ms |
+| `web_tabella` — una tabella 5x4 letta tutta | 1,4 ms |
+| `rete_cerca` — cercare senza aprire il browser | 0,46 s |
 
-Misurati sul demone il 29 settembre con `misure/banco_web_demone.py`: la
-mediana di venti chiamate, andata e ritorno sul canale locale. Nella versione
-Python le prime due costavano 35 e 33 ms.
+Misurati sul demone il 29 settembre con `misure/banco_web_demone.py`, andata
+e ritorno sul canale locale: la mediana di venti chiamate per le prime due, e
+di cinque ricerche vere per l'ultima. La piu' lenta delle cinque ha preso
+3 s: la prima deve anche accendere il browser delle ricerche. Nella versione
+Python erano 35 ms, 33 ms e circa 0,9 s.
 
-L'ultima riga e' quella che dovrebbe cambiare il carattere dell'assistente:
-**prima di aprire una pagina, NOVA cerca**. Un browser che si apre e' una
-finestra che compare sul tuo schermo; una ricerca che passa da un browser
-senza volto non lo e'. La versione Python lo faceva in circa 0,9 s, con un
-browser senza finestra che cerca su Bing (`nova/cerca.py`). Il demone quel
-browser non ce l'ha ancora: prova DuckDuckGo con una richiesta semplice, e
-DuckDuckGo risponde con pagine senza risultati. Il 29 settembre, su cinque
-ricerche, cinque sono tornate vuote. Rimetterla in piedi e' nel
-[piano](piano/README.md).
+L'ultima riga e' quella che cambia il carattere dell'assistente: **prima di
+aprire una pagina, NOVA cerca**. Un browser che si apre e' una finestra che
+compare sul tuo schermo; una ricerca che passa da un browser senza volto non
+lo e'. Il demone cerca come la versione Python: con un browser senza
+finestra, su una porta e un profilo suoi, che cerca su Bing. Se non ci sono
+ne' Edge ne' Chrome prova DuckDuckGo con una richiesta semplice, che pero'
+oggi risponde con pagine senza risultati. Fino al 29 settembre il demone
+aveva solo questa seconda strada, e su cinque ricerche ne tornavano vuote
+cinque (D362, D363).
 
 ### Ricorda, e quello che impara resta tuo
 

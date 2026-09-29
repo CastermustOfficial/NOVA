@@ -1239,3 +1239,24 @@ invece toglieva prima il prompt e gli schemi.
 La regola: quando cambia quello che va dentro una richiesta, si misura contro
 il contesto piu' piccolo su cui deve girare, e una prova tiene quel conto.
 Portando una funzione, si porta anche il conto che le stava intorno.
+
+## Ho portato la ricerca senza la sua strada principale
+
+`web_search` del Python cerca prima con un browser senza finestra, su Bing,
+e solo se quello non va raschia DuckDuckGo. Il docstring spiega anche perche':
+i raschiatori si erano gia' rotti una volta senza dirlo. Portandola nel
+demone (`rete.cerca`) ho preso i raschiatori e ho lasciato il browser, con
+una nota: «qui il browser non c'e' ancora». Poi il browser nel demone e'
+arrivato, per `web_*`, e nessuno e' tornato alla ricerca. Il suo messaggio
+d'errore ha continuato a dire che «il browser guidato non e' ancora collegato
+al demone», che era falso da quando `web.*` era arrivato.
+
+Nel frattempo DuckDuckGo ha smesso di rispondere a una richiesta semplice con
+dei risultati. L'ha visto il banco del browser il 29 settembre: cinque
+ricerche, cinque vuote (D362). Adesso `rete.cerca` fa come il Python, prima
+il browser senza finestra e poi i raschiatori, e il messaggio dice cosa e'
+successo a ciascuno (D363).
+
+La regola: una nota «questo manca ancora» nel codice e' un debito con un
+nome. Quando arriva il pezzo che mancava, si cercano tutte le note che lo
+nominano, e anche i messaggi che lo raccontano.

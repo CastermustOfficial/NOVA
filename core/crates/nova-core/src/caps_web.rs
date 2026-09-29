@@ -77,7 +77,7 @@ pub(crate) fn profilo() -> PathBuf {
     crate::mondo::cartella_nova().join("browser")
 }
 
-fn eseguibile() -> Result<String, String> {
+pub(crate) fn eseguibile() -> Result<String, String> {
     for p in EDGE.iter().chain(CHROME.iter()) {
         if std::path::Path::new(p).is_file() {
             return Ok(p.to_string());

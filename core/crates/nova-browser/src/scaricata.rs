@@ -13,6 +13,9 @@
 //! - [`nessun_risultato`]: se la ricerca fallisce si dice **perche'** per
 //!   ciascun motore, invece di «non ho riconosciuto i risultati» anche quando
 //!   il motore non ha risposto affatto.
+//!
+//! La ricerca **col** browser, quella che si prova per prima, sta in
+//! [`crate::ricerca`].
 
 use std::sync::OnceLock;
 
@@ -174,18 +177,25 @@ pub fn elenco(risultati: &[Risultato]) -> String {
 
 /// Cosa si dice quando una ricerca non ha dato niente.
 ///
-/// **Diverso dal Python, apposta.** Di la' ogni errore di rete si ingoia e il
-/// messaggio dice sempre che i lettori «non hanno riconosciuto i risultati».
-/// E' la stessa bugia che il Python stesso racconta di aver gia' pagato una
-/// volta: un motore che non risponde e un lettore che non capisce la pagina
-/// sono due guasti diversi, da cercare in due posti diversi. Qui ogni motore
-/// dice il suo.
-pub fn nessun_risultato(query: &str, perche: &[String]) -> String {
+/// Prima si dice cosa e' successo col browser delle ricerche, come il
+/// Python; poi, motore per motore, cosa e' successo senza.
+///
+/// **Diverso dal Python, apposta, nella seconda meta'.** Di la' ogni errore
+/// di rete si ingoia e il messaggio dice sempre che i lettori «non hanno
+/// riconosciuto i risultati». E' la stessa bugia che il Python stesso
+/// racconta di aver gia' pagato una volta: un motore che non risponde e un
+/// lettore che non capisce la pagina sono due guasti diversi, da cercare in
+/// due posti diversi. Qui ogni motore dice il suo.
+///
+/// Fino a D363 la prima meta' diceva che il browser «non e' ancora collegato
+/// al demone», anche quando `web_*` nel demone c'era da settimane: mancava
+/// solo la ricerca col browser, e il messaggio mandava a cercare il guasto
+/// dalla parte sbagliata.
+pub fn nessun_risultato(query: &str, col_browser: &str, senza: &[String]) -> String {
     format!(
-        "non ho trovato niente per «{query}». Il browser guidato non e' ancora \
-         collegato al demone; senza browser: {}. Prova ad aprire la ricerca \
-         con rete.apri.",
-        perche.join("; ")
+        "non ho trovato niente per «{query}». Col browser: {col_browser}. Senza \
+         browser: {}. Prova ad aprire la ricerca con rete.apri.",
+        senza.join("; ")
     )
 }
 
@@ -256,6 +266,24 @@ pub fn proxy_per(url: &str, ambiente: &dyn Fn(&str) -> Option<String>) -> Option
 #[cfg(test)]
 mod prove {
     use super::*;
+
+    /// Il browser e i lettori dicono ciascuno il suo, e nessuno dice che il
+    /// browser non e' collegato al demone: lo e'.
+    #[test]
+    fn senza_risultati_si_dice_cosa_ha_fatto_il_browser_e_cosa_i_lettori() {
+        let m = nessun_risultato(
+            "gatti",
+            "il motore non ha dato risultati leggibili",
+            &["DuckDuckGo html non ha risposto (x)".into(), "DuckDuckGo lite non ha risposto (y)".into()],
+        );
+        assert_eq!(
+            m,
+            "non ho trovato niente per «gatti». Col browser: il motore non ha dato risultati \
+             leggibili. Senza browser: DuckDuckGo html non ha risposto (x); DuckDuckGo lite non \
+             ha risposto (y). Prova ad aprire la ricerca con rete.apri."
+        );
+        assert!(!m.contains("non e' ancora collegato"));
+    }
 
     #[test]
     fn quanti_come_python() {

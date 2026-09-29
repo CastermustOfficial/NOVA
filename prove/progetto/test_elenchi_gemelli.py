@@ -301,6 +301,9 @@ NUMERI = [
     ("nova-browser/src/lib.rs", "PORTA_RICERCA",
      lambda: numero("nova/cerca.py", "PORTA"),
      "e quella del browser delle ricerche, che e' un altro"),
+    ("nova-browser/src/ricerca.rs", "ATTESA_AVVIO_S",
+     lambda: numero("nova/cerca.py", "ATTESA_AVVIO_S"),
+     "quanto si aspetta che il browser delle ricerche apra la porta (D363)"),
     ("nova-fogli/src/lib.rs", "RIGHE_MAX",
      lambda: numero("nova/fogli.py", "RIGHE_MAX"),
      "dove ci si ferma leggendo un foglio: se le due meta' si fermassero in "
