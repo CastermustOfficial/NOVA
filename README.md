@@ -568,9 +568,10 @@ browser — e non conta come fallimento: contarla bloccherebbe ogni modifica.
 | GPU | facoltativa: serve solo per il modello locale |
 
 NOVA e' legata a Windows in profondita': l'automazione usa UI Automation e
-l'archivio credenziali usa DPAPI. Su macOS e Linux il codice compila ma non
-fa niente. **Non serve ne' Rust ne' Visual Studio**: il core arriva gia'
-compilato.
+l'archivio credenziali usa DPAPI. Su macOS e Linux il demone gira e fa quello
+che non ha bisogno delle finestre, ma l'installatore c'e' solo per Windows:
+la tabella in «Perche' Rust, e perche' un demone» dice cosa c'e' e cosa manca.
+**Non serve ne' Rust ne' Visual Studio**: il core arriva gia' compilato.
 
 ### Passi
 

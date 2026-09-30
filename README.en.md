@@ -579,9 +579,10 @@ every change.
 | GPU | optional: only needed for the local model |
 
 NOVA is tied to Windows deeply: automation uses UI Automation and the
-credential store uses DPAPI. On macOS and Linux the code compiles but does
-nothing. **Neither Rust nor Visual Studio is needed**: the core ships already
-compiled.
+credential store uses DPAPI. On macOS and Linux the daemon runs and does what
+doesn't need windows, but the installer exists only for Windows: the table in
+«Why Rust, and why a daemon» says what is there and what is missing.
+**Neither Rust nor Visual Studio is needed**: the core ships already compiled.
 
 ### Steps
 

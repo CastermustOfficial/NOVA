@@ -57,3 +57,11 @@ Aggiornato al 30 settembre 2026. Le idee che c'erano già erano sparse nei docum
 **Perché è scartata.** Scelto con Gio (D365): nel vault finivano nomi ed email di persone che a NOVA non hanno mai detto niente, e ci restavano per sempre. Una persona entra in memoria quando è l'utente a nominarla.
 
 **Cosa costerebbe riprenderla.** Un consenso esplicito, e una prova che nessuna email entri nel vault senza.
+
+## Il recinto nel kernel, a ring 0
+
+**Cosa.** Detto da Gio il 30 settembre, per dopo: arrivera' il momento di lavorare a ring 0, con l'assembly dove serve, e senza compromessi nemmeno con Linux. Il recinto di oggi usa quello che il sistema offre a un programma normale: Landlock su Linux (D301), e su Windows il token ristretto e il job object che sono il primo punto del piano. A ring 0 il confine lo terrebbe codice di NOVA dentro il kernel: un minifilter del file system su Windows; su Linux un programma eBPF agganciato ai controlli di sicurezza del kernel (BPF LSM), o un kernel costruito apposta.
+
+**Perche'.** Da un programma normale certe cose non si chiudono: un comando confinato puo' chiedere a un processo fuori dal recinto di agire al posto suo (il servizio delle attivita' pianificate, WMI, un server COM, D-Bus su Linux). Dal kernel si vede ogni apertura di file e ogni processo che nasce, anche quelli fatti nascere da altri su richiesta del comando: e' il punto da cui quella strada si puo' chiudere, anche se capire chi ha chiesto cosa non e' gratis.
+
+**Cosa costerebbe.** Molto, e va detto intero prima di cominciare. Su Windows un driver del kernel si carica solo firmato: serve un certificato EV e la firma di Microsoft, e un errore non chiude un programma, ferma il PC. Su Linux un modulo esterno non puo' registrarsi fra i controlli di sicurezza del kernel: resta BPF LSM, che va acceso all'avvio del kernel (`lsm=...,bpf`) e che molte distribuzioni tengono spento, oppure un kernel proprio. Le prove girano in macchine virtuali, non sul PC di chi sviluppa. Va dopo il recinto da programma normale, che resta comunque: e' quello che serve a chi non installa un driver.
