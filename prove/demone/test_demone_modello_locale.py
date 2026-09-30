@@ -128,7 +128,7 @@ def configura(**server):
         "system_prompt": "Sei NOVA di prova.",
         "server": base,
         "model": {"max_tool_iterations": 2},
-        "kb": {"vault_path": str(casa / "vault"), "procedure": False},
+        "kb": {"vault_path": str(casa / "vault"), "procedure": False, "auto_seed": False},
         "brains": {"active": "locale", "routing": {
             "scala": ["locale"],
             "tiers": {"locale": {"brain": "locale", "locale": True}},

@@ -2,7 +2,7 @@
 
 Ogni possibile miglioria, anche solo teorica o non ancora decisa. Per ognuna: cosa, perché, cosa costerebbe. Un'idea non è un impegno: quando si decide di farla passa in [`piano/`](../piano/README.md), quando la si scarta resta qui con il perché.
 
-Aggiornato al 29 settembre 2026. Le idee che c'erano già erano sparse nei documenti: qui sono raccolte, con il rimando a dove sono nate.
+Aggiornato al 30 settembre 2026. Le idee che c'erano già erano sparse nei documenti: qui sono raccolte, con il rimando a dove sono nate.
 
 ## CANT-12: decisioni tipizzate al posto delle euristiche
 
@@ -41,3 +41,19 @@ Aggiornato al 29 settembre 2026. Le idee che c'erano già erano sparse nei docum
 **Perché.** La prima risposta non aspetterebbe il caricamento.
 
 **Scartata per ora** (D358): costa gigabyte di memoria video anche a chi quel giorno usa Claude, e la versione Python non l'ha mai fatto. Si può riaprire come impostazione, spenta di serie.
+
+## Riseminare i progetti nuovi
+
+**Cosa.** La prima mappatura del PC si fa una volta sola (D365). Un progetto nato dopo entra in memoria solo se NOVA lo impara parlando, o se si rilancia `novad --semina`. Si potrebbe riguardare le cartelle dei progetti ogni tanto, per esempio una volta alla settimana, e aggiungere solo quelli nuovi.
+
+**Perché.** La mappa invecchia: dopo qualche mese i progetti su cui si lavora non sono più quelli del primo giorno.
+
+**Cosa costerebbe.** Poco codice: `trova_progetti` c'è già. Da decidere cosa fare di un progetto sparito dal disco (archiviarlo o lasciarlo) e come non riscrivere un nodo che l'utente ha corretto a mano: `salva` fonde, ma la fusione di un corpo corretto con quello scansionato va provata.
+
+## Le persone nella prima mappatura — scartata
+
+**Cosa.** Il Python deduceva i collaboratori dai commit dei repository e ne scriveva un nodo per ciascuno, con l'email.
+
+**Perché è scartata.** Scelto con Gio (D365): nel vault finivano nomi ed email di persone che a NOVA non hanno mai detto niente, e ci restavano per sempre. Una persona entra in memoria quando è l'utente a nominarla.
+
+**Cosa costerebbe riprenderla.** Un consenso esplicito, e una prova che nessuna email entri nel vault senza.

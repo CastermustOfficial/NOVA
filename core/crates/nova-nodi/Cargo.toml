@@ -17,6 +17,10 @@ nova-guasti = { path = "../nova-guasti" }
 # il registro del vault e per quello delle azioni, e una regola sola non puo'
 # stare dentro uno dei due (D73).
 nova-potatura = { path = "../nova-potatura" }
+# La semina scrive i byte come li scrive Python (`pesa`), e legge i README
+# come li legge Python: le righe, i bianchi, i byte rotti (`nova-pitone`).
+nova-dati = { path = "../nova-dati" }
+nova-pitone = { path = "../nova-pitone" }
 serde = { workspace = true, features = ["derive"], optional = true }
 # Le risposte del modulo di memoria arrivano in JSON (`imparare`).
 serde_json = { workspace = true }

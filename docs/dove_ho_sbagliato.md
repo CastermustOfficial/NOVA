@@ -1282,3 +1282,27 @@ la prova non accende niente.
 La regola: «come il Python» in un commento e' un'affermazione come un'altra,
 e si verifica sul codice prima di scriverla. E una prova che dice «qui non
 serve X» deve togliere X, non sperare che manchi.
+
+## Ho portato la memoria senza chi creava il vault
+
+Nel Python il vault lo creava `Vault(...)` all'avvio di NOVA: una riga,
+`self.root.mkdir(parents=True, exist_ok=True)`, dentro il costruttore. Portando
+la memoria nel demone ho portato la lettura, la scrittura, l'apprendimento, e
+non quella riga. Il demone controllava che la cartella ci fosse: se non
+c'era, chi imparava lasciava perdere in silenzio, e `kb_nota` rispondeva che
+la memoria non c'era. E il commento di `memoria::percorso`
+diceva che il vault «lo mette l'installatore», cosa che l'installatore non ha
+mai fatto.
+
+Su un'installazione nuova, quindi, la memoria non c'era proprio. Non me ne
+sono accorto perche' sul PC di Gio il vault c'e', creato dal Python, che
+l'ha seminato il 19 agosto. L'ho visto il 30 settembre, cercando dove agganciare la prima
+mappatura del PC (D365): per seminare il vault serve che ci sia, e non lo
+creava nessuno.
+
+Adesso lo crea il demone quando si accende, e il commento dice il vero.
+
+La regola: quando si porta un pezzo, si guarda anche cosa fa il suo
+costruttore, e chi lo chiamava all'avvio. Una riga che crea una cartella non
+sembra una funzione, e per questo non finisce nell'elenco di quelle da
+portare.

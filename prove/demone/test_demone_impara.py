@@ -118,7 +118,7 @@ vault.mkdir(parents=True, exist_ok=True)
     "system_prompt": "Sei NOVA di prova.",
     "server": {"host": "127.0.0.1", "port": porta},
     "model": {"max_tool_iterations": 3},
-    "kb": {"vault_path": str(vault), "procedure": False},
+    "kb": {"vault_path": str(vault), "procedure": False, "auto_seed": False},
     "brains": {"active": "locale", "routing": {
         "scala": ["locale"], "tiers": {"locale": {"brain": "locale", "locale": True}},
         "escalation_automatica": False}},

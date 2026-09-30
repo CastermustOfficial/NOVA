@@ -101,7 +101,10 @@ CONFIG = Path(casa) / "NOVA" / "config.json"
 
 
 def configura(autonomia):
+    # La memoria spenta: questa prova non la usa, e il demone acceso la
+    # creerebbe e la seminerebbe nel vault del progetto (D365).
     CONFIG.write_text(json.dumps({
+        "kb": {"enabled": False},
         "server": {"host": "127.0.0.1", "port": server.server_address[1]},
         "safety": {"autonomy": autonomia},
         "brains": {"routing": {"scala": ["locale"],

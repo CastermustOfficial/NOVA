@@ -48,7 +48,9 @@ from nova.core_client import CoreClient                           # noqa: E402
 
 casa = tempfile.mkdtemp(prefix="nova-documenti-d-")
 (Path(casa) / "NOVA").mkdir(parents=True, exist_ok=True)
-(Path(casa) / "NOVA" / "config.json").write_text("{}", encoding="utf-8")
+# La memoria spenta: questa prova non la usa, e il demone acceso la
+# creerebbe e la seminerebbe nel vault del progetto (D365).
+(Path(casa) / "NOVA" / "config.json").write_text('{"kb": {"enabled": false}}', encoding="utf-8")
 (Path(casa) / "note.txt").write_bytes("uno\r\ndue è\r\n".encode("utf-8"))
 try:
     from docx import Document

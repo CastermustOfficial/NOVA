@@ -4,6 +4,7 @@ use nova_nodi::fusione;
 use nova_nodi::imparare;
 use nova_nodi::deposito::{Deposito, Disco, DiscoScrivibile, Impronta, NessunControllo};
 use nova_nodi::posto;
+use nova_nodi::semina;
 use std::collections::{BTreeMap, HashMap};
 use nova_nodi::{come_lista, dividi_frontmatter, slug, Nodo};
 use serde::{Deserialize, Serialize};
@@ -109,6 +110,43 @@ enum Domanda {
         slug: String,
         #[serde(default)]
         esistenti: HashMap<String, String>,
+    },
+    /// La prima mappatura del PC (D365): i nodi che se ne fanno.
+    #[serde(rename = "semina_progetto")]
+    SeminaProgetto {
+        percorso: String,
+        nome: String,
+        git: bool,
+        #[serde(default)]
+        remote: String,
+        #[serde(default)]
+        marcatori: Vec<String>,
+        #[serde(default)]
+        readme: String,
+    },
+    #[serde(rename = "semina_app")]
+    SeminaApp { installate: Vec<String> },
+    /// I byte di un README, come li troverebbe il Python sul disco.
+    #[serde(rename = "semina_readme")]
+    SeminaReadme { byte: Vec<u8> },
+    #[serde(rename = "semina_preferenze")]
+    SeminaPreferenze { lingua: String },
+    #[serde(rename = "semina_ambiente")]
+    SeminaAmbiente {
+        #[serde(default)]
+        sistema: String,
+        #[serde(default)]
+        build: u32,
+        #[serde(default)]
+        cpu: String,
+        #[serde(default)]
+        gpu: String,
+        #[serde(default)]
+        ram_byte: u64,
+        #[serde(default)]
+        modello: String,
+        #[serde(default)]
+        runtime: String,
     },
 }
 
@@ -277,6 +315,26 @@ fn main() {
             // fa passare un confronto che non e' mai avvenuto.
             Err(e) => Risposta { errore: Some(format!("{e}")), ..vuota() },
             Ok(Domanda::Slug { testo }) => Risposta { slug: Some(slug(&testo)), ..vuota() },
+            Ok(Domanda::SeminaProgetto { percorso, nome, git, remote, marcatori, readme }) => {
+                let p = semina::Progetto { percorso, nome, git, remote, marcatori, readme };
+                Risposta { nodo: Some(semina::nodo_progetto(&p).into()), ..vuota() }
+            }
+            Ok(Domanda::SeminaApp { installate }) => Risposta {
+                nodo: semina::nodo_app(&installate).map(Into::into),
+                ..vuota()
+            },
+            Ok(Domanda::SeminaReadme { byte }) => Risposta {
+                testo: Some(semina::prima_riga_readme(&nova_pitone::testo_ignorando(&byte))),
+                ..vuota()
+            },
+            Ok(Domanda::SeminaPreferenze { lingua }) => Risposta {
+                nodo: Some(semina::nodo_preferenze(&lingua).into()),
+                ..vuota()
+            },
+            Ok(Domanda::SeminaAmbiente { sistema, build, cpu, gpu, ram_byte, modello, runtime }) => {
+                let a = semina::Ambiente { sistema, build, cpu, gpu, ram_byte, modello, runtime };
+                Risposta { nodo: Some(semina::nodo_ambiente(&a).into()), ..vuota() }
+            }
             Ok(Domanda::Impara { testo }) => Risposta {
                 imparati: Some(
                     imparare::nodi_dalla_risposta(&testo).into_iter().map(Into::into).collect(),

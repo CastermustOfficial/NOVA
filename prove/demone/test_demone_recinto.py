@@ -64,6 +64,9 @@ lavoro.mkdir(parents=True)
 altrove.mkdir(parents=True)
 
 (Path(casa) / "NOVA").mkdir(parents=True, exist_ok=True)
+# La memoria spenta: questa prova non la usa, e il demone acceso la
+# creerebbe e la seminerebbe nel vault del progetto (D365).
+(Path(casa) / "NOVA" / "config.json").write_text('{"kb": {"enabled": false}}', encoding="utf-8")
 (Path(casa) / "NOVA" / "core.json").write_text(json.dumps({
     "write_roots": [str(lavoro)],
     "autonomy": "autonomous",

@@ -458,3 +458,66 @@ pub fn leggi_testo(p: &std::path::Path) -> std::io::Result<String> {
         .replace("\r\n", "\n")
         .replace('\r', "\n"))
 }
+
+/// `bytes.decode("utf-8", errors="ignore")`: i byte che non sono UTF-8 si
+/// tolgono, invece di diventare `\u{fffd}`.
+///
+/// `String::from_utf8_lossy` fa l'altra cosa, quella di `errors="replace"`,
+/// e le due non si confondono: un README salvato in Latin-1 letto con la
+/// prima regola dice «perch», con la seconda «perch\u{fffd}». Un
+/// `\u{fffd}` scritto davvero nel file invece resta, perche' e' UTF-8 valido.
+///
+/// Si scrive a mano, e non con `Utf8Chunks`, perche' quello chiede Rust
+/// 1.79 e lo spazio di lavoro ne promette 1.75.
+pub fn utf8_ignorando(mut b: &[u8]) -> String {
+    let mut fuori = String::with_capacity(b.len());
+    loop {
+        match std::str::from_utf8(b) {
+            Ok(t) => {
+                fuori.push_str(t);
+                return fuori;
+            }
+            Err(e) => {
+                let buoni = e.valid_up_to();
+                // Sicuro: `valid_up_to` dice fin dove i byte sono UTF-8.
+                fuori.push_str(std::str::from_utf8(&b[..buoni]).unwrap_or_default());
+                match e.error_len() {
+                    // Il pezzo rotto: si salta, come fa Python.
+                    Some(n) => b = &b[buoni + n..],
+                    // Una sequenza tagliata in fondo: anche quella si toglie.
+                    None => return fuori,
+                }
+            }
+        }
+    }
+}
+
+/// I byte di un file letto in modo testo con `errors="ignore"`: via i byte
+/// rotti, e gli a capo universali come [`leggi_testo`].
+pub fn testo_ignorando(b: &[u8]) -> String {
+    utf8_ignorando(b).replace("\r\n", "\n").replace('\r', "\n")
+}
+
+/// `Path(p).read_text(encoding="utf-8", errors="ignore")`.
+pub fn leggi_testo_ignorando(p: &std::path::Path) -> std::io::Result<String> {
+    Ok(testo_ignorando(&std::fs::read(p)?))
+}
+
+#[cfg(test)]
+mod prove_ignorando {
+    use super::*;
+
+    #[test]
+    fn i_byte_rotti_si_tolgono_e_il_resto_resta() {
+        // «perché» in Latin-1: la «é» e' un byte solo, 0xE9, che in UTF-8
+        // da solo non vuol dire niente.
+        assert_eq!(utf8_ignorando(b"perch\xe9 no"), "perch no");
+        assert_eq!(utf8_ignorando("già".as_bytes()), "già");
+        // Un `\u{fffd}` scritto davvero non e' un errore.
+        assert_eq!(utf8_ignorando("a\u{fffd}b".as_bytes()), "a\u{fffd}b");
+        // Una sequenza di tre byte tagliata in fondo sparisce.
+        assert_eq!(utf8_ignorando(b"ok\xe2\x82"), "ok");
+        // Due errori di fila, e testo in mezzo.
+        assert_eq!(utf8_ignorando(b"\xff\xfeuno\xc3due"), "unodue");
+    }
+}

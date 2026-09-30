@@ -2843,6 +2843,11 @@ Non e' una data, sono cinque frasi che devono essere vere insieme:
 > 0,46 s misurati. Per la quinta frase, i numeri che D359 dichiarava presi
 > dal Python adesso sono presi tutti dal demone.
 
+> **Il 30 settembre** (D365). Delle due cose che il README diceva «manca», la
+> mappatura iniziale del PC adesso c'e'. Resta l'embedding da un modello
+> vero. E il README ora dice anche che il demone non guarda `kb.enabled` e
+> `kb.inject_context`: era una promessa che non si vedeva.
+
 > **Primo passo sulla prima frase, il 6 settembre.** Non si puo' installare
 > NOVA su un'altra macchina da questa, ma si puo' leggere **cosa NOVA dice a
 > chi non ha gia' tutto**. I percorsi personali erano gia' a posto, e i

@@ -67,8 +67,10 @@ struct Aperta {
 
 /// Dove sta il vault, secondo la configurazione di NOVA.
 ///
-/// `kb.vault_path` se c'e'; se no la cartella `vault` accanto al progetto,
-/// che e' dove la mette l'installatore. La stessa regola di `kb_setup`.
+/// `kb.vault_path` se c'e'; se no la cartella `vault` accanto al progetto.
+/// La stessa regola di `kb_setup`. La cartella la crea il demone quando si
+/// accende, se la memoria e' accesa ([`crate::semina::prepara_vault`]):
+/// l'installatore non l'ha mai creata, e fino al D365 non la creava nessuno.
 pub fn percorso(cfg: &Value, radice_progetto: &Path) -> PathBuf {
     let scritto = cfg
         .get("kb")
@@ -91,13 +93,20 @@ pub fn percorso(cfg: &Value, radice_progetto: &Path) -> PathBuf {
 /// progetto. Se non si trova niente, la cartella di lavoro — che e' quel che
 /// faceva il Python prima di avere un'installazione vera.
 pub fn radice_progetto() -> PathBuf {
+    radice_trovata()
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
+}
+
+/// La radice del progetto, solo se si e' trovata davvero: senza il ripiego
+/// sulla cartella di lavoro, per chi deve **creare** qualcosa li' dentro.
+pub fn radice_trovata() -> Option<PathBuf> {
     let mut p = std::env::current_exe().unwrap_or_default();
     while p.pop() {
         if p.join("nova").join("agent.py").is_file() {
-            return p;
+            return Some(p);
         }
     }
-    std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+    None
 }
 
 impl Memoria {

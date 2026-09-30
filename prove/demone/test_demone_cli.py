@@ -117,7 +117,7 @@ def configura(spec: dict, brain: str = "finta") -> None:
         # di rete invece di passare per sbaglio.
         "server": {"host": "127.0.0.1", "port": 1},
         "model": {"max_tool_iterations": 4},
-        "kb": {"vault_path": str(Path(casa) / "vault"), "procedure": False},
+        "kb": {"vault_path": str(Path(casa) / "vault"), "procedure": False, "auto_seed": False},
         "brains": {
             "active": brain,
             "cli": {"finta": spec},
