@@ -1306,3 +1306,21 @@ La regola: quando si porta un pezzo, si guarda anche cosa fa il suo
 costruttore, e chi lo chiamava all'avvio. Una riga che crea una cartella non
 sembra una funzione, e per questo non finisce nell'elenco di quelle da
 portare.
+
+## Ho portato le chiavi della memoria senza chi le leggeva
+
+`kb.enabled` e `kb.inject_context` sono nel README, nella tabella della
+memoria, e il Python le leggeva: la prima in `prepara_kb`, la seconda
+in `_contesto_kb`. Portando la memoria nel demone ho portato i metodi, e non
+le due righe che decidevano se chiamarli. Il demone le chiavi non le
+guardava: chi spegneva la memoria se la ritrovava accesa, e nessun messaggio
+lo diceva.
+
+Me ne sono accorto scrivendo la semina (D365), che `kb.enabled` doveva
+guardarla, e cercando chi altro la guardasse: nessuno. Adesso le guarda la
+memoria stessa (D366).
+
+La regola: una chiave di configurazione portata vuol dire portato anche chi
+la legge. Quando si porta un modulo, per ogni chiave che il README elenca si
+cerca nel codice nuovo chi la legge; se non la legge nessuno, la chiave e'
+una promessa che non si mantiene.

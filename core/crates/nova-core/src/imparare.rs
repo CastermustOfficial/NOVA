@@ -64,12 +64,16 @@ static FILA: Fila = Fila {
 };
 
 /// L'apprendimento e' acceso, e quanto dev'essere lunga una domanda.
+///
+/// Acceso vuol dire `kb.auto_learn` **e** la memoria accesa: nel Python, con
+/// `kb.enabled` spento, chi impara non nasceva nemmeno (D366).
 fn regole(cfg: &Value) -> (bool, usize) {
     let kb = cfg.get("kb");
-    let acceso = kb
-        .and_then(|k| k.get("auto_learn"))
-        .and_then(Value::as_bool)
-        .unwrap_or(true);
+    let acceso = crate::memoria::accesa(cfg)
+        && kb
+            .and_then(|k| k.get("auto_learn"))
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
     let minimo = kb
         .and_then(|k| k.get("learn_min_chars"))
         .and_then(Value::as_u64)
@@ -225,5 +229,6 @@ mod prove {
             regole(&json!({ "kb": { "auto_learn": false, "learn_min_chars": 5 } })),
             (false, 5)
         );
+        assert_eq!(regole(&json!({ "kb": { "enabled": false } })), (false, 25));
     }
 }

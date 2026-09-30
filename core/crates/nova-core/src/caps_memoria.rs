@@ -69,6 +69,20 @@ fn configurazione() -> Value {
     nova_configurazione::dove::leggi()
 }
 
+/// La configurazione, se la memoria e' accesa; se no, lo si dice.
+///
+/// Senza questo, a memoria spenta `kb.cerca` risponderebbe «non c'e' niente
+/// in memoria» e `kb.stato` «nessun vault»: due frasi vere a meta', che
+/// fanno credere al modello che la memoria sia vuota invece che spenta.
+fn configurazione_accesa() -> Result<Value> {
+    let cfg = configurazione();
+    if crate::memoria::accesa(&cfg) {
+        Ok(cfg)
+    } else {
+        Err(anyhow!(crate::memoria::SPENTA))
+    }
+}
+
 /// Un nodo trovato, come lo legge il modello.
 ///
 /// Il corpo si taglia: un nodo lungo dentro una risposta di strumento occupa
@@ -129,7 +143,7 @@ impl Capability for KbCerca {
     async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
         let domanda = arg_str(&args, "query")?;
         let quanti = arg_u64(&args, "quanti", 5) as usize;
-        let cfg = configurazione();
+        let cfg = configurazione_accesa()?;
         let trovati =
             tokio::task::block_in_place(|| memoria().map(|m| m.cerca(&domanda, quanti, &cfg)))?;
         Ok(json!({
@@ -233,7 +247,7 @@ impl Capability for KbNota {
             ..Default::default()
         };
         nodo.slug = nova_nodi::slug::slug(&nodo.title);
-        let cfg = configurazione();
+        let cfg = configurazione_accesa()?;
         let salvato = tokio::task::block_in_place(|| {
             memoria().and_then(|m| m.salva(&cfg, nodo, true).map_err(|e| anyhow!("{e}")))
         })?;
@@ -282,7 +296,7 @@ impl Capability for KbCollega {
     async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
         let da = arg_str(&args, "da")?;
         let a = arg_str(&args, "a")?;
-        let cfg = configurazione();
+        let cfg = configurazione_accesa()?;
         let (primo, secondo) = tokio::task::block_in_place(|| {
             memoria().and_then(|m| m.collega(&cfg, &da, &a).map_err(|e| anyhow!("{e}")))
         })?;
@@ -310,7 +324,7 @@ impl Capability for KbVicini {
 
     async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
         let chi = arg_str(&args, "nodo")?;
-        let cfg = configurazione();
+        let cfg = configurazione_accesa()?;
         let esito = tokio::task::block_in_place(|| memoria().map(|m| m.vicini(&cfg, &chi)))?;
         let Some((slug, titolo, vicini)) = esito else {
             return Err(anyhow!("il nodo «{chi}» non c'e' in memoria"));
@@ -364,7 +378,7 @@ impl Capability for KbDimentica {
     async fn call(&self, args: Value, ctx: &Ctx) -> Result<Value> {
         let chi = arg_str(&args, "nodo")?;
         let motivo = arg_str_opt(&args, "motivo").unwrap_or_default();
-        let cfg = configurazione();
+        let cfg = configurazione_accesa()?;
         let fatto = tokio::task::block_in_place(|| {
             memoria().and_then(|m| m.archivia(&cfg, &chi, &motivo).map_err(|e| anyhow!("{e}")))
         })?;
@@ -411,7 +425,7 @@ impl Capability for KbStato {
     }
 
     async fn call(&self, _args: Value, _ctx: &Ctx) -> Result<Value> {
-        let cfg = configurazione();
+        let cfg = configurazione_accesa()?;
         let s = tokio::task::block_in_place(|| memoria().map(|m| m.statistiche(&cfg)))?
             .ok_or_else(|| anyhow!("la memoria non c'e' ancora: nessun vault su questo disco"))?;
         Ok(json!({
