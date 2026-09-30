@@ -1174,11 +1174,11 @@ beats `auto`.
 
 | Key | Default | What it does |
 |---|---|---|
-| `enabled` | `true` | enables the memory (for now the daemon only looks at it to create and seed the vault) |
+| `enabled` | `true` | enables the memory: when off, no vault is created, nothing is searched, written or learned |
 | `vault_path` | `NOVA\vault` | where the nodes live |
 | `auto_seed` | `true` | initial mapping of the PC, the first time the daemon starts |
 | `auto_learn` | `true` | automatic writing after every exchange |
-| `inject_context` | `true` | context injection before the turn (for now the daemon doesn't look at it: it always injects) |
+| `inject_context` | `true` | context injection before the turn |
 | `top_k` | `5` | how many nodes enter the prompt |
 | `min_confidence` | `0.25` | below this threshold a node is not used |
 | `embedder` | `hash` | `hash`, the home embedding: offline, no models |

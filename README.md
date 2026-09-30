@@ -1167,11 +1167,11 @@ vince sempre su `auto`.
 
 | Chiave | Default | Cosa fa |
 |---|---|---|
-| `enabled` | `true` | attiva la memoria (il demone per ora la guarda solo per creare il vault e seminarlo) |
+| `enabled` | `true` | attiva la memoria: spenta, non si crea il vault, non si cerca, non si scrive e non si impara |
 | `vault_path` | `NOVA\vault` | dove vivono i nodi |
 | `auto_seed` | `true` | mappatura iniziale del PC, alla prima accensione del demone |
 | `auto_learn` | `true` | scrittura automatica dopo ogni scambio |
-| `inject_context` | `true` | iniezione del contesto prima del turno (il demone per ora non la guarda: inietta sempre) |
+| `inject_context` | `true` | iniezione del contesto prima del turno |
 | `top_k` | `5` | quanti nodi entrano nel prompt |
 | `min_confidence` | `0.25` | sotto questa soglia un nodo non viene usato |
 | `embedder` | `hash` | `hash`, l'embedding di casa: offline, niente modelli |

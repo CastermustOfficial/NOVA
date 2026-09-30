@@ -11293,3 +11293,12 @@ La parte noiosa e' stata un'altra: ventiquattro prove del demone, accendendolo,
 avrebbero creato e seminato il vault del progetto. Adesso ognuna dice cosa
 vuole dalla memoria. E guardando le chiavi della memoria e' venuto fuori che
 il demone `kb.enabled` e `kb.inject_context` non li guarda: e' nel piano.
+
+## 30 settembre 2026, sera — Le chiavi della memoria
+
+Gio ha detto di procedere con le due chiavi che il demone ignorava. Adesso
+`kb.enabled` spento spegne la memoria davvero, e lo dice a chi la interroga
+invece di fingerla vuota; `kb.inject_context` spento toglie il contesto dal
+turno (D366). Il controllo sta dentro la memoria e non nei quattro posti che
+la usano: la semina, arrivata stamattina, era la quarta strada, e se ne
+sarebbe aggiunta una quinta.

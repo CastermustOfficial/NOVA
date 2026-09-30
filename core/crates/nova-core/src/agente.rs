@@ -301,6 +301,18 @@ pub fn perche_non_pronto(g: &crate::mondo::Gradino) -> Option<String> {
 /// lancia, e lui inoltra al demone **questo**, per questo gli si passa
 /// l'indirizzo. Il server Python si copia dal collegamento che il Python ha
 /// gia' scritto nel vault, se c'e'.
+/// Il vault da nominare nel prompt di Claude: nessuno se la memoria e'
+/// spenta, come nel Python, dove il cervello riceveva `vault_path` vuoto e il
+/// prompt non parlava di memoria (D366). Gli strumenti del demone via MCP
+/// restano: la memoria spenta non spegne il resto.
+fn vault_per_claude(cfg: &Value, vault: &std::path::Path) -> String {
+    if crate::memoria::accesa(cfg) {
+        vault.to_string_lossy().to_string()
+    } else {
+        String::new()
+    }
+}
+
 fn collegamento_claude(
     server: &Arc<Server>,
     d: &nova_cervelli::claude::Dichiarato,
@@ -402,7 +414,7 @@ pub async fn fai_un_turno(
     {
         let vault = crate::memoria::percorso(&cfg, &crate::memoria::radice_progetto());
         let (mcp, sportello) = collegamento_claude(server, &recapiti.claude, &vault);
-        crate::mondo::collega_claude(&mut s.gradini, &vault.to_string_lossy(), &mcp, &sportello);
+        crate::mondo::collega_claude(&mut s.gradini, &vault_per_claude(&cfg, &vault), &mcp, &sportello);
     }
     // Si conta il prompt della sessione, non quello appena letto: e' lui
     // che viaggia nella richiesta.
@@ -415,7 +427,7 @@ pub async fn fai_un_turno(
     // L'ordine — domanda, memoria, procedure — non e' scelto qui: sta in
     // `nova_contesto::blocchi`, con scritto perche' l'istruzione resta
     // l'ultima cosa letta.
-    let memoria = nova_contesto::blocchi::memoria(&server.memoria.contesto_per(testo, &cfg));
+    let memoria = nova_contesto::blocchi::memoria(&server.memoria.contesto_del_turno(testo, &cfg));
     let procedure = crate::ricette::blocco_per(testo);
     // La postilla della voce e' un'istruzione per il cervello e basta: non
     // entra nella ricerca in memoria e non viene imparata. Per questo si
@@ -622,6 +634,13 @@ pub async fn chiedi_con(
 #[cfg(test)]
 mod prove {
     use super::*;
+
+    #[test]
+    fn a_memoria_spenta_claude_non_sente_parlare_del_vault() {
+        let v = std::path::Path::new("/casa/vault");
+        assert_eq!(vault_per_claude(&serde_json::json!({}), v), "/casa/vault");
+        assert_eq!(vault_per_claude(&serde_json::json!({ "kb": { "enabled": false } }), v), "");
+    }
 
     #[test]
     fn l_ora_si_scrive_come_la_scrive_python() {

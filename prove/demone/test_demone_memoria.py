@@ -195,6 +195,40 @@ try:
     controlla("e dimenticare finisce nel registro delle azioni",
               "rust" in riga and "era una prova" in riga, riga[-300:])
 
+    print("\n7. con kb.enabled spento la memoria dice di essere spenta (D366)")
+    # La configurazione si rilegge a ogni chiamata: basta riscriverla. Prima
+    # del D366 il demone la chiave non la guardava, e la memoria restava
+    # accesa lo stesso.
+    config = Path(casa) / "NOVA" / "config.json"
+    prima = config.read_text(encoding="utf-8")
+    spenta = json.loads(prima)
+    spenta["kb"]["enabled"] = False
+    file_prima = sorted(p.name for p in vault.rglob("*.md"))
+    config.write_text(json.dumps(spenta, ensure_ascii=False), encoding="utf-8")
+    try:
+        with CoreClient(endpoint, timeout=30) as c:
+            errori = {nome: errore_di(c, nome, args) for nome, args in (
+                ("kb.cerca", {"query": "gio"}),
+                ("kb.nota", {"titolo": "Da non scrivere", "testo": "La memoria e' spenta."}),
+                ("kb.collega", {"da": "gio-lavora-a-nova", "a": "rust"}),
+                ("kb.vicini", {"nodo": "gio-lavora-a-nova"}),
+                ("kb.dimentica", {"nodo": "gio-lavora-a-nova"}),
+                ("kb.stato", {}),
+            )}
+    finally:
+        config.write_text(prima, encoding="utf-8")
+    controlla("tutte e sei rispondono che la memoria e' spenta, non che e' vuota",
+              all(e and "la memoria e' spenta" in e for e in errori.values()),
+              json.dumps(errori, ensure_ascii=False)[:400])
+    controlla("e nel vault non e' entrato niente",
+              sorted(p.name for p in vault.rglob("*.md")) == file_prima,
+              str(sorted(p.name for p in vault.rglob("*.md"))))
+    with CoreClient(endpoint, timeout=30) as c:
+        riaccesa = c.call("kb.cerca", {"query": "a cosa lavora Gio"})
+    controlla("riaccesa, la memoria risponde di nuovo",
+              any(n["slug"] == "gio-lavora-a-nova" for n in riaccesa["nodi"]),
+              json.dumps(riaccesa, ensure_ascii=False)[:200])
+
 finally:
     try:
         with CoreClient(endpoint, timeout=5) as c:

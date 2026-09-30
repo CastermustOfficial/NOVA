@@ -2848,6 +2848,10 @@ Non e' una data, sono cinque frasi che devono essere vere insieme:
 > vero. E il README ora dice anche che il demone non guarda `kb.enabled` e
 > `kb.inject_context`: era una promessa che non si vedeva.
 
+> **Il 30 settembre, sera** (D366). Quella promessa adesso si mantiene:
+> le due chiavi valgono anche nel demone, e il README non ha piu' bisogno
+> di avvertire.
+
 > **Primo passo sulla prima frase, il 6 settembre.** Non si puo' installare
 > NOVA su un'altra macchina da questa, ma si puo' leggere **cosa NOVA dice a
 > chi non ha gia' tutto**. I percorsi personali erano gia' a posto, e i

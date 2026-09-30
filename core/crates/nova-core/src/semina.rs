@@ -32,22 +32,10 @@ pub struct Esito {
     pub rifiutati: Vec<String>,
 }
 
-/// La memoria e' accesa: `kb.enabled`, vero se non c'e'.
-pub fn memoria_accesa(cfg: &Value) -> bool {
-    chiave_kb(cfg, "enabled")
-}
-
 /// La semina da sola, alla prima accensione: `kb.auto_seed`, vero se non
 /// c'e'.
 pub fn semina_automatica(cfg: &Value) -> bool {
-    chiave_kb(cfg, "auto_seed")
-}
-
-fn chiave_kb(cfg: &Value, nome: &str) -> bool {
-    cfg.get("kb")
-        .and_then(|k| k.get(nome))
-        .and_then(Value::as_bool)
-        .unwrap_or(true)
+    crate::memoria::chiave_kb(cfg, "auto_seed")
 }
 
 /// Il vault, creato se manca. `None` se non si sa dove crearlo.
@@ -89,7 +77,7 @@ pub fn gia_fatta(vault: &Path) -> bool {
 /// seminato.
 pub fn all_avvio(memoria: &Memoria) -> Result<Option<Esito>, String> {
     let cfg = nova_configurazione::dove::leggi();
-    if !memoria_accesa(&cfg) {
+    if !crate::memoria::accesa(&cfg) {
         return Ok(None);
     }
     let Some(vault) = prepara_vault(&cfg)? else {
@@ -106,7 +94,7 @@ pub fn all_avvio(memoria: &Memoria) -> Result<Option<Esito>, String> {
 /// Python.
 pub fn adesso(memoria: &Memoria) -> Result<Option<Esito>, String> {
     let cfg = nova_configurazione::dove::leggi();
-    if !memoria_accesa(&cfg) {
+    if !crate::memoria::accesa(&cfg) {
         return Ok(None);
     }
     let Some(vault) = prepara_vault(&cfg)? else {
@@ -401,10 +389,8 @@ mod prove {
 
     #[test]
     fn le_chiavi_mancanti_valgono_vero() {
-        assert!(memoria_accesa(&serde_json::json!({})));
         assert!(semina_automatica(&serde_json::json!({"kb": {}})));
         assert!(!semina_automatica(&serde_json::json!({"kb": {"auto_seed": false}})));
-        assert!(!memoria_accesa(&serde_json::json!({"kb": {"enabled": false}})));
     }
 
     #[test]

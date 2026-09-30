@@ -65,6 +65,36 @@ struct Aperta {
     vettori: BTreeMap<String, Vec<f64>>,
 }
 
+/// La memoria e' accesa: `kb.enabled`, vero se non c'e'.
+///
+/// Nel Python, spenta, la memoria non si apriva proprio: niente vault,
+/// niente contesto prima del turno, niente apprendimento, e gli strumenti
+/// rispondevano che non era attiva (`kb_setup.prepara_kb`). Il demone la
+/// chiave non la guardava, e fino al D366 la memoria restava accesa lo
+/// stesso. Si controlla **qui**, nei metodi di [`Memoria`], e non in chi li
+/// chiama: le strade verso la memoria sono il turno, l'apprendimento, la
+/// semina e le capacita', e ognuna avrebbe dovuto ricordarsene.
+pub fn accesa(cfg: &Value) -> bool {
+    chiave_kb(cfg, "enabled")
+}
+
+/// Il contesto si mette in coda alla domanda: `kb.inject_context`, vero se
+/// non c'e'. E' `_contesto_kb` di `nova/agent.py`.
+pub fn da_iniettare(cfg: &Value) -> bool {
+    chiave_kb(cfg, "inject_context")
+}
+
+/// Una chiave vero/falso della sezione `kb`, vera se non c'e'.
+pub fn chiave_kb(cfg: &Value, nome: &str) -> bool {
+    cfg.get("kb")
+        .and_then(|k| k.get(nome))
+        .and_then(Value::as_bool)
+        .unwrap_or(true)
+}
+
+/// Cosa si risponde a chi chiede alla memoria quando e' spenta.
+pub const SPENTA: &str = "la memoria e' spenta: in configurazione `kb.enabled` e' falso";
+
 /// Dove sta il vault, secondo la configurazione di NOVA.
 ///
 /// `kb.vault_path` se c'e'; se no la cartella `vault` accanto al progetto.
@@ -149,7 +179,7 @@ impl Memoria {
     /// dal non averla interrogata.
     pub fn contesto_per(&self, domanda: &str, cfg: &Value) -> String {
         let radice = percorso(cfg, &radice_progetto());
-        if !radice.is_dir() {
+        if !accesa(cfg) || !radice.is_dir() {
             return String::new();
         }
         self.prepara(&radice);
@@ -229,6 +259,15 @@ impl Memoria {
         nova_memoria::come_contesto(&pezzi, massimo)
     }
 
+    /// Il contesto da mettere in coda alla domanda di un turno: vuoto se
+    /// `kb.inject_context` e' spento, come `_contesto_kb` del Python.
+    pub fn contesto_del_turno(&self, domanda: &str, cfg: &Value) -> String {
+        if !da_iniettare(cfg) {
+            return String::new();
+        }
+        self.contesto_per(domanda, cfg)
+    }
+
     /// Cosa la memoria sa di questa domanda, un nodo per riga.
     ///
     /// E' la stessa ricerca di [`Memoria::contesto_per`] — stesso indice,
@@ -237,7 +276,7 @@ impl Memoria {
     /// compositore del prompt, che vuole un blocco della misura giusta.
     pub fn cerca(&self, domanda: &str, quanti: usize, cfg: &Value) -> Vec<Trovato> {
         let radice = percorso(cfg, &radice_progetto());
-        if !radice.is_dir() {
+        if !accesa(cfg) || !radice.is_dir() {
             return Vec::new();
         }
         self.prepara(&radice);
@@ -368,7 +407,7 @@ impl Memoria {
     /// I nodi direttamente collegati a uno, per esplorare il grafo.
     pub fn vicini(&self, cfg: &Value, chi: &str) -> Option<(String, String, Vec<Trovato>)> {
         let radice = percorso(cfg, &radice_progetto());
-        if !radice.is_dir() {
+        if !accesa(cfg) || !radice.is_dir() {
             return None;
         }
         self.prepara(&radice);
@@ -395,7 +434,7 @@ impl Memoria {
     /// Lo stato della memoria: quanti nodi, di che tipo, quanti legami.
     pub fn statistiche(&self, cfg: &Value) -> Option<nova_nodi::deposito::Statistiche> {
         let radice = percorso(cfg, &radice_progetto());
-        if !radice.is_dir() {
+        if !accesa(cfg) || !radice.is_dir() {
             return None;
         }
         self.prepara(&radice);
@@ -415,6 +454,9 @@ impl Memoria {
         cfg: &Value,
         fai: impl FnOnce(&mut Aperta, &Cartella, String, String) -> Result<T, String>,
     ) -> Result<T, String> {
+        if !accesa(cfg) {
+            return Err(SPENTA.into());
+        }
         let radice = percorso(cfg, &radice_progetto());
         if !radice.is_dir() {
             return Err(format!(
@@ -442,6 +484,9 @@ impl Memoria {
     /// pertinenti a questo scambio. Solo i nodi vivi, come `vault.all()`.
     pub fn gia_noti(&self, cfg: &Value, scambio: &str) -> (String, String) {
         let radice = percorso(cfg, &radice_progetto());
+        if !accesa(cfg) {
+            return nova_nodi::imparare::gia_noti(std::iter::empty(), scambio);
+        }
         if radice.is_dir() {
             self.prepara(&radice);
         }
@@ -508,6 +553,57 @@ mod prove {
             "---\ntitle: {titolo}\ntipo: {tipo}\nconfidenza: {confidenza}\ntags: {tag}\n\
              aggiornato: 2026-09-01\n---\n\n{corpo}\n"
         )
+    }
+
+    #[test]
+    fn spenta_la_memoria_non_risponde_e_non_si_scrive() {
+        let radice = vault(
+            "spenta",
+            &[("posta.md", &nota("Come guardo la posta", "abitudine", 0.9, "posta", "Apro Gmail."))],
+        );
+        let cfg = json!({ "kb": { "vault_path": radice.to_string_lossy(), "enabled": false } });
+        let m = Memoria::default();
+        assert_eq!(m.contesto_per("come guardo la posta", &cfg), "");
+        assert_eq!(m.contesto_del_turno("come guardo la posta", &cfg), "");
+        assert!(m.cerca("posta", 5, &cfg).is_empty());
+        assert!(m.statistiche(&cfg).is_none());
+        assert!(m.vicini(&cfg, "come-guardo-la-posta").is_none());
+        let nuovo = nova_nodi::Nodo { title: "Un fatto".into(), body: "Da non scrivere.".into(), ..Default::default() };
+        assert_eq!(m.salva(&cfg, nuovo, true).unwrap_err(), SPENTA);
+        assert_eq!(m.archivia(&cfg, "come-guardo-la-posta", "").unwrap_err(), SPENTA);
+        let (noti, _) = m.gia_noti(&cfg, "come guardo la posta");
+        assert!(!noti.contains("come-guardo-la-posta"), "{noti}");
+        // Niente e' stato scritto: c'e' solo la nota di partenza.
+        let file: Vec<_> = std::fs::read_dir(&radice).unwrap().flatten().map(|e| e.file_name()).collect();
+        assert_eq!(file, ["posta.md"]);
+        // Riaccesa, la stessa memoria risponde.
+        let accesa = json!({ "kb": { "vault_path": radice.to_string_lossy() } });
+        assert!(m.contesto_per("come guardo la posta", &accesa).contains("Gmail"));
+        let _ = std::fs::remove_dir_all(&radice);
+    }
+
+    #[test]
+    fn senza_iniezione_il_turno_non_riceve_contesto_ma_la_ricerca_si() {
+        let radice = vault(
+            "iniezione",
+            &[("posta.md", &nota("Come guardo la posta", "abitudine", 0.9, "posta", "Apro Gmail."))],
+        );
+        let cfg = json!({ "kb": { "vault_path": radice.to_string_lossy(), "inject_context": false } });
+        let m = Memoria::default();
+        assert_eq!(m.contesto_del_turno("come guardo la posta", &cfg), "");
+        // La memoria resta accesa: il modello puo' ancora cercarci.
+        assert_eq!(m.cerca("posta", 5, &cfg).len(), 1);
+        let con = json!({ "kb": { "vault_path": radice.to_string_lossy() } });
+        assert!(m.contesto_del_turno("come guardo la posta", &con).contains("Gmail"));
+        let _ = std::fs::remove_dir_all(&radice);
+    }
+
+    #[test]
+    fn le_chiavi_della_memoria_valgono_vero_se_mancano() {
+        assert!(accesa(&json!({})));
+        assert!(da_iniettare(&json!({ "kb": {} })));
+        assert!(!accesa(&json!({ "kb": { "enabled": false } })));
+        assert!(!da_iniettare(&json!({ "kb": { "inject_context": false } })));
     }
 
     #[test]

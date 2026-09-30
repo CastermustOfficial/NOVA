@@ -368,6 +368,30 @@ try:
               dentro_tag.endswith(atteso_memoria) and bool(atteso_memoria),
               f"rust {dentro_tag[-120:]!r} vs python {atteso_memoria[-120:]!r}")
 
+    print("\n6b. con le chiavi spente la memoria non arriva (D366)")
+    # La configurazione si rilegge a ogni turno: basta riscriverla. Due
+    # sessioni nuove, cosi' la conversazione del punto 7 resta com'era.
+    config = Path(casa) / "NOVA" / "config.json"
+    prima = config.read_text(encoding="utf-8")
+    senza = {}
+    try:
+        for chiave, sessione in (("inject_context", "senzainiezione"), ("enabled", "memoriaspenta")):
+            dentro = json.loads(prima)
+            dentro["kb"][chiave] = False
+            config.write_text(json.dumps(dentro, ensure_ascii=False), encoding="utf-8")
+            with CoreClient(endpoint, timeout=60) as c:
+                c.request("agente/turno", {"testo": "come guardo la posta", "sessione": sessione})
+            senza[chiave] = [m for m in ultimo_turno()["messages"]
+                             if m.get("role") == "user"][-1].get("content", "")
+    finally:
+        config.write_text(prima, encoding="utf-8")
+    # Le procedure imparate al punto 5 arrivano lo stesso, in `<gia_fatto>`:
+    # le governa `kb.procedure`, non queste due chiavi, come nel Python.
+    controlla("con kb.inject_context spento la domanda arriva senza memoria",
+              "<memoria>" not in senza["inject_context"], senza["inject_context"][:300])
+    controlla("e con kb.enabled spento anche",
+              "<memoria>" not in senza["enabled"], senza["enabled"][:300])
+
     print("\n7. la conversazione resta fra un turno e l'altro")
     controlla("il secondo turno vede il primo",
               r2.get("righe_conversazione", 0) > r.get("righe_conversazione", 0),
