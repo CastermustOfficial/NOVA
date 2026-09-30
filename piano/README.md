@@ -2,27 +2,39 @@
 
 Cosa c'è da fare, in ordine. Quando una cosa è fatta si spunta, con il commit che l'ha chiusa.
 
-Il racconto lungo sta in [`docs/verso_la_beta.md`](../docs/verso_la_beta.md): le tre liste, i cantieri, il piano per il Rust e le cinque frasi del cancello della beta. Qui c'è solo l'elenco di quello che resta aperto, nell'ordine in cui si propone di farlo. L'ordine è una proposta da confermare con Gio, non una decisione presa.
+Il racconto lungo sta in [`docs/verso_la_beta.md`](../docs/verso_la_beta.md): le tre liste, i cantieri, il piano per il Rust e le cinque frasi del cancello della beta. Qui c'è solo l'elenco di quello che resta aperto, nell'ordine in cui lo si fa.
 
 Aggiornato al 30 settembre 2026.
 
 ## Da fare
 
-1. **Il cancello della beta, le frasi che si verificano da qui.** La quarta e la quinta sono avanzate con D359, D362, D363 e D365: i numeri del README adesso sono presi dal demone, compreso quello della ricerca, che dal D363 funziona, e la prima mappatura del PC non è più un «manca»; con D366 le chiavi della memoria fanno quello che il README dice. La prima, la seconda e la terza vogliono una macchina che non sia quella di Gio.
-2. **Le decisioni che spettano a Gio** (da `verso_la_beta.md`):
-   - il motore di ricalcolo dei fogli: `nova-fogli` legge i valori già calcolati e non ricalcola le formule (D281);
-   - `build.ps1`: cosa diventa per Mac e Linux;
-   - quando si chiude il cancello della beta.
-3. **Il recinto per i comandi su Windows.** Su Linux c'è Landlock (D301). Su Windows il token ristretto con il job object non c'è ancora (`recinto.rs`).
-4. **CANT-9, Mac e Linux alla pari.** Mancano la tastiera, le finestre e l'albero di accessibilità (AT-SPI2, Accessibility API), più l'avvio automatico. Servono macchine vere per scriverli onestamente.
-5. **`nova-mcp-cliente` attaccato a un binario.** Il cancello verso i server MCP di altri è scritto e provato (CANT-11), ma nessun binario lo usa ancora.
-6. **I vettori da un modello di embedding.** La versione Python sapeva chiederli a un secondo llama-server (`embedder: "llama"`). Il demone usa solo l'embedding di casa (D359).
+Deciso con Gio il 30 settembre: non ci sono scadenze, conta solo il risultato, e il codice si tratta come sicurezza militare. L'ordine l'ho scelto io, con un criterio solo: **prima quello che protegge**, poi quello che apre porte, poi il resto.
+
+### Il codice, in ordine
+
+1. **Il recinto per i comandi su Windows.** Su Linux i comandi partono dentro Landlock (D301): il kernel li lascia scrivere solo nelle cartelle dichiarate. Su Windows, la piattaforma principale, il confine è ancora solo quello della policy, cioè una regola nel processo che decide, e quel che passa il controllo gira con tutti i privilegi dell'utente (`recinto.rs`). Da fare: token ristretto e job object; AppContainer è il gradino sopra. Prima di scriverlo: le prove sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X) di cosa regge davvero, compresi i modi di uscirne, e la scelta su come le cartelle dichiarate diventano scrivibili, che tocca i permessi delle cartelle dell'utente e va decisa con Gio.
+2. **CANT-12, le decisioni che oggi sono euristiche.** `nova-decisioni` (quali decisioni, e cosa può uscire dal PC) e `nova-giudizio` (dai logit al giudizio) sono scritti e non li usa nessun binario. Mancano: la metà che chiede a llama-server (`n_probs`, `cache_prompt`, `/tokenize`), dopo le due verifiche scritte in `verso_la_beta.md`; per ogni decisione l'euristica di oggi e il modello dietro lo stesso tratto; il banco che li confronta sui casi di NOVA. Un giudizio può solo stringere una guardia, mai allentarla (D313).
+3. **`nova-mcp-cliente` attaccato a un binario.** Il cancello verso i server MCP di altri è scritto e provato (CANT-11), ma nessun binario lo usa. Va dopo il recinto e il giudizio perché è una porta verso l'esterno.
+4. **I vettori da un modello di embedding.** La versione Python sapeva chiederli a un secondo llama-server (`embedder: "llama"`). Il demone usa solo l'embedding di casa (D359).
+5. **Le compatibilità che sono codice.** Le CLI Codex e Qwen, nel menu e mai provate; i dialetti del tool calling di OpenRouter, Groq e Together; l'installatore per un utente senza diritti di amministratore.
+6. **Le ottimizzazioni aperte.** Gli schemi degli strumenti (circa 6.900 token, il blocco più grosso del prompt) e un prompt su misura per il modello di casa; lo speculative decoding; i round-trip del browser su un modulo intero; il modello di casa acceso all'avvio.
+7. **CANT-9, Mac e Linux alla pari.** Mancano la tastiera, le finestre e l'albero di accessibilità (AT-SPI2, Accessibility API), l'archivio delle credenziali, il recinto su macOS e l'avvio automatico. Servono macchine vere, e prima la decisione di Gio qui sotto.
+
+### Fuori dal codice
+
+- **Il cancello della beta, le frasi che si verificano da qui.** La quarta e la quinta sono avanzate con D359, D362, D363, D365 e D366. La prima, la seconda e la terza vogliono una macchina che non sia quella di Gio.
+- **Le decisioni che spettano a Gio** (da `verso_la_beta.md`):
+  - Mac e Linux: una promessa con una data, o NOVA è un programma Windows;
+  - automazioni e riparazioni: oggi NOVA si scrive strumenti in Python e si ripara provando le modifiche sul proprio Python, e tutta in Rust vorrebbe dire scegliere in che lingua si scrive da sola;
+  - il motore di ricalcolo dei fogli: `nova-fogli` legge i valori già calcolati e non ricalcola le formule (D281);
+  - `build.ps1`: cosa diventa per Mac e Linux;
+  - quando si chiude il cancello della beta.
 
 ## Fatto
 
 Quando una voce si chiude la si sposta qui, con la data e il commit.
 
-- 30/09/2026: `kb.enabled` e `kb.inject_context` valgono anche nel demone (D366).
+- 30/09/2026: `kb.enabled` e `kb.inject_context` valgono anche nel demone (D366, `6b0b752`).
 - 30/09/2026: la prima mappatura del PC nel demone, e il vault che il demone crea da sé (D365, `46dd2fc`).
 - 29/09/2026: `rete.cerca` cerca prima col browser senza finestra, come il Python (D363, `c45dc0a`).
 - 29/09/2026: leggere la pagina dei risultati non solleva più, e `test_cerca.py` non accende un Edge vero (D364, `861d0bd`).
