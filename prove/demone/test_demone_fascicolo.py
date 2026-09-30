@@ -52,7 +52,7 @@ appdata = lavoro / "appdata"
 vault = lavoro / "vault"
 vault.mkdir()
 (vault / "a.md").write_text("---\ntitle: A\n---\n\nciao\n", encoding="utf-8")
-(appdata / "NOVA" / "config.json").write_text(json.dumps({"kb": {"vault_path": str(vault)}}),
+(appdata / "NOVA" / "config.json").write_text(json.dumps({"kb": {"vault_path": str(vault), "auto_seed": False}}),
                                               encoding="utf-8")
 for k in ("HOME", "USERPROFILE"):
     os.environ[k] = str(casa)

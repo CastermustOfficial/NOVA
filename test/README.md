@@ -120,7 +120,7 @@ Cosa serve: niente: puro Python, la prima versione di NOVA.
 | `test_visione.py` | COM-11. Il modello locale che non vede, e cosa succede se lo si ignora. |
 | `test_voce.py` | Voce: le decisioni che si prendono senza rete. |
 
-## `prove/gemelli/`: 28 prove
+## `prove/gemelli/`: 29 prove
 
 Cosa serve: un banco Rust costruito con `cargo`: la prova stampa la riga per costruirlo.
 
@@ -153,9 +153,10 @@ Cosa serve: un banco Rust costruito con `cargo`: la prova stampa la riga per cos
 | `test_ricette_rust.py` | Le due versioni delle ricette devono dire la stessa cosa. |
 | `test_salita_rust.py` | Salire di gradino e girare a vuoto devono decidersi identici in Rust. |
 | `test_scala_rust.py` | La scala in Rust deve decidere esattamente come decide in Python. |
+| `test_semina_rust.py` | La prima mappatura del PC scrive in Rust gli stessi nodi del Python. |
 | `test_strumenti_rust.py` | Gli strumenti dichiarati allo stesso modo, in Rust. |
 
-## `prove/demone/`: 25 prove
+## `prove/demone/`: 26 prove
 
 Cosa serve: il binario `novad` costruito.
 
@@ -183,6 +184,7 @@ Cosa serve: il binario `novad` costruito.
 | `test_demone_ricerca.py` | La ricerca del demone, col browser senza finestra, con un browser vero. |
 | `test_demone_riparazione.py` | NOVA si ripara in Rust: banco, prove, binari nuovi, e ritorno (D349). |
 | `test_demone_schermo.py` | Lo schermo in un'immagine, dal demone. |
+| `test_demone_semina.py` | La prima mappatura del PC, fatta dal demone quando si accende (D365). |
 | `test_demone_sistema.py` | Gli appunti, il volume, le notifiche, l'ora e com'e' fatto il PC, dal demone. |
 | `test_demone_turno.py` | Il demone fa un turno intero da solo: chiede, esegue, risponde. |
 | `test_demone_web.py` | Il browser di NOVA, guidato dal demone, con un browser vero. |

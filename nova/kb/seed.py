@@ -23,6 +23,20 @@ from .store import Vault
 CARTELLE_PROGETTI = ["Desktop", "Documents", "Documenti", "progettoX", "source", "repos", "dev"]
 IGNORA = {"node_modules", "__pycache__", ".venv", "venv", "dist", "build",
           ".git", "AppData", "OneDrive"}
+# Gli elenchi e i numeri qui sotto stanno fuori dalle funzioni perche' il
+# demone ha i suoi gemelli, in `nova-nodi/src/semina.rs`, e
+# `test_elenchi_gemelli.py` li confronta voce per voce (D365).
+MARCATORI = ("package.json", "pyproject.toml", "requirements.txt",
+             "Cargo.toml", "go.mod", "README.md", "index.html")
+LEGGIMI = ("README.md", "readme.md", "README.MD")
+TAG_DEI_MARCATORI = (("package.json", "node"), ("pyproject.toml", "python"),
+                     ("requirements.txt", "python"), ("Cargo.toml", "rust"),
+                     ("go.mod", "go"))
+RUMORE_APP = ("redistributable", "runtime", "update for", "driver", "sdk",
+              "microsoft visual c++", "hotfix", "language pack")
+MAX_PROGETTI = 40
+PROFONDITA_PROGETTI = 2
+MAX_APP = 120
 
 
 def _git(*argomenti: str, timeout: int = 30) -> str:
@@ -96,18 +110,16 @@ def nodo_preferenze() -> Node:
 
 
 # ------------------------------------------------------- 2. progetti e cartelle
-def trova_progetti(max_progetti: int = 40) -> list[dict]:
+def trova_progetti(max_progetti: int = MAX_PROGETTI) -> list[dict]:
     home = Path.home()
     trovati: dict[str, dict] = {}
     for nome in CARTELLE_PROGETTI:
         radice = home / nome
         if not radice.is_dir():
             continue
-        for figlio in _sottocartelle(radice, profondita=2):
+        for figlio in _sottocartelle(radice, profondita=PROFONDITA_PROGETTI):
             git_dir = figlio / ".git"
-            marcatori = [m for m in ("package.json", "pyproject.toml", "requirements.txt",
-                                     "Cargo.toml", "go.mod", "README.md", "index.html")
-                         if (figlio / m).exists()]
+            marcatori = [m for m in MARCATORI if (figlio / m).exists()]
             if not git_dir.exists() and not marcatori:
                 continue
             remote = ""
@@ -141,7 +153,7 @@ def _sottocartelle(radice: Path, profondita: int) -> list[Path]:
 
 
 def _prima_riga_readme(cartella: Path) -> str:
-    for nome in ("README.md", "readme.md", "README.MD"):
+    for nome in LEGGIMI:
         f = cartella / nome
         if f.exists():
             try:
@@ -165,8 +177,7 @@ def nodo_progetto(p: dict) -> Node:
     tags = ["progetto"]
     if p["git"]:
         tags.append("git")
-    for m, t in (("package.json", "node"), ("pyproject.toml", "python"),
-                 ("requirements.txt", "python"), ("Cargo.toml", "rust"), ("go.mod", "go")):
+    for m, t in TAG_DEI_MARCATORI:
         if m in p["marcatori"] and t not in tags:
             tags.append(t)
     return Node(
@@ -237,14 +248,12 @@ def nodi_app(limite: int = 25) -> list[Node]:
     installate = macchina.applicazioni()
     if installate is None:
         return []
-    rumore = ("redistributable", "runtime", "update for", "driver", "sdk",
-              "microsoft visual c++", "hotfix", "language pack")
     nomi = [n for n in installate
-            if not any(r in n.lower() for r in rumore) and not _segnaposto(n)]
+            if not any(r in n.lower() for r in RUMORE_APP) and not _segnaposto(n)]
     if not nomi:
         return []
     corpo = ["Applicazioni installate rilevanti (rilevate dal registro):", ""]
-    corpo += [f"- {n}" for n in nomi[:120]]
+    corpo += [f"- {n}" for n in nomi[:MAX_APP]]
     return [Node(
         slug="app-installate",
         title="Applicazioni installate",

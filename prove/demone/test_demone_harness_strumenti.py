@@ -70,7 +70,9 @@ casa_py = lavoro / "py"
 casa_rs = lavoro / "rs"
 for c in (casa_py, casa_rs):
     (c / "NOVA" / "harness").mkdir(parents=True)
-    (c / "NOVA" / "config.json").write_text("{}", encoding="utf-8")
+    # La memoria spenta: questa prova non la usa, e il demone acceso la
+    # creerebbe e la seminerebbe nel vault del progetto (D365).
+    (c / "NOVA" / "config.json").write_text('{"kb": {"enabled": false}}', encoding="utf-8")
 os.environ["APPDATA"] = str(casa_py)
 # Nessuna finestra da accendere, da nessuna delle due parti.
 H.apri_se_serve = lambda *a, **k: {"viva": True, "accesa_adesso": False, "motivo": ""}

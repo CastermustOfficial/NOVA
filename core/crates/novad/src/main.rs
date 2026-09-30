@@ -6,6 +6,8 @@
 //!     novad --dati [--json] dove NOVA tiene le cose dell'utente, e termina
 //!     novad --registro [PAROLE] [--giorni N]
 //!                           cosa NOVA ha fatto e non si annulla, e termina
+//!     novad --semina        mappa il PC nella memoria, anche se e' gia'
+//!                           stato fatto, e termina
 
 use std::sync::Arc;
 
@@ -52,6 +54,12 @@ struct Args {
     /// Con `--registro`: solo gli ultimi N giorni.
     #[arg(long, default_value_t = 0.0)]
     giorni: f64,
+
+    /// Mappa il PC nella memoria — profilo, ambiente, applicazioni,
+    /// progetti — anche se e' gia' stato fatto, e termina. Il demone lo fa da
+    /// solo la prima volta che si accende (D365).
+    #[arg(long)]
+    semina: bool,
 }
 
 #[tokio::main]
@@ -71,6 +79,23 @@ async fn main() -> Result<()> {
     }
     if let Some(parole) = &args.registro {
         println!("{}", nova_core::registro::per_chi_chiede(parole, args.giorni));
+        return Ok(());
+    }
+    if args.semina {
+        let memoria = nova_core::memoria::Memoria::default();
+        match nova_core::semina::adesso(&memoria) {
+            Ok(Some(e)) => {
+                println!("mappatura fatta: {} nodi scritti, {} progetti", e.scritti, e.progetti);
+                for r in &e.rifiutati {
+                    println!("non scritto: {r}");
+                }
+            }
+            Ok(None) => println!("la memoria e' spenta (`kb.enabled`): non ho mappato niente"),
+            Err(e) => {
+                eprintln!("{e}");
+                std::process::exit(1);
+            }
+        }
         return Ok(());
     }
     let mut config = Config::load();

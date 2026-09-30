@@ -72,7 +72,12 @@ ambiente = dict(os.environ)
 # cartella che nasce e muore con la prova.
 ambiente["APPDATA"] = casa
 ambiente["HOME"] = casa
+ambiente["XDG_CONFIG_HOME"] = casa
 ambiente["XDG_RUNTIME_DIR"] = casa
+# La memoria spenta: questa prova non la usa, e il demone acceso la creerebbe
+# e la seminerebbe nel vault del progetto (D365).
+(Path(casa) / "NOVA").mkdir(parents=True, exist_ok=True)
+(Path(casa) / "NOVA" / "config.json").write_text('{"kb": {"enabled": false}}', encoding="utf-8")
 
 processo = subprocess.Popen(
     [str(DEMONE), "--endpoint", endpoint, "--log", "warn"],

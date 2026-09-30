@@ -133,7 +133,9 @@ except OSError:
 # ------------------------------------------------------------- il demone
 casa = tempfile.mkdtemp(prefix="nova-rete-")
 (Path(casa) / "NOVA").mkdir(parents=True, exist_ok=True)
-(Path(casa) / "NOVA" / "config.json").write_text("{}", encoding="utf-8")
+# La memoria spenta: questa prova non la usa, e il demone acceso la
+# creerebbe e la seminerebbe nel vault del progetto (D365).
+(Path(casa) / "NOVA" / "config.json").write_text('{"kb": {"enabled": false}}', encoding="utf-8")
 (Path(casa) / "Desktop").mkdir()
 (Path(casa) / "Musica").mkdir()
 

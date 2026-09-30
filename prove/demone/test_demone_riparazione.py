@@ -120,8 +120,10 @@ FINTO = b"il binario di prima"
 
 
 def configura(**riparazione):
-    (casa / "NOVA" / "config.json").write_text(json.dumps({"riparazione": riparazione}),
-                                               encoding="utf-8")
+    # La memoria spenta: questa prova non la usa, e il demone acceso la
+    # creerebbe e la seminerebbe nel vault del progetto (D365).
+    (casa / "NOVA" / "config.json").write_text(
+        json.dumps({"kb": {"enabled": False}, "riparazione": riparazione}), encoding="utf-8")
 
 
 configura(sorgenti=str(repo), binari=str(binari))

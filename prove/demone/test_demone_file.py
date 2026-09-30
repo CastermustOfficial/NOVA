@@ -69,7 +69,10 @@ for d in (lavoro, accanto, segreti):
 # Le guardie si scrivono **dove le scrive il pannello di NOVA**, cioe' in
 # `config.json`, sotto `safety`. Il demone ne aveva delle sue in `core.json`,
 # che l'utente non ha mai visto: adesso valgono tutte e due.
+# La memoria spenta: questa prova non la usa, e il demone acceso la
+# creerebbe e la seminerebbe nel vault del progetto (D365).
 (Path(casa) / "NOVA" / "config.json").write_text(json.dumps({
+    "kb": {"enabled": False},
     "safety": {
         "write_roots": [str(lavoro)],
         "protected_paths": [str(segreti)],

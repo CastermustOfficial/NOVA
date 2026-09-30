@@ -179,7 +179,10 @@ vault.mkdir(parents=True, exist_ok=True)
            "min_confidence": 0.25,
            # soglia a zero: qui un turno dura millesimi, e aspettare otto
            # secondi per provare che impara sarebbe provare l'orologio.
-           "procedure": True, "procedure_da_secondi": 0},
+           "procedure": True, "procedure_da_secondi": 0,
+           # Senza semina: la prova parte da un vault vuoto, e la prima
+           # mappatura del PC (D365) ci scriverebbe dentro.
+           "auto_seed": False},
     "brains": {
         "active": "locale",
         "routing": {

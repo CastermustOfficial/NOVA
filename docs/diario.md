@@ -11279,3 +11279,17 @@ Adesso la prova non accende niente e l'errore diventa un motivo (D364).
 La prova che era rossa passava nei dieci commit prima. Quale errore abbia
 avuto sulla CI non lo so; so che la prova, dove Edge c'e', dipendeva da Edge
 e da Bing, e un verde che dipende da loro non dice niente sul codice.
+
+## 30 settembre 2026 — La prima mappatura del PC, e un vault che non nasceva
+
+Il demone adesso mappa il PC la prima volta che si accende, come faceva il
+Python, con le regole scelte con Gio: niente persone, niente email, la lingua
+dalla configurazione (D365). Cercando dove agganciarla ho trovato un buco piu'
+grosso: il vault non lo creava nessuno. Su un'installazione nuova la memoria
+del demone non c'era proprio. Sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X) non si vedeva, perche' li' il
+vault l'aveva creato il Python, che l'ha seminato il 19 agosto.
+
+La parte noiosa e' stata un'altra: ventiquattro prove del demone, accendendolo,
+avrebbero creato e seminato il vault del progetto. Adesso ognuna dice cosa
+vuole dalla memoria. E guardando le chiavi della memoria e' venuto fuori che
+il demone `kb.enabled` e `kb.inject_context` non li guarda: e' nel piano.

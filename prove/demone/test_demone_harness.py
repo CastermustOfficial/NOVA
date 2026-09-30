@@ -60,7 +60,9 @@ from nova import harness, harness_modifica                        # noqa: E402
 casa = tempfile.mkdtemp(prefix="nova-harness-d-")
 nova_dir = Path(casa) / "NOVA"
 nova_dir.mkdir(parents=True, exist_ok=True)
-(nova_dir / "config.json").write_text("{}", encoding="utf-8")
+# La memoria spenta: questa prova non la usa, e il demone acceso la
+# creerebbe e la seminerebbe nel vault del progetto (D365).
+(nova_dir / "config.json").write_text('{"kb": {"enabled": false}}', encoding="utf-8")
 
 # Il progetto: un modulo e una prova che lo usa, nella convenzione di NOVA.
 progetto = Path(casa) / "progetto"

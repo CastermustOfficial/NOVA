@@ -1128,9 +1128,11 @@ vince sempre su `auto`.
 
 ### Come impara
 
-- **Seed**: la prima mappatura di profilo, progetti, ambiente e persone la
-  faceva la versione Python; nel demone **manca**, e un vault nuovo parte
-  vuoto finche' NOVA non impara.
+- **Seed**: la prima volta che si accende, il demone crea il vault e ci
+  scrive quel che trova sul PC: il profilo (col nome git, senza email), le
+  preferenze nella lingua scelta, l'ambiente, le applicazioni e i progetti
+  nelle cartelle dell'utente. Le persone no. `novad --semina` la rifa' a
+  mano.
 - **Automatico**: dopo ogni scambio una fila in background estrae i fatti
   *durevoli* (preferenze, progetti, persone, decisioni) e li scrive. Non
   memorizza richieste una tantum, output di comandi o orari.
@@ -1165,11 +1167,11 @@ vince sempre su `auto`.
 
 | Chiave | Default | Cosa fa |
 |---|---|---|
-| `enabled` | `true` | attiva la memoria |
+| `enabled` | `true` | attiva la memoria (il demone per ora la guarda solo per creare il vault e seminarlo) |
 | `vault_path` | `NOVA\vault` | dove vivono i nodi |
-| `auto_seed` | `true` | mappatura iniziale del PC (solo la versione Python) |
+| `auto_seed` | `true` | mappatura iniziale del PC, alla prima accensione del demone |
 | `auto_learn` | `true` | scrittura automatica dopo ogni scambio |
-| `inject_context` | `true` | iniezione del contesto prima del turno |
+| `inject_context` | `true` | iniezione del contesto prima del turno (il demone per ora non la guarda: inietta sempre) |
 | `top_k` | `5` | quanti nodi entrano nel prompt |
 | `min_confidence` | `0.25` | sotto questa soglia un nodo non viene usato |
 | `embedder` | `hash` | `hash`, l'embedding di casa: offline, niente modelli |

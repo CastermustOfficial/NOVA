@@ -46,6 +46,10 @@ pub mod disco_vero;
 // risposta e cosa se ne tiene. Il modello e il disco li mette il demone.
 pub mod imparare;
 
+// La prima mappatura del PC: cosa si guarda e come si scrive ogni nodo. Il
+// disco, git e le informazioni di sistema li mette il demone.
+pub mod semina;
+
 pub const STATUS_ATTIVO: &str = "attivo";
 pub const STATUS_ARCHIVIATO: &str = "archiviato";
 

@@ -121,7 +121,7 @@ SERVER_PYTHON = {"command": "python-finto", "args": ["-m", "nova.mcp_kb", str(va
 (Path(casa) / "NOVA" / "config.json").write_text(json.dumps({
     "system_prompt": "Sei NOVA di prova, per Claude.",
     "safety": {"autonomy": "ask_risky"},
-    "kb": {"vault_path": str(vault), "procedure": False},
+    "kb": {"vault_path": str(vault), "procedure": False, "auto_seed": False},
     "brains": {
         "claude_binary": str(CLAUDE),
         "claude_timeout": 60,

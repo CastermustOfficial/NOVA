@@ -10,8 +10,6 @@
 //! il prompt, com'e' fatta la riga di comando, cosa vuol dire un'uscita
 //! vuota, stanno in [`nova_cervelli::cli`] e si provano da soli.
 
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
 use std::path::Path;
 use std::process::Stdio;
 use tokio::io::AsyncWriteExt;

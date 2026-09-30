@@ -57,7 +57,9 @@ lavoro = Path(tempfile.mkdtemp(prefix="nova-auto-"))
 casa_py, casa_rs = lavoro / "py", lavoro / "rs"
 for c in (casa_py, casa_rs):
     (c / "NOVA").mkdir(parents=True)
-    (c / "NOVA" / "config.json").write_text("{}", encoding="utf-8")
+    # La memoria spenta: questa prova non la usa, e il demone acceso la
+    # creerebbe e la seminerebbe nel vault del progetto (D365).
+    (c / "NOVA" / "config.json").write_text('{"kb": {"enabled": false}}', encoding="utf-8")
 os.environ["APPDATA"] = str(casa_py)
 from nova import automazioni as A, pianificazione as P          # noqa: E402
 from nova.tools import automazioni as TA                         # noqa: E402

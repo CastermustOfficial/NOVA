@@ -127,7 +127,10 @@ else:
     CLAUDE.chmod(0o755)
 (Path(casa) / ".claude").mkdir(exist_ok=True)
 (Path(casa) / ".claude" / ".credentials.json").write_text("{}", encoding="utf-8")
+# La memoria spenta: questa prova non la usa, e il demone acceso la
+# creerebbe e la seminerebbe nel vault del progetto (D365).
 (Path(casa) / "NOVA" / "config.json").write_text(json.dumps({
+    "kb": {"enabled": False},
     "server": {"host": "127.0.0.1", "port": server["casa"].server_address[1]},
     "brains": {
         "api_base_url": f"http://127.0.0.1:{server['fuori'].server_address[1]}",

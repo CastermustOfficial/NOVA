@@ -60,7 +60,9 @@ from nova.core_client import CoreClient                           # noqa: E402
 
 casa = tempfile.mkdtemp(prefix="nova-app-")
 (Path(casa) / "NOVA").mkdir(parents=True, exist_ok=True)
-(Path(casa) / "NOVA" / "config.json").write_text("{}", encoding="utf-8")
+# La memoria spenta: questa prova non la usa, e il demone acceso la
+# creerebbe e la seminerebbe nel vault del progetto (D365).
+(Path(casa) / "NOVA" / "config.json").write_text('{"kb": {"enabled": false}}', encoding="utf-8")
 
 endpoint = (rf"\\.\pipe\nova-app-{os.getpid()}" if os.name == "nt"
             else str(Path(casa) / "nova.sock"))

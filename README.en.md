@@ -1135,9 +1135,11 @@ beats `auto`.
 
 ### How it learns
 
-- **Seed**: the first mapping of profile, projects, environment and people was
-  done by the Python version; in the daemon it is **missing**, and a new vault
-  starts empty until NOVA learns.
+- **Seed**: the first time it starts, the daemon creates the vault and writes
+  into it what it finds on the PC: the profile (with the git name, no email),
+  the preferences in the chosen language, the environment, the apps and the
+  projects in the user's folders. Not people. `novad --semina` does it again
+  by hand.
 - **Automatic**: after every exchange a background queue extracts the
   *durable* facts (preferences, projects, people, decisions) and writes them
   down. It does not store one-off requests, command output or timestamps.
@@ -1172,11 +1174,11 @@ beats `auto`.
 
 | Key | Default | What it does |
 |---|---|---|
-| `enabled` | `true` | enables the memory |
+| `enabled` | `true` | enables the memory (for now the daemon only looks at it to create and seed the vault) |
 | `vault_path` | `NOVA\vault` | where the nodes live |
-| `auto_seed` | `true` | initial mapping of the PC (Python version only) |
+| `auto_seed` | `true` | initial mapping of the PC, the first time the daemon starts |
 | `auto_learn` | `true` | automatic writing after every exchange |
-| `inject_context` | `true` | context injection before the turn |
+| `inject_context` | `true` | context injection before the turn (for now the daemon doesn't look at it: it always injects) |
 | `top_k` | `5` | how many nodes enter the prompt |
 | `min_confidence` | `0.25` | below this threshold a node is not used |
 | `embedder` | `hash` | `hash`, the home embedding: offline, no models |

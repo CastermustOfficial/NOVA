@@ -59,7 +59,8 @@ vault = Path(casa) / "vault"
 vault.mkdir(parents=True, exist_ok=True)
 (Path(casa) / "NOVA").mkdir(parents=True, exist_ok=True)
 (Path(casa) / "NOVA" / "config.json").write_text(json.dumps({
-    "kb": {"vault_path": str(vault), "top_k": 5, "min_confidence": 0.25},
+    "kb": {"vault_path": str(vault), "top_k": 5, "min_confidence": 0.25,
+           "auto_seed": False},
 }, ensure_ascii=False), encoding="utf-8")
 
 endpoint = (rf"\\.\pipe\nova-memoria-{os.getpid()}" if os.name == "nt"

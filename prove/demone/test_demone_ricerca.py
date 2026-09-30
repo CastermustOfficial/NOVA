@@ -135,7 +135,9 @@ PORTA_MOTORE = motore.server_address[1]
 
 # ------------------------------------------------------------- il demone
 (Path(casa) / "NOVA").mkdir(parents=True, exist_ok=True)
-(Path(casa) / "NOVA" / "config.json").write_text("{}", encoding="utf-8")
+# La memoria spenta: questa prova non la usa, e il demone acceso la
+# creerebbe e la seminerebbe nel vault del progetto (D365).
+(Path(casa) / "NOVA" / "config.json").write_text('{"kb": {"enabled": false}}', encoding="utf-8")
 bin_dir = Path(casa) / "bin"
 bin_dir.mkdir()
 LANCI = Path(casa) / "lanci.txt"

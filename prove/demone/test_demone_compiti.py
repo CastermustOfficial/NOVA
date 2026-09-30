@@ -66,7 +66,7 @@ FINTA.write_text(
     "system_prompt": "Sei NOVA di prova.",
     "server": {"host": "127.0.0.1", "port": 1},
     "model": {"max_tool_iterations": 2},
-    "kb": {"vault_path": str(casa / "vault"), "procedure": False},
+    "kb": {"vault_path": str(casa / "vault"), "procedure": False, "auto_seed": False},
     "brains": {
         "active": "finta",
         "cli": {"finta": {"binary": sys.executable, "args": [str(FINTA)],

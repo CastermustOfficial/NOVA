@@ -50,6 +50,7 @@ pub mod osserva;
 pub mod policy;
 pub mod memoria;
 pub mod imparare;
+pub mod semina;
 pub mod recinto_comando;
 pub mod registro;
 pub mod ricette;
@@ -154,6 +155,20 @@ pub fn build(config: Config) -> Result<Arc<Server>> {
 /// nessuno apra un pannello per dirglielo ogni volta.
 pub async fn avvia_servizi(server: &Arc<Server>) {
     caps_voce::avvia_se_richiesto(server.ctx.bus.clone());
+    // La memoria: il vault, e la prima mappatura del PC se non e' mai stata
+    // fatta (D365). Di lato, perche' git e la lettura delle cartelle possono
+    // metterci qualche secondo, e il demone intanto deve gia' rispondere.
+    let per_la_semina = server.clone();
+    tokio::task::spawn_blocking(move || match semina::all_avvio(&per_la_semina.memoria) {
+        Ok(Some(e)) => tracing::info!(
+            nodi = e.scritti,
+            progetti = e.progetti,
+            rifiutati = e.rifiutati.len(),
+            "prima mappatura del PC fatta"
+        ),
+        Ok(None) => {}
+        Err(e) => tracing::warn!(errore = %e, "prima mappatura del PC non fatta"),
+    });
     for s in &server.config.services {
         if !s.autostart || s.program.is_empty() {
             continue;
