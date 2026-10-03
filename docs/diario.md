@@ -11407,3 +11407,16 @@ quelle vere, e la domanda si scrive byte per byte.
 Il giro su Linux, nel repository, ha trovato un'altra cosa: la prova dei
 dati personali, che dall'esportazione di Windows si saltava per mancanza di
 git, era rossa per un profilo chiamato `<tu>` in un esempio. Ora e' `utente`.
+
+## 3 ottobre 2026 — La rilettura del canale
+
+Gio mi ha chiesto di rileggere riga per riga il codice che avevo scritto io
+e che lui non aveva letto: il canale verso il demone, il guscio e le quattro
+CLI finte. Il commento del canale prometteva «un secondo al massimo» di attesa
+su una pipe occupata. Misurato, era un secondo e mezzo: su Windows una pausa
+di dieci millisecondi ne dura quasi sedici. Ora l'attesa ha una scadenza, e
+una prova la tiene.
+
+Lo stesso conto stava nel client Python, che in piu', quando smetteva di
+aspettare, diceva solo «Invalid argument». Ora ha la stessa scadenza, e
+l'errore dice che la pipe e' rimasta occupata per un secondo.
