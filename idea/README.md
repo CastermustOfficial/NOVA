@@ -113,3 +113,27 @@ Aggiornato al 30 settembre 2026. Le idee che c'erano già erano sparse nei docum
 **Perché.** Con Python più nuovi diventerà un errore.
 
 **Cosa costerebbe.** Una riga: raddoppiare la barra o rendere il docstring grezzo.
+
+## I comandi non confinati di un demone elevato
+
+**Cosa.** Senza `write_roots` non c'e' recinto, e un comando di un demone elevato gira con i poteri del demone (D369). Si potrebbe togliere i poteri anche a quelli.
+
+**Perché.** La prova `test_demone_elevato.py` e D369 promettono che un comando **confinato** non riceve mai i poteri dell'amministratore: i comandi non confinati restano fuori da quella promessa. E per chi vuole amministrare il PC con NOVA elevato, togliere i poteri a tutti toglie anche quella possibilità: è una scelta, non una svista.
+
+**Cosa costerebbe.** Applicare il token ridotto e la console ereditata anche quando `permessi` è vuoto (poche righe, la parte difficile è già fatta), e decidere con Gio se NOVA elevato debba poter fare cose da amministratore.
+
+## Una pseudoconsole al posto della console tutta sua del demone elevato
+
+**Cosa.** Dare a ogni comando confinato di un demone elevato una pseudoconsole (`CreatePseudoConsole`) invece di far ereditare a tutti la console privata del demone.
+
+**Perché.** Oggi il demone elevato lascia la console da cui è partito (i log su console e il Ctrl+C non gli arrivano più) e i comandi in corso insieme condividono la stessa console privata, che può quindi essere letta dall'uno o dall'altro.
+
+**Cosa costerebbe.** Non è misurato se la pseudoconsole soffre dello stesso `0xC0000142` della console nuova con un token ridotto: va misurato prima. Poi è un cambio grande nel punto in cui si crea il processo.
+
+## Il demone elevato senza nessuna console
+
+**Cosa.** Provare in isolamento il caso di un demone elevato che non ha alcuna console (un servizio, un avvio staccato): oggi `console_privata` ne crea una, ma l'unico caso misurato è quello di una console condivisa.
+
+**Perché.** La CI di Windows gira da amministratore e potrebbe non avere una console: nel dubbio la correzione la crea, ma non l'ho visto succedere.
+
+**Cosa costerebbe.** Una prova in un processo avviato staccato (`DETACHED_PROCESS`) da elevato, che lancia un comando confinato e controlla che parta.

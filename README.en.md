@@ -824,8 +824,9 @@ autonomy, three guards always apply and the model cannot get around them:
 The boundary holds after the command has started. On Linux Landlock keeps it;
 on Windows a system container (AppContainer) with a job object, which sees the
 folders of `write_roots` for writing, the listed tools read-only, and reads
-nothing in the rest of the profile (D367). On Windows it is also configured
-in `core.json`, next to `config.json`:
+nothing in the rest of the profile (D367). If the daemon runs as
+administrator, sandboxed commands still start without its rights (D369). On
+Windows it is also configured in `core.json`, next to `config.json`:
 
 - `tool_roots` — the tool folders (python, node, cargo) that commands may read
   and run, never write. Grant the narrowest folder: `.cargo\bin`, not `.cargo`,

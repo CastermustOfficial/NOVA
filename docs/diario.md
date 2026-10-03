@@ -11351,7 +11351,7 @@ prova restava vivo per minuti. Adesso il controllo parte un minuto dopo l'avvio,
 si ferma con il demone, e una prova lo accende con l'attesa a zero per vedere
 che si spenga lo stesso.
 
-Le sette prove del demone che cadevano su Windows gia' prima del recinto
+Le otto prove che cadevano su Windows gia' prima del recinto
 meritavano una risposta, perche' la regola e' che il rosso non si committa. Le
 ho confrontate con il commit di partenza in una copia pulita, con il suo
 `novad`: cadevano uguali. Cercandone la causa una per una (D368) ne sono venuti
@@ -11420,3 +11420,24 @@ una prova la tiene.
 Lo stesso conto stava nel client Python, che in piu', quando smetteva di
 aspettare, diceva solo «Invalid argument». Ora ha la stessa scadenza, e
 l'errore dice che la pipe e' rimasta occupata per un secondo.
+
+## 3 ottobre 2026, pomeriggio — I poteri dell'amministratore
+
+Una prova nuova, `test_demone_elevato.py`, chiedeva una cosa semplice: un
+comando di NOVA non deve mai ricevere i poteri dell'amministratore, nemmeno se
+il demone li ha. Ho detto di averla vista cadere. Non era vero: la cartella
+che doveva negare la scrittura aveva ancora l'utente, e il comando scriveva
+perche' poteva. L'ho capito leggendo l'ACL, e ho dovuto ritrattare.
+
+Con una cartella vera il difetto c'e': il comando nasce con il gruppo
+Amministratori abilitato, anche se dice di non esserlo. Toglierlo e' facile; far
+partire il comando dopo, no. Una console nuova non funziona per un figlio con un
+token ridotto creato da un padre elevato, e una console ereditata si lascia
+leggere. Ho provato le strade una per una (il token collegato, il desktop, un
+lanciatore in mezzo) e ho misurato che cosa vede un comando confinato di una
+console condivisa: non ci scrive, non ne legge lo schermo, ma ne consuma i
+tasti. Quindi il demone elevato si da' una console tutta sua.
+
+Una prova di quella console, la prima versione, passava anche senza la
+correzione: dentro il contenitore non si compila, e il conteggio a zero era un
+errore travestito da risposta.

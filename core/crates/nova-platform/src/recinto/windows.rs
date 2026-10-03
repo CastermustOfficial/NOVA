@@ -44,11 +44,13 @@ use windows::Win32::Security::Isolation::{
     CreateAppContainerProfile, DeleteAppContainerProfile, DeriveAppContainerSidFromAppContainerName,
 };
 use windows::Win32::Security::{
-    AccessCheck, DeleteAce, DuplicateTokenEx, EqualSid, FreeSid, GetAce, SecurityImpersonation,
+    AccessCheck, CreateRestrictedToken, DeleteAce, DuplicateTokenEx, EqualSid, FreeSid, GetAce,
+    SecurityImpersonation,
     TokenImpersonation, ACCESS_ALLOWED_ACE, ACE_FLAGS, ACE_HEADER, ACL, DACL_SECURITY_INFORMATION,
     GENERIC_MAPPING, GROUP_SECURITY_INFORMATION, OWNER_SECURITY_INFORMATION, PRIVILEGE_SET,
     PSECURITY_DESCRIPTOR, PSID, SECURITY_ATTRIBUTES, SECURITY_CAPABILITIES, SID_AND_ATTRIBUTES,
-    SUB_CONTAINERS_AND_OBJECTS_INHERIT, TOKEN_DUPLICATE, TOKEN_IMPERSONATE, TOKEN_QUERY,
+    SUB_CONTAINERS_AND_OBJECTS_INHERIT, TOKEN_ASSIGN_PRIMARY, TOKEN_DUPLICATE, TOKEN_IMPERSONATE,
+    TOKEN_QUERY, DISABLE_MAX_PRIVILEGE, LUA_TOKEN,
 };
 use windows::Win32::Storage::FileSystem::{
     CreateFileW, DELETE, FILE_ALL_ACCESS, FILE_FLAGS_AND_ATTRIBUTES, FILE_GENERIC_EXECUTE,
@@ -59,11 +61,11 @@ use windows::Win32::System::JobObjects::{
 };
 use windows::Win32::System::Pipes::CreatePipe;
 use windows::Win32::System::Threading::{
-    CreateProcessW, DeleteProcThreadAttributeList, GetExitCodeProcess,
+    CreateProcessAsUserW, CreateProcessW, DeleteProcThreadAttributeList, GetExitCodeProcess,
     InitializeProcThreadAttributeList, OpenProcessToken, ResumeThread, TerminateProcess,
     UpdateProcThreadAttribute, WaitForSingleObject, CREATE_NO_WINDOW, CREATE_SUSPENDED,
     CREATE_UNICODE_ENVIRONMENT, EXTENDED_STARTUPINFO_PRESENT, LPPROC_THREAD_ATTRIBUTE_LIST,
-    PROCESS_INFORMATION, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+    PROCESS_CREATION_FLAGS, PROCESS_INFORMATION, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
     PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, STARTF_USESTDHANDLES, STARTUPINFOEXW,
     STARTUPINFOW,
 };
@@ -82,7 +84,8 @@ use windows::Win32::System::Threading::GetCurrentProcess;
 use windows::Win32::UI::Shell::{
     ShellExecuteExW, SEE_MASK_NOASYNC, SEE_MASK_NOCLOSEPROCESS, SHELLEXECUTEINFOW,
 };
-use windows::Win32::UI::WindowsAndMessaging::SW_HIDE;
+use windows::Win32::Foundation::HWND;
+use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE};
 use windows::Win32::Foundation::{WAIT_ABANDONED, WAIT_TIMEOUT};
 use windows::Win32::System::Threading::{CreateMutexW, ReleaseMutex};
 
@@ -594,6 +597,7 @@ pub struct Sonda {
 /// Il token si prende da un processo del contenitore che non parte mai: si
 /// crea sospeso, se ne duplica il token, si ferma.
 pub fn sonda(chi: &Identita) -> Result<Sonda, String> {
+    let base = token_di_base(true)?;
     let capacita = Capacita::nuova(chi, false)?;
     let mut attributi = ListaAttributi::nuova(1)?;
     attributi.imposta(
@@ -614,11 +618,10 @@ pub fn sonda(chi: &Identita) -> Result<Sonda, String> {
     };
     let mut pi = PROCESS_INFORMATION::default();
     unsafe {
-        CreateProcessW(
+        crea_processo(
+            base.as_ref(),
             PCWSTR(programma_largo.as_ptr()),
-            Some(PWSTR(riga.as_mut_ptr())),
-            None,
-            None,
+            &mut riga,
             false,
             CREATE_SUSPENDED | CREATE_NO_WINDOW | EXTENDED_STARTUPINFO_PRESENT,
             None,
@@ -711,9 +714,10 @@ pub fn prepara_cartella(
         }
         return Err(format!(
             "la cartella {} non diventa accessibile dentro il recinto ({}): \
-             il comando non parte",
+             il comando non parte{}",
             dove.display(),
-            genere.nome()
+            genere.nome(),
+            nota_se_elevato()
         ));
     }
     Ok(!c_era)
@@ -1068,26 +1072,192 @@ impl Drop for BloccoFraProcessi {
     }
 }
 
-/// Se questo processo gira elevato, cioe' con i privilegi di amministratore.
-pub fn e_elevato() -> bool {
-    let mut token = HANDLE::default();
-    if unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) }.is_err() {
-        return false;
-    }
-    let token = Chiuso(token);
+/// Se il token `token` e' elevato; `None` se Windows non lo dice.
+fn elevazione_di(token: HANDLE) -> Option<bool> {
     let mut el = TOKEN_ELEVATION::default();
     let mut restituiti = 0u32;
     unsafe {
         GetTokenInformation(
-            token.0,
+            token,
             TokenElevation,
             Some(&mut el as *mut TOKEN_ELEVATION as *mut c_void),
             std::mem::size_of::<TOKEN_ELEVATION>() as u32,
             &mut restituiti,
         )
     }
-    .is_ok()
-        && el.TokenIsElevated != 0
+    .ok()?;
+    Some(el.TokenIsElevated != 0)
+}
+
+/// Se questo processo gira elevato; `None` se Windows non lo dice.
+pub fn stato_elevazione() -> Option<bool> {
+    let mut token = HANDLE::default();
+    unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) }.ok()?;
+    let token = Chiuso(token);
+    elevazione_di(token.0)
+}
+
+/// Se questo processo gira elevato, cioe' con i privilegi di amministratore.
+pub fn e_elevato() -> bool {
+    stato_elevazione() == Some(true)
+}
+
+/// Il token da cui nascono la sonda e i comandi **confinati**: mai quello di
+/// un amministratore.
+///
+/// Un figlio creato senza un token esplicito eredita quello del demone, e se il
+/// demone e' stato avviato da amministratore il comando nasce con i gruppi di
+/// amministrazione abilitati: l'AppContainer controlla l'accesso **due volte**
+/// — con il token e con il contenitore — e un amministratore supera la prima in
+/// qualunque cartella che conceda qualcosa ai contenitori (GHSA-38cw-xfm5-xq9f).
+/// Misurato: il comando dice `IsInRole(Administrator) = False` ma ha
+/// `BUILTIN\Administrators` abilitato, e scrive dove un utente normale non
+/// scrive. La sonda deve avere lo stesso token del comando: se lei fosse
+/// amministratore, «il contenitore ci arriva?» direbbe di si' a quello che il
+/// comando vero non puo' fare.
+///
+/// `None` se il comando non e' confinato (senza recinto non c'e' nessun confine
+/// da proteggere: gira come il demone, com'e' sempre stato) o se il demone non
+/// e' elevato. Altrimenti un token senza poteri; e se non si riesce a farlo
+/// — o se Windows non dice se il demone e' elevato, e nel dubbio lo e' — **il
+/// comando non parte**, e lo dice.
+fn token_di_base(confinato: bool) -> Result<Option<Chiuso>, String> {
+    if !confinato || stato_elevazione() == Some(false) {
+        return Ok(None);
+    }
+    senza_poteri_di_amministratore().map(Some)
+}
+
+/// Una riga in piu' per chi legge un rifiuto da un demone elevato: il comando
+/// gira senza i poteri dell'amministratore, quindi una cartella che solo gli
+/// Amministratori possiedono o scrivono non gli serve, e senza questa riga il
+/// rifiuto sembrerebbe un guasto del recinto.
+fn nota_se_elevato() -> String {
+    if stato_elevazione() == Some(true) {
+        ". Il demone gira da amministratore ma il comando no: se la cartella \
+         appartiene agli Amministratori (creata da un processo elevato) o la \
+         scrivono solo loro, al comando non basta"
+            .to_string()
+    } else {
+        String::new()
+    }
+}
+
+/// Perche' il comando non parte quando il demone e' elevato e i poteri non si
+/// tolgono. Dice «amministratore» e dice che il comando non parte: chi legge
+/// deve capire che e' una scelta, non un guasto.
+fn rifiuto_per_demone_elevato(perche: &str) -> String {
+    format!(
+        "il demone gira da amministratore e non riesco a togliere i poteri al comando \
+         ({perche}): non lo lancio. Un comando di NOVA non riceve mai i poteri \
+         dell'amministratore"
+    )
+}
+
+/// Il token di questo processo privato dei poteri dell'amministratore: i
+/// gruppi di amministrazione tolti, i privilegi tolti tranne quello di
+/// attraversare le cartelle, integrita' media. E' quello che l'UAC dava al
+/// processo prima di elevarlo, ricavato dal token del demone.
+fn senza_poteri_di_amministratore() -> Result<Chiuso, String> {
+    let rifiuto = |perche: String| rifiuto_per_demone_elevato(&perche);
+    let mut mio = HANDLE::default();
+    unsafe {
+        OpenProcessToken(
+            GetCurrentProcess(),
+            TOKEN_QUERY | TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY,
+            &mut mio,
+        )
+    }
+    .map_err(|e| rifiuto(format!("non apro il token del demone: {e}")))?;
+    let mio = Chiuso(mio);
+    let mut ridotto = HANDLE::default();
+    unsafe { CreateRestrictedToken(mio.0, DISABLE_MAX_PRIVILEGE | LUA_TOKEN, None, None, None, &mut ridotto) }
+        .map_err(|e| rifiuto(format!("non creo il token ridotto: {e}")))?;
+    let ridotto = Chiuso(ridotto);
+    // Non ci si fida di averlo fatto: si chiede al token appena nato.
+    if elevazione_di(ridotto.0) != Some(false) {
+        return Err(rifiuto("il token ridotto risulta ancora elevato".to_string()));
+    }
+    Ok(ridotto)
+}
+
+// kernel32, senza una feature in piu' del crate `windows`.
+extern "system" {
+    fn GetConsoleProcessList(lista: *mut u32, quanti: u32) -> u32;
+    fn FreeConsole() -> i32;
+    fn AllocConsole() -> i32;
+    fn GetConsoleWindow() -> *mut c_void;
+}
+
+/// Come si crea un processo confinato: con una console **nuova** (`CREATE_NO_WINDOW`),
+/// o con quella del demone, che il figlio eredita.
+///
+/// Con il demone elevato e il comando senza poteri la console nuova non va:
+/// il figlio muore all'avvio con `0xC0000142`, con o senza contenitore (misurato
+/// su Windows 11 10.0.26200). Resta la console ereditata, e per quella
+/// `console_privata` si assicura che sia solo del demone.
+fn flag_di_creazione(console_ereditata: bool) -> PROCESS_CREATION_FLAGS {
+    let base = CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT | EXTENDED_STARTUPINFO_PRESENT;
+    if console_ereditata {
+        base
+    } else {
+        base | CREATE_NO_WINDOW
+    }
+}
+
+/// Fa in modo che la console del demone sia **solo sua**, e nascosta.
+///
+/// Un comando che eredita una console puo' leggerne e consumarne l'input anche
+/// dentro il contenitore (misurato: un tasto messo in coda da un altro processo
+/// viene visto e consumato; non puo' invece scriverci ne' leggerne lo schermo).
+/// Se il demone e' stato lanciato da un terminale elevato, quella console e'
+/// del terminale e un comando potrebbe rubare i tasti battuti li'. Quindi: se
+/// al demone e' agganciato solo lui, la console e' gia' sua; altrimenti — ne
+/// ha una condivisa, o nessuna — la lascia e se ne da' una nuova, nascosta. Lo
+/// si fa una volta sola, prima che esista un figlio che la condivida.
+fn console_privata() -> Result<(), String> {
+    static ESITO: std::sync::OnceLock<Result<(), String>> = std::sync::OnceLock::new();
+    ESITO
+        .get_or_init(|| {
+            let mut elenco = [0u32; 2];
+            if unsafe { GetConsoleProcessList(elenco.as_mut_ptr(), 2) } == 1 {
+                return Ok(());
+            }
+            unsafe { FreeConsole() };
+            if unsafe { AllocConsole() } == 0 {
+                return Err(rifiuto_per_demone_elevato("non riesco a dargli una console tutta sua"));
+            }
+            let finestra = unsafe { GetConsoleWindow() };
+            if !finestra.is_null() {
+                let _ = unsafe { ShowWindow(HWND(finestra), SW_HIDE) };
+            }
+            Ok(())
+        })
+        .clone()
+}
+
+/// `CreateProcess` dal token dato, o da quello di questo processo se `token`
+/// e' `None`. E' l'unico punto in cui si crea un processo del contenitore, e
+/// vale per la sonda come per i comandi.
+#[allow(clippy::too_many_arguments)]
+unsafe fn crea_processo(
+    token: Option<&Chiuso>,
+    programma: PCWSTR,
+    riga: &mut [u16],
+    ereditare: bool,
+    flag: PROCESS_CREATION_FLAGS,
+    ambiente: Option<*const c_void>,
+    cartella: PCWSTR,
+    si: &STARTUPINFOW,
+    pi: &mut PROCESS_INFORMATION,
+) -> windows::core::Result<()> {
+    let riga = Some(PWSTR(riga.as_mut_ptr()));
+    match token {
+        Some(t) => CreateProcessAsUserW(
+            Some(t.0), programma, riga, None, None, ereditare, flag, ambiente, cartella, si, pi,
+        ),
+        None => CreateProcessW(programma, riga, None, None, ereditare, flag, ambiente, cartella, si, pi),
+    }
 }
 
 /// Se `p` e' una cartella su cui il passo privilegiato accetta di lavorare:
@@ -1557,6 +1727,15 @@ impl Drop for ListaAttributi {
 /// non lo sono, il comando parte lo stesso e il sistema gli nega l'accesso.
 pub fn lancia(c: &Comando, permessi: Option<&Permessi>) -> Result<InCorsa, String> {
     let programma = trova(&c.programma)?;
+    // Prima di tutto il resto: se il demone e' elevato e i poteri non si tolgono,
+    // il comando non parte e non si apre niente.
+    let base = token_di_base(permessi.is_some())?;
+    // Senza poteri da un demone elevato la console nuova non va: si eredita quella
+    // del demone, che prima si rende solo sua.
+    let console_ereditata = base.is_some();
+    if console_ereditata {
+        console_privata()?;
+    }
     let capacita = match permessi {
         Some(p) => {
             let chi = assicura_profilo()?;
@@ -1614,16 +1793,12 @@ pub fn lancia(c: &Comando, permessi: Option<&Permessi>) -> Result<InCorsa, Strin
     let mut pi = PROCESS_INFORMATION::default();
     // `CREATE_NO_WINDOW`: una console nuova e invisibile. Con
     // `DETACHED_PROCESS`, cioe' senza console, PowerShell non parte.
-    let flag = CREATE_SUSPENDED
-        | CREATE_NO_WINDOW
-        | CREATE_UNICODE_ENVIRONMENT
-        | EXTENDED_STARTUPINFO_PRESENT;
+    let flag = flag_di_creazione(console_ereditata);
     unsafe {
-        CreateProcessW(
+        crea_processo(
+            base.as_ref(),
             PCWSTR(programma_largo.as_ptr()),
-            Some(PWSTR(riga.as_mut_ptr())),
-            None,
-            None,
+            &mut riga,
             true,
             flag,
             Some(blocco.as_ptr() as *const c_void),
@@ -1828,6 +2003,151 @@ mod prove {
         assert!(ha_permessi_salvati(CASE_PRESERVED | UNICODE | PERSISTENT_ACLS), "NTFS e ReFS portano il flag");
         assert!(!ha_permessi_salvati(CASE_PRESERVED | UNICODE), "FAT ed exFAT no");
         assert!(!ha_permessi_salvati(0));
+    }
+
+    /// Il token da cui nascono sonda e comandi: quello del demone se non e'
+    /// elevato, uno senza poteri se lo e'. Vale nei due modi, e la CI di
+    /// Windows gira da amministratore.
+    #[test]
+    fn windows_il_token_di_base_non_e_mai_di_amministratore() {
+        // Senza recinto non c'e' confine da proteggere: il token e' quello del demone.
+        assert!(token_di_base(false).unwrap().is_none(), "un comando non confinato non cambia token");
+        let base = token_di_base(true).expect("il token di base si ottiene");
+        match stato_elevazione() {
+            Some(false) => assert!(base.is_none(), "un demone normale non cambia il suo token"),
+            _ => {
+                let t = base.expect("un demone elevato deve dare un token senza poteri");
+                assert_eq!(elevazione_di(t.0), Some(false), "il token di base e' ancora elevato");
+            }
+        }
+    }
+
+    /// Un comando di NOVA non riceve mai i poteri dell'amministratore, nemmeno
+    /// se il demone li ha. La cartella «fortino» la scrivono solo gli
+    /// Amministratori, il sistema e i contenitori (ALL APPLICATION PACKAGES), non
+    /// l'utente: ci riesce solo un comando che ha i poteri dell'amministratore.
+    /// Da utente normale non c'e' niente da provare: la CI di Windows, che gira
+    /// da amministratore, e' la guardia.
+    #[test]
+    fn windows_un_comando_non_riceve_i_poteri_dell_amministratore() {
+        if !e_elevato() {
+            eprintln!("saltata: la prova riguarda un demone elevato");
+            return;
+        }
+        let _s = seriale();
+        let chi = assicura_profilo().unwrap();
+        let so = sonda(&chi).unwrap();
+        let base = nuova_cartella("elevato");
+        let (lavoro, fortino) = (base.join("lavoro"), base.join("fortino"));
+        std::fs::create_dir_all(&lavoro).unwrap();
+        std::fs::create_dir_all(&fortino).unwrap();
+        let f = fortino.display().to_string();
+        // `/inheritance:r` converte le voci ereditate in esplicite e non le toglie:
+        // dentro `%TEMP%` l'utente ci resterebbe, e un comando senza poteri ci
+        // scriverebbe lo stesso. Si toglie a mano, e poi si controlla.
+        let utente = std::env::var("USERNAME").unwrap_or_default();
+        icacls(&[&f, "/inheritance:r"]);
+        icacls(&[&f, "/remove:g", &utente]);
+        icacls(&[&f, "/remove:g", "*S-1-3-4"]);
+        icacls(&[
+            &f,
+            "/grant:r",
+            "*S-1-5-32-544:(OI)(CI)F",
+            "/grant:r",
+            "*S-1-15-2-1:(OI)(CI)F",
+            "/grant:r",
+            "*S-1-5-18:(OI)(CI)F",
+        ]);
+        // Le voci, senza il percorso: il percorso della cartella contiene il nome dell'utente.
+        let voci = icacls(&[&f]).replace(&f, "");
+        assert!(
+            !voci.to_lowercase().contains(&format!("\\{}:", utente.to_lowercase())),
+            "il fortino non e' un fortino: l'utente ci puo' ancora scrivere\n{voci}"
+        );
+        assert!(prepara_cartella(&lavoro, &chi, Genere::Scrive, &so).unwrap());
+        let script = format!(
+            "{T}{}",
+            r#"
+T 'scrive-lavoro' { Set-Content -LiteralPath '__L__\f.txt' -Value ok -ErrorAction Stop }
+T 'scrive-fortino' { Set-Content -LiteralPath '__F__\f.txt' -Value ok -ErrorAction Stop }
+"#
+        )
+        .replace("__L__", &lavoro.display().to_string())
+        .replace("__F__", &fortino.display().to_string());
+        let permessi = Permessi { scrive: vec![lavoro.clone()], legge: vec![], senza_rete: false };
+        let esito = ps(&script, Some(&permessi), None);
+        let o = String::from_utf8_lossy(&esito.stdout).to_string();
+        let scritto_nel_fortino = fortino.join("f.txt").exists();
+        let scritto_nel_lavoro = lavoro.join("f.txt").is_file();
+        butta(&lavoro, &chi);
+        let _ = std::fs::remove_dir_all(&base);
+        assert!(o.contains("scrive-lavoro=SI"), "i comandi devono girare davvero\n{}", uscita(&esito));
+        assert!(scritto_nel_lavoro, "il comando non ha scritto in write_roots");
+        assert!(
+            o.contains("scrive-fortino=NO") && !scritto_nel_fortino,
+            "un comando di NOVA ha scritto dove solo un amministratore scrive\n{}",
+            uscita(&esito)
+        );
+    }
+
+    /// Se il demone e' elevato e i poteri non si possono togliere, il comando
+    /// non parte e il rifiuto dice perche'. Far fallire `CreateRestrictedToken`
+    /// da fuori non si puo': si prova il testo che il codice usa.
+    #[test]
+    fn windows_il_rifiuto_per_un_demone_elevato_nomina_l_amministratore() {
+        let testo = rifiuto_per_demone_elevato("non creo il token ridotto: errore di prova");
+        assert!(testo.to_lowercase().contains("amministratore"), "{testo}");
+        assert!(testo.contains("non lo lancio"), "{testo}");
+        assert!(testo.contains("errore di prova"), "dice anche il perche': {testo}");
+    }
+
+    /// Con il demone elevato il comando eredita la console (una nuova non parte); in
+    /// ogni altro caso se ne crea una nuova, come sempre.
+    #[test]
+    fn windows_la_console_si_eredita_solo_per_un_demone_elevato() {
+        assert_ne!(flag_di_creazione(false).0 & CREATE_NO_WINDOW.0, 0, "console nuova");
+        assert_eq!(flag_di_creazione(true).0 & CREATE_NO_WINDOW.0, 0, "console ereditata");
+        for f in [flag_di_creazione(false), flag_di_creazione(true)] {
+            assert_ne!(f.0 & CREATE_SUSPENDED.0, 0, "parte sempre sospeso: va nel job prima di correre");
+            assert_ne!(f.0 & EXTENDED_STARTUPINFO_PRESENT.0, 0);
+        }
+    }
+
+    /// Dopo `console_privata`, alla console del processo e' agganciato solo il
+    /// processo stesso: nessun terminale la condivide, quindi un comando che la
+    /// eredita non ha tasti altrui da leggere (un comando confinato che eredita
+    /// una console puo' leggere e consumarne l'input; misurato). Vale solo da
+    /// elevato, che e' quando la console si eredita. Si prende il blocco delle
+    /// prove: un comando in corso, agganciato alla stessa console, falserebbe il
+    /// conteggio.
+    #[test]
+    fn windows_la_console_del_demone_elevato_e_solo_sua() {
+        if !e_elevato() {
+            eprintln!("saltata: la console si eredita solo con un demone elevato");
+            return;
+        }
+        let _s = seriale();
+        console_privata().expect("una console tutta sua");
+        let mut elenco = [0u32; 8];
+        let agganciati = unsafe { GetConsoleProcessList(elenco.as_mut_ptr(), 8) };
+        // Se non e' solo lui, la prova dice chi altro c'e': senza i nomi, «2 processi» non si capisce.
+        let altri: Vec<String> = elenco
+            .iter()
+            .take(agganciati.min(8) as usize)
+            .filter(|p| **p != std::process::id())
+            .map(|p| {
+                std::process::Command::new("tasklist")
+                    .args(["/FO", "CSV", "/NH", "/FI", &format!("PID eq {p}")])
+                    .output()
+                    .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+                    .unwrap_or_default()
+            })
+            .collect();
+        assert_eq!(
+            agganciati, 1,
+            "alla console del demone sono agganciati {agganciati} processi (devono essere solo lui): {elenco:?}; gli altri: {altri:?}"
+        );
+        assert_eq!(elenco[0], std::process::id(), "l'unico agganciato non e' il demone");
     }
 
     /// Se il DACL della cartella e' protetto, cioe' non eredita dal padre.
@@ -2035,8 +2355,23 @@ T 'normale' { Set-Content -LiteralPath '__N__\f.txt' -Value x -ErrorAction Stop 
         let so = sonda(&chi).unwrap();
         let d = nuova_cartella("proprietario");
         let s = d.display().to_string();
+        // «DIRITTI PROPRIETARIO» concede a chi possiede la cartella. Creata da un
+        // processo elevato la possiede il gruppo Amministratori (misurato), e un
+        // comando senza quei poteri non la scrive: giusto, ma non e' il caso che
+        // questa prova guarda. Il proprietario deve essere l'utente, da chiunque
+        // la crei.
+        let utente = std::env::var("USERNAME").unwrap();
+        icacls(&[&s, "/setowner", &utente]);
+        assert!(
+            std::process::Command::new("powershell")
+                .args(["-NoProfile", "-Command", &format!("(Get-Acl -LiteralPath '{s}').Owner")])
+                .output()
+                .map(|o| String::from_utf8_lossy(&o.stdout).to_lowercase().contains(&format!("\\{}", utente.to_lowercase())))
+                .unwrap_or(false),
+            "il proprietario non e' l'utente"
+        );
         icacls(&[&s, "/inheritance:r"]);
-        icacls(&[&s, "/remove:g", &std::env::var("USERNAME").unwrap()]);
+        icacls(&[&s, "/remove:g", &utente]);
         icacls(&[&s, "/grant:r", "*S-1-5-18:(OI)(CI)F"]);
         icacls(&[&s, "/grant:r", "*S-1-3-4:(OI)(CI)F"]);
         let utente = format!("\\{}:", std::env::var("USERNAME").unwrap()).to_lowercase();

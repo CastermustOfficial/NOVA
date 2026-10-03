@@ -815,8 +815,10 @@ all'autonomia valgono sempre tre guardie non aggirabili dal modello:
 Il confine vale anche dopo che il comando e' partito. Su Linux lo tiene
 Landlock; su Windows un contenitore del sistema (AppContainer) con un job
 object, che vede le cartelle di `write_roots` in scrittura, gli strumenti
-elencati in sola lettura, e del resto del profilo non legge niente (D367). Su
-Windows si configura anche in `core.json`, accanto a `config.json`:
+elencati in sola lettura, e del resto del profilo non legge niente (D367).
+Se il demone gira da amministratore, i comandi nel recinto partono lo stesso
+senza i suoi poteri (D369). Su Windows si configura anche in `core.json`,
+accanto a `config.json`:
 
 - `tool_roots` - le cartelle di strumenti (python, node, cargo) che i comandi
   possono leggere ed eseguire, mai scrivere. Si concede la cartella piu'
