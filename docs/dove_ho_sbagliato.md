@@ -1589,3 +1589,52 @@ quale.
 La regola: una durata scritta in un commento si misura con l'orologio, non si
 ricava dal numero dei giri. E un'attesa che deve durare al massimo un tempo si
 scrive con una scadenza, non con un conto.
+
+## Ho dato per riprodotta una falla con una cartella che non la riproduceva
+
+La prova di D369 scriveva in un «fortino» che doveva essere scrivibile solo da
+un amministratore. L'avevo costruito con `icacls /inheritance:r` e tre
+`/grant:r`, ma `/inheritance:r` converte le voci ereditate in esplicite e non
+le toglie: dentro `%TEMP%` restava `<utente>:(F)`, e un comando senza poteri ci
+scriveva lo stesso. Ho scritto «falla riprodotta» su una scrittura che non
+provava niente. Me ne sono accorto leggendo l'ACL vera della cartella, quando
+il token ridotto, che il gruppo Amministratori l'aveva perso di certo,
+continuava a scriverci.
+
+La regola: prima di fidarsi di una prova negativa («qui non si scrive») si
+guarda l'ACL, e la prova controlla la sua premessa prima di usarla.
+
+## Ho cercato il nome dell'utente in un testo che comincia con il suo percorso
+
+Il controllo «l'utente non c'e' piu'» cercava il nome dell'utente nell'uscita di `icacls`,
+che comincia con il percorso della cartella, `C:\Users\<nome>\...`. Scattava
+sempre: la prova rifiutava un fortino giusto, e lo stesso difetto era nella mia
+versione Rust.
+
+La regola: si cerca nella parte del testo che si vuole controllare — qui le
+voci, `DOMINIO\utente:` — e non in tutto l'output.
+
+## Ho scritto un controllo che passava quando la misura falliva
+
+Il comando che guardava l'input della console dentro il contenitore usava
+`Add-Type`, che li' non gira (`csc.exe` non parte): la lettura non avveniva
+mai, il conteggio restava a zero e il controllo cercava soltanto `EVENTI=0`.
+Passava anche con la correzione tolta. L'ha scoperto la mutazione, non la
+lettura del codice.
+
+La regola: un controllo «non vedo niente» vale solo se la prova dimostra, nello
+stesso momento, che stava guardando. E ogni comportamento nuovo ha una
+mutazione che lo fa cadere prima che io dica che e' coperto.
+
+## Ho provato il recinto di Windows solo da utente normale
+
+Prima di `7edebc4` il `cargo test` e le prove Python del recinto giravano da
+utente normale, sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X), e le mie verifiche anche. La sola prova lanciata
+da amministratore, `test_demone_recinto_strumenti.py`, non guardava con quali
+poteri partisse il comando. La CI di Windows gira da amministratore, e al primo
+push ha trovato la falla di D369: con il demone elevato, i comandi confinati
+partivano con i poteri dell'amministratore. Da utente normale nessuna prova
+poteva vederla.
+
+La regola: quando si tocca il recinto, la suite intera gira due volte, da
+utente normale e da amministratore (`test/README.md`, «Fuori dalle suite»).

@@ -57,7 +57,11 @@ def controlla(nome, condizione, dettaglio=""):
 
 from nova.core_client import CoreClient                           # noqa: E402
 
-casa = tempfile.mkdtemp(prefix="nova-recinto-")
+# Una cartella normale nella Temp, non `mkdtemp`: `mkdtemp` la concede solo a OWNER RIGHTS, e
+# creata da un processo elevato la possiede il gruppo Amministratori. Un comando senza i poteri
+# dell'amministratore (D369) non la scrive, e la prova guarderebbe il proprietario, non il confine.
+casa = str(Path(tempfile.gettempdir()) / f"nova-recinto-{os.getpid()}-{int(time.time() * 1000)}")
+Path(casa).mkdir()
 lavoro = Path(casa) / "lavoro"
 altrove = Path(casa) / "altrove"
 lavoro.mkdir(parents=True)

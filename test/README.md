@@ -39,6 +39,7 @@ Le prove del recinto di Windows (`nova-platform` e `nova-core`, solo `cfg(window
 ## Fuori dalle suite
 
 - **Il passo da amministratore** (D367), a mano, con una configurazione di prova: `novad --recinto --prepara` (chiede la conferma di Windows e apre `C:\Users` e le cartelle di strumenti degli amministratori), poi `python prove/demone/test_demone_recinto_strumenti.py` e `python prove/demone/test_demone_recinto.py`, poi `novad --recinto --togli` (altra conferma). Alla fine `C:\Users`, `Temp`, `Python313` e `nodejs` non devono avere piu' voci del contenitore.
+- **La suite intera da amministratore** (D369), ogni volta che si tocca il recinto di Windows: `cargo test` e tutte le `prove/*/test_*.py` da un terminale elevato, oltre al giro da utente normale. Solo da amministratore girano `test_demone_elevato.py` e `test_demone_recinto_strumenti.py`; da utente normale escono 2.
 - `misure/`: i banchi di prestazione, lanciati a mano sul PC con la scheda video.
 - `attrezzi/`: gli script lanciati a mano, compresi i giri di mutazione con cui si verifica che un banco gemello guardi davvero.
 
@@ -160,7 +161,7 @@ Cosa serve: un banco Rust costruito con `cargo`: la prova stampa la riga per cos
 | `test_semina_rust.py` | La prima mappatura del PC scrive in Rust gli stessi nodi del Python. |
 | `test_strumenti_rust.py` | Gli strumenti dichiarati allo stesso modo, in Rust. |
 
-## `prove/demone/`: 27 prove
+## `prove/demone/`: 28 prove
 
 Cosa serve: il binario `novad` costruito.
 
@@ -174,6 +175,7 @@ Cosa serve: il binario `novad` costruito.
 | `test_demone_cli.py` | Il demone fa un turno con un cervello che e' un **programma**, non un URL. |
 | `test_demone_compiti.py` | Un compito pianificato fa il suo turno senza Python (D345). |
 | `test_demone_documenti.py` | Leggere un documento, dal demone. |
+| `test_demone_elevato.py` | Un comando confinato non riceve mai i poteri dell'amministratore, nemmeno da un demone elevato: o parte senza (gruppo non attivo, cartella degli Amministratori non scrivibile, `write_roots` si') o il demone rifiuta e lo dice (D369). Va lanciata da amministratore; da utente normale, e in CI, esce 2: la guardia in CI e' la prova Rust `windows_un_comando_non_riceve_i_poteri_dell_amministratore`. |
 | `test_demone_fascicolo.py` | Il fascicolo, il registro dichiarato e «dove sono i miei dati», nel demone (D352). |
 | `test_demone_file.py` | Gli strumenti sui file, dentro il demone, con il modo di tornare indietro. |
 | `test_demone_harness.py` | Le proposte di NOVA nell'harness, dal demone (D339). |

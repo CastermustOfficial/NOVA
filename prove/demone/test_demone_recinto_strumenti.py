@@ -85,7 +85,11 @@ def strumenti_di_questo_pc():
 
 def con_il_demone(tool_roots, comandi):
     """Lancia un demone con questa configurazione e esegue i comandi."""
-    casa = tempfile.mkdtemp(prefix="nova-strumenti-")
+    # Una cartella normale in %TEMP%, non `mkdtemp`: `mkdtemp` la concede solo a OWNER RIGHTS, e
+    # creata da un processo elevato la possiede il gruppo Amministratori. Un comando senza i poteri
+    # dell'amministratore (D369) non la scrive: la prova guarda gli strumenti, non il proprietario.
+    casa = str(Path(tempfile.gettempdir()) / f"nova-strumenti-{os.getpid()}-{int(time.time() * 1000)}")
+    Path(casa).mkdir()
     lavoro = Path(casa) / "lavoro"
     lavoro.mkdir()
     (Path(casa) / "NOVA").mkdir()
