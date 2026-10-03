@@ -204,6 +204,9 @@ if ($Disinstalla) {
     if ($Prova) {
         Info "[prova] toglierei: processi accesi, attivita' pianificate,"
         Info "[prova] avvio automatico, collegamento sul Desktop"
+        if (Test-Path $novadR) {
+            foreach ($riga in @(& $novadR --recinto 2>$null)) { Info "[prova] recinto: $riga" }
+        }
         if ($ConIDati) { Info "[prova] e anche i dati in $env:APPDATA\NOVA" }
         foreach ($v in $restano) {
             Info ("[prova] resterebbe: {0} — {1} — {2}" -f $v.che_cos_e, $v.misura, $v.dove)
@@ -224,6 +227,27 @@ if ($Disinstalla) {
         Fatto "processi di NOVA" "fermati ($($vivi.Count))"
     } else {
         Fatto "processi di NOVA" "non ne girava nessuno"
+    }
+
+    # Le voci del recinto (D367). Stanno sulle cartelle dell'utente, non nei
+    # dati di NOVA: si tolgono sempre, anche senza -ConIDati, e dopo aver
+    # fermato il demone, che al comando dopo le riscriverebbe. Se non si
+    # riesce, l'elenco resta: e' l'unica traccia di dove sono.
+    $recintoRimasto = $false
+    $elencoRecinto = Join-Path $env:APPDATA 'NOVA\recinto.json'
+    if (Test-Path $novadR) {
+        $uscita = (@(& $novadR --recinto --togli 2>&1) -join ' ')
+        if ($LASTEXITCODE -eq 0) {
+            Fatto "voci del recinto sulle cartelle" $uscita
+        } else {
+            $recintoRimasto = $true
+            Fatto "voci del recinto sulle cartelle" "NON tolte: $uscita"
+        }
+    } elseif (Test-Path $elencoRecinto) {
+        $recintoRimasto = $true
+        Fatto "voci del recinto sulle cartelle" "NON tolte: manca novad.exe per toglierle"
+    } else {
+        Fatto "voci del recinto sulle cartelle" "non ce n'erano"
     }
 
     # Le attivita' pianificate. Il filtro guarda l'inizio del nome, non
@@ -256,7 +280,11 @@ if ($Disinstalla) {
         # dell'utente, scritti da lui, in Documenti - e cancellare il CV di
         # qualcuno perche' ha disinstallato un programma sarebbe imperdonabile.
         $dati = Join-Path $env:APPDATA 'NOVA'
-        if (Test-Path $dati) {
+        if ($recintoRimasto) {
+            # Cancellare qui vorrebbe dire perdere recinto.json, e con lui
+            # l'unico modo di sapere su quali cartelle restano le voci.
+            Fatto "memoria, credenziali, configurazione" "NON rimossi: prima vanno tolte le voci del recinto (novad --recinto --togli)"
+        } elseif (Test-Path $dati) {
             Remove-Item $dati -Recurse -Force -ErrorAction SilentlyContinue
             Fatto "memoria, credenziali, configurazione" $(if (Test-Path $dati) { "NON rimossi" } else { "rimossi" })
         } else {

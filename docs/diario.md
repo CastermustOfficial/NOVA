@@ -11302,3 +11302,108 @@ invece di fingerla vuota; `kb.inject_context` spento toglie il contesto dal
 turno (D366). Il controllo sta dentro la memoria e non nei quattro posti che
 la usano: la semina, arrivata stamattina, era la quarta strada, e se ne
 sarebbe aggiunta una quinta.
+
+## 2 ottobre 2026 — Il recinto di Windows: quello che non avevo provato era sbagliato
+
+Il recinto per i comandi su Windows si e' chiuso come un contenitore del
+sistema (D367), e la parte che racconta qualcosa e' quanta della strada l'avevo
+sbagliata prima di provarla. Il token ristretto, scelto con Gio il 30
+settembre, aveva una falla che ho trovato solo scansionando i dischi: con
+Everyone fra le identita' di controllo, le cartelle aperte a Everyone
+tornavano scrivibili. Avevo detto a Gio che Everyone non allentava i file, e
+l'avevo provato su due cartelle. Era una garanzia falsa data su due campioni.
+
+Il contenitore ha rovesciato le domande. Il nome del profilo, registrato in
+ANSI invece che in UTF-16, dava un SID diverso, e per una sessione intera ho
+guardato i permessi del contenitore sbagliato. Il binario release non si era
+ricostruito e leggevo risultati vecchi. Poi le cose che nessun manuale dice:
+PowerShell non si posiziona in una cartella se il contenitore non legge la
+prima sotto la radice del disco e il nonno (sei combinazioni su una catena
+costruita apposta, dopo due regole sbagliate di fila: «servono tutte» e «basta
+la prima»), e per un progetto nel profilo la prima e' `C:\Users`, che senza
+amministratore non si tocca.
+
+Il passo da amministratore e' venuto da li'. Provandolo ho visto che anche
+`C:\Python313` e `nodejs` sono degli amministratori, quindi anche loro. Scrivere
+il permesso su `C:\Users\utente` con la propagazione ripassava tutto il profilo:
+la prova e' rimasta due minuti e mezzo al 100% di CPU, e nessuna prova su una
+cartella piccola se ne era accorta. Ho dovuto fermare io il processo.
+
+L'ultima scoperta e' la piu' scomoda: avevo proposto di chiudere per il solo
+contenitore le cartelle di terzi aperte a tutti i pacchetti, con un divieto
+intestato al suo SID, e Gio aveva approvato. Non funziona, con nessuna maschera
+e nemmeno con una capability, e LPAC fa non partire PowerShell. Il controllo
+dei dischi, fatto dal prodotto, ha ritrovato le stesse quattro cartelle della
+scansione a mano, e adesso le dichiara con la data invece di fingere di averle
+chiuse.
+
+Chiudendo mi sono accorto di due altre cose. Le prove che si aspettano un
+rifiuto di Windows non rifiutano su un runner da amministratore, e quella su
+`System32\config` avrebbe scritto un permesso in `System32`: ora si salta. E
+`rustfmt` e `clippy` non erano installati su questo PC, quindi «0 file da
+riformattare» non diceva niente. La prova gemella dei dati cadeva su Windows
+anche prima di me, per i percorsi finti scritti con la barra: ora si danno a
+tutte e due le teste nella forma del sistema.
+
+Una cosa me l'ha mostrata solo la suite intera: il controllo dei dischi, che
+partiva subito, non si fermava quando il demone si chiudeva, e il demone di
+prova restava vivo per minuti. Adesso il controllo parte un minuto dopo l'avvio,
+si ferma con il demone, e una prova lo accende con l'attesa a zero per vedere
+che si spenga lo stesso.
+
+Le sette prove del demone che cadevano su Windows gia' prima del recinto
+meritavano una risposta, perche' la regola e' che il rosso non si committa. Le
+ho confrontate con il commit di partenza in una copia pulita, con il suo
+`novad`: cadevano uguali. Cercandone la causa una per una (D368) ne sono venuti
+fuori quattro difetti veri del prodotto. Il piu' istruttivo: il client apriva
+la pipe una volta sola, e dopo ogni connessione c'e' meno di un millisecondo in
+cui nessuno ascolta; misurando, la seconda connessione immediata cadeva sempre
+e quella a un millisecondo mai. E `nova chiedi --accendi` faceva ereditare al
+demone le pipe di chi catturava l'uscita, quindi non tornava mai.
+
+Due volte ho creduto di avere la causa e non l'avevo: `registro_novad` non
+dipendeva dal codice ma da dove Python tiene i pacchetti, e quattro controlli di
+`permessi`, nascosti dal difetto del canale, erano comandi POSIX dati a
+PowerShell.
+
+## 2 ottobre 2026, sera — La suite intera su Windows
+
+Gio mi ha chiesto di verificare tutto sul suo PC. Ho preparato un ambiente
+Python con le dipendenze di `requirements.txt`, ricostruito i banchi e il
+demone dal suo albero, e fatto girare tutte le prove tranne `macchina`, che
+usa schermo e tastiera. Ne cadevano due che le correzioni di D368 non
+coprivano: i client Rust della pipe, e una prova che dava per scontato un
+progetto senza llama-server. Corrette tutte e due, e `cargo test` di tutto lo
+spazio di lavoro passa anche su Windows: 1175 prove.
+
+## 2 ottobre 2026, notte — La rilettura del recinto
+
+Il codice del recinto l'avevo fatto girare nelle prove, ma non l'avevo mai
+riletto. Quando l'ho fatto, riga per riga, ho trovato cose che nessuna prova
+poteva vedere, perche' nessuna prova le guardava. La piu' seria: un comando
+interrotto su Windows non si fermava piu' (il filo che lo aspetta non si
+annulla). Poi un passo da amministratore che, finito a meta' o scaduto,
+ritirava le annotazioni di voci che poteva aver scritto davvero; le antenate
+aperte anche per gli strumenti, con `.cargo` in elenco; ReFS trattato come un
+disco senza permessi; e un'intestazione di file ferma alla strada che avevo
+scartato. Un dubbio, invece, era infondato: scrivere una voce non toglie la
+protezione dell'ereditarieta' di una cartella. L'ho misurato prima di
+aggiustare, e la prova resta.
+
+La prova degli strumenti, che da utente normale si salta, l'ho fatta girare da
+amministratore: 8 su 8. Quella non copre il flusso vero, con la richiesta UAC e
+il passo separato, che avevo appena riscritto: l'ho fatto girare dal vivo
+(`--prepara`, poi `--togli`), e non resta niente sul PC.
+
+## 2 ottobre 2026, notte — Il giro finale
+
+Il giro finale di Gio, con l'ambiente pulito, ha trovato rossa `compiti`, che
+nei miei giri era verde. La colpa era della prova: la sua CLI finta leggeva
+stdin nella codifica di Windows, e io lanciavo le prove con
+`PYTHONIOENCODING=utf-8`, che lo nascondeva. Sotto ce n'era un secondo, gli a
+capo della domanda. Ora le quattro CLI finte del demone leggono UTF-8 come
+quelle vere, e la domanda si scrive byte per byte.
+
+Il giro su Linux, nel repository, ha trovato un'altra cosa: la prova dei
+dati personali, che dall'esportazione di Windows si saltava per mancanza di
+git, era rossa per un profilo chiamato `<tu>` in un esempio. Ora e' `utente`.

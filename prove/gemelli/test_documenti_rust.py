@@ -175,18 +175,20 @@ for n in range(12):
                        fontsize=9)
 pdf.save(cartella / "lungo.pdf")
 
+# La barra e' quella del sistema: con `{C}/` su Windows il Python (che passa da
+# `Path`) scrive `\` e Rust restituisce `/`, e il confronto cadeva per questo.
 C = str(cartella)
 CASI = [
-    (f"{C}/windows.txt", "", ""), (f"{C}/rotto.txt", "", ""), (f"{C}/bom.txt", "", ""),
-    (f"{C}/lungo.log", "", ""), (f"{C}/accenti.txt", "", ""), (f"{C}/senza_estensione", "", ""), (f"{C}/vecchio.doc", "", ""),
-    (f"{C}/una_cartella", "", ""), (f"{C}/non_c_e.pdf", "", ""),
-    (f"{C}/fattura.docx", "", ""), (f"{C}/vuoto.docx", "", ""),
-    (f"{C}/conti.xlsx", "", ""), (f"{C}/conti.xlsx", "Note", ""),
-    (f"{C}/conti.xlsx", "", "Note"), (f"{C}/conti.xlsx", "", "Mancante"),
-    (f"{C}/due.pdf", "", ""), (f"{C}/due.pdf", "2", ""), (f"{C}/due.pdf", " 1-1 ", ""),
-    (f"{C}/due.pdf", "0-9", ""), (f"{C}/due.pdf", "5", ""), (f"{C}/due.pdf", "x", ""),
-    (f"{C}/due.pdf", "2-", ""), (f"{C}/chiuso.pdf", "", ""), (f"{C}/aperto.pdf", "", ""),
-    (f"{C}/scansione.pdf", "", ""), (f"{C}/chiuso_aes.pdf", "", ""), (f"{C}/aperto_aes.pdf", "", ""), (f"{C}/lungo.pdf", "", ""), (f"{C}/lungo.pdf", "3-4", ""),
+    (f"{C}{os.sep}windows.txt", "", ""), (f"{C}{os.sep}rotto.txt", "", ""), (f"{C}{os.sep}bom.txt", "", ""),
+    (f"{C}{os.sep}lungo.log", "", ""), (f"{C}{os.sep}accenti.txt", "", ""), (f"{C}{os.sep}senza_estensione", "", ""), (f"{C}{os.sep}vecchio.doc", "", ""),
+    (f"{C}{os.sep}una_cartella", "", ""), (f"{C}{os.sep}non_c_e.pdf", "", ""),
+    (f"{C}{os.sep}fattura.docx", "", ""), (f"{C}{os.sep}vuoto.docx", "", ""),
+    (f"{C}{os.sep}conti.xlsx", "", ""), (f"{C}{os.sep}conti.xlsx", "Note", ""),
+    (f"{C}{os.sep}conti.xlsx", "", "Note"), (f"{C}{os.sep}conti.xlsx", "", "Mancante"),
+    (f"{C}{os.sep}due.pdf", "", ""), (f"{C}{os.sep}due.pdf", "2", ""), (f"{C}{os.sep}due.pdf", " 1-1 ", ""),
+    (f"{C}{os.sep}due.pdf", "0-9", ""), (f"{C}{os.sep}due.pdf", "5", ""), (f"{C}{os.sep}due.pdf", "x", ""),
+    (f"{C}{os.sep}due.pdf", "2-", ""), (f"{C}{os.sep}chiuso.pdf", "", ""), (f"{C}{os.sep}aperto.pdf", "", ""),
+    (f"{C}{os.sep}scansione.pdf", "", ""), (f"{C}{os.sep}chiuso_aes.pdf", "", ""), (f"{C}{os.sep}aperto_aes.pdf", "", ""), (f"{C}{os.sep}lungo.pdf", "", ""), (f"{C}{os.sep}lungo.pdf", "3-4", ""),
 ]
 
 

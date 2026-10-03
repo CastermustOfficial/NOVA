@@ -77,6 +77,18 @@ pub struct Config {
     pub protected_paths: Vec<String>,
     /// Se valorizzato, le scritture sono confinate qui dentro.
     pub write_roots: Vec<String>,
+    /// Cartelle di strumenti (python, node, cargo...) che i comandi confinati
+    /// possono **leggere ed eseguire**, mai scrivere. Solo Windows: un
+    /// contenitore non vede cio' che non gli e' stato aperto, e uno strumento
+    /// installato nel profilo non parte. Si concede la cartella piu' stretta
+    /// che serve: `C:\Users\utente\.cargo\bin`, non `.cargo`, dove stanno le
+    /// credenziali. Il percorso si scrive per intero: le variabili d'ambiente
+    /// non si espandono. `novad --recinto` segnala quelle che stanno nel profilo.
+    pub tool_roots: Vec<String>,
+    /// Spegne la rete ai comandi confinati. Il default e' **rete accesa**,
+    /// come su Linux, dove Landlock non la tocca e questa opzione non ha
+    /// effetto (e il racconto lo dice). Solo Windows.
+    pub shell_senza_rete: bool,
     /// Sottostringhe vietate nei comandi di shell.
     pub forbidden_commands: Vec<String>,
     pub shell_timeout_s: u64,
@@ -134,6 +146,8 @@ impl Default for Config {
             autonomy: predefiniti::AUTONOMIA_PREDEFINITA.to_string(),
             protected_paths: default_protected(),
             write_roots: Vec::new(),
+            tool_roots: Vec::new(),
+            shell_senza_rete: false,
             forbidden_commands: predefiniti::COMANDI_VIETATI
                 .iter()
                 .map(|s| s.to_string())

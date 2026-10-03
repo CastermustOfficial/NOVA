@@ -173,9 +173,26 @@ controlla("i dati si tolgono solo se lo chiedi", "$ConIDati" in INST)
 # cancellarlo, bisogna che sappia che e' ancora li'.
 # Il ramo vero, non quello di -Prova.
 posto = INST.index("$dati = Join-Path $env:APPDATA 'NOVA'")
-ramo = INST[posto:posto + 380]
+# Il ramo vero, fino alla cancellazione: una finestra di caratteri fissa si
+# rompeva appena il ramo cresceva, senza che fosse cambiato cosa cancella.
+ramo = INST[posto:INST.index("Remove-Item $dati -Recurse", posto) + 60]
 controlla("si cancella solo la cartella di NOVA",
           "Remove-Item $dati -Recurse" in ramo and "fascicolo" not in ramo.lower())
+
+print("\n9b. le voci del recinto sulle cartelle dell'utente (D367)")
+# Stanno sulle cartelle dell'utente, non nei dati di NOVA: si tolgono sempre,
+# a demone fermo, e se non si riesce i dati non si cancellano - con loro se
+# ne andrebbe recinto.json, l'unica traccia di dove sono.
+inizio = INST.index("if ($Disinstalla) {")
+togli = INST.find("--recinto --togli", inizio)
+processi = INST.find("Get-Process novad", inizio)
+condati = INST.find("if ($ConIDati) {", processi)
+controlla("il disinstallatore toglie le voci del recinto", togli > inizio)
+controlla("dopo aver fermato il demone, che le riscriverebbe", 0 < processi < togli)
+controlla("sempre, non solo con -ConIDati", 0 < togli < condati)
+controlla("e se non ci riesce i dati restano",
+          "$recintoRimasto" in ramo
+          and ramo.index("$recintoRimasto") < ramo.index("Remove-Item $dati -Recurse"))
 # Prima qui c'era una frase fissa: «Il fascicolo NON e' stato toccato», con
 # dentro il percorso scritto a mano. Diceva una cosa sola e la diceva sempre,
 # anche a chi il fascicolo non ce l'ha, e taceva sugli altri due posti fuori

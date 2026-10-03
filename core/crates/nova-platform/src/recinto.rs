@@ -1,4 +1,4 @@
-//! Il recinto: cosa un processo figlio **puo'** toccare, deciso dal kernel.
+//! Il recinto: cosa un processo figlio **puo'** toccare, deciso dal sistema.
 //!
 //! Le guardie di NOVA vivono dentro il processo che decide: `check_write`
 //! confronta percorsi, `comando_permesso` applica espressioni regolari. Vanno
@@ -12,11 +12,30 @@
 //! e la restrizione **non si puo' allentare** — nemmeno da dentro, nemmeno
 //! per errore, nemmeno se il programma e' malevolo.
 //!
+//! Su Windows e' un **contenitore** (AppContainer) piu' un **job object**
+//! (D367). Il comando gira dentro il profilo `nova.recinto`, e il controllo
+//! d'accesso di Windows vale **due volte**: una con i permessi dell'utente,
+//! una con quelli del contenitore, e passa solo se passano entrambe. Il
+//! contenitore ha voci sulle cartelle dichiarate in `write_roots` (leggere,
+//! scrivere, cancellare), su quelle di strumenti elencate (solo leggere ed
+//! eseguire) e sulle antenate (solo la cartella, perche' PowerShell si
+//! posizioni), e **niente altro**: del resto del profilo non legge niente, e
+//! delle antenate vede i nomi. Creare, modificare e cancellare un file altrove finisce in «accesso
+//! negato» dal sistema — provato. La rete e' accesa come su Linux (si spegne
+//! con `shell_senza_rete`); il loopback e' chiuso. Il job object tiene
+//! insieme il comando e tutto quello che avvia: fermarlo ferma anche i
+//! nipoti.
+//!
+//! Il contenitore non e' un muro intero. Le cartelle di terzi aperte a ALL
+//! APPLICATION PACKAGES (driver, Segnalazione errori di Windows) restano
+//! scrivibili, e il racconto le elenca.
+//!
 //! ## Cosa cambia davvero
 //!
 //! Prima: «NOVA dice che non si puo' fare». Adesso: «non si puo' fare», e
-//! l'errore arriva da `EACCES` del kernel invece che da una stringa nostra.
-//! E' la differenza fra una regola e un muro.
+//! l'errore arriva da `EACCES` del kernel, o da `ERROR_ACCESS_DENIED` di
+//! Windows, invece che da una stringa nostra. E' la differenza fra una regola
+//! e un muro.
 //!
 //! ## Cosa **non** e'
 //!
@@ -51,13 +70,24 @@ pub struct Permessi {
     /// Le cartelle in cui puo' scrivere. **Vuoto vuol dire nessun recinto**:
     /// vedi la nota in testa al modulo.
     pub scrive: Vec<PathBuf>,
+    /// Cartelle di strumenti che il comando puo' leggere ed eseguire — mai
+    /// scrivere. Su Windows un contenitore non vede cio' che non e' stato
+    /// aperto: python o cargo, installati nel profilo, senza questo non
+    /// partono. Su Linux Landlock legge gia' tutto, e il campo non conta.
+    pub legge: Vec<PathBuf>,
+    /// Spegne la rete. Il default e' **rete accesa**, come oggi su Linux,
+    /// dove Landlock non la tocca. Solo Windows: li' il contenitore la
+    /// toglie davvero; su Linux non c'e' ancora.
+    pub senza_rete: bool,
 }
 
 /// Cosa sa fare questo sistema.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Recinto {
-    /// Il kernel sa tenerlo, e la versione che sa parlare.
-    Kernel(i32),
+    /// Il kernel Linux sa tenerlo, e la versione di Landlock che sa parlare.
+    Landlock(i32),
+    /// Windows sa tenerlo: contenitore (AppContainer) e job object.
+    Contenitore,
     /// Non c'e', e il perche' si dice invece di tacere: un confine che si
     /// crede di avere e non si ha e' peggio di un confine che manca.
     NonCe(&'static str),
@@ -65,12 +95,15 @@ pub enum Recinto {
 
 impl Recinto {
     pub fn ce(&self) -> bool {
-        matches!(self, Recinto::Kernel(_))
+        matches!(self, Recinto::Landlock(_) | Recinto::Contenitore)
     }
 
     pub fn come_si_racconta(&self) -> String {
         match self {
-            Recinto::Kernel(v) => format!("il kernel tiene il recinto (Landlock ABI {v})"),
+            Recinto::Landlock(v) => format!("il kernel tiene il recinto (Landlock ABI {v})"),
+            Recinto::Contenitore => {
+                "Windows tiene il recinto (contenitore AppContainer e job object)".to_string()
+            }
             Recinto::NonCe(perche) => format!("nessun recinto di sistema: {perche}"),
         }
     }
@@ -270,23 +303,29 @@ mod linux {
     }
 }
 
+#[cfg(windows)]
+pub mod windows;
+
 /// Cosa sa fare questo sistema.
 pub fn disponibile() -> Recinto {
     #[cfg(target_os = "linux")]
     {
         let v = linux::versione();
         if v > 0 {
-            return Recinto::Kernel(v);
+            return Recinto::Landlock(v);
         }
         return Recinto::NonCe("questo kernel non parla Landlock (serve 5.13 o piu')");
     }
-    #[cfg(target_os = "windows")]
+    #[cfg(windows)]
     {
-        // Il recinto di Windows — token ristretto e job object — e' la mossa
-        // dopo. Dirlo e' meglio che lasciar credere che ci sia.
-        Recinto::NonCe("su Windows il recinto di sistema non c'e' ancora")
+        // Gli AppContainer ci sono da Windows 8: se il SID del contenitore si
+        // deriva, il resto c'e'. Derivarlo non crea niente sul PC.
+        return match windows::Identita::di_nova() {
+            Ok(_) => Recinto::Contenitore,
+            Err(_) => Recinto::NonCe("questo Windows non sa costruire l'identita' di NOVA"),
+        };
     }
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+    #[cfg(not(any(target_os = "linux", windows)))]
     {
         Recinto::NonCe("su questo sistema il recinto di sistema non c'e'")
     }
@@ -296,7 +335,8 @@ pub fn disponibile() -> Recinto {
 ///
 /// Si chiama nel figlio, fra la fork e la exec: la restrizione sopravvive
 /// alla exec, quindi il programma parte gia' dentro. Chiamarla nel padre
-/// vorrebbe dire chiudere il demone.
+/// vorrebbe dire chiudere il demone. Su Windows non c'e' una fork: il
+/// recinto si mette addosso al comando quando parte, con `windows::lancia`.
 pub fn chiudi(p: &Permessi) -> Result<(), String> {
     #[cfg(target_os = "linux")]
     {
@@ -336,7 +376,8 @@ mod prove {
     fn senza_cartelle_dichiarate_non_si_chiede_nessun_recinto() {
         assert!(!serve(&Permessi::default()));
         assert!(serve(&Permessi {
-            scrive: vec![std::path::PathBuf::from("/tmp")]
+            scrive: vec![std::path::PathBuf::from("/tmp")],
+            ..Default::default()
         }));
     }
 
@@ -351,7 +392,7 @@ mod prove {
     fn il_kernel_rifiuta_quello_che_il_recinto_non_consente() {
         use std::os::unix::process::CommandExt;
 
-        let Recinto::Kernel(_) = disponibile() else {
+        let Recinto::Landlock(_) = disponibile() else {
             eprintln!("saltata: {}", disponibile().come_si_racconta());
             return;
         };
@@ -364,6 +405,7 @@ mod prove {
 
         let permessi = Permessi {
             scrive: vec![dentro.clone()],
+            ..Default::default()
         };
         let mut c = std::process::Command::new("sh");
         c.arg("-c").arg(format!(
@@ -401,7 +443,7 @@ mod prove {
     fn dentro_il_recinto_i_programmi_partono_e_leggono() {
         use std::os::unix::process::CommandExt;
 
-        let Recinto::Kernel(_) = disponibile() else {
+        let Recinto::Landlock(_) = disponibile() else {
             return;
         };
         let base =
@@ -412,6 +454,7 @@ mod prove {
 
         let permessi = Permessi {
             scrive: vec![base.clone()],
+            ..Default::default()
         };
         let mut c = std::process::Command::new("sh");
         c.arg("-c").arg(format!(

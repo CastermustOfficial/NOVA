@@ -8,3 +8,7 @@ description = "Tipi del protocollo di nova-core: JSON-RPC, capacita', eventi."
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
+# Il canale verso il demone (`canale`): la pipe su Windows, il socket unix
+# altrove, e la riprova quando la pipe e' occupata. Tutti quelli che usano
+# questo crate hanno gia' tokio.
+tokio.workspace = true

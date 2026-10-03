@@ -54,7 +54,13 @@ pub fn catalogo(radice: &Path, runtime: &Path) -> Vec<Componente> {
                 },
                 Pezzo {
                     tipo: Tipo::Copia {
-                        da: radice.join("core/crates/nova-voce/src/vocab.json"),
+                        // Segmento per segmento: con una `/` dentro la stringa, su Windows il
+            // percorso resta misto (`C:\...\core/crates/...`), mentre il Python, che
+            // passa da `pathlib`, lo scrive tutto con `\`. Stesso file, non lo
+            // stesso testo — e la prova gemella confronta il testo.
+            da: ["core", "crates", "nova-voce", "src", "vocab.json"]
+                .iter()
+                .fold(radice.to_path_buf(), |p, s| p.join(s)),
                     },
                     dove: voce.join("vocab.json"),
                     prova: None,

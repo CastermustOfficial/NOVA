@@ -92,7 +92,7 @@ TRACCIA = Path(casa) / "ricevuto.jsonl"
 FINTA = Path(casa) / "finta_cli.py"
 FINTA.write_text(
     "import json, sys\n"
-    "prompt = sys.stdin.read()\n"
+    "prompt = sys.stdin.buffer.read().decode('utf-8')\n"
     "with open(r'" + str(TRACCIA) + "', 'a', encoding='utf-8') as f:\n"
     "    f.write(json.dumps({'argv': sys.argv[1:], 'prompt': prompt},\n"
     "                       ensure_ascii=False) + '\\n')\n"

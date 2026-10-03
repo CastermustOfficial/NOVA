@@ -193,6 +193,13 @@ fn dentro(c: &Path, nome: &str) -> Option<PathBuf> {
 }
 
 /// Letto: il testo, o perche' no.
+/// Il testo come lo legge il Python in modalita' testo: `\r\n` e `\r` diventano
+/// `\n`. Un file scritto con il Blocco note, che va a capo con `\r\n`, arriva al
+/// modello come uno scritto altrove — e `caratteri` conta gli stessi caratteri.
+fn a_capo_unix(testo: &str) -> String {
+    testo.replace("\r\n", "\n").replace('\r', "\n")
+}
+
 pub fn leggi(cfg: &Value, nome: &str, caratteri: usize) -> Result<(String, usize, bool), String> {
     let c = cartella(cfg);
     let f = dentro(&c, nome).ok_or("quel nome esce dal fascicolo")?;
@@ -208,7 +215,7 @@ pub fn leggi(cfg: &Value, nome: &str, caratteri: usize) -> Result<(String, usize
     let est = estensione(&f);
     let percorso = f.to_string_lossy().to_string();
     let testo = if TESTO.contains(&est.as_str()) {
-        String::from_utf8_lossy(&std::fs::read(&f).map_err(|e| e.to_string())?).to_string()
+        a_capo_unix(&String::from_utf8_lossy(&std::fs::read(&f).map_err(|e| e.to_string())?))
     } else if est == ".pdf" {
         nova_documenti::leggi(&percorso, "1-40", "")?
     } else if DA_APRIRE.contains(&est.as_str()) {
@@ -393,6 +400,30 @@ mod prove {
         assert!(dentro(c, "/etc/passwd").is_none());
         assert_eq!(dentro(c, "cv/./cv.pdf"), Some(PathBuf::from("/casa/fascicolo/cv/cv.pdf")));
         assert_eq!(dentro(c, "a/../b.md"), Some(PathBuf::from("/casa/fascicolo/b.md")));
+    }
+
+    #[test]
+    fn gli_a_capo_di_windows_diventano_a_capo_unix_come_nel_python() {
+        assert_eq!(a_capo_unix("a\r\nb\rc\nd"), "a\nb\nc\nd");
+        assert_eq!(a_capo_unix("senza a capo"), "senza a capo");
+        assert_eq!(a_capo_unix("\r\n\r\n"), "\n\n", "una riga vuota resta una riga vuota");
+    }
+
+    /// Il file vero: scritto con `\r\n`, si legge con `\n`, e il conteggio dei
+    /// caratteri e' quello del testo normalizzato (un `\r\n` e' un carattere).
+    #[test]
+    fn un_file_con_a_capo_windows_si_legge_con_a_capo_unix() {
+        let dir = std::env::temp_dir().join(format!("nova-fascicolo-a-capo-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("lettera.txt"), b"Gentile azienda,\r\nciao\r\n").unwrap();
+        let cfg = json!({ "fascicolo": dir.to_string_lossy() });
+        let esito = leggi(&cfg, "lettera.txt", 1000);
+        let _ = std::fs::remove_dir_all(&dir);
+        let (testo, quanti, tagliato) = esito.unwrap();
+        assert_eq!(testo, "Gentile azienda,\nciao\n");
+        assert_eq!(quanti, "Gentile azienda,\nciao\n".chars().count());
+        assert!(!tagliato);
     }
 
     #[test]

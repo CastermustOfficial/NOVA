@@ -5,6 +5,7 @@
 //! shell, filesystem, processi — piu' la possibilita' di estendersi.
 
 use std::path::{Path, PathBuf};
+#[cfg(not(windows))]
 use std::process::Stdio;
 use std::sync::Arc;
 
@@ -459,33 +460,8 @@ impl Capability for ShellExecCap {
         ctx.policy.check_command(&comando)?;
         let timeout = arg_u64(&args, "timeout_s", ctx.config.shell_timeout_s);
 
-        let mut cmd = if cfg!(windows) {
-            let mut c = tokio::process::Command::new("powershell");
-            c.args([
-                "-NoProfile",
-                "-NonInteractive",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-Command",
-            ]);
-            c.arg(&comando);
-            c
-        } else {
-            let mut c = tokio::process::Command::new("sh");
-            c.arg("-c").arg(&comando);
-            c
-        };
-        if let Some(dir) = arg_str_opt(&args, "cwd") {
-            if !dir.is_empty() {
-                cmd.current_dir(espandi(&dir));
-            }
-        }
-        cmd.stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .stdin(Stdio::null());
-
         // Il recinto: quel che l'utente ha dichiarato scrivibile lo impone il
-        // kernel, non una nostra stringa. Senza `write_roots` non c'e'
+        // sistema, non una nostra stringa. Senza `write_roots` non c'e'
         // recinto — inventarlo qui vorrebbe dire decidere al posto suo quali
         // cartelle sono sue — e il risultato lo dice invece di lasciarlo
         // credere.
@@ -496,27 +472,96 @@ impl Capability for ShellExecCap {
         // programmi che scrivono un file d'appoggio fallirebbe.
         let scratch = crate::recinto_comando::cartella_effimera();
         let recinto = crate::recinto_comando::prepara(ctx, scratch.as_deref());
-        if let Some(t) = scratch.as_deref() {
-            for chiave in ["TMPDIR", "TEMP", "TMP"] {
-                cmd.env(chiave, t);
-            }
-        }
-        crate::recinto_comando::applica(&mut cmd, &recinto);
-
-        // Senza questo, interrompere il comando libera chi ha chiesto ma
-        // lascia il processo a girare di nascosto: «fermare» diventerebbe
-        // una bugia. Il supervisor lo fa gia' per i suoi figli.
-        //
-        // Limite noto: uccide il figlio diretto, non i suoi discendenti.
-        // Un comando che ne avvia altri lascia nipoti orfani; la cura vera
-        // sono i job object di Windows, ed e' una questione aperta.
-        cmd.kill_on_drop(true);
+        let ambiente: Vec<(String, String)> = scratch
+            .as_deref()
+            .map(|t| {
+                ["TMPDIR", "TEMP", "TMP"]
+                    .iter()
+                    .map(|k| (k.to_string(), t.display().to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let cwd = arg_str_opt(&args, "cwd")
+            .filter(|d| !d.is_empty())
+            .map(|d| espandi(&d));
+        let durata = std::time::Duration::from_secs(timeout.max(1));
 
         let inizio = std::time::Instant::now();
-        let esito =
-            tokio::time::timeout(std::time::Duration::from_secs(timeout.max(1)), cmd.output())
-                .await
-                .map_err(|_| anyhow!("comando interrotto dopo {timeout}s"))??;
+
+        // Su Windows il recinto si costruisce **attorno al processo** (un
+        // contenitore AppContainer e un job object), e quel lancio non passa da
+        // `tokio::process`: ci pensa `recinto_comando::esegui_windows`. Il job
+        // object fa cadere anche i nipoti, la cura vera per «fermare» che su
+        // unix resta parziale.
+        #[cfg(windows)]
+        let uscita = {
+            let argomenti = vec![
+                "-NoProfile".to_string(),
+                "-NonInteractive".to_string(),
+                "-ExecutionPolicy".to_string(),
+                "Bypass".to_string(),
+                "-Command".to_string(),
+                comando.clone(),
+            ];
+            crate::recinto_comando::esegui_windows(
+                "powershell",
+                argomenti,
+                cwd.clone(),
+                ambiente.clone(),
+                &recinto,
+                durata,
+            )
+            .await?
+        };
+
+        // Altrove il recinto lo tiene il kernel fra la fork e la exec, e il
+        // comando parte con `tokio::process`.
+        #[cfg(not(windows))]
+        let uscita = {
+            let mut cmd = tokio::process::Command::new("sh");
+            cmd.arg("-c").arg(&comando);
+            if let Some(dir) = &cwd {
+                cmd.current_dir(dir);
+            }
+            for (k, v) in &ambiente {
+                cmd.env(k, v);
+            }
+            cmd.stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .stdin(Stdio::null());
+            crate::recinto_comando::applica(&mut cmd, &recinto);
+            // Senza questo, interrompere il comando libera chi ha chiesto ma
+            // lascia il processo a girare di nascosto: «fermare» diventerebbe
+            // una bugia.
+            cmd.kill_on_drop(true);
+            match tokio::time::timeout(durata, cmd.output()).await {
+                Ok(r) => {
+                    let o = r?;
+                    crate::recinto_comando::Uscita {
+                        code: o.status.code(),
+                        stdout: o.stdout,
+                        stderr: o.stderr,
+                        scaduto: false,
+                        avvisi: Vec::new(),
+                    }
+                }
+                Err(_) => crate::recinto_comando::Uscita {
+                    code: None,
+                    stdout: Vec::new(),
+                    stderr: Vec::new(),
+                    scaduto: true,
+                    avvisi: Vec::new(),
+                },
+            }
+        };
+
+        if uscita.scaduto {
+            if let Some(t) = scratch.as_deref() {
+                let _ = std::fs::remove_dir_all(t);
+            }
+            return Err(anyhow!("comando interrotto dopo {timeout}s"));
+        }
+        let esito = uscita;
 
         // Con la coda di quel che ha scritto: l'harness lo mostra accanto al
         // terminale di Gio, nei «Comandi di NOVA», perche' si sappia cosa ha
@@ -525,7 +570,7 @@ impl Capability for ShellExecCap {
             "shell.executed",
             json!({
                 "command": comando,
-                "code": esito.status.code(),
+                "code": esito.code,
                 "cwd": arg_str_opt(&args, "cwd").unwrap_or_default(),
                 "ms": inizio.elapsed().as_millis() as u64,
                 "stdout": coda_per_chi_guarda(&String::from_utf8_lossy(&esito.stdout)),
@@ -549,8 +594,7 @@ impl Capability for ShellExecCap {
             &comando,
             "comando",
             &esito
-                .status
-                .code()
+                .code
                 .map(|c| c.to_string())
                 .unwrap_or_else(|| "interrotto".into()),
         );
@@ -560,10 +604,11 @@ impl Capability for ShellExecCap {
             let _ = std::fs::remove_dir_all(t);
         }
         Ok(json!({
-            "code": esito.status.code().unwrap_or(-1),
+            "code": esito.code.unwrap_or(-1),
             "stdout": String::from_utf8_lossy(&esito.stdout),
             "stderr": String::from_utf8_lossy(&esito.stderr),
             "recinto": recinto.come_si_racconta(),
+            "avvisi": esito.avvisi,
         }))
     }
 }

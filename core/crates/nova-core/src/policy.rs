@@ -15,6 +15,8 @@ use crate::config::Config;
 
 pub struct Policy {
     write_roots: Vec<PathBuf>,
+    tool_roots: Vec<PathBuf>,
+    senza_rete: bool,
     /// La stessa guardia che usa NOVA lato Python, non una seconda scritta
     /// qui: `Guardie` compila i motivi come espressioni regolari senza
     /// distinzione fra maiuscole e minuscole, ed e' gia' confrontata col
@@ -71,6 +73,8 @@ impl Policy {
             // Il recinto del kernel si costruisce da queste: sono le stesse
             // che valgono per il controllo, non un secondo elenco.
             write_roots: radici.iter().map(PathBuf::from).collect(),
+            tool_roots: cfg.tool_roots.iter().map(PathBuf::from).collect(),
+            senza_rete: cfg.shell_senza_rete,
             guardie: Guardie::nuove(&protetti, &radici, &vietati, Autonomia::ChiediSeRischioso),
         }
     }
@@ -93,6 +97,18 @@ impl Policy {
     /// la regola e la sua applicazione vengono dallo stesso posto.
     pub fn write_roots(&self) -> &[PathBuf] {
         &self.write_roots
+    }
+
+    /// Le cartelle di strumenti che un comando confinato puo' leggere ed
+    /// eseguire (Windows). Non fanno parte delle guardie: non autorizzano
+    /// scritture.
+    pub fn tool_roots(&self) -> &[PathBuf] {
+        &self.tool_roots
+    }
+
+    /// Se l'utente ha chiesto di spegnere la rete ai comandi confinati.
+    pub fn senza_rete(&self) -> bool {
+        self.senza_rete
     }
 
     /// Vale per scritture, modifiche e cancellazioni.

@@ -726,7 +726,7 @@ what is really there:
 | Needed for | Windows | Linux | macOS |
 |---|---|---|---|
 | Controlling any app | UI Automation | **missing** (AT-SPI2) | **missing** (Accessibility API) |
-| Fencing a command in | **missing** | Landlock | **missing** |
+| Fencing a command in | container (AppContainer) | Landlock | **missing** |
 | Undoing what was done | journal + Recycle Bin | journal + freedesktop trash | journal + `~/.Trash` |
 | Keeping credentials | DPAPI | **missing** | **missing** |
 | Local channel | named pipe | unix socket | unix socket |
@@ -820,6 +820,28 @@ autonomy, three guards always apply and the model cannot get around them:
 - `safety.protected_paths` — paths never writable (Windows, Program Files, ...)
 - `safety.forbidden_command_patterns` — regexes of blocked commands (format, diskpart, ...)
 - `safety.write_roots` — if set, writes are confined to those folders
+
+The boundary holds after the command has started. On Linux Landlock keeps it;
+on Windows a system container (AppContainer) with a job object, which sees the
+folders of `write_roots` for writing, the listed tools read-only, and reads
+nothing in the rest of the profile (D367). On Windows it is also configured
+in `core.json`, next to `config.json`:
+
+- `tool_roots` — the tool folders (python, node, cargo) that commands may read
+  and run, never write. Grant the narrowest folder: `.cargo\bin`, not `.cargo`,
+  where the credentials are
+- `shell_senza_rete` — turns the network off for commands; by default it is
+  on, as on Linux
+
+Four commands are run by hand: `novad --recinto --proponi` says which `PATH`
+folders the container cannot read; `--prepara` opens, with the administrator
+confirmation Windows asks for, those the user cannot open alone (`C:\Users`
+for a project in the profile, `C:\Python313`); `--controlla` says which
+third-party folders the container can write because they are open to all
+Windows packages, and they cannot be closed for it alone, so every command's
+report lists them with the date of the check; and `--togli` removes every
+permission written on the folders and the container's profile, at uninstall
+too.
 
 ## Model runtime
 

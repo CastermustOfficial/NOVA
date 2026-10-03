@@ -99,13 +99,21 @@ POSTI = [
      "se_lo_cancelli": "NOVA smette di fare da sola le cose ricorrenti.",
      "esiste": False, "byte": 0, "quanti_file": 0},
 ]
+# I percorsi finti sono POSIX. Il Python li passa da `Path`, che su Windows li
+# riscrive con la barra rovesciata, mentre Rust li stampa come li riceve: su
+# Linux coincidono, su Windows no, e il confronto cadeva per questo e non per
+# una differenza fra le due teste. Si danno a tutte e due nella forma del
+# sistema: il testo resta confrontato parola per parola.
+BASE = str(Path("/casa/NOVA"))
+for _posto in POSTI:
+    _posto["dove"] = str(Path(_posto["dove"]))
 for solo in (True, False):
-    casi.append({"tipo": "racconta", "posti": POSTI, "base": "/casa/NOVA",
+    casi.append({"tipo": "racconta", "posti": POSTI, "base": BASE,
                  "solo_esistenti": solo})
-casi.append({"tipo": "racconta", "posti": [], "base": "/casa/NOVA"})
+casi.append({"tipo": "racconta", "posti": [], "base": BASE})
 casi.append({"tipo": "racconta",
-             "posti": [dict(POSTI[3])], "base": "/casa/NOVA"})
-casi.append({"tipo": "rendiconto", "posti": POSTI, "base": "/casa/NOVA"})
+             "posti": [dict(POSTI[3])], "base": BASE})
+casi.append({"tipo": "rendiconto", "posti": POSTI, "base": BASE})
 
 risposte = chiedi(casi)
 print(f"=== {len(casi)} casi, una testa contro l'altra ===")

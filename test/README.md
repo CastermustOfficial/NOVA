@@ -20,6 +20,8 @@ cd core && cargo test --workspace                   # le prove del core Rust
 
 I crate in `core/crates/` hanno le loro prove di unità, dentro i file sorgente (`#[cfg(test)]`) o in `tests/`: tutti tranne `novad`, che è solo il punto d'ingresso del demone e si prova acceso, da `prove/demone/`. Girano con `cargo test`, senza macchine speciali. I crate con un **banco** (la feature `banco`, binari `banco-*`) lo espongono alle prove gemelle Python, che lo confrontano con la versione Python sugli stessi casi.
 
+Le prove del recinto di Windows (`nova-platform` e `nova-core`, solo `cfg(windows)`) toccano il PC davvero: registrano il profilo `nova.recinto`, creano cartelle nella radice del disco e le tolgono, e non chiedono amministratore. Quelle che aspettano un rifiuto di Windows si saltano da amministratore, come sul runner della CI. Una cosa non si automatizza: il passo da amministratore, perche' la conferma di Windows non la clicca nessun programma (vedi sotto, «Fuori dalle suite»).
+
 ## Dove girano in CI
 
 `.github/workflows/ci.yml`, a ogni push:
@@ -36,6 +38,7 @@ I crate in `core/crates/` hanno le loro prove di unità, dentro i file sorgente 
 
 ## Fuori dalle suite
 
+- **Il passo da amministratore** (D367), a mano, con una configurazione di prova: `novad --recinto --prepara` (chiede la conferma di Windows e apre `C:\Users` e le cartelle di strumenti degli amministratori), poi `python prove/demone/test_demone_recinto_strumenti.py` e `python prove/demone/test_demone_recinto.py`, poi `novad --recinto --togli` (altra conferma). Alla fine `C:\Users`, `Temp`, `Python313` e `nodejs` non devono avere piu' voci del contenitore.
 - `misure/`: i banchi di prestazione, lanciati a mano sul PC con la scheda video.
 - `attrezzi/`: gli script lanciati a mano, compresi i giri di mutazione con cui si verifica che un banco gemello guardi davvero.
 
@@ -73,7 +76,7 @@ Cosa serve: niente: guardano il repository stesso.
 | `test_una_porta.py` | Di interfacce ce n'e' una, e si sa qual e'. |
 | `test_versione.py` | Un numero di versione solo, in tre file. |
 
-## `prove/nova/`: 40 prove
+## `prove/nova/`: 41 prove
 
 Cosa serve: niente: puro Python, la prima versione di NOVA.
 
@@ -87,6 +90,7 @@ Cosa serve: niente: puro Python, la prima versione di NOVA.
 | `test_categorie.py` | Verifica la regola strutturale: certe categorie salgono da sole. |
 | `test_cerca.py` | Cercare e leggere il web senza aprire una finestra. |
 | `test_configurazione_non_perde_niente.py` | Tutto cio' che si salva si rilegge. |
+| `test_core_client_riprova.py` | Il client del demone aspetta e riprova se la pipe e' occupata, e non riprova se non c'e' (D368). |
 | `test_dati.py` | «Dove sono i miei dati?» e' una domanda di fiducia. |
 | `test_diario_del_turno.py` | Un turno che comincia si vede, e un attributo inventato non passa. |
 | `test_figure.py` | Quali immagini entrano nella conversazione, e quante. |
@@ -156,7 +160,7 @@ Cosa serve: un banco Rust costruito con `cargo`: la prova stampa la riga per cos
 | `test_semina_rust.py` | La prima mappatura del PC scrive in Rust gli stessi nodi del Python. |
 | `test_strumenti_rust.py` | Gli strumenti dichiarati allo stesso modo, in Rust. |
 
-## `prove/demone/`: 26 prove
+## `prove/demone/`: 27 prove
 
 Cosa serve: il binario `novad` costruito.
 
@@ -178,7 +182,8 @@ Cosa serve: il binario `novad` costruito.
 | `test_demone_memoria.py` | Il demone scrive nella memoria, e quello che scrive lo rilegge NOVA. |
 | `test_demone_modello_locale.py` | Il demone accende il modello di casa quando un turno ne ha bisogno (D358). |
 | `test_demone_permessi.py` | Prima di agire si chiede: il turno del demone e la porta MCP. |
-| `test_demone_recinto.py` | Il confine vale anche **dopo** che il comando e' partito. |
+| `test_demone_recinto.py` | Il confine vale anche **dopo** che il comando e' partito. Su Windows anche l'elenco delle voci, la cartella di lavoro e `--togli` (D367). |
+| `test_demone_recinto_strumenti.py` | Gli strumenti installati nel profilo partono nel recinto solo con `tool_roots`. Dove la cartella e' degli amministratori la prova lo dice e esce 2 (D367). |
 | `test_demone_registro.py` | Quello che fa il demone finisce nello stesso registro di quello che fa NOVA. |
 | `test_demone_rete.py` | Il web senza browser, le cartelle note e le procedure, dal demone. |
 | `test_demone_ricerca.py` | La ricerca del demone, col browser senza finestra, con un browser vero. |

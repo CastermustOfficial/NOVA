@@ -100,12 +100,12 @@ fn passo_da_evento(topic: &str, dati: &Value) -> Option<String> {
 
 #[cfg(windows)]
 async fn connetti(endpoint: &str) -> std::io::Result<tokio::net::windows::named_pipe::NamedPipeClient> {
-    tokio::net::windows::named_pipe::ClientOptions::new().open(endpoint)
+    nova_proto::canale::apri(endpoint).await
 }
 
 #[cfg(not(windows))]
 async fn connetti(endpoint: &str) -> std::io::Result<tokio::net::UnixStream> {
-    tokio::net::UnixStream::connect(endpoint).await
+    nova_proto::canale::apri(endpoint).await
 }
 
 pub fn ascolta(app: AppHandle) {

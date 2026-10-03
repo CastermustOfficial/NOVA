@@ -11,6 +11,8 @@ import os
 import socket
 import sys
 import threading
+import errno
+import time
 from typing import Any, Callable, Iterator
 
 
@@ -39,8 +41,24 @@ class CoreClient:
     # -- connessione ---------------------------------------------------
     def connect(self) -> "CoreClient":
         if sys.platform == "win32":
-            # una named pipe su Windows si apre come un file binario
-            self._f = open(self.endpoint, "r+b", buffering=0)
+            # Una named pipe su Windows si apre come un file binario.
+            #
+            # Dopo ogni connessione il demone ha bisogno di un istante per
+            # mettersi in ascolto della prossima: chi arriva in quell'istante
+            # trova «tutte le istanze occupate» (ERROR_PIPE_BUSY, che Python
+            # riporta come errno 22). Windows prescrive a un client di pipe di
+            # aspettare e riprovare. Misurato: due client aperti uno dietro
+            # l'altro cadevano sempre (0 su 10), dopo un millisecondo mai; con
+            # la riprova, 30 su 30 con al piu' un tentativo in piu'.
+            # Una pipe che non c'e' e' un altro errore (errno 2), e non si riprova.
+            for tentativo in range(100):
+                try:
+                    self._f = open(self.endpoint, "r+b", buffering=0)
+                    break
+                except OSError as e:
+                    if e.errno != errno.EINVAL or tentativo == 99:
+                        raise
+                    time.sleep(0.01)
         else:
             self._sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             self._sock.settimeout(self.timeout)

@@ -8,6 +8,11 @@
 //!                           cosa NOVA ha fatto e non si annulla, e termina
 //!     novad --semina        mappa il PC nella memoria, anche se e' gia'
 //!                           stato fatto, e termina
+//!     novad --recinto [--togli | --prepara | --controlla | --proponi]
+//!                           le cartelle con le voci del recinto di Windows;
+//!                           con --togli le toglie tutte, con --prepara apre
+//!                           da amministratore le prime cartelle che servono
+//!                           (`C:\\Users`), e termina (D367)
 
 use std::sync::Arc;
 
@@ -60,6 +65,53 @@ struct Args {
     /// solo la prima volta che si accende (D365).
     #[arg(long)]
     semina: bool,
+
+    /// Le cartelle su cui NOVA ha scritto le voci del recinto di Windows, e
+    /// termina. Con `--togli` le toglie tutte: lo chiama il disinstallatore,
+    /// perche' quelle voci stanno sulle cartelle dell'utente (D367).
+    #[arg(long)]
+    recinto: bool,
+
+    /// Con `--recinto`: toglie tutte le voci e l'elenco.
+    #[arg(long)]
+    togli: bool,
+
+    /// Con `--recinto`: prepara il recinto per le cartelle di `core.json`,
+    /// aprendo da amministratore (Windows chiede la conferma) le prime
+    /// cartelle sotto la radice di un disco che l'utente non puo' preparare da
+    /// solo: `C:\\Users`, per un progetto nel profilo.
+    #[arg(long)]
+    prepara: bool,
+
+    /// Con `--recinto`: controlla tutti i dischi fissi e dice quali cartelle di
+    /// terzi il contenitore puo' scrivere perche' aperte a tutti i pacchetti.
+    /// Dura minuti, a priorita' bassa; il demone lo rifa' da solo ogni giorno.
+    #[arg(long)]
+    controlla: bool,
+
+    /// Con `--recinto`: propone le cartelle del PATH che il contenitore non
+    /// legge, per `tool_roots`. Non concede niente.
+    #[arg(long)]
+    proponi: bool,
+
+    /// Il passo da amministratore, apertura. **Non si lancia a mano**: lo
+    /// avvia `--prepara`. Scrive solo la voce di lettura del contenitore sulla
+    /// prima cartella sotto la radice di un disco fisso, e rifiuta il resto.
+    #[arg(long, hide = true, num_args = 1.., value_name = "CARTELLA")]
+    recinto_apri: Vec<std::path::PathBuf>,
+
+    /// Il passo da amministratore, chiusura. Lo avvia `--togli`.
+    #[arg(long, hide = true, num_args = 1.., value_name = "CARTELLA")]
+    recinto_chiudi: Vec<std::path::PathBuf>,
+
+    /// Il passo da amministratore per le cartelle di strumenti: solo lettura
+    /// ed esecuzione, mai scrittura. Lo avvia `--prepara`.
+    #[arg(long, hide = true, num_args = 1.., value_name = "CARTELLA")]
+    recinto_apri_legge: Vec<std::path::PathBuf>,
+
+    /// Come `--recinto-apri-legge`, per toglierle. Lo avvia `--togli`.
+    #[arg(long, hide = true, num_args = 1.., value_name = "CARTELLA")]
+    recinto_chiudi_legge: Vec<std::path::PathBuf>,
 }
 
 #[tokio::main]
@@ -95,6 +147,80 @@ async fn main() -> Result<()> {
                 eprintln!("{e}");
                 std::process::exit(1);
             }
+        }
+        return Ok(());
+    }
+    // Il passo da amministratore: parte solo dal comando di cui sopra, fa una
+    // cosa sola, e il percorso lo valida chi lo esegue.
+    let passo = nova_core::recinto_registro::PassoPrivilegiato {
+        apri_prime: args.recinto_apri.clone(),
+        chiudi_prime: args.recinto_chiudi.clone(),
+        apri_strumenti: args.recinto_apri_legge.clone(),
+        chiudi_strumenti: args.recinto_chiudi_legge.clone(),
+    };
+    if !passo.e_vuoto() {
+        std::process::exit(nova_core::recinto_registro::passo_privilegiato(&passo));
+    }
+    if args.recinto && args.controlla {
+        match nova_core::recinto_controllo::esegui(&|s| eprintln!("  {s}")) {
+            Ok(r) => {
+                println!(
+                    "{}",
+                    nova_core::recinto_controllo::racconto_da(Some(&r), nova_core::recinto_controllo::adesso())
+                );
+                println!("durata: {} s. Rapporto in {}", r.durata_s, nova_core::recinto_controllo::percorso().display());
+            }
+            Err(e) => {
+                eprintln!("{e}");
+                std::process::exit(1);
+            }
+        }
+        return Ok(());
+    }
+    if args.recinto && args.proponi {
+        match nova_core::recinto_registro::proponi() {
+            Ok(p) => println!("{}", nova_core::recinto_registro::racconto_proposte(&p)),
+            Err(e) => {
+                eprintln!("{e}");
+                std::process::exit(1);
+            }
+        }
+        return Ok(());
+    }
+    if args.recinto && args.prepara {
+        let config = Config::load();
+        let policy = nova_core::policy::Policy::from_config(&config);
+        let permessi = nova_core::recinto_comando::permessi_da(&policy, None);
+        if permessi.scrive.is_empty() {
+            println!("nessun recinto: in core.json non ci sono write_roots, quindi non c'e' niente da preparare");
+            return Ok(());
+        }
+        match nova_core::recinto_registro::prepara_con_privilegi(&permessi) {
+            Ok(avvisi) => {
+                println!("{}", nova_core::recinto_registro::racconto());
+                for a in avvisi {
+                    println!("avviso: {a}");
+                }
+            }
+            Err(e) => {
+                eprintln!("{e}");
+                std::process::exit(1);
+            }
+        }
+        return Ok(());
+    }
+    if args.recinto {
+        if args.togli {
+            match nova_core::recinto_registro::togli_tutto() {
+                Ok(n) => println!("voci del recinto tolte da {n} cartelle"),
+                Err(e) => {
+                    eprintln!("{e}");
+                    std::process::exit(1);
+                }
+            }
+        } else {
+            println!("{}", nova_core::recinto_registro::racconto());
+            println!("{}", nova_core::recinto_controllo::racconto_riga());
         }
         return Ok(());
     }
@@ -175,6 +301,10 @@ async fn main() -> Result<()> {
     let ascolto = server.clone();
     let esito = ascolto.listen().await;
 
+    // Il controllo delle cartelle di terzi gira in un filo bloccante, e il
+    // runtime aspetta i fili bloccanti: senza questo il demone non si spegne
+    // finche' non ha finito di percorrere i dischi.
+    nova_core::recinto_controllo::ferma();
     tracing::info!("spegnimento: fermo i processi supervisionati");
     server.ctx.supervisor.stop_all().await;
     esito

@@ -90,8 +90,11 @@ RUNTIME_PY = str(componenti.RUNTIME)
 casi = [{"tipo": "catalogo", "radice": RADICE_PY, "runtime": RUNTIME_PY}]
 
 # Le regole dello scaricare.
-NOMI = ["/voce/kokoro-v1.0.onnx", "/voce/senza", "/a/b/c.tar.gz",
-        r"C:\voce\modello.onnx", "/con spazi/il file.bin"]
+# I nomi finti sono POSIX. Il Python li passa da `Path`, che su Windows li riscrive
+# con `\`, mentre Rust li restituisce come li riceve: si danno a tutte e due nella
+# forma del sistema, e il testo resta confrontato parola per parola.
+NOMI = [str(Path(n)) for n in ("/voce/kokoro-v1.0.onnx", "/voce/senza", "/a/b/c.tar.gz",
+                               r"C:\voce\modello.onnx", "/con spazi/il file.bin")]
 casi += [{"tipo": "in_arrivo", "dove": n} for n in NOMI]
 PERCENTI = [(0, 0), (0, 100), (1, 100), (50, 100), (99, 100), (100, 100),
             (200, 100), (5_000, 0), (1, 3), (2, 3), (999_999, 1_000_000)]
@@ -102,14 +105,16 @@ casi += [{"tipo": "parlare", "percento": p, "ultima": u} for p, u in PARLARE]
 # Lo stato, con e senza pezzi sul disco.
 VOCE = str(componenti._voce())
 ASCOLTO = str(componenti._ascolto())
+# La barra e' quella del sistema: il Python confronta questi percorsi come stringhe
+# con i suoi, e `{VOCE}/x` non e' mai uguale a `{VOCE}\x` su Windows.
 SCENARI = [
     [],
-    [f"{VOCE}/kokoro-v1.0.onnx"],
-    [f"{VOCE}/kokoro-v1.0.onnx", f"{VOCE}/voices-v1.0.bin", f"{VOCE}/vocab.json"],
-    [f"{ASCOLTO}/ggml-small.bin"],          # l'equivalente vale
-    [f"{ASCOLTO}/ggml-base.bin", f"{ASCOLTO}/whisper-cli.exe"],
+    [f"{VOCE}{os.sep}kokoro-v1.0.onnx"],
+    [f"{VOCE}{os.sep}kokoro-v1.0.onnx", f"{VOCE}{os.sep}voices-v1.0.bin", f"{VOCE}{os.sep}vocab.json"],
+    [f"{ASCOLTO}{os.sep}ggml-small.bin"],          # l'equivalente vale
+    [f"{ASCOLTO}{os.sep}ggml-base.bin", f"{ASCOLTO}{os.sep}whisper-cli.exe"],
     [VOCE],                                  # la cartella non basta per uno zip
-    [f"{VOCE}/onnxruntime.dll"],
+    [f"{VOCE}{os.sep}onnxruntime.dll"],
 ]
 for s in SCENARI:
     casi.append({"tipo": "stato", "radice": RADICE_PY, "runtime": RUNTIME_PY,

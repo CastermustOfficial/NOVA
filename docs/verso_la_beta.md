@@ -2778,9 +2778,10 @@ Dopo non servivano a niente — quel che passava il controllo girava con tutti
 i privilegi dell'utente, e un comando che la regola non aveva riconosciuto
 poteva scrivere ovunque.
 
-Adesso `shell.exec` parte dentro un recinto che tiene il kernel (D301). Su
+Adesso `shell.exec` parte dentro un recinto che tiene il sistema (D301). Su
 Linux è Landlock: il processo dichiara cosa gli serve, il kernel gli toglie
-tutto il resto, e la restrizione non si allenta nemmeno da dentro. Il
+tutto il resto, e la restrizione non si allenta nemmeno da dentro. Su
+Windows è un contenitore del sistema (D367). Il
 confine si costruisce da `write_roots`, cioè dalla riga in cui l'utente ha
 già detto dove NOVA può scrivere; dove quella riga non c'è, **non si stringe
 niente** e la risposta lo dichiara (D302).
@@ -2793,13 +2794,15 @@ intermedio fallisce in modi che non somigliano a un problema di permessi.
 La prova non dice «la funzione torna Ok»: accende il demone vero, gli fa
 eseguire un comando che prova a scrivere in due posti — uno dichiarato, uno
 no — e pretende che il secondo **non ci riesca**, con il rifiuto che arriva
-dal sistema. Dove il recinto non esiste (Windows, per ora, o un kernel
-vecchio) la prova si dichiara saltata invece di passare per finta.
+dal sistema. Dove il recinto non esiste (macOS, o un kernel vecchio) la prova
+si dichiara saltata invece di passare per finta.
 
-Cosa resta: **Windows**. Lì il recinto si fa con un token ristretto e un job
-object, e AppContainer è il gradino sopra; è la prossima mossa di questo
-filone, e fino ad allora la risposta del demone dice, a chi la legge, che su
-Windows il confine è ancora solo quello della policy.
+Su Windows il recinto c'è dal 2 ottobre (D367): un contenitore del sistema e
+un job object, con una prova per ognuna delle cose che promette, e una che cade
+se Windows cambia. Dove non basta lo dice: le cartelle di terzi aperte a tutti
+i pacchetti si rilevano e si elencano con la data, perché chiuderle solo per
+NOVA non si può. Cosa resta: **macOS**, e un livello sotto il sistema
+operativo (`idea/`).
 
 
 ## Il cancello della beta

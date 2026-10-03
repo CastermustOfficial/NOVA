@@ -131,7 +131,13 @@ processo = subprocess.Popen(
 def comando_che_scrive(nome):
     """Un comando che lascia un file: se il file c'e', il comando e' partito."""
     f = Path(casa) / nome
-    return f, f'"{sys.executable}" -c "open(r\'{f}\', \'w\').write(\'x\')"'
+    comando = f'"{sys.executable}" -c "open(r\'{f}\', \'w\').write(\'x\')"'
+    # Il demone passa il comando a PowerShell, che non esegue un percorso fra
+    # virgolette senza l'operatore di chiamata: «"python.exe" -c ...» e' un
+    # errore di sintassi, il file non nasce mai, e i casi in cui il comando
+    # *deve* partire cadevano — mentre quelli in cui non deve passavano per la
+    # ragione sbagliata.
+    return f, ("& " + comando if os.name == "nt" else comando)
 
 
 class Persona:
