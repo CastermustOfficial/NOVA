@@ -35,7 +35,7 @@ Deciso con Gio il 30 settembre: non ci sono scadenze, conta solo il risultato, e
 Quando una voce si chiude la si sposta qui, con la data e il commit.
 
 - 03/10/2026: il recinto per i comandi su Windows, un contenitore del sistema, e dove non basta lo dice (D367, `7edebc4`).
-- 03/10/2026: le prove del demone su Windows tornano verdi, e quattro difetti veri del prodotto vengono fuori (D368, `7edebc4`).
+- 03/10/2026: le prove del demone su Windows tornano verdi, e quattro difetti veri del prodotto vengono fuori (D368, `7edebc4`; la riprova sulla pipe con una scadenza d'orologio in `573ccf7`).
 - 30/09/2026: `kb.enabled` e `kb.inject_context` valgono anche nel demone (D366, `6b0b752`).
 - 30/09/2026: la prima mappatura del PC nel demone, e il vault che il demone crea da sé (D365, `46dd2fc`).
 - 29/09/2026: `rete.cerca` cerca prima col browser senza finestra, come il Python (D363, `c45dc0a`).
