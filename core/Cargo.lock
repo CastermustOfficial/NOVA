@@ -3186,6 +3186,7 @@ dependencies = [
  "png 0.17.16",
  "serde",
  "serde_json",
+ "sha1",
  "tracing",
  "windows 0.62.2",
 ]
@@ -3200,6 +3201,7 @@ version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]

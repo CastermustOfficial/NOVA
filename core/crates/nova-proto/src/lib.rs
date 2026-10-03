@@ -7,6 +7,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+// Aprire il canale dalla parte di chi chiede, con la riprova che una named
+// pipe occupata vuole.
+pub mod canale;
+
 pub const PROTOCOL_VERSION: &str = "1.0";
 pub const SERVER_NAME: &str = "nova-core";
 

@@ -87,6 +87,20 @@ pub fn posti(cfg: &Value) -> Vec<Posto> {
         )
         .delicato(),
         Posto::nuovo(
+            "Le voci del recinto sulle cartelle",
+            b.join("recinto.json"),
+            "NOVA non sa piu' su quali cartelle ha scritto i permessi del recinto di Windows, e \
+             quelle voci restano dove sono: si tolgono con `novad --recinto --togli`. Su Linux il \
+             file non esiste.",
+        )
+        .delicato(),
+        Posto::nuovo(
+            "Il controllo delle cartelle di terzi",
+            b.join("recinto-controllo.json"),
+            "Niente: si rifa' da solo all'avvio del demone. Dice quali cartelle di terzi il \
+             contenitore di Windows puo' scrivere, e quando e' stato fatto il controllo.",
+        ),
+        Posto::nuovo(
             "I guasti",
             b.join("guasti.jsonl"),
             "Si perde il racconto di cosa e' andato storto. Serve solo a chi ripara: \

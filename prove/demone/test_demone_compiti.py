@@ -13,8 +13,10 @@ senza aspettare nessun orario e senza Windows:
 5. fuori da Windows gli strumenti del tempo dicono perche' non possono,
    invece di fallire con un errore del sistema.
 
-Il cervello e' una CLI finta, come in test_demone_cli. Esce 2 se il demone o
-la riga di comando non sono costruiti.
+Il cervello e' una CLI finta, come in test_demone_cli. Legge i byte di stdin
+come UTF-8, come una CLI vera, e il file si scrive byte per byte: cosi' la
+prova non dipende dalla codifica ne' dagli a capo della macchina. Esce 2 se
+il demone o la riga di comando non sono costruiti.
 """
 import json
 import os
@@ -58,7 +60,7 @@ TRACCIA = casa / "ricevuto.jsonl"
 FINTA = casa / "finta_cli.py"
 FINTA.write_text(
     "import json, sys\n"
-    "prompt = sys.stdin.read()\n"
+    "prompt = sys.stdin.buffer.read().decode('utf-8')\n"
     "with open(r'" + str(TRACCIA) + "', 'a', encoding='utf-8') as f:\n"
     "    f.write(json.dumps({'prompt': prompt}, ensure_ascii=False) + '\\n')\n"
     "print('Agenda controllata.')\n", encoding="utf-8")
@@ -84,7 +86,7 @@ for k in ("APPDATA", "HOME", "USERPROFILE", "XDG_CONFIG_HOME", "XDG_RUNTIME_DIR"
 
 domanda = "Controlla l'agenda di \"domani\"\ne dimmi cosa c'è."
 file_domanda = casa / "compito.txt"
-file_domanda.write_text(domanda, encoding="utf-8")
+file_domanda.write_bytes(domanda.encode("utf-8"))
 
 print("\n1. il demone e' spento, e il compito lo accende")
 controlla("prima il demone non c'e'", not CoreClient.disponibile(endpoint))

@@ -23,6 +23,12 @@ version = "0.17"
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
+# L'identita' del recinto (D367) e' un SID di servizio, S-1-5-80 piu' lo SHA-1
+# del nome: la formula di `sc showsid`, che Windows non espone come funzione
+# per un servizio che non esiste. Lo stesso crate che usa gia' `nova-core`.
+[target.'cfg(windows)'.dependencies]
+sha1 = "0.10"
+
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.62"
 features = [
@@ -92,6 +98,16 @@ features = [
     # scritto dal demone avrebbe ogni riga sbagliata di un'ora o due, e
     # nessun errore da nessuna parte.
     "Win32_System_Time",
+    # Il recinto (D367): il token ristretto in scrittura e i SID (Security),
+    # le voci di permesso sulle cartelle (Authorization), il job object che
+    # tiene insieme il comando e i suoi figli (JobObjects), e i tubi con cui
+    # si legge quel che scrive (Pipes): `std::process` non sa far partire un
+    # processo con un token, quindi qui si fa a mano.
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_Security_Isolation",
+    "Win32_System_JobObjects",
+    "Win32_System_Pipes",
 ]
 
 # Una risposta sola alla domanda «quanta memoria video c'e'»: la usano

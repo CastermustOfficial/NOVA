@@ -107,7 +107,7 @@ TRACCIA = Path(casa) / "claude_ricevuto.jsonl"
 SCRIPT = Path(casa) / "claude_finto.py"
 SCRIPT.write_text(
     "import json, sys\n"
-    "domanda = sys.stdin.read()\n"
+    "domanda = sys.stdin.buffer.read().decode('utf-8')\n"
     "with open(r'" + str(TRACCIA) + "', 'a', encoding='utf-8') as f:\n"
     "    f.write(json.dumps({'argv': sys.argv[1:], 'domanda': domanda}) + '\\n')\n"
     "if 'QUOTA' in domanda:\n"

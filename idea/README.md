@@ -65,3 +65,51 @@ Aggiornato al 30 settembre 2026. Le idee che c'erano già erano sparse nei docum
 **Perche'.** Da un programma normale certe cose non si chiudono: un comando confinato puo' chiedere a un processo fuori dal recinto di agire al posto suo (il servizio delle attivita' pianificate, WMI, un server COM, D-Bus su Linux). Dal kernel si vede ogni apertura di file e ogni processo che nasce, anche quelli fatti nascere da altri su richiesta del comando: e' il punto da cui quella strada si puo' chiudere, anche se capire chi ha chiesto cosa non e' gratis.
 
 **Cosa costerebbe.** Molto, e va detto intero prima di cominciare. Su Windows un driver del kernel si carica solo firmato: serve un certificato EV e la firma di Microsoft, e un errore non chiude un programma, ferma il PC. Su Linux un modulo esterno non puo' registrarsi fra i controlli di sicurezza del kernel: resta BPF LSM, che va acceso all'avvio del kernel (`lsm=...,bpf`) e che molte distribuzioni tengono spento, oppure un kernel proprio. Le prove girano in macchine virtuali, non sul PC di chi sviluppa. Va dopo il recinto da programma normale, che resta comunque: e' quello che serve a chi non installa un driver.
+
+## Chiudere le cartelle di terzi aperte a tutti i pacchetti
+
+**Cosa.** Le cartelle di terzi aperte a ALL APPLICATION PACKAGES (sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X), le tre di Segnalazione errori di Windows e `NVIDIA Corporation\Drs`) il contenitore le può scrivere, e oggi NOVA le rileva e le dichiara (D367). Un divieto intestato al contenitore non le chiude (provato, con nessuna maschera), e senza ALL APPLICATION PACKAGES PowerShell non parte.
+
+**Perché.** Un confine che dichiara i suoi buchi è onesto, ma resta bucato. Una strada da provare: un token del contenitore con identità di controllo (restricting SID) solo sue, così che la scrittura richieda anche una voce intestata a un'identità che quelle cartelle non hanno.
+
+**Cosa costerebbe.** Una ricerca vera: il token ristretto in scrittura della strada A ha già dato problemi con .NET, e metterlo dentro un contenitore è un territorio non provato. Va misurato prima su PowerShell, su `git` e su `python`.
+
+## L'eseguibile del passo da amministratore in una cartella protetta
+
+**Cosa.** Windows, nella richiesta di conferma, mostra il nome dell'eseguibile e non gli argomenti. `novad.exe` oggi sta in una cartella che l'utente può scrivere, e un altro programma potrebbe sostituirlo mentre si aspetta la conferma.
+
+**Perché.** È il limite di ogni elevazione, e cade se l'installatore mette `novad.exe` in una cartella protetta (Program Files) o se il passo da amministratore è un eseguibile a parte, firmato.
+
+**Cosa costerebbe.** Cambia l'installatore e l'aggiornamento, e per la firma serve un certificato.
+
+## La rete spenta anche su Linux
+
+**Cosa.** `shell_senza_rete` spegne la rete su Windows. Su Linux il racconto dice che la richiesta è ignorata: Landlock non tocca la rete.
+
+**Perché.** Le versioni recenti di Landlock dovrebbero saper limitare le connessioni TCP: da verificare sulla documentazione del kernel prima di promettere qualcosa.
+
+**Cosa costerebbe.** Poco in codice, ma la regola è per porte e non per «tutta la rete»: va deciso cosa lasciare (DNS, il demone stesso).
+
+## Una temporanea per comando anche su Windows
+
+**Cosa.** La cartella temporanea del contenitore la impone Windows, è una sola ed è condivisa fra i comandi in corso. Si svuota quando ne finisce l'ultimo. Su Linux ogni comando ha la sua.
+
+**Perché.** Due comandi insieme possono vedersi i file temporanei.
+
+**Cosa costerebbe.** Da capire se un contenitore per comando (un profilo per comando) è praticabile: ogni profilo ha una cartella e una voce nel registro.
+
+## I residui delle prove nel `%TEMP%`
+
+**Cosa.** Migliaia di voci `nova-*` in `%TEMP%` (8.492 il 2 ottobre sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X): `nova-r2`, `nova-kb`, `nova-q`, `nova-scelta`, `nova-priv`, `nova-segreti`...) sembrano residui delle prove del progetto. Non l'ho verificato.
+
+**Perché.** Ingombrano, e rallentano chi scorre quella cartella. Non sono segreti, ma sono residui.
+
+**Cosa costerebbe.** Trovare quali prove non ripuliscono e farle ripulire; una prova che fallisce se `%TEMP%` cresce dopo una suite.
+
+## Il `SyntaxWarning` di `nova/runtime.py`
+
+**Cosa.** Una prova che analizza i sorgenti Python (`prove/progetto/test_dove_stanno_i_dati.py`) emette `SyntaxWarning: invalid escape sequence` alla riga 191 di `nova/runtime.py`, un docstring che contiene `C:\v1.2.3\`. C'è anche sul commit di partenza.
+
+**Perché.** Con Python più nuovi diventerà un errore.
+
+**Cosa costerebbe.** Una riga: raddoppiare la barra o rendere il docstring grezzo.

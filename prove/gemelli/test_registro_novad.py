@@ -12,6 +12,7 @@ Esce 2 se `novad` non e' costruito.
 """
 import json
 import os
+import site
 import subprocess
 import sys
 import tempfile
@@ -45,7 +46,12 @@ def controlla(nome, condizione, dettaglio=""):
 cartella = Path(tempfile.mkdtemp())
 # APPDATA vale per tutti e due su ogni sistema: il Python lo guarda per
 # primo, e il demone anche.
-ambiente = {**os.environ, "APPDATA": str(cartella), "PYTHONIOENCODING": "utf-8"}
+# `APPDATA` sposta il sito utente di Python (`%APPDATA%\\Python\\...`): su un PC dove
+# i pacchetti sono stati installati con `pip install --user`, il Python figlio non
+# trovava piu' `requests` e stampava niente, e la prova cadeva per questo. Gli si
+# dice dov'e' la base utente vera. Dove i pacchetti stanno nel sistema non cambia nulla.
+ambiente = {**os.environ, "APPDATA": str(cartella), "PYTHONIOENCODING": "utf-8",
+            "PYTHONUSERBASE": site.getuserbase()}
 (cartella / "NOVA").mkdir()
 adesso = datetime.now()
 

@@ -122,6 +122,17 @@ def posti() -> list[Posto]:
               "cervello e dei permessi. Qui dentro puo' esserci una chiave "
               "API, se ne hai messa una.",
               delicato=True),
+        # Scritti dal demone, in Rust: qui non c'e' una funzione da chiamare.
+        Posto("Le voci del recinto sulle cartelle", b / "recinto.json",
+              "NOVA non sa piu' su quali cartelle ha scritto i permessi del "
+              "recinto di Windows, e quelle voci restano dove sono: si "
+              "tolgono con `novad --recinto --togli`. Su Linux il file non "
+              "esiste.",
+              delicato=True),
+        Posto("Il controllo delle cartelle di terzi", b / "recinto-controllo.json",
+              "Niente: si rifa' da solo all'avvio del demone. Dice quali "
+              "cartelle di terzi il contenitore di Windows puo' scrivere, e "
+              "quando e' stato fatto il controllo."),
         Posto("I guasti", guasti.percorso_guasti(),
               "Si perde il racconto di cosa e' andato storto. Serve solo a "
               "chi ripara: cancellarlo non rompe niente."),

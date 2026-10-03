@@ -175,9 +175,15 @@ try:
               scritto["server"].get("model_path") == c.server.model_path
               and c.server.model_path.endswith("Qwen3-14B-Q4_K_M.gguf"),
               f"{scritto['server'].get('model_path')} / {c.server.model_path}")
+    # Quale motore deve vincere dipende dalla macchina: un llama-server in
+    # `runtime/` del progetto ha la precedenza su tutti (`discover_runtimes`),
+    # e sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X) c'e'. Senza, vince quello finto della prova. La prova
+    # pretendeva sempre il finto, ed era rossa proprio dove NOVA e' installata.
+    del_progetto = RADICE / "runtime"
+    atteso_in = del_progetto if any(del_progetto.rglob(server)) else lavoro
     controlla("lo stesso motore", scritto["server"].get("binary") == c.server.binary
-              and c.server.binary.startswith(str(lavoro)),
-              f"{scritto['server'].get('binary')} / {c.server.binary}")
+              and Path(c.server.binary).is_relative_to(atteso_in),
+              f"{scritto['server'].get('binary')} / {c.server.binary} (atteso dentro {atteso_in})")
     controlla("le CLI note entrano, se non c'erano", scritto["brains"].get("cli") == cli_predefinite()
               and scritto["brains"]["active"] == "api", str(scritto["brains"])[:200])
     controlla("e il resto non si tocca", scritto["ui"] == {"lingua": "en", "tema": "scuro"}

@@ -717,7 +717,7 @@ dice cosa c'e' davvero:
 | Serve per | Windows | Linux | macOS |
 |---|---|---|---|
 | Controllare qualsiasi app | UI Automation | **manca** (AT-SPI2) | **manca** (Accessibility API) |
-| Chiudere un comando in un recinto | **manca** | Landlock | **manca** |
+| Chiudere un comando in un recinto | contenitore (AppContainer) | Landlock | **manca** |
 | Annullare cio' che si e' fatto | giornale + Cestino | giornale + cestino freedesktop | giornale + `~/.Trash` |
 | Custodire le credenziali | DPAPI | **manca** | **manca** |
 | Canale locale | named pipe | socket unix | socket unix |
@@ -811,6 +811,28 @@ all'autonomia valgono sempre tre guardie non aggirabili dal modello:
 - `safety.protected_paths` - percorsi mai scrivibili (Windows, Program Files, ...)
 - `safety.forbidden_command_patterns` - regex di comandi bloccati (format, diskpart, ...)
 - `safety.write_roots` - se valorizzato, le scritture sono confinate a quelle cartelle
+
+Il confine vale anche dopo che il comando e' partito. Su Linux lo tiene
+Landlock; su Windows un contenitore del sistema (AppContainer) con un job
+object, che vede le cartelle di `write_roots` in scrittura, gli strumenti
+elencati in sola lettura, e del resto del profilo non legge niente (D367). Su
+Windows si configura anche in `core.json`, accanto a `config.json`:
+
+- `tool_roots` - le cartelle di strumenti (python, node, cargo) che i comandi
+  possono leggere ed eseguire, mai scrivere. Si concede la cartella piu'
+  stretta: `.cargo\bin` e non `.cargo`, dove stanno le credenziali
+- `shell_senza_rete` - spegne la rete ai comandi; di default e' accesa, come
+  su Linux
+
+Quattro comandi si lanciano a mano: `novad --recinto --proponi` dice quali
+cartelle del `PATH` il contenitore non legge; `--prepara` apre, con la
+conferma di amministratore che chiede Windows, quelle che l'utente non puo'
+aprire da solo (`C:\Users` per un progetto nel profilo, `C:\Python313`);
+`--controlla` dice quali cartelle di terzi il contenitore puo' scrivere perche'
+aperte a tutti i pacchetti di Windows, e non si possono chiudere solo per lui,
+quindi il racconto di ogni comando le elenca con la data del controllo; e
+`--togli` toglie ogni permesso scritto sulle cartelle e il profilo del
+contenitore, anche alla disinstallazione.
 
 ## Runtime del modello
 

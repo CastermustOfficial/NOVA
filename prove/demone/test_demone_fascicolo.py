@@ -85,8 +85,12 @@ try:
         dal_demone = (cartella / "LEGGIMI.md").read_bytes()
         (cartella / "LEGGIMI.md").unlink()
         F.prepara()
+        # Il Python scrive il LEGGIMI in modalita' testo (con gli a capo del sistema:
+        # `\r\n` su Windows), Rust con `\n`. E' lo stesso testo, e confrontare i byte
+        # cadeva per questo.
         controlla("la cartella nasce, con lo stesso LEGGIMI del Python",
-                  dal_demone == (cartella / "LEGGIMI.md").read_bytes(), dal_demone[:80])
+                  dal_demone.replace(b"\r\n", b"\n")
+                  == (cartella / "LEGGIMI.md").read_bytes().replace(b"\r\n", b"\n"), dal_demone[:80])
         controlla("e l'indice del vuoto elenca solo quello", r["detto"].startswith("1 file in "), r["detto"])
         (cartella / "cv").mkdir()
         (cartella / "cv" / "CV 2026.md").write_text("# Gio\n\nSviluppatore." * 50, encoding="utf-8")

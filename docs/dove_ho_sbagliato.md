@@ -1324,3 +1324,248 @@ La regola: una chiave di configurazione portata vuol dire portato anche chi
 la legge. Quando si porta un modulo, per ogni chiave che il README elenca si
 cerca nel codice nuovo chi la legge; se non la legge nessuno, la chiave e'
 una promessa che non si mantiene.
+
+## Ho dato a Gio una garanzia provata su due cartelle
+
+Ho detto che Everyone fra le identita' di controllo non allentava i file,
+perche' lo avevo provato sul profilo e su `TEMP`. Una scansione di tutti i
+dischi ne ha trovate cinque su 1.141, a tre livelli, che si lasciavano scrivere
+dal contenitore.
+
+La regola: «non succede mai» si dice solo dopo averlo cercato dappertutto, o
+si dice «l'ho provato su queste due».
+
+## Ho registrato il profilo con il nome nella codifica sbagliata
+
+Il nome `nova.recinto` passato in ANSI invece che in UTF-16 ha prodotto un
+profilo di sei caratteri senza senso e un SID diverso. Per una sessione intera
+ho guardato i permessi del contenitore sbagliato, e le prove passavano o
+cadevano per motivi che non c'entravano.
+
+La regola: dove un nome diventa un identificatore, la prova scrive in chiaro
+l'identificatore atteso (ora `windows_l_identita_e_quella_del_nome_giusto`).
+
+## Ho letto per una sessione intera il binario di prima
+
+Il binario release non si era ricostruito, per la cache di cargo, e ho
+interpretato risultati vecchi come nuovi.
+
+La regola: dopo ogni modifica che deve cambiare un binario si guarda la data
+del binario prima di fidarsi dell'uscita.
+
+## Ho proposto un rimedio senza provarlo
+
+Per le cartelle di terzi aperte a tutti i pacchetti ho proposto un divieto
+intestato al SID del contenitore, e Gio l'aveva approvato. Non ferma il
+contenitore con nessuna maschera, e nemmeno intestato a una capability che ha
+solo lui; togliergli ALL APPLICATION PACKAGES fa non partire PowerShell.
+
+La regola: un rimedio si prova prima di proporlo, in una riga di `icacls`.
+Resta una prova-allarme che cade se Windows cambia.
+
+## Ho generalizzato da campioni troppo piccoli, due volte
+
+Per far posizionare PowerShell ho scritto prima «servono tutte le antenate», poi
+«basta la prima sotto la radice». Erano vere sul caso che avevo davanti. La
+regola misurata, su una catena apposta con sei combinazioni, e' la prima
+cartella **e** il nonno.
+
+La regola: prima di scrivere «basta X» si prova senza X, su un caso piu' lungo
+di quello che si ha in mano.
+
+## Ho scritto un permesso su una cartella che si ripassa per intero
+
+Scrivere un permesso con la propagazione su `C:\Users\utente` ripassa tutto il
+profilo: la prova end-to-end e' rimasta due minuti e mezzo al 100% di CPU. Le
+mie prove usavano una radice piccola e non se ne erano accorte.
+
+La regola: una prova che tocca il disco si misura anche su un percorso vero.
+La voce di antenata si scrive ora senza ripassare i figli, e una prova misura
+la differenza (250 microsecondi contro 403 millisecondi su 6.000 file).
+
+## Ho dato per buoni controlli che non giravano
+
+`cargo fmt --check` ha detto «0 file da riformattare» perche' `rustfmt` non
+era installato. Due volte ho cercato un `SyntaxWarning` nel modo sbagliato: la
+prima leggendo l'eco della riga di comando come se fosse l'avviso, la seconda
+con `-W error`, che lo trasforma in un altro errore. Un filtro con cui
+riconoscevo un mio script ha trovato anche lo script che lo stava eseguendo, e
+ha fermato la mia stessa chiamata.
+
+La regola: un controllo che non gira non e' un controllo verde. Prima di
+fidarsi di un «niente» si guarda che lo strumento esista e che trovi qualcosa
+quando c'e' qualcosa.
+
+## Ho scritto prove che dipendono dal non essere amministratore
+
+La prova che si aspetta il rifiuto di Windows su `System32\config` non
+rifiuta da amministratore, come sul runner della CI, e avrebbe scritto un
+permesso in `System32`. Me ne sono accorto leggendo la CI.
+
+La regola: una prova che aspetta un rifiuto dice in quale ambiente lo aspetta,
+e si salta altrove.
+
+## Ho lasciato uno script di laboratorio che scorreva tutta `%TEMP%`
+
+La pulizia leggeva ogni cartella di `%TEMP%`, dove ci sono 8.492 voci
+`nova-*` che sembrano residui delle prove del progetto (non l'ho verificato), e
+non finiva. Non sono mie, ma l'ho scoperto cosi'.
+
+La regola: uno script di laboratorio si prova prima su un caso piccolo, e non
+scorre cartelle che non ha creato.
+
+## Ho fatto partire una scansione di minuti senza un modo di fermarla
+
+Il controllo delle cartelle di terzi gira in un filo bloccante, e partiva subito
+all'avvio del demone. Quando il demone si chiudeva, il runtime aspettava quel
+filo fino in fondo: tre minuti, e ogni demone di prova con un recinto lanciava
+una scansione dei dischi. Le mie prove non se ne erano accorte; la suite intera
+si': `test_demone_recinto` non vedeva uscire il demone entro i dieci secondi.
+
+La regola: un lavoro lungo ha sempre una bandiera che lo ferma e un'attesa
+prima di cominciare. Ora `novad` la alza quando smette di ascoltare, la prima
+scansione parte un minuto dopo l'avvio, e la prova accende il demone con
+l'attesa a zero per vedere che si spenga lo stesso: tolta la bandiera, cade.
+
+## Ho aperto la pipe del demone una volta sola, in quattro posti
+
+Su Windows, subito dopo una connessione, il demone ha un istante in cui
+nessuna istanza della pipe e' in ascolto, e chi arriva li' trova «tutte le
+istanze occupate». Windows prescrive al client di aspettare e riprovare. Il
+client Python l'ha imparato con D368; i tre client Rust no: `nova` e il
+guscio, due volte, aprivano la pipe e se non si apriva dicevano che il
+demone non rispondeva. In CI non si vedeva, perche' le prove del demone ci
+girano su Linux, dove il socket fa la fila da solo.
+
+Ora la pipe si apre in un posto solo, `nova_proto::canale::apri`, con la
+riprova del Python.
+
+La regola: quando si corregge un difetto in un client, si cercano gli altri
+client dello stesso canale. Un difetto di protocollo non sta mai in un
+client solo.
+
+## Ho scritto una prova che dava per scontato un progetto senza motore
+
+`test_cli_locali_rust.py` metteva un llama-server finto in una cartella
+temporanea e pretendeva che la configurazione scegliesse quello. Ma un
+llama-server dentro `runtime/` del progetto ha la precedenza su tutti, ed e'
+giusto cosi'. In CI quella cartella e' vuota e la prova passava; sul PC di
+Gio, dove NOVA e' installata, era rossa. Python e Rust intanto erano
+d'accordo fra loro: il difetto era della prova.
+
+La regola: una prova che guarda dove il prodotto cerca le cose deve sapere
+anche cosa c'e' gia' li', o non prova niente fuori dalla CI.
+
+## Ho fatto girare un comando in un filo che nessuno annulla
+
+Su Windows il comando confinato parte in `spawn_blocking`, e un filo bloccante
+non si annulla. Su unix `kill_on_drop(true)` ferma il comando quando il turno
+viene interrotto; su Windows, dopo il mio cambiamento, il futuro cadeva e il
+comando andava avanti da solo fino alla scadenza, di nascosto, dopo che chi
+l'aveva chiesto se n'era andato. I commenti dicevano che il job object «ferma
+anche i nipoti», ed era vero: ma nessuno lo fermava in quel caso. Lo ha trovato
+la rilettura riga per riga, non una prova, perche' nessuna prova interrompeva
+un turno.
+
+La regola: quando sostituisco il modo in cui un processo parte, elenco quello
+che il modo vecchio faceva senza che io lo scrivessi — qui, morire col turno — e
+scrivo una prova per ognuna di quelle cose.
+
+## Ho ritirato un'annotazione che il sistema poteva ancora scrivere
+
+Il passo da amministratore, se non finiva bene, faceva ritirare l'annotazione di
+**tutte** le cartelle. Ma finire male puo' voler dire due cose diverse: aver
+scritto la voce su due cartelle su tre, e aver scaduto l'attesa mentre la
+richiesta di Windows e' ancora aperta (se la persona conferma dopo, il passo
+parte e scrive). In tutti e due i casi restava una voce senza annotazione, e una
+voce senza annotazione non la toglie piu' nessuno. In piu' tenevo il blocco fra
+processi per tutta l'attesa, e i comandi del demone intanto fallivano.
+
+La regola: «ritiro quel che ho annotato» e' vero solo per quello che so che non
+e' successo. Si annota, si aspetta *senza* il blocco, e si riconcilia guardando
+com'e' andata davvero, cartella per cartella.
+
+## Ho aperto le antenate anche agli strumenti
+
+Le antenate (la prima cartella sotto la radice, il genitore, il nonno) servono a
+PowerShell per posizionarsi nella cartella di lavoro. Le calcolavo per ogni
+radice, strumenti compresi: per `C:\Users\<nome>\.cargo\bin` finivano in elenco
+`.cargo` e il profilo, proprio la cartella con le credenziali che a parole avevo
+detto di tenere fuori. Un file non si legge, ma i nomi si vedono. Uno strumento
+si esegue per percorso e di antenate non ne ha bisogno: provato, `cargo` parte
+lo stesso.
+
+La regola: un permesso si calcola dalla ragione per cui serve, non da una lista
+che passa per caso di li'.
+
+## Ho deciso se un disco ha i permessi dal suo nome
+
+Il controllo trattava come «senza permessi» ogni disco che non si chiamasse
+NTFS, ReFS compreso. Ma ReFS i permessi li ha (un Dev Drive di Windows 11 e'
+ReFS): quel disco non si controllava, e il racconto diceva che li' il
+contenitore scrive ovunque. Windows lo dice da solo, con il flag
+`FILE_PERSISTENT_ACLS` del volume.
+
+La regola: se il sistema sa rispondere a una domanda, si chiede al sistema, non
+a un nome.
+
+## Ho lasciato la documentazione alla strada che avevo scartato
+
+L'intestazione di `windows.rs` descriveva ancora il token ristretto con
+`WRITE_RESTRICTED`, il SID di servizio `S-1-5-80-...` e un AppContainer che
+«viene dopo». Altri commenti dicevano che il passo da amministratore «fa una
+cosa sola» (ne fa due), che le antenate sono «la prima cartella» (sono tre), che
+del resto del profilo il contenitore «non vede nemmeno i nomi» (le antenate si
+elencano), e un esempio con `%USERPROFILE%` che nessuno espande: chi lo avesse
+scritto in `core.json` non avrebbe ottenuto niente, e in silenzio.
+
+La regola: quando cambio la strada, rileggo i commenti in testa ai file che ho
+toccato prima di dire che ho finito. E un percorso scritto male in
+configurazione si dice, non si salta.
+
+## Ho chiamato verde una prova che lo era solo con una variabile accesa
+
+Nel mio giro su Windows `test_demone_compiti.py` era verde, 9 su 9. Il giro
+finale di Gio, lanciato senza `PYTHONIOENCODING`, l'ha trovata rossa: la CLI
+finta leggeva stdin nella codifica della macchina, cp1252, e la domanda le
+arrivava con «c'Ã¨» al posto di «c'è». Il demone mandava UTF-8, ed era giusto;
+sbagliava la finta. I miei script mettevano `PYTHONIOENCODING=utf-8` per leggere
+bene l'uscita delle prove, e la stessa variabile, ereditata fino alla finta,
+nascondeva il difetto. Corretta la lettura, ne e' uscito un secondo, nascosto
+dal primo: la domanda si scriveva in modalita' testo, con `\r\n` su Windows, e
+la finta la riportava a `\n` solo perche' leggeva anche lei in modalita' testo.
+Ora le quattro CLI finte del demone leggono i byte come UTF-8, come una CLI
+vera, e il file della domanda si scrive byte per byte. Le prove del demone in CI
+girano solo su Linux, quindi su Windows le vede solo un giro a mano.
+
+La regola: un giro di prove che vale come verifica si lancia con l'ambiente
+pulito, senza variabili messe per comodita'. Se una variabile serve, la mette la
+prova, non lo script che la lancia.
+
+## Ho contato come saltata una prova che sarebbe stata rossa
+
+Il giro finale su Windows faceva girare le prove da un'esportazione
+dell'indice, senza `.git`. `test_niente_dati_personali.py` chiede a git quali
+file sono tracciati, e senza git esce 2: «qui non si puo' provare». Era fra le
+quattro saltate, e nessuno l'ha guardata, perche' le saltate le conoscevamo.
+Su Linux, nel repository, era rossa: un commento di `config.rs` dava come
+esempio la cartella `.cargo\bin` di un profilo il cui nome era `<tu>`, e il
+solo nome finto ammesso negli esempi e' `utente`. In CI quella prova gira su Linux, e il push sarebbe stato rosso.
+
+La regola: una prova saltata si guarda una per una, e si chiede perche'. Se si
+salta per come la lancio io, e non per la macchina, la lancio in un altro modo.
+
+## Ho dato per vero un limite che non avevo misurato
+
+Nel riepilogo della rilettura ho scritto che il blocco fra processi, creato da
+un processo elevato, non si apre da uno non elevato. Era una deduzione da come
+Windows costruisce i token (nel token normale il gruppo Amministratori serve
+solo a negare), non una misura. Quando l'ho misurata la prima volta, con la
+classe `Mutex` di .NET, il mutex si apriva: ma .NET, se `CreateMutex` dice
+«accesso negato», ripiega su un'apertura con diritti ridotti, quindi non faceva
+la chiamata di NOVA e non provava niente. Rifatta con `CreateMutexW` pelato,
+come in `BloccoFraProcessi`, in tutti e due i versi: si apre, e il limite non
+c'e'. Resta non misurato il caso di un altro account amministratore.
+
+La regola: un limite si scrive dopo averlo misurato con la stessa chiamata del
+codice, e dove non si puo' misurare si scrive «non misurato», non il contrario.

@@ -52,6 +52,8 @@ pub mod memoria;
 pub mod imparare;
 pub mod semina;
 pub mod recinto_comando;
+pub mod recinto_controllo;
+pub mod recinto_registro;
 pub mod registro;
 pub mod ricette;
 pub mod risveglio;
@@ -155,6 +157,22 @@ pub fn build(config: Config) -> Result<Arc<Server>> {
 /// nessuno apra un pannello per dirglielo ogni volta.
 pub async fn avvia_servizi(server: &Arc<Server>) {
     caps_voce::avvia_se_richiesto(server.ctx.bus.clone());
+    // Il recinto (D367): le cartelle uscite da `write_roots` mentre il demone
+    // era spento perdono subito le voci, non al primo comando. Se non ci si
+    // riesce lo si dice forte: ogni comando confinato si fermera' finche'
+    // l'elenco non torna in ordine.
+    let dichiarati = recinto_comando::permessi_da(&server.ctx.policy, None);
+    let con_recinto = !dichiarati.scrive.is_empty();
+    match tokio::task::spawn_blocking(move || recinto_registro::allinea(&dichiarati)).await {
+        Ok(Ok(())) => {}
+        Ok(Err(e)) => tracing::error!(errore = %e, "recinto non allineato"),
+        Err(e) => tracing::error!(errore = %e, "recinto non allineato"),
+    }
+    // Il controllo delle cartelle di terzi si fa solo per chi usa il recinto:
+    // scansionare i dischi di chi non lo usa sarebbe lavoro per niente.
+    if con_recinto {
+        recinto_controllo::avvia_periodico();
+    }
     // La memoria: il vault, e la prima mappatura del PC se non e' mai stata
     // fatta (D365). Di lato, perche' git e la lettura delle cartelle possono
     // metterci qualche secondo, e il demone intanto deve gia' rispondere.

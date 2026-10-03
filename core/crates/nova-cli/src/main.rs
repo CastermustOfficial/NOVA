@@ -457,17 +457,47 @@ fn componi_argomenti(args: &[String]) -> Result<Value> {
 
 #[cfg(windows)]
 async fn connetti(endpoint: &str) -> Result<tokio::net::windows::named_pipe::NamedPipeClient> {
-    use tokio::net::windows::named_pipe::ClientOptions;
-    ClientOptions::new().open(endpoint).map_err(|e| {
+    nova_proto::canale::apri(endpoint).await.map_err(|e| {
         anyhow!("nova-core non risponde su {endpoint} ({e}). E' avviato? Prova: novad")
     })
 }
 
 #[cfg(not(windows))]
 async fn connetti(endpoint: &str) -> Result<tokio::net::UnixStream> {
-    tokio::net::UnixStream::connect(endpoint).await.map_err(|e| {
+    nova_proto::canale::apri(endpoint).await.map_err(|e| {
         anyhow!("nova-core non risponde su {endpoint} ({e}). E' avviato? Prova: novad")
     })
+}
+
+/// Rende non ereditabili gli handle standard di questo processo.
+///
+/// `Command::spawn` su Windows crea il figlio con `bInheritHandles = TRUE`:
+/// eredita **ogni** handle ereditabile, anche quando i suoi tre standard sono
+/// stati messi su NUL. Se chi ci ha lanciato cattura l'uscita — una prova
+/// Python, Claude Code, qualunque programma che legge fino alla fine del
+/// flusso — le estremita' delle sue pipe passano al demone, e quel flusso non
+/// finisce finche' il demone vive: `nova chiedi --accendi` non tornava mai.
+/// Gli handle restano usabili da noi; smettono solo di passare ai figli.
+#[cfg(windows)]
+fn non_far_ereditare_le_standard() {
+    use std::os::windows::io::AsRawHandle;
+    const HANDLE_FLAG_INHERIT: u32 = 0x0000_0001;
+    extern "system" {
+        fn SetHandleInformation(h: *mut std::ffi::c_void, maschera: u32, flag: u32) -> i32;
+    }
+    let standard = [
+        std::io::stdin().as_raw_handle(),
+        std::io::stdout().as_raw_handle(),
+        std::io::stderr().as_raw_handle(),
+    ];
+    for h in standard {
+        // Senza console un handle puo' mancare: allora non c'e' niente da togliere.
+        if !h.is_null() {
+            unsafe {
+                SetHandleInformation(h as *mut std::ffi::c_void, HANDLE_FLAG_INHERIT, 0);
+            }
+        }
+    }
 }
 
 /// Accende il demone se non risponde: `novad` accanto a questo eseguibile.
@@ -491,6 +521,7 @@ async fn accendi_il_demone(endpoint: &str) -> Result<()> {
     {
         use std::os::windows::process::CommandExt;
         c.creation_flags(0x0800_0000);
+        non_far_ereditare_le_standard();
     }
     c.spawn()
         .map_err(|e| anyhow!("non riesco ad accendere {}: {e}", novad.display()))?;
