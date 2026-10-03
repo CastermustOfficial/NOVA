@@ -16,6 +16,11 @@ import time
 from typing import Any, Callable, Iterator
 
 
+# Quanto si aspetta al massimo una pipe occupata, e ogni quanto si riprova.
+ATTESA_PIPE = 1.0
+PAUSA_PIPE = 0.01
+
+
 def endpoint_default() -> str:
     if sys.platform == "win32":
         return r"\\.\pipe\nova-core"
@@ -51,14 +56,27 @@ class CoreClient:
             # l'altro cadevano sempre (0 su 10), dopo un millisecondo mai; con
             # la riprova, 30 su 30 con al piu' un tentativo in piu'.
             # Una pipe che non c'e' e' un altro errore (errno 2), e non si riprova.
-            for tentativo in range(100):
+            #
+            # Il secondo si misura con l'orologio, non contando i tentativi: su
+            # Windows una pausa puo' durare piu' di quanto chiesto, e il client
+            # Rust, con cento pause da dieci millisecondi, aspettava 1,56 s.
+            scadenza = time.monotonic() + ATTESA_PIPE
+            while True:
                 try:
                     self._f = open(self.endpoint, "r+b", buffering=0)
                     break
                 except OSError as e:
-                    if e.errno != errno.EINVAL or tentativo == 99:
+                    if e.errno != errno.EINVAL:
                         raise
-                    time.sleep(0.01)
+                    if time.monotonic() >= scadenza:
+                        # Cosi' com'e', l'errore direbbe solo «Invalid argument».
+                        raise OSError(
+                            e.errno,
+                            "la pipe del demone e' rimasta occupata per "
+                            f"{ATTESA_PIPE:g} s: il demone c'e', ma non ha "
+                            "accettato la connessione",
+                            self.endpoint) from e
+                    time.sleep(PAUSA_PIPE)
         else:
             self._sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             self._sock.settimeout(self.timeout)

@@ -5,13 +5,16 @@
 //! l'istanza per la prossima, e chi arriva in quell'istante trova «tutte le
 //! istanze della pipe sono impegnate» (`ERROR_PIPE_BUSY`, 231). Windows
 //! prescrive al client di aspettare e riprovare. I tre client Rust — `nova`,
-//! e il guscio due volte — aprivano la pipe una volta sola, e due richieste
-//! ravvicinate facevano fallire la seconda con «nova-core non risponde».
+//! e il guscio due volte — aprivano la pipe una volta sola, e di due
+//! richieste ravvicinate la seconda falliva come se il demone fosse spento.
 //! L'ha mostrato `test_demone_compiti.py` sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X), dove le prove del
 //! demone girano su Windows; in CI girano su Linux, e non si vedeva.
 //!
-//! La riprova e' quella del client Python (`nova/core_client.py`): cento
-//! tentativi a dieci millisecondi, cioe' un secondo al massimo. Una pipe che
+//! Si riprova ogni dieci millisecondi per un secondo al massimo, come il
+//! client Python (`nova/core_client.py`). Il secondo si misura con
+//! l'orologio, non contando i tentativi: su Windows una pausa di dieci
+//! millisecondi ne dura quasi sedici, la risoluzione del timer di sistema, e
+//! cento pause facevano un secondo e mezzo (misurato: 1,56 s). Una pipe che
 //! non c'e' e' un altro errore, e non si riprova: il demone e' spento, e
 //! aspettare non lo accende.
 
@@ -20,8 +23,9 @@ use std::time::Duration;
 /// `ERROR_PIPE_BUSY`: tutte le istanze della pipe sono impegnate.
 pub const PIPE_OCCUPATA: i32 = 231;
 
-/// Quante volte si riprova, e quanto si aspetta fra una e l'altra.
-pub const TENTATIVI_PIPE: u32 = 100;
+/// Per quanto si riprova al massimo, e quanto si aspetta fra un tentativo e
+/// l'altro.
+pub const ATTESA_PIPE: Duration = Duration::from_secs(1);
 pub const PAUSA_PIPE: Duration = Duration::from_millis(10);
 
 /// Un errore per cui vale la pena riprovare: la pipe c'e', ma e' occupata.
@@ -35,12 +39,11 @@ pub async fn apri(
     endpoint: &str,
 ) -> std::io::Result<tokio::net::windows::named_pipe::NamedPipeClient> {
     use tokio::net::windows::named_pipe::ClientOptions;
-    let mut tentativo = 1;
+    let inizio = std::time::Instant::now();
     loop {
         match ClientOptions::new().open(endpoint) {
             Ok(c) => return Ok(c),
-            Err(e) if da_riprovare(&e) && tentativo < TENTATIVI_PIPE => {
-                tentativo += 1;
+            Err(e) if da_riprovare(&e) && inizio.elapsed() < ATTESA_PIPE => {
                 tokio::time::sleep(PAUSA_PIPE).await;
             }
             Err(e) => return Err(e),
@@ -61,7 +64,9 @@ mod prove {
 
     #[test]
     fn si_riprova_solo_la_pipe_occupata() {
-        assert!(da_riprovare(&std::io::Error::from_raw_os_error(PIPE_OCCUPATA)));
+        assert!(da_riprovare(&std::io::Error::from_raw_os_error(
+            PIPE_OCCUPATA
+        )));
         // La pipe che non c'e' (ERROR_FILE_NOT_FOUND, 2): il demone e' spento.
         assert!(!da_riprovare(&std::io::Error::from_raw_os_error(2)));
         assert!(!da_riprovare(&std::io::Error::other("altro")));
@@ -75,7 +80,10 @@ mod prove {
     async fn una_pipe_occupata_si_aspetta() {
         use tokio::net::windows::named_pipe::{ClientOptions, ServerOptions};
         let nome = format!(r"\\.\pipe\nova-prova-occupata-{}", std::process::id());
-        let primo = ServerOptions::new().first_pipe_instance(true).create(&nome).unwrap();
+        let primo = ServerOptions::new()
+            .first_pipe_instance(true)
+            .create(&nome)
+            .unwrap();
         let _preso = ClientOptions::new().open(&nome).unwrap();
         primo.connect().await.unwrap();
         // Adesso l'unica istanza e' presa.
@@ -93,13 +101,44 @@ mod prove {
         let _ = dopo.await.unwrap();
     }
 
+    /// Una pipe sempre occupata si aspetta un secondo, non di piu'. Contando
+    /// cento pause da dieci millisecondi si aspettava 1,56 s: su Windows una
+    /// pausa ne dura quasi sedici.
+    #[cfg(windows)]
+    #[tokio::test]
+    async fn una_pipe_sempre_occupata_si_aspetta_un_secondo() {
+        use tokio::net::windows::named_pipe::{ClientOptions, ServerOptions};
+        let nome = format!(
+            r"\\.\pipe\nova-prova-sempre-occupata-{}",
+            std::process::id()
+        );
+        let server = ServerOptions::new()
+            .first_pipe_instance(true)
+            .create(&nome)
+            .unwrap();
+        let _preso = ClientOptions::new().open(&nome).unwrap();
+        server.connect().await.unwrap();
+        let inizio = std::time::Instant::now();
+        let e = apri(&nome).await.unwrap_err();
+        let durata = inizio.elapsed();
+        assert!(da_riprovare(&e), "{e:?}");
+        assert!(durata >= ATTESA_PIPE, "{durata:?}");
+        assert!(durata < Duration::from_millis(1400), "{durata:?}");
+    }
+
     /// Una pipe che non esiste non si aspetta: si risponde subito.
     #[cfg(windows)]
     #[tokio::test]
     async fn una_pipe_che_non_c_e_non_si_aspetta() {
         let inizio = std::time::Instant::now();
-        let e = apri(r"\\.\pipe\nova-questa-pipe-non-esiste").await.unwrap_err();
+        let e = apri(r"\\.\pipe\nova-questa-pipe-non-esiste")
+            .await
+            .unwrap_err();
         assert!(!da_riprovare(&e));
-        assert!(inizio.elapsed() < Duration::from_millis(500), "{:?}", inizio.elapsed());
+        assert!(
+            inizio.elapsed() < Duration::from_millis(500),
+            "{:?}",
+            inizio.elapsed()
+        );
     }
 }

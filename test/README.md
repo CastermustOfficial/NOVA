@@ -90,7 +90,7 @@ Cosa serve: niente: puro Python, la prima versione di NOVA.
 | `test_categorie.py` | Verifica la regola strutturale: certe categorie salgono da sole. |
 | `test_cerca.py` | Cercare e leggere il web senza aprire una finestra. |
 | `test_configurazione_non_perde_niente.py` | Tutto cio' che si salva si rilegge. |
-| `test_core_client_riprova.py` | Il client del demone aspetta e riprova se la pipe e' occupata, e non riprova se non c'e' (D368). |
+| `test_core_client_riprova.py` | Il client del demone aspetta e riprova se la pipe e' occupata, per un secondo d'orologio anche quando le pause durano piu' del chiesto, e poi lo dice; non riprova se la pipe non c'e' (D368). |
 | `test_dati.py` | «Dove sono i miei dati?» e' una domanda di fiducia. |
 | `test_diario_del_turno.py` | Un turno che comincia si vede, e un attributo inventato non passa. |
 | `test_figure.py` | Quali immagini entrano nella conversazione, e quante. |

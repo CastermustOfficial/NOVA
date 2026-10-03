@@ -1569,3 +1569,23 @@ c'e'. Resta non misurato il caso di un altro account amministratore.
 
 La regola: un limite si scrive dopo averlo misurato con la stessa chiamata del
 codice, e dove non si puo' misurare si scrive «non misurato», non il contrario.
+
+## Ho scritto «un secondo al massimo» senza misurarlo
+
+In `nova_proto::canale` la riprova sulla pipe occupata faceva cento tentativi
+con una pausa di dieci millisecondi, e il commento diceva «cioe' un secondo al
+massimo». Era una moltiplicazione, non una misura. Rileggendo il codice l'ho
+misurata su una pipe sempre occupata: 1,56 secondi, tre volte su tre. Su
+Windows una pausa di dieci millisecondi ne dura quasi sedici, perche' il timer
+di sistema ha quella risoluzione. Il client Python, con la stessa
+moltiplicazione, faceva 1,02 secondi su Python 3.13, che dorme con un timer
+piu' fine, ma dipendeva anche lui da quanto dura una pausa. Ora tutti e due
+riprovano finche' l'orologio non dice un secondo, e due prove lo tengono: il
+Rust di prima cade a 1,56 s, il Python di prima, con pause che durano quanto
+su Windows, a 1,54 s. Il Python, quando smetteva, dava anche l'errore
+com'era, «Invalid argument»: ora dice che la pipe e' rimasta occupata, e
+quale.
+
+La regola: una durata scritta in un commento si misura con l'orologio, non si
+ricava dal numero dei giri. E un'attesa che deve durare al massimo un tempo si
+scrive con una scadenza, non con un conto.
