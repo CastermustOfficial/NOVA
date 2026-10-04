@@ -1638,3 +1638,56 @@ poteva vederla.
 
 La regola: quando si tocca il recinto, la suite intera gira due volte, da
 utente normale e da amministratore (`test/README.md`, «Fuori dalle suite»).
+
+## Ho controllato il proprietario di una cartella per nome
+
+In `windows_cartella_dei_soli_diritti_del_proprietario` il proprietario della
+cartella si controllava cercando il nome dell'utente nel testo che restituisce
+PowerShell. Quel testo dipende dalla lingua, dal dominio e dal fatto che
+PowerShell risponda. Sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X) funzionava; sull'agente Windows della CI
+(Windows Server, `runneradmin`, UAC spento) no, e la CI di `2b09a5f` e' caduta
+con «il proprietario non e' l'utente». Dal log non si capisce quale delle tre
+cose sia andata storta.
+
+Ora il proprietario si confronta per SID con l'utente del token. Se la cartella
+non si riesce a dare all'utente, la prova guarda il comportamento giusto per una
+cartella degli Amministratori, il rifiuto che nomina l'amministratore, e stampa
+perche'. Una prova nuova, solo da elevato, copre quel caso senza cambiare il
+proprietario; dove l'ambiente da' gia' la cartella all'utente, si salta e lo
+dice.
+
+La regola: un'identita' si confronta per SID, mai per nome. E una prova che
+dipende dall'ambiente, quando cade, dice quale premessa non ha trovato.
+
+## Ho lasciato una prova leggere lo schermo
+
+`test_anteprime.py` controlla che le anteprime delle conferme siano frasi di al
+massimo 200 caratteri. Quelle di `type_text` e `press_keys` contengono il titolo
+della finestra in primo piano, che si chiede al sistema. Con davanti una scheda
+di Edge dal titolo lungo l'anteprima arrivava a 213 caratteri e la prova
+cadeva; con un'altra finestra passava. Il giro da amministratore l'ha trovata
+rossa due volte, mentre da sola era verde: non dipendeva da chi la lanciava, ma
+da cosa c'era sullo schermo.
+
+Ora, nella prova, la finestra in primo piano e' finta e sempre la stessa, e un
+controllo verifica che le anteprime vedano quella. Con la versione di prima e
+la stessa scheda di Edge davanti la prova cade (123 su 125); con questa passa.
+
+La regola: una prova non legge lo stato del desktop. Se il codice lo chiede al
+sistema, la prova glielo da' finto.
+
+## Ho guardato le schede subito dopo averle chiuse
+
+`test_demone_ricerca.py` controlla che, dopo una ricerca, nessuna scheda resti
+aperta nel browser delle ricerche, e lo guardava subito. Ma `/json/close` di
+Chromium risponde «Target is closing» e la scheda sparisce dall'elenco poco
+dopo: in una misura a parte, guardata subito c'era ancora 18 volte su 20. Su
+Linux la prova e' caduta due volte in una giornata di giri completi, con la
+scheda della seconda ricerca ancora in elenco, e passava quando la risposta
+del demone arrivava abbastanza tardi.
+
+Ora la prova aspetta fino a cinque secondi che la scheda sparisca, e cade solo
+se resta.
+
+La regola: dopo un'azione che il sistema completa da solo, la prova aspetta
+l'effetto con una scadenza, non lo guarda nell'istante dopo.

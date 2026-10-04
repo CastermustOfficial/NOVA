@@ -221,7 +221,16 @@ try:
               "/search?q=perch%C3%A9+s%C3%AC" in chieste, repr(chieste))
     lanci = [b for b in LANCI.read_text(encoding="utf-8").split("---") if b.strip()]
     controlla("il browser si e' acceso una volta sola", len(lanci) == 1, repr(lanci))
-    rimaste = [t.get("url", "") for t in schede_aperte() if "bing.com" in t.get("url", "")]
+    # `/json/close` risponde «Target is closing» e la scheda sparisce dall'elenco
+    # poco dopo: in una misura a parte, guardata subito c'era ancora 18 volte su
+    # 20, e qui la prova cadeva ogni tanto. Si aspetta fino a cinque secondi, e
+    # cade solo se la scheda resta.
+    scadenza = time.time() + 5
+    while True:
+        rimaste = [t.get("url", "") for t in schede_aperte() if "bing.com" in t.get("url", "")]
+        if not rimaste or time.time() > scadenza:
+            break
+        time.sleep(0.1)
     controlla("e nessuna scheda della ricerca resta aperta", not rimaste, repr(rimaste))
 
 finally:

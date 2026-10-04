@@ -36,6 +36,16 @@ def controlla(nome, condizione, dettaglio=""):
 
 import nova.tools                                             # noqa: E402,F401
 from nova.tools.base import REGISTRY, Risk, Tool              # noqa: E402
+from nova.tools import system                                 # noqa: E402
+
+# La finestra davanti si chiede al sistema, quindi dipende da cosa c'e' sullo
+# schermo in quel momento. Il 3 e il 4 ottobre il titolo di una scheda di Edge
+# ha portato l'anteprima di `type_text` e `press_keys` a 213 caratteri, e la
+# prova cadeva o passava secondo la finestra in primo piano. Qui la finestra e'
+# sempre la stessa, quella dell'esempio di `nova-strumenti`; quella vera la
+# guarda `test_demone_sistema.py`.
+FINESTRA = {"title": "Senza titolo - Blocco note", "process": "notepad.exe"}
+system.finestra_davanti = lambda: dict(FINESTRA)
 
 
 def finto(nome: str, spec: dict):
@@ -58,6 +68,10 @@ def finto(nome: str, spec: dict):
         return "entropia"
     return "valore"
 
+
+controlla("le anteprime vedono la finestra finta, non lo schermo",
+          "Blocco note" in REGISTRY["type_text"].describe_call({"text": "x"}),
+          REGISTRY["type_text"].describe_call({"text": "x"}))
 
 print(f"\n1. tutti e {len(REGISTRY)} i tool dicono cosa fanno")
 senza = sorted(n for n, t in REGISTRY.items() if not t.preview)

@@ -137,3 +137,11 @@ Aggiornato al 30 settembre 2026. Le idee che c'erano già erano sparse nei docum
 **Perché.** La CI di Windows gira da amministratore e potrebbe non avere una console: nel dubbio la correzione la crea, ma non l'ho visto succedere.
 
 **Cosa costerebbe.** Una prova in un processo avviato staccato (`DETACHED_PROCESS`) da elevato, che lancia un comando confinato e controlla che parta.
+
+## Il titolo della finestra, tagliato, nelle anteprime di `type_text` e `press_keys`
+
+**Cosa.** Nell'anteprima che chiede la conferma, tagliare il titolo della finestra in primo piano oltre una certa lunghezza, in Python (`nova/tools/system.py`) e in Rust (`nova-strumenti`, `capacita.rs`) allo stesso modo.
+
+**Perché.** Il titolo lo decide un altro programma: il 4 ottobre una scheda di Edge ha portato l'anteprima di `press_keys` a 213 caratteri. Chi approva deve leggere la riga intera, e la parte che conta, cosa si sta per fare, finisce in mezzo a un titolo che non ha scelto nessuno.
+
+**Cosa costerebbe.** Poche righe per lato e un confronto gemello sulla stessa regola di taglio. Da decidere con Gio: un titolo tagliato dice meno su **quale** finestra sia, che e' proprio l'informazione per cui c'e' (D143).

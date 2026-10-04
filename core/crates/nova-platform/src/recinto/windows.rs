@@ -2344,10 +2344,57 @@ T 'normale' { Set-Content -LiteralPath '__N__\f.txt' -Value x -ErrorAction Stop 
         let _ = std::fs::remove_dir_all(&base);
     }
 
+    /// Il proprietario di `d` e' l'utente di questo processo? Si confrontano i
+    /// SID e non i nomi: i nomi cambiano con la lingua e col dominio
+    /// (`MACCHINA\utente`), e leggerli dal testo di PowerShell non dice perche'
+    /// fallisce quando fallisce.
+    fn il_proprietario_e_l_utente(d: &Path) -> bool {
+        use windows::core::BOOL;
+        use windows::Win32::Security::{GetSecurityDescriptorOwner, TokenUser, TOKEN_USER};
+        let dacl = leggi_dacl(d).expect("leggo il proprietario");
+        let mut proprietario = PSID::default();
+        let mut predefinito = BOOL::default();
+        unsafe { GetSecurityDescriptorOwner(dacl.descrittore, &mut proprietario, &mut predefinito) }
+            .expect("il proprietario della cartella");
+        let mut token = HANDLE::default();
+        unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) }.expect("il token");
+        let token = Chiuso(token);
+        let mut serve = 0u32;
+        let _ = unsafe { GetTokenInformation(token.0, TokenUser, None, 0, &mut serve) };
+        // u64 per l'allineamento: sotto c'e' una struttura con puntatori.
+        let mut buf = vec![0u64; (serve as usize).div_ceil(8).max(1)];
+        unsafe {
+            GetTokenInformation(token.0, TokenUser, Some(buf.as_mut_ptr() as *mut c_void), serve, &mut serve)
+        }
+        .expect("l'utente del token");
+        let utente = unsafe { &*(buf.as_ptr() as *const TOKEN_USER) };
+        unsafe { EqualSid(proprietario, utente.User.Sid) }.is_ok()
+    }
+
+    /// La cartella che concede solo a SYSTEM e a «DIRITTI PROPRIETARIO» (OWNER
+    /// RIGHTS, S-1-3-4): quella che crea `mkdtemp` di Python 3.13. Senza la voce
+    /// dell'utente, dunque a chi la possiede e a nessun altro.
+    fn solo_sistema_e_proprietario(s: &str, utente: &str) {
+        icacls(&[s, "/inheritance:r"]);
+        icacls(&[s, "/remove:g", utente]);
+        icacls(&[s, "/grant:r", "*S-1-5-18:(OI)(CI)F"]);
+        icacls(&[s, "/grant:r", "*S-1-3-4:(OI)(CI)F"]);
+        let voci = icacls(&[s]).replace(s, "").to_lowercase();
+        assert!(!voci.contains(&format!("\\{}:", utente.to_lowercase())), "l'utente c'e' gia'\n{voci}");
+    }
+
     /// Le cartelle che concedono solo a «DIRITTI PROPRIETARIO» — quelle di
     /// `mkdtemp` di Python 3.13 — erano il caso che col token ristretto
     /// obbligava a scrivere anche una voce per l'utente. Col contenitore
-    /// funzionano con la sola voce di NOVA?
+    /// funzionano con la sola voce di NOVA, **se le possiede l'utente**.
+    ///
+    /// Chi le possiede dipende da chi le ha create: un processo normale ne e' il
+    /// proprietario, uno elevato no (la possiede il gruppo Amministratori:
+    /// misurato). Qui si prova a dare la cartella all'utente, e si guarda il
+    /// risultato per SID. Se non ci si riesce — succede sull'agente di GitHub,
+    /// dove si e' amministratori senza UAC — vale l'altra meta' del
+    /// comportamento, che e' la stessa di
+    /// `windows_una_cartella_degli_amministratori_non_si_prepara_senza_i_loro_poteri`.
     #[test]
     fn windows_cartella_dei_soli_diritti_del_proprietario() {
         let _s = seriale();
@@ -2355,28 +2402,21 @@ T 'normale' { Set-Content -LiteralPath '__N__\f.txt' -Value x -ErrorAction Stop 
         let so = sonda(&chi).unwrap();
         let d = nuova_cartella("proprietario");
         let s = d.display().to_string();
-        // «DIRITTI PROPRIETARIO» concede a chi possiede la cartella. Creata da un
-        // processo elevato la possiede il gruppo Amministratori (misurato), e un
-        // comando senza quei poteri non la scrive: giusto, ma non e' il caso che
-        // questa prova guarda. Il proprietario deve essere l'utente, da chiunque
-        // la crei.
         let utente = std::env::var("USERNAME").unwrap();
-        icacls(&[&s, "/setowner", &utente]);
-        assert!(
-            std::process::Command::new("powershell")
-                .args(["-NoProfile", "-Command", &format!("(Get-Acl -LiteralPath '{s}').Owner")])
-                .output()
-                .map(|o| String::from_utf8_lossy(&o.stdout).to_lowercase().contains(&format!("\\{}", utente.to_lowercase())))
-                .unwrap_or(false),
-            "il proprietario non e' l'utente"
-        );
-        icacls(&[&s, "/inheritance:r"]);
-        icacls(&[&s, "/remove:g", &utente]);
-        icacls(&[&s, "/grant:r", "*S-1-5-18:(OI)(CI)F"]);
-        icacls(&[&s, "/grant:r", "*S-1-3-4:(OI)(CI)F"]);
-        let utente = format!("\\{}:", std::env::var("USERNAME").unwrap()).to_lowercase();
-        assert!(!icacls(&[&s]).to_lowercase().contains(&utente), "l'utente c'e' gia'");
-
+        let assegnazione = icacls(&[&s, "/setowner", &utente]);
+        let dell_utente = il_proprietario_e_l_utente(&d);
+        solo_sistema_e_proprietario(&s, &utente);
+        if !dell_utente {
+            eprintln!("non riesco a dare la cartella all'utente ({}): si prova il rifiuto", assegnazione.trim());
+            let errore = prepara_cartella(&d, &chi, Genere::Scrive, &so)
+                .expect_err("una cartella che l'utente non possiede non si prepara per un comando senza poteri");
+            assert!(errore.contains("non diventa accessibile"), "{errore}");
+            if stato_elevazione() == Some(true) {
+                assert!(errore.to_lowercase().contains("amministratore"), "il rifiuto non nomina l'amministratore: {errore}");
+            }
+            butta(&d, &chi);
+            return;
+        }
         prepara_cartella(&d, &chi, Genere::Scrive, &so).expect("si prepara con la sola voce di NOVA");
         let esito = ps(
             &format!("Set-Content -LiteralPath '{}' -Value ok", d.join("f.txt").display()),
@@ -2384,7 +2424,40 @@ T 'normale' { Set-Content -LiteralPath '__N__\f.txt' -Value x -ErrorAction Stop 
             None,
         );
         assert!(d.join("f.txt").is_file(), "dentro non si scrive\n{}", uscita(&esito));
-        assert!(!icacls(&[&s]).to_lowercase().contains(&utente), "e' comparsa una voce dell'utente");
+        let voci = icacls(&[&s]).replace(&s, "").to_lowercase();
+        assert!(!voci.contains(&format!("\\{}:", utente.to_lowercase())), "e' comparsa una voce dell'utente");
+        butta(&d, &chi);
+    }
+
+    /// Una cartella degli Amministratori — la crea un processo elevato — non
+    /// si prepara per un comando che non ha i loro poteri, e il rifiuto dice che
+    /// il demone e' elevato e il comando no. Non dipende da `/setowner`: parte
+    /// dal proprietario che la cartella ha davvero, e se l'ambiente la da' gia'
+    /// all'utente (UAC acceso, processo normale) la prova non ha niente da dire.
+    #[test]
+    fn windows_una_cartella_degli_amministratori_non_si_prepara_senza_i_loro_poteri() {
+        if !e_elevato() {
+            eprintln!("saltata: da utente normale le cartelle sono dell'utente");
+            return;
+        }
+        let _s = seriale();
+        let chi = assicura_profilo().unwrap();
+        let so = sonda(&chi).unwrap();
+        let d = nuova_cartella("degli-amministratori");
+        if il_proprietario_e_l_utente(&d) {
+            eprintln!("saltata: in questo ambiente le cartelle di un processo elevato sono gia' dell'utente");
+            butta(&d, &chi);
+            return;
+        }
+        let s = d.display().to_string();
+        solo_sistema_e_proprietario(&s, &std::env::var("USERNAME").unwrap());
+        let errore = prepara_cartella(&d, &chi, Genere::Scrive, &so)
+            .expect_err("un comando senza i poteri dell'amministratore non scrive in una cartella degli Amministratori");
+        assert!(errore.contains("non diventa accessibile"), "{errore}");
+        assert!(
+            errore.to_lowercase().contains("amministratore"),
+            "il rifiuto non dice che il demone e' elevato e il comando no: {errore}"
+        );
         butta(&d, &chi);
     }
 
