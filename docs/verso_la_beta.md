@@ -2692,6 +2692,35 @@ contro 0.95. NOVA gira su quello che l'utente ha in `config.json`. Quindi il
 primitivo deve **dichiarare quando non sa**, e l'astensione deve finire su
 «chiedo all'utente», mai su un valore di ripiego.
 
+**Misurate il 4 ottobre**, con `misure/banco_giudizio_llama.py` sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X):
+llama-server b10502, Gemma 4 26B-A4B IQ3_XXS, cache KV q8_0, 30 layer in GPU,
+il proiettore caricato; sedici domande a quattro lettere, otto con una
+risposta giusta e otto in cui il modello puo' esitare.
+
+- Una lettera e' un token solo, con e senza lo spazio davanti.
+- `n_probs`: con il ragionamento aperto il primo token e' `<|channel>`, che apre
+  il canale del pensiero, con probabilita' 1, e la massa delle lettere nei
+  primi cinque e' zero. Con il ragionamento chiuso dal template
+  (`chat_template_kwargs: {"enable_thinking": false}`, che mette in fondo al
+  prompt un pensiero vuoto) le quattro lettere stanno nei primi cinque, con
+  massa almeno 0,999999. Quindi la condizione non e' un N alto ne' una
+  grammatica: e' **chiudere il ragionamento** prima della risposta. Con un
+  modello che ragiona e un template che non sa chiuderlo, il giudizio deve
+  astenersi.
+- `cache_prompt`: 96 confronti (sedici domande, tre richieste con la cache
+  contro una diretta, due giri), 0 decisioni cambiate, spostamento massimo
+  0,015 su una lettera con probabilita' 0,939. Lo spostamento e' lo stesso in
+  ogni ripetizione: non e' rumore, e' la differenza fra rifare tutto il prompt
+  e farne solo gli ultimi cinque token. Rizzo Flow aveva 2 su 777 e 0,144.
+
+I limiti: un modello, una build, e un modello molto sicuro (quattordici
+domande su sedici sopra 0,99), quindi le decisioni vicine alla soglia, quelle
+che la cache potrebbe spostare, sono poche. Va ripetuto su un secondo modello
+prima di dare il numero per buono. E in una prova a parte
+`post_sampling_probs`, insieme a una grammatica di sole lettere, in questa
+build non ha cambiato niente nella risposta: non e' verificato che lo onori.
+Con il ragionamento chiuso non serve.
+
 **Riferimenti raccolti da Gio il 22 settembre**, da guardare quando si riapre
 CANT-12:
 

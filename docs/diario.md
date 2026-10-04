@@ -11441,3 +11441,14 @@ tasti. Quindi il demone elevato si da' una console tutta sua.
 Una prova di quella console, la prima versione, passava anche senza la
 correzione: dentro il contenitore non si compila, e il conteggio a zero era un
 errore travestito da risposta.
+
+## 4 ottobre 2026 — Prima di scrivere il giudizio, guardare cosa risponde
+
+Il piano diceva di verificare due cose prima di attaccare il giudizio a
+llama-server, e le ho misurate sul modello del PC di sviluppo. La prima risposta e' stata
+una sorpresa: con il ragionamento aperto, il primo token che il modello vuole
+dire e' quello che apre il pensiero, con probabilita' 1, e le lettere non ci
+sono. Il giudizio non si legge al primo token della risposta, ma dopo un
+pensiero vuoto, che il template sa mettere da solo. La seconda e' una buona
+notizia con un limite: la cache non ha cambiato nessuna delle 96 decisioni, ma
+il modello era quasi sempre sicurissimo, e va rifatto su un altro.
