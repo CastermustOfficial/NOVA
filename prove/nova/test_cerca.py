@@ -168,10 +168,15 @@ else:
     controlla("la ricerca risponde", d.get("ok"), str(d.get("motivo")))
     ris = d.get("risultati") or []
     controlla("con piu' di un risultato", len(ris) >= 3, f"{len(ris)}")
-    controlla("ogni risultato ha un indirizzo vero, non del motore",
-              all(x.get("url", "").startswith("http")
-                  and "bing.com" not in x.get("url", "") for x in ris),
-              str([x.get("url", "")[:40] for x in ris[:3]]))
+    # «Del motore» vuol dire il rimbalzo che Bing mette al posto dell'indirizzo
+    # (`bing.com/ck/a?...`), non qualunque pagina di bing.com: cercando «bing»,
+    # i primi risultati veri sono `www.bing.com` e `get.bing.com`, e il 4 ottobre
+    # la CI ha avuto risultati su Microsoft per una domanda sul fantacalcio. Se
+    # cade, la prova dice quali indirizzi, interi.
+    sbagliati = [x.get("url", "") for x in ris
+                 if not x.get("url", "").startswith("http") or "bing.com/ck/" in x.get("url", "")]
+    controlla("ogni risultato ha un indirizzo vero, non del motore", not sbagliati,
+              str(sbagliati))
     controlla("e un titolo", all(x.get("titolo") for x in ris))
     print(f"       {ms:.0f} ms, {len(ris)} risultati")
 

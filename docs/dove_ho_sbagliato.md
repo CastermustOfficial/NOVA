@@ -1691,3 +1691,20 @@ se resta.
 
 La regola: dopo un'azione che il sistema completa da solo, la prova aspetta
 l'effetto con una scadenza, non lo guarda nell'istante dopo.
+
+## Ho scambiato una pagina di bing.com per il rimbalzo di Bing
+
+`test_cerca.py` fa una ricerca vera e controlla che ogni risultato abbia un
+indirizzo vero, non quello del motore. Lo controllava rifiutando qualunque
+indirizzo che contenesse `bing.com`. Ma il rimbalzo da sbrogliare e'
+`bing.com/ck/a?...`, e una pagina di bing.com puo' essere un risultato vero:
+cercando «bing», i primi sono `www.bing.com` e `get.bing.com`. Il 4 ottobre la
+CI, su Python 3.10, e' caduta li', con risultati su Microsoft per una domanda
+sul fantacalcio. Quale dei sei indirizzi fosse non si sa: la prova ne stampava
+solo i primi tre, tagliati a quaranta caratteri.
+
+Ora la prova rifiuta solo il rimbalzo e gli indirizzi senza schema, e quando
+cade li stampa interi.
+
+La regola: una prova controlla la cosa che conta, non un suo indizio. E
+quando cade, mostra proprio i valori che l'hanno fatta cadere.
