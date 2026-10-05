@@ -141,11 +141,17 @@ PORTA_MOTORE = motore.server_address[1]
 bin_dir = Path(casa) / "bin"
 bin_dir.mkdir()
 LANCI = Path(casa) / "lanci.txt"
+# Quando e' partito e cosa ha scritto su stderr: in CI, il 5 ottobre, la prima
+# ricerca e' caduta quattro volte su sei perche' il browser non apriva la
+# porta entro i venticinque secondi del demone. Senza questi due file la
+# prova diceva che era successo, non perche'.
+PARTENZE, ERRORI_BROWSER = Path(casa) / "partenze.txt", Path(casa) / "browser.err"
 (bin_dir / "chrome").write_text(
     "#!/bin/sh\n"
     f'printf "%s\\n" "$@" "---" >> "{LANCI}"\n'
+    f'date +%s.%N >> "{PARTENZE}"\n'
     f'exec "{CHROMIUM}" --no-sandbox --disable-gpu --ignore-certificate-errors '
-    f'"--host-resolver-rules=MAP www.bing.com 127.0.0.1:{PORTA_MOTORE}" "$@"\n',
+    f'"--host-resolver-rules=MAP www.bing.com 127.0.0.1:{PORTA_MOTORE}" "$@" 2>> "{ERRORI_BROWSER}"\n',
     encoding="utf-8")
 (bin_dir / "chrome").chmod(0o755)
 
@@ -189,6 +195,27 @@ try:
     with CoreClient(endpoint, timeout=120) as c:
         primo, err1 = testo_mcp(c, "rete_cerca", {"query": "gatti neri", "max_results": 5})
     controlla("la ricerca riesce", not err1, repr(primo)[:300])
+    if err1:
+        # Quanto ci ha messo davvero il browser ad aprire la porta, e cosa ha
+        # detto: e' l'indizio che serve per capire una caduta in CI. Il
+        # momento esatto non lo scrive nessuno (`DevToolsActivePort` questo
+        # Chromium non lo lascia), quindi si dice fra quali due e' caduto.
+        porta_aperta = lambda: socket.socket().connect_ex(("127.0.0.1", PORTA_RICERCA)) == 0  # noqa: E731
+        partenze = [float(x) for x in PARTENZE.read_text().split()] if PARTENZE.is_file() else []
+        ritorno = time.time()
+        if not partenze:
+            dopo = "il browser non e' nemmeno partito"
+        elif porta_aperta():
+            dopo = f"aperta, entro {ritorno - partenze[0]:.1f} s dalla prima partenza"
+        else:
+            scadenza = ritorno + 90
+            while time.time() < scadenza and not porta_aperta():
+                time.sleep(0.2)
+            dopo = (f"aperta dopo {time.time() - partenze[0]:.1f} s dalla prima partenza"
+                    if porta_aperta() else "ancora chiusa dopo altri 90 s")
+        errori = ERRORI_BROWSER.read_text(errors="replace")[-1500:] if ERRORI_BROWSER.is_file() else ""
+        print(f"     partenze del browser: {len(partenze)}; la porta: {dopo}")
+        print(f"     stderr del browser: {errori!r}")
     controlla("e ha chiesto al motore la domanda scritta come quote_plus",
               chieste[:1] == ["/search?q=gatti+neri"], repr(chieste))
     atteso = ("1. Gatti neri: tutto quello che c'è da sapere\n"

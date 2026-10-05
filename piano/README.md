@@ -4,7 +4,7 @@ Cosa c'è da fare, in ordine. Quando una cosa è fatta si spunta, con il commit 
 
 Il racconto lungo sta in [`docs/verso_la_beta.md`](../docs/verso_la_beta.md): le tre liste, i cantieri, il piano per il Rust e le cinque frasi del cancello della beta. Qui c'è solo l'elenco di quello che resta aperto, nell'ordine in cui lo si fa.
 
-Aggiornato al 3 ottobre 2026.
+Aggiornato al 5 ottobre 2026.
 
 ## Da fare
 
@@ -12,13 +12,14 @@ Deciso con Gio il 30 settembre: non ci sono scadenze, conta solo il risultato, e
 
 ### Il codice, in ordine
 
-1. **CANT-12, le decisioni che oggi sono euristiche.** `nova-decisioni` (quali decisioni, e cosa può uscire dal PC) e `nova-giudizio` (dai logit al giudizio) sono scritti e non li usa nessun binario. Mancano: la metà che chiede a llama-server (`n_probs`, `cache_prompt`, `/tokenize`), le cui due verifiche sono fatte (4 ottobre, `misure/banco_giudizio_llama.py`: il ragionamento va chiuso prima della risposta, e la cache non ha cambiato decisioni; da ripetere su un secondo modello, registrando anche la lettera scelta); per ogni decisione l'euristica di oggi e il modello dietro lo stesso tratto; il banco che li confronta sui casi di NOVA. Un giudizio può solo stringere una guardia, mai allentarla (D313). La strada di CLM è provata (4 ottobre, `misure/banco_clm.py`): così com'è, sulle nostre domande, non è un giudice; addestrarlo è un'idea in `idea/`, non un passo del piano.
-2. **Una difesa contro le prompt injection.** Chiesta da Gio il 30 settembre, da valutare quasi sicuramente dentro CANT-12. Oggi ci sono pezzi sparsi: le descrizioni dei server MCP di altri arrivano citate e non obbedite (D264), quel che si legge dallo schermo non entra in memoria (D170), le azioni rischiose chiedono conferma (D333), e il recinto di Windows (D367) limita il danno. Manca un disegno unico per tutto il testo che arriva da fuori.
-3. **`nova-mcp-cliente` attaccato a un binario.** Il cancello verso i server MCP di altri è scritto e provato (CANT-11), ma nessun binario lo usa. Va dopo il giudizio e la difesa dalle prompt injection, perché è una porta verso l'esterno.
-4. **I vettori da un modello di embedding.** La versione Python sapeva chiederli a un secondo llama-server (`embedder: "llama"`). Il demone usa solo l'embedding di casa (D359).
-5. **Le compatibilità che sono codice.** Le CLI Codex e Qwen, nel menu e mai provate; i dialetti del tool calling di OpenRouter, Groq e Together; l'installatore per un utente senza diritti di amministratore.
-6. **Le ottimizzazioni aperte.** Gli schemi degli strumenti (circa 6.900 token, il blocco più grosso del prompt) e un prompt su misura per il modello di casa; lo speculative decoding; i round-trip del browser su un modulo intero; il modello di casa acceso all'avvio.
-7. **CANT-9, Mac e Linux alla pari.** Mancano la tastiera, le finestre e l'albero di accessibilità (AT-SPI2, Accessibility API), l'archivio delle credenziali, il recinto su macOS e l'avvio automatico. Servono macchine vere, e prima la decisione di Gio qui sotto.
+1. **`test_demone_ricerca` cade a tratti in CI.** Il 5 ottobre la prima ricerca è caduta quattro volte su sei, su commit che non toccavano la ricerca, mentre GitHub Actions era in avaria: il browser delle ricerche non apriva la porta entro i 25 secondi del demone. Nel contenitore di lavoro passa; su Windows la prova non gira. Adesso, quando cade, la prova scrive quanto ci ha messo la porta ad aprirsi e cosa ha detto il browser su stderr. Con quei numeri si decide: un runner lento, o un'attesa troppo corta anche per chi usa NOVA (è la stessa del Python, `ATTESA_AVVIO_S`).
+2. **CANT-12, le decisioni che oggi sono euristiche.** `nova-decisioni` (quali decisioni, e cosa può uscire dal PC) e `nova-giudizio` (dai logit al giudizio) sono scritti e non li usa nessun binario. Mancano: la metà che chiede a llama-server (`n_probs`, `cache_prompt`, `/tokenize`), le cui due verifiche sono fatte (4 ottobre, `misure/banco_giudizio_llama.py`: il ragionamento va chiuso prima della risposta, e la cache non ha cambiato decisioni; da ripetere su un secondo modello, registrando anche la lettera scelta); per ogni decisione l'euristica di oggi e il modello dietro lo stesso tratto; il banco che li confronta sui casi di NOVA. Un giudizio può solo stringere una guardia, mai allentarla (D313). La strada di CLM è provata (4 ottobre, `misure/banco_clm.py`): così com'è, sulle nostre domande, non è un giudice; addestrarlo è un'idea in `idea/`, non un passo del piano.
+3. **Una difesa contro le prompt injection.** Chiesta da Gio il 30 settembre, da valutare quasi sicuramente dentro CANT-12. Oggi ci sono pezzi sparsi: le descrizioni dei server MCP di altri arrivano citate e non obbedite (D264), quel che si legge dallo schermo non entra in memoria (D170), le azioni rischiose chiedono conferma (D333), e il recinto di Windows (D367) limita il danno. Manca un disegno unico per tutto il testo che arriva da fuori.
+4. **`nova-mcp-cliente` attaccato a un binario.** Il cancello verso i server MCP di altri è scritto e provato (CANT-11), ma nessun binario lo usa. Va dopo il giudizio e la difesa dalle prompt injection, perché è una porta verso l'esterno.
+5. **I vettori da un modello di embedding.** La versione Python sapeva chiederli a un secondo llama-server (`embedder: "llama"`). Il demone usa solo l'embedding di casa (D359).
+6. **Le compatibilità che sono codice.** Le CLI Codex e Qwen, nel menu e mai provate; i dialetti del tool calling di OpenRouter, Groq e Together; l'installatore per un utente senza diritti di amministratore.
+7. **Le ottimizzazioni aperte.** Gli schemi degli strumenti (circa 6.900 token, il blocco più grosso del prompt) e un prompt su misura per il modello di casa; lo speculative decoding; i round-trip del browser su un modulo intero; il modello di casa acceso all'avvio.
+8. **CANT-9, Mac e Linux alla pari.** Mancano la tastiera, le finestre e l'albero di accessibilità (AT-SPI2, Accessibility API), l'archivio delle credenziali, il recinto su macOS e l'avvio automatico. Servono macchine vere, e prima la decisione di Gio qui sotto.
 
 ### Fuori dal codice
 

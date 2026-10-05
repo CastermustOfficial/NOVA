@@ -1794,3 +1794,17 @@ Ora la data e' quella dell'ultima voce.
 La regola: chi aggiunge una voce a un file che dice quando e' stato
 aggiornato, aggiorna anche quella riga. Si rilegge il file intero, non solo
 il pezzo nuovo.
+
+## E la stessa data ferma in `piano/`
+
+Un'ora dopo la voce qui sopra, aggiungendo al piano la prova della ricerca,
+ho trovato la stessa cosa in `piano/README.md`: «Aggiornato al 3 ottobre
+2026», dopo sei commit del 4 e del 5 ottobre che lo avevano cambiato. La
+regola scritta un'ora prima l'avevo applicata al file in cui era nata, non
+agli altri che hanno la stessa riga.
+
+Ora anche li' c'e' il 5 ottobre.
+
+La regola, allargata: quando si scopre un difetto in un file, si guarda se
+c'e' negli altri file che hanno la stessa forma. Delle cinque cartelle, la
+data in testa ce l'hanno `piano/` e `idea/`: le ho guardate tutte e cinque.
