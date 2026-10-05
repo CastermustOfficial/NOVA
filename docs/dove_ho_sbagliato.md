@@ -1781,3 +1781,16 @@ alla fine la toglie, se c'era e' dell'utente e non la tocca.
 
 La regola: una cartella isolata isola i file, non il sistema. Una prova che fa
 registrare qualcosa al sistema deve toglierlo, e deve sapere se prima c'era.
+
+## Ho aggiunto due idee e lasciato la data di ieri
+
+Il 5 ottobre, nel commit della console nera (D370), ho aggiunto a `idea/`
+due voci, il motore che dice quando fallisce e `bin/` vecchio. In testa al
+file restava «Aggiornato al 4 ottobre 2026». Me ne sono accorto il giorno
+stesso, aggiungendo la voce di OpenDots e rileggendo il file dall'inizio.
+
+Ora la data e' quella dell'ultima voce.
+
+La regola: chi aggiunge una voce a un file che dice quando e' stato
+aggiornato, aggiorna anche quella riga. Si rilegge il file intero, non solo
+il pezzo nuovo.

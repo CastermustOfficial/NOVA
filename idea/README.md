@@ -2,7 +2,7 @@
 
 Ogni possibile miglioria, anche solo teorica o non ancora decisa. Per ognuna: cosa, perché, cosa costerebbe. Un'idea non è un impegno: quando si decide di farla passa in [`piano/`](../piano/README.md), quando la si scarta resta qui con il perché.
 
-Aggiornato al 4 ottobre 2026. Le idee che c'erano già erano sparse nei documenti: qui sono raccolte, con il rimando a dove sono nate.
+Aggiornato al 5 ottobre 2026. Le idee che c'erano già erano sparse nei documenti: qui sono raccolte, con il rimando a dove sono nate.
 
 ## CANT-12: decisioni tipizzate al posto delle euristiche
 
@@ -17,6 +17,23 @@ Aggiornato al 4 ottobre 2026. Le idee che c'erano già erano sparse nei document
 **Perché.** Un conto sbaglia dove i conti sbagliano: una soglia di lunghezza impara le frasi lunghe e inutili e butta «mi chiamo Gio».
 
 **Cosa costerebbe.** Per CLM le tre misure sono fatte (sopra, e i numeri in `verso_la_beta.md`). Resta una strada sola: **addestrare le teste sulle decisioni di NOVA**. Il repository di CLM lo prevede (`train/finetune.py --task choice`) e le teste sono piccole, ma servono esempi etichettati delle decisioni del censimento, in italiano, e un banco tenuto da parte su cui misurarle; e il vettore resta legato al Qwen3-8B, quindi vale solo per chi usa quel modello o accetta un secondo modello acceso (6.149 MiB di VRAM a Q4_K_M, 9.362 a Q8_0). Poi, come per le lettere, un banco che confronti i giudizi con le euristiche di oggi.
+
+## OpenDots: colleghi sempre accesi, fra testo, chiamate e Slack
+
+Aggiunta da Gio il 5 ottobre, come spinta per NOVA insieme all'harness, e da decidere insieme alle strade di CANT-12 in un'integrazione sola.
+
+**Cosa.** [OpenDots](https://github.com/CopilotKit/OpenDots) di CopilotKit, licenza MIT, in alpha: «Always-on AI coworkers that move between text, calls, and Slack». È un modello da cui partire, non un servizio: lo si installa e lo si configura. Ogni agente, un «Dot», ha la sua chat, può parlare in chiamata e rispondere nei thread di Slack, e può avere un computer suo (profilo del browser, file, shell) dentro un contenitore di OpenBot. Le chiamate affiancano alla voce in tempo reale un secondo agente che lavora, così la conversazione va avanti mentre gira il lavoro lungo. Prima di uno strumento una scheda chiede «Approve & save» o «Decline». È in TypeScript, Node.js 24, con React e AG-UI per portare messaggi, chiamate agli strumenti e stato fra il server e l'interfaccia. Il modello è un endpoint compatibile OpenAI (`OPENAI_BASE_URL`), la voce usa la Realtime API di OpenAI, le conversazioni stanno in CopilotKit Intelligence (con `INTELLIGENCE_API_KEY`; la documentazione nomina anche un Intelligence ospitato in proprio), le pagine in un SQLite locale. Di Windows la documentazione non parla. Letto dal README e da `docs/SETUP.md` il 5 ottobre, non provato.
+
+**Perché.** È quello che a NOVA manca fuori dal PC: esserci in Slack e in una chiamata, e lavorare mentre si parla. Le parti si accostano a cose che NOVA ha già. La scheda di approvazione è il ponte delle approvazioni (`caps_approvazione`). Il computer di un Dot è un posto separato dove l'agente lavora, come il recinto. E il demone sa già fare un turno in una conversazione sua, fuori dalla chat (i compiti, D345). L'endpoint compatibile OpenAI potrebbe essere il llama-server di casa, e gli strumenti di NOVA arriverebbero ai Dot dal ponte MCP che c'è già (`nova mcp`), harness compreso: i documenti e i progetti di un Dot diventerebbero quelli dell'harness.
+
+**Cosa costerebbe.** Prima le domande, poi il codice:
+
+- **Cosa esce dal PC.** Con la configurazione del README escono le conversazioni (Intelligence) e la voce (OpenAI), e in `compose.yml` la telemetria di CopilotKit è accesa se non la si spegne (`COPILOTKIT_TELEMETRY_DISABLED`, predefinito `false`). Con `solo_locale` acceso non si può; e anche spento, in una conversazione intera possono esserci proprio le credenziali che il D236 tiene in casa per sempre. A meno di un Intelligence ospitato in proprio e di una voce di casa (`nova-voce`: Kokoro e whisper.cpp). Da verificare se OpenDots accetta un adattatore vocale diverso.
+- **Le dipendenze.** Node.js 24, e Docker per i contenitori (`compose.yml`, `deployment/computers`). NOVA ha appena smesso di volere Python per installarsi (D350); un runtime in più va pesato.
+- **Due confini.** Il computer di un Dot è un contenitore di OpenBot, il recinto di NOVA su Windows è un AppContainer (D367). Quale vale, quando un Dot usa gli strumenti di NOVA?
+- **Su Windows** va provato da zero.
+
+La strada più corta per misurarlo: OpenDots acceso così com'è, con il modello di casa al posto di OpenAI e `nova mcp` come fornitore di strumenti, su un compito vero dell'harness.
 
 ## Osservare tutto il sistema, e le istantanee del disco
 
