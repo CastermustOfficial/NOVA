@@ -34,7 +34,7 @@ Deciso con Gio il 30 settembre: non ci sono scadenze, conta solo il risultato, e
 
 Quando una voce si chiude la si sposta qui, con la data e il commit.
 
-- 05/10/2026: le attivita' pianificate lanciano NOVA senza finestra, con `novaw`, e solo se il binario sa fare il comando; la prova che lasciava l'attivita' sul PC la toglie (D370).
+- 05/10/2026: le attivita' pianificate lanciano NOVA senza finestra, con `novaw`, e solo se il binario sa fare il comando; la prova che lasciava l'attivita' sul PC la toglie (D370, `eb24c2b`).
 - 04/10/2026: tolto il fermo dei lavori aperto il 3 ottobre per la falla del recinto di Windows con il demone da amministratore. La CI e' verde su `7ea9ec2`, e l'avviso e' pubblicato: GHSA-38cw-xfm5-xq9f (gravita' alta; versioni da `7edebc4` a `c441a61`, corretta da `40175f5`).
 - 03/10/2026: un comando nel recinto non riceve mai i poteri dell'amministratore, nemmeno se il demone li ha (D369, `40175f5`; la prova sul proprietario confrontata per SID in `26586a5`).
 - 03/10/2026: il recinto per i comandi su Windows, un contenitore del sistema, e dove non basta lo dice (D367, `7edebc4`).
