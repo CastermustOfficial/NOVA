@@ -2,7 +2,7 @@
 
 Ogni possibile miglioria, anche solo teorica o non ancora decisa. Per ognuna: cosa, perché, cosa costerebbe. Un'idea non è un impegno: quando si decide di farla passa in [`piano/`](../piano/README.md), quando la si scarta resta qui con il perché.
 
-Aggiornato al 30 settembre 2026. Le idee che c'erano già erano sparse nei documenti: qui sono raccolte, con il rimando a dove sono nate.
+Aggiornato al 4 ottobre 2026. Le idee che c'erano già erano sparse nei documenti: qui sono raccolte, con il rimando a dove sono nate.
 
 ## CANT-12: decisioni tipizzate al posto delle euristiche
 
@@ -11,12 +11,12 @@ Aggiornato al 30 settembre 2026. Le idee che c'erano già erano sparse nei docum
 **Le strade raccolte** (in [`docs/verso_la_beta.md`](../docs/verso_la_beta.md), sezione CANT-12):
 
 - **I logit delle lettere**, come Rizzo Flow: una domanda a scelta multipla e le probabilità delle lettere dopo un solo passaggio del modello, con il llama-server che NOVA già accende. Le probabilità si leggono con `n_probs`, e il prefisso comune si riusa con `cache_prompt`: tutti e due vanno verificati prima.
-- **CLM-v0.1-8B** (aggiunto da Gio il 28 settembre): un Qwen3-8B congelato più due teste da circa 20M parametri, Apache 2.0. Sul suo banco rende quanto Jev o meglio. Il vettore potrebbe darlo llama-server (`--embeddings --pooling last`), e le teste si scriverebbero in Rust.
+- **CLM-v0.1-8B** (aggiunto da Gio il 28 settembre): un Qwen3-8B congelato più due teste da circa 20M parametri, Apache 2.0. Sul suo banco rende quanto Jev o meglio. Misurato il 4 ottobre con `misure/banco_clm.py`: il vettore lo dà llama-server (`--embeddings --pooling last`), anche lo stesso che fa la chat, e Q8_0 sposta poco i giudizi rispetto al bf16 (4 su 52), Q4_K_M troppo (11 su 52). Ma sulle domande del banco delle lettere, senza addestrarlo, ne indovina 2 su 10 in italiano e 4 in inglese con le opzioni corte, 5 e 6 con le risposte intere. Così com'è non è un giudice per NOVA.
 - **jevlike**: un classificatore addestrato su un codificatore piccolo. Vuole dati per addestrarlo.
 
 **Perché.** Un conto sbaglia dove i conti sbagliano: una soglia di lunghezza impara le frasi lunghe e inutili e butta «mi chiamo Gio».
 
-**Cosa costerebbe.** Per CLM, prima tre misure: quanto il GGUF quantizzato sposta i vettori rispetto al riferimento, quanto rendono le teste sull'italiano, e se il vettore può venire dallo stesso llama-server o serve un secondo modello acceso. Poi un banco che confronti i giudizi con le euristiche di oggi.
+**Cosa costerebbe.** Per CLM le tre misure sono fatte (sopra, e i numeri in `verso_la_beta.md`). Resta una strada sola: **addestrare le teste sulle decisioni di NOVA**. Il repository di CLM lo prevede (`train/finetune.py --task choice`) e le teste sono piccole, ma servono esempi etichettati delle decisioni del censimento, in italiano, e un banco tenuto da parte su cui misurarle; e il vettore resta legato al Qwen3-8B, quindi vale solo per chi usa quel modello o accetta un secondo modello acceso (6.149 MiB di VRAM a Q4_K_M, 9.362 a Q8_0). Poi, come per le lettere, un banco che confronti i giudizi con le euristiche di oggi.
 
 ## Osservare tutto il sistema, e le istantanee del disco
 

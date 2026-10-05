@@ -2783,6 +2783,57 @@ CANT-12:
      (da verificare: `--embeddings` e la chat nello stesso processo). Se no,
      e' un secondo modello da tenere acceso.
 
+  **Misurate il 4 ottobre**, con `misure/banco_clm.py` sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X) (RTX 4060
+  Ti da 16 GB, llama-server b10502). Il riferimento e' il Qwen3-8B in bf16 con
+  transformers, il vettore dell'ultimo token dopo la norma finale, come il
+  pooling di vLLM; i GGUF sono `Qwen3-8B-Q8_0` e `Qwen3-8B-Q4_K_M` di
+  `Qwen/Qwen3-8B-GGUF`, con lo sha256 controllato. Le domande sono le sedici del
+  banco delle lettere, in italiano e in inglese, e dieci hanno una risposta
+  giusta: a caso se ne indovinano 2,5.
+
+  Prima di tutto si e' controllato che il banco faccia i conti di CLM. Le
+  teste riscritte con numpy danno gli stessi numeri di quelle del riferimento
+  in torch (differenza massima sotto 1e-4, su uscite che arrivano a 416). Gli
+  esempi pubblicati tornano: il cliente con la fattura addebitata due volte
+  da' «billing» a 0,990 contro 0,988 della schermata del playground,
+  «urgente» a 0,823 contro 0,848, la frustrazione a 2,00 contro 2,00, e le
+  maree 0,994 contro 0,997. I numeri del
+  blocco di codice del README per lo stesso cliente (0,41, 0,94, 1,98) non
+  coincidono con la schermata e non si usano. Su tutti i 237 testi llama-server
+  da' gli stessi token che il tokenizzatore di transformers da' al riferimento.
+
+  1. **La quantizzazione.** Q8_0 contro bf16: coseno dei vettori minimo
+     0,99884, medio 0,99982; su 52 giudizi ne cambiano 4 (3 delle sedici
+     domande inglesi a opzioni corte, 1 delle dieci italiane a frasi),
+     spostamento massimo 0,150. Q4_K_M: coseno minimo 0,912 (sulla parola
+     «normale»), medio 0,995; ne cambiano 11, spostamento massimo 0,583. Q8_0
+     sposta poco, Q4_K_M troppo.
+  2. **L'italiano, e prima ancora le domande di NOVA.** In bf16, con le opzioni
+     corte («Roma», «il gatto»): 2 giuste su 10 in italiano e 4 su 10 in
+     inglese. Sbaglia anche «Qual e' la capitale d'Italia?» (sceglie Milano
+     in italiano, Napoli in inglese). Con le opzioni scritte come risposte
+     intere («La capitale d'Italia e' Roma.»): 5 su 10 e 6 su 10. Q8_0 fa 2, 3,
+     5 e 6; Q4_K_M 2, 2, 6 e 6. L'inglese aiuta poco, le frasi intere di piu',
+     ma senza addestrarlo **CLM su domande come queste non e' un giudice**. E'
+     preaddestrato su coppie domanda-risposta e poi su traiettorie di agenti,
+     e sul suo banco rende; sulle nostre domande no.
+  3. **Il costo.** Con tutti gli strati sulla scheda e un contesto di 2048:
+     9.362 MiB di VRAM con Q8_0, 6.149 con Q4_K_M, misurati come differenza
+     prima e dopo l'avvio. Un testo alla volta, mediana 84-92 ms con Q8_0 e
+     59-63 ms con Q4_K_M, in due giri. Ogni domanda vuole il vettore dello
+     stato e uno per candidato; quelli dei candidati si possono tenere da
+     parte. **Lo stesso server:** senza `--embeddings`, `/v1/embeddings`
+     risponde 501; con `--embeddings` rispondono sia `/v1/embeddings` sia
+     `/completion`, che scrive lo stesso testo di prima. Non e' misurato se
+     `--embeddings` rallenti la chat o cambi `n_probs`.
+
+  Quindi oggi CLM non sostituisce le lettere. Servirebbe addestrare le teste su
+  decisioni come quelle di NOVA, che il repository prevede (`finetune.py --task
+  choice`) ma che vuole dati; l'idea e' in `idea/`. Il banco delle lettere non
+  registra quale lettera ha scelto, quindi un confronto della correttezza fra le
+  due strade sulle stesse domande ancora non c'e': va aggiunto quando lo si
+  ripete sul secondo modello.
+
 
 ## Il confine che tiene il kernel
 

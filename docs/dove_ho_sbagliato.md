@@ -1708,3 +1708,32 @@ cade li stampa interi.
 
 La regola: una prova controlla la cosa che conta, non un suo indizio. E
 quando cade, mostra proprio i valori che l'hanno fatta cadere.
+
+## Ho scritto «le stesse sedici domande» senza confrontarle
+
+In testa alle domande di `misure/banco_clm.py` avevo scritto che erano le
+stesse sedici di `banco_giudizio_llama.py`. Le domande si', le opzioni no: ne
+avevo riscritte alcune per intero («il gatto» invece di «gatto», «da
+confermare con l'utente» invece di «da confermare»), e qui la risposta giusta
+ce l'hanno dieci domande invece di otto. Me ne sono accorto prima del commit,
+mettendo le due liste una accanto all'altra per confrontare i risultati delle
+due strade.
+
+Ora il commento dice cosa e' uguale e cosa no.
+
+La regola: «le stesse» si scrive dopo aver confrontato, non dopo aver copiato.
+Due banchi che si confrontano devono dire dove differiscono.
+
+## Ho preso per riferimento i numeri sbagliati di un README
+
+Per controllare che `banco_clm.py` faccia i conti di CLM ho rifatto gli esempi
+pubblicati. Il primo confronto e' stato con il blocco di codice del README, e
+«urgente» veniva 0,82 contro 0,41: sembrava un errore del banco. Ma la
+schermata del playground, presa dallo stesso README da un `clm-serve` vero,
+per lo stesso cliente dice 0,848, e il banco fa 0,823. I numeri del blocco di
+codice vengono da un'altra versione, e non coincidono nemmeno con la schermata.
+
+Ora i controlli usano la schermata e dicono da dove viene ogni numero.
+
+La regola: un numero di riferimento ha una fonte scritta accanto, e se due
+fonti dello stesso autore non coincidono, si dice quale si usa e perche'.

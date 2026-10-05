@@ -11452,3 +11452,18 @@ sono. Il giudizio non si legge al primo token della risposta, ma dopo un
 pensiero vuoto, che il template sa mettere da solo. La seconda e' una buona
 notizia con un limite: la cache non ha cambiato nessuna delle 96 decisioni, ma
 il modello era quasi sempre sicurissimo, e va rifatto su un altro.
+
+## 4 ottobre 2026 — CLM, provato sul PC prima di crederci
+
+Gio ha detto che CANT-12 e' sperimentazione, e di provarle tutte. CLM l'ho
+provato per intero sul suo PC, un peso alla volta: il Qwen3-8B in bf16 e i
+vettori di riferimento, poi via il bf16 e dentro i due GGUF. La parte che ha
+richiesto piu' attenzione e' stata convincersi che il banco facesse davvero i
+conti di CLM: le teste in numpy contro quelle in torch, gli esempi pubblicati,
+i token di llama-server contro quelli di transformers. Tornano. E allora il
+risultato e' di CLM, non del banco: sulle nostre domande, senza addestrarlo,
+con le opzioni corte ne indovina 2 su 10 in italiano e 4 in inglese, dove il
+caso ne darebbe 2,5, e con le risposte intere 5 e 6. Sbaglia la capitale
+d'Italia. Q8_0 lo riproduce quasi uguale, Q4_K_M no. Il vettore e la chat
+possono venire dallo stesso llama-server. Quello che resta e' un'idea:
+addestrare le teste sulle decisioni di NOVA.
