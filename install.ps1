@@ -456,9 +456,10 @@ New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
 # Di cosa e' fatto NOVA sta in core/binari.json, non qui. Averne una copia
 # voleva dire tenerla allineata a mano, e non e' andata bene: nova-schede era
 # stato aggiunto alla CI e non a questo elenco, quindi l'installatore non si
-# sarebbe accorto che mancava. Se il file non c'e' si ripiega sui tre storici,
-# perche' un installatore che si ferma per un elenco mancante e' peggio.
-$binari = @('novad.exe', 'nova-shell.exe', 'nova.exe', 'nova-catalogo.exe', 'nova-cartelle.exe', 'nova-schede.exe', 'nova-appunti.exe', 'nova-volume.exe', 'nova-notifica.exe', 'nova-sistema.exe', 'nova-app.exe', 'nova-finestre.exe', 'nova-processi.exe', 'nova-tastiera.exe', 'nova-file.exe')
+# sarebbe accorto che mancava. Se il file non c'e' si ripiega sull'elenco qui
+# sotto, perche' un installatore che si ferma per un elenco mancante e'
+# peggio; e `test_binari.py` lo tiene uguale al file.
+$binari = @('novad.exe', 'nova-shell.exe', 'nova.exe', 'novaw.exe', 'nova-catalogo.exe', 'nova-cartelle.exe', 'nova-schede.exe', 'nova-appunti.exe', 'nova-volume.exe', 'nova-notifica.exe', 'nova-sistema.exe', 'nova-app.exe', 'nova-finestre.exe', 'nova-processi.exe', 'nova-tastiera.exe', 'nova-file.exe')
 $fileBinari = Join-Path $Root 'core\binari.json'
 if (Test-Path $fileBinari) {
     try {

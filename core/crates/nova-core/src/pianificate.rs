@@ -9,10 +9,11 @@
 //!   rispetto alla volta prima, lascia un avviso.
 //!
 //! Chi le fa partire e' il sistema operativo: un'attivita' pianificata che
-//! ogni cinque minuti lancia `nova pianificate --accendi`, che chiede al
-//! demone di eseguire quel che tocca. Il Python lanciava se stesso
-//! (`python -m nova --pianificate`). **Non chiama il modello**: esegue
-//! automazioni gia' scritte e collaudate, e ne scrive l'esito.
+//! ogni cinque minuti lancia `novaw pianificate --accendi` (`nova` senza
+//! finestra), che chiede al demone di eseguire quel che tocca. Il Python
+//! lanciava se stesso, senza finestra anche lui (`pythonw -m nova
+//! --pianificate`). **Non chiama il modello**: esegue automazioni gia'
+//! scritte e collaudate, e ne scrive l'esito.
 
 use std::path::PathBuf;
 
@@ -344,17 +345,16 @@ pub fn attivita_installata() -> bool {
     false
 }
 
-/// Registra l'attivita' che fa partire tutto: `nova pianificate --accendi`
+/// Registra l'attivita' che fa partire tutto: `novaw pianificate --accendi`
 /// ogni cinque minuti. Niente diritti di amministratore.
 pub fn installa_attivita(minuti: u32) -> Value {
     if !cfg!(windows) {
         return json!({ "ok": false,
             "motivo": "per ora l'attivita' pianificata la so registrare solo su Windows" });
     }
-    let Some(nova) = crate::caps_tempo::binario("nova") else {
-        return json!({ "ok": false,
-            "motivo": "manca la riga di comando di NOVA (nova), che fa partire le automazioni: \
-                       da core/, cargo build --release -p nova-cli" });
+    let nova = match crate::caps_tempo::riga_per_attivita("pianificate") {
+        Ok(n) => n,
+        Err(motivo) => return json!({ "ok": false, "motivo": motivo }),
     };
     let t = nova_platform::orologio::adesso();
     let ora = nova_calendario::da_istante(t, nova_platform::fuso_secondi(t));

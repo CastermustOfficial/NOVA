@@ -145,3 +145,20 @@ Aggiornato al 4 ottobre 2026. Le idee che c'erano già erano sparse nei document
 **Perché.** Il titolo lo decide un altro programma: il 4 ottobre una scheda di Edge ha portato l'anteprima di `press_keys` a 213 caratteri. Chi approva deve leggere la riga intera, e la parte che conta, cosa si sta per fare, finisce in mezzo a un titolo che non ha scelto nessuno.
 
 **Cosa costerebbe.** Poche righe per lato e un confronto gemello sulla stessa regola di taglio. Da decidere con Gio: un titolo tagliato dice meno su **quale** finestra sia, che e' proprio l'informazione per cui c'e' (D143).
+
+## Il motore delle automazioni dice quando fallisce
+
+**Cosa.** `pianificazione.racconta` scrive «motore attivo» se l'attività «NOVA - pianificazione» esiste. Dovrebbe guardare anche com'è finita l'ultima volta (il `LastTaskResult` dell'Utilità di pianificazione), e dire «il motore non parte» quando esce con un errore.
+
+**Perché.** Dal 2 al 5 ottobre l'attività è uscita con 2 a ogni giro, perché lanciava un `nova` di agosto, e chi chiedeva il calendario avrebbe letto «motore attivo». Il controllo prima di registrarla (D370) copre quel caso, non un binario che invecchia dopo.
+
+**Cosa costerebbe.** Leggere l'esito senza dipendere dalla lingua: `schtasks /query /v` stampa intestazioni tradotte, quindi l'API dell'Utilità di pianificazione, o PowerShell. Più lo stesso in `nova/pianificazione.py`, che è il gemello.
+
+## `bin/` vecchio, preferito a `core/target/` più nuovo
+
+**Cosa.** `binario()` (in Rust) e `binari.trova` (in Python) prendono prima l'eseguibile in `bin/`, poi quello in `core/target/release/`. Sul PC di chi sviluppa `bin/` invecchia finché non si rilancia `build.ps1`: il 5 ottobre sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X) c'erano un `nova.exe` del 30 agosto e un `novad.exe` del 9 settembre. Si potrebbe avvisare quando il file in `bin/` è più vecchio di quello in `core/target/release/`.
+
+**Perché.** Un eseguibile vecchio non dà errore finché non gli si chiede una cosa nuova, e a quel punto l'errore arriva lontano da dove si capisce.
+
+**Cosa costerebbe.** Un confronto di date in due funzioni gemelle, e decidere con Gio cosa fare: avvisare soltanto, o preferire il più nuovo. Per chi installa `bin/` è l'unico, e non cambia niente.
+

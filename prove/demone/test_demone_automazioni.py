@@ -13,7 +13,9 @@ confronta quel che dicono e quel che scrivono:
 3. l'elenco, il codice, la cancellazione;
 4. il calendario: una voce a orario e una sentinella, eseguite dal giro di
    `nova pianificate` e da `esegui_dovute` del Python — gli stessi esiti,
-   gli stessi valori guardati, gli stessi avvisi quando qualcosa cambia.
+   gli stessi valori guardati, gli stessi avvisi quando qualcosa cambia;
+   e su Windows l'attivita' di sistema che fa partire il giro lancia
+   `novaw`, senza console; e se prima non c'era, alla fine si toglie.
 
 Esce 2 se il demone o la riga di comando non sono costruiti.
 """
@@ -99,6 +101,41 @@ def senza(d: dict, *chiavi) -> dict:
     return {k: v for k, v in d.items() if k not in chiavi}
 
 
+# Il calendario registra un'attivita' **di sistema**, «NOVA - pianificazione»,
+# e la cartella di prova non la isola: su Windows e' quella vera dell'utente.
+# Il 2 ottobre questa prova l'ha lasciata sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X), che per tre giorni
+# ha visto una console nera ogni cinque minuti. Se prima non c'era, la prova
+# la guarda e poi la toglie; se c'era, e' dell'utente e non si tocca.
+ATTIVITA = "NOVA - pianificazione"
+
+
+def attivita_presente() -> bool:
+    if os.name != "nt":
+        return False
+    return subprocess.run(["schtasks", "/query", "/tn", ATTIVITA], capture_output=True).returncode == 0
+
+
+def attivita_azione() -> tuple[str, str]:
+    """Programma e argomenti dell'attivita', letti senza dipendere dalla lingua."""
+    r = subprocess.run(
+        ["powershell", "-NoProfile", "-Command",
+         "[Console]::OutputEncoding = [Text.Encoding]::UTF8; "
+         f"$a = (Get-ScheduledTask -TaskName '{ATTIVITA}').Actions[0]; $a.Execute; $a.Arguments"],
+        capture_output=True, text=True, encoding="utf-8", timeout=60)
+    righe = r.stdout.splitlines()
+    return (righe[0].strip() if righe else ""), (righe[1].strip() if len(righe) > 1 else "")
+
+
+def sottosistema(percorso: Path) -> int:
+    """2 per un programma a finestre, 3 per uno da console (intestazione PE)."""
+    b = percorso.read_bytes()
+    pe = int.from_bytes(b[0x3C:0x40], "little")
+    return int.from_bytes(b[pe + 0x5C:pe + 0x5E], "little")
+
+
+attivita_prima = attivita_presente()
+
+
 try:
     scadenza = time.time() + 20
     while time.time() < scadenza and processo.poll() is None:
@@ -175,6 +212,17 @@ try:
                                           "dati": {"chi": "Gio"} if not sentinella else {},
                                           "sentinella": sentinella, "guarda": "risultato" if sentinella else ""})
             controlla(f"«{nome}» in calendario", r.get("ok") and "in calendario" in r.get("detto", ""), str(r))
+        if os.name == "nt" and attivita_prima:
+            print("  (l'attivita' di sistema c'era gia': e' dell'utente, non la guardo e non la tocco)")
+        elif os.name == "nt":
+            programma, argomenti = attivita_azione()
+            controlla("l'attivita' di sistema lancia novaw, non nova",
+                      Path(programma).name.lower() == "novaw.exe", programma)
+            controlla("che per Windows non ha una console",
+                      Path(programma).is_file() and sottosistema(Path(programma)) == 2, programma)
+            controlla("e sa fare quello che l'attivita' gli chiede", argomenti == "pianificate --accendi"
+                      and subprocess.run([programma, "pianificate", "--help"], capture_output=True,
+                                         timeout=60).returncode == 0, argomenti)
         try:
             c.call("pianifica.crea", {"nome": "x", "automazione": "non_esiste", "quando": "ogni ora"})
             rs = "ok"
@@ -232,6 +280,9 @@ finally:
         processo.wait(timeout=10)
     except subprocess.TimeoutExpired:
         processo.kill()
+    if not attivita_prima and attivita_presente():
+        subprocess.run(["schtasks", "/delete", "/tn", ATTIVITA, "/f"], capture_output=True)
+        controlla("e l'attivita' di sistema della prova si toglie", not attivita_presente())
 
 print(f"\n{passati} controlli passati, {len(falliti)} falliti")
 if falliti:

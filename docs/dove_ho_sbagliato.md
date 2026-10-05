@@ -1737,3 +1737,47 @@ Ora i controlli usano la schermata e dicono da dove viene ogni numero.
 
 La regola: un numero di riferimento ha una fonte scritta accanto, e se due
 fonti dello stesso autore non coincidono, si dice quale si usa e perche'.
+
+## Ho portato il lancio delle attivita' senza il suo «w»
+
+Il Python faceva partire le automazioni e i compiti con `pythonw.exe`, e il
+commento diceva perche': «senza finestra nera che compare all'improvviso
+mentre si lavora». Portandoli in Rust ho messo al suo posto `nova.exe`, che e'
+un programma da console. Dal 2 al 5 ottobre, sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X), una console nera
+e' comparsa e sparita ogni cinque minuti. Se n'e' accorto lui, e l'ha detto:
+«talvolta esce un CMD random e si chiude immediatamente». Cercando, sono
+venute fuori altre due cose: l'attivita' puntava a un `nova.exe` di agosto, che
+il comando non lo conosceva e falliva a ogni giro senza che niente lo dicesse;
+e i promemoria aprivano una console accanto al fumetto gia' nel Python, con
+`nova-notifica`.
+
+Ora le attivita' lanciano `novaw`, che per Windows e' un programma a finestre,
+e anche `nova-notifica` lo e'. Prima di registrare un'attivita' il demone
+chiede al binario se conosce il comando (D370).
+
+La regola: portando una funzione si porta anche il perche' delle sue scelte.
+Un `w` nel nome di un eseguibile e' una scelta, e il commento accanto lo
+diceva.
+
+## Una prova ha lasciato un'attivita' di sistema sul PC
+
+`test_demone_automazioni` lavora in una cartella di NOVA tutta sua, e mi
+bastava questo per credere che non toccasse niente fuori. Ma alla prima voce
+del calendario il demone registra «NOVA - pianificazione» nell'Utilita' di
+pianificazione, che e' una sola per tutto il PC. L'attivita' sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X) e'
+nata il 2 ottobre alle 17:57, nei giorni in cui giravo la suite su Windows;
+Gio non ha voci in calendario, e solo quella chiamata del demone la registra
+con quel comando. Da li' e' cominciata la console nera. Su Linux, dove la CI
+fa girare la prova, registrare un'attivita' non si puo', e la cosa non si
+vedeva.
+
+E l'ha rifatto il 5 ottobre alle 21:33, nel giro da amministratore del commit
+di prima, che la correzione non l'aveva ancora: un'attivita' registrata da un
+processo elevato un utente normale non la puo' togliere, e per toglierla e'
+servito di nuovo l'amministratore.
+
+Ora la prova guarda se l'attivita' c'era prima: se non c'era la controlla e
+alla fine la toglie, se c'era e' dell'utente e non la tocca.
+
+La regola: una cartella isolata isola i file, non il sistema. Una prova che fa
+registrare qualcosa al sistema deve toglierlo, e deve sapere se prima c'era.

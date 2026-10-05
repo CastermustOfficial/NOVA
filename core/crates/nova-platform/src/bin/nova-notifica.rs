@@ -9,6 +9,14 @@
 //! Questo programma **aspetta**, e deve aspettare: il fumetto dell'area di
 //! notifica muore insieme a chi possiede l'icona. Il punto e' che ad
 //! aspettare sia lui e non NOVA, che lo lancia e se ne va (D130, D134).
+//!
+//! E per Windows e' un programma a finestre, senza console: un promemoria lo
+//! lancia l'Utilita' di pianificazione, e un programma da console avrebbe
+//! aperto una finestra nera accanto al fumetto, per tutto il tempo
+//! dell'attesa. Gli errori arrivano lo stesso a chi lo lancia passandogli le
+//! sue uscite, come NOVA e le prove.
+
+#![cfg_attr(windows, windows_subsystem = "windows")]
 
 fn main() {
     let a: Vec<String> = std::env::args().skip(1).collect();

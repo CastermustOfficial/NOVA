@@ -9,6 +9,12 @@ description = "Client da riga di comando per nova-core."
 name = "nova"
 path = "src/main.rs"
 
+# La stessa riga di comando senza finestra, per le attivita' pianificate di
+# Windows: lancia il `nova` che le sta accanto (vedi src/novaw.rs).
+[[bin]]
+name = "novaw"
+path = "src/novaw.rs"
+
 [dependencies]
 nova-proto = { path = "../nova-proto" }
 # I comandi che non passano dal demone (D350): configurazione e modelli, per

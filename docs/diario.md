@@ -11467,3 +11467,17 @@ caso ne darebbe 2,5, e con le risposte intere 5 e 6. Sbaglia la capitale
 d'Italia. Q8_0 lo riproduce quasi uguale, Q4_K_M no. Il vettore e la chat
 possono venire dallo stesso llama-server. Quello che resta e' un'idea:
 addestrare le teste sulle decisioni di NOVA.
+
+## 5 ottobre 2026 — La console nera ogni cinque minuti
+
+Gio l'ha detta cosi': «talvolta esce un CMD random e si chiude
+immediatamente». Non era random: era l'attivita' delle automazioni, ogni
+cinque minuti, che lanciava `nova.exe`, un programma da console. Il Python
+usava `pythonw`, e portandolo il `w` si era perso. Sotto ce n'erano altre due:
+l'attivita' puntava a un `nova.exe` di agosto e falliva sempre, in silenzio; e
+l'aveva lasciata una prova, convinta di essere isolata perche' aveva una
+cartella sua. Gio non aveva nessuna automazione: per tre giorni il PC ha
+aperto una finestra ogni cinque minuti per non fare niente. Ora c'e' `novaw`,
+il `nova` senza finestra, e un'attivita' si registra solo se il binario sa
+fare il comando (D370).
+

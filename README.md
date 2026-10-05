@@ -752,7 +752,7 @@ build.ps1             compila il core e lo pubblica in bin/
 core/crates/
   novad/              il demone: bus, capacita', processi lunghi, RPC locale
   nova-shell/         l'orb e le finestre (Tauri): chat, impostazioni, harness
-  nova-cli/           `nova`: parlare al demone, e configurare senza di lui
+  nova-cli/           `nova`: parlare al demone, e configurare senza di lui; `novaw`, lo stesso senza finestra
   nova-core/          il motore: registro delle capacita', turno, permessi, giornale
   nova-proto/         JSON-RPC su named pipe o socket unix, della forma di MCP
   nova-mcp/           NOVA come server MCP per un cervello agentico

@@ -761,7 +761,7 @@ build.ps1             builds the core and publishes it to bin/
 core/crates/
   novad/              the daemon: bus, capabilities, long processes, local RPC
   nova-shell/         the orb and the windows (Tauri): chat, settings, harness
-  nova-cli/           `nova`: talking to the daemon, and configuring without it
+  nova-cli/           `nova`: talking to the daemon, and configuring without it; `novaw`, the same without a window
   nova-core/          the engine: capability registry, turn, permissions, journal
   nova-proto/         JSON-RPC over a named pipe or unix socket, shaped like MCP
   nova-mcp/           NOVA as an MCP server for an agentic brain

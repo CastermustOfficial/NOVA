@@ -58,6 +58,66 @@ pub fn binario(nome: &str) -> Option<PathBuf> {
     .find(|p| p.is_file())
 }
 
+/// La riga di comando di NOVA da mettere in un'attivita' pianificata, se sa
+/// fare `comando`.
+///
+/// E' `novaw`, e non `nova`: `nova` e' un programma da console, e lanciato
+/// dall'Utilita' di pianificazione apre una finestra nera che compare e
+/// sparisce mentre si lavora (vedi `nova-cli/src/novaw.rs`). E prima di
+/// registrarla si chiede a `novaw` se conosce il comando: il 2 ottobre
+/// l'attivita' delle automazioni e' stata registrata con un `nova` di agosto
+/// rimasto in `bin/`, che `pianificate` non lo conosceva, ed e' fallita ogni
+/// cinque minuti per tre giorni senza che niente lo dicesse.
+pub fn riga_per_attivita(comando: &str) -> std::result::Result<PathBuf, String> {
+    let Some(novaw) = binario("novaw") else {
+        return Err(
+            "la riga di comando di NOVA senza finestra (novaw), che fa partire le \
+             attivita' pianificate, non e' costruita: da core/, cargo build --release \
+             -p nova-cli"
+                .into(),
+        );
+    };
+    sa_fare(&novaw, comando)?;
+    Ok(novaw)
+}
+
+/// Se `novaw <comando> --help` risponde: un binario di una versione che il
+/// comando non lo conosce esce con 2, come ogni riga di comando di clap.
+fn sa_fare(novaw: &std::path::Path, comando: &str) -> std::result::Result<(), String> {
+    let mut c = std::process::Command::new(novaw);
+    c.args([comando, "--help"])
+        .stdin(std::process::Stdio::null());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        c.creation_flags(0x0800_0000);
+    }
+    let o = c
+        .output()
+        .map_err(|e| format!("non riesco a lanciare {}: {e}", novaw.display()))?;
+    if o.status.success() {
+        return Ok(());
+    }
+    let errore = String::from_utf8_lossy(&o.stderr);
+    let prima = errore
+        .lines()
+        .find(|r| !r.trim().is_empty())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    // Gli altri codici vengono da `novaw` stesso, per esempio se accanto non
+    // trova `nova`.
+    Err(if o.status.code() == Some(2) {
+        format!(
+            "{} non sa fare «{comando}» ({prima}): e' di una versione vecchia. Da core/: \
+             cargo build --release -p nova-cli, e se sta in bin/, .\\build.ps1",
+            novaw.display()
+        )
+    } else {
+        format!("{} non risponde come dovrebbe ({prima})", novaw.display())
+    })
+}
+
 /// Un testo in un file della cartella temporanea: l'attivita' ne porta solo
 /// il percorso, cosi' virgolette e apostrofi non passano da nessuna riga di
 /// comando (D149).
@@ -178,12 +238,10 @@ impl Capability for Pianifica {
             adesso(),
         )
         .map_err(|e| anyhow!(e))?;
-        let Some(nova) = binario("nova") else {
-            bail!(
-                "per fare le cose da sola piu' tardi NOVA ha bisogno della sua riga di comando \
-                 (nova), che non e' costruita. Da core/: cargo build --release -p nova-cli"
-            );
-        };
+        let nova = tokio::task::spawn_blocking(|| riga_per_attivita("chiedi"))
+            .await
+            .map_err(|e| anyhow!("{e}"))?
+            .map_err(|e| anyhow!("per fare le cose da sola piu' tardi, {e}"))?;
         let istruzione = istruzione.trim().to_string();
         let file = in_un_file("nova-compiti", &c.nome, &istruzione)?;
         // `--accendi`: all'ora giusta il demone puo' non esserci, se il PC si
@@ -323,6 +381,54 @@ mod prove {
             "python -m nova --ask x"
         );
         let _ = std::fs::remove_file(&f);
+    }
+
+    /// Un finto `novaw` che risponde a `<comando> --help` con questo codice
+    /// e questa riga d'errore.
+    fn finto_novaw(nome: &str, codice: i32, errore: &str) -> PathBuf {
+        let d =
+            std::env::temp_dir().join(format!("nova-finto-novaw-{}-{nome}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        #[cfg(windows)]
+        let (f, testo) = (
+            d.join("novaw.cmd"),
+            format!("@echo off\r\necho {errore} 1>&2\r\nexit /b {codice}\r\n"),
+        );
+        #[cfg(not(windows))]
+        let (f, testo) = (
+            d.join("novaw"),
+            format!("#!/bin/sh\necho '{errore}' >&2\nexit {codice}\n"),
+        );
+        std::fs::write(&f, testo).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&f, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        f
+    }
+
+    #[test]
+    fn un_novaw_che_non_conosce_il_comando_non_si_registra() {
+        // E' il caso del 2 ottobre: un binario di agosto, che `pianificate`
+        // non lo conosceva, registrato lo stesso e fallito per tre giorni.
+        let vecchio = finto_novaw("vecchio", 2, "error: unrecognized subcommand 'pianificate'");
+        let e = sa_fare(&vecchio, "pianificate").unwrap_err();
+        assert!(e.contains("non sa fare «pianificate»"), "{e}");
+        assert!(e.contains("unrecognized subcommand"), "{e}");
+        assert!(e.contains("versione vecchia"), "{e}");
+
+        // Un altro guasto non si spaccia per una versione vecchia.
+        let rotto = finto_novaw("rotto", 1, "novaw: non riesco a lanciare nova");
+        let e = sa_fare(&rotto, "pianificate").unwrap_err();
+        assert!(e.contains("non risponde come dovrebbe"), "{e}");
+        assert!(!e.contains("versione vecchia"), "{e}");
+
+        let buono = finto_novaw("buono", 0, "x");
+        assert_eq!(sa_fare(&buono, "pianificate"), Ok(()));
+        for f in [vecchio, rotto, buono] {
+            let _ = std::fs::remove_dir_all(f.parent().unwrap());
+        }
     }
 
     #[test]
