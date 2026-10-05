@@ -35,6 +35,23 @@ Aggiunta da Gio il 5 ottobre, come spinta per NOVA insieme all'harness, e da dec
 
 La strada più corta per misurarlo: OpenDots acceso così com'è, con il modello di casa al posto di OpenAI e `nova mcp` come fornitore di strumenti, su un compito vero dell'harness.
 
+## NOVA a strati: uno per parlare, uno per lavorare, e i Dot organizzati come un'azienda
+
+Aggiunta da Gio il 5 ottobre: «si sta sviluppando un ecosistema notevole». Tiene insieme le due voci qui sopra, CANT-12 e OpenDots.
+
+**Cosa.** Tre strati. (1) Un modello piccolo per la conversazione, che risponde subito e chiama quello grande solo quando serve. (2) Un giudice veloce, CLM o le lettere, per le decisioni facili e prima di tutto per quella che le regola tutte: questa richiesta la gestisco io o la passo al cervello grande? (3) Il cervello grande lavora per conto dei Dot, che si organizzano in una struttura «industriale», con un capo, chi guida un gruppo, chi tiene il progetto, chi esegue. Anche le prove e il collaudo (UAT) passano dal giudice veloce. Sotto, quello che NOVA ha già: la memoria (`nova-memoria` e il vault), i permessi e il recinto, l'harness per documenti e progetti.
+
+**Perché.** La forma c'è già in piccolo. `nova-scala` dice che «il modello locale orchestra» e passa la palla a un gradino più alto quando il compito lo supera. La prima decisione del censimento di CANT-12 è proprio `QualeCervello`, che oggi si prende con liste di parole. Un giudice veloce al posto di quelle liste è il primo passo, e serve a tutto il resto. Per le prove c'è un appiglio misurato da altri: dopo un addestramento leggero, CLM è il verificatore migliore pubblicato su due banchi di agenti che scrivono codice, cioè sceglie la soluzione buona fra più candidate (Terminal-Bench 2.1 87,6%, DeepSWE 81,6%, dal README di CLM). Scegliere fra più tentativi è quello che fa un collaudo.
+
+**Cosa costerebbe.** Le misure di oggi frenano due promesse:
+
+- **I millisecondi.** Con CLM sono millisecondi solo le teste, e i candidati già calcolati. Ogni testo nuovo, cioè ogni frase dell'utente, costa un passaggio di Qwen3-8B: 59–92 ms sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X), e da 6.149 a 9.362 MiB di VRAM (sopra, in CANT-12). Le lettere costano un passaggio del cervello che è già acceso.
+- **Il giudice va addestrato.** Senza addestrarlo, sulle nostre domande CLM sceglie quasi a caso (2 su 10 in italiano). Per instradare o per collaudare servono esempi etichettati, e oggi NOVA non registra gli esiti delle sue decisioni: il primo lavoro è quello.
+- **Due modelli accesi.** Il piccolo per parlare e il grande per lavorare devono stare insieme nella memoria del PC, o il grande va acceso a richiesta, come oggi accende il modello di casa quando serve (D358), pagando l'attesa.
+- **Un'azienda di agenti.** Ogni livello in più moltiplica le chiamate al cervello grande, e con loro il costo e i posti dove un errore si propaga. Ogni Dot che agisce passa dai permessi e dal recinto come NOVA, non da regole sue; e un giudizio può solo stringere una guardia, mai allentarla (D313).
+
+L'ordine che ne viene: registrare le decisioni e le correzioni; un giudice per `QualeCervello`, misurato contro le liste di oggi; poi il modello piccolo per parlare; per ultimi i Dot organizzati, quando i primi tre reggono.
+
 ## Osservare tutto il sistema, e le istantanee del disco
 
 **Cosa.** Sentire cosa succede sul PC mentre succede (ETW su Windows, eBPF su Linux, EndpointSecurity su macOS). E fotografare il disco prima di un'azione per poter tornare indietro del tutto (VSS, APFS, overlayfs).
