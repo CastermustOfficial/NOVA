@@ -509,6 +509,19 @@ pub async fn fai_un_turno(
     // andava attesa fino a trenta secondi con un filo apposta; il demone
     // resta acceso, e puo' semplicemente farlo dopo.
     impara_dopo(server, &cfg, testo, &risposta, &strumenti_usati, durata);
+    // E la decisione, per chi addestra le teste di CLM (D374): la richiesta,
+    // gli strumenti usati davvero, il gradino a cui e' finito il turno.
+    crate::decisioni::annota(
+        &cfg,
+        &crate::decisioni::riga_turno(
+            &crate::decisioni::adesso(),
+            testo,
+            &strumenti_usati,
+            gradino,
+            esito,
+            durata,
+        ),
+    );
     // E i fatti durevoli, come `agent._impara`: non da un turno fermato a
     // meta', e non da uno che ha guardato lo schermo.
     if matches!(fine, Fine::Risposto(_) | Fine::PassiFiniti(_)) {

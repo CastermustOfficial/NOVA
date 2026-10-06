@@ -806,6 +806,9 @@ Thirty-eight crates. The last two are the ground for CANT-12.
 them to `nova-giudizio`, and the first decision to use it is delegation: which
 brain is needed (D373). No binary uses `nova-decisioni`, and the same goes for
 `nova-mcp-cliente`.
+To train CLM's heads the daemon also keeps its decisions in `decisioni.jsonl`
+(D374): the request, the tools used, the tier, the judge's choice. A request
+with a credential inside is not written, and `kb.decisioni` turns it all off.
 
 ## Autonomy levels
 

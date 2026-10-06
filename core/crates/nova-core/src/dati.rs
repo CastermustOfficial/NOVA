@@ -68,6 +68,14 @@ pub fn posti(cfg: &Value) -> Vec<Posto> {
              niente di come funziona; cambia cosa puoi rivedere.",
         ),
         Posto::nuovo(
+            "Le decisioni, per insegnare a CLM",
+            crate::decisioni::percorso(),
+            "Si perdono gli esempi su cui si addestrano le teste di CLM: le tue richieste, gli \
+             strumenti usati, il gradino, cosa ha detto il giudice. NOVA funziona come prima; si \
+             spegne con kb.decisioni.",
+        )
+        .delicato(),
+        Posto::nuovo(
             "Le procedure imparate",
             crate::ricette::percorso(),
             "NOVA rifa' da capo le strade che aveva gia' trovato: torna a funzionare, ci mette \

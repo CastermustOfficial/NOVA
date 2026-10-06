@@ -29,6 +29,7 @@ pub mod caps_tempo;
 pub mod caps_automazioni;
 pub mod caps_riparazione;
 pub mod dati;
+pub mod decisioni;
 pub mod fascicolo;
 pub mod riparazione;
 pub mod automazioni;

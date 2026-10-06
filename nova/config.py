@@ -629,6 +629,10 @@ class KBConfig:
     # risolta in cinque secondi non c'era nessuna fatica da risparmiare, e
     # riempire l'archivio di procedure banali fa proporre quella sbagliata.
     procedure_da_secondi: int = 8
+    # Il registro delle decisioni (D374): richiesta, strumenti usati,
+    # gradino e scelte del giudice, in `decisioni.jsonl`, per addestrare le
+    # teste di CLM. Lo scrive il demone; i segreti restano fuori.
+    decisioni: bool = True
 
 
 @dataclass

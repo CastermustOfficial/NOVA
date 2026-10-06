@@ -1808,3 +1808,19 @@ Ora anche li' c'e' il 5 ottobre.
 La regola, allargata: quando si scopre un difetto in un file, si guarda se
 c'e' negli altri file che hanno la stessa forma. Delle cinque cartelle, la
 data in testa ce l'hanno `piano/` e `idea/`: le ho guardate tutte e cinque.
+
+## Due chiavi finte scritte intere in una prova
+
+Il 6 ottobre, nelle prove del registro delle decisioni (D374), ho scritto
+nel sorgente due chiavi finte intere, una col prefisso di Anthropic e una
+con quello di GitHub, per provare che non arrivano sul disco. Se n'e'
+accorta prima del commit `test_niente_dati_personali.py`, nella suite
+intera: per lei erano chiavi, e aveva ragione, perche' la forma e' quella.
+
+Ora le chiavi si compongono mentre la prova gira, da pezzi che presi uno per
+uno non hanno la forma di una chiave.
+
+La regola: una prova che parla di segreti non scrive mai un segreto intero
+nel sorgente, nemmeno finto. Ho guardato le altre prove nuove di questo
+lavoro: la password della prova del demone e' una parola con un numero, che
+la prova sui dati personali non tratta come chiave, ed e' quello che serve.

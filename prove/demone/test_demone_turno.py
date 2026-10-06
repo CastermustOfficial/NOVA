@@ -439,6 +439,56 @@ try:
                                                   "usata", "secondi"},
                       str(sorted(dentro_archivio[0])))
 
+    print("\n8b. e ogni turno lascia la sua decisione, senza segreti (D374)")
+    # Le teste di CLM si addestrano su «richiesta, scelta»: il registro le
+    # tiene. Le righe si cercano per richiesta, non per posizione: i turni
+    # delle sezioni sopra ci sono tutti, e il loro ordine non e' il punto.
+    decisioni = Path(casa) / "NOVA" / "decisioni.jsonl"
+
+    def righe_decisioni() -> list[dict]:
+        if not decisioni.is_file():
+            return []
+        return [json.loads(x) for x in decisioni.read_text(encoding="utf-8").splitlines() if x]
+
+    con_strumento = [d for d in righe_decisioni()
+                     if d.get("richiesta") == "prova a usare uno strumento"]
+    controlla("il primo turno e' nel registro, una volta", len(con_strumento) == 1,
+              json.dumps(righe_decisioni(), ensure_ascii=False)[:300])
+    if con_strumento:
+        d = con_strumento[0]
+        controlla("con lo strumento usato davvero, col nome che ha visto il modello",
+                  d.get("strumenti") == ["sys_info"], str(d))
+        controlla("e il gradino, l'esito, la durata e l'ora",
+                  d.get("tipo") == "turno" and d.get("gradino") == 0
+                  and d.get("esito") == "risposto"
+                  and isinstance(d.get("secondi"), (int, float))
+                  and len(d.get("quando", "")) == 19, str(d))
+        controlla("e non la risposta del modello", "risposta" not in d, str(d))
+    with CoreClient(endpoint, timeout=60) as c:
+        c.request("agente/turno", {"testo": "la mia password e' Tramonto2026! ricordala",
+                                   "sessione": "segreti"})
+    grezzo = decisioni.read_text(encoding="utf-8") if decisioni.is_file() else ""
+    controlla("una password detta nella richiesta non arriva sul disco",
+              "Tramonto2026" not in grezzo, grezzo[-200:])
+    taciute = [d for d in righe_decisioni() if d.get("taciuto")]
+    controlla("al suo posto c'e' il motivo, e la richiesta e' vuota",
+              len(taciute) == 1 and taciute[0].get("richiesta") is None,
+              json.dumps(taciute, ensure_ascii=False))
+    config = Path(casa) / "NOVA" / "config.json"
+    prima = config.read_text(encoding="utf-8")
+    quante = len(righe_decisioni())
+    try:
+        dentro = json.loads(prima)
+        dentro["kb"]["decisioni"] = False
+        config.write_text(json.dumps(dentro, ensure_ascii=False), encoding="utf-8")
+        with CoreClient(endpoint, timeout=60) as c:
+            c.request("agente/turno", {"testo": "e adesso rispondi e basta",
+                                       "sessione": "senzaregistro"})
+    finally:
+        config.write_text(prima, encoding="utf-8")
+    controlla("con kb.decisioni spento non si scrive niente",
+              len(righe_decisioni()) == quante, f"{quante} -> {len(righe_decisioni())}")
+
     print("\n9. il demone dice prima se il turno lo sa fare")
     with CoreClient(endpoint, timeout=20) as c:
         pronto = c.request("agente/pronto", {})

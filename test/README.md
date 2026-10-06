@@ -171,7 +171,7 @@ Cosa serve: il binario `novad` costruito.
 | `test_approvazione.py` | Il ponte delle approvazioni: chi chiede aspetta, chi risponde sblocca. |
 | `test_demone_app.py` | Applicazioni, finestre e processi, dal demone. |
 | `test_demone_automazioni.py` | Le automazioni del demone contro quelle del Python (D346). |
-| `test_demone_cervelli.py` | Passare la palla a un cervello piu' capace, dal demone. |
+| `test_demone_cervelli.py` | Passare la palla a un cervello piu' capace, dal demone; il giudice di casa e la sua riga nel registro delle decisioni. |
 | `test_demone_claude.py` | Cio' che Claude Code vede del demone: gli strumenti e lo sportello. |
 | `test_demone_cli.py` | Il demone fa un turno con un cervello che e' un **programma**, non un URL. |
 | `test_demone_compiti.py` | Un compito pianificato fa il suo turno senza Python (D345). |
@@ -194,7 +194,7 @@ Cosa serve: il binario `novad` costruito.
 | `test_demone_schermo.py` | Lo schermo in un'immagine, dal demone. |
 | `test_demone_semina.py` | La prima mappatura del PC, fatta dal demone quando si accende (D365). |
 | `test_demone_sistema.py` | Gli appunti, il volume, le notifiche, l'ora e com'e' fatto il PC, dal demone. |
-| `test_demone_turno.py` | Il demone fa un turno intero da solo: chiede, esegue, risponde. |
+| `test_demone_turno.py` | Il demone fa un turno intero da solo: chiede, esegue, risponde; e lascia la decisione, senza segreti. |
 | `test_demone_web.py` | Il browser di NOVA, guidato dal demone, con un browser vero. |
 
 ## `prove/macchina/`: 16 prove

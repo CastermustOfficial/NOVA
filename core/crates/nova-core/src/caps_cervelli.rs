@@ -69,10 +69,18 @@ struct Veri {
     recapiti: Recapiti,
     trasporto: ReteNelDemone,
     righe: Vec<String>,
+    /// La configurazione letta per questa chiamata: dice se il giudizio va
+    /// nel registro delle decisioni (D374).
+    cfg: Value,
 }
 
 impl Veri {
-    fn nuovi(rt: tokio::runtime::Handle, conf: &Configurazione, recapiti: Recapiti) -> Veri {
+    fn nuovi(
+        rt: tokio::runtime::Handle,
+        conf: &Configurazione,
+        recapiti: Recapiti,
+        cfg: Value,
+    ) -> Veri {
         let mut gradini = crate::mondo::scala_vera(conf, &recapiti);
         for g in &mut gradini {
             if let Gradino::Claude { come, .. } = g {
@@ -85,6 +93,7 @@ impl Veri {
             recapiti,
             trasporto: ReteNelDemone(Rete::nuova(ATTESA_COLLEGAMENTO, ATTESA_RISPOSTA)),
             righe: Vec::new(),
+            cfg,
         }
     }
 }
@@ -106,13 +115,29 @@ impl Cervelli for Veri {
         use nova_giudizio::{Giudizio, Risposta};
         let domanda = domanda_quale_cervello(categorie);
         let stato = stato_del_compito(compito, allegati);
-        match giudica_in_casa(&self.recapiti.locale_url, &stato, &domanda, 1.0) {
+        let (scelta, come) = match giudica_in_casa(&self.recapiti.locale_url, &stato, &domanda, 1.0)
+        {
             Ok((esito, _)) => match esito.giudizio {
-                Giudizio::Risposto(Risposta::Scelta { id }) if id != NESSUNA => Some(id),
-                _ => None,
+                Giudizio::Risposto(Risposta::Scelta { id }) => (Some(id), "risposto"),
+                Giudizio::Risposto(_) => (None, "risposta_di_altro_tipo"),
+                Giudizio::NonBasta { .. } => (None, "non_basta"),
+                Giudizio::Incerto { .. } => (None, "incerto"),
+                Giudizio::FuoriScala { .. } => (None, "fuori_scala"),
             },
-            Err(_) => None,
-        }
+            Err(_) => (None, "guasto"),
+        };
+        crate::decisioni::annota(
+            &self.cfg,
+            &crate::decisioni::riga_quale_cervello(
+                &crate::decisioni::adesso(),
+                compito,
+                allegati,
+                categorie,
+                scelta.as_deref(),
+                come,
+            ),
+        );
+        scelta.filter(|id| id != NESSUNA)
     }
 
     /// `a_consumo` del cervello, come lo dice il Python: Claude Code a
@@ -220,7 +245,7 @@ async fn con_i_cervelli<T: Send + 'static>(
         let routing = nova_scala::routing_effettivo(&cfg);
         let conf = nova_scala::da_routing(&routing);
         let recapiti = crate::dalla_configurazione::recapiti(&cfg, &|n| std::env::var(n).ok());
-        let mut veri = Veri::nuovi(rt, &conf, recapiti);
+        let mut veri = Veri::nuovi(rt, &conf, recapiti, cfg.clone());
         // Il registro si tiene per tutta la delega: due deleghe in parallelo
         // che controllano il tetto ognuna per conto suo lo sforerebbero.
         let mut reg = registro().lock().unwrap_or_else(|e| e.into_inner());

@@ -11537,3 +11537,13 @@ con la domanda in inglese. Non e' un no a CLM: e' un no a CLM senza
 addestrarlo. E l'addestramento ha gia' una sorgente di dati che non costa
 niente, le scelte che il modello grande fa ogni giorno, se NOVA le tenesse.
 
+## 6 ottobre 2026 — NOVA comincia a tenere le sue scelte
+
+Gio ha detto «vai pure per tutti e tre»: registrare le decisioni, fare dati
+sintetici con il modello grande, addestrare le teste. Il primo e' il piu'
+delicato, perche' scrive sul disco le richieste dell'utente. Il filtro delle
+chiavi da solo non bastava: «la password e' Tramonto2026» non ha la forma di
+una chiave, e il filtro la lascia passare. Il guardiano della memoria invece
+la riconosce, quindi una richiesta cosi' non si scrive proprio. E l'ordine fra
+coprire e tagliare l'ho provato al contrario, perche' altrimenti la prova non
+dimostrava niente.

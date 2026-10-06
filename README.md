@@ -797,6 +797,10 @@ Trentotto crate. Gli ultimi due sono il terreno di CANT-12.
 a `nova-giudizio`, e la prima decisione che lo usa e' la delega: quale
 cervello serve (D373). `nova-decisioni` non lo usa nessun binario, e lo
 stesso vale per `nova-mcp-cliente`.
+Per addestrare le teste di CLM il demone tiene anche le sue decisioni in
+`decisioni.jsonl` (D374): la richiesta, gli strumenti usati, il gradino, la
+scelta del giudice. Una richiesta con dentro una credenziale non si scrive, e
+`kb.decisioni` spegne tutto.
 
 ## Livelli di autonomia
 

@@ -180,6 +180,8 @@ A_MANO_CON_MOTIVO = {
                     "nessuna funzione da chiamare.",
     "recinto-controllo.json": "lo scrive il demone, che e' in Rust: di qua non "
                               "c'e' nessuna funzione da chiamare.",
+    "decisioni.jsonl": "lo scrive il demone, che e' in Rust: di qua non c'e' "
+                       "nessuna funzione da chiamare.",
     "vault": "non e' la voce della mappa — quella la dice `percorso_vault` — "
              "e' il ripiego per quando la configurazione non si legge. Un "
              "posto detto male e' meglio di un elenco che non parte.",

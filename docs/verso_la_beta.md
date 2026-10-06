@@ -2800,6 +2800,12 @@ migliore arriva a BM25, che non usa nessun modello. 62-63 ms a richiesta, con
 i vettori dei candidati calcolati una volta. Quindi anche qui, senza
 addestrarlo, CLM non serve a NOVA.
 
+**Addestrarlo, deciso con Gio il 6 ottobre.** In tre passi: NOVA tiene le
+sue decisioni (D374, `decisioni.jsonl`: la richiesta, gli strumenti usati, il
+gradino, la scelta del giudice, e niente segreti); il modello grande etichetta
+con le lettere dei compiti sintetici; le teste si addestrano sulla GPU del PC di sviluppo (RTX 4060 Ti, 16 GB di VRAM)
+e si rimisurano sugli stessi banchi, che restano fuori dall'addestramento.
+
 **Riferimenti raccolti da Gio il 22 settembre**, da guardare quando si riapre
 CANT-12:
 

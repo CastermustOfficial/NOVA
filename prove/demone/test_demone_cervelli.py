@@ -13,6 +13,9 @@ Si guarda **cosa arriva al cervello**: un messaggio solo, senza prompt di
 sistema e senza strumenti, con il contesto e gli allegati davanti al compito
 — ed e' cio' che riceve un cervello a cui delega il Python.
 
+Il cervello «in casa» fa anche il giudice di D373, sulle tre porte di
+llama-server, e la sua scelta deve finire nel registro delle decisioni (D374).
+
 Esce 2 — «qui non si puo' provare» — se il demone non e' costruito.
 """
 import os
@@ -57,6 +60,13 @@ from nova.core_client import CoreClient                           # noqa: E402
 
 # ------------------------------------------------------------ i cervelli finti
 ricevute: dict[str, list] = {"casa": [], "fuori": []}
+giudizi: list = []
+
+
+def quante_opzioni(prompt: str) -> int:
+    """Quante righe «X. ...» ha la domanda del giudice."""
+    return sum(1 for r in prompt.splitlines()
+               if len(r) > 2 and r[0].isupper() and r[1] == "." and r[2] == " ")
 quote = {"fuori": 1}
 
 
@@ -81,6 +91,22 @@ def cervello(chi):
         def do_POST(self):                                        # noqa: N802
             n = int(self.headers.get("Content-Length", 0))
             corpo = json.loads(self.rfile.read(n).decode("utf-8"))
+            # Il giudice di casa (D373) parla con llama-server su tre porte
+            # sue. Qui risponde sempre «nessuna di queste», la penultima
+            # lettera (l'ultima e' «non lo so»): il giudizio puo' solo
+            # aggiungere una salita, e cosi' il giro delle sezioni sotto resta
+            # quello delle parole.
+            if chi == "casa" and self.path in ("/tokenize", "/apply-template", "/completion"):
+                giudizi.append((self.path, corpo))
+                if self.path == "/tokenize":
+                    self._manda(200, {"tokens": [1]})
+                elif self.path == "/apply-template":
+                    self._manda(200, {"prompt": corpo["messages"][-1]["content"]})
+                else:
+                    nessuna = chr(ord("A") + quante_opzioni(corpo["prompt"]) - 2)
+                    self._manda(200, {"completion_probabilities": [{"top_logprobs": [
+                        {"token": nessuna, "logprob": -0.01}, {"token": "A", "logprob": -6.0}]}]})
+                return
             ricevute[chi].append(corpo)
             if quote.get(chi, 0) > 0:
                 quote[chi] -= 1
@@ -281,6 +307,25 @@ try:
     controlla("e la quota di Claude fa ripiegare in casa",
               not err_q and quota.startswith("[risposta da «locale» (salito da «claude_t»)"),
               repr(quota)[:200])
+
+    print("\n5b. il giudice di casa e' stato chiesto, e la sua scelta e' nel registro (D374)")
+    righe = []
+    registro = Path(casa) / "NOVA" / "decisioni.jsonl"
+    if registro.is_file():
+        righe = [json.loads(x) for x in registro.read_text(encoding="utf-8").splitlines() if x]
+    controlla("il giudice ha avuto le tre domande di llama-server",
+              {p for p, _ in giudizi} == {"/tokenize", "/apply-template", "/completion"},
+              str(sorted({p for p, _ in giudizi})))
+    riassumi = [d for d in righe if d.get("tipo") == "quale_cervello"
+                and d.get("compito") == "riassumi"]
+    controlla("la delega di «riassumi» ha la sua riga, una",
+              len(riassumi) == 1, json.dumps(righe, ensure_ascii=False)[:400])
+    if riassumi:
+        d = riassumi[0]
+        controlla("con le categorie offerte, l'allegato e la risposta del giudice",
+                  d.get("categorie") == ["prova"] and d.get("allegati") == 1
+                  and d.get("scelta") == "__nessuna__" and d.get("come") == "risposto"
+                  and len(d.get("quando", "")) == 19, str(d))
 
     print("\n6. un server che non risponde non e' pronto")
     server["casa"].shutdown()
