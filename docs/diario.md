@@ -11503,3 +11503,16 @@ pesa piu' di quanto peserebbe la verita'. L'ho scelto apposta, perche' cosi'
 l'errore va sempre dalla parte del dubbio, e il dubbio in NOVA vuol dire
 chiedere. Con Gemma e Qwen3.8 accesi davvero, la capitale d'Italia e' Roma.
 
+## 6 ottobre 2026 — Quale cervello, con tre bracci
+
+La prima decisione vera di CANT-12 e' «quale cervello serve», e l'ho
+misurata con trentaquattro compiti scritti da me. Le parole di oggi ne fanno
+venti: sbagliano sulle trappole, e non vedono le categorie dette con altre
+parole. Le lettere ne fanno da trenta a trentaquattro, e quando non sanno lo
+dicono. CLM, senza addestrarlo, dodici. Gio e' convinto che CLM abbia molte
+potenzialita' pratiche, e i numeri di oggi non lo smentiscono: dicono che
+non le ha da solo. Le ha, forse, dove le lettere non arrivano (tanti
+candidati, tante domande sullo stesso stato) o imparando da loro. Resta una
+decisione che non e' mia: se il giudizio vede una categoria che le parole non
+vedono, il compito puo' uscire dal PC?
+

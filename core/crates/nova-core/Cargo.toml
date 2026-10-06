@@ -5,6 +5,16 @@ edition.workspace = true
 license.workspace = true
 description = "Il motore di NOVA: bus di eventi, registro di capacita', supervisione processi, server RPC locale."
 
+# Il banco di `giudizio_casa`: chiede la domanda «quale cervello» al
+# llama-server acceso, per `misure/banco_quale_cervello.py`. Non si consegna.
+[[bin]]
+name = "banco-giudizio-casa"
+path = "src/banco_giudizio_casa.rs"
+required-features = ["banco"]
+
+[features]
+banco = []
+
 [dependencies]
 nova-proto = { path = "../nova-proto" }
 nova-platform = { path = "../nova-platform" }

@@ -987,6 +987,7 @@ python misure/banco_taglio.py             # how much shortening the conversation
 python misure/banco_cervello.py           # can it pick the right tool? (the Python version's tools)
 python misure/banco_giudizio_llama.py     # the judgement's letters: n_probs, cache_prompt, /tokenize, how many right (CANT-12; --modello for another GGUF)
 python misure/banco_clm.py confronta      # CLM from a GGUF against bf16 (CANT-12; the steps before it are at the top of the file)
+python misure/banco_quale_cervello.py     # which brain: today's words against the letters, or CLM with --clm (CANT-12)
 ```
 
 `banco_cervello.py` measures something different from the others: not how fast

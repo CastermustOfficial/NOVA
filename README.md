@@ -980,6 +980,7 @@ python misure/banco_taglio.py             # quanto costa accorciare la conversaz
 python misure/banco_cervello.py           # sa scegliere lo strumento giusto? (quelli della versione Python)
 python misure/banco_giudizio_llama.py     # le lettere del giudizio: n_probs, cache_prompt, /tokenize, quante giuste (CANT-12; --modello per un altro GGUF)
 python misure/banco_clm.py confronta      # CLM da un GGUF contro il bf16 (CANT-12; i passi prima sono in testa al file)
+python misure/banco_quale_cervello.py     # quale cervello: le parole di oggi contro le lettere, o CLM con --clm (CANT-12)
 ```
 
 `banco_cervello.py` misura una cosa diversa dalle altre: non quanto e' veloce

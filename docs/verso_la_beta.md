@@ -2742,6 +2742,37 @@ modello troppo sicuro, si e' allentato: GLM e' sopra 0,99 solo in quattro
 domande su sedici, con la lettera scelta che scende fino a 0,42, e la cache
 non ha cambiato nessuna decisione nemmeno li'. Resta una build sola.
 
+**La prima decisione vera, misurata il 6 ottobre:** `QualeCervello`, cioe' se
+un compito rientra in una delle categorie che fanno salire di gradino (D372).
+Trentaquattro compiti scritti da me, con la categoria giusta accanto: otto
+review di codice su piu' file, otto rischi di perdere dati, sei decisioni di
+architettura, dodici compiti normali. Alcuni sono trappole per le parole
+(«progetta un itinerario», «la cancellazione della prenotazione», «rivedi
+questi due contratti»), altri sono le categorie dette senza nessuna parola
+della lista («il programma perde i salvataggi»). Quindi il numero delle parole
+dice **dove** sbagliano, non quanto sbagliano nell'uso vero. Le etichette sono
+un'opinione mia, da far rivedere a Gio (`misure/banco_quale_cervello.py`).
+
+| braccio | giuste | salite di troppo | salite mancate | astenute | mediana |
+|---|---|---|---|---|---|
+| le parole di oggi | 20 su 34 | 5 | 9 | 0 | — |
+| lettere, Gemma 4 26B-A4B IQ3_XXS | 33 su 34 | 0 | 0 | 1 | 193 ms |
+| lettere, Qwen3.8 27B Q4_K_M | 34 su 34 | 0 | 0 | 0 | 962 ms |
+| lettere, GLM-4.7-Flash Q4_K_M | 31 su 34 | 1 | 2 | 0 | 454 ms |
+| lettere, Qwen3-8B Q8_0 | 30 su 34 | 0 | 0 | 3 | 100 ms |
+| CLM, Qwen3-8B Q8_0 | 12 su 34 | 7 | 8 | 0 | 74 ms |
+
+«Salite di troppo» sono compiti normali mandati su una categoria, cioe' fuori
+casa; «salite mancate» sono categorie lasciate al modello di casa. L'unica
+astensione di Gemma e' sui due contratti d'affitto, la trappola piu'
+ambigua: e' «non lo so», non un errore. Le lettere passano per la strada del
+demone (`banco-giudizio-casa`, che chiama `giudizio_casa`); il tempo e' quello
+di una domanda intera, compreso il controllo dei token. CLM, senza
+addestrarlo, va peggio delle parole: sceglie «perdita di dati» per meta' dei
+compiti (anche per «che ore sono a Tokyo?») e non riconosce nessuna review. E il
+suo tempo per testo nuovo, 74 ms, e' vicino a quello delle lettere sullo
+stesso modello, 100 ms.
+
 **Riferimenti raccolti da Gio il 22 settembre**, da guardare quando si riapre
 CANT-12:
 

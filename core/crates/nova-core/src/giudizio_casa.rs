@@ -221,6 +221,48 @@ pub fn giudica_in_casa(
     Ok((esito, lettura))
 }
 
+// ------------------------------------------------------- quale cervello
+
+/// Il testo dell'opzione che non fa salire niente.
+pub const NESSUNA_CATEGORIA: &str = "nessuna di queste: un compito che il modello di casa puo' \
+     fare da solo";
+/// Il suo identificativo, che nessuna categoria della configurazione puo' avere.
+pub const NESSUNA: &str = "__nessuna__";
+
+/// La domanda di `QualeCervello` (il primo punto del censimento di CANT-12):
+/// questo compito rientra in una delle categorie che fanno salire di gradino?
+///
+/// Le opzioni sono le categorie attive della configurazione, con la loro
+/// descrizione, e in fondo «nessuna». E' la stessa decisione che oggi prende
+/// `nova_scala::gradino_minimo` con le liste di parole; qui la prende il
+/// modello, e un banco le confronta (`misure/banco_quale_cervello.py`).
+pub fn domanda_quale_cervello(categorie: &[(String, String)]) -> Domanda {
+    let mut opzioni: Vec<nova_giudizio::Opzione> = categorie
+        .iter()
+        .map(|(id, descrizione)| nova_giudizio::Opzione {
+            id: id.clone(),
+            descrizione: descrizione.clone(),
+        })
+        .collect();
+    opzioni.push(nova_giudizio::Opzione {
+        id: NESSUNA.into(),
+        descrizione: NESSUNA_CATEGORIA.into(),
+    });
+    Domanda::Scelta {
+        istruzioni: "Di che tipo e' questo compito? Scegli la categoria che lo descrive meglio."
+            .into(),
+        opzioni,
+        politica: nova_giudizio::Politica::default(),
+    }
+}
+
+/// Lo stato della domanda: il compito, e quanti file ci sono allegati.
+/// Solo il compito, come `gradino_minimo`: il contenuto dei file allegati
+/// farebbe scattare una categoria su una parola dentro un commento.
+pub fn stato_del_compito(compito: &str, allegati: i64) -> String {
+    format!("Compito: {}\nFile allegati: {allegati}", compito.trim())
+}
+
 #[cfg(test)]
 mod prove {
     use super::*;
@@ -447,6 +489,32 @@ mod prove {
                 );
             }
         }
+    }
+
+    #[test]
+    fn la_domanda_del_cervello_ha_le_categorie_e_in_fondo_nessuna() {
+        let d = domanda_quale_cervello(&[
+            ("architettura".into(), "decisione di architettura".into()),
+            ("perdita_dati".into(), "rischio di perdita di dati".into()),
+        ]);
+        let c = candidati(&d);
+        // Due categorie, «nessuna», e la via d'uscita «non lo so».
+        assert_eq!(
+            c.iter().map(|x| x.id.as_str()).collect::<Vec<_>>(),
+            [
+                "architettura",
+                "perdita_dati",
+                NESSUNA,
+                nova_giudizio::ABBASTANZA
+            ]
+        );
+        let testo = corpo_template(&stato_del_compito("progetta lo schema", 0), &d);
+        let utente = testo["messages"][1]["content"].as_str().unwrap();
+        assert!(
+            utente.starts_with("Compito: progetta lo schema\nFile allegati: 0\n\nQuestion:"),
+            "{utente}"
+        );
+        assert!(utente.contains("C. nessuna di queste"), "{utente}");
     }
 
     #[test]

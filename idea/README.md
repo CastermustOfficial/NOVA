@@ -2,7 +2,7 @@
 
 Ogni possibile miglioria, anche solo teorica o non ancora decisa. Per ognuna: cosa, perché, cosa costerebbe. Un'idea non è un impegno: quando si decide di farla passa in [`piano/`](../piano/README.md), quando la si scarta resta qui con il perché.
 
-Aggiornato al 5 ottobre 2026. Le idee che c'erano già erano sparse nei documenti: qui sono raccolte, con il rimando a dove sono nate.
+Aggiornato al 6 ottobre 2026. Le idee che c'erano già erano sparse nei documenti: qui sono raccolte, con il rimando a dove sono nate.
 
 ## CANT-12: decisioni tipizzate al posto delle euristiche
 
@@ -16,7 +16,7 @@ Aggiornato al 5 ottobre 2026. Le idee che c'erano già erano sparse nei document
 
 **Perché.** Un conto sbaglia dove i conti sbagliano: una soglia di lunghezza impara le frasi lunghe e inutili e butta «mi chiamo Gio».
 
-**Cosa costerebbe.** Per CLM le tre misure sono fatte (sopra, e i numeri in `verso_la_beta.md`). Resta una strada sola: **addestrare le teste sulle decisioni di NOVA**. Il repository di CLM lo prevede (`train/finetune.py --task choice`) e le teste sono piccole, ma servono esempi etichettati delle decisioni del censimento, in italiano, e un banco tenuto da parte su cui misurarle; e il vettore resta legato al Qwen3-8B, quindi vale solo per chi usa quel modello o accetta un secondo modello acceso (6.149 MiB di VRAM a Q4_K_M, 9.362 a Q8_0). Poi, come per le lettere, un banco che confronti i giudizi con le euristiche di oggi.
+**Cosa costerebbe.** Per CLM le tre misure sono fatte (sopra, e i numeri in `verso_la_beta.md`). Resta una strada sola: **addestrare le teste sulle decisioni di NOVA**. Il repository di CLM lo prevede (`train/finetune.py --task choice`) e le teste sono piccole, ma servono esempi etichettati delle decisioni del censimento, in italiano, e un banco tenuto da parte su cui misurarle; e il vettore resta legato al Qwen3-8B, quindi vale solo per chi usa quel modello o accetta un secondo modello acceso (6.149 MiB di VRAM a Q4_K_M, 9.362 a Q8_0). Poi, come per le lettere, un banco che confronti i giudizi con le euristiche di oggi. Quel banco c'è per `QualeCervello` (D372): CLM senza addestramento fa 12 su 34, le parole 20, le lettere da 30 a 34. Dove CLM potrebbe avere un vantaggio pratico, ancora da misurare: **molti candidati** (i 58 strumenti del modello di casa, i pezzi di memoria per `QuantoCentra`), dove le lettere si fermano a ventisei e CLM tiene i vettori dei candidati già calcolati; **molte domande sullo stesso stato**, dove un vettore solo serve a tutte; e **imparare dalle lettere**: il modello grande etichetta, con le lettere, migliaia di compiti, e le teste di CLM si addestrano su quelle etichette, su Colab come proponeva Gio.
 
 ## OpenDots: colleghi sempre accesi, fra testo, chiamate e Slack
 
