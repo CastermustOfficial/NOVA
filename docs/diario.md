@@ -11481,3 +11481,14 @@ aperto una finestra ogni cinque minuti per non fare niente. Ora c'e' `novaw`,
 il `nova` senza finestra, e un'attivita' si registra solo se il binario sa
 fare il comando (D370).
 
+## 6 ottobre 2026 — Le lettere su quattro modelli, e CLM accanto
+
+Il banco delle lettere adesso prende un modello qualunque e scrive quale
+lettera ha scelto. L'ho fatto girare sui quattro che stanno sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X):
+Gemma, Qwen3.8, GLM e il Qwen3-8B scaricato per CLM. Tutti e quattro
+azzeccano dieci domande su dieci, e la cache non cambia nessuna decisione,
+nemmeno con GLM, che e' molto meno sicuro degli altri. Il confronto che
+mancava ieri adesso c'e', ed e' netto: sullo stesso Qwen3-8B le lettere ne
+fanno dieci, CLM due. E vale per tutti la regola di Gemma: con il ragionamento
+aperto le lettere non arrivano, va chiuso prima.
+

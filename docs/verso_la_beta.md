@@ -2721,6 +2721,27 @@ prima di dare il numero per buono. E in una prova a parte
 build non ha cambiato niente nella risposta: non e' verificato che lo onori.
 Con il ragionamento chiuso non serve.
 
+**Ripetute il 6 ottobre** su altri tre modelli, con la stessa build e la
+stessa configurazione (`banco_giudizio_llama.py --modello`), e adesso il banco
+registra anche la lettera scelta. Dieci domande hanno una risposta giusta: le
+otto di prima, la mail e il link.
+
+| modello | massa minima delle lettere, ragionamento chiuso | sopra 0,99 | giuste | cache: decisioni cambiate su 96 | spostamento massimo |
+|---|---|---|---|---|---|
+| Gemma 4 26B-A4B IQ3_XXS | 0,999999 | 14 su 16 | 10 su 10 | 0 | 0,015 |
+| Qwen3.8 27B Q4_K_M | 0,998353 | 8 su 16 | 10 su 10 | 0 | 0,000 |
+| GLM-4.7-Flash Q4_K_M | 0,988968 | 4 su 16 | 10 su 10 | 0 | 0,044 |
+| Qwen3-8B Q8_0 | 0,738244 | 12 su 16 | 10 su 10 | 0 | 0,054 |
+
+«Sopra 0,99» conta le domande in cui la lettera scelta ha piu' di 0,99. Con il
+ragionamento aperto le lettere fra i primi cinque token hanno in media massa 0
+per tre modelli e 0,001 per Qwen3.8: il primo token e' `<|channel>` per Gemma,
+`<think>` per Qwen3-8B, «We» per Qwen3.8 e «1» per GLM. Quindi la regola del 4 ottobre vale per quattro modelli di tre famiglie:
+**il ragionamento si chiude prima della risposta**. E il limite di allora, un
+modello troppo sicuro, si e' allentato: GLM e' sopra 0,99 solo in quattro
+domande su sedici, con la lettera scelta che scende fino a 0,42, e la cache
+non ha cambiato nessuna decisione nemmeno li'. Resta una build sola.
+
 **Riferimenti raccolti da Gio il 22 settembre**, da guardare quando si riapre
 CANT-12:
 
@@ -2833,6 +2854,12 @@ CANT-12:
   registra quale lettera ha scelto, quindi un confronto della correttezza fra le
   due strade sulle stesse domande ancora non c'e': va aggiunto quando lo si
   ripete sul secondo modello.
+
+  Aggiunto il 6 ottobre, con il banco delle lettere che adesso la registra:
+  sulle stesse dieci domande con una risposta giusta, lo stesso Qwen3-8B a
+  Q8_0 con le lettere ne azzecca 10 su 10; CLM, con i vettori di quel modello,
+  2 su 10 in italiano. Le opzioni non sono scritte proprio uguali nei due banchi
+  («gatto» e «il gatto»), ma la distanza non sta li'.
 
 
 ## Il confine che tiene il kernel

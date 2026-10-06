@@ -983,7 +983,7 @@ python misure/banco_prompt_demone.py --demone core\target\release\novad.exe
 python misure/banco_web_demone.py         # web_incolla, web_tabella and rete_cerca, asked of the running daemon
 python misure/banco_taglio.py             # how much shortening the conversation costs
 python misure/banco_cervello.py           # can it pick the right tool? (the Python version's tools)
-python misure/banco_giudizio_llama.py     # the judgement's letters: n_probs, cache_prompt, /tokenize (CANT-12)
+python misure/banco_giudizio_llama.py     # the judgement's letters: n_probs, cache_prompt, /tokenize, how many right (CANT-12; --modello for another GGUF)
 python misure/banco_clm.py confronta      # CLM from a GGUF against bf16 (CANT-12; the steps before it are at the top of the file)
 ```
 
