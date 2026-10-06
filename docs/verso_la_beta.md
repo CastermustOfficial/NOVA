@@ -2781,6 +2781,25 @@ conversazione, perche' NOVA accende llama-server con uno slot solo
 conversazione rifa' 2 token su 6.324 con Gemma e 4 su 6.143 con Qwen3.8, e il
 resto viene dalla cache. In questa build uno slot basta.
 
+**Dove CLM dovrebbe brillare, misurato il 6 ottobre:** scegliere lo strumento
+fra i 58 che il modello di casa riceve, dove le lettere si fermano a
+ventisei (`misure/banco_strumento_clm.py`). Quaranta richieste con lo
+strumento giusto accanto; gli strumenti e le loro descrizioni sono quelli del
+demone acceso. Su 58 il caso ne azzecca meno di uno.
+
+| braccio | il primo e' giusto | giusto nei primi 3 | nei primi 5 |
+|---|---|---|---|
+| BM25 sulle descrizioni | 19 su 40 | 23 | 27 |
+| CLM, domanda in italiano, solo la descrizione | 3 | 5 | 7 |
+| CLM, domanda in inglese, solo la descrizione | 8 | 16 | 20 |
+
+I formati provati per il candidato sono tre (nome e descrizione, solo la
+descrizione, solo il nome), con la domanda in italiano o in inglese; la
+richiesta resta in italiano. L'inglese aiuta molto, ma nemmeno il formato
+migliore arriva a BM25, che non usa nessun modello. 62-63 ms a richiesta, con
+i vettori dei candidati calcolati una volta. Quindi anche qui, senza
+addestrarlo, CLM non serve a NOVA.
+
 **Riferimenti raccolti da Gio il 22 settembre**, da guardare quando si riapre
 CANT-12:
 

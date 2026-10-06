@@ -990,6 +990,7 @@ python misure/banco_giudizio_llama.py     # the judgement's letters: n_probs, ca
 python misure/banco_clm.py confronta      # CLM from a GGUF against bf16 (CANT-12; the steps before it are at the top of the file)
 python misure/banco_quale_cervello.py     # which brain: today's words against the letters, or CLM with --clm (CANT-12)
 python misure/banco_giudizio_slot.py      # does a judgement on the same llama-server cost the conversation's cache?
+python misure/banco_strumento_clm.py      # does CLM pick the tool among the home model's 58? Against BM25
 ```
 
 `banco_cervello.py` measures something different from the others: not how fast

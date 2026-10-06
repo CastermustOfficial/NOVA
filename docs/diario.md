@@ -11527,3 +11527,13 @@ conversazione rifa' due token su seimila. La paura non teneva conto di come
 lavora questa build, e la proposta non serviva. Poi Gio ha deciso la direzione, e il giudizio
 adesso puo' far salire una delega che le parole avrebbero lasciato in casa.
 
+## 6 ottobre 2026 — CLM dove doveva brillare
+
+Gio ci crede, a CLM, e aveva un buon argomento: le lettere si fermano a
+ventisei opzioni, CLM no. L'ho messo dove avrebbe dovuto vincere, a scegliere
+lo strumento fra i 58 del modello di casa. BM25, che non sa niente, ne mette
+primo quello giusto diciannove volte su quaranta; CLM tre in italiano, otto
+con la domanda in inglese. Non e' un no a CLM: e' un no a CLM senza
+addestrarlo. E l'addestramento ha gia' una sorgente di dati che non costa
+niente, le scelte che il modello grande fa ogni giorno, se NOVA le tenesse.
+

@@ -982,6 +982,7 @@ python misure/banco_giudizio_llama.py     # le lettere del giudizio: n_probs, ca
 python misure/banco_clm.py confronta      # CLM da un GGUF contro il bf16 (CANT-12; i passi prima sono in testa al file)
 python misure/banco_quale_cervello.py     # quale cervello: le parole di oggi contro le lettere, o CLM con --clm (CANT-12)
 python misure/banco_giudizio_slot.py      # un giudizio sullo stesso llama-server costa la cache della conversazione?
+python misure/banco_strumento_clm.py      # CLM sceglie lo strumento fra i 58 del modello di casa? Contro BM25
 ```
 
 `banco_cervello.py` misura una cosa diversa dalle altre: non quanto e' veloce
