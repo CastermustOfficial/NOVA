@@ -803,8 +803,9 @@ prove/                the tests, grouped by what they need in order to run
 
 Thirty-eight crates. The last two are the ground for CANT-12.
 `nova_core::giudizio_casa` (D371) asks the home model for the logits and hands
-them to `nova-giudizio`, but no decision in the daemon uses it yet; no binary
-uses `nova-decisioni`, and the same goes for `nova-mcp-cliente`.
+them to `nova-giudizio`, and the first decision to use it is delegation: which
+brain is needed (D373). No binary uses `nova-decisioni`, and the same goes for
+`nova-mcp-cliente`.
 
 ## Autonomy levels
 
@@ -988,6 +989,7 @@ python misure/banco_cervello.py           # can it pick the right tool? (the Pyt
 python misure/banco_giudizio_llama.py     # the judgement's letters: n_probs, cache_prompt, /tokenize, how many right (CANT-12; --modello for another GGUF)
 python misure/banco_clm.py confronta      # CLM from a GGUF against bf16 (CANT-12; the steps before it are at the top of the file)
 python misure/banco_quale_cervello.py     # which brain: today's words against the letters, or CLM with --clm (CANT-12)
+python misure/banco_giudizio_slot.py      # does a judgement on the same llama-server cost the conversation's cache?
 ```
 
 `banco_cervello.py` measures something different from the others: not how fast

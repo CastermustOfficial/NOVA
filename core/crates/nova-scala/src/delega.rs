@@ -66,6 +66,79 @@ pub trait Cervelli {
     fn ora(&self) -> f64;
     /// Una riga per chi guarda cosa succede.
     fn annota(&mut self, _riga: &str) {}
+    /// Quale delle `categorie` (nome, descrizione) vede un giudizio nel
+    /// compito, se ne vede una (D373). `None` vuol dire nessuna, «non lo so»,
+    /// o nessun giudizio da chiedere: in tutti e tre i casi valgono le parole.
+    /// Di serie non c'e' giudizio, come nel Python.
+    fn categoria_giudicata(
+        &self,
+        _categorie: &[(String, String)],
+        _compito: &str,
+        _allegati: i64,
+    ) -> Option<String> {
+        None
+    }
+}
+
+/// Il gradino minimo che vede il giudizio, e perche' (D373).
+///
+/// Il giudizio puo' solo **aggiungere** una salita alle parole di
+/// [`gradino_minimo`], mai toglierne una: chi chiama tiene il piu' alto dei
+/// due. Le categorie che si offrono sono quelle che le parole potrebbero far
+/// scattare: attive, con un gradino che esiste, e con abbastanza file
+/// allegati. Una categoria che la configurazione non conosce non fa salire
+/// niente, qualunque cosa abbia detto il modello.
+fn minimo_dal_giudizio(
+    cfg: &Configurazione,
+    c: &dyn Cervelli,
+    compito: &str,
+    allegati: i64,
+) -> Option<(String, String)> {
+    if !cfg.escalation_automatica {
+        return None;
+    }
+    let s = scala(cfg);
+    let ammesse: Vec<&crate::Categoria> = cfg
+        .categorie
+        .iter()
+        .filter(|x| x.attiva && s.contains(&x.gradino_minimo) && allegati >= x.min_file)
+        .collect();
+    if ammesse.is_empty() {
+        return None;
+    }
+    let offerte: Vec<(String, String)> = ammesse
+        .iter()
+        .map(|x| {
+            let d = if x.descrizione.is_empty() {
+                x.nome.clone()
+            } else {
+                x.descrizione.clone()
+            };
+            (x.nome.clone(), d)
+        })
+        .collect();
+    let nome = c.categoria_giudicata(&offerte, compito, allegati)?;
+    let (i, x) = ammesse.iter().enumerate().find(|(_, x)| x.nome == nome)?;
+    Some((
+        x.gradino_minimo.clone(),
+        format!("{}, secondo il giudizio", offerte[i].1),
+    ))
+}
+
+/// Le parole e il giudizio insieme: il piu' alto dei due (D373).
+fn minimo_con_giudizio(
+    cfg: &Configurazione,
+    c: &dyn Cervelli,
+    compito: &str,
+    allegati: i64,
+) -> (String, String) {
+    let (minimo, categoria) = gradino_minimo(cfg, compito, allegati);
+    match minimo_dal_giudizio(cfg, c, compito, allegati) {
+        Some((g, perche)) if minimo.is_empty() || indice(cfg, &g) > indice(cfg, &minimo) => {
+            (g, perche)
+        }
+        _ => (minimo, categoria),
+    }
 }
 
 /// Se questo gradino fa spendere: un gradino in casa mai, e senza
@@ -219,7 +292,7 @@ pub fn delega(
     let (minimo, categoria) = if r.salta_regola {
         (String::new(), String::new())
     } else {
-        gradino_minimo(cfg, &r.compito, r.allegati)
+        minimo_con_giudizio(cfg, c, &r.compito, r.allegati)
     };
     // Se il minimo e' chi sta gia' chiedendo, salire sarebbe un ciclo.
     if !minimo.is_empty() && minimo != r.da && indice(cfg, &minimo) > indice(cfg, &a) {
@@ -459,7 +532,7 @@ pub fn scelti_per_parere(
     primo: &str,
     secondo: &str,
 ) -> [String; 2] {
-    let (minimo, _) = gradino_minimo(cfg, domanda, allegati);
+    let (minimo, _) = minimo_con_giudizio(cfg, c, domanda, allegati);
     let scegli = |g: &str| {
         if !minimo.is_empty()
             && indice(cfg, &minimo) > indice(cfg, g)
@@ -663,6 +736,156 @@ mod prove {
         assert_eq!(t.motivo, "(ripiego: «standard» non consentito)");
         let tentati: Vec<&str> = reg.storico.iter().map(|x| x.a.as_str()).collect();
         assert_eq!(tentati, ["alternativo", "locale", "standard"]);
+    }
+
+    /// Cervelli che rispondono sempre, non fanno spendere, e hanno un
+    /// giudizio da copione: la categoria che vedono, e cosa gli si e' offerto.
+    struct ConGiudizio {
+        vede: Option<String>,
+        offerte: std::cell::RefCell<Vec<String>>,
+        righe: Vec<String>,
+    }
+
+    impl Cervelli for ConGiudizio {
+        fn a_consumo(&self, _g: &Gradino) -> bool {
+            false
+        }
+        fn chiedi(&mut self, g: &Gradino, _p: &str) -> Result<Detto, Guasto> {
+            Ok(Detto {
+                testo: format!("risposta di {}", g.nome),
+                ..Default::default()
+            })
+        }
+        fn ora(&self) -> f64 {
+            1000.0
+        }
+        fn annota(&mut self, riga: &str) {
+            self.righe.push(riga.to_string());
+        }
+        fn categoria_giudicata(
+            &self,
+            categorie: &[(String, String)],
+            _compito: &str,
+            _allegati: i64,
+        ) -> Option<String> {
+            *self.offerte.borrow_mut() = categorie.iter().map(|(n, _)| n.clone()).collect();
+            self.vede.clone()
+        }
+    }
+
+    fn con_categorie() -> Configurazione {
+        let mut c = cfg();
+        c.categorie = vec![
+            crate::Categoria {
+                nome: "architettura".into(),
+                attiva: true,
+                gradino_minimo: "difficile".into(),
+                parole: vec!["progetta*".into()],
+                min_file: 0,
+                descrizione: "decisione di architettura".into(),
+            },
+            crate::Categoria {
+                nome: "review_multifile".into(),
+                attiva: true,
+                gradino_minimo: "difficile".into(),
+                parole: vec!["review".into()],
+                min_file: 2,
+                descrizione: "review di codice su piu' file".into(),
+            },
+        ];
+        c
+    }
+
+    fn delega_con(
+        c: &Configurazione,
+        vede: Option<&str>,
+        compito: &str,
+        allegati: i64,
+    ) -> (Traccia, ConGiudizio) {
+        let mut k = ConGiudizio {
+            vede: vede.map(str::to_string),
+            offerte: Default::default(),
+            righe: vec![],
+        };
+        let r = Richiesta {
+            a: "locale".into(),
+            compito: compito.into(),
+            allegati,
+            ..Default::default()
+        };
+        let t = delega(c, &mut Registro::default(), &mut k, &r, false).unwrap();
+        (t, k)
+    }
+
+    #[test]
+    fn il_giudizio_fa_salire_dove_le_parole_non_vedono() {
+        // «come lo organizzo» non ha nessuna parola della lista.
+        let (t, k) = delega_con(
+            &con_categorie(),
+            Some("architettura"),
+            "come lo organizzo?",
+            0,
+        );
+        assert_eq!(t.a, "difficile");
+        assert!(
+            t.motivo
+                .contains("decisione di architettura, secondo il giudizio"),
+            "{}",
+            t.motivo
+        );
+        assert!(
+            k.righe.iter().any(|r| r.contains("secondo il giudizio")),
+            "{:?}",
+            k.righe
+        );
+    }
+
+    #[test]
+    fn il_giudizio_non_toglie_una_salita_delle_parole() {
+        // Le parole vedono «progetta»; il giudizio dice niente: vale la salita.
+        let (t, _) = delega_con(&con_categorie(), None, "progetta lo schema", 0);
+        assert_eq!(t.a, "difficile");
+        assert!(!t.motivo.contains("secondo il giudizio"), "{}", t.motivo);
+    }
+
+    #[test]
+    fn senza_giudizio_restano_le_parole() {
+        let (t, _) = delega_con(&con_categorie(), None, "che ore sono", 0);
+        assert_eq!(t.a, "locale");
+    }
+
+    #[test]
+    fn al_giudizio_si_offre_solo_cio_che_le_parole_potrebbero_far_scattare() {
+        // Con un file solo la review su piu' file non si offre, e se il
+        // modello la nomina lo stesso non fa salire niente.
+        let (t, k) = delega_con(
+            &con_categorie(),
+            Some("review_multifile"),
+            "guarda questo file",
+            1,
+        );
+        assert_eq!(*k.offerte.borrow(), ["architettura"]);
+        assert_eq!(t.a, "locale");
+        let (t, k) = delega_con(
+            &con_categorie(),
+            Some("review_multifile"),
+            "guarda questi file",
+            2,
+        );
+        assert_eq!(*k.offerte.borrow(), ["architettura", "review_multifile"]);
+        assert_eq!(t.a, "difficile");
+        // Una categoria che la configurazione non conosce non fa salire.
+        let (t, _) = delega_con(&con_categorie(), Some("inventata"), "guarda", 0);
+        assert_eq!(t.a, "locale");
+    }
+
+    #[test]
+    fn senza_salite_automatiche_il_giudizio_non_si_chiede() {
+        let mut c = con_categorie();
+        c.escalation_automatica = false;
+        let (t, k) = delega_con(&c, Some("architettura"), "come lo organizzo?", 0);
+        assert_eq!(t.a, "locale");
+        assert!(k.offerte.borrow().is_empty());
     }
 
     #[test]

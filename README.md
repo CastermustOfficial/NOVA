@@ -794,9 +794,9 @@ prove/                le prove, divise per cosa serve a farle girare
 
 Trentotto crate. Gli ultimi due sono il terreno di CANT-12.
 `nova_core::giudizio_casa` (D371) chiede i logit al modello di casa e li passa
-a `nova-giudizio`, ma nessuna decisione del demone lo usa ancora;
-`nova-decisioni` non lo usa nessun binario, e lo stesso vale per
-`nova-mcp-cliente`.
+a `nova-giudizio`, e la prima decisione che lo usa e' la delega: quale
+cervello serve (D373). `nova-decisioni` non lo usa nessun binario, e lo
+stesso vale per `nova-mcp-cliente`.
 
 ## Livelli di autonomia
 
@@ -981,6 +981,7 @@ python misure/banco_cervello.py           # sa scegliere lo strumento giusto? (q
 python misure/banco_giudizio_llama.py     # le lettere del giudizio: n_probs, cache_prompt, /tokenize, quante giuste (CANT-12; --modello per un altro GGUF)
 python misure/banco_clm.py confronta      # CLM da un GGUF contro il bf16 (CANT-12; i passi prima sono in testa al file)
 python misure/banco_quale_cervello.py     # quale cervello: le parole di oggi contro le lettere, o CLM con --clm (CANT-12)
+python misure/banco_giudizio_slot.py      # un giudizio sullo stesso llama-server costa la cache della conversazione?
 ```
 
 `banco_cervello.py` misura una cosa diversa dalle altre: non quanto e' veloce

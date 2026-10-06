@@ -11516,3 +11516,14 @@ candidati, tante domande sullo stesso stato) o imparando da loro. Resta una
 decisione che non e' mia: se il giudizio vede una categoria che le parole non
 vedono, il compito puo' uscire dal PC?
 
+## 6 ottobre 2026 — La paura della cache, e la misura
+
+Prima di attaccare il giudizio alla delega avevo una paura precisa: NOVA
+accende llama-server con uno slot solo, e una domanda in piu' sullo stesso
+slot poteva buttare via la cache della conversazione, cioe' migliaia di token
+da rifare al turno dopo. Stavo per proporre due slot. L'ho misurata prima: la
+build di adesso tiene da parte il prompt e lo rimette, e dopo un giudizio la
+conversazione rifa' due token su seimila. La paura non teneva conto di come
+lavora questa build, e la proposta non serviva. Poi Gio ha deciso la direzione, e il giudizio
+adesso puo' far salire una delega che le parole avrebbero lasciato in casa.
+

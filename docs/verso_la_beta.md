@@ -2773,6 +2773,14 @@ compiti (anche per «che ore sono a Tokyo?») e non riconosce nessuna review. E 
 suo tempo per testo nuovo, 74 ms, e' vicino a quello delle lettere sullo
 stesso modello, 100 ms.
 
+Gio ha deciso come attaccarla (D373): nella delega il giudizio puo' aggiungere
+una salita alle parole, mai toglierla, e quando non sa valgono le parole.
+Prima si e' controllato che la domanda in piu' non costi la cache della
+conversazione, perche' NOVA accende llama-server con uno slot solo
+(`misure/banco_giudizio_slot.py`): dopo un giudizio, il prompt lungo della
+conversazione rifa' 2 token su 6.324 con Gemma e 4 su 6.143 con Qwen3.8, e il
+resto viene dalla cache. In questa build uno slot basta.
+
 **Riferimenti raccolti da Gio il 22 settembre**, da guardare quando si riapre
 CANT-12:
 

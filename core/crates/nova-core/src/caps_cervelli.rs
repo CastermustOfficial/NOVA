@@ -90,6 +90,31 @@ impl Veri {
 }
 
 impl Cervelli for Veri {
+    /// La categoria che vede il modello di casa, con le lettere (D373). Ogni
+    /// guasto — il modello spento, un server che non e' llama-server, una
+    /// lettera di due token — e ogni «non lo so» o «nessuna» tornano `None`,
+    /// e allora valgono le parole.
+    fn categoria_giudicata(
+        &self,
+        categorie: &[(String, String)],
+        compito: &str,
+        allegati: i64,
+    ) -> Option<String> {
+        use crate::giudizio_casa::{
+            domanda_quale_cervello, giudica_in_casa, stato_del_compito, NESSUNA,
+        };
+        use nova_giudizio::{Giudizio, Risposta};
+        let domanda = domanda_quale_cervello(categorie);
+        let stato = stato_del_compito(compito, allegati);
+        match giudica_in_casa(&self.recapiti.locale_url, &stato, &domanda, 1.0) {
+            Ok((esito, _)) => match esito.giudizio {
+                Giudizio::Risposto(Risposta::Scelta { id }) if id != NESSUNA => Some(id),
+                _ => None,
+            },
+            Err(_) => None,
+        }
+    }
+
     /// `a_consumo` del cervello, come lo dice il Python: Claude Code a
     /// consumo se non c'e' un abbonamento, una CLI se l'ha dichiarato, gli
     /// altri se il gradino dice di essere a pagamento.
