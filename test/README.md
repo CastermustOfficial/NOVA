@@ -40,6 +40,7 @@ Le prove del recinto di Windows (`nova-platform` e `nova-core`, solo `cfg(window
 
 - **Il passo da amministratore** (D367), a mano, con una configurazione di prova: `novad --recinto --prepara` (chiede la conferma di Windows e apre `C:\Users` e le cartelle di strumenti degli amministratori), poi `python prove/demone/test_demone_recinto_strumenti.py` e `python prove/demone/test_demone_recinto.py`, poi `novad --recinto --togli` (altra conferma). Alla fine `C:\Users`, `Temp`, `Python313` e `nodejs` non devono avere piu' voci del contenitore.
 - **La suite intera da amministratore** (D369), ogni volta che si tocca il recinto di Windows: `cargo test` e tutte le `prove/*/test_*.py` da un terminale elevato, oltre al giro da utente normale. Solo da amministratore girano `test_demone_elevato.py` e `test_demone_recinto_strumenti.py`; da utente normale escono 2.
+- **Il giudizio con un modello vero** (D371): con un llama-server acceso, `NOVA_GIUDIZIO_URL=http://127.0.0.1:8499 cargo test -p nova-core --lib giudizio_casa -- --ignored --nocapture`. Stampa i giudizi di tre domande e pretende che la capitale d'Italia sia Roma; le altre prove di `giudizio_casa` usano un llama-server finto e girano sempre.
 - `misure/`: i banchi di prestazione, lanciati a mano sul PC con la scheda video.
 - `attrezzi/`: gli script lanciati a mano, compresi i giri di mutazione con cui si verifica che un banco gemello guardi davvero.
 

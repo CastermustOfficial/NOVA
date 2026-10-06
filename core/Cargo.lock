@@ -3023,6 +3023,7 @@ dependencies = [
  "nova-dati",
  "nova-documenti",
  "nova-docx",
+ "nova-giudizio",
  "nova-guasti",
  "nova-harness",
  "nova-mcp",

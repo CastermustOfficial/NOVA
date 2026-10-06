@@ -45,6 +45,7 @@ pub mod caps_ui;
 pub mod caps_voce;
 pub mod config;
 pub mod giornale;
+pub mod giudizio_casa;
 pub mod interruzione;
 pub mod osserva;
 pub mod policy;

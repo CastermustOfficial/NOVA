@@ -792,8 +792,11 @@ nova/                 la prima versione, in Python: termine di paragone dei banc
 prove/                le prove, divise per cosa serve a farle girare
 ```
 
-Trentotto crate. Gli ultimi due sono il terreno di CANT-12 e non li usa
-ancora nessun binario; lo stesso vale per `nova-mcp-cliente`.
+Trentotto crate. Gli ultimi due sono il terreno di CANT-12.
+`nova_core::giudizio_casa` (D371) chiede i logit al modello di casa e li passa
+a `nova-giudizio`, ma nessuna decisione del demone lo usa ancora;
+`nova-decisioni` non lo usa nessun binario, e lo stesso vale per
+`nova-mcp-cliente`.
 
 ## Livelli di autonomia
 

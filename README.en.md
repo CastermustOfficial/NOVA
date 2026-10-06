@@ -801,8 +801,10 @@ nova/                 the first version, in Python: what the benches compare aga
 prove/                the tests, grouped by what they need in order to run
 ```
 
-Thirty-eight crates. The last two are the ground for CANT-12 and no binary
-uses them yet; the same goes for `nova-mcp-cliente`.
+Thirty-eight crates. The last two are the ground for CANT-12.
+`nova_core::giudizio_casa` (D371) asks the home model for the logits and hands
+them to `nova-giudizio`, but no decision in the daemon uses it yet; no binary
+uses `nova-decisioni`, and the same goes for `nova-mcp-cliente`.
 
 ## Autonomy levels
 

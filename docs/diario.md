@@ -11492,3 +11492,14 @@ mancava ieri adesso c'e', ed e' netto: sullo stesso Qwen3-8B le lettere ne
 fanno dieci, CLM due. E vale per tutti la regola di Gemma: con il ragionamento
 aperto le lettere non arrivano, va chiuso prima.
 
+## 6 ottobre 2026 — Il giudizio parla con il modello
+
+La meta' di `nova-giudizio` che chiede al modello adesso c'e', nel demone
+(D371). Le scelte non le ho decise io: le hanno decise le misure del mattino.
+Il ragionamento si chiude, la cache si usa, ogni lettera si controlla. Una
+sola regola e' nata scrivendo: quando una lettera non e' fra i token che il
+server restituisce, le do il logit piu' basso che ho letto. E' un tetto, e
+pesa piu' di quanto peserebbe la verita'. L'ho scelto apposta, perche' cosi'
+l'errore va sempre dalla parte del dubbio, e il dubbio in NOVA vuol dire
+chiedere. Con Gemma e Qwen3.8 accesi davvero, la capitale d'Italia e' Roma.
+
