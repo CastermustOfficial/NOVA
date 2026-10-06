@@ -2806,6 +2806,64 @@ gradino, la scelta del giudice, e niente segreti); il modello grande etichetta
 con le lettere dei compiti sintetici; le teste si addestrano sulla GPU del PC di sviluppo (RTX 4060 Ti, 16 GB di VRAM)
 e si rimisurano sugli stessi banchi, che restano fuori dall'addestramento.
 
+**Addestrato, misurato il 6 ottobre** (`misure/clm_addestra.py`, sul PC di
+Gio). I dati: Gemma 4 26B-A4B (IQ3_XXS) ha scritto 591 compiti per
+`QualeCervello`, in dodici ambiti, compresi quelli «trappola» che usano le
+parole della lista in un altro senso, e 860 richieste per i 58 strumenti, da
+13 a 15 per strumento, ognuna scritta per quello strumento con accanto i nomi
+degli altri. Al primo giro `fs.mkdir` e `fs.open` erano rimasti senza
+richieste, perche' il generatore non aveva risposto con un array; adesso,
+quando succede, si riprova con un altro seme, e al secondo giro e' servito
+una volta. Qwen3.8 27B (Q4_K_M), che sul banco fa 34 su 34, ha dato con le
+lettere la categoria a 568 compiti su 591, e su 499 era d'accordo con quella
+chiesta al generatore. Per gli strumenti l'etichetta e' per costruzione: le
+lettere si fermano a ventisei. Si scarta ogni testo con almeno il 40% delle
+parole in comune con un caso dei banchi (quando si e' generato la soglia era
+il 60%, e i numeri sopra sono dopo quella): entrano 564 compiti e 848
+richieste, e il caso dei banchi piu' vicino a un testo sintetico ne
+condivide il 38%.
+
+Le teste partono da quelle di CLM-v0.1-8B e si addestrano tutte e due
+insieme sui due compiti (entropia incrociata su 100 volte il coseno, AdamW,
+lr 1e-4, lotti da 32, 30 epoche, il 15% delle richieste tenuto da parte), in
+una quarantina di secondi sulla RTX 4060 Ti, con i vettori gia' calcolati
+(2.380 testi, circa tre minuti con Qwen3-8B Q8_0). Le teste in torch e quelle
+numpy dei banchi differiscono al massimo di 1,2e-4. Tre semi, 7, 8 e 9:
+
+| `QualeCervello`, 34 casi | giuste | salite di troppo | salite mancate |
+|---|---|---|---|
+| le parole di oggi | 20 | 5 | 9 |
+| CLM non addestrato | 12 | | |
+| CLM addestrato, tre semi | 27, 27, 29 | 1, 1, 0 | 2, 2, 3 |
+| le lettere, Qwen3-8B / Qwen3.8 27B | 30 / 34 | | |
+
+| strumento fra 58, 40 richieste | il primo e' giusto | nei primi 3 | nei primi 5 |
+|---|---|---|---|
+| BM25 | 19 | 23 | 27 |
+| CLM non addestrato, inglese, descrizione | 8 | 16 | 20 |
+| CLM addestrato, inglese, descrizione | 27, 32, 32 | 36, 36, 37 | 36, 36, 38 |
+| CLM addestrato, inglese, nome e descrizione | 27, 29, 27 | 35, 35, 36 | 36, 36, 37 |
+| CLM addestrato, italiano, descrizione | 29, 28, 28 | 32, 33, 33 | 34, 35, 34 |
+
+Il formato col solo nome non e' stato addestrato, e resta dov'era (da 6 a
+9). Sui tenuti da parte, sintetici, le teste fanno da 0,76 a 0,82 per
+`QualeCervello` e da 0,63 a 0,69 per gli strumenti, e la migliore epoca e'
+fra la 27 e la 29. Il giro con la soglia al 60% e senza i due strumenti
+aveva dato 27 su 34 e 28 su 40; a quella soglia quattro casi dei banchi, tre
+richieste e un compito, avevano un sintetico simile al 50% o piu', e per
+questo la soglia e' scesa.
+
+Cosa dicono e cosa no. Addestrato, CLM passa le parole (da 27 a 29 contro
+20) e BM25 (da 27 a 32 contro 19) in 61-77 ms, e resta sotto le lettere del
+modello grande (34 su 34 in 962 ms). La categoria piu' debole e' il rischio
+di perdere dati (4 su 8 con tutti e tre i semi). I banchi sono piccoli e le
+loro etichette le ho scritte io; le etichette degli strumenti non le ha
+controllate nessun maestro; CLM sceglie sempre, mentre la delega del D373 si
+fida del giudizio solo quando non si astiene, e una soglia sulla confidenza
+di CLM non e' misurata. E il vettore vuole Qwen3-8B acceso: 9.362 MiB a
+Q8_0, se il cervello di casa e' un altro. Per questo NOVA, per ora, non lo
+usa (D375).
+
 **Riferimenti raccolti da Gio il 22 settembre**, da guardare quando si riapre
 CANT-12:
 

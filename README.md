@@ -801,6 +801,10 @@ Per addestrare le teste di CLM il demone tiene anche le sue decisioni in
 `decisioni.jsonl` (D374): la richiesta, gli strumenti usati, il gradino, la
 scelta del giudice. Una richiesta con dentro una credenziale non si scrive, e
 `kb.decisioni` spegne tutto.
+Le teste, addestrate su compiti sintetici etichettati dal modello grande
+(`misure/clm_addestra.py`), fanno da 27 a 29 su 34 a dire quale cervello
+serve e scelgono lo strumento giusto fra 58 da 27 a 32 volte su 40 (D375);
+NOVA ancora non le usa.
 
 ## Livelli di autonomia
 
@@ -987,6 +991,7 @@ python misure/banco_clm.py confronta      # CLM da un GGUF contro il bf16 (CANT-
 python misure/banco_quale_cervello.py     # quale cervello: le parole di oggi contro le lettere, o CLM con --clm (CANT-12)
 python misure/banco_giudizio_slot.py      # un giudizio sullo stesso llama-server costa la cache della conversazione?
 python misure/banco_strumento_clm.py      # CLM sceglie lo strumento fra i 58 del modello di casa? Contro BM25
+python misure/clm_addestra.py compiti     # le teste di CLM addestrate sulle scelte del modello grande (CANT-12; i passi in testa al file)
 ```
 
 `banco_cervello.py` misura una cosa diversa dalle altre: non quanto e' veloce

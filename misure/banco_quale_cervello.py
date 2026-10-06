@@ -17,6 +17,7 @@ stessa domanda va a tre bracci:
     python misure/banco_quale_cervello.py                       # parole e lettere, modello della configurazione
     python misure/banco_quale_cervello.py --modello <file .gguf>
     python misure/banco_quale_cervello.py --clm                 # parole e CLM
+    python misure/banco_quale_cervello.py --clm --teste <cartella>  # con le teste addestrate
 
 I compiti e la categoria giusta di ognuno li ho scritti io, il 6 ottobre:
 alcuni sono trappole per le parole («progetta un itinerario» non e'
@@ -152,12 +153,12 @@ def braccio_lettere(modello: Path | None) -> tuple[list[dict], str]:
             proc.kill()
 
 
-def braccio_clm(cartella: Path, gguf: Path) -> list[dict]:
+def braccio_clm(teste_in: Path, gguf: Path) -> list[dict]:
     import numpy as np
     import banco_clm as bc
     a = types.SimpleNamespace(server=str(RADICE / "runtime" / "llama-server.exe"), gguf=gguf,
                               porta=8498, ngl=999)
-    teste = bc.carica_teste(cartella)
+    teste = bc.carica_teste(teste_in)
     cand = [d for _, d in categorie()] + [NESSUNA_CATEGORIA]
     ids = [n for n, _ in categorie()] + [NESSUNA]
     stati = [f"{stato(c, n)}\n\n{ISTRUZIONI}" for c, n, _ in CASI]
@@ -223,14 +224,18 @@ def main() -> int:
     ap.add_argument("--cartella", type=Path, default=Path.home() / "nova-clm",
                     help="dove stanno le teste di CLM (banco_clm.py teste)")
     ap.add_argument("--gguf", type=Path, help="il Qwen3-8B per CLM (predefinito: Q8_0 nella cartella)")
+    ap.add_argument("--teste", type=Path,
+                    help="le teste da usare, se non sono quelle della cartella (clm_addestra.py)")
     a = ap.parse_args()
     parole = braccio_parole()
     risultato = {"parole": {"conto": conta("parole", parole), "esiti": parole}}
     if a.clm:
         gguf = a.gguf or a.cartella / "gguf" / "Qwen3-8B-Q8_0.gguf"
-        esiti = braccio_clm(a.cartella, gguf)
-        risultato["clm"] = {"gguf": gguf.name, "conto": conta("clm", esiti), "esiti": esiti}
-        nome = f"clm-{gguf.stem}"
+        teste = a.teste or a.cartella
+        esiti = braccio_clm(teste, gguf)
+        risultato["clm"] = {"gguf": gguf.name, "teste": str(teste), "conto": conta("clm", esiti),
+                            "esiti": esiti}
+        nome = f"clm-{gguf.stem}" + ("" if a.teste is None else f"-{a.teste.name}")
     else:
         esiti, modello = braccio_lettere(a.modello)
         risultato["lettere"] = {"modello": modello, "conto": conta("lettere", esiti), "esiti": esiti}

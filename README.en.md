@@ -809,6 +809,10 @@ brain is needed (D373). No binary uses `nova-decisioni`, and the same goes for
 To train CLM's heads the daemon also keeps its decisions in `decisioni.jsonl`
 (D374): the request, the tools used, the tier, the judge's choice. A request
 with a credential inside is not written, and `kb.decisioni` turns it all off.
+The heads, trained on synthetic tasks labelled by the big model
+(`misure/clm_addestra.py`), get between 27 and 29 out of 34 on which brain is
+needed and pick the right tool among 58 between 27 and 32 times out of 40
+(D375); NOVA does not use them yet.
 
 ## Autonomy levels
 
@@ -994,6 +998,7 @@ python misure/banco_clm.py confronta      # CLM from a GGUF against bf16 (CANT-1
 python misure/banco_quale_cervello.py     # which brain: today's words against the letters, or CLM with --clm (CANT-12)
 python misure/banco_giudizio_slot.py      # does a judgement on the same llama-server cost the conversation's cache?
 python misure/banco_strumento_clm.py      # does CLM pick the tool among the home model's 58? Against BM25
+python misure/clm_addestra.py compiti     # CLM's heads trained on the big model's choices (CANT-12; the steps are at the top of the file)
 ```
 
 `banco_cervello.py` measures something different from the others: not how fast

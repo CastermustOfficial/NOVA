@@ -21,9 +21,10 @@ e gli si chiede `tools/list`, e si tengono i 58 di `strumenti_in_http`. Le
 richieste e lo strumento giusto di ognuna li ho scritti io, il 6 ottobre;
 dove due strumenti vanno bene tutti e due, contano tutti e due.
 
-    python misure/banco_strumento_clm.py [--gguf <Qwen3-8B .gguf>] [--cartella ~/nova-clm]
+    python misure/banco_strumento_clm.py [--gguf <Qwen3-8B .gguf>] [--cartella ~/nova-clm] [--teste <cartella>]
 
-I numeri finiscono in `banco_strumento_clm.json`, accanto al README.
+I numeri finiscono in `banco_strumento_clm.json`, accanto al README (con
+`--teste`, in `banco_strumento_clm-<nome della cartella>.json`).
 """
 from __future__ import annotations
 
@@ -179,13 +180,13 @@ def bm25(richiesta: str, documenti: dict[str, str], k1: float = 1.5, b: float = 
     return sorted(punti, key=lambda x: -punti[x])
 
 
-def clm(cartella: Path, gguf: Path, candidati: dict[str, str]) -> dict[str, tuple[list[list[str]], list[float]]]:
+def clm(teste_in: Path, gguf: Path, candidati: dict[str, str]) -> dict[str, tuple[list[list[str]], list[float]]]:
     """Per ogni combinazione di lingua e forma: gli ordini e i millisecondi per richiesta."""
     import numpy as np
     import banco_clm as bc
     a = types.SimpleNamespace(server=str(RADICE / "runtime" / "llama-server.exe"), gguf=gguf,
                               porta=8498, ngl=999)
-    teste = bc.carica_teste(cartella)
+    teste = bc.carica_teste(teste_in)
     nomi = list(candidati)
     combinazioni = {}
     for lingua, istruzioni in ISTRUZIONI.items():
@@ -237,6 +238,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--cartella", type=Path, default=Path.home() / "nova-clm")
     ap.add_argument("--gguf", type=Path)
+    ap.add_argument("--teste", type=Path,
+                    help="le teste da usare, se non sono quelle della cartella (clm_addestra.py)")
     a = ap.parse_args()
     gguf = a.gguf or a.cartella / "gguf" / "Qwen3-8B-Q8_0.gguf"
     candidati = strumenti()
@@ -245,10 +248,12 @@ def main() -> int:
     esito = {"strumenti": len(candidati), "gguf": gguf.name,
              "bm25": {"conto": conta("bm25", ordini_b), "primi_5": [o[:5] for o in ordini_b]},
              "clm": {}, "casi": [{"richiesta": r, "giusti": g} for r, g in CASI]}
-    for nome, (ordini, tempi) in clm(a.cartella, gguf, candidati).items():
+    esito["teste"] = str(a.teste or a.cartella)
+    for nome, (ordini, tempi) in clm(a.teste or a.cartella, gguf, candidati).items():
         esito["clm"][nome] = {"conto": conta(f"clm, {nome}", ordini, tempi),
                               "primi_5": [o[:5] for o in ordini]}
-    (RADICE / "banco_strumento_clm.json").write_text(
+    coda = "" if a.teste is None else f"-{a.teste.name}"
+    (RADICE / f"banco_strumento_clm{coda}.json").write_text(
         json.dumps(esito, indent=1, ensure_ascii=False), encoding="utf-8")
     return 0
 

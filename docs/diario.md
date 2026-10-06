@@ -11547,3 +11547,14 @@ una chiave, e il filtro la lascia passare. Il guardiano della memoria invece
 la riconosce, quindi una richiesta cosi' non si scrive proprio. E l'ordine fra
 coprire e tagliare l'ho provato al contrario, perche' altrimenti la prova non
 dimostrava niente.
+
+## 6 ottobre 2026 — CLM, addestrato
+
+Gio aveva ragione a crederci. Con quasi seicento compiti scritti da un
+modello ed etichettati da un altro, e quaranta secondi di GPU, CLM passa da
+12 a 27-29 su 34 a dire quale cervello serve, e da 8 a 27-32 su 40 a
+scegliere lo strumento, dove BM25 ne fa 19. La cosa che mi ha preoccupato di piu' non erano i numeri
+ma da dove venivano: «Che ore sono?» nel banco e «Che ore sono in questo
+momento?» fra i dati. Ho abbassato la soglia, ho riaddestrato con tre semi, e
+i numeri sono rimasti. Non lo metto in NOVA: le lettere fanno ancora meglio,
+sanno dire «non lo so», e dove serve CLM lo decide Gio.

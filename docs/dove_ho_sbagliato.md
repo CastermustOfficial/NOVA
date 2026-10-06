@@ -1824,3 +1824,20 @@ La regola: una prova che parla di segreti non scrive mai un segreto intero
 nel sorgente, nemmeno finto. Ho guardato le altre prove nuove di questo
 lavoro: la password della prova del demone e' una parola con un numero, che
 la prova sui dati personali non tratta come chiave, ed e' quello che serve.
+
+## Una frase del piano rimasta indietro di un commit
+
+Nel piano, la voce di CANT-12 diceva che la meta' del giudizio che chiede a
+llama-server c'era, «ma nessuna decisione la chiama ancora». Era vero col
+D371; dal D373 la chiama la delega, e la stessa voce, due righe sotto, lo
+diceva. Nel commit del D373 avevo aggiunto la frase nuova senza rileggere
+quella vecchia. Me ne sono accorto il 6 ottobre, rileggendo la voce intera
+per il D375.
+
+Ora la frase vecchia non c'e' piu'.
+
+La regola: quando si aggiunge a una voce un fatto che ne supera un altro, si
+rilegge tutta la voce e si toglie quello superato, nello stesso commit. Ho
+cercato la stessa forma («nessuna decisione», «nessun binario») nel README,
+nel piano, nelle idee e in `verso_la_beta.md`: l'unica altra e' quella di
+`nova-mcp-cliente`, che e' ancora vera.
