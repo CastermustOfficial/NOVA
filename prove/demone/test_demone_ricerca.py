@@ -163,6 +163,24 @@ ambiente.update({"APPDATA": casa, "HOME": casa, "USERPROFILE": casa,
 for k in ("http_proxy", "HTTP_PROXY", "https_proxy", "HTTPS_PROXY", "all_proxy", "ALL_PROXY"):
     ambiente.pop(k, None)
 
+# Un giro a vuoto del browser, prima del demone. In CI, il 5 ottobre, la prima
+# ricerca e' caduta quattro volte su sei. Nell'ultima il browser ha aperto la
+# porta fra 25 e 27,2 secondi dopo la partenza, e la sua prima riga su stderr
+# e' arrivata dopo piu' di venti: il tempo se ne andava prima ancora che
+# partisse davvero. Nel contenitore di
+# lavoro lo stesso Chromium apre la porta in 1,1 s la prima volta e in 0,15 s
+# le altre. La prova guarda cosa fa NOVA col browser, non quanto ci mette un
+# runner a caricarlo dal disco: lo carica una volta prima, e dice quanto ci ha
+# messo.
+inizio = time.time()
+try:
+    subprocess.run([CHROMIUM, "--headless=new", "--no-sandbox", "--disable-gpu",
+                    f"--user-data-dir={Path(casa) / 'riscaldamento'}", "--dump-dom", "about:blank"],
+                   env=ambiente, capture_output=True, timeout=120)
+    print(f"(il browser, a vuoto, in {time.time() - inizio:.1f} s)")
+except subprocess.TimeoutExpired:
+    print("(il browser, a vuoto, non ha finito in 120 s)")
+
 processo = subprocess.Popen(
     [str(DEMONE), "--endpoint", endpoint, "--log", "warn"],
     env=ambiente, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
