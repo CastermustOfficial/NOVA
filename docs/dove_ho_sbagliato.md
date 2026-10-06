@@ -1841,3 +1841,16 @@ rilegge tutta la voce e si toglie quello superato, nello stesso commit. Ho
 cercato la stessa forma («nessuna decisione», «nessun binario») nel README,
 nel piano, nelle idee e in `verso_la_beta.md`: l'unica altra e' quella di
 `nova-mcp-cliente`, che e' ancora vera.
+
+## Una prova nuova, e il conto delle prove rimasto a prima
+
+Il 6 ottobre ho aggiunto `prove/gemelli/test_giudizio_solo_testo.py` e l'ho
+descritta in `test/README.md`, ma ho lasciato a 29 il numero delle prove
+gemelle, li' e in `prove/README.md`. Se n'e' accorta prima del commit
+`test_documentazione.py`, nella suite intera.
+
+Ora dicono 30 tutti e due.
+
+La regola: chi aggiunge una prova aggiorna nello stesso giro la riga che la
+descrive e i numeri che la contano. I numeri stanno in due file, e la prova
+della documentazione li controlla tutti e due.

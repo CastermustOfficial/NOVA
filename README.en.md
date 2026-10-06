@@ -812,7 +812,9 @@ with a credential inside is not written, and `kb.decisioni` turns it all off.
 The heads, trained on synthetic tasks labelled by the big model
 (`misure/clm_addestra.py`), get between 27 and 29 out of 34 on which brain is
 needed and pick the right tool among 58 between 27 and 32 times out of 40
-(D375); NOVA does not use them yet.
+(D375); NOVA does not use them yet. On the same questions Claude Code with
+Opus 5 and Gemini 3.1 Pro through Antigravity get 34 out of 34 and 40 out of
+40, in seconds rather than milliseconds (`misure/banco_cervelli_fuori.py`).
 
 ## Autonomy levels
 
@@ -999,6 +1001,7 @@ python misure/banco_quale_cervello.py     # which brain: today's words against t
 python misure/banco_giudizio_slot.py      # does a judgement on the same llama-server cost the conversation's cache?
 python misure/banco_strumento_clm.py      # does CLM pick the tool among the home model's 58? Against BM25
 python misure/clm_addestra.py compiti     # CLM's heads trained on the big model's choices (CANT-12; the steps are at the top of the file)
+python misure/banco_cervelli_fuori.py chiedi --braccio claude   # the same questions to Claude Code and Antigravity, and the cascade with CLM
 ```
 
 `banco_cervello.py` measures something different from the others: not how fast

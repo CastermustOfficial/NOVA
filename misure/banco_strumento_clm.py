@@ -180,8 +180,11 @@ def bm25(richiesta: str, documenti: dict[str, str], k1: float = 1.5, b: float = 
     return sorted(punti, key=lambda x: -punti[x])
 
 
-def clm(teste_in: Path, gguf: Path, candidati: dict[str, str]) -> dict[str, tuple[list[list[str]], list[float]]]:
-    """Per ogni combinazione di lingua e forma: gli ordini e i millisecondi per richiesta."""
+def clm(teste_in: Path, gguf: Path,
+        candidati: dict[str, str]) -> dict[str, tuple[list[list[str]], list[float], list[float]]]:
+    """Per ogni combinazione di lingua e forma: gli ordini, i millisecondi e la
+    probabilita' del primo, per richiesta. La probabilita' serve alla cascata
+    (`banco_cervelli_fuori.py cascata`): CLM decide da solo quando e' sicuro."""
     import numpy as np
     import banco_clm as bc
     a = types.SimpleNamespace(server=str(RADICE / "runtime" / "llama-server.exe"), gguf=gguf,
@@ -214,11 +217,12 @@ def clm(teste_in: Path, gguf: Path, candidati: dict[str, str]) -> dict[str, tupl
     indice = {t: i for i, t in enumerate(testi)}
     fuori = {}
     for nome, (stati, cand) in combinazioni.items():
-        ordini = []
+        ordini, in_testa = [], []
         for s in stati:
             p = bc.distribuzione(v, indice, teste, s, cand)
             ordini.append([nomi[i] for i in np.argsort(-p)])
-        fuori[nome] = (ordini, [tempi[s] for s in stati])
+            in_testa.append(round(float(p.max()), 6))
+        fuori[nome] = (ordini, [tempi[s] for s in stati], in_testa)
     return fuori
 
 
@@ -249,9 +253,9 @@ def main() -> int:
              "bm25": {"conto": conta("bm25", ordini_b), "primi_5": [o[:5] for o in ordini_b]},
              "clm": {}, "casi": [{"richiesta": r, "giusti": g} for r, g in CASI]}
     esito["teste"] = str(a.teste or a.cartella)
-    for nome, (ordini, tempi) in clm(a.teste or a.cartella, gguf, candidati).items():
+    for nome, (ordini, tempi, in_testa) in clm(a.teste or a.cartella, gguf, candidati).items():
         esito["clm"][nome] = {"conto": conta(f"clm, {nome}", ordini, tempi),
-                              "primi_5": [o[:5] for o in ordini]}
+                              "primi_5": [o[:5] for o in ordini], "in_testa": in_testa}
     coda = "" if a.teste is None else f"-{a.teste.name}"
     (RADICE / f"banco_strumento_clm{coda}.json").write_text(
         json.dumps(esito, indent=1, ensure_ascii=False), encoding="utf-8")

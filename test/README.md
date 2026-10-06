@@ -126,7 +126,7 @@ Cosa serve: niente: puro Python, la prima versione di NOVA.
 | `test_visione.py` | COM-11. Il modello locale che non vede, e cosa succede se lo si ignora. |
 | `test_voce.py` | Voce: le decisioni che si prendono senza rete. |
 
-## `prove/gemelli/`: 29 prove
+## `prove/gemelli/`: 30 prove
 
 Cosa serve: un banco Rust costruito con `cargo`: la prova stampa la riga per costruirlo.
 
@@ -146,6 +146,7 @@ Cosa serve: un banco Rust costruito con `cargo`: la prova stampa la riga per cos
 | `test_docx_rust.py` | Per modificare un .docx non serve una libreria di .docx — e va dimostrato. |
 | `test_fogli_rust.py` | I fogli di calcolo devono ragionare uguale in Rust. |
 | `test_giudizio_rust.py` | Le due meta' leggono gli stessi logit e danno lo stesso giudizio. |
+| `test_giudizio_solo_testo.py` | La domanda del giudice ai cervelli di fuori e' quella del modello di casa, carattere per carattere; le risposte si leggono. |
 | `test_guasti_rust.py` | I guasti in Rust devono dire le stesse parole, e coprire le stesse chiavi. |
 | `test_harness_rust.py` | L'harness deve tagliare e cercare uguale in Rust. |
 | `test_imparare_rust.py` | Da uno scambio, il demone deve imparare le stesse cose di `memory.py`. |

@@ -54,6 +54,7 @@ banco_giudizio_llama*.json
 banco_quale_cervello*.json
 banco_giudizio_slot*.json
 banco_strumento_clm*.json
+banco_cervelli_fuori*.json
 
 # scratch: i messaggi di commit lunghi passano da un file, PowerShell rovina le virgolette
 _msg.txt

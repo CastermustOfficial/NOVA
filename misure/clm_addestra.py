@@ -14,8 +14,9 @@ ognuno accende un modello diverso:
     python misure/clm_addestra.py compiti     # il generatore scrive i compiti per QualeCervello
     python misure/clm_addestra.py richieste   # e le richieste per ognuno dei 58 strumenti
     python misure/clm_addestra.py etichetta --modello <gguf del maestro>
+    python misure/clm_addestra.py rietichetta # Claude Code, secondo maestro (e primo per gli strumenti)
     python misure/clm_addestra.py vettori     # Qwen3-8B, i vettori di tutti i testi
-    python misure/clm_addestra.py addestra    # le teste, sulla GPU se c'e'
+    python misure/clm_addestra.py addestra    # le teste, sulla GPU se c'e' (--etichette claude|accordo)
     python misure/clm_addestra.py vicini      # quanto i casi dei banchi somigliano ai sintetici
 
 Poi si rimisura con i banchi di sempre e le teste nuove:
@@ -326,8 +327,121 @@ def comando_etichetta(a) -> None:
     print(json.dumps(per, indent=1, ensure_ascii=False))
 
 
+def comando_rietichetta(a) -> None:
+    """Claude Code rietichetta i compiti e le richieste, a gruppi.
+
+    Per i compiti e' un secondo maestro accanto a quello di casa; per gli
+    strumenti e' il primo, perche' le lettere non arrivano a 58. Si chiede a
+    gruppi di `--gruppo` testi per volta, con la risposta in un array JSON
+    nello stesso ordine: e' un lavoro da etichettatore, non la domanda del
+    banco, e uno per volta sarebbero 1.400 chiamate. L'etichetta finisce nel
+    campo `claude`; chi ce l'ha gia' non si richiede, cosi' un giro
+    interrotto riprende da dove era.
+    """
+    import banco_cervelli_fuori as bf
+    from concurrent.futures import ThreadPoolExecutor
+    cartella = tempfile_cartella()
+    cat = bq.categorie()
+    ids_q = [n for n, _ in cat] + [bq.NESSUNA]
+    p_c = a.cartella / "addestra" / "compiti_etichettati.jsonl"
+    p_r = a.cartella / "addestra" / "richieste.jsonl"
+    compiti, richieste = leggi_jsonl(p_c), leggi_jsonl(p_r)
+    descr = json.loads((a.cartella / "addestra" / "strumenti.json").read_text(encoding="utf-8"))
+    nomi = list(descr)
+    elenco_c = "".join(f"{i}: {d}\n" for i, d in cat) + f"{bq.NESSUNA}: {bq.NESSUNA_CATEGORIA}\n" \
+        + f"{bf.NON_LO_SO}: {bf.TESTO_NON_BASTA}\n"
+    elenco_s = "".join(f"{n.replace('.', '_')}: {bs.senza_rischio(d)}\n" for n, d in descr.items()) \
+        + f"{bf.NON_LO_SO}: {bf.TESTO_NON_BASTA}\n"
+    lavori = []
+    da_c = [c for c in compiti if "claude" not in c]
+    for i in range(0, len(da_c), a.gruppo):
+        g = da_c[i:i + a.gruppo]
+        testo = ("Sei il giudice di NOVA, un assistente che vive nel PC dell'utente. Per ognuno dei "
+                 "compiti qui sotto, scegli la categoria che lo descrive meglio fra queste "
+                 f"(identificativo: descrizione):\n\n{elenco_c}\nCompiti:\n"
+                 + "".join(f"{k + 1}. {c['compito']} (file allegati: {c['allegati']})\n"
+                           for k, c in enumerate(g))
+                 + f"\nRispondi solo con un array JSON di {len(g)} identificativi, nello stesso "
+                   "ordine, senza spiegare.")
+        lavori.append(("compiti", g, testo, ids_q + [bf.NON_LO_SO]))
+    da_r = [r for r in richieste if "claude" not in r]
+    for i in range(0, len(da_r), a.gruppo):
+        g = da_r[i:i + a.gruppo]
+        testo = ("Sei il giudice di NOVA, un assistente che vive nel PC dell'utente. Per ognuna "
+                 "delle richieste qui sotto, scegli lo strumento che va chiamato, fra questi "
+                 f"(nome: descrizione):\n\n{elenco_s}\nRichieste:\n"
+                 + "".join(f"{k + 1}. {r['richiesta']}\n" for k, r in enumerate(g))
+                 + f"\nRispondi solo con un array JSON di {len(g)} nomi, nello stesso ordine, "
+                   "senza spiegare.")
+        lavori.append(("richieste", g, testo, [n.replace(".", "_") for n in nomi] + [bf.NON_LO_SO]))
+    print(f"{len(da_c)} compiti e {len(da_r)} richieste da etichettare, in {len(lavori)} gruppi",
+          flush=True)
+
+    def uno(lavoro):
+        tipo, g, testo, validi = lavoro
+        args, stdin = bf.comando(a.braccio, testo)
+        for _ in (1, 2):
+            try:
+                r = subprocess.run(args, input=stdin, capture_output=True, text=True,
+                                   encoding="utf-8", errors="replace", timeout=900, cwd=cartella)
+                j = json.loads(r.stdout[r.stdout.find("{"):])
+                risposta = j.get("result") or j.get("response") or ""
+            except (subprocess.TimeoutExpired, json.JSONDecodeError, ValueError):
+                continue
+            v = array_json(risposta)
+            if len(v) == len(g):
+                return [x if isinstance(x, str) and x in validi else None for x in v], \
+                    j.get("total_cost_usd")
+        return None, None
+
+    costo, falliti = 0.0, 0
+    with ThreadPoolExecutor(a.paralleli) as ex:
+        for (tipo, g, _, _), (v, c) in zip(lavori, ex.map(uno, lavori)):
+            if v is None:
+                falliti += 1
+                continue
+            costo += c or 0
+            for x, e in zip(v, g):
+                if tipo == "richieste" and x not in (None, bf.NON_LO_SO):
+                    x = nomi[[n.replace(".", "_") for n in nomi].index(x)]
+                e["claude"] = x
+    scrivi_jsonl(p_c, compiti)
+    scrivi_jsonl(p_r, richieste)
+    con_c = [c for c in compiti if c.get("claude")]
+    con_r = [r for r in richieste if r.get("claude")]
+    print(f"gruppi falliti {falliti}; costo dichiarato {costo:.2f} $")
+    print(f"compiti: Claude ne etichetta {len(con_c)}; d'accordo col maestro di casa "
+          f"{sum(1 for c in con_c if c['claude'] == c.get('scelta'))} su "
+          f"{sum(1 for c in con_c if c.get('scelta'))} che hanno tutti e due")
+    print(f"richieste: Claude ne etichetta {len(con_r)}; d'accordo con la costruzione "
+          f"{sum(1 for r in con_r if r['claude'] == r['strumento'])}; «non lo so» "
+          f"{sum(1 for r in con_r if r['claude'] == bf.NON_LO_SO)}")
+
+
+def tempfile_cartella() -> str:
+    import tempfile
+    return tempfile.mkdtemp(prefix="nova-rietichetta-")
+
+
 # ------------------------------------------------------------- gli esempi
-def esempi(cartella: Path) -> dict[str, list[dict]]:
+ETICHETTE = ("maestro", "claude", "accordo")
+
+
+def etichetta_di(x: dict, propria: str, etichette: str, valide: list[str]) -> str | None:
+    """L'etichetta da usare: la propria (il maestro di casa, o la costruzione
+    per gli strumenti), quella di Claude (`rietichetta`), o solo dove le due
+    vanno d'accordo. None se l'esempio non entra."""
+    mia, sua = x.get(propria), x.get("claude")
+    if etichette == "maestro":
+        scelta = mia
+    elif etichette == "claude":
+        scelta = sua
+    else:
+        scelta = mia if mia == sua else None
+    return scelta if scelta in valide else None
+
+
+def esempi(cartella: Path, etichette: str = "maestro") -> dict[str, list[dict]]:
     """Gli esempi di addestramento, per compito: stato, candidati, indice giusto.
 
     Gli stati e i candidati sono scritti **come nei banchi**: la stessa
@@ -341,9 +455,10 @@ def esempi(cartella: Path) -> dict[str, list[dict]]:
     banco_s = [r for r, _ in bs.CASI]
     quale = []
     for c in leggi_jsonl(cartella / "addestra" / "compiti_etichettati.jsonl"):
-        if c.get("scelta") in ids_q and not troppo_simile(c["compito"], banco_q):
+        sc = etichetta_di(c, "scelta", etichette, ids_q)
+        if sc is not None and not troppo_simile(c["compito"], banco_q):
             quale.append({"stato": f"{bq.stato(c['compito'], c['allegati'])}\n\n{bq.ISTRUZIONI}",
-                          "candidati": cand_q, "giusto": ids_q.index(c["scelta"])})
+                          "candidati": cand_q, "giusto": ids_q.index(sc)})
     strum = []
     descr_p = cartella / "addestra" / "strumenti.json"
     richieste = [r for r in leggi_jsonl(cartella / "addestra" / "richieste.jsonl")
@@ -355,8 +470,11 @@ def esempi(cartella: Path) -> dict[str, list[dict]]:
             for forma in ("descrizione", "nome e descrizione"):
                 cand = [bs.FORME[forma](n, descr[n]) for n in nomi]
                 for r in richieste:
+                    sc = etichetta_di(r, "strumento", etichette, nomi)
+                    if sc is None:
+                        continue
                     strum.append({"stato": f"{r['richiesta']}\n\n{istr}", "candidati": cand,
-                                  "giusto": nomi.index(r["strumento"]), "gruppo": r["richiesta"]})
+                                  "giusto": nomi.index(sc), "gruppo": r["richiesta"]})
     return {"quale_cervello": quale, "strumenti": strum}
 
 
@@ -368,8 +486,11 @@ def comando_vettori(a) -> None:
     if leggi_jsonl(a.cartella / "addestra" / "richieste.jsonl"):
         (a.cartella / "addestra" / "strumenti.json").write_text(
             json.dumps(bs.strumenti(), ensure_ascii=False, indent=1), encoding="utf-8")
-    es = esempi(a.cartella)
-    testi = list(dict.fromkeys(t for v in es.values() for e in v for t in [e["stato"], *e["candidati"]]))
+    # I testi non dipendono dalle etichette, ma quali esempi entrano si': si
+    # calcolano i vettori per tutte le scelte, cosi' `addestra --etichette`
+    # li trova sempre.
+    testi = list(dict.fromkeys(t for et in ETICHETTE for v in esempi(a.cartella, et).values()
+                               for e in v for t in [e["stato"], *e["candidati"]]))
     cache = a.cartella / "addestra" / "vettori.npz"
     vecchi = {}
     if cache.is_file():
@@ -473,7 +594,7 @@ def comando_addestra(a) -> None:
     st.to(dove)
     at.to(dove)
     scala = float(meta["scala"])
-    es = esempi(a.cartella)
+    es = esempi(a.cartella, a.etichette)
     compiti = [k for k in a.compiti.split(",") if es.get(k)]
     # Il tenuto da parte si sceglie per **richiesta**, non per riga: la stessa
     # richiesta con l'istruzione in un'altra lingua non deve stare da tutte e
@@ -549,7 +670,7 @@ def comando_addestra(a) -> None:
     uscita.mkdir(parents=True, exist_ok=True)
     np.savez(uscita / "teste.npz", **stato_migliore)
     meta2 = dict(meta)
-    meta2.update({"addestrate": {"compiti": compiti, "epoca": epoca_migliore,
+    meta2.update({"addestrate": {"compiti": compiti, "etichette": a.etichette, "epoca": epoca_migliore,
                                  "tenuti_da_parte": migliore, "per_compito": per_migliore,
                                  "lr": a.lr, "lotto": a.lotto,
                                  "seme": a.seme,
@@ -576,7 +697,7 @@ def comando_vicini(a) -> None:
                 meglio, chi = j, x
         return meglio, chi
 
-    es = esempi(a.cartella)
+    es = esempi(a.cartella, a.etichette)
     compiti = list(dict.fromkeys(e["stato"].split("\n")[0].removeprefix("Compito: ")
                                  for e in es["quale_cervello"]))
     richieste = list(dict.fromkeys(e["gruppo"] for e in es["strumenti"]))
@@ -593,8 +714,8 @@ def comando_vicini(a) -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("comando", choices=["compiti", "richieste", "etichetta", "vettori", "addestra",
-                                        "vicini"])
+    ap.add_argument("comando", choices=["compiti", "richieste", "etichetta", "rietichetta",
+                                        "vettori", "addestra", "vicini"])
     ap.add_argument("--cartella", type=Path, default=Path.home() / "nova-clm")
     ap.add_argument("--modello", type=Path, help="il GGUF del generatore o del maestro")
     ap.add_argument("--gguf", type=Path, help="il Qwen3-8B per i vettori")
@@ -605,9 +726,16 @@ def main() -> int:
     ap.add_argument("--tenuti", type=float, default=0.15, help="la parte tenuta da parte")
     ap.add_argument("--seme", type=int, default=7)
     ap.add_argument("--nome", default="teste", help="la cartella delle teste, dentro addestra/")
+    ap.add_argument("--etichette", choices=ETICHETTE, default="maestro",
+                    help="su quali etichette addestrare: il maestro di casa e la costruzione, "
+                         "Claude, o solo dove vanno d'accordo")
+    ap.add_argument("--braccio", default="claude", help="chi rietichetta (banco_cervelli_fuori.py)")
+    ap.add_argument("--gruppo", type=int, default=25)
+    ap.add_argument("--paralleli", type=int, default=4)
     a = ap.parse_args()
     {"compiti": comando_compiti, "richieste": comando_richieste, "etichetta": comando_etichetta,
-     "vettori": comando_vettori, "addestra": comando_addestra, "vicini": comando_vicini}[a.comando](a)
+     "rietichetta": comando_rietichetta, "vettori": comando_vettori, "addestra": comando_addestra,
+     "vicini": comando_vicini}[a.comando](a)
     return 0
 
 

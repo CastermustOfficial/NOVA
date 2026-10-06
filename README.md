@@ -804,7 +804,9 @@ scelta del giudice. Una richiesta con dentro una credenziale non si scrive, e
 Le teste, addestrate su compiti sintetici etichettati dal modello grande
 (`misure/clm_addestra.py`), fanno da 27 a 29 su 34 a dire quale cervello
 serve e scelgono lo strumento giusto fra 58 da 27 a 32 volte su 40 (D375);
-NOVA ancora non le usa.
+NOVA ancora non le usa. Sulle stesse domande Claude Code con Opus 5 e Gemini 3.1
+Pro da Antigravity fanno 34 su 34 e 40 su 40, in secondi invece che in
+millisecondi (`misure/banco_cervelli_fuori.py`).
 
 ## Livelli di autonomia
 
@@ -992,6 +994,7 @@ python misure/banco_quale_cervello.py     # quale cervello: le parole di oggi co
 python misure/banco_giudizio_slot.py      # un giudizio sullo stesso llama-server costa la cache della conversazione?
 python misure/banco_strumento_clm.py      # CLM sceglie lo strumento fra i 58 del modello di casa? Contro BM25
 python misure/clm_addestra.py compiti     # le teste di CLM addestrate sulle scelte del modello grande (CANT-12; i passi in testa al file)
+python misure/banco_cervelli_fuori.py chiedi --braccio claude   # le stesse domande a Claude Code e ad Antigravity, e la cascata con CLM
 ```
 
 `banco_cervello.py` misura una cosa diversa dalle altre: non quanto e' veloce

@@ -2864,6 +2864,76 @@ di CLM non e' misurata. E il vettore vuole Qwen3-8B acceso: 9.362 MiB a
 Q8_0, se il cervello di casa e' un altro. Per questo NOVA, per ora, non lo
 usa (D375).
 
+**Il tetto, la cascata e un secondo maestro, misurati il 6 ottobre**
+(`misure/banco_cervelli_fuori.py`, sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X)). Le stesse due domande ai
+cervelli che NOVA chiama quando sale: Claude Code (`claude -p`, senza
+strumenti, cosi' com'e' installato) e Antigravity (`agy -p`, che ha preso il
+posto di Gemini CLI, in modalita' piano e nel recinto). La domanda di
+`QualeCervello` e' la stessa che legge il modello di casa, carattere per
+carattere: la scrive `banco-giudizio-casa` con `solo_testo`. Per gli strumenti
+si chiede il nome, fra i 58 con la descrizione e «non lo so». Quattro
+domande alla volta; il tempo e' quello che paga chi chiama, CLI compresa.
+
+| braccio | `QualeCervello`, 34 | strumento, 40 | secondi, mediana | costo dichiarato a domanda |
+|---|---|---|---|---|
+| CLM addestrato (seme 8) | 27 | 32 | 0,07 | 0 |
+| Claude Code, Opus 5, due giri | 34, 34 | 40, 40 | 3,5 | 0,027 $ e 0,062 $ |
+| Claude Code, Haiku 4.5 | 30 (4 «non lo so», nessuna sbagliata) | 40 | 5,7 e 4,3 | 0,009 $ e 0,014 $ |
+| Antigravity, Gemini 3.8 Flash (low), due giri | 34, 32 | 40, 40 | 8,3-8,9 | non lo dice |
+| Antigravity, Gemini 3.1 Pro (low) | 34 | 40 | 11,6 e 9,4 | non lo dice |
+
+Le due risposte che mancano a Gemini Flash nel secondo giro sono vuote, e fra
+un giro e l'altro cambiano 2 scelte su 74; Claude Code non ne cambia
+nessuna. Su una domanda di prova, Antigravity ha mandato al modello circa
+14.000 token e Claude Code circa 19.600, quasi tutti dalla cache: e' il
+prompt dei loro agenti, e si paga a ogni domanda. Il costo e' quello che
+dichiara Claude Code, prima per `QualeCervello` e poi per gli strumenti: con
+un abbonamento e' un conto teorico. Il banco degli strumenti, per i modelli grandi, e' **troppo facile**:
+tutti fanno 40 su 40, quindi distingue solo i piccoli.
+
+**La cascata.** CLM decide da solo quando la probabilita' della sua prima
+scelta arriva alla soglia; sotto, decide il cervello grande, e se il grande
+non sa si tiene la scelta di CLM. Con le teste del seme 8 e Claude Code (con
+Haiku e con Gemini Flash i numeri vengono uguali):
+
+| soglia | `QualeCervello` | chiamate | strumento | chiamate |
+|---|---|---|---|---|
+| solo CLM | 27 | 0 | 32 | 0 |
+| 0,7 | 31 | 6 | 34 | 4 |
+| 0,8 | 32 | 8 | 36 | 8 |
+| 0,9 | 33 | 17 | 36 | 11 |
+| 0,99 | 34 | 27 | 39 | 25 |
+| solo il grande | 34 | 34 | 40 | 40 |
+
+A 0,8 la cascata chiama il grande una volta su quattro o cinque e perde 2
+casi su 34 e 4 su 40. La probabilita' di CLM, quindi, dice qualcosa su
+quando sbaglia. Ma la soglia l'ho guardata sugli stessi casi che misura: per
+usarla davvero va scelta su casi nuovi.
+
+**Claude come secondo maestro.** Claude Code, col modello di serie (nei
+giri sopra era Opus 5), ha rietichettato a gruppi di 25 tutti i compiti e
+tutte le richieste: 59 gruppi, nessuno fallito, 4,81 $ dichiarati. Sui
+compiti va d'accordo con Qwen3.8 su 525 dei 568 che hanno tutti e due; dove
+si separano, Claude fa salire piu' spesso: 23 compiti che Qwen3.8 lasciava a
+casa diventano una review, un rischio per i dati o una decisione di
+architettura, e 8 fanno il contrario. Sulle richieste va d'accordo con la
+costruzione su 807 su 860, e su 30 dice «non lo so» (15 sono di
+`pianifica.elimina`). Riaddestrate con le sue etichette, sempre tre semi:
+
+| etichette | `QualeCervello` | strumento, inglese, descrizione |
+|---|---|---|
+| Qwen3.8 e costruzione | 27, 27, 29 | 27, 32, 32 |
+| Claude | 25, 27, 23 | 31, 32, 31 |
+| solo dove vanno d'accordo | 25, 29, 27 | 29, 30, 32 |
+
+Con le etichette di Claude gli strumenti stanno fra 31 e 32 con tutti e tre
+i semi, mentre prima andavano da 27 a 32. `QualeCervello` invece peggiora:
+con due semi su tre salgono sei compiti che il banco lascia a casa, perche'
+Claude vede salite dove le etichette del banco, che ho scritto io, non le
+vedono. Le
+differenze sono di pochi casi su banchi piccoli: dicono che un maestro piu'
+grande non basta, da solo, a fare un CLM migliore.
+
 **Riferimenti raccolti da Gio il 22 settembre**, da guardare quando si riapre
 CANT-12:
 

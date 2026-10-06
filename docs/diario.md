@@ -11558,3 +11558,15 @@ ma da dove venivano: «Che ore sono?» nel banco e «Che ore sono in questo
 momento?» fra i dati. Ho abbassato la soglia, ho riaddestrato con tre semi, e
 i numeri sono rimasti. Non lo metto in NOVA: le lettere fanno ancora meglio,
 sanno dire «non lo so», e dove serve CLM lo decide Gio.
+
+## 6 ottobre 2026 — Il tetto, e la scala per arrivarci
+
+Gio voleva sapere quanto manca a CLM rispetto a Claude Code e ad
+Antigravity. Mancano da 5 a 7 casi su 34 e da 8 a 13 su 40: i grandi fanno
+quasi tutto giusto, in tre-dodici secondi invece che in settanta
+millisecondi. La cosa piu'
+interessante e' venuta dalla cascata: quando CLM e' sicuro ha quasi sempre
+ragione, e lasciando al grande solo i casi in cui non lo e', uno su quattro,
+se ne perdono due su 34 e quattro su 40. Ho provato anche a dare a CLM un maestro piu' grande, e
+non e' migliorato: sugli strumenti e' piu' stabile, su quale cervello serve
+sale troppo spesso, come il suo maestro.
