@@ -114,6 +114,9 @@ struct Dentro {
     /// Scenari di delega, giocati passo per passo coi cervelli finti.
     #[serde(default)]
     scenari: Vec<Scenario>,
+    /// `[locale, claude, google]`: la scala consigliata per ognuno (D379).
+    #[serde(default)]
+    disponibili: Vec<[bool; 3]>,
 }
 
 /// Un copione: la configurazione, chi fa spendere, cosa risponde ognuno, e
@@ -353,6 +356,7 @@ struct Fuori {
     configurazioni: Vec<Value>,
     predefinito: &'static str,
     scenari: Vec<Value>,
+    consigli: Vec<Value>,
 }
 
 fn main() {
@@ -448,6 +452,18 @@ fn main() {
         configurazioni: d.configurazioni.iter().map(letta).collect(),
         predefinito: nova_scala::predefinito::ROUTING_PREDEFINITO,
         scenari: d.scenari.iter().map(gioca).collect(),
+        consigli: d
+            .disponibili
+            .iter()
+            .map(|[locale, claude, google]| {
+                nova_scala::consiglio::consigliata(nova_scala::consiglio::Disponibili {
+                    locale: *locale,
+                    claude: *claude,
+                    google: *google,
+                })
+                .unwrap_or(Value::Null)
+            })
+            .collect(),
     };
 
     match serde_json::to_string(&fuori) {

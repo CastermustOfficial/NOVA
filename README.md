@@ -1371,6 +1371,24 @@ potenza. Quelli predefiniti:
 .\bin\nova call cervelli.stato     # gradini, stato, speso / tetto
 ```
 
+**La scala consigliata** (D379). Quelli sopra sono i gradini di fabbrica; NOVA
+consiglia anche quelli giusti per quello che hai davvero, e li mostra nel
+pannello, sotto *Cervello*, anche se i gradini te li sei scritti da solo:
+
+| Cosa c'e' | Scala consigliata |
+|---|---|
+| solo Antigravity (abbonamento a Gemini) | Gemini Flash -> Gemini Pro |
+| solo Claude Code | Haiku -> Opus |
+| tutti e due | Gemini Flash -> Opus |
+| un modello sul PC | in piu', in fondo: orchestra lui |
+
+Cosa c'e' lo prova il catalogo dei modelli: Claude Code con l'accesso fatto,
+Antigravity con un elenco di modelli non vuoto, il modello sul PC se il file
+esiste. Il consiglio non si applica mai da solo: lo applica il bottone *Usa
+questa scala*, che sostituisce i gradini e lascia il file di prima accanto,
+in `config.json.prima-del-consiglio`. `novad --consiglio` stampa la scala
+consigliata accanto a quella in uso, senza cambiare niente.
+
 ### Come passa la palla
 
 Tre strade, in ordine di intelligenza:

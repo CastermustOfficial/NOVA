@@ -58,6 +58,17 @@ export const LINGUE = {
 
     /* --- cervello --- */
     'Cervello': 'Brain',
+    'Scala consigliata': 'Recommended ladder',
+    'È QUELLA CHE USI': 'IT IS THE ONE YOU USE',
+    'il modello sul PC': 'the model on this PC',
+    'quello che sceglie lei': 'the one it picks',
+    'Non riesco a leggere la scala consigliata:': 'I cannot read the recommended ladder:',
+    "Non so ancora cosa hai: lo controlla il demone due minuti dopo l'accensione, e poi una volta al giorno.": 'I do not know yet what you have: the daemon checks two minutes after it starts, and then once a day.',
+    "Non ho trovato nessun cervello: né un modello sul PC, né Claude Code con l'accesso fatto, né Antigravity.": 'I found no brain: no model on this PC, no signed-in Claude Code, no Antigravity.',
+    'Per quello che hai, dal più leggero al più forte:': 'For what you have, from the lightest to the strongest:',
+    'Adesso usi:': 'You are using:',
+    'Usa questa scala': 'Use this ladder',
+    "Sostituisce i gradini che hai adesso. Il file di prima resta accanto, in config.json.prima-del-consiglio.": 'It replaces the steps you have now. The previous file stays next to it, in config.json.prima-del-consiglio.',
     'Modello locale': 'Local model',
     'Il GGUF sul PC. Gratis, privato, orchestra.': 'The GGUF on this PC. Free, private, orchestrates.',
     'Claude Code': 'Claude Code',

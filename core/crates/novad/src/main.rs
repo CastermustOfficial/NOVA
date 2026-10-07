@@ -71,6 +71,12 @@ struct Args {
     #[arg(long)]
     modelli: bool,
 
+    /// Stampa la scala consigliata per quello che c'e' — il modello sul PC,
+    /// Claude Code, Antigravity — accanto a quella in uso, e termina. Non
+    /// cambia niente: la si applica dal pannello (D379).
+    #[arg(long)]
+    consiglio: bool,
+
     /// Le cartelle su cui NOVA ha scritto le voci del recinto di Windows, e
     /// termina. Con `--togli` le toglie tutte: lo chiama il disinstallatore,
     /// perche' quelle voci stanno sulle cartelle dell'utente (D367).
@@ -144,6 +150,15 @@ async fn main() -> Result<()> {
         println!(
             "{}",
             serde_json::to_string_pretty(&c).unwrap_or_else(|e| format!("{e}"))
+        );
+        return Ok(());
+    }
+    if args.consiglio {
+        let cfg = nova_configurazione::dove::leggi();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&nova_core::modelli::consiglio(&cfg))
+                .unwrap_or_else(|e| format!("{e}"))
         );
         return Ok(());
     }

@@ -32,6 +32,9 @@ pub mod predefinito;
 // Passare la palla: il giro della delega, con le sue pause e il suo conto.
 pub mod delega;
 
+// La scala consigliata per quello che l'utente ha davvero (D379).
+pub mod consiglio;
+
 
 /// Un gradino: quale cervello, con quale modello, e quanto costa.
 #[derive(Debug, Clone, Default, PartialEq)]

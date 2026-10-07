@@ -126,6 +126,11 @@ input:focus{border-color:rgba(232,115,74,.4)}
 .riservatezza b{font-weight:600}
 .riservatezza.in-casa{border-color:rgba(125,240,178,.28);background:rgba(125,240,178,.07);color:var(--inchiostro)}
 .riservatezza.esce{border-color:rgba(232,176,74,.30);background:rgba(232,176,74,.07);color:var(--inchiostro)}
+.scala-titolo{flex:1;font-size:12.5px;font-weight:600}
+.scala-sotto{font-size:11px;color:var(--mezzo);margin:8px 0 0}
+.scala-righe{display:flex;flex-direction:column;gap:5px;margin:8px 0 0}
+.scala-riga{font-family:var(--mono);font-size:11px;color:var(--mezzo)}
+.scala-riga b{color:var(--inchiostro);font-weight:600}
 .nota{font-size:11px;color:var(--fioco);line-height:1.5;margin-top:10px;padding-left:10px;
   border-left:2px solid var(--linea)}
 </style>
@@ -156,6 +161,7 @@ input:focus{border-color:rgba(232,115,74,.4)}
       <div class="titolo-sez"><h3>Cervello</h3><span class="coda" id="codaCervello"></span></div>
       <div class="cervelli" id="cervelli"></div>
       <div id="dettaglioCervello"></div>
+      <div id="consiglioScala"></div>
     </section>
 
     <!-- AUTONOMIA -->
@@ -532,6 +538,53 @@ function fasciaRiservatezza(attivo, cli){
     di memoria pertinenti al messaggio.${mani}
     <b>Mai le credenziali</b>: quelle il modello non le vede in nessun caso.
     Per il lavoro delicato torna su «Modello locale».</p>`;
+}
+
+/* La scala consigliata (D379).
+ *
+ * NOVA consiglia i gradini per quello che c'e' davvero - il modello sul PC,
+ * Claude Code con l'accesso fatto, Antigravity - e li mostra anche a chi se
+ * li e' scritti da solo. Non li applica mai da sola: li applica il bottone,
+ * e il guscio rifa' il consiglio dai file invece di prendere quello che il
+ * pannello gli manda. */
+function nomeCervello(brain){
+  return ({ locale: T('il modello sul PC'), claude: 'Claude Code',
+            antigravity: 'Antigravity' })[brain] || brain;
+}
+function righeScala(righe){
+  return `<div class="scala-righe">${righe.map(g => `<div class="scala-riga"><b>${esc(g.nome)}</b> · ${esc(nomeCervello(g.brain))} · ${esc(g.scelto || g.model || T('quello che sceglie lei'))}</div>`).join('')}</div>`;
+}
+async function disegnaConsiglio(){
+  const dove = $('consiglioScala');
+  if(!dove || !invoke) return;
+  let c;
+  try { c = await invoke('scala_consiglio'); }
+  catch(e){ dove.innerHTML = `<p class="nota">${T('Non riesco a leggere la scala consigliata:')} ${esc(e)}</p>`; return; }
+  let html = `<div class="dett"><div class="fila"><span class="scala-titolo">${T('Scala consigliata')}</span>`
+    + (c.coincide ? `<span class="chiave-ok">${T('È QUELLA CHE USI')}</span>` : '') + `</div>`;
+  if(!c.conosciuto){
+    html += `<p class="nota">${T("Non so ancora cosa hai: lo controlla il demone due minuti dopo l'accensione, e poi una volta al giorno.")}</p>`;
+  } else if(!c.consigliata){
+    html += `<p class="nota">${T("Non ho trovato nessun cervello: né un modello sul PC, né Claude Code con l'accesso fatto, né Antigravity.")}</p>`;
+  } else {
+    html += `<p class="scala-sotto">${T('Per quello che hai, dal più leggero al più forte:')}</p>` + righeScala(c.righe);
+    if(!c.coincide){
+      html += `<p class="scala-sotto" style="margin-top:14px">${T('Adesso usi:')}</p>` + righeScala(c.attuale)
+        + `<div class="fila" style="margin-top:12px"><button class="bottone primo" id="btnUsaScala">${T('Usa questa scala')}</button></div>`
+        + `<p class="nota">${T("Sostituisce i gradini che hai adesso. Il file di prima resta accanto, in config.json.prima-del-consiglio.")}</p>`;
+    }
+  }
+  dove.innerHTML = html + `</div>`;
+  const b = $('btnUsaScala');
+  if(b) b.onclick = async () => {
+    b.disabled = true;
+    try {
+      await invoke('scala_consiglio_usa');
+      cfg = await invoke('config_leggi');
+      mostraSalvato(); diag('ok · scala consigliata in uso');
+    } catch(e){ diag('SCALA CONSIGLIATA: ' + e); }
+    disegnaConsiglio();
+  };
 }
 
 function disegnaDettaglioCervello(){
@@ -1199,6 +1252,7 @@ function disegnaLegenda(){
   if(invoke){ try { cfg = await invoke('config_leggi'); diag('ok · configurazione letta'); }
               catch(e){ diag('LETTURA CONFIG: ' + e); } }
   disegnaCervelli();
+  disegnaConsiglio();
   disegnaAutonomia();
   interruttore('swMemoria','kb.auto_learn',true);
   interruttore('swContesto','kb.inject_context',true);

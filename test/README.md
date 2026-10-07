@@ -60,7 +60,7 @@ Cosa serve: niente: guardano il repository stesso.
 | `test_dove_stanno_i_dati.py` | La mappa dei dati non deve tacere su niente, ne' inventare niente. |
 | `test_elenchi_gemelli.py` | Ogni elenco dichiarato in Rust ha un gemello in Python, e si confronta. |
 | `test_guardie_predefinite.py` | Le guardie sono un elenco solo, e non ne esiste un secondo. |
-| `test_impostazioni.py` | Il pannello deve saper aggiungere, non solo scegliere. |
+| `test_impostazioni.py` | Il pannello deve saper aggiungere, non solo scegliere; la scala consigliata si mostra e si applica solo col bottone, con le frasi anche in inglese (D379). |
 | `test_installer.py` | L'installer chiede quattro cose, e scrive solo valori che qualcuno legge. |
 | `test_niente_cresce_per_sempre.py` | Nessun diario di NOVA puo' crescere per sempre. |
 | `test_niente_dati_personali.py` | Niente dati personali nel repository: chiavi, percorsi `C:\Users\...` e il nome di chi ha la macchina («PC di» e un nome). |
@@ -160,11 +160,11 @@ Cosa serve: un banco Rust costruito con `cargo`: la prova stampa la riga per cos
 | `test_registro_rust.py` | Il registro in Rust deve dire esattamente quello che dice in Python. |
 | `test_ricette_rust.py` | Le due versioni delle ricette devono dire la stessa cosa. |
 | `test_salita_rust.py` | Salire di gradino e girare a vuoto devono decidersi identici in Rust. |
-| `test_scala_rust.py` | La scala in Rust deve decidere esattamente come decide in Python. |
+| `test_scala_rust.py` | La scala in Rust deve decidere esattamente come decide in Python; anche la scala consigliata, nelle otto combinazioni di cosa c'e' (D379). |
 | `test_semina_rust.py` | La prima mappatura del PC scrive in Rust gli stessi nodi del Python. |
 | `test_strumenti_rust.py` | Gli strumenti dichiarati allo stesso modo, in Rust. |
 
-## `prove/demone/`: 29 prove
+## `prove/demone/`: 30 prove
 
 Cosa serve: il binario `novad` costruito.
 
@@ -178,6 +178,7 @@ Cosa serve: il binario `novad` costruito.
 | `test_demone_claude.py` | Cio' che Claude Code vede del demone: gli strumenti e lo sportello. |
 | `test_demone_cli.py` | Il demone fa un turno con un cervello che e' un **programma**, non un URL. |
 | `test_demone_compiti.py` | Un compito pianificato fa il suo turno senza Python (D345). |
+| `test_demone_consiglio.py` | `novad --consiglio`: la scala consigliata per quello che c'e' (il modello sul PC, Claude Code, Antigravity), con i nomi veri dal catalogo, e il file della configurazione che resta com'era (D379). |
 | `test_demone_documenti.py` | Leggere un documento, dal demone. |
 | `test_demone_elevato.py` | Un comando confinato non riceve mai i poteri dell'amministratore, nemmeno da un demone elevato: o parte senza (gruppo non attivo, cartella degli Amministratori non scrivibile, `write_roots` si') o il demone rifiuta e lo dice (D369). Va lanciata da amministratore; da utente normale, e in CI, esce 2: la guardia in CI e' la prova Rust `windows_un_comando_non_riceve_i_poteri_dell_amministratore`. |
 | `test_demone_fascicolo.py` | Il fascicolo, il registro dichiarato e «dove sono i miei dati», nel demone (D352). |

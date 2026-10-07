@@ -11599,3 +11599,12 @@ cinquecento compiti nuovi, e dal vivo ha fatto quello che doveva: architettura
 a Opus, l'ora di Tokyo a Flash, e sul compito incerto si e' fatta da parte.
 Quel compito incerto pero' e' arrivato a Opus, che ha acceso Docker: le prove
 dal vivo adesso dicono di non usare strumenti.
+
+## 7 ottobre 2026 — Un consiglio, non una scelta
+
+Gio voleva che NOVA usasse quello che uno ha: solo Gemini, Flash e poi Pro;
+solo Claude, Haiku e poi Opus. Gli ho chiesto se applicarlo da solo, e la
+risposta e' stata no: si consiglia e basta, anche a chi i gradini se li e'
+scritti. Cosi' il pannello mostra la scala giusta e un bottone. Guardando la
+scala in uso del PC di sviluppo con il comando nuovo, ho visto che la mia
+«Flash e Opus, e basta» del D378 aveva ancora tre gradini in coda.

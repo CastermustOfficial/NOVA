@@ -102,6 +102,71 @@ pub fn scegli(forma: &str, elenco: &[String]) -> Option<String> {
         .map(|(_, n)| n.clone())
 }
 
+/// Il modello da passare a Claude Code, dato il catalogo (famiglia -> nome
+/// piu' recente): quello del catalogo per un `ultimo:<famiglia>` o un
+/// vecchio predefinito, altrimenti l'alias della famiglia, che parte sempre;
+/// un nome scelto resta com'e'. Lo usano il demone e il pannello (D379).
+pub fn per_claude_da(catalogo: &std::collections::BTreeMap<String, String>, modello: &str) -> String {
+    match famiglia_claude(modello) {
+        Some(f) => catalogo.get(&f).cloned().unwrap_or(f),
+        None => modello.to_string(),
+    }
+}
+
+/// Il modello da passare a una CLI, dato l'elenco che ha dato: per un
+/// `ultimo:<forma>`, il piu' recente con quella forma; vuoto se l'elenco non
+/// c'e' o non ne ha uno con quella forma, e allora la CLI usa il suo. Un
+/// nome scelto resta com'e'.
+pub fn per_cli_da(elenco: Option<&[String]>, modello: &str) -> String {
+    match famiglia(modello) {
+        Some(forma) => elenco.and_then(|e| scegli(forma, e)).unwrap_or_default(),
+        None => modello.to_string(),
+    }
+}
+
+/// Con quale modello partirebbe un gradino, dato il catalogo (`modelli.json`
+/// come JSON): per Claude Code [`per_claude_da`], per una CLI
+/// [`per_cli_da`] sull'elenco del suo binario, per il modello sul PC il nome
+/// del file. Vuoto vuol dire «quello che sceglie la CLI». Lo usa il pannello
+/// per mostrare la scala consigliata con i nomi veri (D379).
+pub fn scelto_dal_catalogo(cfg: &Value, catalogo: &Value, brain: &str, modello: &str) -> String {
+    let brain = brain.trim().to_lowercase();
+    match brain.as_str() {
+        "locale" => {
+            let p = cfg
+                .get("server")
+                .and_then(|s| s.get("model_path"))
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            p.rsplit(['/', '\\']).next().unwrap_or("").to_string()
+        }
+        "claude" => {
+            let mappa: std::collections::BTreeMap<String, String> = catalogo
+                .get("claude")
+                .and_then(|c| serde_json::from_value(c.clone()).ok())
+                .unwrap_or_default();
+            per_claude_da(&mappa, modello)
+        }
+        "api" => modello.to_string(),
+        altro => {
+            let spec = cfg
+                .get("brains")
+                .and_then(|b| b.get("cli"))
+                .and_then(|c| c.get(altro))
+                .filter(|s| s.is_object())
+                .cloned()
+                .or_else(|| crate::cli::predefinite().get(altro).cloned())
+                .unwrap_or(Value::Null);
+            let binario = crate::cli::dichiarata(altro, &spec).binario;
+            let elenco: Option<Vec<String>> = catalogo
+                .get("elenchi")
+                .and_then(|e| e.get(&binario))
+                .and_then(|e| serde_json::from_value(e.clone()).ok());
+            per_cli_da(elenco.as_deref(), modello)
+        }
+    }
+}
+
 /// I nomi in un elenco come lo stampa una CLI: il primo pezzo di ogni riga,
 /// se ha la forma di un nome di modello (lettere minuscole, cifre, `-`, `.`,
 /// e almeno una cifra). Le righe di contorno, come «Fetching available
@@ -243,6 +308,46 @@ pub fn senza_modello(args: &[String]) -> Vec<String> {
 
 #[cfg(test)]
 mod prove {
+
+    #[test]
+    fn con_quale_modello_partirebbe_un_gradino() {
+        let cat = serde_json::json!({
+            "claude": {"opus": "claude-opus-5-5"},
+            "elenchi": {"agy": ["gemini-3.8-flash-high", "gemini-3.1-pro-high"]}});
+        let cfg = serde_json::json!({"server": {"model_path": "C:\\m\\gemma.gguf"}});
+        assert_eq!(scelto_dal_catalogo(&cfg, &cat, "claude", "ultimo:opus"), "claude-opus-5-5");
+        assert_eq!(scelto_dal_catalogo(&cfg, &cat, "claude", "ultimo:haiku"), "haiku");
+        // Antigravity non e' nel file: vale la dichiarazione di fabbrica, `agy`.
+        assert_eq!(
+            scelto_dal_catalogo(&cfg, &cat, "antigravity", "ultimo:gemini-*-flash-high"),
+            "gemini-3.8-flash-high"
+        );
+        assert_eq!(scelto_dal_catalogo(&cfg, &cat, "locale", ""), "gemma.gguf");
+        assert_eq!(scelto_dal_catalogo(&serde_json::json!({}), &cat, "locale", ""), "");
+        // Un binario scritto nel file vale piu' di quello di fabbrica.
+        let mio = serde_json::json!({"brains": {"cli": {"antigravity": {"binary": "agy2"}}}});
+        assert_eq!(
+            scelto_dal_catalogo(&mio, &cat, "antigravity", "ultimo:gemini-*-flash-high"),
+            ""
+        );
+        assert_eq!(scelto_dal_catalogo(&cfg, &serde_json::json!({}), "claude", "ultimo:opus"), "opus");
+    }
+
+    #[test]
+    fn il_nome_dal_catalogo() {
+        let mut c = std::collections::BTreeMap::new();
+        c.insert("opus".to_string(), "claude-opus-5-5".to_string());
+        assert_eq!(per_claude_da(&c, "ultimo:opus"), "claude-opus-5-5");
+        assert_eq!(per_claude_da(&c, "claude-opus-5"), "claude-opus-5-5", "vecchio predefinito");
+        assert_eq!(per_claude_da(&c, "ultimo:haiku"), "haiku", "senza catalogo, l'alias");
+        assert_eq!(per_claude_da(&c, "claude-opus-5[1m]"), "claude-opus-5[1m]");
+        let e = vec!["gemini-3.8-flash-high".to_string(), "gemini-3.1-pro-high".to_string()];
+        assert_eq!(per_cli_da(Some(&e), "ultimo:gemini-*-flash-high"), "gemini-3.8-flash-high");
+        assert_eq!(per_cli_da(Some(&e), "ultimo:gemini-*-ultra"), "");
+        assert_eq!(per_cli_da(None, "ultimo:gemini-*-pro-high"), "");
+        assert_eq!(per_cli_da(None, "gemini-3.1-pro-low"), "gemini-3.1-pro-low");
+    }
+
     use super::*;
 
     fn v(x: &[&str]) -> Vec<String> {

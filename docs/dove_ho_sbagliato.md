@@ -1947,3 +1947,43 @@ registro vero.
 
 La regola: una prova non legge la configurazione dell'utente, a meno che non
 sia proprio quella che vuole provare; e allora lo dice.
+
+## La scala del PC di sviluppo non era «Flash e Opus, e basta»
+
+Per il D378 ho messo nella configurazione del PC di sviluppo la scala scelta
+da Gio, «Flash -> Opus, e basta»: ho aggiunto il gradino `rapido` e scritto
+`"scala": ["rapido", "difficile"]`, lasciando `locale`, `standard` e
+`alternativo` fra i gradini. Ma la scala accoda i gradini che non elenca: era
+`rapido`, `difficile`, `locale`, `standard`, `alternativo`, e sopra Opus
+c'era ancora da salire. Me ne sono accorto il 7 ottobre, con `novad
+--consiglio`, che stampa la scala in uso per intero.
+
+Ora sul PC di sviluppo ci sono solo `rapido` e `difficile` (il file di prima
+e' `config.json.prima-di-D379`), e il bottone della scala consigliata
+sostituisce i gradini invece di fonderli.
+
+La regola: cambiare la scala vuol dire scrivere `tiers` per intero; e dopo
+si guarda la scala come la legge NOVA, non come la si e' scritta.
+
+## Tre inciampi del pannello della scala consigliata
+
+Presi tutti prima del commit, scrivendo il D379:
+
+- il titolo «Scala consigliata» era un `<h3>`, e `test_impostazioni.py`
+  conta gli `<h3>` come schede del pannello: ne ha trovata una nona;
+- i paragrafi avevano la classe `aiuto`, che ha uno stile solo dentro un
+  `.campo`: nel pannello reso in Chromium uscivano col carattere grande;
+- il pannello leggeva il catalogo cosi' com'e' su disco, il demone nella sua
+  forma, dove a un catalogo senza `disponibili` ne resta uno vuoto: con un
+  catalogo vecchio il primo avrebbe detto «non so ancora», il secondo «non
+  c'e' nessun cervello». Ora «non so ancora» vale per tutti e due quando
+  `disponibili` e' vuoto, e la prova lo dice.
+
+La regola: una pagina si guarda resa, non solo letta come testo; e due
+letture dello stesso file si provano sullo stesso caso.
+
+## Le cartelle lasciate dalla prova della palestra
+
+Le tre cartelle in `%TEMP%` della prova dal vivo del D378 (`palestra`,
+`pgvenv`, `pgbin`, con il database) le ho cancellate il 7 ottobre, chiesto
+da Gio. Nessun processo di Postgres o di Docker era acceso.

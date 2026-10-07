@@ -21,6 +21,9 @@ nova-configurazione = { path = "../nova-configurazione" }
 # il guscio le chiede, non le rifa'.
 nova-modelli = { path = "../nova-modelli" }
 nova-cervelli = { path = "../nova-cervelli" }
+# La scala consigliata per quello che l'utente ha (D379): la ricetta e il
+# confronto stanno li', provati.
+nova-scala = { path = "../nova-scala" }
 # Le parole con cui si racconta un guasto, e cosa si mostra di cio'
 # che una CLI ha scritto: stanno li', gia' provate.
 nova-guasti = { path = "../nova-guasti" }

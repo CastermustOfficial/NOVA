@@ -23,6 +23,7 @@ mod cervelli;
 mod cervello;
 mod componenti;
 mod config;
+mod consiglio;
 mod cronologia;
 mod demone;
 mod documenti;
@@ -368,6 +369,8 @@ fn main() {
             cervelli::cervelli_stato,
             cervelli::cervello_collega,
             cervelli::cervello_prova,
+            consiglio::scala_consiglio,
+            consiglio::scala_consiglio_usa,
             nuova_conversazione,
             harness::apri_harness,
             harness::harness_in_attesa,

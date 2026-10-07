@@ -306,6 +306,34 @@ for fascia, dentro in DENTRO.items():
                   dentro.index(corte[-1]) < dentro.index(lunghe[0]), str(dentro))
 
 
+print("\n11. la scala consigliata si mostra, e si applica solo col bottone (D379)")
+# Deciso con Gio il 7 ottobre: e' un consiglio. Il pannello lo chiede al
+# guscio e lo mostra; scriverlo e' un comando a parte, che rifa' il consiglio
+# dai file invece di prendere quello che la pagina gli manda.
+MAIN = (RADICE / "core" / "crates" / "nova-shell" / "src" / "main.rs").read_text(encoding="utf-8")
+CONSIGLIO = (RADICE / "core" / "crates" / "nova-shell" / "src" / "consiglio.rs").read_text(encoding="utf-8")
+controlla("la pagina chiede la scala consigliata", "invoke('scala_consiglio')" in html)
+controlla("e la applica solo dal bottone",
+          html.count("invoke('scala_consiglio_usa')") == 1
+          and "b.onclick = async" in html.split("invoke('scala_consiglio_usa')")[0][-400:])
+controlla("i due comandi sono registrati nel guscio",
+          "consiglio::scala_consiglio," in MAIN and "consiglio::scala_consiglio_usa," in MAIN)
+controlla("il comando che scrive non prende niente dalla pagina",
+          "pub async fn scala_consiglio_usa() -> Result<Value, String>" in CONSIGLIO)
+controlla("e tiene una copia del file di prima",
+          "config.json.prima-del-consiglio" in CONSIGLIO)
+controlla("la pagina non scrive i gradini con salva()",
+          not re.search(r"salva\(\{\s*brains:\s*\{\s*routing", html))
+LINGUE_JS = (RADICE / "core" / "crates" / "nova-shell" / "ui" / "lingue.js").read_text(encoding="utf-8")
+blocco = html[html.index("function nomeCervello"):html.index("function disegnaDettaglioCervello")]
+frasi = re.findall(r"""T\((['"])(.+?)\1\)""", blocco)
+controlla("le frasi del consiglio ci sono", len(frasi) >= 10, str(len(frasi)))
+for _, frase in frasi:
+    chiave = frase.replace("\\'", "'")
+    controlla(f"  e in inglese: «{chiave[:40]}»",
+              f"'{chiave}':" in LINGUE_JS or f'"{chiave}":' in LINGUE_JS)
+
+
 print(f"\n{passati}/{passati + len(falliti)} passati")
 for x in falliti:
     print("  FALLITO:", x)

@@ -3268,6 +3268,7 @@ dependencies = [
  "nova-modelli",
  "nova-platform",
  "nova-proto",
+ "nova-scala",
  "portable-pty",
  "regex",
  "serde",

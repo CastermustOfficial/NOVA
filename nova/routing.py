@@ -525,6 +525,59 @@ def routing_predefinito() -> dict:
     }
 
 
+# La scala consigliata per quello che l'utente ha davvero (D379): gemella di
+# `nova_scala::consiglio`, confrontata da `test_scala_rust.py`. E' un
+# consiglio: NOVA lo mostra, e lo applica solo l'utente, dal pannello.
+RAPIDO_GOOGLE = "ultimo:gemini-*-flash-high"
+DIFFICILE_GOOGLE = "ultimo:gemini-*-pro-high"
+RAPIDO_CLAUDE = "ultimo:haiku"
+DIFFICILE_CLAUDE = "ultimo:opus"
+
+
+def scala_consigliata(locale: bool, claude: bool, google: bool) -> dict | None:
+    """«orchestratore», «scala» e «tiers» per quello che c'e'; None se niente.
+
+    Solo Gemini: Flash e poi Pro. Solo Claude: Haiku e poi Opus. Tutti e due:
+    Flash e poi Opus (deciso con Gio il 7 ottobre). Il modello sul PC, se
+    c'e', orchestra e sta in fondo.
+    """
+    tiers: dict = {}
+    scala: list[str] = []
+    if locale:
+        tiers["locale"] = dict(routing_predefinito()["tiers"]["locale"])
+        scala.append("locale")
+    if google:
+        rapido = ("antigravity", RAPIDO_GOOGLE)
+    elif claude:
+        rapido = ("claude", RAPIDO_CLAUDE)
+    else:
+        rapido = None
+    if claude:
+        difficile = ("claude", DIFFICILE_CLAUDE)
+    elif google:
+        difficile = ("antigravity", DIFFICILE_GOOGLE)
+    else:
+        difficile = None
+    if rapido:
+        tiers["rapido"] = {
+            "brain": rapido[0], "model": rapido[1],
+            "descrizione": ("Il motore rapido: i compiti di tutti i giorni che il "
+                            "modello sul PC non regge." if locale else
+                            "Il motore rapido: orchestra e fa i compiti di tutti "
+                            "i giorni."),
+        }
+        scala.append("rapido")
+    if difficile:
+        tiers["difficile"] = {
+            "brain": difficile[0], "model": difficile[1],
+            "descrizione": "Quando il compito lo merita davvero. Pesa sulla quota.",
+        }
+        scala.append("difficile")
+    if not scala:
+        return None
+    return {"orchestratore": scala[0], "scala": scala, "tiers": tiers}
+
+
 def cli_predefinite() -> dict:
     """CLI agentiche esterne, aggiungibili senza toccare il codice.
 

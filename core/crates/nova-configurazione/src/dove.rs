@@ -91,11 +91,21 @@ pub fn scrivi_fondendo(modifica: &Value) -> Result<Value, String> {
 
 /// Come [`scrivi_fondendo`], in un file scelto.
 pub fn scrivi_fondendo_in(p: &std::path::Path, modifica: &Value) -> Result<Value, String> {
+    scrivi_trasformando_in(p, |attuale| fondi(attuale, modifica))
+}
+
+/// Come [`scrivi_fondendo_in`], ma la modifica la fa `cambia`: serve quando
+/// una parte va **sostituita** e non fusa, come i gradini della scala
+/// consigliata (D379), che fusi lascerebbero in coda quelli di prima.
+pub fn scrivi_trasformando_in(
+    p: &std::path::Path,
+    cambia: impl FnOnce(&mut Value),
+) -> Result<Value, String> {
     let (mut attuale, perche) = leggi_da(p);
     if !perche.is_empty() {
         return Err(perche);
     }
-    fondi(&mut attuale, modifica);
+    cambia(&mut attuale);
     if let Some(dir) = p.parent() {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
@@ -154,6 +164,20 @@ mod prove {
         assert_eq!(std::fs::read_to_string(&f).unwrap(), "{ rotto", "un file storto non si butta");
         let nuovo = d.join("sotto").join("config.json");
         assert_eq!(scrivi_fondendo_in(&nuovo, &serde_json::json!({"a": 1})).unwrap(), serde_json::json!({"a": 1}));
+    }
+
+    #[test]
+    fn trasformando_si_sostituisce_invece_di_fondere() {
+        let d = cartella("trasforma");
+        let f = d.join("config.json");
+        std::fs::write(&f, "{\"t\": {\"vecchio\": 1}, \"resta\": 2}").unwrap();
+        let v = scrivi_trasformando_in(&f, |c| c["t"] = serde_json::json!({"nuovo": 1})).unwrap();
+        assert_eq!(v, serde_json::json!({"t": {"nuovo": 1}, "resta": 2}));
+        assert_eq!(leggi_da(&f).0, v);
+        std::fs::write(&f, "{ rotto").unwrap();
+        assert!(scrivi_trasformando_in(&f, |c| c["t"] = serde_json::json!(1)).is_err());
+        assert_eq!(std::fs::read_to_string(&f).unwrap(), "{ rotto", "un file storto non si butta");
+        let _ = std::fs::remove_dir_all(&d);
     }
 
     #[test]

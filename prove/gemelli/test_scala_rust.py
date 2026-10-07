@@ -477,6 +477,23 @@ print("\n=== La scala di fabbrica e' quella di Python ===")
 controlla("ROUTING_PREDEFINITO e' routing_predefinito(), estratto e non ricopiato",
           json.loads(rust({})["predefinito"]) == routing_predefinito())
 
+print("\n=== La scala consigliata per quello che c'e' (D379) ===")
+from itertools import product as _prodotto  # noqa: E402
+from nova.routing import scala_consigliata  # noqa: E402
+_TUTTE = [list(x) for x in _prodotto([False, True], repeat=3)]
+_rust_consigli = rust({"disponibili": _TUTTE})["consigli"]
+_diverse = [f"{x}: rust {r} vs python {scala_consigliata(*x)}"
+            for x, r in zip(_TUTTE, _rust_consigli) if r != scala_consigliata(*x)]
+controlla("le otto combinazioni danno la stessa scala consigliata", not _diverse,
+          " | ".join(_diverse[:2]))
+controlla("e con tutti e due i fornitori e' Flash e poi Opus",
+          [(scala_consigliata(False, True, True)["tiers"][n]["brain"],
+            scala_consigliata(False, True, True)["tiers"][n]["model"])
+           for n in ("rapido", "difficile")]
+          == [("antigravity", "ultimo:gemini-*-flash-high"), ("claude", "ultimo:opus")])
+controlla("senza nessun cervello non si consiglia niente",
+          _rust_consigli[0] is None and scala_consigliata(False, False, False) is None)
+
 print("\n=== La delega, giocata passo per passo coi cervelli finti ===")
 # Il Router e gli strumenti di `deleghe.py` sono quelli veri. Si finge solo
 # chi risponde — cervelli che leggono da un copione — e l'orologio.

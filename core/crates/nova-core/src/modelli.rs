@@ -46,6 +46,11 @@ pub struct Catalogo {
     /// Cosa e' successo, da raccontare: un aggiornamento, una prova storta.
     #[serde(default)]
     pub note: Vec<String>,
+    /// Quali cervelli di fuori ci sono davvero (D379): `claude` se Claude
+    /// Code ha fatto l'accesso, e ogni CLI con un elenco (`antigravity`) se
+    /// l'elenco non e' vuoto. Da qui la scala consigliata.
+    #[serde(default)]
+    pub disponibili: BTreeMap<String, bool>,
 }
 
 /// Dove sta il catalogo.
@@ -80,10 +85,7 @@ pub fn per_claude(modello: &str) -> String {
 
 /// Come [`per_claude`], su un catalogo dato.
 pub fn per_claude_da(c: &Catalogo, modello: &str) -> String {
-    match m::famiglia_claude(modello) {
-        Some(f) => c.claude.get(&f).cloned().unwrap_or(f),
-        None => modello.to_string(),
-    }
+    m::per_claude_da(&c.claude, modello)
 }
 
 /// Il modello da passare a una CLI: per un `ultimo:<forma>`, il piu' recente
@@ -96,14 +98,7 @@ pub fn per_cli(d: &nova_cervelli::cli::Dichiarata) -> String {
 
 /// Come [`per_cli`], su un catalogo dato.
 pub fn per_cli_da(c: &Catalogo, d: &nova_cervelli::cli::Dichiarata) -> String {
-    match m::famiglia(&d.modello) {
-        Some(forma) => c
-            .elenchi
-            .get(&d.binario)
-            .and_then(|e| m::scegli(forma, e))
-            .unwrap_or_default(),
-        None => d.modello.clone(),
-    }
+    m::per_cli_da(c.elenchi.get(&d.binario).map(Vec::as_slice), &d.modello)
 }
 
 /// Cosa la configurazione chiede di scegliere da solo: le famiglie di Claude
@@ -148,6 +143,46 @@ pub fn in_uso(cfg: &Value) -> (Vec<String>, Vec<nova_cervelli::cli::Dichiarata>)
         }
     }
     (famiglie, cli)
+}
+
+/// Le CLI da provare per il catalogo: quelle che la configurazione usa, e
+/// ogni altra dichiarata che ha un elenco dei modelli. Le seconde servono a
+/// sapere se ci sono (D379): Antigravity va provata anche da chi non l'ha
+/// ancora messa in un gradino, se no la scala consigliata non la vedrebbe.
+pub fn da_provare(cfg: &Value) -> (Vec<String>, Vec<nova_cervelli::cli::Dichiarata>) {
+    let (famiglie, mut cli) = in_uso(cfg);
+    let r = crate::dalla_configurazione::recapiti(cfg, &|n| std::env::var(n).ok());
+    // Quelle di fabbrica valgono anche per chi non le ha nel file, tranne
+    // chi le ha tolte apposta, scrivendole `null`.
+    let scritte = cfg.get("brains").and_then(|b| b.get("cli"));
+    let di_fabbrica: Vec<nova_cervelli::cli::Dichiarata> = nova_cervelli::cli::predefinite()
+        .as_object()
+        .map(|o| {
+            o.iter()
+                .filter(|(n, _)| scritte.and_then(|s| s.get(n.as_str())).is_none())
+                .map(|(n, spec)| nova_cervelli::cli::dichiarata(n, spec))
+                .collect()
+        })
+        .unwrap_or_default();
+    for d in r.cli.iter().chain(di_fabbrica.iter()) {
+        if !d.elenco_modelli.is_empty() && !cli.iter().any(|x| x.binario == d.binario) {
+            cli.push(d.clone());
+        }
+    }
+    (famiglie, cli)
+}
+
+/// La scala consigliata per quello che c'e' (D379), dal catalogo su disco:
+/// e' cio' che stampa `novad --consiglio`, e lo stesso conto che fa il
+/// pannello. Non scrive niente: il consiglio lo applica l'utente.
+pub fn consiglio(cfg: &Value) -> Value {
+    // Un catalogo che non c'e', o fatto prima del D379, ha «disponibili»
+    // vuoto: il consiglio lo legge come «non so ancora», non come «niente».
+    let cat = serde_json::to_value(leggi()).unwrap_or(Value::Null);
+    let locale = nova_scala::consiglio::locale_esiste(cfg);
+    nova_scala::consiglio::consiglio(cfg, &cat, locale, &|brain, model| {
+        m::scelto_dal_catalogo(cfg, &cat, brain, model)
+    })
 }
 
 /// Chi lancia i programmi: quello vero, o uno finto nelle prove.
@@ -297,6 +332,7 @@ pub async fn aggiorna(
         ..Default::default()
     };
     let mut aggiornamento = None;
+    c.disponibili.insert("claude".into(), !claude_exe.is_empty());
     if !claude_exe.is_empty() && !famiglie.is_empty() {
         c.claude_versione = versione_claude(l, claude_exe).await;
         let mut serve: Option<String> = None;
@@ -343,6 +379,7 @@ pub async fn aggiorna(
         }
     }
     for d in cli {
+        c.disponibili.insert(d.nome.clone(), false);
         let exe = crate::processo::trova(&d.binario);
         if exe.is_empty() {
             c.note.push(format!("{}: non trovato nel PATH", d.binario));
@@ -358,6 +395,7 @@ pub async fn aggiorna(
                         .push(format!("{}: l'elenco dei modelli e' vuoto", d.binario));
                 } else {
                     c.elenchi.insert(d.binario.clone(), e);
+                    c.disponibili.insert(d.nome.clone(), true);
                 }
             }
             Err(e) => c.note.push(format!("{}: {e}", d.binario)),
@@ -369,7 +407,7 @@ pub async fn aggiorna(
 /// Rifa' il catalogo per la configurazione di adesso, lo scrive e lo
 /// restituisce. E' cio' che fanno il giro periodico e `novad --modelli`.
 pub async fn aggiorna_adesso(cfg: &Value) -> Catalogo {
-    let (famiglie, cli) = in_uso(cfg);
+    let (famiglie, cli) = da_provare(cfg);
     let b = cfg.get("brains").unwrap_or(&Value::Null);
     let aggiorna_claude = b
         .get("aggiorna_claude")
@@ -577,6 +615,44 @@ mod prove {
         let (c, _) = aggiorna(&f, "", &["opus".into()], &[], true, 1000).await;
         assert!(c.claude.is_empty());
         assert!(f.chiesti.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn il_catalogo_dice_quali_cervelli_ci_sono() {
+        // Un binario che esiste di sicuro: il programma delle prove.
+        let qui = std::env::current_exe().unwrap().to_string_lossy().into_owned();
+        let con = |binario: &str| {
+            nova_cervelli::cli::dichiarata(
+                "antigravity",
+                &serde_json::json!({"binary": binario, "elenco_modelli": ["models"]}),
+            )
+        };
+        let mut f = finto();
+        f.elenco = "gemini-3.8-flash-high\ngemini-3.1-pro-high\n";
+        let (c, _) = aggiorna(&f, "claude", &[], &[con(&qui)], true, 1000).await;
+        assert_eq!(c.disponibili.get("claude"), Some(&true));
+        assert_eq!(c.disponibili.get("antigravity"), Some(&true));
+        // Senza accesso a Claude Code, e con un elenco vuoto o senza
+        // programma, non ci sono.
+        f.elenco = "Fetching available models...\n";
+        let (c, _) = aggiorna(&f, "", &[], &[con(&qui)], true, 1000).await;
+        assert_eq!(c.disponibili.get("claude"), Some(&false));
+        assert_eq!(c.disponibili.get("antigravity"), Some(&false));
+        let (c, _) = aggiorna(&f, "", &[], &[con("/non/esiste/agy")], true, 1000).await;
+        assert_eq!(c.disponibili.get("antigravity"), Some(&false));
+    }
+
+    #[test]
+    fn antigravity_si_prova_anche_se_nessun_gradino_la_usa() {
+        // Il file non la nomina: vale quella di fabbrica.
+        let cfg = serde_json::json!({"brains": {"routing": {
+            "scala": ["standard"], "tiers": {"standard": {"brain": "claude"}}}}});
+        let (_, cli) = da_provare(&cfg);
+        assert!(cli.iter().any(|d| d.binario == "agy"), "{cli:?}");
+        assert!(in_uso(&cfg).1.is_empty());
+        // Chi l'ha tolta apposta non la vuole provata.
+        let tolta = serde_json::json!({"brains": {"cli": {"antigravity": null}}});
+        assert!(!da_provare(&tolta).1.iter().any(|d| d.binario == "agy"));
     }
 
     #[test]

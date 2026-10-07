@@ -1379,6 +1379,25 @@ The defaults:
 .\bin\nova call cervelli.stato     # tiers, state, spent / cap
 ```
 
+**The recommended ladder** (D379). The ones above are the factory tiers; NOVA
+also recommends the right ones for what you actually have, and shows them in
+the panel, under *Brain*, even if you wrote your tiers yourself:
+
+| What there is | Recommended ladder |
+|---|---|
+| only Antigravity (a Gemini subscription) | Gemini Flash -> Gemini Pro |
+| only Claude Code | Haiku -> Opus |
+| both | Gemini Flash -> Opus |
+| a model on the PC | added at the bottom: it orchestrates |
+
+What there is comes from the model catalogue, which tests it: Claude Code
+signed in, Antigravity with a non-empty model list, the model on the PC if
+the file exists. The recommendation is never applied on its own: the *Use
+this ladder* button applies it, replacing the tiers and leaving the previous
+file next to it, in `config.json.prima-del-consiglio`. `novad --consiglio`
+prints the recommended ladder next to the one in use, without changing
+anything.
+
 ### How it passes the ball
 
 Three roads, in order of intelligence:
