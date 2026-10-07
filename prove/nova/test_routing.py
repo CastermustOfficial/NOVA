@@ -1,4 +1,8 @@
-"""Verifica i cinque difetti corretti, senza toccare modelli veri."""
+"""Verifica i cinque difetti corretti, senza toccare modelli veri.
+
+La configurazione e' quella di fabbrica, non quella di chi lancia la prova:
+sul PC di sviluppo la scala e' un'altra, e la prova misurava quella.
+"""
 import sys
 from pathlib import Path
 
@@ -19,7 +23,7 @@ def controlla(nome, condizione, dettaglio=""):
 
 # ---------------------------------------------------------------- 1 e 5
 print("\n1+5. il ripiego non esplode e arriva fino al locale")
-cfg = Config.load()
+cfg = Config()
 r = Router(cfg, log=lambda m: None)
 
 
@@ -64,7 +68,7 @@ except Exception as e:
 
 # ------------------------------------------------------------------- 4
 print("\n4. la seconda escalation sale ancora, non ripete lo stesso gradino")
-r2 = Router(Config.load(), log=lambda m: None)
+r2 = Router(Config(), log=lambda m: None)
 saliti = []
 
 
@@ -93,7 +97,7 @@ class Testardo:
             "function": {"name": "inesistente", "arguments": "{}"}}])
 
 
-cfg2 = Config.load()
+cfg2 = Config()
 cfg2.brains.routing["orchestratore"] = "locale"
 cfg2.brains.routing["fallimenti_prima_di_salire"] = 2
 cfg2.brains.routing["salite_massime"] = 2
@@ -117,7 +121,7 @@ controlla("nessun messaggio tool orfano", not orfani, f"orfani: {orfani}")
 
 # ------------------------------------------------------------------- 3
 print("\n3. il tetto prenota sotto lock invece di controllare e sperare")
-r3 = Router(Config.load(), log=lambda m: None)
+r3 = Router(Config(), log=lambda m: None)
 r3.cfg.brains.routing["tetto_usd_sessione"] = 0.15
 r3.cfg.brains.routing["costo_stimato_delega"] = 0.10
 r3.a_consumo = lambda t: True
@@ -131,7 +135,7 @@ except PermissionError:
 
 # ------------------------------------------------------------------- 6
 print("\n6. la scala non dipende dall'ordine delle chiavi di «tiers»")
-c6 = Config.load()
+c6 = Config()
 tiers = c6.brains.routing["tiers"]
 # come lo riscriveva il pannello: chiavi in ordine alfabetico
 c6.brains.routing["tiers"] = {k: tiers[k] for k in sorted(tiers)}

@@ -126,7 +126,7 @@ Cosa serve: niente: puro Python, la prima versione di NOVA.
 | `test_visione.py` | COM-11. Il modello locale che non vede, e cosa succede se lo si ignora. |
 | `test_voce.py` | Voce: le decisioni che si prendono senza rete. |
 
-## `prove/gemelli/`: 30 prove
+## `prove/gemelli/`: 31 prove
 
 Cosa serve: un banco Rust costruito con `cargo`: la prova stampa la riga per costruirlo.
 
@@ -146,6 +146,7 @@ Cosa serve: un banco Rust costruito con `cargo`: la prova stampa la riga per cos
 | `test_docx_rust.py` | Per modificare un .docx non serve una libreria di .docx — e va dimostrato. |
 | `test_fogli_rust.py` | I fogli di calcolo devono ragionare uguale in Rust. |
 | `test_giudizio_rust.py` | Le due meta' leggono gli stessi logit e danno lo stesso giudizio. |
+| `test_clm_rust.py` | Le teste di CLM in Rust danno le stesse probabilita' di quelle del banco, su teste e vettori qualunque e nel formato che legge il demone. |
 | `test_giudizio_solo_testo.py` | La domanda del giudice ai cervelli di fuori e' quella del modello di casa, carattere per carattere; le risposte si leggono. |
 | `test_guasti_rust.py` | I guasti in Rust devono dire le stesse parole, e coprire le stesse chiavi. |
 | `test_harness_rust.py` | L'harness deve tagliare e cercare uguale in Rust. |
@@ -163,7 +164,7 @@ Cosa serve: un banco Rust costruito con `cargo`: la prova stampa la riga per cos
 | `test_semina_rust.py` | La prima mappatura del PC scrive in Rust gli stessi nodi del Python. |
 | `test_strumenti_rust.py` | Gli strumenti dichiarati allo stesso modo, in Rust. |
 
-## `prove/demone/`: 28 prove
+## `prove/demone/`: 29 prove
 
 Cosa serve: il binario `novad` costruito.
 
@@ -172,6 +173,7 @@ Cosa serve: il binario `novad` costruito.
 | `test_approvazione.py` | Il ponte delle approvazioni: chi chiede aspetta, chi risponde sblocca. |
 | `test_demone_app.py` | Applicazioni, finestre e processi, dal demone. |
 | `test_demone_automazioni.py` | Le automazioni del demone contro quelle del Python (D346). |
+| `test_demone_clm.py` | Senza le lettere decide CLM: sopra la soglia la delega sale, sotto si astiene, spento valgono le parole; e il registro dice chi ha deciso. |
 | `test_demone_cervelli.py` | Passare la palla a un cervello piu' capace, dal demone; il giudice di casa e la sua riga nel registro delle decisioni. |
 | `test_demone_claude.py` | Cio' che Claude Code vede del demone: gli strumenti e lo sportello. |
 | `test_demone_cli.py` | Il demone fa un turno con un cervello che e' un **programma**, non un URL. |

@@ -1,0 +1,22 @@
+[package]
+name = "nova-clm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Le due teste di CLM, per scegliere fra candidati coi vettori di Qwen3-8B."
+
+# Solo serde_json, per leggere la descrizione dei pesi. Il resto e'
+# aritmetica: prodotti di matrici, una norma, una gelu. I vettori li da'
+# llama-server; qui non si tocca nessun modello.
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+[features]
+banco = []
+
+[[bin]]
+name = "banco-clm"
+path = "src/banco.rs"
+required-features = ["banco"]

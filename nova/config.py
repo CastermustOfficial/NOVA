@@ -691,6 +691,22 @@ class VoiceConfig:
 
 
 @dataclass
+class ClmConfig:
+    """CLM, il giudice veloce per chi non ha le lettere (D378).
+
+    Lo usa il demone, solo quando le probabilita' del modello di casa non ci
+    sono: un secondo llama-server con Qwen3-8B e le teste addestrate. Spento
+    di serie, perche' vuole da 6 a 9 GB di memoria video in piu'.
+    """
+    attivo: bool = False
+    gguf: str = ""          # il Qwen3-8B in GGUF
+    teste: str = ""         # la cartella con teste.json e teste.f32
+    porta: int = 8423
+    strati: int = 999       # quanti strati sulla scheda: 999 = tutti
+    soglia: float = 0.8     # sotto, CLM si astiene e valgono le parole
+
+
+@dataclass
 class Config:
     server: ServerConfig = field(default_factory=ServerConfig)
     model: ModelConfig = field(default_factory=ModelConfig)
@@ -699,6 +715,7 @@ class Config:
     voice: VoiceConfig = field(default_factory=VoiceConfig)
     kb: KBConfig = field(default_factory=KBConfig)
     brains: BrainsConfig = field(default_factory=BrainsConfig)
+    clm: ClmConfig = field(default_factory=ClmConfig)
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
     # Dove NOVA trova i fatti veri sull'utente. Vuoto = Documenti/NOVA/fascicolo.
     fascicolo: str = ""

@@ -223,6 +223,11 @@ pub fn giudica_in_casa(
 
 // ------------------------------------------------------- quale cervello
 
+/// La domanda di `QualeCervello`. CLM la legge in coda allo stato, con le
+/// stesse parole con cui le sue teste sono state addestrate (D378).
+pub const ISTRUZIONI_QUALE_CERVELLO: &str =
+    "Di che tipo e' questo compito? Scegli la categoria che lo descrive meglio.";
+
 /// Il testo dell'opzione che non fa salire niente.
 pub const NESSUNA_CATEGORIA: &str = "nessuna di queste: un compito che il modello di casa puo' \
      fare da solo";
@@ -249,8 +254,7 @@ pub fn domanda_quale_cervello(categorie: &[(String, String)]) -> Domanda {
         descrizione: NESSUNA_CATEGORIA.into(),
     });
     Domanda::Scelta {
-        istruzioni: "Di che tipo e' questo compito? Scegli la categoria che lo descrive meglio."
-            .into(),
+        istruzioni: ISTRUZIONI_QUALE_CERVELLO.into(),
         opzioni,
         politica: nova_giudizio::Politica::default(),
     }

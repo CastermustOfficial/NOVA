@@ -142,7 +142,7 @@ fn stima_strati(m: &ModelloDiCasa) -> i64 {
 }
 
 /// Il motore: quello della configurazione, o il migliore fra quelli noti.
-fn motore(m: &ModelloDiCasa) -> Result<String, String> {
+pub(crate) fn motore(m: &ModelloDiCasa) -> Result<String, String> {
     if !m.binario.is_empty() {
         return Ok(m.binario.clone());
     }

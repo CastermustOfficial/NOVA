@@ -115,6 +115,7 @@ impl Cervelli for Veri {
         use nova_giudizio::{Giudizio, Risposta};
         let domanda = domanda_quale_cervello(categorie);
         let stato = stato_del_compito(compito, allegati);
+        let mut probabilita = None;
         let (scelta, come) = match giudica_in_casa(&self.recapiti.locale_url, &stato, &domanda, 1.0)
         {
             Ok((esito, _)) => match esito.giudizio {
@@ -124,19 +125,43 @@ impl Cervelli for Veri {
                 Giudizio::Incerto { .. } => (None, "incerto"),
                 Giudizio::FuoriScala { .. } => (None, "fuori_scala"),
             },
-            Err(_) => (None, "guasto"),
+            // Le lettere non ci sono — niente modello di casa, o uno che le
+            // probabilita' non le da': se CLM e' acceso decide lui, sopra la
+            // soglia; sotto si astiene, e valgono le parole (D378).
+            Err(_) => {
+                let i = crate::clm::impostazioni(&self.cfg);
+                if i.attivo {
+                    match crate::clm::quale_cervello(&i, categorie, compito, allegati) {
+                        Ok((id, p)) => {
+                            probabilita = Some(p);
+                            if p >= i.soglia {
+                                (Some(id), "clm")
+                            } else {
+                                (None, "clm_incerto")
+                            }
+                        }
+                        Err(e) => {
+                            tracing::warn!(errore = %e, "CLM non ha giudicato");
+                            (None, "guasto")
+                        }
+                    }
+                } else {
+                    (None, "guasto")
+                }
+            }
         };
-        crate::decisioni::annota(
-            &self.cfg,
-            &crate::decisioni::riga_quale_cervello(
-                &crate::decisioni::adesso(),
-                compito,
-                allegati,
-                categorie,
-                scelta.as_deref(),
-                come,
-            ),
+        let mut riga = crate::decisioni::riga_quale_cervello(
+            &crate::decisioni::adesso(),
+            compito,
+            allegati,
+            categorie,
+            scelta.as_deref(),
+            come,
         );
+        if let Some(p) = probabilita {
+            riga["probabilita"] = json!((p as f64 * 10000.0).round() / 10000.0);
+        }
+        crate::decisioni::annota(&self.cfg, &riga);
         scelta.filter(|id| id != NESSUNA)
     }
 

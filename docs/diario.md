@@ -11588,3 +11588,14 @@ sorpresa e' stata `sonnet`: anche sulla Claude Code nuova porta ancora al 5,
 mentre il 5.5 risponde. E Opus 5.5 non partiva finche' la CLI non si e'
 aggiornata: adesso, quando serve, si aggiorna da sola.
 
+
+## 7 ottobre 2026 — CLM trova il suo posto
+
+Lo volevo davanti alle lettere, e la misura ha detto di no: Gemma sbaglia un
+caso su 34, CLM da cinque a sette. Il posto giusto e' dove le lettere non ci
+sono, cioe' proprio la configurazione di Gio: niente modello sul PC, Gemini
+Flash come motore rapido, Opus per il resto. La soglia l'ho scelta su
+cinquecento compiti nuovi, e dal vivo ha fatto quello che doveva: architettura
+a Opus, l'ora di Tokyo a Flash, e sul compito incerto si e' fatta da parte.
+Quel compito incerto pero' e' arrivato a Opus, che ha acceso Docker: le prove
+dal vivo adesso dicono di non usare strumenti.

@@ -797,11 +797,12 @@ core/crates/
   nova-pitone/        the habits of Python the port had to respect
   nova-decisioni/     which decisions may leave the PC (CANT-12)
   nova-giudizio/      typed decisions read from the logits (CANT-12)
+  nova-clm/           CLM's two heads, on Qwen3-8B's vectors (CANT-12)
 nova/                 the first version, in Python: what the benches compare against
 prove/                the tests, grouped by what they need in order to run
 ```
 
-Thirty-eight crates. The last two are the ground for CANT-12.
+Thirty-nine crates. The last three are the ground for CANT-12.
 `nova_core::giudizio_casa` (D371) asks the home model for the logits and hands
 them to `nova-giudizio`, and the first decision to use it is delegation: which
 brain is needed (D373). No binary uses `nova-decisioni`, and the same goes for
@@ -812,7 +813,10 @@ with a credential inside is not written, and `kb.decisioni` turns it all off.
 The heads, trained on synthetic tasks labelled by the big model
 (`misure/clm_addestra.py`), get between 27 and 29 out of 34 on which brain is
 needed and pick the right tool among 58 between 27 and 32 times out of 40
-(D375); NOVA does not use them yet. On the same questions Claude Code with
+(D375). The daemon uses them (`nova-clm`, D378) for whoever has no letters,
+that is keeps no model on the PC: they are turned on with `clm.attivo`, and
+decide which brain is needed above a threshold chosen on new cases. On the
+same questions Claude Code with
 Opus 5 and Gemini 3.1 Pro through Antigravity get 34 out of 34 and 40 out of
 40, in seconds rather than milliseconds (`misure/banco_cervelli_fuori.py`).
 
@@ -1002,6 +1006,7 @@ python misure/banco_giudizio_slot.py      # does a judgement on the same llama-s
 python misure/banco_strumento_clm.py      # does CLM pick the tool among the home model's 58? Against BM25
 python misure/clm_addestra.py compiti     # CLM's heads trained on the big model's choices (CANT-12; the steps are at the top of the file)
 python misure/banco_cervelli_fuori.py chiedi --braccio claude   # the same questions to Claude Code and Antigravity, and the cascade with CLM
+python misure/banco_clm_accanto.py        # CLM next to the home model: video memory and milliseconds
 ```
 
 `banco_cervello.py` measures something different from the others: not how fast

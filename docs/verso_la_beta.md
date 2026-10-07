@@ -2934,6 +2934,71 @@ vedono. Le
 differenze sono di pochi casi su banchi piccoli: dicono che un maestro piu'
 grande non basta, da solo, a fare un CLM migliore.
 
+**Dove entra (7 ottobre, D378).** Davanti alle lettere CLM perderebbe casi
+per risparmiare un decimo di secondo: sul PC di sviluppo Gemma fa 33 su 34
+in 193 ms, CLM addestrato da 27 a 29. Le lettere pero' ci sono solo con un
+modello di casa. Chi usa come motore rapido un cervello di fuori (Gio, con
+Gemini 3.8 Flash da Antigravity e Opus 5.5 per le cose difficili) aveva
+solo le parole, 20 su 34. Li' decide CLM, sopra una soglia; sotto si
+astiene e valgono le parole.
+
+La soglia l'ho scelta su casi nuovi, come chiedeva la cascata: 499 compiti
+scritti dal generatore in dodici ambiti diversi da quelli
+dell'addestramento, tolti quelli simili al banco o all'addestramento, ed
+etichettati da Qwen3.8 27B con le lettere; 482 hanno una risposta
+(`clm_addestra.py --insieme nuovi`, poi `soglia`). Teste del seme 8:
+
+| soglia | decisi su 482 | d'accordo | salite sbagliate |
+|---|---|---|---|
+| 0 | 482 | 414 (85,9%) | 38 |
+| 0,5 | 469 | 412 (87,8%) | 30 |
+| 0,6 | 434 | 392 (90,3%) | 23 |
+| 0,7 | 397 | 367 (92,4%) | 15 |
+| 0,75 | 379 | 357 (94,2%) | 11 |
+| **0,8** | **357** | **341 (95,5%)** | **6** |
+| 0,85 | 329 | 318 (96,7%) | 5 |
+| 0,9 | 296 | 289 (97,6%) | 2 |
+| 0,95 | 242 | 240 (99,2%) | 0 |
+| 0,99 | 151 | 151 (100%) | 0 |
+
+0,8 e' la soglia piu' bassa sopra il 95%: decide tre casi su quattro.
+
+**Accanto al modello di casa** (`misure/banco_clm_accanto.py`, scheda da
+16 GB). Da solo il server dei vettori occupa 9.347 MiB a Q8_0 e 6.149 a
+Q4_K_M, con 63 e 48 ms a vettore. Con Gemma acceso (11,2 GB):
+
+| GGUF | strati sulla scheda | in piu' su `nvidia-smi` | ms a vettore | lettere di Gemma |
+|---|---|---|---|---|
+| — | — | — | — | 57 ms |
+| Q8_0 | tutti | 3.786 MiB | 64 | 73 ms |
+| Q8_0 | 24 | 4.052 MiB | 309 | 60 ms |
+| Q8_0 | 0 | 1.973 MiB | 747 | 56 ms |
+| Q4_K_M | tutti | 4.070 MiB | 49 | 63 ms |
+| Q4_K_M | 0 | 1.900 MiB | 480 | 78 ms |
+
+La riga «tutti» non vuol dire che ci stia. Il registro del server
+(`-lv 4`) dice 37 strati su 37 sulla scheda, 7.670 MiB di pesi, 1.259 di
+calcolo e 288 di contesto: 20,4 GB insieme a Gemma, su 16. CUDA su
+Windows gli aveva detto che ce n'erano 15.223 liberi, e `nvidia-smi` si
+ferma a 15,9 GB. Il resto sulla scheda non c'e', e nemmeno nel contatore
+della memoria condivisa, che sale di 220 MiB: dove lo tenga il driver di
+Windows non l'ho visto. Su questo banco funziona; su Linux non e' provato.
+CLM resta pensato per chi il modello di casa non lo tiene.
+
+**Dal vivo**, col demone e la configurazione del PC di sviluppo (motore
+rapido Gemini 3.8 Flash, difficile Opus 5.5, niente modello di casa, CLM
+acceso), da `decisioni.jsonl`:
+
+| compito | CLM | probabilita' | chi risponde |
+|---|---|---|---|
+| «Monolite o microservizi per il backend della mia app? Rispondi solo con una parola, senza usare strumenti.» | architettura | 0,997 | Opus 5.5, 6,0 s |
+| «Che ore sono a Tokyo? Rispondi in una riga, senza usare strumenti.» | nessuna | 0,990 | Gemini Flash, 12,2 s |
+| «Progetta lo schema del database per il gestionale delle iscrizioni alla palestra» | si astiene | 0,579 | le parole: Opus 5.5 |
+
+Le teste in Rust (`nova-clm`) contro quelle numpy, sui 34 casi del banco
+coi vettori veri: differenza massima 7,2e-6, la stessa scelta in tutti e
+34 (`clm_addestra.py confronta-rust`).
+
 **Riferimenti raccolti da Gio il 22 settembre**, da guardare quando si riapre
 CANT-12:
 

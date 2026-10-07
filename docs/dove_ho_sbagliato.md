@@ -1886,3 +1886,64 @@ La regola: una sostituzione su tutto il repository si fa con il confine di
 parola (`regex:...\b`), e prima di pubblicarla si guarda ogni riga che ha
 toccato, non solo il conto.
 
+## Una prova dal vivo ha acceso Docker sul PC di sviluppo
+
+Il 7 ottobre, per vedere CLM decidere dal vivo, ho dato al demone una delega
+vera: «Progetta lo schema del database per il gestionale delle iscrizioni
+alla palestra». CLM si e' astenuto (0,58) e le parole l'hanno fatta salire a
+Opus 5.5, che gira con i permessi saltati, e Opus ha fatto il compito per
+davvero. Nella sessione di Claude Code, riletta dopo, ci sono tredici
+chiamate in nove minuti: ha cercato una cartella del gestionale nella
+cartella utente, ha scritto lo schema in `%TEMP%\palestra`, ha provato a
+lanciare un contenitore Postgres e, non trovando Docker acceso, ha avviato
+Docker Desktop; poi ha creato un ambiente Python in `%TEMP%\pgvenv`, ha
+scaricato Postgres 17.7 da EnterpriseDB in `%TEMP%\pgbin` (1,2 GB con lo zip)
+e ha inizializzato un database per provare lo schema. Me ne sono accorto
+mentre la delega era ancora aperta, da Docker Desktop acceso, e ho chiuso
+l'albero di Claude Code. Dopo: Docker spento, nessun contenitore, nessun
+Postgres acceso e nessuno in ascolto sulla 5432; le tre cartelle sono
+rimaste in `%TEMP%`, con il database inizializzato dentro `pgbin`. Il compito era scritto per misurare la scelta, non per
+far lavorare qualcuno, e ho dimenticato che dall'altra parte c'e' un agente
+che lavora.
+
+Le deleghe dopo dicevano «Rispondi solo con una parola, senza usare
+strumenti», e hanno risposto senza toccare niente.
+
+La regola: una prova dal vivo che arriva a un cervello agentico dice nel
+compito stesso di non usare strumenti, e chiede una risposta di una riga.
+Se serve misurare un compito che potrebbe agire, si misura sul banco, non
+sul PC di qualcuno.
+
+## Ho scritto che CLM ci stava accanto a Gemma, e non ci stava
+
+Il primo testo del D378 diceva che il server dei vettori con Qwen3-8B Q8_0
+«ci sta» accanto a Gemma, a 15,9 GB su 16. Il banco pero' diceva 3.786 MiB in
+piu', contro i 9.347 dello stesso server da solo: due numeri che non
+potevano essere veri insieme. Me ne sono accorto ricontrollando ogni numero
+alla fonte prima del commit. Rifatta la prova col registro del server: tutti
+i 37 strati sulla scheda, 9,2 GB, che con Gemma fanno 20,4 su 16. Il resto lo
+tiene fuori il driver di Windows, e lo stesso banco, nel suo commento, lo
+diceva gia' per `-ngl 999`.
+
+Ora il D378, il piano e `verso_la_beta.md` dicono che non ci sta, e cosa si
+e' misurato lo stesso.
+
+La regola: un numero di memoria della scheda si legge con quello che il
+programma dice di aver messo sulla scheda, non solo con `nvidia-smi`; se due
+misure non tornano fra loro, prima si capisce perche', poi si scrive.
+
+## Una prova misurava la configurazione di chi la lanciava
+
+`prove/nova/test_routing.py` costruiva il router con `Config.load()`, cioe'
+con la configurazione di chi lancia la prova. Nel contenitore e in CI non ce
+n'e' una, e valeva quella di fabbrica. Sul PC di sviluppo, dopo aver messo la
+scala del D378 (rapido e difficile), la prova e' diventata rossa: cercava
+`locale` e `standard` in testa alla scala, e trovava `rapido`. Se n'e' accorta
+la suite intera sul PC, prima del commit.
+
+Ora la prova usa `Config()`, la configurazione di fabbrica. Altre otto prove
+chiamano ancora `Config.load()`: sono nel piano, con quella che scrive nel
+registro vero.
+
+La regola: una prova non legge la configurazione dell'utente, a meno che non
+sia proprio quella che vuole provare; e allora lo dice.

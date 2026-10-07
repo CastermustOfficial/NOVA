@@ -61,6 +61,7 @@ ureq = "2"
 # Il giudizio dai logit delle lettere (CANT-12): qui la meta' che chiede a
 # llama-server, in `giudizio_casa`.
 nova-giudizio = { path = "../nova-giudizio" }
+nova-clm = { path = "../nova-clm" }
 # Il web senza browser: cosa si chiede a DuckDuckGo, come si leggono i
 # risultati, cosa si dice di una pagina scaricata. Confrontato col Python da
 # un banco; qui c'e' solo la rete.

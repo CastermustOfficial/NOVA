@@ -788,11 +788,12 @@ core/crates/
   nova-pitone/        le abitudini di Python che il porto doveva rispettare
   nova-decisioni/     quali decisioni possono uscire dal PC (CANT-12)
   nova-giudizio/      decisioni tipizzate lette dai logit (CANT-12)
+  nova-clm/           le due teste di CLM, sui vettori di Qwen3-8B (CANT-12)
 nova/                 la prima versione, in Python: termine di paragone dei banchi
 prove/                le prove, divise per cosa serve a farle girare
 ```
 
-Trentotto crate. Gli ultimi due sono il terreno di CANT-12.
+Trentanove crate. Gli ultimi tre sono il terreno di CANT-12.
 `nova_core::giudizio_casa` (D371) chiede i logit al modello di casa e li passa
 a `nova-giudizio`, e la prima decisione che lo usa e' la delega: quale
 cervello serve (D373). `nova-decisioni` non lo usa nessun binario, e lo
@@ -803,8 +804,10 @@ scelta del giudice. Una richiesta con dentro una credenziale non si scrive, e
 `kb.decisioni` spegne tutto.
 Le teste, addestrate su compiti sintetici etichettati dal modello grande
 (`misure/clm_addestra.py`), fanno da 27 a 29 su 34 a dire quale cervello
-serve e scelgono lo strumento giusto fra 58 da 27 a 32 volte su 40 (D375);
-NOVA ancora non le usa. Sulle stesse domande Claude Code con Opus 5 e Gemini 3.1
+serve e scelgono lo strumento giusto fra 58 da 27 a 32 volte su 40 (D375).
+Il demone le usa (`nova-clm`, D378) per chi non ha le lettere, cioe' non
+tiene un modello sul PC: si accendono con `clm.attivo`, e decidono quale
+cervello serve sopra una soglia scelta su casi nuovi. Sulle stesse domande Claude Code con Opus 5 e Gemini 3.1
 Pro da Antigravity fanno 34 su 34 e 40 su 40, in secondi invece che in
 millisecondi (`misure/banco_cervelli_fuori.py`).
 
@@ -995,6 +998,7 @@ python misure/banco_giudizio_slot.py      # un giudizio sullo stesso llama-serve
 python misure/banco_strumento_clm.py      # CLM sceglie lo strumento fra i 58 del modello di casa? Contro BM25
 python misure/clm_addestra.py compiti     # le teste di CLM addestrate sulle scelte del modello grande (CANT-12; i passi in testa al file)
 python misure/banco_cervelli_fuori.py chiedi --braccio claude   # le stesse domande a Claude Code e ad Antigravity, e la cascata con CLM
+python misure/banco_clm_accanto.py        # CLM accanto al modello di casa: memoria video e millisecondi
 ```
 
 `banco_cervello.py` misura una cosa diversa dalle altre: non quanto e' veloce

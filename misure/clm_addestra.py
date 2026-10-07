@@ -18,6 +18,11 @@ ognuno accende un modello diverso:
     python misure/clm_addestra.py vettori     # Qwen3-8B, i vettori di tutti i testi
     python misure/clm_addestra.py addestra    # le teste, sulla GPU se c'e' (--etichette claude|accordo)
     python misure/clm_addestra.py vicini      # quanto i casi dei banchi somigliano ai sintetici
+    python misure/clm_addestra.py esporta --nome teste-s8   # le teste nel formato del demone (D378)
+    python misure/clm_addestra.py compiti --insieme nuovi   # i casi nuovi, per la soglia
+    python misure/clm_addestra.py etichetta --insieme nuovi --modello <gguf del maestro>
+    python misure/clm_addestra.py soglia --nome teste-s8    # la soglia, scelta sui casi nuovi
+    python misure/clm_addestra.py confronta-rust --nome teste-s8   # nova-clm contro numpy, sui veri
 
 Poi si rimisura con i banchi di sempre e le teste nuove:
 
@@ -73,6 +78,16 @@ AMBITI = [
     "un server domestico", "un progetto universitario", "un'azienda di logistica",
     "uno studio medico",
 ]
+# Gli ambiti dei casi nuovi, su cui si sceglie la soglia di CLM (D378): altri
+# da quelli dell'addestramento, perche' una soglia scelta su compiti fratelli
+# di quelli imparati sarebbe troppo ottimista.
+AMBITI_NUOVI = [
+    "una biblioteca comunale", "un laboratorio di ricerca", "un'associazione sportiva",
+    "un ristorante", "un'officina meccanica", "uno studio di architetti",
+    "un blog di cucina", "una scuola elementare", "un'agenzia di viaggi",
+    "un negozio online di vestiti", "un'azienda agricola", "un'app per il fitness",
+]
+
 # Le parole che le liste di D372 cercano: i compiti «trappola» le usano in un
 # senso che non fa salire niente, come quelli del banco scritti a mano.
 PAROLE_TRAPPOLA = ["review", "rivedi", "architettura", "progetta", "database",
@@ -168,11 +183,17 @@ def chat(url: str, testo: str, seme: int) -> str:
         return json.loads(f.read().decode("utf-8"))["choices"][0]["message"].get("content") or ""
 
 
+def nome_compiti(insieme: str) -> str:
+    """`compiti` per l'addestramento, `compiti_nuovi` per la soglia."""
+    return "compiti" if insieme == "addestra" else "compiti_nuovi"
+
+
 def comando_compiti(a) -> None:
     cat = bq.categorie()
     altre = "; ".join(d for _, d in cat)
     richieste = []
-    for k, ambito in enumerate(AMBITI):
+    nuovi = a.insieme == "nuovi"
+    for k, ambito in enumerate(AMBITI_NUOVI if nuovi else AMBITI):
         for cid, descr in cat:
             richieste.append((cid, k, (
                 f"Scrivi 10 richieste diverse, in italiano, che un utente potrebbe fare al suo "
@@ -195,12 +216,17 @@ def comando_compiti(a) -> None:
             f'Per ognuna di\' quanti file allega (0 se nessuno). Oggetti {{"compito": "...", '
             f'"allegati": n}}. {ORIENTA}')))
     banco = [c for c, _, _ in bq.CASI]
+    if nuovi:
+        # I casi nuovi non devono somigliare ne' al banco ne' a quello su cui
+        # le teste si sono addestrate.
+        banco += [c["compito"] for c in leggi_jsonl(a.cartella / "addestra" / "compiti.jsonl")]
+    base = 20000 if nuovi else 1000
 
     def lavoro(url):
         fuori, scartati, vuote = [], 0, 0
         visti = set()
         for i, (cid, k, testo) in enumerate(richieste):
-            elenco = array_json(chat(url, testo, seme=1000 + i))
+            elenco = array_json(chat(url, testo, seme=base + i))
             if not elenco:
                 vuote += 1
             for x in elenco:
@@ -223,7 +249,7 @@ def comando_compiti(a) -> None:
         return fuori, scartati, vuote
 
     (fuori, scartati, vuote), modello = con_il_modello(a.modello, lavoro)
-    scrivi_jsonl(a.cartella / "addestra" / "compiti.jsonl", fuori)
+    scrivi_jsonl(a.cartella / "addestra" / f"{nome_compiti(a.insieme)}.jsonl", fuori)
     print(f"{len(fuori)} compiti da {modello}; scartati perche' simili al banco: {scartati}; "
           f"risposte senza un array: {vuote}")
 
@@ -287,7 +313,7 @@ def comando_richieste(a) -> None:
 
 # ------------------------------------------------------------- il maestro
 def comando_etichetta(a) -> None:
-    compiti = leggi_jsonl(a.cartella / "addestra" / "compiti.jsonl")
+    compiti = leggi_jsonl(a.cartella / "addestra" / f"{nome_compiti(a.insieme)}.jsonl")
     if not compiti:
         print("prima: compiti")
         sys.exit(2)
@@ -315,7 +341,7 @@ def comando_etichetta(a) -> None:
         c["in_testa"] = e.get("in_testa")
         if "errore" in e:
             c["errore"] = e["errore"]
-    scrivi_jsonl(a.cartella / "addestra" / "compiti_etichettati.jsonl", compiti)
+    scrivi_jsonl(a.cartella / "addestra" / f"{nome_compiti(a.insieme)}_etichettati.jsonl", compiti)
     risposti = [c for c in compiti if c.get("scelta")]
     accordo = sum(1 for c in risposti if c["scelta"] == c["chiesto"])
     print(f"{len(compiti)} compiti, il maestro ({maestro}) risponde a {len(risposti)}; "
@@ -680,6 +706,141 @@ def comando_addestra(a) -> None:
           f"teste in {uscita}")
 
 
+def esporta(sorgente: Path, destinazione: Path) -> None:
+    """Le teste di `teste.npz`/`teste.json` nel formato che legge `nova-clm`:
+    `teste.json` con la forma, la scala e dove sta ogni tensore, e
+    `teste.f32` con tutti i numeri in fila, `f32` little-endian (D378)."""
+    import numpy as np
+    pesi = dict(np.load(sorgente / "teste.npz"))
+    meta = json.loads((sorgente / "teste.json").read_text(encoding="utf-8"))
+    tensori, pezzi, inizio = {}, [], 0
+    for nome in sorted(pesi):
+        v = np.ascontiguousarray(pesi[nome], dtype="<f4")
+        tensori[nome] = {"forma": list(v.shape), "inizio": inizio}
+        pezzi.append(v.ravel())
+        inizio += v.size
+    destinazione.mkdir(parents=True, exist_ok=True)
+    np.concatenate(pezzi).astype("<f4").tofile(destinazione / "teste.f32")
+    (destinazione / "teste.json").write_text(json.dumps(
+        {"cfg": meta["cfg"], "scala": meta["scala"], "tensori": tensori,
+         "da": meta.get("addestrate", "CLM-v0.1-8B")}, indent=1, default=str), encoding="utf-8")
+
+
+def comando_esporta(a) -> None:
+    sorgente = a.cartella / "addestra" / a.nome
+    esporta(sorgente, a.cartella / "nova" / a.nome)
+    print(f"teste per nova-clm in {a.cartella / 'nova' / a.nome}")
+
+
+def comando_soglia(a) -> None:
+    """La soglia di CLM per `QualeCervello`, scelta sui casi nuovi (D378).
+
+    I casi nuovi li ha scritti il generatore in altri ambiti, etichettati dal
+    maestro come quelli dell'addestramento, e scartati se somigliano al banco
+    o all'addestramento. Per ogni soglia si conta quanti casi CLM decide
+    (copertura) e quanti di quelli decide come il maestro (precisione). La
+    soglia scelta e' la piu' bassa con la precisione almeno al 95%: CLM, come
+    le lettere, puo' solo far salire una delega, e una salita sbagliata costa
+    la quota di un cervello di fuori.
+    """
+    import numpy as np
+    import banco_clm as bc
+    casi = [c for c in leggi_jsonl(a.cartella / "addestra" / "compiti_nuovi_etichettati.jsonl")
+            if c.get("scelta")]
+    if not casi:
+        print("prima: compiti --insieme nuovi, ed etichetta --insieme nuovi")
+        sys.exit(2)
+    cat = bq.categorie()
+    ids = [n for n, _ in cat] + [bq.NESSUNA]
+    cand = [d for _, d in cat] + [bq.NESSUNA_CATEGORIA]
+    stati = [f"{bq.stato(c['compito'], c['allegati'])}\n\n{bq.ISTRUZIONI}" for c in casi]
+    testi = list(dict.fromkeys(stati + cand))
+    gguf = a.gguf or a.cartella / "gguf" / "Qwen3-8B-Q8_0.gguf"
+    s = types.SimpleNamespace(server=str(RADICE / "runtime" / "llama-server.exe"), gguf=gguf,
+                              porta=8498, ngl=999)
+    proc = bc.avvia(s)
+    if proc is None:
+        print("llama-server non e' partito")
+        sys.exit(2)
+    try:
+        vettori = []
+        for t in testi:
+            codice, r = bc.chiedi(s.porta, "/v1/embeddings", {"input": [t]})
+            if codice != 200:
+                print(f"/v1/embeddings ha risposto {codice}: {r}")
+                sys.exit(1)
+            vettori.append(np.asarray(r["data"][0]["embedding"], dtype=np.float32))
+    finally:
+        bc.ferma(proc)
+    v = bc.l2(np.stack(vettori))
+    indice = {t: i for i, t in enumerate(testi)}
+    teste = bc.carica_teste(a.cartella / "addestra" / a.nome)
+    esiti = []
+    for c, st in zip(casi, stati):
+        p = bc.distribuzione(v, indice, teste, st, cand)
+        j = int(p.argmax())
+        esiti.append((ids[j], float(p[j]), c["scelta"]))
+    righe, scelta = [], None
+    for t in (0.0, 0.5, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.99):
+        sopra = [(sc, att) for sc, p, att in esiti if p >= t]
+        giuste = sum(1 for sc, att in sopra if sc == att)
+        prec = giuste / len(sopra) if sopra else 1.0
+        # Le salite sbagliate contano a parte: sono quelle che costano.
+        salite_sbagliate = sum(1 for sc, att in sopra if sc != bq.NESSUNA and sc != att)
+        righe.append({"soglia": t, "decisi": len(sopra), "su": len(esiti), "giusti": giuste,
+                      "precisione": round(prec, 3), "salite_sbagliate": salite_sbagliate})
+        print(f"  {t:.2f}: decide {len(sopra):3}/{len(esiti)}, giusti {giuste:3} "
+              f"({prec:.1%}), salite sbagliate {salite_sbagliate}")
+        if scelta is None and prec >= 0.95:
+            scelta = t
+    print(f"soglia scelta: {scelta}")
+    (a.cartella / "addestra" / a.nome / "soglia.json").write_text(
+        json.dumps({"soglia": scelta, "righe": righe, "casi": len(esiti)}, indent=1),
+        encoding="utf-8")
+
+
+def comando_confronta_rust(a) -> None:
+    """Le teste esportate, lette da `nova-clm`, contro quelle numpy del banco,
+    sui 34 casi di `QualeCervello` coi vettori veri (D378). La prova gemella
+    lo fa su teste finte; qui sono quelle che il demone usa davvero."""
+    import numpy as np
+    import banco_clm as bc
+    banco = RADICE / "core" / "target" / "release" / ("banco-clm.exe" if sys.platform == "win32"
+                                                      else "banco-clm")
+    cat = bq.categorie()
+    cand = [d for _, d in cat] + [bq.NESSUNA_CATEGORIA]
+    stati = [f"{bq.stato(c, n)}\n\n{bq.ISTRUZIONI}" for c, n, _ in bq.CASI]
+    gguf = a.gguf or a.cartella / "gguf" / "Qwen3-8B-Q8_0.gguf"
+    s = types.SimpleNamespace(server=str(RADICE / "runtime" / "llama-server.exe"), gguf=gguf,
+                              porta=8498, ngl=999)
+    proc = bc.avvia(s)
+    if proc is None:
+        print("llama-server non e' partito")
+        sys.exit(2)
+    try:
+        grezzi = []
+        for t in stati + cand:
+            _, r = bc.chiedi(s.porta, "/v1/embeddings", {"input": [t]})
+            grezzi.append(np.asarray(r["data"][0]["embedding"], dtype=np.float32))
+    finally:
+        bc.ferma(proc)
+    r = subprocess.run([str(banco)], capture_output=True, text=True, timeout=600,
+                       input=json.dumps({"cartella": str(a.cartella / "nova" / a.nome),
+                                         "stati": [v.tolist() for v in grezzi[:len(stati)]],
+                                         "candidati": [v.tolist() for v in grezzi[len(stati):]]}))
+    if r.returncode != 0:
+        print(r.stderr)
+        sys.exit(1)
+    rust = np.array(json.loads(r.stdout))
+    v = bc.l2(np.stack(grezzi))
+    testi = stati + cand
+    indice = {t: i for i, t in enumerate(testi)}
+    teste = bc.carica_teste(a.cartella / "addestra" / a.nome)
+    py = np.array([bc.distribuzione(v, indice, teste, st, cand) for st in stati])
+    print(f"{len(stati)} casi: differenza massima {float(np.abs(rust - py).max()):.2e}, "
+          f"stessa scelta in {int((rust.argmax(1) == py.argmax(1)).sum())}")
+
+
 def comando_vicini(a) -> None:
     """Per ogni caso dei banchi, il testo sintetico piu' simile e quanto.
 
@@ -715,7 +876,8 @@ def comando_vicini(a) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("comando", choices=["compiti", "richieste", "etichetta", "rietichetta",
-                                        "vettori", "addestra", "vicini"])
+                                        "vettori", "addestra", "vicini", "esporta", "soglia",
+                                        "confronta-rust"])
     ap.add_argument("--cartella", type=Path, default=Path.home() / "nova-clm")
     ap.add_argument("--modello", type=Path, help="il GGUF del generatore o del maestro")
     ap.add_argument("--gguf", type=Path, help="il Qwen3-8B per i vettori")
@@ -726,6 +888,8 @@ def main() -> int:
     ap.add_argument("--tenuti", type=float, default=0.15, help="la parte tenuta da parte")
     ap.add_argument("--seme", type=int, default=7)
     ap.add_argument("--nome", default="teste", help="la cartella delle teste, dentro addestra/")
+    ap.add_argument("--insieme", choices=["addestra", "nuovi"], default="addestra",
+                    help="i compiti per l'addestramento, o quelli nuovi per la soglia")
     ap.add_argument("--etichette", choices=ETICHETTE, default="maestro",
                     help="su quali etichette addestrare: il maestro di casa e la costruzione, "
                          "Claude, o solo dove vanno d'accordo")
@@ -735,7 +899,8 @@ def main() -> int:
     a = ap.parse_args()
     {"compiti": comando_compiti, "richieste": comando_richieste, "etichetta": comando_etichetta,
      "rietichetta": comando_rietichetta, "vettori": comando_vettori, "addestra": comando_addestra,
-     "vicini": comando_vicini}[a.comando](a)
+     "vicini": comando_vicini, "esporta": comando_esporta, "soglia": comando_soglia,
+     "confronta-rust": comando_confronta_rust}[a.comando](a)
     return 0
 
 

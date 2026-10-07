@@ -2985,6 +2985,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "nova-clm"
+version = "0.1.1"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "nova-componenti"
 version = "0.1.1"
 dependencies = [
@@ -3018,6 +3026,7 @@ dependencies = [
  "nova-cdp",
  "nova-cervelli",
  "nova-ciclo",
+ "nova-clm",
  "nova-configurazione",
  "nova-contesto",
  "nova-dati",

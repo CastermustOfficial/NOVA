@@ -28,6 +28,7 @@ pub mod caps_harness_strumenti;
 pub mod caps_tempo;
 pub mod caps_automazioni;
 pub mod caps_riparazione;
+pub mod clm;
 pub mod dati;
 pub mod decisioni;
 pub mod modelli;
@@ -179,6 +180,9 @@ pub async fn avvia_servizi(server: &Arc<Server>) {
     // Il catalogo dei modelli piu' recenti (D377): di lato, e prova solo
     // quello che la configurazione chiede di scegliere da solo.
     modelli::avvia_periodico();
+    // CLM, il giudice veloce per chi non ha le lettere (D378): solo se e'
+    // acceso, e di lato.
+    clm::avvia_se_attivo(server.ctx.supervisor.clone());
     // La memoria: il vault, e la prima mappatura del PC se non e' mai stata
     // fatta (D365). Di lato, perche' git e la lettura delle cartelle possono
     // metterci qualche secondo, e il demone intanto deve gia' rispondere.
