@@ -4,7 +4,7 @@ Cosa c'è da fare, in ordine. Quando una cosa è fatta si spunta, con il commit 
 
 Il racconto lungo sta in [`docs/verso_la_beta.md`](../docs/verso_la_beta.md): le tre liste, i cantieri, il piano per il Rust e le cinque frasi del cancello della beta. Qui c'è solo l'elenco di quello che resta aperto, nell'ordine in cui lo si fa.
 
-Aggiornato al 6 ottobre 2026.
+Aggiornato al 7 ottobre 2026.
 
 ## Da fare
 
@@ -12,7 +12,7 @@ Deciso con Gio il 30 settembre: non ci sono scadenze, conta solo il risultato, e
 
 ### Il codice, in ordine
 
-1. **`test_demone_ricerca` cade a tratti in CI.** Il 5 ottobre la prima ricerca è caduta quattro volte su sei, su commit che non toccavano la ricerca, mentre GitHub Actions era in avaria: il browser delle ricerche non apriva la porta entro i 25 secondi del demone. Nel contenitore di lavoro passa; su Windows la prova non gira. Adesso, quando cade, la prova scrive quanto ci ha messo la porta ad aprirsi e cosa ha detto il browser su stderr. Alla caduta successiva (`8aec032`) la porta si è aperta fra 25 e 27,2 secondi dopo la partenza, e la prima riga del browser su stderr è arrivata dopo più di venti: il tempo se ne va prima che il browser parta davvero, e nel contenitore lo stesso Chromium apre la porta in 1,1 s la prima volta. Quindi la prova, prima del demone, fa fare al browser un giro a vuoto e scrive quanto ci mette. Si chiude quando la CI la passa di nuovo e quel numero dice se era il runner a caricare lentamente il browser; se no, l'attesa del demone (la stessa del Python, `ATTESA_AVVIO_S`) va ripensata anche per chi usa NOVA. Il primo giro dopo (`28a5879`) è verde, con il giro a vuoto in 7,1 s contro 0,6 nel contenitore: il runner carica il browser più lentamente, ma quella volta non oltre i 25 secondi. Resta qui finché altri giri non lo confermano.
+1. **`test_demone_ricerca` cade a tratti in CI.** Il 5 ottobre la prima ricerca è caduta quattro volte su sei, su commit che non toccavano la ricerca, mentre GitHub Actions era in avaria: il browser delle ricerche non apriva la porta entro i 25 secondi del demone. Nel contenitore di lavoro passa; su Windows la prova non gira. Adesso, quando cade, la prova scrive quanto ci ha messo la porta ad aprirsi e cosa ha detto il browser su stderr. Alla caduta successiva (`b889e7e`) la porta si è aperta fra 25 e 27,2 secondi dopo la partenza, e la prima riga del browser su stderr è arrivata dopo più di venti: il tempo se ne va prima che il browser parta davvero, e nel contenitore lo stesso Chromium apre la porta in 1,1 s la prima volta. Quindi la prova, prima del demone, fa fare al browser un giro a vuoto e scrive quanto ci mette. Si chiude quando la CI la passa di nuovo e quel numero dice se era il runner a caricare lentamente il browser; se no, l'attesa del demone (la stessa del Python, `ATTESA_AVVIO_S`) va ripensata anche per chi usa NOVA. Il primo giro dopo (`23de1e6`) è verde, con il giro a vuoto in 7,1 s contro 0,6 nel contenitore: il runner carica il browser più lentamente, ma quella volta non oltre i 25 secondi. Resta qui finché altri giri non lo confermano.
 2. **CANT-12, le decisioni che oggi sono euristiche.** `nova-decisioni` (quali decisioni, e cosa può uscire dal PC) e `nova-giudizio` (dai logit al giudizio) sono scritti. La metà che chiede a llama-server c'è dal 6 ottobre (D371, `nova_core::giudizio_casa`), dopo le due verifiche (4 ottobre, `misure/banco_giudizio_llama.py`: il ragionamento va chiuso prima della risposta, e la cache non ha cambiato decisioni; ripetute il 6 ottobre su Qwen3.8 27B, GLM-4.7-Flash e Qwen3-8B, con la lettera scelta: 10 giuste su 10 per tutti e quattro, e nessuna decisione cambiata dalla cache). La prima domanda vera, `QualeCervello`, è scritta, misurata (D372: le parole 20 su 34, le lettere da 30 a 34 su quattro modelli, CLM 12) e attaccata alla delega come ha deciso Gio (D373: il giudizio aggiunge salite, non le toglie; se non sa, valgono le parole). Mancano: per le altre decisioni l'euristica di oggi e il modello dietro lo stesso tratto; il banco che li confronta sui casi di NOVA. Un giudizio può solo stringere una guardia, mai allentarla (D313). La strada di CLM è provata (4 ottobre, `misure/banco_clm.py`): così com'è, sulle nostre domande, non è un giudice. Il 6 ottobre Gio ha deciso di addestrarlo, in tre passi, tutti fatti: NOVA tiene le sue decisioni (D374); il modello grande etichetta compiti sintetici con le lettere; le teste addestrate fanno da 27 a 29 su 34 a `QualeCervello` e da 27 a 32 su 40 a scegliere lo strumento (D375). Sulle stesse domande Claude Code (Opus 5) e Gemini 3.1 Pro fanno 34 su 34 e 40 su 40, e una cascata (CLM sopra 0,8, il grande sotto) fa 32 e 36 con un quarto delle chiamate (`misure/banco_cervelli_fuori.py`). NOVA non le usa: dove metterle, se ci vanno, lo decide Gio.
 3. **Una difesa contro le prompt injection.** Chiesta da Gio il 30 settembre, da valutare quasi sicuramente dentro CANT-12. Oggi ci sono pezzi sparsi: le descrizioni dei server MCP di altri arrivano citate e non obbedite (D264), quel che si legge dallo schermo non entra in memoria (D170), le azioni rischiose chiedono conferma (D333), e il recinto di Windows (D367) limita il danno. Manca un disegno unico per tutto il testo che arriva da fuori.
 4. **`nova-mcp-cliente` attaccato a un binario.** Il cancello verso i server MCP di altri è scritto e provato (CANT-11), ma nessun binario lo usa. Va dopo il giudizio e la difesa dalle prompt injection, perché è una porta verso l'esterno.
@@ -36,21 +36,22 @@ Deciso con Gio il 30 settembre: non ci sono scadenze, conta solo il risultato, e
 
 Quando una voce si chiude la si sposta qui, con la data e il commit.
 
+- 07/10/2026: il PC delle misure e' il «PC di sviluppo», con cosa ha, anche in tutta la storia di git (D376).
 - 06/10/2026: le teste di CLM addestrate sulle scelte del modello grande, misurate sui banchi (D375).
-- 06/10/2026: NOVA tiene le sue decisioni, senza segreti, per insegnare a CLM (D374, `9f6bf3d`).
+- 06/10/2026: NOVA tiene le sue decisioni, senza segreti, per insegnare a CLM (D374, `0cdbb50`).
 - 06/10/2026: `QualeCervello` decide con il giudizio del modello di casa accanto alle parole, nella delega (D373).
-- 05/10/2026: le attivita' pianificate lanciano NOVA senza finestra, con `novaw`, e solo se il binario sa fare il comando; la prova che lasciava l'attivita' sul PC la toglie (D370, `eb24c2b`).
-- 04/10/2026: tolto il fermo dei lavori aperto il 3 ottobre per la falla del recinto di Windows con il demone da amministratore. La CI e' verde su `7ea9ec2`, e l'avviso e' pubblicato: GHSA-38cw-xfm5-xq9f (gravita' alta; versioni da `7edebc4` a `c441a61`, corretta da `40175f5`).
-- 03/10/2026: un comando nel recinto non riceve mai i poteri dell'amministratore, nemmeno se il demone li ha (D369, `40175f5`; la prova sul proprietario confrontata per SID in `26586a5`).
-- 03/10/2026: il recinto per i comandi su Windows, un contenitore del sistema, e dove non basta lo dice (D367, `7edebc4`).
-- 03/10/2026: le prove del demone su Windows tornano verdi, e quattro difetti veri del prodotto vengono fuori (D368, `7edebc4`; la riprova sulla pipe con una scadenza d'orologio in `573ccf7`).
-- 30/09/2026: `kb.enabled` e `kb.inject_context` valgono anche nel demone (D366, `6b0b752`).
-- 30/09/2026: la prima mappatura del PC nel demone, e il vault che il demone crea da sé (D365, `46dd2fc`).
-- 29/09/2026: `rete.cerca` cerca prima col browser senza finestra, come il Python (D363, `c45dc0a`).
-- 29/09/2026: leggere la pagina dei risultati non solleva più, e `test_cerca.py` non accende un Edge vero (D364, `861d0bd`).
-- 29/09/2026: i numeri del browser e del prompt nel README, misurati sul demone (D362, `c617080`).
-- 29/09/2026: al modello di casa 58 strumenti fissi, e la conversazione si taglia su quel che resta del contesto (D361, `cdcff8a`).
-- 29/09/2026: le cinque cartelle di ogni progetto, in NOVA come indici (D360, `47401b4`).
-- 28/09/2026: il README descrive il NOVA di oggi (D359, `df563d6`).
-- 28/09/2026: il demone accende il modello di casa quando serve (D358, `790c791`).
-- 28/09/2026: `novad --registro` (D357, `074273d`).
+- 05/10/2026: le attivita' pianificate lanciano NOVA senza finestra, con `novaw`, e solo se il binario sa fare il comando; la prova che lasciava l'attivita' sul PC la toglie (D370, `4dfa357`).
+- 04/10/2026: tolto il fermo dei lavori aperto il 3 ottobre per la falla del recinto di Windows con il demone da amministratore. La CI e' verde su `b6c17d0`, e l'avviso e' pubblicato: GHSA-38cw-xfm5-xq9f (gravita' alta; versioni da `e9d298b` a `ea52524`, corretta da `97f01d8`).
+- 03/10/2026: un comando nel recinto non riceve mai i poteri dell'amministratore, nemmeno se il demone li ha (D369, `97f01d8`; la prova sul proprietario confrontata per SID in `96e54ca`).
+- 03/10/2026: il recinto per i comandi su Windows, un contenitore del sistema, e dove non basta lo dice (D367, `e9d298b`).
+- 03/10/2026: le prove del demone su Windows tornano verdi, e quattro difetti veri del prodotto vengono fuori (D368, `e9d298b`; la riprova sulla pipe con una scadenza d'orologio in `5ba06c8`).
+- 30/09/2026: `kb.enabled` e `kb.inject_context` valgono anche nel demone (D366, `d9aad22`).
+- 30/09/2026: la prima mappatura del PC nel demone, e il vault che il demone crea da sé (D365, `f2a3062`).
+- 29/09/2026: `rete.cerca` cerca prima col browser senza finestra, come il Python (D363, `277c0ac`).
+- 29/09/2026: leggere la pagina dei risultati non solleva più, e `test_cerca.py` non accende un Edge vero (D364, `8789476`).
+- 29/09/2026: i numeri del browser e del prompt nel README, misurati sul demone (D362, `0fc434e`).
+- 29/09/2026: al modello di casa 58 strumenti fissi, e la conversazione si taglia su quel che resta del contesto (D361, `49c5a73`).
+- 29/09/2026: le cinque cartelle di ogni progetto, in NOVA come indici (D360, `4ab0c35`).
+- 28/09/2026: il README descrive il NOVA di oggi (D359, `99a3449`).
+- 28/09/2026: il demone accende il modello di casa quando serve (D358, `c265834`).
+- 28/09/2026: `novad --registro` (D357, `312db3e`).

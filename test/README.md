@@ -63,7 +63,7 @@ Cosa serve: niente: guardano il repository stesso.
 | `test_impostazioni.py` | Il pannello deve saper aggiungere, non solo scegliere. |
 | `test_installer.py` | L'installer chiede quattro cose, e scrive solo valori che qualcuno legge. |
 | `test_niente_cresce_per_sempre.py` | Nessun diario di NOVA puo' crescere per sempre. |
-| `test_niente_dati_personali.py` | Niente dati personali nel repository. |
+| `test_niente_dati_personali.py` | Niente dati personali nel repository: chiavi, percorsi `C:\Users\...` e il nome di chi ha la macchina («PC di» e un nome). |
 | `test_niente_due_volte.py` | Una costante pubblica vive in un crate solo, o e' dichiarato perche' no. |
 | `test_niente_finestre.py` | NOVA lavora dietro, non davanti: nessun processo apre una console. |
 | `test_nomi_degli_strumenti.py` | Ogni strumento nominato deve esistere, e col nome giusto. |

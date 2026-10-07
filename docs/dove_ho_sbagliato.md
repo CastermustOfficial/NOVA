@@ -1274,7 +1274,7 @@ Anche quella prova credeva una cosa falsa: «la porta e' chiusa, quindi non
 serve un browser». Ma `cerca.cerca` il browser lo accende, e sulla CI Windows
 Edge c'e'. L'Edge acceso dalla prova restava vivo, teneva occupato il profilo,
 e la parte 4 della stessa prova non poteva piu' accendere il suo: sulla CI
-di `c45dc0a` si e' dichiarata non provabile, e sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X) pure.
+di `277c0ac` si e' dichiarata non provabile, e sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X) pure.
 
 Adesso il Python riprova come il Rust, tutti e due dicono l'ultimo errore, e
 la prova non accende niente.
@@ -1628,7 +1628,7 @@ mutazione che lo fa cadere prima che io dica che e' coperto.
 
 ## Ho provato il recinto di Windows solo da utente normale
 
-Prima di `7edebc4` il `cargo test` e le prove Python del recinto giravano da
+Prima di `e9d298b` il `cargo test` e le prove Python del recinto giravano da
 utente normale, sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X), e le mie verifiche anche. La sola prova lanciata
 da amministratore, `test_demone_recinto_strumenti.py`, non guardava con quali
 poteri partisse il comando. La CI di Windows gira da amministratore, e al primo
@@ -1645,7 +1645,7 @@ In `windows_cartella_dei_soli_diritti_del_proprietario` il proprietario della
 cartella si controllava cercando il nome dell'utente nel testo che restituisce
 PowerShell. Quel testo dipende dalla lingua, dal dominio e dal fatto che
 PowerShell risponda. Sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X) funzionava; sull'agente Windows della CI
-(Windows Server, `runneradmin`, UAC spento) no, e la CI di `2b09a5f` e' caduta
+(Windows Server, `runneradmin`, UAC spento) no, e la CI di `8afff6b` e' caduta
 con «il proprietario non e' l'utente». Dal log non si capisce quale delle tre
 cose sia andata storta.
 
@@ -1854,3 +1854,35 @@ Ora dicono 30 tutti e due.
 La regola: chi aggiunge una prova aggiorna nello stesso giro la riga che la
 descrive e i numeri che la contano. I numeri stanno in due file, e la prova
 della documentazione li controlla tutti e due.
+
+## Di chi era il PC, scritto per settimane
+
+Dal 29 settembre al 6 ottobre ho scritto in decine di posti, nei documenti,
+nei commenti e nelle prove, di chi era il PC su cui misuravo. E' un dato
+personale, e in un repository pubblico. Non serviva a niente: a chi legge un
+numero serve sapere che macchina c'era sotto, non di chi era. Se n'e'
+accorto chi sviluppa NOVA, il 7 ottobre, leggendo i documenti.
+
+Ora si scrive «PC di sviluppo» con le specifiche, anche in tutta la storia di
+git (D376), e la prova sui dati personali cerca la forma «PC di» seguita da
+un nome.
+
+La regola: di una macchina si scrive cosa ha, mai di chi e'.
+
+## La sostituzione nella storia ha preso un nome piu' lungo
+
+Riscrivendo la storia ho sostituito la frase come testo, senza fermarla alla
+fine della parola. In `nova/cartelle.py` c'era un esempio di copia in
+conflitto di OneDrive il cui nome cominciava con le stesse lettere, e la
+sostituzione l'ha spezzato a meta': nel file usciva il nome del PC di
+sviluppo con le sue specifiche, attaccato alla coda del nome vecchio. Me ne
+sono accorto rileggendo tutte le righe toccate prima del commit.
+
+Ora l'esempio dice «documento-NOMEPC.md». Nelle versioni vecchie di quel
+file, nella storia, la riga resta spezzata: per sistemarla bisognerebbe
+riscrivere un'altra volta tutti gli hash.
+
+La regola: una sostituzione su tutto il repository si fa con il confine di
+parola (`regex:...\b`), e prima di pubblicarla si guarda ogni riga che ha
+toccato, non solo il conto.
+

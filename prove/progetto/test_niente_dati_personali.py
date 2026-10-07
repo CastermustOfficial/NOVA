@@ -61,6 +61,14 @@ REGOLE = [
     ("chiave openai", re.compile(r"sk-proj-")),
     ("token github", re.compile(r"ghp_[A-Za-z0-9]{20,}")),
     ("chiave privata", re.compile(r"BEGIN [A-Z ]*PRIVATE KEY")),
+    # La macchina di qualcuno, col suo nome: «sul PC di» e un nome. Per settimane
+    # i documenti hanno detto di chi era il PC delle misure, che e' un dato
+    # personale e non serve a niente: serve dire **cosa ha** quel PC. Si
+    # scrive «PC di sviluppo», con la GPU, la memoria e la scheda madre
+    # (D376). La regola guarda la forma, non un nome: un nome nuovo la
+    # farebbe passare, la forma no.
+    ("macchina di una persona",
+     re.compile(r"\b(?:PC|computer|macchina|GPU|portatile|scheda video) di [A-Z][a-zà-ù]+")),
 ]
 # Il nome finisce dove finisce il nome: senza togliere la punteggiatura,
 # in una frase come «... `C:\Users\tizio`, niente OneDrive» il nome catturato
@@ -88,8 +96,15 @@ BINARI = {".png", ".jpg", ".jpeg", ".gif", ".ico", ".pdf", ".zip", ".exe",
           ".dll", ".gguf", ".woff", ".woff2", ".ttf", ".mp3", ".wav"}
 
 
+#: Le regole che valgono anche nelle prove. Le prove scrivono chiavi e
+#: percorsi finti apposta, e per quelli sono esenti; ma il nome di chi ha il
+#: PC non serve a nessuna prova, e quattro prove lo scrivevano.
+ANCHE_NELLE_PROVE = {"macchina di una persona"}
+
+
 def esente(percorso: str, regola: str) -> bool:
-    if Path(percorso).name.startswith("test_") and percorso.endswith(".py"):
+    if (Path(percorso).name.startswith("test_") and percorso.endswith(".py")
+            and regola not in ANCHE_NELLE_PROVE):
         return True
     return (percorso, None) in ESENTI or (percorso, regola) in ESENTI
 

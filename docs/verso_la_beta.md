@@ -2865,7 +2865,7 @@ Q8_0, se il cervello di casa e' un altro. Per questo NOVA, per ora, non lo
 usa (D375).
 
 **Il tetto, la cascata e un secondo maestro, misurati il 6 ottobre**
-(`misure/banco_cervelli_fuori.py`, sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X)). Le stesse due domande ai
+(`misure/banco_cervelli_fuori.py`, sul PC di sviluppo: GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X). Le stesse due domande ai
 cervelli che NOVA chiama quando sale: Claude Code (`claude -p`, senza
 strumenti, cosi' com'e' installato) e Antigravity (`agy -p`, che ha preso il
 posto di Gemini CLI, in modalita' piano e nel recinto). La domanda di
@@ -2996,8 +2996,7 @@ CANT-12:
      (da verificare: `--embeddings` e la chat nello stesso processo). Se no,
      e' un secondo modello da tenere acceso.
 
-  **Misurate il 4 ottobre**, con `misure/banco_clm.py` sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X) (RTX 4060
-  Ti da 16 GB, llama-server b10502). Il riferimento e' il Qwen3-8B in bf16 con
+  **Misurate il 4 ottobre**, con `misure/banco_clm.py` sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X; llama-server b10502). Il riferimento e' il Qwen3-8B in bf16 con
   transformers, il vettore dell'ultimo token dopo la norma finale, come il
   pooling di vLLM; i GGUF sono `Qwen3-8B-Q8_0` e `Qwen3-8B-Q4_K_M` di
   `Qwen/Qwen3-8B-GGUF`, con lo sha256 controllato. Le domande sono le sedici del

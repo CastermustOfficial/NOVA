@@ -2,7 +2,7 @@
 
 Ogni possibile miglioria, anche solo teorica o non ancora decisa. Per ognuna: cosa, perché, cosa costerebbe. Un'idea non è un impegno: quando si decide di farla passa in [`piano/`](../piano/README.md), quando la si scarta resta qui con il perché.
 
-Aggiornato al 6 ottobre 2026. Le idee che c'erano già erano sparse nei documenti: qui sono raccolte, con il rimando a dove sono nate.
+Aggiornato al 7 ottobre 2026. Le idee che c'erano già erano sparse nei documenti: qui sono raccolte, con il rimando a dove sono nate.
 
 ## CANT-12: decisioni tipizzate al posto delle euristiche
 
@@ -103,7 +103,7 @@ L'ordine che ne viene: registrare le decisioni e le correzioni; un giudice per `
 
 ## Chiudere le cartelle di terzi aperte a tutti i pacchetti
 
-**Cosa.** Le cartelle di terzi aperte a ALL APPLICATION PACKAGES (sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X), le tre di Segnalazione errori di Windows e `NVIDIA Corporation\Drs`) il contenitore le può scrivere, e oggi NOVA le rileva e le dichiara (D367). Un divieto intestato al contenitore non le chiude (provato, con nessuna maschera), e senza ALL APPLICATION PACKAGES PowerShell non parte.
+**Cosa.** Le cartelle di terzi aperte a ALL APPLICATION PACKAGES (sul PC di sviluppo, con GPU RTX 4060 Ti, 16 GB di VRAM, 32 GB di RAM DDR5, scheda madre Gigabyte B650 EAGLE AX e CPU Ryzen 5 7600X: le tre di Segnalazione errori di Windows e `NVIDIA Corporation\Drs`) il contenitore le può scrivere, e oggi NOVA le rileva e le dichiara (D367). Un divieto intestato al contenitore non le chiude (provato, con nessuna maschera), e senza ALL APPLICATION PACKAGES PowerShell non parte.
 
 **Perché.** Un confine che dichiara i suoi buchi è onesto, ma resta bucato. Una strada da provare: un token del contenitore con identità di controllo (restricting SID) solo sue, così che la scrittura richieda anche una voce intestata a un'identità che quelle cartelle non hanno.
 
@@ -135,7 +135,7 @@ L'ordine che ne viene: registrare le decisioni e le correzioni; un giudice per `
 
 ## I residui delle prove nel `%TEMP%`
 
-**Cosa.** Migliaia di voci `nova-*` in `%TEMP%` (8.492 il 2 ottobre sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X): `nova-r2`, `nova-kb`, `nova-q`, `nova-scelta`, `nova-priv`, `nova-segreti`...) sembrano residui delle prove del progetto. Non l'ho verificato.
+**Cosa.** Migliaia di voci `nova-*` in `%TEMP%` (8.492 il 2 ottobre sul PC di sviluppo, con GPU RTX 4060 Ti, 16 GB di VRAM, 32 GB di RAM DDR5, scheda madre Gigabyte B650 EAGLE AX e CPU Ryzen 5 7600X: `nova-r2`, `nova-kb`, `nova-q`, `nova-scelta`, `nova-priv`, `nova-segreti`...) sembrano residui delle prove del progetto. Non l'ho verificato.
 
 **Perché.** Ingombrano, e rallentano chi scorre quella cartella. Non sono segreti, ma sono residui.
 

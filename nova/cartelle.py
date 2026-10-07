@@ -19,7 +19,7 @@ e Documenti e' sincronizzato, allora
   cinque non ci stanno: il caricamento fallisce, e il messaggio che ne esce
   parla di quota, non di NOVA;
 - il vault viene sincronizzato **mentre** NOVA ci scrive, e da li' nascono le
-  copie in conflitto - «documento-PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X)vanni.md» accanto all'originale;
+  copie in conflitto - «documento-NOMEPC.md» accanto all'originale;
 - e con i file su richiesta il modello puo' essere «liberato»: sul disco resta
   un segnaposto, llama.cpp prova a leggerlo e trova zero byte. Questo e' il
   peggiore dei tre, perche' capita mesi dopo, a NOVA che funzionava.

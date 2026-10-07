@@ -6858,7 +6858,7 @@ una che dipende da cio' che si sta provando.
 ### v0.1.1, per davvero questa volta
 
 Il tag stava su un commit che non compilava le prove. L'ho spostato: cancellato
-e rifatto su `ca2fe72`, che e' il primo commit con tutti e sei i lavori verdi.
+e rifatto su `3b1c047`, che e' il primo commit con tutti e sei i lavori verdi.
 Cancellare un tag non e' una cosa da fare a cuor leggero, ma qui non c'era
 niente da perdere - a quel tag non era mai stata attaccata nessuna release,
 perche' il lavoro era morto prima di compilare. Nessuno ha scaricato niente,
@@ -11570,3 +11570,12 @@ ragione, e lasciando al grande solo i casi in cui non lo e', uno su quattro,
 se ne perdono due su 34 e quattro su 40. Ho provato anche a dare a CLM un maestro piu' grande, e
 non e' migliorato: sugli strumenti e' piu' stabile, su quale cervello serve
 sale troppo spesso, come il suo maestro.
+
+## 7 ottobre 2026 — Cosa ha il PC, non di chi e'
+
+Per settimane ho scritto di chi era il PC delle misure. Adesso c'e' scritto
+cosa ha: una RTX 4060 Ti da 16 GB, 32 GB di DDR5, una B650 EAGLE AX, un
+Ryzen 5 7600X. Ed e' cambiato anche nella storia: 243 hash nuovi, e i
+rimandi dei documenti riscritti. Nel farlo ho spezzato a meta' un nome
+d'esempio, perche' cercavo la frase come testo e non come parola.
+
