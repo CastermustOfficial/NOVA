@@ -57,7 +57,10 @@ class CliBrain:
         self.etichetta = spec.get("etichetta") or nome.capitalize()
         self.cfg = cfg
         self.spec = spec
-        self.model = spec.get("model", "")
+        # `ultimo:<forma>` qui diventa «nessun modello»: il catalogo dei nomi
+        # piu' recenti lo tiene il demone (D377).
+        from ..modelli import per_cli
+        self.model = per_cli(spec.get("model", ""))
         self.timeout = int(spec.get("timeout", 600))
         self.cwd = spec.get("cwd") or str(Path.home())
         self.kb_context = kb_context
@@ -120,6 +123,10 @@ class CliBrain:
 
     def _argomenti(self) -> list[str]:
         args = [self._eseguibile]
+        if not (self.model or "").strip():
+            # Senza modello, `--model {model}` sparisce intero (D377).
+            from ..modelli import senza_modello
+            return args + senza_modello(self.spec.get("args", []))
         for a in self.spec.get("args", []):
             args.append(str(a).replace("{model}", self.model))
         return args

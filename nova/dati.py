@@ -118,6 +118,11 @@ def posti() -> list[Posto]:
               "il giudice. NOVA funziona come prima; si spegne con "
               "kb.decisioni.",
               delicato=True),
+        # Lo scrive il demone, in Rust: qui non c'e' una funzione da chiamare.
+        Posto("I modelli piu' recenti trovati", b / "modelli.json",
+              "Niente: si rifa' da solo entro un giorno, o subito con "
+              "`novad --modelli`. Dice quale Claude e quale Gemini sono i piu' "
+              "recenti che partono su questo PC."),
         Posto("Le procedure imparate", ricette._percorso(),
               "NOVA rifa' da capo le strade che aveva gia' trovato: torna a "
               "funzionare, ci mette solo di piu'."),

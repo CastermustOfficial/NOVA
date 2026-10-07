@@ -579,7 +579,7 @@ class BrainsConfig:
     # --- Claude Code CLI ---
     claude_binary: str = ""         # vuoto = cercato nel PATH (claude.cmd su Windows)
     # per esteso di proposito: gli alias del CLI restano indietro di una generazione
-    claude_model: str = "claude-sonnet-5"
+    claude_model: str = "ultimo:sonnet"   # il Sonnet piu' recente (D377)
     claude_model_veloce: str = "haiku"   # per le estrazioni di memoria
     claude_cwd: str = ""            # vuoto = cartella utente
     # Non e' una misura di sicurezza: a fermare NOVA ci sono il livello di

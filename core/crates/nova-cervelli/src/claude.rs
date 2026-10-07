@@ -227,8 +227,9 @@ pub fn perche_non_pronto(
 
 // ------------------------------------------------- dalla configurazione
 
-/// Il modello, se la configurazione non ne dice uno. Quello del Python.
-pub const MODELLO_PREDEFINITO: &str = "claude-sonnet-5";
+/// Il modello, se la configurazione non ne dice uno. Quello del Python: il
+/// Sonnet piu' recente, scelto dal catalogo del demone (D377).
+pub const MODELLO_PREDEFINITO: &str = "ultimo:sonnet";
 /// Il tetto dei turni, se la configurazione non ne dice uno.
 ///
 /// E' un freno di spesa, non una misura di sicurezza: a fermare Claude ci
@@ -272,7 +273,7 @@ pub fn dichiarato(cfg: &serde_json::Value) -> Dichiarato {
     Dichiarato {
         binario: testo("claude_binary"),
         // `model_override or b.claude_model or "sonnet"` nel Python, sopra una
-        // configurazione il cui predefinito e' «claude-sonnet-5». Quindi due
+        // configurazione il cui predefinito e' «ultimo:sonnet». Quindi due
         // ripieghi diversi, e contano tutti e due: se la chiave **manca** vale
         // il predefinito della configurazione; se c'e' ed e' **vuota**, vale
         // «sonnet».

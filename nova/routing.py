@@ -449,24 +449,29 @@ def routing_predefinito() -> dict:
                 "locale": True,
                 "a_pagamento": False,
             },
+            # Il modello piu' recente della famiglia, scelto dal demone
+            # (D377). I nomi per esteso erano nati perche' gli alias del CLI
+            # invecchiavano (su 2.0.42 «sonnet» era ancora la generazione
+            # 4.5); invecchiavano anche loro, solo piu' piano: il 7 ottobre
+            # c'erano Sonnet 5.5 e Opus 5.5, e qui c'era scritto 5.
             "standard": {
                 "brain": "claude",
-                # Gli alias del CLI invecchiano: su 2.0.42 «sonnet» risolve
-                # ancora la generazione 4.5 e «opus» un modello ritirato.
-                # Scriverli per esteso costa una riga e non riserva sorprese.
-                "model": "claude-sonnet-5",
+                "model": "ultimo:sonnet",
                 "descrizione": "Il cavallo da lavoro: codice, analisi, compiti "
                                "articolati.",
             },
             "difficile": {
                 "brain": "claude",
-                "model": "claude-opus-5",
+                "model": "ultimo:opus",
                 "descrizione": "Quando il compito lo merita davvero. Pesa sulla quota. "
-                               "In alternativa: claude-fable-5.",
+                               "In alternativa: ultimo:fable.",
             },
+            # Gemini CLI non serve piu' gli account personali (18 giugno
+            # 2026): la seconda opinione passa da Antigravity, col Gemini
+            # Pro piu' recente al livello alto. Deciso con Gio il 7 ottobre.
             "alternativo": {
-                "brain": "gemini",
-                "model": "gemini-2.5-pro",
+                "brain": "antigravity",
+                "model": "ultimo:gemini-*-pro-high",
                 "descrizione": "Seconda opinione, o quando serve un altro punto "
                                "di vista.",
             },
@@ -567,10 +572,15 @@ def cli_predefinite() -> dict:
         # su stderr, 7,6 secondi. Non ci riguarda, su questa versione. Se
         # tornasse, NOVA lo direbbe come «ha risposto ma non ha detto niente»,
         # che e' la frase giusta e non «non funziona».
+        #
+        # `--model {model}` sparisce quando il modello non c'e', e allora
+        # sceglie Antigravity. `agy models` stampa i modelli che ha: e' da li'
+        # che il demone sceglie un `ultimo:<forma>` (D377).
         "antigravity": {
             "etichetta": "Antigravity (Google)",
             "binary": "agy",
-            "args": ["--dangerously-skip-permissions", "-p"],
+            "args": ["--dangerously-skip-permissions", "--model", "{model}", "-p"],
+            "elenco_modelli": ["models"],
             "model": "",
             "prompt": "argomento",
             "timeout": 600,

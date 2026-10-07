@@ -66,6 +66,11 @@ struct Args {
     #[arg(long)]
     semina: bool,
 
+    /// Rifa' adesso il catalogo dei modelli piu' recenti (`ultimo:<famiglia>`),
+    /// lo stampa e termina. Il demone lo rifa' da solo ogni giorno (D377).
+    #[arg(long)]
+    modelli: bool,
+
     /// Le cartelle su cui NOVA ha scritto le voci del recinto di Windows, e
     /// termina. Con `--togli` le toglie tutte: lo chiama il disinstallatore,
     /// perche' quelle voci stanno sulle cartelle dell'utente (D367).
@@ -131,6 +136,15 @@ async fn main() -> Result<()> {
     }
     if let Some(parole) = &args.registro {
         println!("{}", nova_core::registro::per_chi_chiede(parole, args.giorni));
+        return Ok(());
+    }
+    if args.modelli {
+        let cfg = nova_configurazione::dove::leggi();
+        let c = nova_core::modelli::aggiorna_adesso(&cfg).await;
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&c).unwrap_or_else(|e| format!("{e}"))
+        );
         return Ok(());
     }
     if args.semina {

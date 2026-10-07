@@ -19,6 +19,7 @@ pub mod cerca;
 pub mod claude;
 pub mod cli;
 pub mod dichiarazioni;
+pub mod modelli;
 pub mod openai;
 pub mod rete;
 

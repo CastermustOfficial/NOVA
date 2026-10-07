@@ -170,6 +170,9 @@ CLI_ARGOMENTI = [
     ["/bin/gemini", ["--model", "{model}", "--approval-mode", "yolo"], "gemini-2.5-pro"],
     ["g.cmd", ["--nome={model}", "{model}{model}"], "m"],
     ["g", [], ""],
+    # Senza modello `--model {model}` sparisce intero (D377).
+    ["agy", ["--x", "--model", "{model}", "-p"], ""],
+    ["agy", ["{model}", "--nome={model}"], ""],
 ]
 CANDIDATI = ["gemini", "", "claude"]
 

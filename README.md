@@ -1283,8 +1283,17 @@ autenticato. NOVA:
   (`--permission-prompt-tool`), cioe' dal bottone nella chat.
 - riporta costo e token di ogni turno nel registro azioni.
 
-Attenzione a `brains.claude_model`: su una CLI datata un alias puo' puntare
-a un modello ritirato, che risponde 404. Nel dubbio si scrive il nome intero.
+Il modello si sceglie da solo (D377): `ultimo:sonnet`, `ultimo:opus`,
+`ultimo:fable` vogliono dire «il piu' recente di quella famiglia che parte».
+Il demone lo trova provando Claude Code (un nome che non esiste costa zero e
+risponde in un paio di secondi), tiene il risultato in `modelli.json` e lo
+rifa' ogni giorno; `novad --modelli` lo rifa' subito. Gli alias da soli non
+bastano: su Claude Code 2.1.292 `sonnet` porta ancora a `claude-sonnet-5`,
+mentre `claude-sonnet-5-5` c'e'. Se il modello piu' recente vuole una Claude
+Code piu' nuova, NOVA lancia `claude update` e lo scrive nel registro azioni
+(`brains.aggiorna_claude: false` lo spegne). Un nome scritto per intero resta
+quello; i vecchi predefiniti `claude-sonnet-5` e `claude-opus-5` valgono come
+`ultimo:sonnet` e `ultimo:opus`.
 
 ### API esterna
 
@@ -1350,9 +1359,9 @@ potenza. Quelli predefiniti:
 | Gradino | Cervello | Modello | Quando |
 |---|---|---|---|
 | `locale` | GGUF sul PC | Qwen3.8-27B | orchestrazione e compiti semplici |
-| `standard` | Claude Code | `claude-sonnet-5` | il cavallo da lavoro |
-| `difficile` | Claude Code | `claude-opus-5` | quando il compito lo merita |
-| `alternativo` | Gemini CLI | `gemini-2.5-pro` | seconda opinione |
+| `standard` | Claude Code | `ultimo:sonnet` | il cavallo da lavoro |
+| `difficile` | Claude Code | `ultimo:opus` | quando il compito lo merita |
+| `alternativo` | Antigravity | `ultimo:gemini-*-pro-high` | seconda opinione |
 
 ```powershell
 .\bin\nova call cervelli.stato     # gradini, stato, speso / tetto
@@ -1456,10 +1465,10 @@ con `"a_consumo": true`).
 orchestratore: locale   nessun gradino a consumo:
 0.0 $ è l'equivalente API, non una spesa
 
-* locale       locale   predefinito                locale       pronto
-  standard     claude   sonnet                     abbonamento  pronto
-  difficile    claude   claude-opus-4-5-...        abbonamento  pronto
-  alternativo  gemini   gemini-2.5-pro             incluso      pronto
+* locale       locale       predefinito                locale       pronto
+  standard     claude       ultimo:sonnet              abbonamento  pronto
+  difficile    claude       ultimo:opus                abbonamento  pronto
+  alternativo  antigravity  ultimo:gemini-*-pro-high   incluso      pronto
 ```
 
 ### Quando finisce la quota

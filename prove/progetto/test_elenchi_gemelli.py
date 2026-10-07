@@ -188,6 +188,9 @@ def coppie_rust(percorso: Path, nome: str) -> list[tuple[str, str]] | None:
 #
 # (file Rust, nome, come si prende in Python, ordine conta, nota sulla forma)
 GEMELLI = [
+    ("nova-cervelli/src/modelli.rs", "VECCHI_PREDEFINITI",
+     lambda: list(dizionario("nova/modelli.py", "VECCHI_PREDEFINITI")), True,
+     "coppie: in Python e' un dizionario"),
     ("nova-core/src/fascicolo.rs", "TESTO",
      lambda: costante("nova/fascicolo.py", "TESTO"), False, ""),
     ("nova-core/src/fascicolo.rs", "DA_APRIRE",

@@ -11579,3 +11579,12 @@ Ryzen 5 7600X. Ed e' cambiato anche nella storia: 243 hash nuovi, e i
 rimandi dei documenti riscritti. Nel farlo ho spezzato a meta' un nome
 d'esempio, perche' cercavo la frase come testo e non come parola.
 
+## 7 ottobre 2026 — Il modello piu' recente, da solo
+
+Il nome per esteso era nato per non farsi fregare dagli alias, e si e'
+fatto fregare lo stesso, solo piu' piano. Adesso NOVA chiede: a Claude Code
+prova i nomi dopo quello dell'alias, ad Antigravity legge l'elenco. La
+sorpresa e' stata `sonnet`: anche sulla Claude Code nuova porta ancora al 5,
+mentre il 5.5 risponde. E Opus 5.5 non partiva finche' la CLI non si e'
+aggiornata: adesso, quando serve, si aggiorna da sola.
+

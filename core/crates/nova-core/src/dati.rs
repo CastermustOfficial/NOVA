@@ -76,6 +76,12 @@ pub fn posti(cfg: &Value) -> Vec<Posto> {
         )
         .delicato(),
         Posto::nuovo(
+            "I modelli piu' recenti trovati",
+            crate::modelli::percorso(),
+            "Niente: si rifa' da solo entro un giorno, o subito con `novad --modelli`. Dice \
+             quale Claude e quale Gemini sono i piu' recenti che partono su questo PC.",
+        ),
+        Posto::nuovo(
             "Le procedure imparate",
             crate::ricette::percorso(),
             "NOVA rifa' da capo le strade che aveva gia' trovato: torna a funzionare, ci mette \

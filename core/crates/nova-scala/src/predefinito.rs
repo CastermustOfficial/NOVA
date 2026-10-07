@@ -24,17 +24,17 @@ pub const ROUTING_PREDEFINITO: &str = r#"{
   },
   "standard": {
    "brain": "claude",
-   "model": "claude-sonnet-5",
+   "model": "ultimo:sonnet",
    "descrizione": "Il cavallo da lavoro: codice, analisi, compiti articolati."
   },
   "difficile": {
    "brain": "claude",
-   "model": "claude-opus-5",
-   "descrizione": "Quando il compito lo merita davvero. Pesa sulla quota. In alternativa: claude-fable-5."
+   "model": "ultimo:opus",
+   "descrizione": "Quando il compito lo merita davvero. Pesa sulla quota. In alternativa: ultimo:fable."
   },
   "alternativo": {
-   "brain": "gemini",
-   "model": "gemini-2.5-pro",
+   "brain": "antigravity",
+   "model": "ultimo:gemini-*-pro-high",
    "descrizione": "Seconda opinione, o quando serve un altro punto di vista."
   }
  },

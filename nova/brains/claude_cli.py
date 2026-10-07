@@ -109,8 +109,11 @@ class ClaudeCodeBrain:
         b = cfg.brains
         self.cfg = cfg
         self.eseguibile = b.claude_binary or _trova_claude()
-        # il gradino del router vince sulla configurazione generale
-        self.model = model_override or b.claude_model or "sonnet"
+        # il gradino del router vince sulla configurazione generale.
+        # `ultimo:<famiglia>` e i vecchi predefiniti diventano l'alias della
+        # famiglia: il catalogo dei nomi piu' recenti lo tiene il demone (D377).
+        from ..modelli import per_claude
+        self.model = per_claude(model_override or b.claude_model or "sonnet")
         self.cwd = b.claude_cwd or str(Path.home())
         self.max_turns = b.claude_max_turns
         # `traccia=False` per chi vuole solo **guardare** com'e' messo: il

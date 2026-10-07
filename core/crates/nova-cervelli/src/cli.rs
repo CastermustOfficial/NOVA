@@ -42,10 +42,13 @@ pub fn predefinite() -> Value {
         // Il sostituto di Gemini CLI per gli account personali, dal 18
         // giugno 2026. `--dangerously-skip-permissions`: una CLI agentica
         // agisce con le proprie mani, non passando dalle guardie di NOVA.
+        // `--model {model}` sparisce senza modello; `agy models` da' l'elenco
+        // da cui si sceglie un `ultimo:<forma>` (D377).
         "antigravity": {
             "etichetta": "Antigravity (Google)",
             "binary": "agy",
-            "args": ["--dangerously-skip-permissions", "-p"],
+            "args": ["--dangerously-skip-permissions", "--model", "{model}", "-p"],
+            "elenco_modelli": ["models"],
             "model": "",
             "prompt": "argomento",
             "timeout": 600,
@@ -95,6 +98,10 @@ pub struct Dichiarata {
     pub cartella: String,
     /// Se ogni chiamata fa spendere davvero lo sa l'utente, non NOVA.
     pub a_consumo: bool,
+    /// Gli argomenti che fanno stampare alla CLI i modelli che ha
+    /// (`["models"]` per Antigravity). Vuoto: la CLI un elenco non lo da', e
+    /// un `ultimo:<famiglia>` scritto per lei lascia scegliere a lei (D377).
+    pub elenco_modelli: Vec<String>,
 }
 
 /// Come Python scrive un nome con l'iniziale grande.
@@ -176,6 +183,15 @@ pub fn dichiarata(nome: &str, spec: &Value) -> Dichiarata {
             .get("a_consumo")
             .and_then(Value::as_bool)
             .unwrap_or(false),
+        elenco_modelli: spec
+            .get("elenco_modelli")
+            .and_then(Value::as_array)
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default(),
     }
 }
 
@@ -220,9 +236,17 @@ pub fn prompt_completo(messaggi: &[Messaggio], contesto_kb: &str) -> String {
 }
 
 /// La riga di comando, col nome del modello sostituito dove serve.
+///
+/// Senza modello, `--model {model}` sparisce intero invece di diventare
+/// `--model ""` (D377): e' il caso di un `ultimo:<famiglia>` che la CLI
+/// sceglie da sola, o di un elenco che non si e' ancora potuto leggere.
 pub fn argomenti(eseguibile: &str, args: &[String], model: &str) -> Vec<String> {
     let mut fuori = vec![eseguibile.to_string()];
-    fuori.extend(args.iter().map(|a| a.replace("{model}", model)));
+    if model.trim().is_empty() {
+        fuori.extend(crate::modelli::senza_modello(args));
+    } else {
+        fuori.extend(args.iter().map(|a| a.replace("{model}", model)));
+    }
     fuori
 }
 
@@ -336,6 +360,32 @@ mod prove {
         assert_eq!(d.args, vec!["--model", "{model}"]);
         assert!(!d.su_stdin && d.a_consumo);
         assert_eq!((d.secondi, d.cartella.as_str()), (30, "C:\\lavoro"));
+    }
+
+    #[test]
+    fn l_elenco_dei_modelli_si_legge_e_di_serie_non_c_e() {
+        let d = dichiarata(
+            "antigravity",
+            &serde_json::json!({"elenco_modelli": ["models"]}),
+        );
+        assert_eq!(d.elenco_modelli, vec!["models"]);
+        assert!(dichiarata("x", &serde_json::json!({}))
+            .elenco_modelli
+            .is_empty());
+    }
+
+    #[test]
+    fn senza_modello_la_riga_non_chiede_un_modello_senza_nome() {
+        let args: Vec<String> = ["--x", "--model", "{model}", "-p"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        assert_eq!(argomenti("agy", &args, ""), vec!["agy", "--x", "-p"]);
+        assert_eq!(argomenti("agy", &args, "  "), vec!["agy", "--x", "-p"]);
+        assert_eq!(
+            argomenti("agy", &args, "gemini-3.1-pro-high"),
+            vec!["agy", "--x", "--model", "gemini-3.1-pro-high", "-p"]
+        );
     }
 
     #[test]

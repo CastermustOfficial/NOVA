@@ -48,8 +48,10 @@ def costruisci(nome_tier, kb_context=""):
     r._consenti(t)
     if t.brain == "claude":
         raise LimiteUso("usage limit")           # claude a quota
-    if t.brain == "gemini":
-        raise PermissionError("gemini non configurato")  # il ripiego che esplodeva
+    # Il ripiego che esplodeva. Si guarda il gradino e non il cervello: dal
+    # D377 l'alternativo di fabbrica e' Antigravity, non piu' Gemini CLI.
+    if t.nome == "alternativo":
+        raise PermissionError("alternativo non configurato")
     return Sano()                                 # resta il locale
 
 

@@ -1288,8 +1288,17 @@ already authenticated. NOVA:
   the button in the chat.
 - reports cost and tokens for every turn in the action log.
 
-Careful with `brains.claude_model`: on an older CLI an alias can point at a
-retired model, which answers 404. When in doubt, write the full name.
+The model picks itself (D377): `ultimo:sonnet`, `ultimo:opus`, `ultimo:fable`
+mean «the most recent of that family that starts». The daemon finds it by
+probing Claude Code (a name that does not exist costs nothing and answers in a
+couple of seconds), keeps the result in `modelli.json` and redoes it every day;
+`novad --modelli` redoes it now. Aliases alone are not enough: on Claude Code
+2.1.292 `sonnet` still leads to `claude-sonnet-5`, while `claude-sonnet-5-5`
+exists. If the most recent model wants a newer Claude Code, NOVA runs `claude
+update` and writes it in the action log (`brains.aggiorna_claude: false` turns
+that off). A name written in full stays as it is; the old defaults
+`claude-sonnet-5` and `claude-opus-5` count as `ultimo:sonnet` and
+`ultimo:opus`.
 
 ### External API
 
@@ -1357,9 +1366,9 @@ The defaults:
 | Tier | Brain | Model | When |
 |---|---|---|---|
 | `locale` | GGUF on the PC | Qwen3.8-27B | orchestration and simple tasks |
-| `standard` | Claude Code | `claude-sonnet-5` | the workhorse |
-| `difficile` | Claude Code | `claude-opus-5` | when the task deserves it |
-| `alternativo` | Gemini CLI | `gemini-2.5-pro` | second opinion |
+| `standard` | Claude Code | `ultimo:sonnet` | the workhorse |
+| `difficile` | Claude Code | `ultimo:opus` | when the task deserves it |
+| `alternativo` | Antigravity | `ultimo:gemini-*-pro-high` | second opinion |
 
 ```powershell
 .\bin\nova call cervelli.stato     # tiers, state, spent / cap
@@ -1463,10 +1472,10 @@ with `"a_consumo": true`).
 orchestratore: locale   nessun gradino a consumo:
 0.0 $ è l'equivalente API, non una spesa
 
-* locale       locale   predefinito                locale       pronto
-  standard     claude   sonnet                     abbonamento  pronto
-  difficile    claude   claude-opus-4-5-...        abbonamento  pronto
-  alternativo  gemini   gemini-2.5-pro             incluso      pronto
+* locale       locale       predefinito                locale       pronto
+  standard     claude       ultimo:sonnet              abbonamento  pronto
+  difficile    claude       ultimo:opus                abbonamento  pronto
+  alternativo  antigravity  ultimo:gemini-*-pro-high   incluso      pronto
 ```
 
 ### When the quota runs out

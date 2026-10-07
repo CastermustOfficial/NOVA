@@ -30,6 +30,7 @@ pub mod caps_automazioni;
 pub mod caps_riparazione;
 pub mod dati;
 pub mod decisioni;
+pub mod modelli;
 pub mod fascicolo;
 pub mod riparazione;
 pub mod automazioni;
@@ -175,6 +176,9 @@ pub async fn avvia_servizi(server: &Arc<Server>) {
     if con_recinto {
         recinto_controllo::avvia_periodico();
     }
+    // Il catalogo dei modelli piu' recenti (D377): di lato, e prova solo
+    // quello che la configurazione chiede di scegliere da solo.
+    modelli::avvia_periodico();
     // La memoria: il vault, e la prima mappatura del PC se non e' mai stata
     // fatta (D365). Di lato, perche' git e la lettura delle cartelle possono
     // metterci qualche secondo, e il demone intanto deve gia' rispondere.

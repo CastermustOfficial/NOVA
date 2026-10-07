@@ -573,7 +573,10 @@ impl<'a> MondoVero<'a> {
         }
         self.taglia();
         let prompt = nova_cervelli::cli::prompt_completo(&self.righe(), "");
-        let mut args = nova_cervelli::cli::argomenti(&eseguibile, &d.args, &d.modello);
+        // `ultimo:<forma>` diventa il nome piu' recente dell'elenco della CLI,
+        // o niente, e allora sceglie lei (D377).
+        let modello = crate::modelli::per_cli(d);
+        let mut args = nova_cervelli::cli::argomenti(&eseguibile, &d.args, &modello);
         if !d.su_stdin {
             args.push(prompt.clone());
         }
@@ -658,7 +661,9 @@ impl<'a> MondoVero<'a> {
         };
         let mut imp = claude::Impostazioni {
             eseguibile,
-            model: c.d.modello.clone(),
+            // `ultimo:<famiglia>` e i vecchi predefiniti diventano il nome piu'
+            // recente del catalogo, o l'alias della famiglia (D377).
+            model: crate::modelli::per_claude(&c.d.modello),
             autonomia: c.d.autonomia.clone(),
             max_turns: c.d.max_turns,
             session_id: self.sessione.claude.clone(),
