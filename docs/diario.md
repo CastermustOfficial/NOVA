@@ -11608,3 +11608,10 @@ risposta e' stata no: si consiglia e basta, anche a chi i gradini se li e'
 scritti. Cosi' il pannello mostra la scala giusta e un bottone. Guardando la
 scala in uso del PC di sviluppo con il comando nuovo, ho visto che la mia
 «Flash e Opus, e basta» del D378 aveva ancora tre gradini in coda.
+
+## 7 ottobre 2026 — La faccia nuova
+
+Gio ha disegnato l'orb: una nova, con il nucleo d'oro e le punte. Il suo
+shader e' entrato com'era; agli stati che non aveva ho dato le sue manopole,
+e un rosso, un grigio e una pupilla per quelli che il caldo e il freddo non
+sanno dire. E' diventato anche l'icona, e il logo in testa al README.

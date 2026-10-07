@@ -565,7 +565,7 @@ async function disegnaConsiglio(){
   if(!c.conosciuto){
     html += `<p class="nota">${T("Non so ancora cosa hai: lo controlla il demone due minuti dopo l'accensione, e poi una volta al giorno.")}</p>`;
   } else if(!c.consigliata){
-    html += `<p class="nota">${T("Non ho trovato nessun cervello: né un modello sul PC, né Claude Code con l'accesso fatto, né Antigravity.")}</p>`;
+    html += `<p class="nota">${T("Non ho trovato nessun cervello: né un modello sul PC, né Claude Code con l'accesso fatto, né Antigravity. La scala resta da configurare: quando ne avrai uno, il consiglio comparirà qui.")}</p>`;
   } else {
     html += `<p class="scala-sotto">${T('Per quello che hai, dal più leggero al più forte:')}</p>` + righeScala(c.righe);
     if(!c.coincide){
@@ -1235,11 +1235,10 @@ function disegnaLingua(){
 }
 
 function disegnaLegenda(){
-  const colore = t => `rgb(${t.map(x=>Math.round(Math.min(1,x*0.72)*255)).join(',')})`;
   const nomi = { quiete:'A RIPOSO', ascolto:'ASCOLTO', penso:'PENSO', parlo:'PARLO',
                  agisco:'AGISCO', chiedo:'CHIEDO', spento:'SPENTA' };
   $('legenda').innerHTML = Object.entries(nomi).map(([k,n])=>
-    `<span class="stato-v" data-s="${k}"><i style="background:${colore(STATI[k].tinta)}"></i>${T(n)}</span>`).join('');
+    `<span class="stato-v" data-s="${k}"><i style="background:${STATI[k].colore}"></i>${T(n)}</span>`).join('');
   document.querySelectorAll('.stato-v').forEach(s=>{
     s.onmouseenter = () => orb.stato(s.dataset.s);
     s.onmouseleave = () => orb.stato('quiete');

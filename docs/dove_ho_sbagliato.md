@@ -1987,3 +1987,16 @@ letture dello stesso file si provano sullo stesso caso.
 Le tre cartelle in `%TEMP%` della prova dal vivo del D378 (`palestra`,
 `pgvenv`, `pgbin`, con il database) le ho cancellate il 7 ottobre, chiesto
 da Gio. Nessun processo di Postgres o di Docker era acceso.
+
+## Rinumerare il piano dopo averci inserito una voce
+
+Due volte il 7 ottobre, aggiungendo una voce in mezzo all'elenco del piano,
+ho prima inserito la voce col suo numero e poi spostato in avanti quelle
+dopo, cercando ognuna col suo numero: quella appena inserita aveva lo stesso
+numero di una vecchia, e lo script si e' fermato sul doppione. La prima
+volta non aveva scritto niente; la seconda aveva gia' scritto le modifiche
+di prima, e l'elenco aveva due voci 4. Me ne sono accorto dall'errore dello
+script, e ho corretto a mano guardando l'elenco intero.
+
+La regola: in un elenco numerato prima si fa posto, dall'ultima voce in su,
+e poi si inserisce; e alla fine si guarda l'elenco intero.

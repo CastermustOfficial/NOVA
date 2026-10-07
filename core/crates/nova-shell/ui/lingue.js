@@ -64,7 +64,7 @@ export const LINGUE = {
     'quello che sceglie lei': 'the one it picks',
     'Non riesco a leggere la scala consigliata:': 'I cannot read the recommended ladder:',
     "Non so ancora cosa hai: lo controlla il demone due minuti dopo l'accensione, e poi una volta al giorno.": 'I do not know yet what you have: the daemon checks two minutes after it starts, and then once a day.',
-    "Non ho trovato nessun cervello: né un modello sul PC, né Claude Code con l'accesso fatto, né Antigravity.": 'I found no brain: no model on this PC, no signed-in Claude Code, no Antigravity.',
+    "Non ho trovato nessun cervello: né un modello sul PC, né Claude Code con l'accesso fatto, né Antigravity. La scala resta da configurare: quando ne avrai uno, il consiglio comparirà qui.": 'I found no brain: no model on this PC, no signed-in Claude Code, no Antigravity. The ladder is left to set up: once you have one, the recommendation will show up here.',
     'Per quello che hai, dal più leggero al più forte:': 'For what you have, from the lightest to the strongest:',
     'Adesso usi:': 'You are using:',
     'Usa questa scala': 'Use this ladder',

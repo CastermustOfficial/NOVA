@@ -1,5 +1,7 @@
 ﻿# NOVA
 
+<p align="center"><img src="docs/immagini/nova.jpg" alt="NOVA" width="320"></p>
+
 ***Italiano** · [English](README.en.md)*
 
 **Un esperto seduto accanto a te, dentro il tuo PC.**
