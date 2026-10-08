@@ -31,6 +31,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+pub mod consegna;
 pub mod custode;
 pub mod ricerca;
 

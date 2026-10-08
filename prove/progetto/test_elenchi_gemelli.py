@@ -392,6 +392,16 @@ SENZA_GEMELLO: dict[str, str] = {
     # la porta che chiude (D333).
     "SOLO_PER_LA_PERSONA": "le capacita' del demone che solo la persona puo' "
                            "chiamare; dalla parte Python non c'e' una porta da chiudere",
+    # Le capacita' che non chiedono mai, nemmeno con «conferma sempre»: il
+    # freno del demone (`azione.*`) e, dal D387, affidare e fermare un Dot.
+    # Sono nomi di capacita' del demone, che il Python non ha: non c'e'
+    # niente da confrontare.
+    "NON_CHIEDONO_MAI": "le capacita' del demone che non chiedono mai; i Dot "
+                        "in Python non ci sono",
+    # Le capacita' offerte al modello di casa che il Python non aveva: i Dot
+    # (D387). Il gemello di quelle che c'erano e' DAL_PYTHON, qui sopra.
+    "SOLO_DEL_DEMONE": "gli strumenti per i Dot offerti al modello di casa; "
+                       "in Python i Dot non ci sono",
     # I dispositivi che restano scrivibili dentro il recinto del kernel. In
     # Python non c'e' niente da confrontare: il recinto e' una cosa che fa il
     # sistema operativo, e dalla parte Python non esiste affatto. Non sono

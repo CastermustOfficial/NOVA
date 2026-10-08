@@ -249,3 +249,13 @@ L'ordine che ne viene: registrare le decisioni e le correzioni; un giudice per `
 
 **Cosa costerebbe.** Va verificato quali opzioni di Claude Code tolgono davvero tutti gli strumenti in modalita' `-p` (una lista vuota di strumenti permessi, `--disallowedTools` per tutti), e provato con un Claude finto che i flag arrivino. Poi va deciso con Gio se basta.
 
+## La consegna di un Dot dentro Gemini Live, e nella conversazione di Nova
+
+Nata col D387, l'8 ottobre.
+
+**Cosa.** Quando un Dot finisce un compito di Nova, oggi l'utente lo legge in chat e lo sente dalla voce di casa. Due cose restano fuori. Durante una conversazione con Gemini Live la consegna si scrive e non si dice: si potrebbe passarla a Live come testo, e Live la racconterebbe con la sua voce nel punto giusto della conversazione. E la consegna non entra nella conversazione di Nova: se l'utente poi chiede «com'e' andata?», Nova la rilegge con `dot.stato`.
+
+**Perché.** Con Live acceso l'utente sta parlando proprio con NOVA, e scoprire solo dopo, in chat, che il lavoro era finito e' il contrario di un compagno che ti avvisa. E una Nova che sa gia' cosa le e' stato consegnato risponde senza un giro di strumenti.
+
+**Cosa costerebbe.** Per Live: un canale dal demone alla sessione aperta (oggi `conversa` ascolta solo il microfono e il server), e un messaggio `clientContent` che non interrompa l'utente mentre parla; va provato come lo prende il modello. Per la conversazione di Nova: un messaggio senza una domanda davanti, o una domanda finta; va visto come lo prendono i cervelli della scala, e la cache del prefisso non cambia perche' si aggiunge in coda.
+

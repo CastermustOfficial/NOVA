@@ -94,12 +94,19 @@ pub fn autonomia(cfg: &Value) -> Autonomia {
     )
 }
 
+/// Le capacita' che non chiedono mai, nemmeno con «chiedi sempre».
+///
+/// Il freno (`azione.*`, `dot.ferma`): fermarsi deve funzionare sempre.
+/// Affidare a un Dot (`dot.affida`): deciso con Gio l'8 ottobre, e' passare
+/// la palla, e dei permessi del Dot mentre lavora si occupa il custode (D387).
+pub const NON_CHIEDONO_MAI: [&str; 4] = ["azione.ferma", "azione.stato", "dot.affida", "dot.ferma"];
+
 /// Se prima di questa capacita' si chiede. Le capacita' dello sportello non
 /// chiedono mai — chiedere il permesso di chiedere un permesso non finisce —
-/// e nemmeno il freno: fermarsi deve funzionare sempre.
+/// e nemmeno quelle di [`NON_CHIEDONO_MAI`].
 pub fn si_chiede(cap: &dyn Capability, a: Autonomia) -> bool {
     let i = cap.info();
-    if i.category == "approvazione" || i.name == "azione.ferma" || i.name == "azione.stato" {
+    if i.category == "approvazione" || NON_CHIEDONO_MAI.contains(&i.name.as_str()) {
         return false;
     }
     a.chiede(rischio(i.risk))
@@ -310,6 +317,21 @@ mod prove {
         assert!(!si_chiede(
             &Finta("fs.write", "file", Risk::Moderate),
             prudente
+        ));
+    }
+
+    /// Affidare a un Dot e fermarlo non chiedono, nemmeno con «conferma
+    /// sempre»; farne nascere uno chiede come ogni azione che modifica (D387).
+    #[test]
+    fn affidare_e_fermare_un_dot_non_chiedono_farne_nascere_uno_si() {
+        let sempre = Autonomia::Chiedi;
+        assert!(!si_chiede(&Finta("dot.affida", "dot", Risk::Safe), sempre));
+        assert!(!si_chiede(&Finta("dot.ferma", "dot", Risk::Safe), sempre));
+        assert!(si_chiede(&Finta("dot.crea", "dot", Risk::Moderate), sempre));
+        assert!(si_chiede(&Finta("dot.stato", "dot", Risk::Safe), sempre));
+        assert!(!si_chiede(
+            &Finta("dot.crea", "dot", Risk::Moderate),
+            Autonomia::Tutto
         ));
     }
 

@@ -78,6 +78,8 @@ IN_HTTP = set(re.findall(
     r'\("[a-z_]+", "([a-z_]+\.[a-z_]+)"\)',
     (CORE / "nova-core" / "src" / "strumenti_in_http.rs").read_text(encoding="utf-8")
     .split("#[cfg(test)]")[0]))
+# E le capacita' che il Python non aveva, offerte lo stesso: i Dot (D387).
+IN_HTTP |= set(elenco_rust(CORE / "nova-core" / "src" / "strumenti_in_http.rs", "SOLO_DEL_DEMONE"))
 HARNESS = CORE / "nova-harness" / "src" / "lib.rs"
 CODICE = elenco_rust(HARNESS, "CODICE")
 LEGGIBILI = CODICE + elenco_rust(HARNESS, "A_RIGHE_IN_PIU") + elenco_rust(HARNESS, "DOCUMENTI")

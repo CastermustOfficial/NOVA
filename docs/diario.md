@@ -11673,3 +11673,14 @@ dimenticare niente al demone, e il microfono di Live ripartiva troppo presto
 dopo che NOVA aveva parlato. Con Google non l'ho provato: qui una chiave non
 c'e'.
 
+## 8 ottobre 2026 — Nova chiama i Dot
+
+Adesso basta chiederlo a Nova: affida il lavoro a un Dot e continua a
+parlare con te. Gio ha scelto tre cose: niente permesso per affidare, un Dot
+nuovo solo se lo chiede lui, e la notizia in chat e a voce quando il Dot ha
+finito. Il prezzo l'ha pagato il modello di casa: tre strumenti in piu' gli
+tolgono 340 token di conversazione, e le prime descrizioni ne toglievano
+quasi cinquecento. Scrivendo la prova ho scoperto che «conferma sempre»
+chiede anche per le cose innocue: affidare l'ho dovuto mettere accanto al
+freno, fra quelle che non chiedono mai.
+

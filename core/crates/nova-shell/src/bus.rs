@@ -60,11 +60,14 @@ fn stato_da_evento(topic: &str, dati: &Value) -> Option<&'static str> {
     }
 }
 
-/// Le righe che una conversazione con Gemini Live porta nella chat, come
-/// (chi, testo). Le trascrizioni arrivano a turno finito; un errore si
-/// scrive perche' a voce si e' detto solo che Live non risponde, e il
-/// perche' (la chiave, la rete) serve leggerlo (D386).
-fn righe_dal_vivo(topic: &str, dati: &Value) -> Vec<(&'static str, String)> {
+/// Le righe che il demone porta nella chat da solo, come (chi, testo).
+///
+/// - Gemini Live (D386): le trascrizioni arrivano a turno finito; un errore
+///   si scrive perche' a voce si e' detto solo che Live non risponde, e il
+///   perche' (la chiave, la rete) serve leggerlo.
+/// - Un Dot che ha finito un compito di Nova (D387): la riga la prepara il
+///   demone, con l'esito; a voce, se serve, la dice lui.
+fn righe_per_la_chat(topic: &str, dati: &Value) -> Vec<(&'static str, String)> {
     let campo = |n: &str| {
         dati.get(n)
             .and_then(|v| v.as_str())
@@ -85,6 +88,7 @@ fn righe_dal_vivo(topic: &str, dati: &Value) -> Vec<(&'static str, String)> {
             };
             vec![("nova", format!("{come} ({}): continuo con la mia voce.", campo("errore")))]
         }
+        "dot.consegna" if !campo("chat").is_empty() => vec![("nova", campo("chat"))],
         _ => Vec::new(),
     }
 }
@@ -276,7 +280,7 @@ async fn giro(app: &AppHandle, endpoint: &str) -> anyhow::Result<()> {
                 }
             });
         }
-        for (da, testo) in righe_dal_vivo(topic, &dati) {
+        for (da, testo) in righe_per_la_chat(topic, &dati) {
             crate::cronologia::aggiungi(da, &testo);
             let _ = app.emit("nova://voce", json!({ "da": da, "testo": testo }));
         }
@@ -302,24 +306,38 @@ mod prove {
     fn gemini_live_scrive_nella_chat_i_due_versi_e_gli_errori() {
         let turno = json!({ "utente": " che ore sono ", "nova": "Sono le tre." });
         assert_eq!(
-            righe_dal_vivo("voce.live.turno", &turno),
+            righe_per_la_chat("voce.live.turno", &turno),
             vec![("utente", "che ore sono".to_string()), ("nova", "Sono le tre.".to_string())]
         );
         // Un saluto del modello senza niente detto dall'utente: una riga sola.
         let solo_nova = json!({ "utente": "", "nova": "Ciao!" });
-        assert_eq!(righe_dal_vivo("voce.live.turno", &solo_nova), vec![("nova", "Ciao!".to_string())]);
+        assert_eq!(righe_per_la_chat("voce.live.turno", &solo_nova), vec![("nova", "Ciao!".to_string())]);
         let errore = json!({ "errore": "manca la chiave", "aperta": false });
         assert_eq!(
-            righe_dal_vivo("voce.live.errore", &errore),
+            righe_per_la_chat("voce.live.errore", &errore),
             vec![("nova", "Gemini Live non parte (manca la chiave): continuo con la mia voce.".to_string())]
         );
         let caduta = json!({ "errore": "rete assente", "aperta": true });
         assert_eq!(
-            righe_dal_vivo("voce.live.errore", &caduta),
+            righe_per_la_chat("voce.live.errore", &caduta),
             vec![("nova", "La linea con Gemini Live e' caduta (rete assente): continuo con la mia voce.".to_string())]
         );
-        assert!(righe_dal_vivo("voce.live.errore", &json!({})).is_empty());
-        assert!(righe_dal_vivo("voce.comando", &turno).is_empty());
+        assert!(righe_per_la_chat("voce.live.errore", &json!({})).is_empty());
+        assert!(righe_per_la_chat("voce.comando", &turno).is_empty());
+    }
+
+    #[test]
+    fn la_consegna_di_un_dot_va_nella_chat_come_detta_da_nova() {
+        let d = json!({ "dot": "ricercatore", "id": 3, "stato": "fatto",
+                        "chat": "ricercatore ha finito.\n\nRapporto in x.md.", "voce": "corta" });
+        assert_eq!(
+            righe_per_la_chat("dot.consegna", &d),
+            vec![("nova", "ricercatore ha finito.\n\nRapporto in x.md.".to_string())]
+        );
+        // Senza parole non c'e' niente da scrivere; e il passaggio di stato
+        // di un compito, da solo, nella chat non va.
+        assert!(righe_per_la_chat("dot.consegna", &json!({ "chat": " " })).is_empty());
+        assert!(righe_per_la_chat("dot.compito", &d).is_empty());
     }
 
     #[test]

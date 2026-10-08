@@ -166,7 +166,7 @@ progetto, e che resta.
 
 1. ~~Il Dot su disco e il suo ciclo~~ (D382), ~~il ricercatore~~ (D383),
    ~~il custode~~ (D384).
-2. **Nova li chiama**: affidare, chiedere lo stato, leggere l'esito.
+2. ~~**Nova li chiama**: affidare, chiedere lo stato, leggere l'esito~~ (D387).
 3. **I Dot parlano fra loro**: i messaggi, la chat di gruppo e i gruppi,
    affidare un compito a chi sta sotto e consegnarlo a chi sta sopra.
 4. **L'harness**: la vista dei Dot e dei progetti, l'organigramma, le chat,
@@ -352,4 +352,52 @@ continua a chiedere all'utente.
   `--dangerously-skip-permissions`, Gemini CLI con `--approval-mode yolo`,
   in `nova_cervelli::cli`): con le loro mani non passano né dall'utente né
   dal custode, per un Dot come per Nova.
+
+**Nova li chiama — fatto** (D387). Le scelte di Gio, l'8 ottobre: prima che
+ci sia AR, Nova fa nascere un Dot **solo se l'utente lo chiede**, con la
+conferma del pannello come ogni azione che modifica; affida a un Dot **senza
+chiedere il permesso**; e quando un Dot finisce un compito di Nova,
+l'utente lo sa **in chat e a voce**.
+
+- **Quattro strumenti per Nova** (`nova_core::caps_dot`): `dot.crea`
+  (modifica, con l'anteprima di chi nasce), `dot.affida` (torna subito col
+  numero del compito, e scrive `da: "nova"` nella coda), `dot.stato` (senza
+  nome tutti, col mestiere e chi prende compiti; col nome i suoi compiti;
+  col numero l'esito intero e il rapporto, fino a 20.000 caratteri, col
+  taglio detto) e `dot.ferma`. `dot.affida` e `dot.ferma` non chiedono mai,
+  nemmeno con «conferma sempre» (`permessi::NON_CHIEDONO_MAI`, accanto al
+  freno di Nova).
+- **Anche il modello di casa li vede**: `dot.affida`, `dot.crea` e
+  `dot.stato` entrano negli strumenti offerti a un cervello in HTTP, che
+  passano da 58 a 61. Alla conversazione restano 2.209 token su 16.384
+  (erano 2.549; la soglia della prova e' 2.000, e il Python ne lasciava
+  1.832). `dot.ferma` resta fuori: il «fermati» di Nova ferma gia' tutti.
+- **La consegna**: quando un Dot chiude un compito con `da: "nova"`, il
+  demone manda `dot.consegna` con la riga per la chat (com'e' andata, il
+  compito in breve e l'esito fino a 1.200 caratteri) e la frase da dire,
+  corta e senza percorsi (`nova_dot::consegna`). Il guscio scrive la riga
+  nella chat; la frase la dice il demone se la voce e' accesa, ha un motore e
+  non c'e' una conversazione con Gemini Live in corso, dove due voci insieme
+  non si capirebbero e si scrive soltanto. Un compito dato dall'utente non si
+  consegna a Nova.
+- **Un Dot non affida ad altri Dot**: lo strumento gli risponde di no, col
+  perche'. I Dot che si passano il lavoro sono il passo dopo, coi messaggi e
+  i gruppi.
+- Prove: quattro in `nova_dot::consegna`, due in `caps_dot`, una in `dot`,
+  una in `permessi`, una nel guscio, quelle degli strumenti offerti, e
+  `test_demone_nova_e_i_dot.py` (23 controlli, col cervello finto: Nova fa
+  nascere un Dot solo col si', affida con «conferma sempre» senza chiedere,
+  la consegna arriva con le parole giuste e va a voce solo con la voce
+  accesa, un compito dell'utente non si consegna, `dot.stato` coi suoi tre
+  modi, un Dot che prova ad affidare si sente dire di no).
+
+### Cosa resta aperto, dopo che Nova li chiama
+
+- **La consegna non entra nella conversazione di Nova**: la vede l'utente,
+  in chat e a voce, ma se poi chiede a Nova «com'e' andata?», Nova lo
+  rilegge con `dot.stato`. Metterla nella conversazione vorrebbe dire un
+  messaggio di Nova senza una domanda davanti, e va visto prima come lo
+  prendono i cervelli della scala.
+- **Durante Gemini Live** la consegna si scrive e non si dice. Si potrebbe
+  passarla a Live, che la racconterebbe con la sua voce (`idea/`).
 

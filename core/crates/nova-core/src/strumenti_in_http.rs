@@ -2,10 +2,10 @@
 //!
 //! Il modello di casa e le API compatibili OpenAI ricevono gli strumenti
 //! come schemi dentro ogni richiesta, e gli schemi occupano contesto. Il
-//! demone ne ha 129 per i modelli: con il prompt di NOVA fanno 20.939 token,
-//! misurati il 29 settembre su llama-server. Il contesto di serie del modello
-//! di casa e' di 16.384, quindi llama-server rifiutava **ogni** domanda con
-//! un 400, e il modello di casa non poteva rispondere a niente.
+//! demone ne aveva 129 per i modelli: col prompt di NOVA facevano 20.939
+//! token, misurati il 29 settembre su llama-server. Il contesto di serie del
+//! modello di casa e' di 16.384, quindi llama-server rifiutava **ogni**
+//! domanda con un 400, e il modello di casa non poteva rispondere a niente.
 //!
 //! La versione Python offriva a quei cervelli sessanta strumenti, e il suo
 //! prompt stava in 11.685 token. Qui si offrono gli stessi, con i nomi del
@@ -13,7 +13,8 @@
 //! lavoro di ogni strumento del Python. Il demone ha un modo solo di lanciare
 //! un comando, `shell.exec` (PowerShell su Windows, sh altrove), che fa il
 //! lavoro dei tre del Python (`run_cmd`, `run_powershell`, `run_python`):
-//! quindi le capacita' sono 58.
+//! quindi le capacita' sono 58. Dal D387 se ne aggiungono tre per i Dot
+//! ([`SOLO_DEL_DEMONE`]): 61.
 //!
 //! Claude Code e le CLI agentiche non passano di qui: Claude vede tutti gli
 //! strumenti via MCP, e una CLI ha le mani sue. L'elenco e' fisso e non si
@@ -95,6 +96,13 @@ pub const DAL_PYTHON: [(&str, &str); 60] = [
     ("write_file", "fs.write"),
 ];
 
+/// Le capacita' che il Python non aveva e che si offrono lo stesso: i Dot
+/// (D387). Nova li chiama anche col modello di casa: affida, chiede com'e'
+/// andata e, se l'utente lo chiede, ne fa nascere uno. `dot.ferma` resta
+/// fuori: il «fermati» di Nova ferma gia' tutti, e ogni schema costa
+/// contesto.
+pub const SOLO_DEL_DEMONE: [&str; 3] = ["dot.affida", "dot.crea", "dot.stato"];
+
 /// Il tetto degli schemi, in caratteri di JSON.
 ///
 /// Misurato il 29 settembre su llama-server col modello del PC di sviluppo: 20.939 token
@@ -109,6 +117,7 @@ pub const TETTO_SCHEMI: usize = 30_000;
 /// Le capacita' del demone per un cervello in HTTP, senza ripetizioni.
 pub fn capacita() -> Vec<&'static str> {
     let mut v: Vec<&'static str> = DAL_PYTHON.iter().map(|(_, d)| *d).collect();
+    v.extend(SOLO_DEL_DEMONE);
     v.sort_unstable();
     v.dedup();
     v
@@ -158,8 +167,8 @@ mod prove {
         }
         assert_eq!(
             capacita().len(),
-            58,
-            "sessanta strumenti Python, tre dei quali sono shell.exec"
+            61,
+            "sessanta strumenti Python, tre dei quali sono shell.exec, e tre per i Dot"
         );
     }
 
@@ -178,7 +187,7 @@ mod prove {
     fn gli_schemi_stanno_nel_tetto() {
         let server = registro();
         let s = schemi(&server.registry);
-        assert_eq!(s.len(), 58);
+        assert_eq!(s.len(), 61);
         let nomi: Vec<&str> = s
             .iter()
             .filter_map(|t| t["function"]["name"].as_str())
@@ -201,7 +210,7 @@ mod prove {
             .iter()
             .map(|t| t.to_string().chars().count())
             .sum();
-        println!("schemi: {caratteri} caratteri, tutti e 129: {tutti}");
+        println!("schemi: {caratteri} caratteri, tutti: {tutti}");
         assert!(tutti > TETTO_SCHEMI, "{tutti}");
     }
 

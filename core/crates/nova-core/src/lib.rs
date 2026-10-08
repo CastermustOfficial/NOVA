@@ -20,6 +20,7 @@ pub mod caps_approvazione;
 pub mod caps_cervelli;
 pub mod caps_web;
 pub mod caps_documenti;
+pub mod caps_dot;
 pub mod permessi;
 pub mod agente;
 pub mod caps_file;
@@ -144,6 +145,7 @@ pub fn build(config: Config) -> Result<Arc<Server>> {
     caps_cervelli::register(&mut registry);
     caps_web::register(&mut registry);
     caps_documenti::register(&mut registry);
+    caps_dot::register(&mut registry);
     caps_harness::register(&mut registry);
     caps_harness_strumenti::register(&mut registry);
     caps_tempo::register(&mut registry);

@@ -375,12 +375,40 @@ pub fn elenco(server: &Arc<Server>) -> Value {
             Some(json!({
                 "nome": dot.nome,
                 "ruolo": dot.ruolo,
+                "mestiere": dot.mestiere,
+                "prende_compiti": dot.mestiere != d::Mestiere::Custode,
                 "in_coda": coda.iter().filter(|c| c.stato == d::Stato::Affidato).count(),
                 "in_corso": if in_corso == 0 { Value::Null } else { json!(in_corso) },
             }))
         })
         .collect();
     json!({ "dots": dots })
+}
+
+/// Quanto di un rapporto si legge con un compito: il resto sta nel file.
+pub const RAPPORTO_LETTO: usize = 20_000;
+
+/// Un compito di un Dot, con l'esito intero e, se c'e', il rapporto.
+pub fn compito(nome: &str, id: u64) -> Result<Value, String> {
+    let c = cartella(nome)?;
+    if !c.esiste() {
+        return Err(format!("non c'e' nessun Dot che si chiama «{}»", nome.trim()));
+    }
+    let Some(compito) = c.compiti().into_iter().find(|x| x.id == id) else {
+        return Err(format!("{} non ha un compito n. {id}", nome.trim()));
+    };
+    let file = c.rapporto(id);
+    let rapporto = std::fs::read_to_string(&file).ok().map(|t| {
+        let tagliato = t.chars().count() > RAPPORTO_LETTO;
+        let testo: String = t.chars().take(RAPPORTO_LETTO).collect();
+        // Un taglio si dichiara sempre (D129).
+        json!({
+            "file": file.display().to_string(),
+            "testo": testo,
+            "tagliato": tagliato,
+        })
+    });
+    Ok(json!({ "dot": nome.trim(), "compito": compito, "rapporto": rapporto }))
 }
 
 /// Ferma il compito in corso di un Dot. `true` se ce n'era uno.
@@ -455,7 +483,53 @@ async fn ciclo(server: Arc<Server>, nome: String, m: Arc<Maniglia>) {
             "dot.compito",
             json!({ "dot": nome, "id": compito.id, "stato": stato, "esito": esito }),
         );
+        if nova_dot::consegna::di_nova(&compito) {
+            consegna(&server, &nome, &compito, stato, &esito);
+        }
     }
+}
+
+/// Un compito di Nova e' chiuso: l'utente lo sa in chat e, se la voce e'
+/// accesa, a voce (D387). La chat la scrive il guscio, dall'evento
+/// `dot.consegna`; la voce la dice il demone. Mentre e' aperta una
+/// conversazione con Gemini Live si scrive soltanto: due voci insieme non si
+/// capiscono.
+fn consegna(server: &Arc<Server>, nome: &str, compito: &d::Compito, stato: d::Stato, esito: &str) {
+    let Some(a) = nova_dot::consegna::avviso(nome, compito, stato, esito) else {
+        return;
+    };
+    let cfg = crate::caps_voce::configurazione_utente().unwrap_or_else(|| json!({}));
+    let a_voce = si_dice_a_voce(&cfg, crate::live::in_corso());
+    server.ctx.bus.emit(
+        "dot.consegna",
+        json!({
+            "dot": nome,
+            "id": compito.id,
+            "stato": stato,
+            "chat": a.chat,
+            "voce": a.voce,
+            "a_voce": a_voce,
+        }),
+    );
+    if a_voce {
+        let bus = server.ctx.bus.clone();
+        tokio::spawn(async move { crate::caps_voce::annuncia(bus, &a.voce).await });
+    }
+}
+
+/// Se una consegna si dice anche a voce: la voce e' accesa nel pannello, ha
+/// un motore, e non c'e' una conversazione dal vivo in corso.
+pub fn si_dice_a_voce(cfg: &Value, live_in_corso: bool) -> bool {
+    let voce = cfg.get("voice");
+    let accesa = voce
+        .and_then(|v| v.get("enabled"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let motore = voce
+        .and_then(|v| v.get("tts_engine"))
+        .and_then(Value::as_str)
+        .unwrap_or("locale");
+    accesa && motore != "none" && !live_in_corso
 }
 
 /// La conversazione di un Dot: quella salvata, se c'e' e si legge; se no
@@ -540,4 +614,24 @@ async fn lavora(
         d::Stato::Fallito,
         format!("non ha finito in {} turni", d::TURNI_PER_COMPITO),
     )
+}
+
+#[cfg(test)]
+mod prove {
+    use super::*;
+
+    /// La consegna si dice a voce solo con la voce accesa, con un motore, e
+    /// senza una conversazione dal vivo in corso (D387).
+    #[test]
+    fn la_consegna_si_dice_a_voce_solo_quando_si_puo() {
+        let accesa = json!({ "voice": { "enabled": true } });
+        assert!(si_dice_a_voce(&accesa, false), "di serie il motore e' quello locale");
+        assert!(!si_dice_a_voce(&accesa, true), "con Gemini Live in corso si scrive e basta");
+        assert!(!si_dice_a_voce(&json!({ "voice": { "enabled": false } }), false));
+        assert!(!si_dice_a_voce(&json!({}), false), "di serie la voce e' spenta");
+        let muta = json!({ "voice": { "enabled": true, "tts_engine": "none" } });
+        assert!(!si_dice_a_voce(&muta, false));
+        let cloud = json!({ "voice": { "enabled": true, "tts_engine": "elevenlabs" } });
+        assert!(si_dice_a_voce(&cloud, false));
+    }
 }

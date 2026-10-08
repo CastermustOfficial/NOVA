@@ -546,6 +546,32 @@ fn senza_chiave(testo: &str, chiave: &str) -> String {
     }
 }
 
+/// Una conversazione dal vivo e' aperta adesso.
+static IN_CORSO: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Se adesso e' aperta una conversazione con Gemini Live: chi vuole parlare
+/// mentre c'e' (una consegna di un Dot) scrive e basta.
+pub fn in_corso() -> bool {
+    IN_CORSO.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+/// Tiene acceso [`in_corso`] finche' vive, anche se la conversazione finisce
+/// con un errore.
+struct Aperta;
+
+impl Aperta {
+    fn nuova() -> Self {
+        IN_CORSO.store(true, std::sync::atomic::Ordering::SeqCst);
+        Aperta
+    }
+}
+
+impl Drop for Aperta {
+    fn drop(&mut self) {
+        IN_CORSO.store(false, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
 /// La conversazione col microfono e l'altoparlante veri, dopo il risveglio.
 pub async fn conversa_davvero(
     server: Arc<crate::server::Server>,
@@ -555,6 +581,7 @@ pub async fn conversa_davvero(
     riprende: bool,
     aperta: &mut bool,
 ) -> Result<Chiusura> {
+    let _aperta = Aperta::nuova();
     let bocca: Arc<dyn Bocca> = Arc::new(
         tokio::task::spawn_blocking(nova_voce::dal_vivo::altoparlante)
             .await

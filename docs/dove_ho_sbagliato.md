@@ -2187,3 +2187,39 @@ nessuno aveva ancora usato.
 La regola: prima di un push si guarda su che ramo si e', e si nomina il ramo
 di destinazione invece di scrivere `HEAD`.
 
+## «Innocua» non vuol dire «non chiede»
+
+Gio ha deciso che Nova affida ai Dot senza chiedere il permesso. Ho fatto
+`dot.affida` innocua (`Risk::Safe`), convinto che bastasse. Ma con «conferma
+sempre» nel pannello `permessi::si_chiede` chiede anche per le innocue: le
+sole a non chiedere mai erano lo sportello e il freno. La prova del demone,
+che gira con «conferma sempre», si e' vista arrivare la richiesta.
+
+Ora `dot.affida` e `dot.ferma` stanno in `permessi::NON_CHIEDONO_MAI`,
+accanto al freno, con una prova Rust e quella del demone.
+
+Nella stessa prova ho chiamato due volte `nome` il primo parametro di un
+aiuto che riceve anche `nome=` fra gli argomenti, e Python si e' fermato
+prima di cominciare.
+
+E la stessa prova scriveva il rapporto finto con `write_text`: su Windows
+gli a capo diventano `\r\n`, e il rapporto letto dal demone non era piu'
+uguale a quello atteso. L'ha visto la suite sul PC di sviluppo; ora il file
+si scrive in byte.
+
+E ho fatto girare la suite su Windows due volte insieme: ho rilanciato lo
+script mentre il primo giro era ancora nelle prove Python. Era gia' successo
+con i commit dei Dot di oggi, e non l'avevo scritto qui. Il primo giro era
+partito con un `novad.exe` vecchio, perche' quello nuovo non si poteva
+scrivere: NOVA era accesa e lo stava usando. Ho rinominato quello in uso in
+`novad.in-uso.exe` (Windows lo permette a un programma acceso), e il nuovo
+si e' scritto. I risultati di quei due giri non valgono, e la suite e' stata
+rifatta da capo, una volta sola.
+
+La regola: una regola di permessi si legge nel codice prima di dire che
+qualcosa chiede o non chiede; gli aiuti delle prove non usano come
+parametro un nome che puo' arrivare fra gli argomenti; e un file che una
+prova confronta byte per byte si scrive in byte. Prima di lanciare la
+suite si guarda che non ne stia gia' girando un'altra, e che il binario sia
+stato davvero ricostruito.
+

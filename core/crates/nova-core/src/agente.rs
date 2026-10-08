@@ -568,8 +568,8 @@ pub async fn turno_in(
     }
     let mano = crate::dalla_configurazione::manopole(&cfg);
     // A un cervello in HTTP gli schemi viaggiano dentro ogni richiesta, e
-    // tutti e 129 non stanno nel contesto del modello di casa: se ne offrono
-    // 58, sempre gli stessi (D361). Claude e le CLI non li ricevono da qui.
+    // tutti non stanno nel contesto del modello di casa: se ne offrono 61,
+    // sempre gli stessi (D361, D387). Claude e le CLI non li ricevono da qui.
     let strumenti = crate::strumenti_in_http::schemi(&server.registry);
 
     // I gradini si rileggono a ogni turno: se l'utente ha appena cambiato

@@ -165,7 +165,7 @@ Cosa serve: un banco Rust costruito con `cargo`: la prova stampa la riga per cos
 | `test_semina_rust.py` | La prima mappatura del PC scrive in Rust gli stessi nodi del Python. |
 | `test_strumenti_rust.py` | Gli strumenti dichiarati allo stesso modo, in Rust. |
 
-## `prove/demone/`: 34 prove
+## `prove/demone/`: 35 prove
 
 Cosa serve: il binario `novad` costruito.
 
@@ -192,6 +192,7 @@ Cosa serve: il binario `novad` costruito.
 | `test_demone_live.py` | Gemini Live nel demone (D386), con un server websocket finto scritto sul protocollo: le 30 voci per il pannello, con la scelta e da dove viene la chiave senza dirla; «Ascolta» manda la voce chiesta e il modello, mette la chiave nell'indirizzo e non nei messaggi, e torna cosa ha detto e quanto ha parlato; una voce che non c'e' diventa Kore; con `solo_locale` o senza chiave non si collega a niente; un modello non vede e non chiama le due capacita'; la chiave non finisce nei log, nemmeno a livello debug. |
 | `test_demone_memoria.py` | Il demone scrive nella memoria, e quello che scrive lo rilegge NOVA. |
 | `test_demone_modello_locale.py` | Il demone accende il modello di casa quando un turno ne ha bisogno (D358). |
+| `test_demone_nova_e_i_dot.py` | Nova chiama i Dot (D387), con un cervello finto: un Dot nasce solo col si' dell'utente; Nova affida con «conferma sempre» senza chiedere; quando il Dot finisce, `dot.consegna` porta la riga per la chat con l'esito e la frase da dire, che va a voce solo con la voce accesa; un compito dell'utente non si consegna a Nova; `dot.stato` elenca, dice i compiti, e legge l'esito e il rapporto; un Dot che prova ad affidare si sente dire di no; Claude vede i quattro strumenti. |
 | `test_demone_permessi.py` | Prima di agire si chiede: il turno del demone e la porta MCP. |
 | `test_demone_recinto.py` | Il confine vale anche **dopo** che il comando e' partito. Su Windows anche l'elenco delle voci, la cartella di lavoro e `--togli` (D367). |
 | `test_demone_recinto_strumenti.py` | Gli strumenti installati nel profilo partono nel recinto solo con `tool_roots`. Dove la cartella e' degli amministratori la prova lo dice e esce 2 (D367). |
@@ -203,7 +204,7 @@ Cosa serve: il binario `novad` costruito.
 | `test_demone_schermo.py` | Lo schermo in un'immagine, dal demone. |
 | `test_demone_semina.py` | La prima mappatura del PC, fatta dal demone quando si accende (D365). |
 | `test_demone_sistema.py` | Gli appunti, il volume, le notifiche, l'ora e com'e' fatto il PC, dal demone. |
-| `test_demone_turno.py` | Il demone fa un turno intero da solo: chiede, esegue, risponde; e lascia la decisione, senza segreti. La conversazione si dimentica anche col nome vuoto, come la dimentica il guscio (D386). |
+| `test_demone_turno.py` | Il demone fa un turno intero da solo: chiede, esegue, risponde; e lascia la decisione, senza segreti. La conversazione si dimentica anche col nome vuoto, come la dimentica il guscio (D386). A un cervello in HTTP se ne offrono 61, fra cui tre per i Dot (D387). |
 | `test_demone_web.py` | Il browser di NOVA, guidato dal demone, con un browser vero. |
 
 ## `prove/macchina/`: 16 prove
