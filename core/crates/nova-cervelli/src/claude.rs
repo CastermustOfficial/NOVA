@@ -375,6 +375,22 @@ pub fn collegamento(
     Some((json!({ "mcpServers": Value::Object(server) }), sportello))
 }
 
+/// Lega il collegamento a un Dot (D384): il ponte `nova mcp` riceve il
+/// gettone del Dot, e il demone tratta quel collegamento come il Dot —
+/// il suo vault, e i permessi decisi dal custode invece che dall'utente.
+/// Senza il server `nova-core` nel collegamento non c'e' niente da legare.
+pub fn legato_a_un_dot(collegamento: &mut serde_json::Value, gettone: &str) {
+    if let Some(args) = collegamento
+        .get_mut("mcpServers")
+        .and_then(|s| s.get_mut("nova-core"))
+        .and_then(|n| n.get_mut("args"))
+        .and_then(serde_json::Value::as_array_mut)
+    {
+        args.push("--per-dot".into());
+        args.push(gettone.into());
+    }
+}
+
 // ------------------------------------------------------- cosa ha risposto
 
 /// Il JSON che Claude Code stampa, anche se ha qualcosa intorno.
@@ -583,6 +599,21 @@ mod prove {
             v["mcpServers"].get("nova").is_none(),
             "accanto al demone il server Python non serve piu' (D352)"
         );
+    }
+
+    #[test]
+    fn il_collegamento_di_un_dot_porta_il_suo_gettone() {
+        let (mut v, _) = collegamento("C:\\nova.exe", "\\\\.\\pipe\\nova", None).unwrap();
+        legato_a_un_dot(&mut v, "abc123");
+        assert_eq!(
+            v["mcpServers"]["nova-core"]["args"],
+            serde_json::json!(["--endpoint", "\\\\.\\pipe\\nova", "mcp", "--per-dot", "abc123"])
+        );
+        // Col solo server Python non c'e' niente da legare, e niente cambia.
+        let py = serde_json::json!({"command": "python", "args": ["-m", "nova.mcp_kb"]});
+        let (mut v, _) = collegamento("", "x", Some(&py)).unwrap();
+        legato_a_un_dot(&mut v, "abc123");
+        assert_eq!(v["mcpServers"]["nova"], py);
     }
 
     #[test]

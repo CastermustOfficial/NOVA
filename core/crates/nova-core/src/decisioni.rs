@@ -7,7 +7,7 @@
 //! quando si chiede chi deve fare un compito — e finora le buttava.
 //!
 //! Qui le tiene, una riga JSON per decisione, in `decisioni.jsonl` nella
-//! cartella di NOVA. Tre specie di riga:
+//! cartella di NOVA. Quattro specie di riga:
 //!
 //! - `turno`: la richiesta, gli strumenti usati davvero, il gradino a cui e'
 //!   finito il turno, com'e' finito, quanto e' durato;
@@ -18,7 +18,10 @@
 //!   l'ha fatto, chi l'ha scelto (il piano, un ripiego, la salita del
 //!   revisore) e com'e' andata. Sono le scelte che fara' AR, il Dot che
 //!   sceglie i modelli, e su cui si addestrera' CLM a scegliere (Gio, 8
-//!   ottobre).
+//!   ottobre);
+//! - `permesso_dot` (D384): un permesso chiesto da un Dot al custode, cosa
+//!   sapeva il custode, chi ha deciso (il modello di casa, il cervello
+//!   grande, nessuno) e cosa.
 //!
 //! **I segreti no**, con due mani. Un testo in cui il guardiano della memoria
 //! vede una credenziale ([`nova_guasti::guardiano::perche_non_si_salva`]: una
@@ -177,6 +180,40 @@ pub fn riga_cervello_per_passo(quando: &str, c: &CervelloPerPasso) -> Value {
     r
 }
 
+/// Un permesso deciso dal custode (D384).
+///
+/// `stato` e' quello che il custode ha letto: il Dot, il compito, l'azione.
+/// `chi` e' `casa`, `grande` o `nessuno`; `come` dice com'e' andata la
+/// domanda, anche quando non ha deciso nessuno e il permesso e' negato.
+#[allow(clippy::too_many_arguments)]
+pub fn riga_permesso_dot(
+    quando: &str,
+    dot: &str,
+    strumento: &str,
+    rischio: &str,
+    stato: &str,
+    consentito: bool,
+    chi: &str,
+    come: &str,
+    probabilita_vero: Option<f64>,
+) -> Value {
+    let mut r = json!({
+        "quando": quando,
+        "tipo": "permesso_dot",
+        "dot": dot,
+        "strumento": strumento,
+        "rischio": rischio,
+        "consentito": consentito,
+        "chi": chi,
+        "come": come,
+    });
+    if let Some(p) = probabilita_vero {
+        r["probabilita_vero"] = json!((p * 10000.0).round() / 10000.0);
+    }
+    campo(&mut r, "richiesta", stato);
+    r
+}
+
 /// Scrive una riga nel registro, se e' acceso.
 pub fn annota(cfg: &Value, riga: &Value) {
     if attivo(cfg) {
@@ -205,6 +242,24 @@ mod prove {
     /// vedrebbe, giustamente, come una chiave.
     fn finta(prefisso: &str) -> String {
         format!("{prefisso}AbCdEfGhIjKlMnOpQrStUvWxYz0123456789")
+    }
+
+    #[test]
+    fn la_riga_di_un_permesso_dice_chi_ha_deciso_e_cosa() {
+        let r = riga_permesso_dot(
+            "t", "ricercatore", "fs.write", "moderate", "lo stato", false, "casa", "risposto",
+            Some(0.123456),
+        );
+        assert_eq!(r["tipo"], "permesso_dot");
+        assert_eq!((r["consentito"].as_bool(), r["chi"].as_str()), (Some(false), Some("casa")));
+        assert_eq!(r["richiesta"], "lo stato");
+        assert_eq!(r["probabilita_vero"], 0.1235);
+        let senza = riga_permesso_dot("t", "d", "s", "r", "x", true, "grande", "risposto", None);
+        assert!(senza.get("probabilita_vero").is_none());
+        // Un'azione con dentro una credenziale non la porta sul disco.
+        let chiave = format!("scrivi {}", finta(&["sk", "ant", "api03-"].join("-")));
+        let r = riga_permesso_dot("t", "d", "s", "r", &chiave, false, "nessuno", "x", None);
+        assert!(r["richiesta"].is_null() && r["taciuto"].is_string(), "{r}");
     }
 
     #[test]

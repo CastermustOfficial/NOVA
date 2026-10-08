@@ -29,6 +29,12 @@
 //!
 //! Un Dot col mestiere di ricercatore lavora a modo suo: il piano, i passi,
 //! il revisore, il rapporto (`crate::ricercatore`).
+//!
+//! **I permessi li decide il custode** (D384): un Dot che NOVA fa nascere
+//! all'avvio, se non c'e', e che non prende compiti. Quando Nova chiederebbe
+//! all'utente, un Dot chiede a lui (`crate::custode`). Il Claude Code di un
+//! Dot riceve un collegamento legato al Dot con un gettone ([`gettone_di`]):
+//! quello che chiede passa dal custode, e la memoria e' quella del Dot.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -56,6 +62,9 @@ pub struct Dots {
     /// Il vault di ogni Dot, aperto: come quello di Nova, si tiene fra un
     /// turno e l'altro per non rileggere la cartella a ogni domanda.
     vault: std::sync::Mutex<HashMap<String, Arc<crate::memoria::Memoria>>>,
+    /// Il gettone di ogni Dot, per legare a lui il collegamento MCP del suo
+    /// Claude Code (D384). Nuovo a ogni accensione del demone.
+    gettoni: std::sync::Mutex<HashMap<String, String>>,
 }
 
 /// Come si parla al ciclo di un Dot.
@@ -81,6 +90,108 @@ fn cartella(nome: &str) -> Result<d::Cartella, String> {
 
 fn adesso() -> String {
     crate::decisioni::adesso()
+}
+
+/// Un gettone nuovo: 128 bit dal seme casuale che la libreria standard
+/// prende dal sistema per ogni `RandomState`. Non apre niente che il canale
+/// del demone non apra gia' (chi ci parla puo' chiamare le capacita' come la
+/// persona): serve a legare un collegamento al Dot giusto, e a nessun altro.
+fn gettone_nuovo() -> String {
+    use std::hash::{BuildHasher, Hasher};
+    let mut fuori = String::new();
+    for parte in 0..2u8 {
+        let mut h = std::collections::hash_map::RandomState::new().build_hasher();
+        h.write_u8(parte);
+        h.write_u128(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0),
+        );
+        fuori.push_str(&format!("{:016x}", h.finish()));
+    }
+    fuori
+}
+
+/// Il gettone di un Dot, per il collegamento MCP del suo Claude Code.
+pub fn gettone_di(server: &Arc<Server>, nome: &str) -> String {
+    let Ok(mut g) = server.dots.gettoni.lock() else {
+        return String::new();
+    };
+    g.entry(nome.trim().to_string())
+        .or_insert_with(gettone_nuovo)
+        .clone()
+}
+
+/// Il Dot a cui appartiene un gettone, se e' di uno.
+pub fn dot_del_gettone(server: &Arc<Server>, gettone: &str) -> Option<String> {
+    if gettone.trim().is_empty() {
+        return None;
+    }
+    let g = server.dots.gettoni.lock().ok()?;
+    g.iter()
+        .find(|(_, t)| t.as_str() == gettone.trim())
+        .map(|(n, _)| n.clone())
+}
+
+/// Dove scrivere il collegamento MCP del Claude Code di un Dot: nella sua
+/// cartella, non in quello di Nova (`mcp_demone.json`), che un turno di Nova
+/// puo' star leggendo nello stesso momento.
+pub fn collegamento_di(nome: &str) -> PathBuf {
+    cartella(nome)
+        .map(|c| c.radice.join("mcp.json"))
+        .unwrap_or_else(|_| base().join("_nessuno").join("mcp.json"))
+}
+
+/// Il ruolo di un Dot e il compito che sta facendo, per il custode.
+pub fn ruolo_e_compito(server: &Arc<Server>, nome: &str) -> (String, String) {
+    let Ok(c) = cartella(nome) else {
+        return (String::new(), String::new());
+    };
+    let ruolo = c.dot().map(|d| d.ruolo).unwrap_or_default();
+    let in_corso = server
+        .dots
+        .maniglia(nome.trim())
+        .map(|m| m.in_corso.load(Ordering::SeqCst))
+        .unwrap_or(0);
+    let compito = if in_corso == 0 {
+        String::new()
+    } else {
+        c.compiti()
+            .into_iter()
+            .find(|x| x.id == in_corso)
+            .map(|x| x.testo)
+            .unwrap_or_default()
+    };
+    (ruolo, compito)
+}
+
+/// Una riga nel diario del custode: ogni permesso che decide.
+pub fn diario_del_custode(riga: &Value) {
+    if let Ok(c) = cartella(nova_dot::custode::NOME_CUSTODE) {
+        if let Err(e) = c.diario(riga) {
+            tracing::warn!(errore = %e, "il diario del custode non si scrive");
+        }
+    }
+}
+
+/// Fa nascere il custode dei permessi, se non c'e' (D384).
+fn assicura_il_custode() {
+    let Ok(c) = cartella(nova_dot::custode::NOME_CUSTODE) else {
+        return;
+    };
+    if c.esiste() {
+        return;
+    }
+    let custode = d::Dot {
+        nome: nova_dot::custode::NOME_CUSTODE.into(),
+        ruolo: nova_dot::custode::RUOLO.into(),
+        nato: adesso(),
+        mestiere: d::Mestiere::Custode,
+    };
+    if let Err(e) = c.crea(&custode) {
+        tracing::warn!(errore = %e, "il custode dei permessi non nasce");
+    }
 }
 
 /// Dove sta il vault di un Dot. Un nome che non e' un nome di Dot non ha un
@@ -127,6 +238,7 @@ pub fn memoria_di(
 /// Accende i cicli di tutti i Dot che ci sono. Lo chiama il demone
 /// all'avvio.
 pub fn avvia_tutti(server: &Arc<Server>) {
+    assicura_il_custode();
     for nome in d::elenco(&base()) {
         avvia(server, &nome);
     }
@@ -142,6 +254,10 @@ fn avvia(server: &Arc<Server>, nome: &str) {
     // Un Dot nato col D382 non ha ancora il vault e i rapporti.
     if let Err(errore) = c.prepara() {
         tracing::warn!(dot = nome, %errore, "le cartelle del Dot non si creano");
+    }
+    // Il custode non ha una coda: risponde quando un Dot gli chiede.
+    if c.dot().is_ok_and(|x| x.mestiere == d::Mestiere::Custode) {
+        return;
     }
     let maniglia = {
         let Ok(mut m) = server.dots.maniglie.lock() else {
@@ -175,6 +291,12 @@ pub fn crea(
     mestiere: &str,
 ) -> Result<Value, String> {
     let c = cartella(nome)?;
+    if d::nome_valido(nome)? == nova_dot::custode::NOME_CUSTODE {
+        return Err(format!(
+            "«{}» e' il custode dei permessi: lo fa nascere NOVA, ed e' uno solo",
+            nova_dot::custode::NOME_CUSTODE
+        ));
+    }
     if ruolo.trim().is_empty() {
         return Err("un Dot ha bisogno di un ruolo: e' quello che lo fa essere lui".into());
     }
@@ -196,6 +318,11 @@ pub fn affida(server: &Arc<Server>, nome: &str, testo: &str, da: &str) -> Result
     let c = cartella(nome)?;
     if !c.esiste() {
         return Err(format!("non c'e' nessun Dot che si chiama «{}»", nome.trim()));
+    }
+    if c.dot().is_ok_and(|x| x.mestiere == d::Mestiere::Custode) {
+        return Err("il custode dei permessi non prende compiti: decide cosa possono fare \
+                    gli altri Dot"
+            .into());
     }
     if testo.trim().is_empty() {
         return Err("un compito vuoto non e' un compito".into());

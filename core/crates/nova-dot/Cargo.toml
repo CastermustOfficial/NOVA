@@ -11,3 +11,5 @@ description = "I Dot di NOVA: chi sono, la loro coda di compiti, la conversazion
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+# Il custode fa al modello di casa una domanda si'/no (D384).
+nova-giudizio = { path = "../nova-giudizio" }

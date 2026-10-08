@@ -52,8 +52,6 @@ def controlla(nome, condizione, dettaglio=""):
 # Cosa manca a ciascuno per essere attaccato. Non «e' morto»: e' la riga da
 # cancellare il giorno in cui qualcuno lo esegue.
 SCOLLEGATI: dict[str, str] = {
-    "nova-decisioni": "il censimento di CANT-12 — quale materiale puo' uscire "
-                      "dal PC. Attaccarlo e' CANT-12, che e' aperto apposta",
     "nova-mcp-cliente": "NOVA che usa un server MCP di qualcun altro: non c'e' "
                         "ancora il posto da cui si configurano quei server",
 }

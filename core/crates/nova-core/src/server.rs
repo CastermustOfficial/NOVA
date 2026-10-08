@@ -33,6 +33,16 @@ pub struct Server {
     chiuso: std::sync::atomic::AtomicBool,
 }
 
+/// Per chi lavora un collegamento (D384).
+enum Legame {
+    /// Per Nova, o per la persona: come sempre.
+    Nessuno,
+    /// Per un Dot, che si e' presentato col suo gettone.
+    Dot(String),
+    /// Con un gettone che non e' di nessun Dot: non si serve.
+    Sconosciuto,
+}
+
 impl Server {
     pub fn new(registry: Arc<Registry>, ctx: Arc<Ctx>, config: Arc<Config>) -> Arc<Self> {
         Arc::new(Self {
@@ -227,7 +237,7 @@ impl Server {
     }
 
     /// `mcp = true` incapsula il risultato nel formato dei tool MCP.
-    async fn chiama(&self, params: Value, mcp: bool) -> Result<Value, (i32, String)> {
+    async fn chiama(self: &Arc<Self>, params: Value, mcp: bool) -> Result<Value, (i32, String)> {
         let richiesta: CallParams = if mcp {
             CallParams {
                 name: params
@@ -297,12 +307,20 @@ impl Server {
 
         // Dalla porta MCP arriva un modello — Claude Code — e un modello
         // chiede prima di fare cio' che il livello di autonomia dice di
-        // chiedere (D333). Dalla porta diretta arriva la persona.
+        // chiedere (D333). Dalla porta diretta arriva la persona. Il Claude
+        // di un Dot, su un collegamento legato al Dot, chiede al custode e
+        // non all'utente (D384).
         if mcp {
-            if let Err(testo) =
-                crate::permessi::chiedi_per_un_modello(cap.as_ref(), &richiesta.args, &self.ctx)
-                    .await
-            {
+            let permesso = match crate::agente::per_conto_di() {
+                crate::agente::Chi::Nova => {
+                    crate::permessi::chiedi_per_un_modello(cap.as_ref(), &richiesta.args, &self.ctx)
+                        .await
+                }
+                crate::agente::Chi::Dot(d) => {
+                    crate::permessi::per_un_dot(self, &d, cap.as_ref(), &richiesta.args).await
+                }
+            };
+            if let Err(testo) = permesso {
                 self.ctx.bus.emit(
                     "cap.negata",
                     json!({ "name": richiesta.name, "motivo": testo }),
@@ -368,6 +386,9 @@ impl Server {
         });
 
         let topics: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+        // Per chi lavora questo collegamento: per Nova, o per un Dot che si e'
+        // presentato col suo gettone (D384).
+        let mut legato = Legame::Nessuno;
 
         // inoltro degli eventi sottoscritti
         let bus_tx = tx.clone();
@@ -425,6 +446,37 @@ impl Server {
                 }
             };
 
+            // Il Claude Code di un Dot dice per chi lavora prima di tutto il
+            // resto: da li' in poi ogni richiesta gira per conto del Dot, col
+            // suo vault e coi permessi del custode. Un gettone che non e' di
+            // nessun Dot chiude il collegamento a tutto, invece di farlo
+            // lavorare per Nova: un Dot che chiede all'utente non e' un Dot.
+            if req.method == "mcp/per_conto_di" {
+                let gettone = req
+                    .params
+                    .as_ref()
+                    .and_then(|p| p.get("gettone"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                legato = match crate::dot::dot_del_gettone(&self, gettone) {
+                    Some(nome) => Legame::Dot(nome),
+                    None => {
+                        tracing::warn!("un collegamento MCP con un gettone che non e' di nessun Dot");
+                        Legame::Sconosciuto
+                    }
+                };
+                if req.id.is_some() {
+                    let risp = Response::ok(
+                        req.id.clone(),
+                        json!({ "legato": matches!(legato, Legame::Dot(_)) }),
+                    );
+                    let _ = tx
+                        .send(serde_json::to_string(&risp).unwrap_or_default())
+                        .await;
+                }
+                continue;
+            }
+
             // le sottoscrizioni toccano lo stato della connessione
             if req.method == "events/subscribe" {
                 let p: SubscribeParams =
@@ -441,7 +493,21 @@ impl Server {
                 topics.lock().await.clear();
             }
 
-            if let Some(risp) = self.dispatch(req).await {
+            let risposta = match &legato {
+                Legame::Nessuno => self.dispatch(req).await,
+                Legame::Dot(nome) => {
+                    crate::agente::per_conto_di_un_dot(nome.clone(), self.dispatch(req)).await
+                }
+                Legame::Sconosciuto => req.id.clone().map(|id| {
+                    Response::err(
+                        Some(id),
+                        codes::DENIED,
+                        "questo collegamento si e' presentato con un gettone che non e' di \
+                         nessun Dot: il demone non lo serve",
+                    )
+                }),
+            };
+            if let Some(risp) = risposta {
                 let riga = serde_json::to_string(&risp).unwrap_or_default();
                 if tx.send(riga).await.is_err() {
                     break;

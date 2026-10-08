@@ -165,7 +165,7 @@ Cosa serve: un banco Rust costruito con `cargo`: la prova stampa la riga per cos
 | `test_semina_rust.py` | La prima mappatura del PC scrive in Rust gli stessi nodi del Python. |
 | `test_strumenti_rust.py` | Gli strumenti dichiarati allo stesso modo, in Rust. |
 
-## `prove/demone/`: 32 prove
+## `prove/demone/`: 33 prove
 
 Cosa serve: il binario `novad` costruito.
 
@@ -180,7 +180,8 @@ Cosa serve: il binario `novad` costruito.
 | `test_demone_cli.py` | Il demone fa un turno con un cervello che e' un **programma**, non un URL. |
 | `test_demone_compiti.py` | Un compito pianificato fa il suo turno senza Python (D345). |
 | `test_demone_consiglio.py` | `novad --consiglio`: la scala consigliata per quello che c'e' (il modello sul PC, Claude Code, Antigravity), con i nomi veri dal catalogo, e il file della configurazione che resta com'era (D379). |
-| `test_demone_dot.py` | I Dot nel demone (D382), con un cervello finto: un Dot nasce con nome e ruolo, riceve compiti senza far aspettare, li fa uno alla volta senza chiedere il permesso (un file scritto con «conferma sempre» nel pannello), tiene la conversazione su disco, si ferma senza fermare il resto, e dopo un riavvio riprende il compito a meta'. |
+| `test_demone_custode.py` | Il custode dei permessi (D384), con due cervelli finti e un Claude Code finto: un Dot chiede a lui quando Nova chiederebbe all'utente; decide il modello di casa (si', no, «non so»), se no il cervello grande (CONSENTI, NEGA, una risposta illeggibile che e' un no); con l'autonomia piena non si chiede; Nova chiede ancora all'utente; il Claude di un Dot, attraverso il ponte vero col gettone del Dot, passa dal custode per gli strumenti di NOVA e per lo sportello, e un gettone falso non viene servito. |
+| `test_demone_dot.py` | I Dot nel demone (D382), con un cervello finto: un Dot nasce con nome e ruolo, riceve compiti senza far aspettare, li fa uno alla volta senza chiedere il permesso all'utente (un file scritto con «conferma sempre» nel pannello, deciso dal custode), tiene la conversazione su disco, si ferma senza fermare il resto, e dopo un riavvio riprende il compito a meta'. |
 | `test_demone_documenti.py` | Leggere un documento, dal demone. |
 | `test_demone_elevato.py` | Un comando confinato non riceve mai i poteri dell'amministratore, nemmeno da un demone elevato: o parte senza (gruppo non attivo, cartella degli Amministratori non scrivibile, `write_roots` si') o il demone rifiuta e lo dice (D369). Va lanciata da amministratore; da utente normale, e in CI, esce 2: la guardia in CI e' la prova Rust `windows_un_comando_non_riceve_i_poteri_dell_amministratore`. |
 | `test_demone_fascicolo.py` | Il fascicolo, il registro dichiarato e «dove sono i miei dati», nel demone (D352). |

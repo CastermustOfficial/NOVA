@@ -159,21 +159,40 @@ pub fn racconta(v: &Value) -> String {
     righe.join("\n")
 }
 
-/// Il permesso per una chiamata voluta da un Dot (D381).
+/// Se una chiamata voluta da un Dot va chiesta al custode (D381, D384).
 ///
-/// Un Dot ha l'autonomia piena: non si chiede niente a nessuno, e' fatto per
-/// finire il compito mentre l'utente fa altro. Restano le guardie che non
-/// sono permessi: gli strumenti solo per la persona non li chiama, e le
-/// guardie dentro le capacita' (il recinto, i comandi vietati, i percorsi
-/// protetti) valgono per lui come per tutti, perche' stanno li' e non qui.
-pub fn per_un_dot(cap: &dyn Capability) -> Result<(), String> {
+/// Un Dot ha l'autonomia piena: all'utente non chiede niente, e' fatto per
+/// finire il compito mentre l'utente fa altro. Quando Nova chiederebbe
+/// all'utente — la stessa regola, con l'autonomia del pannello
+/// ([`si_chiede`]) — un Dot chiede al custode dei permessi. Restano le
+/// guardie che non sono permessi: gli strumenti solo per la persona un Dot
+/// non li chiama (`Err`), e le guardie dentro le capacita' (il recinto, i
+/// comandi vietati, i percorsi protetti) valgono per lui come per tutti,
+/// perche' stanno li' e non qui.
+pub fn dot_chiede_al_custode(cap: &dyn Capability, a: Autonomia) -> Result<bool, String> {
     let nome = cap.info().name;
     if !per_un_modello(&nome) {
         return Err(format!(
             "«{nome}» la usa la persona, non un modello: le richieste di permesso le decide lei."
         ));
     }
-    Ok(())
+    Ok(si_chiede(cap, a))
+}
+
+/// Il permesso per una chiamata voluta dal Dot `dot`: chiesto al custode
+/// quando Nova lo chiederebbe all'utente, mai all'utente.
+pub async fn per_un_dot(
+    server: &std::sync::Arc<crate::server::Server>,
+    dot: &str,
+    cap: &dyn Capability,
+    args: &Value,
+) -> Result<(), String> {
+    if !dot_chiede_al_custode(cap, autonomia(&nova_configurazione::dove::leggi()))? {
+        return Ok(());
+    }
+    let i = cap.info();
+    let dettaglio = in_chiaro(cap, args, &server.ctx).await;
+    crate::custode::decidi(server, dot, &i.name, i.risk.as_str(), &dettaglio).await
 }
 
 /// Il permesso per una chiamata voluta da un modello.
@@ -307,13 +326,21 @@ mod prove {
     }
 
     #[test]
-    fn un_dot_non_chiede_ma_i_bottoni_della_persona_restano_suoi() {
-        // Autonomia piena (D381): neanche un comando pericoloso chiede.
-        assert!(per_un_dot(&Finta("shell.exec", "shell", Risk::Dangerous)).is_ok());
-        assert!(per_un_dot(&Finta("fs.write", "file", Risk::Moderate)).is_ok());
+    fn un_dot_chiede_al_custode_quando_nova_chiederebbe_all_utente() {
+        // La stessa regola di Nova, col livello del pannello (D384).
+        let pericoloso = Finta("shell.exec", "shell", Risk::Dangerous);
+        let modifica = Finta("fs.write", "file", Risk::Moderate);
+        assert_eq!(dot_chiede_al_custode(&pericoloso, Autonomia::ChiediSeRischioso), Ok(true));
+        assert_eq!(dot_chiede_al_custode(&modifica, Autonomia::ChiediSeRischioso), Ok(false));
+        assert_eq!(dot_chiede_al_custode(&modifica, Autonomia::Chiedi), Ok(true));
+        assert_eq!(dot_chiede_al_custode(&pericoloso, Autonomia::Tutto), Ok(false));
+        // Lo sportello e il freno non chiedono mai, nemmeno per un Dot.
+        let freno = Finta("azione.ferma", "azione", Risk::Moderate);
+        assert_eq!(dot_chiede_al_custode(&freno, Autonomia::Chiedi), Ok(false));
         // Ma rispondere a un'approvazione o premere «accetta» nell'harness no.
         for nome in SOLO_PER_LA_PERSONA {
-            let e = per_un_dot(&Finta(nome, "x", Risk::Safe)).unwrap_err();
+            let e = dot_chiede_al_custode(&Finta(nome, "x", Risk::Safe), Autonomia::Tutto)
+                .unwrap_err();
             assert!(e.contains("la usa la persona"), "{nome}: {e}");
         }
     }

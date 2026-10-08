@@ -563,11 +563,13 @@ browser — e non conta come fallimento: contarla bloccherebbe ogni modifica.
 In costruzione (D381, [`docs/dots.md`](docs/dots.md)). Un Dot e' un collega con
 un nome che porta a termine un compito mentre tu fai altro: ha un ruolo, una
 coda di compiti e una conversazione sua, e lavora con gli strumenti di NOVA
-**senza chiedere il permesso** — le guardie che non sono permessi restano: il
-recinto, i comandi vietati, le credenziali mai al modello. Tu lo guardi, gli
-scrivi, e se serve lo fermi. Il primo e' un ricercatore.
+**senza chiedere il permesso a te**: quando NOVA te lo chiederebbe, lo chiede
+al **custode**, un Dot che decide i permessi degli altri e fa solo quello. Le
+guardie che non sono permessi restano: il recinto, i comandi vietati, le
+credenziali mai al modello. Tu lo guardi, gli scrivi, e se serve lo fermi. Il
+primo e' un ricercatore.
 
-Oggi ci sono i primi due passi. Col primo (D382) un Dot nasce, riceve compiti
+Oggi ci sono i primi tre passi. Col primo (D382) un Dot nasce, riceve compiti
 senza far aspettare chi li affida, li fa uno alla volta, tiene la
 conversazione nella sua cartella (`dots/<nome>/` accanto a `config.json`), lo
 si ferma senza fermare il resto, e dopo un riavvio riprende il compito a
@@ -578,9 +580,10 @@ grande i passi dei piu' piccoli e rifa' un gradino piu' su quelli scarsi, e
 consegna un rapporto in Markdown in `dots/<nome>/rapporti/`, con ogni
 indirizzo controllato contro le pagine che ha letto davvero. Ha un vault suo,
 e ogni scelta del cervello finisce in `decisioni.jsonl`, per insegnare a
-scegliere. Su Claude Code un Dot chiede ancora il consenso allo sportello di
-Nova, se l'autonomia del pannello non e' piena: e' aperto. Lo si usa dal
-demone, coi metodi `dot/crea`, `dot/affida`, `dot/stato`, `dot/elenco` e
+scegliere. Il terzo (D384) e' il custode: NOVA lo fa nascere da se', decide
+col modello di casa e, se quello non sa, col cervello piu' grande che risponde
+a un indirizzo, e nel dubbio dice di no. Anche il Claude Code di un Dot chiede
+a lui, attraverso un collegamento legato al Dot. Lo si usa dal demone, coi metodi `dot/crea`, `dot/affida`, `dot/stato`, `dot/elenco` e
 `dot/ferma`; la vista nell'harness e gli strumenti per Nova vengono dopo.
 
 ## Installazione
@@ -824,8 +827,9 @@ prove/                le prove, divise per cosa serve a farle girare
 Quaranta crate. Gli ultimi tre sono il terreno di CANT-12.
 `nova_core::giudizio_casa` (D371) chiede i logit al modello di casa e li passa
 a `nova-giudizio`, e la prima decisione che lo usa e' la delega: quale
-cervello serve (D373). `nova-decisioni` non lo usa nessun binario, e lo
-stesso vale per `nova-mcp-cliente`.
+cervello serve (D373). `nova-decisioni` lo usa il custode dei Dot, per sapere
+se la sua domanda puo' uscire dal PC (D384); `nova-mcp-cliente` non lo usa
+nessun binario.
 Per addestrare le teste di CLM il demone tiene anche le sue decisioni in
 `decisioni.jsonl` (D374): la richiesta, gli strumenti usati, il gradino, la
 scelta del giudice, e il cervello di ogni passo del ricercatore con com'e'

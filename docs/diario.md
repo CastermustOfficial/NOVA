@@ -11642,3 +11642,13 @@ Claude Code, ho scoperto che la' un Dot chiede ancora il permesso allo
 sportello di Nova: la promessa del primo passo valeva solo per i cervelli in
 HTTP. Ora e' scritto, e la strada la sceglie Gio.
 
+## 8 ottobre 2026 — Il custode
+
+Gio ha deciso come chiude il cerchio: i Dot non chiedono niente a lui,
+chiedono a un Dot che fa solo quello. Un piccolo ecosistema che fa le cose
+da solo. Il custode decide col modello di casa e, se non sa, col cervello
+grande; nel dubbio dice di no. La parte piu' delicata era Claude Code, che
+parla col demone da un altro processo: adesso il ponte si presenta col
+gettone del Dot, e il demone sa per chi lavora. Scrivendo la prova ho trovato
+un controllo del primo passo che non controllava niente.
+

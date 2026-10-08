@@ -75,6 +75,15 @@ pub fn posti(cfg: &Value) -> Vec<Posto> {
              spegne con kb.decisioni.",
         )
         .delicato(),
+        // La stessa voce di `nova/dati.py` (D383): col D384 la cartella c'e'
+        // sempre, perche' il demone fa nascere il custode all'avvio.
+        Posto::nuovo(
+            "I Dot, con le loro conversazioni, i vault e i rapporti",
+            crate::dot::base(),
+            "Spariscono i Dot e quello che stavano facendo: le loro conversazioni, la loro \
+             memoria e i rapporti che hanno consegnato. Nova funziona come prima.",
+        )
+        .delicato(),
         Posto::nuovo(
             "I modelli piu' recenti trovati",
             crate::modelli::percorso(),

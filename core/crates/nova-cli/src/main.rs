@@ -104,7 +104,13 @@ enum Cmd {
     /// Resta in ascolto degli eventi. Senza argomenti ascolta tutto.
     Watch { topics: Vec<String> },
     /// Ponte stdio <-> demone, per collegare Claude Code come server MCP.
-    Mcp,
+    Mcp {
+        /// Il gettone di un Dot (D384): il collegamento lavora per quel Dot,
+        /// col suo vault e coi permessi decisi dal custode. Lo scrive il
+        /// demone nel collegamento che da' al Claude di un Dot.
+        #[arg(long = "per-dot", default_value = "")]
+        per_dot: String,
+    },
     /// Ferma il demone.
     Shutdown,
     /// La configurazione di NOVA, senza demone.
@@ -411,7 +417,7 @@ async fn main() -> Result<()> {
             let topics = if topics.is_empty() { vec!["*".to_string()] } else { topics };
             osserva(&endpoint, topics).await?;
         }
-        Cmd::Mcp => ponte_mcp(&endpoint).await?,
+        Cmd::Mcp { per_dot } => ponte_mcp(&endpoint, &per_dot).await?,
         Cmd::Shutdown => {
             let r = chiamata_singola(&endpoint, "daemon/shutdown", json!({})).await?;
             println!("{}", serde_json::to_string_pretty(&r)?);
@@ -584,9 +590,21 @@ async fn osserva(endpoint: &str, topics: Vec<String>) -> Result<()> {
 }
 
 /// Inoltra stdio <-> demone: Claude Code lo lancia come server MCP.
-async fn ponte_mcp(endpoint: &str) -> Result<()> {
+///
+/// Con il gettone di un Dot, prima di inoltrare dice al demone per chi
+/// lavora il collegamento (`mcp/per_conto_di`, D384). E' una notifica, senza
+/// `id`: il demone non risponde, e su stdout a Claude non arriva niente che
+/// non abbia chiesto.
+async fn ponte_mcp(endpoint: &str, per_dot: &str) -> Result<()> {
     let stream = connetti(endpoint).await?;
     let (lettore, mut scrittore) = tokio::io::split(stream);
+    if !per_dot.trim().is_empty() {
+        let legame = json!({ "jsonrpc": "2.0", "method": "mcp/per_conto_di",
+                             "params": { "gettone": per_dot.trim() } });
+        scrittore.write_all(legame.to_string().as_bytes()).await?;
+        scrittore.write_all(b"\n").await?;
+        scrittore.flush().await?;
+    }
 
     let verso_demone = tokio::spawn(async move {
         let mut stdin = BufReader::new(tokio::io::stdin()).lines();

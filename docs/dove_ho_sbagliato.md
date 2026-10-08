@@ -2095,3 +2095,33 @@ riapplicato a mano solo le mie modifiche.
 La regola: in NOVA si formattano solo i file nuovi, uno per uno, e dopo ogni
 comando che scrive file si guarda `git status`.
 
+## Un controllo che guardava una chiave che non c'e'
+
+`test_demone_dot.py` diceva di controllare che nessuno avesse dovuto
+rispondere a una richiesta di permesso, e lo faceva con
+`approvazione.attese` e la chiave `attese`. Ma lo sportello risponde con
+`richieste` e `quante`: la chiave non c'era mai, il valore di ripiego era la
+lista vuota, e il controllo passava qualunque cosa ci fosse in attesa. L'ho
+visto scrivendo la prova del custode (D384), che guarda le stesse richieste.
+
+Ora la prova guarda `quante` e `richieste`, e controlla anche che a decidere
+sia stato il custode.
+
+La regola: un controllo che legge un campo con un valore di ripiego va
+provato almeno una volta rosso, per sapere che il campo c'e'.
+
+## La mappa dei dati corretta da una parte sola
+
+Col D383 avevo aggiunto `dots/` alla mappa dei dati di `nova/dati.py`, ma la
+stessa mappa ha un gemello nel demone (`nova_core::dati`), e li' non l'avevo
+messa. Le prove non lo vedevano: la mappa mostra solo i posti che esistono,
+e nelle prove `dots/` non c'era. Col D384 il demone fa nascere il custode
+all'avvio, la cartella c'e' sempre, e `test_demone_fascicolo.py` ha visto i
+due racconti diversi. Nello stesso giro `test_crate_attaccati.py` ha visto
+che `nova-decisioni` non era piu' scollegato.
+
+Ora la voce c'e' anche nel demone, con le stesse parole.
+
+La regola e' quella della prima voce di oggi, un'altra volta: quando si
+corregge una cosa che ha un gemello, si corregge anche il gemello.
+

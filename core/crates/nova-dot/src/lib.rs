@@ -31,6 +31,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+pub mod custode;
 pub mod ricerca;
 
 /// Quanto puo' essere lungo il nome di un Dot.
@@ -74,6 +75,9 @@ pub enum Mestiere {
     /// Il piano col cervello piu' grande, i passi col cervello assegnato, il
     /// revisore che fa salire, il rapporto con le fonti (D383).
     Ricercatore,
+    /// Decide i permessi degli altri Dot, sempre e solo quello (D384). Lo fa
+    /// nascere NOVA, ed e' uno solo: [`custode::NOME_CUSTODE`].
+    Custode,
 }
 
 impl Mestiere {
@@ -84,6 +88,10 @@ impl Mestiere {
         match testo.trim() {
             "" | "generico" => Ok(Mestiere::Generico),
             "ricercatore" => Ok(Mestiere::Ricercatore),
+            "custode" => Err(format!(
+                "il custode dei permessi lo fa nascere NOVA, ed e' uno solo: «{}»",
+                custode::NOME_CUSTODE
+            )),
             altro => Err(format!(
                 "«{altro}» non e' un mestiere: i mestieri sono «generico» e «ricercatore»"
             )),
@@ -289,6 +297,7 @@ pub fn prompt(dot: &Dot, base: &str) -> String {
     match dot.mestiere {
         Mestiere::Generico => generico,
         Mestiere::Ricercatore => format!("{generico}\n{}", ricerca::PROMPT),
+        Mestiere::Custode => format!("{generico}\n{}", custode::PROMPT),
     }
 }
 
@@ -643,6 +652,12 @@ mod prove {
         assert!(Mestiere::da("Ricercatore")
             .unwrap_err()
             .contains("non e' un mestiere"));
+        // Il custode non si sceglie: lo fa nascere NOVA, ed e' uno solo.
+        assert!(Mestiere::da("custode").unwrap_err().contains("uno solo"));
+        let c: Dot =
+            serde_json::from_str(r#"{"nome":"custode","ruolo":"r","nato":"t","mestiere":"custode"}"#)
+                .unwrap();
+        assert_eq!(c.mestiere, Mestiere::Custode);
         // Un dot.json scritto dal D382, senza mestiere, si legge ancora.
         let vecchio: Dot = serde_json::from_str(r#"{"nome":"a","ruolo":"r","nato":"t"}"#).unwrap();
         assert_eq!(vecchio.mestiere, Mestiere::Generico);

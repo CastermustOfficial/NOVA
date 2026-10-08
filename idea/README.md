@@ -239,3 +239,11 @@ L'ordine che ne viene: registrare le decisioni e le correzioni; un giudice per `
 
 **Cosa costerebbe.** Leggere un flusso di righe JSON invece di un oggetto solo in `lancia_claude`, e misurare che la risposta finale resti la stessa. Per Gemini CLI va guardato se esiste un'uscita equivalente. Va deciso insieme alla domanda aperta su un Dot che lavora su Claude Code (`docs/dots.md`).
 
+## Il custode che chiede a Claude Code senza mani
+
+**Cosa.** Quando nella scala non c'e' nessun cervello che risponde a un indirizzo oltre al modello di casa — solo Claude Code o CLI — il custode dei Dot (D384) non ha a chi chiedere e nega. Potrebbe chiedere a Claude Code lanciato senza strumenti: nessun collegamento MCP, nessuno strumento permesso, una domanda sola.
+
+**Perché.** Chi usa NOVA solo con Claude, e un'autonomia che chiede, oggi si vede negare dal custode tutto quello che Nova gli chiederebbe. Il custode non chiede a Claude Code perche' un giudice che legge testo scritto da altri non deve avere mani.
+
+**Cosa costerebbe.** Va verificato quali opzioni di Claude Code tolgono davvero tutti gli strumenti in modalita' `-p` (una lista vuota di strumenti permessi, `--disallowedTools` per tutti), e provato con un Claude finto che i flag arrivino. Poi va deciso con Gio se basta.
+

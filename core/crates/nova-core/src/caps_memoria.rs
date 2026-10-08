@@ -58,6 +58,13 @@ pub fn collega_il_server(server: &Arc<crate::Server>) {
     let _ = MEMORIA.set(server.clone());
 }
 
+/// Il server, per le capacita' che hanno bisogno dei Dot: lo sportello di
+/// Claude Code, quando a chiedere e' il Claude di un Dot, gira la domanda
+/// al custode (D384). Lo stesso filo della memoria, per non averne due.
+pub(crate) fn il_server() -> Option<&'static Arc<crate::Server>> {
+    MEMORIA.get()
+}
+
 /// La memoria di chi chiama, con la configurazione che la apre.
 ///
 /// Per Nova e' il vault di NOVA. Per un Dot e' il **suo** vault (D381): un

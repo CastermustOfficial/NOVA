@@ -3,7 +3,8 @@
 
 Il primo passo di `docs/dots.md`: un Dot nasce con un nome e un ruolo,
 riceve compiti in coda senza far aspettare chi li affida, li fa uno alla
-volta con gli strumenti del demone e **senza chiedere il permesso**, tiene
+volta con gli strumenti del demone e **senza chiedere il permesso
+all'utente** (dal D384 lo chiede al custode, che qui dice si'), tiene
 la sua conversazione su disco, si ferma da solo quando glielo si chiede, e
 dopo un riavvio del demone riprende il compito che stava facendo.
 
@@ -58,6 +59,8 @@ cartella_nova.mkdir(parents=True, exist_ok=True)
 scritto = Path(casa) / "appunti.txt"
 LENTO_S = 6.0
 domande: list[str] = []
+#: Le domande del custode al modello di casa (D384).
+permessi: list[str] = []
 
 
 def manda(h, codice, corpo):
@@ -83,6 +86,19 @@ class Cervello(BaseHTTPRequestHandler):
     def do_POST(self):                                            # noqa: N802
         n = int(self.headers.get("Content-Length", 0))
         corpo = json.loads(self.rfile.read(n).decode("utf-8"))
+        # Il custode dei permessi (D384) chiede al modello di casa un si' o
+        # un no, con le lettere: qui il modello di casa e' questo, e dice si'
+        # (B, «vero»). Il custode si prova in `test_demone_custode.py`.
+        if self.path in ("/tokenize", "/apply-template", "/completion"):
+            permessi.append(self.path)
+            if self.path == "/tokenize":
+                manda(self, 200, {"tokens": [1]})
+            elif self.path == "/apply-template":
+                manda(self, 200, {"prompt": corpo["messages"][-1]["content"]})
+            else:
+                manda(self, 200, {"completion_probabilities": [{"top_logprobs": [
+                    {"token": "B", "logprob": -0.01}, {"token": "A", "logprob": -6.0}]}]})
+            return
         if self.path != "/v1/chat/completions":
             manda(self, 404, {"error": "non ci sono"})
             return
@@ -179,8 +195,9 @@ try:
     controlla("un Dot che c'e' gia' non si riscrive",
               "c'e' gia'" in errore("dot/crea", nome="ricercatore", ruolo="altro"))
     controlla("senza ruolo non nasce", "ruolo" in errore("dot/crea", nome="vuoto", ruolo=" "))
-    controlla("e compare nell'elenco",
-              [x["nome"] for x in rpc("dot/elenco")["dots"]] == ["ricercatore"])
+    controlla("e compare nell'elenco, accanto al custode che NOVA fa nascere da se' (D384)",
+              [x["nome"] for x in rpc("dot/elenco")["dots"]] == ["custode", "ricercatore"],
+              str(rpc("dot/elenco")))
 
     print("\n2. un compito si affida senza aspettare, e si porta a termine")
     t0 = time.time()
@@ -204,14 +221,20 @@ try:
     controlla("a un Dot che non c'e' non si affida niente",
               "nessun Dot" in errore("dot/affida", nome="nessuno", testo="x"))
 
-    print("\n3. un Dot non chiede il permesso: e' autonomo")
+    print("\n3. un Dot non chiede il permesso all'utente: chiede al custode")
     id2 = rpc("dot/affida", nome="ricercatore", testo="scrivi il file degli appunti")["id"]
     c = aspetta("ricercatore", id2, {"fatto", "fallito"})
     controlla("il compito e' fatto", c.get("stato") == "fatto", str(c))
     controlla("il file e' scritto, con «chiedi sempre» nel pannello",
               scritto.is_file() and scritto.read_text(encoding="utf-8") == "trovato")
-    controlla("e nessuno ha dovuto rispondere a una richiesta",
-              rpc("capabilities/call", name="approvazione.attese", args={}).get("attese", []) == [])
+    # Lo sportello risponde {"richieste": [...], "quante": n}: fino al D384
+    # qui si guardava una chiave «attese» che non c'e', e il controllo
+    # passava qualunque cosa ci fosse in attesa.
+    attese = rpc("capabilities/call", name="approvazione.attese", args={})
+    controlla("e nessuna richiesta e' rimasta all'utente",
+              attese.get("quante") == 0 and attese.get("richieste") == [], str(attese))
+    controlla("il permesso l'ha deciso il custode, col modello di casa (D384)",
+              permessi.count("/completion") >= 1, str(permessi))
     controlla("il diario dice lo strumento usato",
               any(x.get("strumenti") == ["fs_write"]
                   for x in (json.loads(r) for r in (DOT / "diario.jsonl").read_text(encoding="utf-8").splitlines())))

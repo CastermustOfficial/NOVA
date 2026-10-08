@@ -123,6 +123,12 @@ tokio::task_local! {
     static PER_CONTO_DI: Chi;
 }
 
+/// Fa girare `f` per conto del Dot `nome`: lo usa il collegamento MCP del
+/// Claude Code di un Dot, legato a lui col suo gettone (D384).
+pub async fn per_conto_di_un_dot<F: std::future::Future>(nome: String, f: F) -> F::Output {
+    PER_CONTO_DI.scope(Chi::Dot(nome), f).await
+}
+
 /// Per conto di chi gira la capacita' in corso: Nova, se non lo dice
 /// nessuno. Chi chiama le capacita' da fuori di un turno — il guscio, la
 /// riga di comando, Claude Code via MCP — lavora per Nova.
@@ -181,7 +187,9 @@ impl Esecutore for EsecutoreDemone {
                 crate::permessi::chiedi_per_un_modello(cap.as_ref(), argomenti, &self.server.ctx)
                     .await
             }
-            Chi::Dot(_) => crate::permessi::per_un_dot(cap.as_ref()),
+            Chi::Dot(d) => {
+                crate::permessi::per_un_dot(&self.server, d, cap.as_ref(), argomenti).await
+            }
         }
     }
 
@@ -406,6 +414,7 @@ fn collegamento_claude(
     server: &Arc<Server>,
     d: &nova_cervelli::claude::Dichiarato,
     vault: &std::path::Path,
+    chi: &Chi,
 ) -> (String, String) {
     if !d.kb_via_mcp {
         return (String::new(), String::new());
@@ -421,12 +430,20 @@ fn collegamento_claude(
         .ok()
         .and_then(|t| serde_json::from_str::<Value>(t.trim_start_matches('\u{feff}')).ok())
         .and_then(|v| v.get("mcpServers").and_then(|m| m.get("nova")).cloned());
-    let Some((contenuto, sportello)) =
+    let Some((mut contenuto, sportello)) =
         nova_cervelli::claude::collegamento(&ponte, &server.config.endpoint, python.as_ref())
     else {
         return (String::new(), String::new());
     };
-    let f = crate::mondo::cartella_nova().join("mcp_demone.json");
+    // Il Claude di un Dot lavora per lui (D384): il ponte porta il suo
+    // gettone, e il file sta nella sua cartella, non in quello di Nova.
+    let f = match chi {
+        Chi::Nova => crate::mondo::cartella_nova().join("mcp_demone.json"),
+        Chi::Dot(n) => {
+            nova_cervelli::claude::legato_a_un_dot(&mut contenuto, &crate::dot::gettone_di(server, n));
+            crate::dot::collegamento_di(n)
+        }
+    };
     let scritto = f
         .parent()
         .map(std::fs::create_dir_all)
@@ -560,8 +577,23 @@ pub async fn turno_in(
             Chi::Nova => crate::memoria::percorso(&cfg, &crate::memoria::radice_progetto()),
             Chi::Dot(n) => crate::dot::vault_di(n),
         };
-        let (mcp, sportello) = collegamento_claude(server, &recapiti.claude, &vault);
+        let (mcp, sportello) = collegamento_claude(server, &recapiti.claude, &vault, &esecutore.chi);
         crate::mondo::collega_claude(&mut s.gradini, &vault_per_claude(&cfg, &vault), &mcp, &sportello);
+        // Il prompt di sistema del Claude di un Dot va in un file suo: un
+        // turno di Nova sullo stesso file, nello stesso momento, darebbe a uno
+        // dei due le istruzioni dell'altro (come per la delega).
+        if let Chi::Dot(n) = &esecutore.chi {
+            let file = std::path::Path::new("dots")
+                .join(n)
+                .join("prompt_sistema.txt")
+                .to_string_lossy()
+                .to_string();
+            for g in s.gradini.iter_mut() {
+                if let crate::mondo::Gradino::Claude { come, .. } = g {
+                    come.file_prompt = file.clone();
+                }
+            }
+        }
     }
     // Si conta il prompt della sessione, non quello appena letto: e' lui
     // che viaggia nella richiesta.

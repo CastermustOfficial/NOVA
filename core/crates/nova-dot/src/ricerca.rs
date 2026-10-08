@@ -663,7 +663,7 @@ mod prove {
         let passo = r#"{"tipo": "cerca", "cosa": "c", "cervello": "piccolo"}"#;
         let lungo = format!(
             "{{\"passi\": [{}]}}",
-            vec![passo; PASSI_MASSIMI + 3].join(",")
+            [passo; PASSI_MASSIMI + 3].join(",")
         );
         let p = leggi_piano(&lungo, &scala()).unwrap();
         assert_eq!(p.passi.len(), PASSI_MASSIMI);

@@ -27,7 +27,7 @@ cerca, legge le fonti e consegna un **rapporto in Markdown con le fonti**.
 | **Primo Dot** | Il ricercatore. |
 | **Cervello** | Il Dot pianifica col cervello **più grande** che ha la scala, e a ogni passo assegna il cervello adatto al tipo di passo. Un **revisore** giudica i risultati dei passi fatti coi cervelli piccoli: se sono scarsi, il passo si rifà un gradino più su, anche a lavoro in corso. Nel primo traguardo il revisore è un ruolo dentro il ricercatore (un passo che chiama il cervello grande); con la squadra diventa un Dot suo. **Per ora decide il cervello grande** (Gio, 8 ottobre). Poi la scelta passa a un Dot specializzato, **AR** (*Artificial Resources*), che per ogni compito, secondo la complessità e i risultati ottenuti, delega a un modello invece che a un altro. **Ogni scelta si registra**, e su quelle scelte si addestra CLM a fare lo stesso: scegliere. |
 | **Modello sul PC** | Va secondo le risorse: con un posto solo (`n_parallel`, di serie 1) i Dot che lo usano vanno uno dopo l'altro, e dopo la conversazione con Nova. Coi cervelli di fuori possono lavorare insieme, entro i limiti del fornitore. |
-| **Autonomia** | Piena. Un Dot non chiede l'ok prima di agire: è la cosa più autonoma della piattaforma, fatta per finire il compito. L'utente supervisiona, scrive, ferma. |
+| **Autonomia** | Piena. Un Dot non chiede l'ok all'utente prima di agire: è la cosa più autonoma della piattaforma, fatta per finire il compito. L'utente supervisiona, scrive, ferma. **Quando Nova chiederebbe all'utente, un Dot chiede al custode** (Gio, 8 ottobre, D384): un Dot che decide i permessi degli altri, sempre e solo quello. I Dot sono un piccolo ecosistema che fa le cose da solo, potenzialmente per tutto. |
 
 ### Cosa resta anche con l'autonomia piena
 
@@ -39,6 +39,8 @@ L'autonomia toglie le domande, non le guardie. Un Dot:
 - non passa i **comandi vietati** (`safety.forbidden_command_patterns`) né
   le altre guardie che non sono permessi;
 - non vede mai le **credenziali** (D236);
+- chiede il permesso al **custode** quando Nova lo chiederebbe all'utente,
+  con l'autonomia del pannello (D384);
 - non può chiamare gli strumenti che sono **solo per la persona**
   (`SOLO_PER_LA_PERSONA`: rispondere a un'approvazione, i bottoni delle
   finestre);
@@ -209,4 +211,72 @@ Un giudizio può solo stringere una guardia, mai allentarla (D313).
   memoria che Claude chiama via MCP lavorano sul vault di Nova. E quello che
   leggono NOVA non lo vede: le loro fonti restano da verificare. Come dargli
   l'autonomia di un Dot senza allentare una guardia è da decidere con Gio.
+  *Deciso lo stesso giorno*: le prime due le chiude il custode (D384, qui
+  sotto); la terza resta.
 - Un compito ripreso dopo un riavvio rifà il piano da capo.
+
+**Il custode — fatto** (D384). Deciso con Gio l'8 ottobre: i Dot hanno
+l'autonomia piena, e il permesso lo chiedono a un Dot che si occupa di
+questo, sempre. Le tre scelte: si chiede **quando Nova chiederebbe
+all'utente**, con l'autonomia del pannello; decide **il modello di casa, se
+no il cervello grande**; il custode decide **solo per i Dot**, e Nova
+continua a chiedere all'utente.
+
+- **Chi è.** Un Dot col mestiere `custode`, che NOVA fa nascere all'avvio se
+  non c'è (`dots/custode/`). È uno solo: nessun altro Dot può chiamarsi così
+  o avere quel mestiere, e non prende compiti. Nel suo diario c'è ogni
+  permesso che decide.
+- **Quando.** Una chiamata di un Dot va al custode quando
+  `permessi::si_chiede` direbbe a Nova di chiedere all'utente: con «chiedi
+  sempre» ogni azione, con «chiedi se rischioso» quelle pericolose, con
+  l'autonomia piena nessuna. Lo sportello e il freno non chiedono mai; gli
+  strumenti solo per la persona un Dot non li chiama comunque.
+- **Cosa sa.** Il Dot, il suo ruolo, il compito che sta facendo, lo strumento
+  col suo rischio, e cosa succederebbe (l'anteprima della capacità).
+- **Chi decide.** Prima il modello di casa, con una domanda sì/no letta
+  dalle lettere (`giudizio_casa`). Se non c'è, non si accende, o non sa
+  decidere, il cervello più grande che risponde a un indirizzo, con una
+  domanda sola e senza strumenti: CONSENTI, o NEGA col perché. Claude Code
+  e le CLI no: un giudice che legge testo scritto da altri non deve avere
+  mani. Se la domanda dovrebbe uscire dal PC si chiede a `nova_decisioni`
+  (la decisione `PermessoDiUnDot`): con «solo sul PC» non esce, e una
+  credenziale dentro non esce mai.
+- **Nel dubbio, no.** Nessun cervello a cui chiedere, una risposta che non
+  si legge, una domanda che non può uscire: il Dot legge «AZIONE NEGATA dal
+  custode», col perché, e va avanti per un'altra strada.
+- **Si registra.** Ogni permesso è una riga `permesso_dot` in
+  `decisioni.jsonl` (cosa sapeva il custode, chi ha deciso, cosa, con che
+  probabilità), una nel diario del custode, e l'evento `dot.permesso`. Sono
+  esempi per CLM, come le scelte del cervello.
+- **Il Claude Code di un Dot.** Il collegamento MCP che riceve è legato al
+  Dot: il ponte `nova mcp --per-dot <gettone>` si presenta al demone col
+  gettone del Dot (`mcp/per_conto_di`), e da lì ogni richiesta gira per conto
+  del Dot. Gli strumenti di NOVA che chiama passano dal custode e la memoria
+  è quella del Dot; quando vuole usare uno strumento suo e chiede allo
+  sportello (`approvazione.claude`), risponde il custode. Il collegamento e il
+  prompt di sistema stanno nella cartella del Dot, non nei file di Nova. Un
+  gettone che non è di nessun Dot non viene servito. Il gettone è nuovo a
+  ogni accensione del demone, e non apre niente che il canale del demone non
+  apra già: serve a legare un collegamento al Dot giusto.
+- Prove: quattro nuove in `nova_dot::custode`, una in `permessi` (quando un
+  Dot chiede al custode, al posto di quella del D382), una in
+  `nova_core::custode` (cosa può uscire), una in `decisioni`, una in
+  `nova_cervelli::claude` (il gettone nel collegamento); il custode entra
+  nella prova del mestiere e nel conto delle decisioni di `nova_decisioni`; e
+  `test_demone_custode.py` (30 controlli): il modello di casa che dice sì,
+  no e «non so», il cervello di fuori che dice CONSENTI, NEGA e una frase
+  che non si legge, l'autonomia piena che non chiede, Nova che chiede ancora
+  all'utente, e il Claude di un Dot attraverso il ponte vero.
+
+### Cosa resta aperto, dopo il custode
+
+- **Quello che legge Claude Code NOVA non lo vede**: le sue fonti restano da
+  verificare (`idea/`, «Vedere cosa leggono Claude Code e le CLI»).
+- **Chi ha in scala solo Claude Code o CLI** e un'autonomia che chiede: il
+  custode non ha un cervello senza mani a cui chiedere, e nega. Si potrebbe
+  chiedere a Claude Code senza strumenti (`idea/`).
+- **Le CLI agentiche** si lanciano senza permessi (Antigravity con
+  `--dangerously-skip-permissions`, Gemini CLI con `--approval-mode yolo`,
+  in `nova_cervelli::cli`): con le loro mani non passano né dall'utente né
+  dal custode, per un Dot come per Nova.
+

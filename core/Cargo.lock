@@ -3030,6 +3030,7 @@ dependencies = [
  "nova-configurazione",
  "nova-contesto",
  "nova-dati",
+ "nova-decisioni",
  "nova-documenti",
  "nova-docx",
  "nova-dot",
@@ -3097,6 +3098,7 @@ dependencies = [
 name = "nova-dot"
 version = "0.1.1"
 dependencies = [
+ "nova-giudizio",
  "serde",
  "serde_json",
 ]

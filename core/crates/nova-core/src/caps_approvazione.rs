@@ -299,6 +299,30 @@ impl Capability for ClaudeCap {
         // aggiunge solo la porta.
         let dettaglio = nova_mcp::in_chiaro(&strumento, &argomenti);
         let rischio = nova_mcp::rischio(&strumento, &argomenti).to_string();
+        // Il Claude di un Dot non chiede all'utente: chiede al custode
+        // (D384). Lo si sa dal collegamento, legato al Dot col suo gettone.
+        if let crate::agente::Chi::Dot(dot) = crate::agente::per_conto_di() {
+            let argomenti = if argomenti.is_null() {
+                json!({})
+            } else {
+                argomenti
+            };
+            let Some(server) = crate::caps_memoria::il_server() else {
+                return Ok(Value::String(nova_mcp::risposta_permesso(
+                    &nova_mcp::Esito::Negato {
+                        motivo: "il custode non e' raggiungibile da questo demone",
+                    },
+                    &argomenti,
+                )));
+            };
+            let esito = crate::custode::decidi(server, &dot, &strumento, &rischio, &dettaglio).await;
+            let motivo = esito.as_ref().err().cloned().unwrap_or_default();
+            let come = match esito {
+                Ok(()) => nova_mcp::Esito::Consentito,
+                Err(_) => nova_mcp::Esito::Negato { motivo: &motivo },
+            };
+            return Ok(Value::String(nova_mcp::risposta_permesso(&come, &argomenti)));
+        }
         let esito = chiedi_e_aspetta(
             ctx,
             strumento,

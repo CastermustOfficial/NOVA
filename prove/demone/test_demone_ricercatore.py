@@ -70,6 +70,8 @@ fonti.write_text("Le supernove di tipo Ia: https://esempio.org/supernove\n", enc
 #: Ogni domanda arrivata ai cervelli: (modello, che domanda era, il testo).
 #: Quelle che non vengono da un Dot hanno «nova: » davanti al genere.
 arrivate: list[tuple[str, str, str]] = []
+#: Le domande del custode al modello di casa (D384).
+permessi: list[str] = []
 
 PIANO_SUPERNOVE = {"passi": [
     {"tipo": "cerca", "cosa": "trova le fonti sulle supernove", "cervello": "piccolo"},
@@ -127,6 +129,19 @@ class Cervello(BaseHTTPRequestHandler):
     def do_POST(self):                                            # noqa: N802
         n = int(self.headers.get("Content-Length", 0))
         corpo = json.loads(self.rfile.read(n).decode("utf-8"))
+        # Il custode dei permessi (D384) chiede al modello di casa un si' o
+        # un no, con le lettere: qui il modello di casa e' questo, e dice si'
+        # (B, «vero»). Il custode si prova in `test_demone_custode.py`.
+        if self.path in ("/tokenize", "/apply-template", "/completion"):
+            permessi.append(self.path)
+            if self.path == "/tokenize":
+                manda(self, 200, {"tokens": [1]})
+            elif self.path == "/apply-template":
+                manda(self, 200, {"prompt": corpo["messages"][-1]["content"]})
+            else:
+                manda(self, 200, {"completion_probabilities": [{"top_logprobs": [
+                    {"token": "B", "logprob": -0.01}, {"token": "A", "logprob": -6.0}]}]})
+            return
         if self.path != "/v1/chat/completions":
             manda(self, 404, {"error": "non ci sono"})
             return
