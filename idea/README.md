@@ -32,6 +32,24 @@ anche per Antigravity: cosa stampa `agy models` su un PC dove l'accesso non
 e' stato fatto. Oggi un elenco non vuoto vale come accesso fatto, ed e'
 verificato solo sul PC di sviluppo, dove l'accesso c'e'.
 
+## Una voce che parla davvero: un modello speech-to-speech davanti a NOVA
+
+Aggiunta da Gio il 7 ottobre: i tempi morti, il microfono e le interruzioni vengono dalla catena voce -> testo -> cervello -> voce, che occupa memoria e somma ritardi. Serve un modello che ascolti e parli da solo, e che passi il lavoro a NOVA. Per dopo, ed e' un di piu': chi ha una chiave la usa, guidato da NOVA, gli altri restano con la voce di oggi.
+
+**Cosa.** Un modello vocale davanti, NOVA dietro: lui tiene la conversazione, e quando serve agire chiama una funzione di NOVA (`delega`, `quale cervello`); decide CLM o, per chi non lo vuole, le lettere del modello o le parole; le cose complesse salgono al gradino successivo, e lui intanto continua a parlare e poi racconta il risultato. E' lo strato «per parlare» dell'idea qui sotto.
+
+**Provato il 7 ottobre**, con una chiave della Gemini API senza credito, dal contenitore di lavoro (negli Stati Uniti, non dall'Italia), con script fuori dal repository e una domanda a voce sintetica (non un microfono):
+
+- `gemini-3.8-live` risponde in italiano, breve e naturale; la domanda a voce l'ha trascritta giusta;
+- primo pezzo di voce: da 0,63 a 1,08 s dopo una domanda scritta; da 1,45 a 1,93 s dalla fine di una domanda a voce, compreso il tempo per capire che si e' finito di parlare; una volta su quattro 25,36 s, senza errore, e non so perche';
+- la funzione finta `delega`, non bloccante: chiamata da sola dopo 2,69 s riscrivendo il compito per intero, «Ci sto lavorando proprio ora» detto mentre aspettava, il risultato (mandato dopo 4 s) riassunto a voce senza chiederlo;
+- token: 282 di voce in uscita per 11 s di audio, circa 26 al secondo;
+- sul piano gratuito, dalla console di Gio: richieste al minuto e al giorno illimitate, 65.000 token al minuto (il picco della prova: 575); il tetto vero e' il contesto della sessione, 131.072 token in entrata, che in una conversazione lunga si riempie perche' ogni turno ricarica la conversazione. Il TTS separato (`gemini-3.8-flash-tts`) ha 10 richieste al giorno gratis: con Live non serve.
+
+**Le altre strade guardate** (7 ottobre). In locale: PersonaPlex di NVIDIA (Moshi rifinito, full-duplex, voce e persona dai prompt, licenza commerciale), Moshi di Kyutai e Mini-Omni2 parlano solo inglese e non usano strumenti; un adattatore italiano di Moshi esiste, ma il suo autore lo dice inutilizzabile; Qwen3-Omni parla italiano e chiama funzioni, ma e' un 30B da circa 79 GB in bf16. Nel cloud: GPT-Live-1 di OpenAI (full-duplex, delega a un modello dietro, 5 cent al minuto piu' il modello), la Realtime API (gpt-realtime-mini, da 6 a 15 cent al minuto misurati da altri), ElevenLabs Agents (8 cent al minuto piu' l'LLM; non e' chiaro se sia speech-to-speech).
+
+**Cosa costerebbe.** Un cervello nuovo che parla in WebSocket e in audio, col microfono e l'altoparlante del guscio, e le funzioni di NOVA dichiarate al modello vocale. La voce esce dal PC: e' un cervello di fuori, scelto apposta, mai di serie. Sul piano gratuito, nello Spazio economico europeo i dati non addestrano i modelli di Google (termini della Gemini API, in vigore dal 23 marzo 2026), ma per offrire la Gemini API a utenti europei di un'app i termini chiedono i servizi a pagamento: se NOVA la proponesse a chi la installa, va letto bene. Chi ha un abbonamento Google AI Pro o Ultra ha anche 10 o 100 $ al mese di crediti per la Gemini API (dal 27 gennaio 2026); che valgano per la Live API non e' scritto.
+
 ## OpenDots: colleghi sempre accesi, fra testo, chiamate e Slack
 
 Aggiunta da Gio il 5 ottobre, come spinta per NOVA insieme all'harness, e da decidere insieme alle strade di CANT-12 in un'integrazione sola.
