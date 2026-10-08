@@ -141,3 +141,72 @@ Un giudizio può solo stringere una guardia, mai allentarla (D313).
   ripresa), una in `permessi`, e `test_demone_dot.py` con un cervello finto:
   nascere, affidare senza aspettare, scrivere un file con «conferma sempre»
   senza nessuna richiesta, fermare, riprendere dopo un riavvio.
+
+**Fase 2 — fatta** (D383). Il ricercatore:
+
+- Un Dot ha un **mestiere**, scritto in `dot.json`: `generico`, come i Dot
+  del D382 (un `dot.json` senza mestiere si legge così), o `ricercatore`. Si
+  sceglie alla nascita, con `dot/crea` e `mestiere: "ricercatore"`; una
+  parola che non è un mestiere si rifiuta.
+- **Il piano** lo fa il cervello più grande della scala: i passi (cerca,
+  leggi, confronta, scrivi), al massimo otto, e per ognuno il cervello, coi
+  nomi veri dei gradini. Un cervello che la scala non ha fa ripiegare quel
+  passo sul cervello grande; un piano che non finisce con «scrivi» ne riceve
+  uno; un piano che non si legge diventa quello di ripiego (cerca, leggi,
+  scrivi), tutto col cervello grande. Il perché resta nel diario.
+- **Ogni passo** è un turno nella conversazione del Dot, che parte dal
+  gradino assegnato (`agente::turno_in`, `parti_da`), e continua fino a tre
+  turni se il modello finisce i giri di strumenti. La domanda di un passo
+  porta i risultati dei passi già fatti, 1.500 caratteri ciascuno: Claude
+  Code non vede la conversazione, solo l'ultima domanda.
+- **Il revisore** è il cervello grande. Giudica i passi dei cervelli più
+  piccoli, col risultato dentro la domanda, e risponde BUONO o SCARSO col
+  perché. Un passo scarso si rifà un gradino sopra quello che l'ha fatto, e
+  chi lo rifà sa chi l'aveva fatto e cosa ha detto il revisore; i passi del
+  cervello grande non si rivedono, perché sopra non c'è nessuno. Un giudizio
+  che non comincia né con BUONO né con SCARSO tiene il passo, e il diario lo
+  dice. Un cervello piccolo che non risponde fa salire allo stesso modo; il
+  cervello grande che non risponde fa fallire il compito.
+- **Il rapporto** è la risposta del passo «scrivi», in
+  `rapporti/<compito>.md`, con in coda le fonti controllate da NOVA. Un
+  indirizzo è *visto* se è passato da uno strumento di NOVA in questo
+  compito, negli argomenti o nel risultato di una chiamata andata a buon
+  fine; *non visto* se no; *da verificare* se una parte del lavoro l'ha fatta
+  Claude Code o una CLI, che leggono con strumenti loro. L'esito del compito
+  dice dove sta il rapporto e come stanno le fonti, e l'evento
+  `dot.rapporto` lo annuncia.
+- **Il vault è suo**: `dots/<nome>/vault/`. Gli strumenti `kb.*` chiamati da
+  un Dot lavorano lì: chi chiama lo dice `agente::per_conto_di`, che
+  `EsecutoreDemone` mette attorno a ogni capacità. Quello che c'è entra
+  nelle domande del Dot come la memoria di Nova nelle sue. Le procedure sono
+  di Nova: un Dot non le legge e non le cancella. A Claude Code si nomina il
+  vault del Dot. Ogni rapporto lascia una nota nel vault, con dove sta. La
+  memoria spenta (`kb.enabled`) è spenta anche per i Dot.
+- **Ogni scelta del cervello si registra**, una riga per ogni volta che un
+  passo si fa: `cervello_per_passo`, nel diario del Dot e in
+  `decisioni.jsonl` (che si spegne con `kb.decisioni`, e dove una credenziale
+  non arriva). La riga dice il passo, la scala, il cervello scelto e chi l'ha
+  scelto (il piano, un ripiego, la salita), il cervello che ha risposto
+  davvero, com'è finito il turno e il giudizio. Sono gli esempi per AR e per
+  CLM.
+- Nova e i Dot scrivono negli stessi registri, `azioni.jsonl` e
+  `decisioni.jsonl`: ora uno alla volta, una riga per scrittura
+  (`nova_core::righe`), come la coda dei Dot.
+- Prove: tredici in `nova_dot::ricerca` (il piano, il giudizio, gli
+  indirizzi, le fonti), una in più in `nova-dot` (il mestiere), una in
+  `nova_core::decisioni` (la riga e le credenziali), una in
+  `nova_core::righe` (otto fili, ottocento righe, nessuna mescolata), e
+  `test_demone_ricercatore.py` (41 controlli, con due cervelli finti e un
+  Claude Code finto).
+
+### Cosa resta aperto
+
+- **Un Dot su Claude Code o su una CLI.** Quei cervelli lavorano con
+  strumenti loro, e tre cose non tornano. Claude Code, se l'autonomia del
+  pannello non è piena, chiede il consenso allo sportello di Nova
+  (`approvazione.claude`): lì un Dot **chiede il permesso** come Nova, e
+  quello che dice D382 vale solo per i cervelli in HTTP. Gli strumenti di
+  memoria che Claude chiama via MCP lavorano sul vault di Nova. E quello che
+  leggono NOVA non lo vede: le loro fonti restano da verificare. Come dargli
+  l'autonomia di un Dot senza allentare una guardia è da decidere con Gio.
+- Un compito ripreso dopo un riavvio rifà il piano da capo.

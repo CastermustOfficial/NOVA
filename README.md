@@ -565,14 +565,23 @@ un nome che porta a termine un compito mentre tu fai altro: ha un ruolo, una
 coda di compiti e una conversazione sua, e lavora con gli strumenti di NOVA
 **senza chiedere il permesso** — le guardie che non sono permessi restano: il
 recinto, i comandi vietati, le credenziali mai al modello. Tu lo guardi, gli
-scrivi, e se serve lo fermi. Il primo sara' un ricercatore.
+scrivi, e se serve lo fermi. Il primo e' un ricercatore.
 
-Oggi c'e' il primo passo (D382): un Dot nasce, riceve compiti senza far
-aspettare chi li affida, li fa uno alla volta, tiene la conversazione nella
-sua cartella (`dots/<nome>/` accanto a `config.json`), lo si ferma senza
-fermare il resto, e dopo un riavvio riprende il compito a meta'. Lo si usa dal demone, coi metodi
-`dot/crea`, `dot/affida`, `dot/stato`, `dot/elenco` e `dot/ferma`; la vista
-nell'harness e il ricercatore vengono dopo.
+Oggi ci sono i primi due passi. Col primo (D382) un Dot nasce, riceve compiti
+senza far aspettare chi li affida, li fa uno alla volta, tiene la
+conversazione nella sua cartella (`dots/<nome>/` accanto a `config.json`), lo
+si ferma senza fermare il resto, e dopo un riavvio riprende il compito a
+meta'. Il secondo (D383) e' il ricercatore: un Dot nato con
+`mestiere: "ricercatore"` fa il piano col cervello piu' grande della scala, fa
+ogni passo col cervello che il piano gli assegna, fa rivedere al cervello
+grande i passi dei piu' piccoli e rifa' un gradino piu' su quelli scarsi, e
+consegna un rapporto in Markdown in `dots/<nome>/rapporti/`, con ogni
+indirizzo controllato contro le pagine che ha letto davvero. Ha un vault suo,
+e ogni scelta del cervello finisce in `decisioni.jsonl`, per insegnare a
+scegliere. Su Claude Code un Dot chiede ancora il consenso allo sportello di
+Nova, se l'autonomia del pannello non e' piena: e' aperto. Lo si usa dal
+demone, coi metodi `dot/crea`, `dot/affida`, `dot/stato`, `dot/elenco` e
+`dot/ferma`; la vista nell'harness e gli strumenti per Nova vengono dopo.
 
 ## Installazione
 
@@ -819,7 +828,8 @@ cervello serve (D373). `nova-decisioni` non lo usa nessun binario, e lo
 stesso vale per `nova-mcp-cliente`.
 Per addestrare le teste di CLM il demone tiene anche le sue decisioni in
 `decisioni.jsonl` (D374): la richiesta, gli strumenti usati, il gradino, la
-scelta del giudice. Una richiesta con dentro una credenziale non si scrive, e
+scelta del giudice, e il cervello di ogni passo del ricercatore con com'e'
+andato (D383). Una richiesta con dentro una credenziale non si scrive, e
 `kb.decisioni` spegne tutto.
 Le teste, addestrate su compiti sintetici etichettati dal modello grande
 (`misure/clm_addestra.py`), fanno da 27 a 29 su 34 a dire quale cervello

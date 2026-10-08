@@ -7,13 +7,18 @@
 //! quando si chiede chi deve fare un compito — e finora le buttava.
 //!
 //! Qui le tiene, una riga JSON per decisione, in `decisioni.jsonl` nella
-//! cartella di NOVA. Due specie di riga:
+//! cartella di NOVA. Tre specie di riga:
 //!
 //! - `turno`: la richiesta, gli strumenti usati davvero, il gradino a cui e'
 //!   finito il turno, com'e' finito, quanto e' durato;
 //! - `quale_cervello`: il compito, quanti file allegati, le categorie
 //!   offerte al giudice e cosa ha risposto — una categoria, «nessuna»,
-//!   «non lo so», o un guasto.
+//!   «non lo so», o un guasto;
+//! - `cervello_per_passo` (D383): un passo del ricercatore, il cervello che
+//!   l'ha fatto, chi l'ha scelto (il piano, un ripiego, la salita del
+//!   revisore) e com'e' andata. Sono le scelte che fara' AR, il Dot che
+//!   sceglie i modelli, e su cui si addestrera' CLM a scegliere (Gio, 8
+//!   ottobre).
 //!
 //! **I segreti no**, con due mani. Un testo in cui il guardiano della memoria
 //! vede una credenziale ([`nova_guasti::guardiano::perche_non_si_salva`]: una
@@ -29,7 +34,6 @@
 //! megabyte con un precedente, e **non fallisce mai**: un registro che
 //! impedisce di lavorare e' peggio di nessun registro.
 
-use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use serde_json::{json, Value};
@@ -125,6 +129,54 @@ pub fn riga_quale_cervello(
     r
 }
 
+/// Un passo del ricercatore e il cervello che l'ha fatto (D383).
+///
+/// `scelto` e' il gradino che doveva farlo, `arrivato` quello che ha
+/// risposto davvero: il turno sale da solo quando gli strumenti falliscono,
+/// e le due cose possono essere diverse. `giudizio` e' quello del revisore
+/// (`buono`, `scarso`, `illeggibile`), oppure `senza_revisione` per un passo
+/// fatto dal cervello grande, o `rotto` quando il cervello non ha risposto.
+#[derive(Debug, Clone, Default)]
+pub struct CervelloPerPasso<'a> {
+    pub dot: &'a str,
+    pub compito: u64,
+    pub passo: usize,
+    pub genere: &'a str,
+    /// Cosa doveva fare il passo, come l'ha scritto il piano.
+    pub richiesta: &'a str,
+    /// I gradini, dal piu' piccolo al piu' grande.
+    pub scala: &'a [String],
+    pub scelto: &'a str,
+    pub scelto_da: &'a str,
+    pub arrivato: &'a str,
+    pub esito: &'a str,
+    pub giudizio: &'a str,
+    pub strumenti: &'a [String],
+    pub secondi: f64,
+}
+
+/// La riga di un passo del ricercatore.
+pub fn riga_cervello_per_passo(quando: &str, c: &CervelloPerPasso) -> Value {
+    let mut r = json!({
+        "quando": quando,
+        "tipo": "cervello_per_passo",
+        "dot": c.dot,
+        "compito": c.compito,
+        "passo": c.passo,
+        "genere": c.genere,
+        "scala": c.scala,
+        "scelto": c.scelto,
+        "scelto_da": c.scelto_da,
+        "arrivato": c.arrivato,
+        "esito": c.esito,
+        "giudizio": c.giudizio,
+        "strumenti": c.strumenti,
+        "secondi": (c.secondi * 10.0).round() / 10.0,
+    });
+    campo(&mut r, "richiesta", c.richiesta);
+    r
+}
+
 /// Scrive una riga nel registro, se e' acceso.
 pub fn annota(cfg: &Value, riga: &Value) {
     if attivo(cfg) {
@@ -133,18 +185,10 @@ pub fn annota(cfg: &Value, riga: &Value) {
 }
 
 /// Come [`annota`], su un file scelto e senza guardare la configurazione.
+///
+/// Uno alla volta: ci scrivono Nova e i Dot insieme (`crate::righe`).
 pub fn annota_in(f: &Path, riga: &Value) {
-    if let Some(dir) = f.parent() {
-        let _ = std::fs::create_dir_all(dir);
-    }
-    nova_potatura::ruota_se_serve(f);
-    if let Ok(mut fh) = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(f)
-    {
-        let _ = writeln!(fh, "{riga}");
-    }
+    let _ = crate::righe::aggiungi(f, &riga.to_string(), true);
 }
 
 /// L'ora come la scrive il registro delle azioni: locale, al secondo.
@@ -161,6 +205,48 @@ mod prove {
     /// vedrebbe, giustamente, come una chiave.
     fn finta(prefisso: &str) -> String {
         format!("{prefisso}AbCdEfGhIjKlMnOpQrStUvWxYz0123456789")
+    }
+
+    #[test]
+    fn la_riga_di_un_passo_dice_chi_ha_scelto_e_com_e_andata() {
+        let scala = vec!["piccolo".to_string(), "grande".to_string()];
+        let strumenti = vec!["rete_cerca".to_string()];
+        let c = CervelloPerPasso {
+            dot: "ricercatore",
+            compito: 3,
+            passo: 2,
+            genere: "leggi",
+            richiesta: "leggi la fonte",
+            scala: &scala,
+            scelto: "piccolo",
+            scelto_da: "piano",
+            arrivato: "piccolo",
+            esito: "risposto",
+            giudizio: "scarso",
+            strumenti: &strumenti,
+            secondi: 1.26,
+        };
+        let r = riga_cervello_per_passo("t", &c);
+        assert_eq!(r["tipo"], "cervello_per_passo");
+        assert_eq!(r["richiesta"], "leggi la fonte");
+        assert_eq!(r["scala"], json!(["piccolo", "grande"]));
+        assert_eq!(
+            (r["scelto"].as_str(), r["giudizio"].as_str()),
+            (Some("piccolo"), Some("scarso"))
+        );
+        assert_eq!(r["secondi"], 1.3);
+        assert!(r.get("taciuto").is_none());
+        // Un passo con dentro una credenziale non la porta sul disco.
+        let chiave = format!("usa {}", finta(&["sk", "ant", "api03-"].join("-")));
+        let r = riga_cervello_per_passo(
+            "t",
+            &CervelloPerPasso {
+                richiesta: &chiave,
+                ..c
+            },
+        );
+        assert!(r["richiesta"].is_null() && r["taciuto"].is_string(), "{r}");
+        assert!(!r.to_string().contains("AbCdEfGhIjKl"));
     }
 
     #[test]

@@ -576,16 +576,25 @@ with a name who carries a task through while you do something else: it has a
 role, a queue of tasks and a conversation of its own, and it works with NOVA's
 tools **without asking for permission** — the guards that are not permissions
 stay: the sandbox, the forbidden commands, credentials never shown to the
-model. You watch it, write to it, and stop it if needed. The first one will be
-a researcher.
+model. You watch it, write to it, and stop it if needed. The first one is a
+researcher.
 
-Today there is the first step (D382): a Dot is born, receives tasks without
-making whoever assigns them wait, does them one at a time, keeps its
-conversation in its own folder (`dots/<name>/` next to `config.json`), can be
-stopped without stopping the rest, and after a restart picks up the task it was halfway through. It is
-used from the daemon, with the methods `dot/crea`, `dot/affida`, `dot/stato`,
-`dot/elenco` and `dot/ferma`; the view in the harness and the researcher come
-later.
+Today there are the first two steps. With the first (D382) a Dot is born,
+receives tasks without making whoever assigns them wait, does them one at a
+time, keeps its conversation in its own folder (`dots/<name>/` next to
+`config.json`), can be stopped without stopping the rest, and after a restart
+picks up the task it was halfway through. The second (D383) is the
+researcher: a Dot born with `mestiere: "ricercatore"` makes the plan with the
+biggest brain on the ladder, does each step with the brain the plan assigns,
+has the big brain review the steps of the smaller ones and redoes the poor
+ones one rung higher, and delivers a Markdown report in
+`dots/<name>/rapporti/`, with every address checked against the pages it
+actually read. It has a vault of its own, and every choice of brain ends up in
+`decisioni.jsonl`, to teach how to choose. On Claude Code a Dot still asks for
+consent through Nova's counter, if the panel's autonomy is not full: that is
+open. It is used from the daemon, with the methods `dot/crea`,
+`dot/affida`, `dot/stato`, `dot/elenco` and `dot/ferma`; the view in the
+harness and the tools for Nova come later.
 
 ## Installation
 
@@ -829,7 +838,8 @@ them to `nova-giudizio`, and the first decision to use it is delegation: which
 brain is needed (D373). No binary uses `nova-decisioni`, and the same goes for
 `nova-mcp-cliente`.
 To train CLM's heads the daemon also keeps its decisions in `decisioni.jsonl`
-(D374): the request, the tools used, the tier, the judge's choice. A request
+(D374): the request, the tools used, the tier, the judge's choice, and the
+brain of each of the researcher's steps with how it went (D383). A request
 with a credential inside is not written, and `kb.decisioni` turns it all off.
 The heads, trained on synthetic tasks labelled by the big model
 (`misure/clm_addestra.py`), get between 27 and 29 out of 34 on which brain is

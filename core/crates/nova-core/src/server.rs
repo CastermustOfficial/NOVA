@@ -147,8 +147,13 @@ impl Server {
             // comando, le prove — e non capacita': affidare un compito a un
             // Dot dal modello verra' con uno strumento suo, quando Nova li
             // chiamera' (D381, terzo passo).
-            "dot/crea" => crate::dot::crea(self, testo_di(&params, "nome"), testo_di(&params, "ruolo"))
-                .map_err(|e| (codes::INVALID_PARAMS, e)),
+            "dot/crea" => crate::dot::crea(
+                self,
+                testo_di(&params, "nome"),
+                testo_di(&params, "ruolo"),
+                testo_di(&params, "mestiere"),
+            )
+            .map_err(|e| (codes::INVALID_PARAMS, e)),
             "dot/elenco" => Ok(crate::dot::elenco(self)),
             "dot/affida" => crate::dot::affida(
                 self,

@@ -11631,3 +11631,14 @@ Un Dot adesso nasce, prende i compiti, li fa da solo e si ricorda la
 conversazione anche se il demone si spegne a meta'. La prova ha trovato una
 cosa che non avrei visto leggendo: fermarlo non fermava niente finche' il
 cervello non rispondeva, perche' la domanda aspetta bloccando il filo.
+
+## 8 ottobre 2026 — Il ricercatore
+
+Il primo Dot con un mestiere fa il piano col cervello grande e da' ogni passo
+al cervello piu' piccolo che basta; il grande rivede, e un passo scarso sale
+di un gradino. Il rapporto arriva con le fonti controllate contro quello che
+il Dot ha letto davvero. Chiedendomi cosa vede NOVA di quello che legge
+Claude Code, ho scoperto che la' un Dot chiede ancora il permesso allo
+sportello di Nova: la promessa del primo passo valeva solo per i cervelli in
+HTTP. Ora e' scritto, e la strada la sceglie Gio.
+

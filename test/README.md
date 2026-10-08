@@ -165,7 +165,7 @@ Cosa serve: un banco Rust costruito con `cargo`: la prova stampa la riga per cos
 | `test_semina_rust.py` | La prima mappatura del PC scrive in Rust gli stessi nodi del Python. |
 | `test_strumenti_rust.py` | Gli strumenti dichiarati allo stesso modo, in Rust. |
 
-## `prove/demone/`: 31 prove
+## `prove/demone/`: 32 prove
 
 Cosa serve: il binario `novad` costruito.
 
@@ -196,6 +196,7 @@ Cosa serve: il binario `novad` costruito.
 | `test_demone_registro.py` | Quello che fa il demone finisce nello stesso registro di quello che fa NOVA. |
 | `test_demone_rete.py` | Il web senza browser, le cartelle note e le procedure, dal demone. |
 | `test_demone_ricerca.py` | La ricerca del demone, col browser senza finestra, con un browser vero. |
+| `test_demone_ricercatore.py` | Il ricercatore (D383), con due cervelli finti e un Claude Code finto: il piano lo fa il cervello grande, ogni passo il cervello del piano; il revisore fa rifare un gradino piu' su il passo scarso, e anche quello di un cervello che non risponde; il rapporto in `rapporti/` con le fonti controllate (vista, non vista, da verificare se ha letto Claude); ogni scelta del cervello in `decisioni.jsonl`; il vault del Dot che non tocca quello di Nova; un piano che non si legge tutto al cervello grande. |
 | `test_demone_riparazione.py` | NOVA si ripara in Rust: banco, prove, binari nuovi, e ritorno (D349). |
 | `test_demone_schermo.py` | Lo schermo in un'immagine, dal demone. |
 | `test_demone_semina.py` | La prima mappatura del PC, fatta dal demone quando si accende (D365). |

@@ -58,11 +58,63 @@ pub fn collega_il_server(server: &Arc<crate::Server>) {
     let _ = MEMORIA.set(server.clone());
 }
 
-fn memoria() -> Result<&'static crate::memoria::Memoria> {
-    MEMORIA
+/// La memoria di chi chiama, con la configurazione che la apre.
+///
+/// Per Nova e' il vault di NOVA. Per un Dot e' il **suo** vault (D381): un
+/// `kb.nota` di un Dot non finisce nella memoria di Nova, e un `kb.cerca` di
+/// un Dot non legge quella di Nova (D383). Chi chiama lo dice
+/// [`crate::agente::per_conto_di`]. Spenta e' spenta per tutti: `kb.enabled`
+/// vale anche per i vault dei Dot.
+struct DiChi {
+    dot: Option<(String, Arc<crate::memoria::Memoria>)>,
+    server: &'static Arc<crate::Server>,
+}
+
+impl DiChi {
+    fn m(&self) -> &crate::memoria::Memoria {
+        match &self.dot {
+            Some((_, m)) => m,
+            None => &self.server.memoria,
+        }
+    }
+
+    /// Il nome del Dot, per gli eventi e il registro; vuoto per Nova.
+    fn dot(&self) -> &str {
+        self.dot.as_ref().map(|(n, _)| n.as_str()).unwrap_or("")
+    }
+}
+
+fn di_chi() -> Result<(DiChi, Value)> {
+    let server = MEMORIA
         .get()
-        .map(|s| &s.memoria)
-        .ok_or_else(|| anyhow!("la memoria non e' collegata a questo demone"))
+        .ok_or_else(|| anyhow!("la memoria non e' collegata a questo demone"))?;
+    let cfg = configurazione_accesa()?;
+    match crate::agente::per_conto_di() {
+        crate::agente::Chi::Nova => Ok((DiChi { dot: None, server }, cfg)),
+        crate::agente::Chi::Dot(nome) => {
+            let (m, cfg) =
+                crate::dot::memoria_di(server, &nome, &cfg).map_err(|e| anyhow!("{e}"))?;
+            Ok((
+                DiChi {
+                    dot: Some((nome, m)),
+                    server,
+                },
+                cfg,
+            ))
+        }
+    }
+}
+
+/// Le procedure sono di NOVA: un Dot ha il suo vault, non le procedure di
+/// Nova (D383).
+fn solo_per_nova() -> Result<()> {
+    match crate::agente::per_conto_di() {
+        crate::agente::Chi::Nova => Ok(()),
+        crate::agente::Chi::Dot(_) => Err(anyhow!(
+            "le procedure sono quelle che ha imparato Nova: un Dot ha il suo vault, \
+             non le procedure di Nova"
+        )),
+    }
 }
 
 fn configurazione() -> Value {
@@ -81,6 +133,15 @@ fn configurazione_accesa() -> Result<Value> {
     } else {
         Err(anyhow!(crate::memoria::SPENTA))
     }
+}
+
+/// Un evento della memoria, col nome del Dot se e' il suo vault: chi guarda
+/// la memoria di Nova non deve rileggerla per una nota scritta altrove.
+fn con_il_dot(mut evento: Value, dot: &str) -> Value {
+    if !dot.is_empty() {
+        evento["dot"] = json!(dot);
+    }
+    evento
 }
 
 /// Un nodo trovato, come lo legge il modello.
@@ -143,9 +204,8 @@ impl Capability for KbCerca {
     async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
         let domanda = arg_str(&args, "query")?;
         let quanti = arg_u64(&args, "quanti", 5) as usize;
-        let cfg = configurazione_accesa()?;
-        let trovati =
-            tokio::task::block_in_place(|| memoria().map(|m| m.cerca(&domanda, quanti, &cfg)))?;
+        let (di, cfg) = di_chi()?;
+        let trovati = tokio::task::block_in_place(|| di.m().cerca(&domanda, quanti, &cfg));
         Ok(json!({
             "quanti": trovati.len(),
             "nodi": trovati.iter().map(|t| come_si_legge(t, CORPO_MASSIMO)).collect::<Vec<_>>(),
@@ -247,18 +307,20 @@ impl Capability for KbNota {
             ..Default::default()
         };
         nodo.slug = nova_nodi::slug::slug(&nodo.title);
-        let cfg = configurazione_accesa()?;
+        let (di, cfg) = di_chi()?;
         let salvato = tokio::task::block_in_place(|| {
-            memoria().and_then(|m| m.salva(&cfg, nodo, true).map_err(|e| anyhow!("{e}")))
+            di.m().salva(&cfg, nodo, true).map_err(|e| anyhow!("{e}"))
         })?;
         let quanti_vicini = tokio::task::block_in_place(|| {
-            memoria()
-                .ok()
-                .and_then(|m| m.vicini(&cfg, &salvato.slug))
+            di.m()
+                .vicini(&cfg, &salvato.slug)
                 .map(|(_, _, v)| v.len())
                 .unwrap_or(0)
         });
-        ctx.bus.emit("kb.scritto", json!({ "slug": salvato.slug }));
+        ctx.bus.emit(
+            "kb.scritto",
+            con_il_dot(json!({ "slug": salvato.slug }), di.dot()),
+        );
         Ok(json!({
             "slug": salvato.slug,
             "titolo": salvato.title,
@@ -296,9 +358,9 @@ impl Capability for KbCollega {
     async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
         let da = arg_str(&args, "da")?;
         let a = arg_str(&args, "a")?;
-        let cfg = configurazione_accesa()?;
+        let (di, cfg) = di_chi()?;
         let (primo, secondo) = tokio::task::block_in_place(|| {
-            memoria().and_then(|m| m.collega(&cfg, &da, &a).map_err(|e| anyhow!("{e}")))
+            di.m().collega(&cfg, &da, &a).map_err(|e| anyhow!("{e}"))
         })?;
         Ok(json!({
             "da": primo, "a": secondo,
@@ -324,8 +386,8 @@ impl Capability for KbVicini {
 
     async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
         let chi = arg_str(&args, "nodo")?;
-        let cfg = configurazione_accesa()?;
-        let esito = tokio::task::block_in_place(|| memoria().map(|m| m.vicini(&cfg, &chi)))?;
+        let (di, cfg) = di_chi()?;
+        let esito = tokio::task::block_in_place(|| di.m().vicini(&cfg, &chi));
         let Some((slug, titolo, vicini)) = esito else {
             return Err(anyhow!("il nodo «{chi}» non c'e' in memoria"));
         };
@@ -378,17 +440,24 @@ impl Capability for KbDimentica {
     async fn call(&self, args: Value, ctx: &Ctx) -> Result<Value> {
         let chi = arg_str(&args, "nodo")?;
         let motivo = arg_str_opt(&args, "motivo").unwrap_or_default();
-        let cfg = configurazione_accesa()?;
+        let (di, cfg) = di_chi()?;
         let fatto = tokio::task::block_in_place(|| {
-            memoria().and_then(|m| m.archivia(&cfg, &chi, &motivo).map_err(|e| anyhow!("{e}")))
+            di.m()
+                .archivia(&cfg, &chi, &motivo)
+                .map_err(|e| anyhow!("{e}"))
         })?;
         if !fatto {
             return Err(anyhow!("il nodo «{chi}» non c'e' in memoria"));
         }
         // Togliere un ricordo e' una cosa di cui si risponde: il file resta,
         // ma da domani NOVA risponde diversamente e nessuno se lo ricorda.
+        let nel_vault = if di.dot().is_empty() {
+            String::new()
+        } else {
+            format!(" nel vault del Dot «{}»", di.dot())
+        };
         crate::registro::annota(
-            &format!("archiviato il ricordo {chi}"),
+            &format!("archiviato il ricordo {chi}{nel_vault}"),
             &chi,
             if motivo.is_empty() {
                 "senza motivo dichiarato"
@@ -398,7 +467,10 @@ impl Capability for KbDimentica {
             "memoria",
             "",
         );
-        ctx.bus.emit("kb.archiviato", json!({ "nodo": chi }));
+        ctx.bus.emit(
+            "kb.archiviato",
+            con_il_dot(json!({ "nodo": chi }), di.dot()),
+        );
         Ok(json!({
             "nodo": chi,
             "detto": format!("Archiviato «{chi}»: il file resta, la risposta no."),
@@ -425,8 +497,8 @@ impl Capability for KbStato {
     }
 
     async fn call(&self, _args: Value, _ctx: &Ctx) -> Result<Value> {
-        let cfg = configurazione_accesa()?;
-        let s = tokio::task::block_in_place(|| memoria().map(|m| m.statistiche(&cfg)))?
+        let (di, cfg) = di_chi()?;
+        let s = tokio::task::block_in_place(|| di.m().statistiche(&cfg))
             .ok_or_else(|| anyhow!("la memoria non c'e' ancora: nessun vault su questo disco"))?;
         Ok(json!({
             "nodi_attivi": s.nodi_attivi,
@@ -472,6 +544,7 @@ impl Capability for KbProcedure {
     }
 
     async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
+        solo_per_nova()?;
         let cerca = arg_str_opt(&args, "cerca").unwrap_or_default();
         let voci = tokio::task::block_in_place(crate::ricette::voci);
         Ok(Value::String(nova_strumenti::procedure::elenco(
@@ -525,6 +598,7 @@ impl Capability for KbProceduraDimentica {
     }
 
     async fn call(&self, args: Value, ctx: &Ctx) -> Result<Value> {
+        solo_per_nova()?;
         let id = arg_str(&args, "procedura")?;
         let dove = crate::ricette::percorso();
         let voci = tokio::task::block_in_place(crate::ricette::voci);

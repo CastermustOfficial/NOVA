@@ -21,6 +21,14 @@
 //! **Il modello di casa ha un posto solo** (`n_parallel`, di serie 1): un Dot
 //! che lo usa mentre Nova parla aspetta il suo turno nella coda di
 //! llama-server, e lo stesso al contrario. Uno dopo l'altro, come ha deciso Gio.
+//!
+//! **Il vault e' suo** (D381, D383): `dots/<nome>/vault/`, nello stesso
+//! formato di quello di NOVA. Gli strumenti di memoria chiamati da un Dot
+//! lavorano li' ([`memoria_di`]), e quel che c'e' entra nelle sue domande
+//! come la memoria di Nova nelle sue.
+//!
+//! Un Dot col mestiere di ricercatore lavora a modo suo: il piano, i passi,
+//! il revisore, il rapporto (`crate::ricercatore`).
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -45,6 +53,9 @@ pub fn base() -> PathBuf {
 #[derive(Default)]
 pub struct Dots {
     maniglie: std::sync::Mutex<HashMap<String, Arc<Maniglia>>>,
+    /// Il vault di ogni Dot, aperto: come quello di Nova, si tiene fra un
+    /// turno e l'altro per non rileggere la cartella a ogni domanda.
+    vault: std::sync::Mutex<HashMap<String, Arc<crate::memoria::Memoria>>>,
 }
 
 /// Come si parla al ciclo di un Dot.
@@ -72,6 +83,47 @@ fn adesso() -> String {
     crate::decisioni::adesso()
 }
 
+/// Dove sta il vault di un Dot. Un nome che non e' un nome di Dot non ha un
+/// vault: torna una cartella dentro `dots/` che non esiste, mai il vault di
+/// Nova.
+pub fn vault_di(nome: &str) -> PathBuf {
+    cartella(nome)
+        .map(|c| c.vault())
+        .unwrap_or_else(|_| base().join("_nessuno").join("vault"))
+}
+
+/// La memoria di un Dot e la configurazione che la apre: quella di NOVA con
+/// `kb.vault_path` che punta al vault del Dot. Il resto della sezione `kb`
+/// vale com'e': spenta per Nova vuol dire spenta anche per i Dot.
+pub fn memoria_di(
+    server: &Arc<Server>,
+    nome: &str,
+    cfg: &Value,
+) -> Result<(Arc<crate::memoria::Memoria>, Value), String> {
+    let c = cartella(nome)?;
+    if !c.esiste() {
+        return Err(format!(
+            "non c'e' nessun Dot che si chiama «{}»",
+            nome.trim()
+        ));
+    }
+    c.prepara()?;
+    let mut cfg = cfg.clone();
+    if !cfg.get("kb").is_some_and(Value::is_object) {
+        cfg["kb"] = json!({});
+    }
+    cfg["kb"]["vault_path"] = json!(c.vault().to_string_lossy());
+    let m = server
+        .dots
+        .vault
+        .lock()
+        .map_err(|_| "il vault dei Dot e' bloccato".to_string())?
+        .entry(nome.trim().to_string())
+        .or_default()
+        .clone();
+    Ok((m, cfg))
+}
+
 /// Accende i cicli di tutti i Dot che ci sono. Lo chiama il demone
 /// all'avvio.
 pub fn avvia_tutti(server: &Arc<Server>) {
@@ -87,6 +139,10 @@ fn avvia(server: &Arc<Server>, nome: &str) {
     let Ok(c) = cartella(nome) else {
         return;
     };
+    // Un Dot nato col D382 non ha ancora il vault e i rapporti.
+    if let Err(errore) = c.prepara() {
+        tracing::warn!(dot = nome, %errore, "le cartelle del Dot non si creano");
+    }
     let maniglia = {
         let Ok(mut m) = server.dots.maniglie.lock() else {
             return;
@@ -110,8 +166,14 @@ fn avvia(server: &Arc<Server>, nome: &str) {
     tokio::spawn(ciclo(server.clone(), nome.to_string(), maniglia));
 }
 
-/// Fa nascere un Dot e ne accende il ciclo.
-pub fn crea(server: &Arc<Server>, nome: &str, ruolo: &str) -> Result<Value, String> {
+/// Fa nascere un Dot e ne accende il ciclo. `mestiere` vuoto vuol dire
+/// generico (`nova_dot::Mestiere::da`).
+pub fn crea(
+    server: &Arc<Server>,
+    nome: &str,
+    ruolo: &str,
+    mestiere: &str,
+) -> Result<Value, String> {
     let c = cartella(nome)?;
     if ruolo.trim().is_empty() {
         return Err("un Dot ha bisogno di un ruolo: e' quello che lo fa essere lui".into());
@@ -120,6 +182,7 @@ pub fn crea(server: &Arc<Server>, nome: &str, ruolo: &str) -> Result<Value, Stri
         nome: d::nome_valido(nome)?,
         ruolo: ruolo.trim().to_string(),
         nato: adesso(),
+        mestiere: d::Mestiere::da(mestiere)?,
     };
     c.crea(&dot)?;
     avvia(server, &dot.nome);
@@ -268,6 +331,29 @@ async fn ciclo(server: Arc<Server>, nome: String, m: Arc<Maniglia>) {
     }
 }
 
+/// La conversazione di un Dot: quella salvata, se c'e' e si legge; se no
+/// una nuova, col prompt che dice chi e'.
+pub(crate) fn conversazione_di(c: &d::Cartella, dot: &d::Dot, cfg: &Value) -> Sessione {
+    c.conversazione()
+        .and_then(|v| Sessione::ripresa(v.messaggi, &v.claude, v.deleghe))
+        .unwrap_or_else(|| {
+            Sessione::nuova(&d::prompt(dot, &crate::agente::sistema(cfg)), Vec::new())
+        })
+}
+
+/// Salva la conversazione dopo un turno. Se non si salva lo si scrive nel
+/// log e si va avanti: il compito vale piu' del file.
+pub(crate) fn salva(c: &d::Cartella, nome: &str, s: &Sessione) {
+    let salvata = c.salva_conversazione(&d::Conversazione {
+        messaggi: s.messaggi.clone(),
+        claude: s.claude.clone(),
+        deleghe: s.deleghe,
+    });
+    if let Err(e) = salvata {
+        tracing::warn!(dot = nome, errore = %e, "conversazione non salvata");
+    }
+}
+
 /// Fa un compito: i turni nella conversazione del Dot, finche' il modello
 /// risponde o finiscono i turni concessi.
 async fn lavora(
@@ -280,38 +366,27 @@ async fn lavora(
         Ok(x) => x,
         Err(e) => return (d::Stato::Fallito, e),
     };
+    if dot.mestiere == d::Mestiere::Ricercatore {
+        return crate::ricercatore::lavora(server, c, &dot, compito).await;
+    }
     let cfg = nova_configurazione::dove::leggi();
-    let mut s = c
-        .conversazione()
-        .and_then(|v| Sessione::ripresa(v.messaggi, &v.claude, v.deleghe))
-        .unwrap_or_else(|| {
-            Sessione::nuova(&d::prompt(&dot, &crate::agente::sistema(&cfg)), Vec::new())
-        });
+    let mut s = conversazione_di(c, &dot, &cfg);
     let esecutore = EsecutoreDemone {
         server: server.clone(),
         chi: Chi::Dot(nome.to_string()),
+        viste: None,
     };
     let sessione = format!("dot:{nome}");
     for giro in 0..d::TURNI_PER_COMPITO {
         let testo = if giro > 0 {
             d::continua(compito)
         } else if compito.riprese > 0 {
-            format!(
-                "{}\n\n(Ripreso dopo un riavvio: se l'avevi gia' cominciato, continua da dove eri.)",
-                d::domanda(compito)
-            )
+            format!("{}{}", d::domanda(compito), d::RIPRESO)
         } else {
             d::domanda(compito)
         };
-        let r = crate::agente::turno_in(server, &cfg, &mut s, &testo, &sessione, false, "", &esecutore).await;
-        let salvata = c.salva_conversazione(&d::Conversazione {
-            messaggi: s.messaggi.clone(),
-            claude: s.claude.clone(),
-            deleghe: s.deleghe,
-        });
-        if let Err(e) = salvata {
-            tracing::warn!(dot = nome, errore = %e, "conversazione non salvata");
-        }
+        let r = crate::agente::turno_in(server, &cfg, &mut s, &testo, &sessione, false, "", &esecutore, "").await;
+        salva(c, nome, &s);
         let svolto = match r {
             Ok(x) => x,
             Err(e) => return (d::Stato::Fallito, e.to_string()),
@@ -323,6 +398,7 @@ async fn lavora(
             "giro": giro + 1,
             "esito": crate::agente::esito_di(&svolto.fine).0,
             "gradino": svolto.gradino,
+            "cervello": svolto.cervello,
             "strumenti": svolto.strumenti_usati,
             "secondi": (svolto.durata * 10.0).round() / 10.0,
         }));

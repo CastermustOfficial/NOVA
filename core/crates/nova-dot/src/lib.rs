@@ -13,7 +13,12 @@
 //!   compiti.jsonl       la coda, come diario di passaggi di stato
 //!   conversazione.json  i messaggi, per riprendere dopo un riavvio
 //!   diario.jsonl        cosa ha fatto, passo per passo
+//!   vault/              la sua memoria, nello stesso formato di quella di NOVA
+//!   rapporti/           quello che consegna: il ricercatore, un .md per compito
 //! ```
+//!
+//! Il ricercatore (D383) ha le sue regole in [`ricerca`]: il piano, i passi,
+//! il revisore, le fonti controllate.
 //!
 //! **La coda e' un diario, non una tabella.** Ogni riga di `compiti.jsonl`
 //! dice che un compito e' passato a uno stato. Lo stato di adesso si ottiene
@@ -25,6 +30,8 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+pub mod ricerca;
 
 /// Quanto puo' essere lungo il nome di un Dot.
 pub const NOME_MASSIMO: usize = 32;
@@ -51,6 +58,37 @@ pub struct Dot {
     pub ruolo: String,
     /// Quando e' nato, come lo scrive il demone.
     pub nato: String,
+    /// Come lavora. Un Dot nato prima del D383 non ce l'ha scritto, ed e'
+    /// generico: lavorava cosi'.
+    #[serde(default)]
+    pub mestiere: Mestiere,
+}
+
+/// Come lavora un Dot.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Mestiere {
+    /// Un turno dopo l'altro nella sua conversazione, finche' risponde (D382).
+    #[default]
+    Generico,
+    /// Il piano col cervello piu' grande, i passi col cervello assegnato, il
+    /// revisore che fa salire, il rapporto con le fonti (D383).
+    Ricercatore,
+}
+
+impl Mestiere {
+    /// Il mestiere da come lo scrive chi crea un Dot. Vuoto vuol dire
+    /// generico; una parola che non e' un mestiere si rifiuta, invece di far
+    /// nascere un Dot che lavora in un altro modo da quello chiesto.
+    pub fn da(testo: &str) -> Result<Mestiere, String> {
+        match testo.trim() {
+            "" | "generico" => Ok(Mestiere::Generico),
+            "ricercatore" => Ok(Mestiere::Ricercatore),
+            altro => Err(format!(
+                "«{altro}» non e' un mestiere: i mestieri sono «generico» e «ricercatore»"
+            )),
+        }
+    }
 }
 
 /// A che punto e' un compito.
@@ -237,7 +275,7 @@ pub fn alla_ripartenza(coda: &[Compito], quando: &str) -> Vec<Evento> {
 /// Quello di NOVA resta davanti perche' ha le regole degli strumenti; in coda
 /// si dice che in questa conversazione non e' Nova, e come lavora un Dot.
 pub fn prompt(dot: &Dot, base: &str) -> String {
-    format!(
+    let generico = format!(
         "{base}\n\n## Chi sei in questa conversazione\n\
          Non sei Nova: sei {nome}, un Dot di NOVA, un collega che porta a termine \
          un compito da solo. Il tuo ruolo: {ruolo}\n\
@@ -247,7 +285,11 @@ pub fn prompt(dot: &Dot, base: &str) -> String {
          finito, rispondi con il risultato del compito.",
         nome = dot.nome,
         ruolo = dot.ruolo.trim(),
-    )
+    );
+    match dot.mestiere {
+        Mestiere::Generico => generico,
+        Mestiere::Ricercatore => format!("{generico}\n{}", ricerca::PROMPT),
+    }
 }
 
 /// Il messaggio con cui comincia un compito.
@@ -255,6 +297,11 @@ pub fn domanda(c: &Compito) -> String {
     let da = if c.da.trim().is_empty() { "utente" } else { c.da.trim() };
     format!("Compito n. {} (affidato da {da}):\n{}", c.id, c.testo.trim())
 }
+
+/// Quello che si aggiunge alla prima domanda di un compito ripreso dopo un
+/// riavvio: chi lo riprende deve saperlo.
+pub const RIPRESO: &str =
+    "\n\n(Ripreso dopo un riavvio: se l'avevi gia' cominciato, continua da dove eri.)";
 
 /// Il messaggio con cui si va avanti quando un turno ha finito i passi.
 pub fn continua(c: &Compito) -> String {
@@ -347,8 +394,40 @@ impl Cartella {
             return Err(format!("il Dot «{}» c'e' gia'", dot.nome));
         }
         std::fs::create_dir_all(&self.radice).map_err(|e| format!("{}: {e}", self.radice.display()))?;
+        self.prepara()?;
         let testo = serde_json::to_string_pretty(dot).map_err(|e| e.to_string())? + "\n";
         scrivi_intero(&self.radice.join("dot.json"), &testo)
+    }
+
+    /// Le cartelle che un Dot si porta dietro: il vault e i rapporti. Si
+    /// creano alla nascita, e all'accensione per i Dot nati prima che ci
+    /// fossero (D382).
+    pub fn prepara(&self) -> Result<(), String> {
+        for p in [self.vault(), self.radice.join("rapporti")] {
+            std::fs::create_dir_all(&p).map_err(|e| format!("{}: {e}", p.display()))?;
+        }
+        Ok(())
+    }
+
+    /// Il suo vault: la sua memoria, nello stesso formato di quella di NOVA.
+    pub fn vault(&self) -> PathBuf {
+        self.radice.join("vault")
+    }
+
+    /// Dove sta il rapporto di un compito.
+    pub fn rapporto(&self, id: u64) -> PathBuf {
+        self.radice.join("rapporti").join(format!("{id}.md"))
+    }
+
+    /// Scrive il rapporto di un compito, tutto insieme: chi lo apre trova
+    /// quello di prima o quello nuovo, mai mezzo.
+    pub fn salva_rapporto(&self, id: u64, testo: &str) -> Result<PathBuf, String> {
+        let p = self.rapporto(id);
+        if let Some(dir) = p.parent() {
+            std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+        }
+        scrivi_intero(&p, testo)?;
+        Ok(p)
     }
 
     /// Chi e'.
@@ -535,13 +614,44 @@ mod prove {
 
     #[test]
     fn il_prompt_dice_chi_e_e_le_domande_dicono_quale_compito() {
-        let d = Dot { nome: "ricercatore".into(), ruolo: "Cerchi e riassumi.".into(), nato: "t".into() };
+        let d = Dot { nome: "ricercatore".into(), ruolo: "Cerchi e riassumi.".into(), nato: "t".into(), mestiere: Mestiere::Generico };
         let p = prompt(&d, "BASE");
         assert!(p.starts_with("BASE\n\n"));
         assert!(p.contains("sei ricercatore, un Dot di NOVA") && p.contains("Cerchi e riassumi."));
         let c = &compiti(&ev(7, Stato::Affidato, "t"))[0];
         assert_eq!(domanda(c), "Compito n. 7 (affidato da utente):\ncompito 7");
         assert!(continua(c).contains("n. 7"));
+        assert!(
+            !p.contains(ricerca::PROMPT),
+            "un Dot generico non e' un ricercatore"
+        );
+        let r = Dot {
+            mestiere: Mestiere::Ricercatore,
+            ..d
+        };
+        assert!(prompt(&r, "BASE").ends_with(ricerca::PROMPT));
+    }
+
+    #[test]
+    fn il_mestiere_si_sceglie_e_quello_di_prima_resta_generico() {
+        assert_eq!(Mestiere::da(" ").unwrap(), Mestiere::Generico);
+        assert_eq!(Mestiere::da("generico").unwrap(), Mestiere::Generico);
+        assert_eq!(
+            Mestiere::da(" ricercatore ").unwrap(),
+            Mestiere::Ricercatore
+        );
+        assert!(Mestiere::da("Ricercatore")
+            .unwrap_err()
+            .contains("non e' un mestiere"));
+        // Un dot.json scritto dal D382, senza mestiere, si legge ancora.
+        let vecchio: Dot = serde_json::from_str(r#"{"nome":"a","ruolo":"r","nato":"t"}"#).unwrap();
+        assert_eq!(vecchio.mestiere, Mestiere::Generico);
+        let nuovo = serde_json::to_value(Dot {
+            mestiere: Mestiere::Ricercatore,
+            ..vecchio
+        })
+        .unwrap();
+        assert_eq!(nuovo["mestiere"], "ricercatore");
     }
 
     #[test]
@@ -549,7 +659,7 @@ mod prove {
         let base = std::env::temp_dir().join(format!("nova-dot-fili-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&base);
         let c = Cartella::di(&base, "fili").unwrap();
-        c.crea(&Dot { nome: "fili".into(), ruolo: "r".into(), nato: "t".into() }).unwrap();
+        c.crea(&Dot { nome: "fili".into(), ruolo: "r".into(), nato: "t".into(), mestiere: Mestiere::Generico }).unwrap();
         let fili: Vec<_> = (0..8)
             .map(|f| {
                 let c = c.clone();
@@ -587,9 +697,13 @@ mod prove {
         let _ = std::fs::remove_dir_all(&base);
         let c = Cartella::di(&base, "ricercatore").unwrap();
         assert!(Cartella::di(&base, "../fuori").is_err());
-        let d = Dot { nome: "ricercatore".into(), ruolo: "r".into(), nato: "t".into() };
+        let d = Dot { nome: "ricercatore".into(), ruolo: "r".into(), nato: "t".into(), mestiere: Mestiere::Generico };
         c.crea(&d).unwrap();
         assert_eq!(c.dot().unwrap(), d);
+        assert!(c.vault().is_dir() && base.join("ricercatore").join("rapporti").is_dir());
+        let r = c.salva_rapporto(3, "# Rapporto\n").unwrap();
+        assert_eq!(r, c.rapporto(3));
+        assert_eq!(std::fs::read_to_string(&r).unwrap(), "# Rapporto\n");
         assert!(c.crea(&d).is_err(), "un Dot che c'e' non si riscrive");
         c.annota(&serde_json::from_str(&ev(1, Stato::Affidato, "t")).unwrap()).unwrap();
         assert_eq!(c.compiti().len(), 1);

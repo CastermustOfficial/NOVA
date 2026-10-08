@@ -18,7 +18,6 @@
 //! `nova-registro`, con il Python di fronte e un banco che li confronta
 //! carattere per carattere.
 
-use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use nova_registro::{Filtro, Riga, Scritta};
@@ -79,20 +78,11 @@ pub fn annota_in(f: &Path, azione: &str, dove: &str, dettagli: &str, tipo: &str,
         esito,
     };
     let riga = nova_registro::riga_da_scrivere(&s, &adesso());
-    if let Some(dir) = f.parent() {
-        let _ = std::fs::create_dir_all(dir);
-    }
     // Si pota **prima** di scrivere: dopo vuol dire che il file supera sempre
     // il tetto di una riga, e su un file che si apre per capire cos'e'
-    // successo l'ultima riga e' quella che conta.
-    nova_potatura::ruota_se_serve(f);
-    if let Ok(mut fh) = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(f)
-    {
-        let _ = writeln!(fh, "{riga}");
-    }
+    // successo l'ultima riga e' quella che conta. Uno alla volta, perche' ci
+    // scrivono Nova e i Dot insieme (`crate::righe`).
+    let _ = crate::righe::aggiungi(f, &riga, true);
 }
 
 /// Le ultime righe, dalla piu' recente.
@@ -249,6 +239,7 @@ mod prove {
     }
 
     use super::*;
+    use std::io::Write;
 
     /// Una cartella che si cancella da sola.
     ///

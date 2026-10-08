@@ -119,6 +119,13 @@ def posti() -> list[Posto]:
               "kb.decisioni.",
               delicato=True),
         # Lo scrive il demone, in Rust: qui non c'e' una funzione da chiamare.
+        Posto("I Dot, con le loro conversazioni, i vault e i rapporti",
+              b / "dots",
+              "Spariscono i Dot e quello che stavano facendo: le loro "
+              "conversazioni, la loro memoria e i rapporti che hanno "
+              "consegnato. Nova funziona come prima.",
+              delicato=True),
+        # Lo scrive il demone, in Rust: qui non c'e' una funzione da chiamare.
         Posto("I modelli piu' recenti trovati", b / "modelli.json",
               "Niente: si rifa' da solo entro un giorno, o subito con "
               "`novad --modelli`. Dice quale Claude e quale Gemini sono i piu' "

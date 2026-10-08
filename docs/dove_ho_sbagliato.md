@@ -2037,3 +2037,61 @@ non prendano lo stesso numero. Una prova lo fa con otto fili insieme.
 La regola: un file in cui scrivono due fili si scrive uno alla volta, e una
 riga si scrive in una volta sola; e una prova che passa su un sistema va
 fatta girare anche sull'altro prima di crederci.
+
+## La correzione delle righe mescolate, solo dove si era vista
+
+Col D382 avevo corretto la coda dei Dot: due fili scrivevano nello stesso
+file con `writeln!`, che sono due scritture, e su Windows le righe si
+mescolavano. La regola che ne avevo tirato era «un file in cui scrivono due
+fili si scrive uno alla volta», ma l'avevo applicata solo ai file dei Dot. Il
+registro delle azioni e quello delle decisioni si scrivevano allo stesso modo,
+e dal D382 ci scrivono Nova e i Dot insieme. Me ne sono accorto scrivendo la
+riga delle scelte del ricercatore in `decisioni.jsonl`.
+
+Ora i due registri passano da `nova_core::righe`, uno alla volta e con la
+riga intera in una scrittura sola, e una prova ci scrive con otto fili.
+
+La regola: quando si corregge un modo di fare, si cercano tutti i posti che
+fanno lo stesso, non solo quello in cui si e' visto il guasto.
+
+## Il D382 prometteva un Dot che non chiede il permesso, ed era vero a meta'
+
+Il D382 dice che un Dot non chiede il permesso, nemmeno con «conferma
+sempre» nel pannello, e la prova lo mostra con un cervello in HTTP. Ma
+Claude Code non passa da `EsecutoreDemone`: usa gli strumenti di NOVA via
+MCP, e quando un'azione vuole il consenso lo chiede allo sportello di Nova,
+se l'autonomia del pannello non e' piena. Li' un Dot chiede il permesso come
+Nova. E il prompt di Claude nominava il vault di Nova, non quello del Dot.
+Me ne sono accorto scrivendo il controllo delle fonti, chiedendomi cosa vede
+NOVA di quello che legge Claude.
+
+Il vault nominato a Claude ora e' quello del Dot, e una prova lo guarda con
+un Claude finto. Il resto (lo sportello, la memoria via MCP, quello che
+Claude legge) e' scritto in `docs/dots.md` fra le cose aperte, perche' ogni
+strada tocca una guardia e va decisa con Gio.
+
+La regola: una promessa sul comportamento vale per ogni cervello della
+scala, e la prova deve dire per quali e' stata guardata.
+
+## La mappa dei dati non nominava i Dot
+
+`dots/` e' nato col D382, con le conversazioni dei Dot dentro, e la mappa che
+risponde a «dove stanno i miei dati» (`nova/dati.py`) non lo diceva. La prova
+della mappa guarda i percorsi costruiti dal Python, e `dots/` lo costruisce
+il demone in Rust: per questo non l'ha visto. Ora c'e', marcato delicato,
+con le altre voci scritte a mano per lo stesso motivo.
+
+La regola: una cartella nuova accanto a `config.json` entra nella mappa nello
+stesso commit, anche quando la scrive il Rust.
+
+## `cargo fmt --all` su un repository che non e' formattato
+
+Per formattare i file nuovi del ricercatore ho lanciato `cargo fmt --all`, e
+ha riscritto 142 file: il codice di NOVA non segue il formato di rustfmt, e
+in CI il controllo del formato non ferma niente (`continue-on-error`). L'ho
+visto da `git status` prima del commit. Ho rimesso i file com'erano e
+riapplicato a mano solo le mie modifiche.
+
+La regola: in NOVA si formattano solo i file nuovi, uno per uno, e dopo ogni
+comando che scrive file si guarda `git status`.
+

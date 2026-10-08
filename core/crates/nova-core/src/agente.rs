@@ -112,6 +112,24 @@ pub enum Chi {
     Dot(String),
 }
 
+tokio::task_local! {
+    /// Per conto di chi gira la capacita' chiamata da un turno (D383).
+    ///
+    /// Le capacita' ricevono il [`Ctx`](crate::capability::Ctx) del demone,
+    /// che e' uno per tutti: non sanno chi le chiama. Quasi sempre non serve
+    /// saperlo; la memoria si', perche' un Dot ha il vault suo (D381) e un
+    /// `kb.nota` di un Dot non deve finire nella memoria di Nova. Lo mette
+    /// [`EsecutoreDemone::esegui`] attorno alla chiamata.
+    static PER_CONTO_DI: Chi;
+}
+
+/// Per conto di chi gira la capacita' in corso: Nova, se non lo dice
+/// nessuno. Chi chiama le capacita' da fuori di un turno — il guscio, la
+/// riga di comando, Claude Code via MCP — lavora per Nova.
+pub fn per_conto_di() -> Chi {
+    PER_CONTO_DI.try_with(Chi::clone).unwrap_or(Chi::Nova)
+}
+
 /// Esegue gli strumenti chiamando le capacita' del demone.
 ///
 /// Non c'e' un secondo elenco di strumenti: sono le stesse capacita' che
@@ -121,12 +139,16 @@ pub enum Chi {
 pub struct EsecutoreDemone {
     pub server: Arc<Server>,
     pub chi: Chi,
+    /// Gli indirizzi web passati dagli strumenti andati a buon fine, negli
+    /// argomenti o nel risultato. Li tiene il ricercatore, per controllare
+    /// le fonti del rapporto contro quello che ha letto davvero (D383).
+    pub viste: Option<Arc<std::sync::Mutex<Vec<String>>>>,
 }
 
 impl EsecutoreDemone {
     /// L'esecutore della conversazione con Nova.
     pub fn di_nova(server: Arc<Server>) -> Self {
-        EsecutoreDemone { server, chi: Chi::Nova }
+        EsecutoreDemone { server, chi: Chi::Nova, viste: None }
     }
 
     /// Dove vanno gli eventi di uno strumento, e con quali campi in piu'.
@@ -181,10 +203,31 @@ impl Esecutore for EsecutoreDemone {
             argomento,
             con(json!({ "nome": nome, "stato": "inizio", "descrizione": info.description }), &piu),
         );
+        let detti = self.viste.as_ref().map(|_| argomenti.to_string());
         // Lo stesso avvolgimento del resto del demone: cosi' il «fermati»
-        // ferma anche uno strumento partito dentro un turno.
-        let esito =
-            crate::interruzione::interrompibile(cap.call(argomenti, &self.server.ctx)).await;
+        // ferma anche uno strumento partito dentro un turno. E attorno, per
+        // conto di chi gira: la memoria lo guarda.
+        let esito = PER_CONTO_DI
+            .scope(
+                self.chi.clone(),
+                crate::interruzione::interrompibile(cap.call(argomenti, &self.server.ctx)),
+            )
+            .await;
+        if let (Some(viste), Some(detti), Ok(v)) = (&self.viste, &detti, &esito) {
+            let tornato = match v {
+                Value::String(s) => s.clone(),
+                altro => altro.to_string(),
+            };
+            let mut viste = viste.lock().unwrap_or_else(|e| e.into_inner());
+            for u in nova_dot::ricerca::indirizzi(detti)
+                .into_iter()
+                .chain(nova_dot::ricerca::indirizzi(&tornato))
+            {
+                if !viste.contains(&u) {
+                    viste.push(u);
+                }
+            }
+        }
         let ms = inizio.elapsed().as_millis() as u64;
         self.server.ctx.bus.emit(
             argomento,
@@ -432,7 +475,7 @@ pub async fn fai_un_turno(
         s.ricomincia();
     }
     let esecutore = EsecutoreDemone::di_nova(server.clone());
-    let svolto = turno_in(server, &cfg, &mut s, testo, nome, dalla_voce, in_coda, &esecutore).await?;
+    let svolto = turno_in(server, &cfg, &mut s, testo, nome, dalla_voce, in_coda, &esecutore, "").await?;
     drop(s);
     chiudi(server, &cfg, testo, svolto, true)
 }
@@ -443,6 +486,8 @@ pub struct Svolto {
     pub fine: Fine,
     pub consegnato: Vec<String>,
     pub gradino: usize,
+    /// Il nome del gradino a cui e' finito il turno: quello che ha risposto.
+    pub cervello: String,
     pub durata: f64,
     pub strumenti_usati: Vec<String>,
     pub quanti_strumenti: usize,
@@ -455,8 +500,14 @@ pub struct Svolto {
 ///
 /// Lo usano la conversazione con Nova ([`fai_un_turno`]) e i Dot
 /// (`crate::dot`), con due differenze che decide l'esecutore: per un Dot non
-/// si chiede il permesso, e la memoria di NOVA non entra nella domanda (il
-/// vault di un Dot e' suo, D381).
+/// si chiede il permesso, e al posto della memoria di NOVA entra nella
+/// domanda quella del suo vault (il vault di un Dot e' suo, D381).
+///
+/// `parti_da` e' il gradino da cui comincia il turno, per nome; vuoto, dal
+/// primo, come sempre. Lo usa il ricercatore, che sceglie il cervello passo
+/// per passo (D383). Un nome che la scala non ha piu' — l'utente l'ha tolto
+/// dal pannello a meta' compito — fa partire dal primo, e [`Svolto::cervello`]
+/// dice chi ha risposto davvero.
 #[allow(clippy::too_many_arguments)]
 pub async fn turno_in(
     server: &Arc<Server>,
@@ -467,18 +518,22 @@ pub async fn turno_in(
     dalla_voce: bool,
     in_coda: &str,
     esecutore: &EsecutoreDemone,
+    parti_da: &str,
 ) -> Result<Svolto> {
     if testo.trim().is_empty() {
         return Err(anyhow!("un turno senza domanda non ha niente da fare"));
     }
     let cfg = cfg.clone();
-    let conf = crate::dalla_configurazione::scala(&cfg);
     let recapiti = crate::dalla_configurazione::recapiti(&cfg, &|n| std::env::var(n).ok());
-    let gradini = crate::mondo::scala_vera(&conf, &recapiti);
+    let gradini = scala_di(&cfg);
+    let partenza = gradini
+        .iter()
+        .position(|g| !parti_da.is_empty() && g.nome() == parti_da)
+        .unwrap_or(0);
     // Il modello di casa si accende qui, prima del turno, se e' da li' che il
     // turno comincia: lo faceva il Python a ogni domanda, e col turno nel
     // demone non lo faceva piu' nessuno (D358).
-    if let Some(g) = gradini.first() {
+    if let Some(g) = gradini.get(partenza) {
         if crate::modello_locale::e_il_modello_di_casa(g, &recapiti) {
             crate::modello_locale::assicura(server, &cfg, &recapiti.locale_url)
                 .await
@@ -499,7 +554,12 @@ pub async fn turno_in(
         .iter()
         .any(|g| matches!(g, crate::mondo::Gradino::Claude { .. }))
     {
-        let vault = crate::memoria::percorso(&cfg, &crate::memoria::radice_progetto());
+        // Il vault che si nomina a Claude e' quello di chi lavora: per un Dot
+        // il suo (D381, D383), non quello di Nova.
+        let vault = match &esecutore.chi {
+            Chi::Nova => crate::memoria::percorso(&cfg, &crate::memoria::radice_progetto()),
+            Chi::Dot(n) => crate::dot::vault_di(n),
+        };
         let (mcp, sportello) = collegamento_claude(server, &recapiti.claude, &vault);
         crate::mondo::collega_claude(&mut s.gradini, &vault_per_claude(&cfg, &vault), &mcp, &sportello);
     }
@@ -514,13 +574,18 @@ pub async fn turno_in(
     // L'ordine — domanda, memoria, procedure — non e' scelto qui: sta in
     // `nova_contesto::blocchi`, con scritto perche' l'istruzione resta
     // l'ultima cosa letta. Un Dot non riceve ne' la memoria ne' le procedure
-    // di NOVA: il suo vault e' suo (D381).
-    let (memoria, procedure) = match esecutore.chi {
+    // di NOVA: riceve quel che c'e' nel suo vault (D381, D383).
+    let (memoria, procedure) = match &esecutore.chi {
         Chi::Nova => (
             nova_contesto::blocchi::memoria(&server.memoria.contesto_del_turno(testo, &cfg)),
             crate::ricette::blocco_per(testo),
         ),
-        Chi::Dot(_) => (String::new(), String::new()),
+        Chi::Dot(n) => (
+            crate::dot::memoria_di(server, n, &cfg)
+                .map(|(m, c)| nova_contesto::blocchi::memoria(&m.contesto_del_turno(testo, &c)))
+                .unwrap_or_default(),
+            String::new(),
+        ),
     };
     // La postilla della voce e' un'istruzione per il cervello e basta: non
     // entra nella ricerca in memoria e non viene imparata. Per questo si
@@ -554,7 +619,7 @@ pub async fn turno_in(
         trasporto: &trasporto,
         esecutore,
         sessione: &mut *s,
-        gradino: 0,
+        gradino: partenza,
         strumenti,
         consegnato: Vec::new(),
         ultima: crate::mondo::Ultima::default(),
@@ -575,6 +640,11 @@ pub async fn turno_in(
         .filter_map(|m| m.get("name").and_then(Value::as_str).map(str::to_string))
         .collect();
     let quante_righe = s.messaggi.len();
+    let cervello = s
+        .gradini
+        .get(gradino)
+        .map(|g| g.nome().to_string())
+        .unwrap_or_default();
     let esito = esito_di(&fine).0;
     emetti_stato(server, &esecutore.chi, nome, json!({ "fase": "finito", "esito": esito }));
     Ok(Svolto {
@@ -582,12 +652,21 @@ pub async fn turno_in(
         fine,
         consegnato,
         gradino,
+        cervello,
         durata,
         strumenti_usati,
         quanti_strumenti,
         quante_righe,
         sguardi_prima,
     })
+}
+
+/// La scala dei cervelli di adesso, dalla configurazione: la stessa che usa
+/// un turno, dal piu' piccolo al piu' grande.
+pub fn scala_di(cfg: &Value) -> Vec<crate::mondo::Gradino> {
+    let conf = crate::dalla_configurazione::scala(cfg);
+    let recapiti = crate::dalla_configurazione::recapiti(cfg, &|n| std::env::var(n).ok());
+    crate::mondo::scala_vera(&conf, &recapiti)
 }
 
 /// L'evento di stato di un turno: `agente.stato` per Nova, `dot.stato` per
@@ -623,6 +702,7 @@ fn chiudi(server: &Arc<Server>, cfg: &Value, testo: &str, svolto: Svolto, impara
         fine,
         consegnato,
         gradino,
+        cervello: _,
         durata,
         strumenti_usati,
         quanti_strumenti,
@@ -700,12 +780,7 @@ fn impara_dopo(
         return;
     }
     let richiesta = nova_ricette::imparare::richiesta(domanda, risposta, strumenti);
-    let gradini = {
-        let cfg = cfg.clone();
-        let conf = crate::dalla_configurazione::scala(&cfg);
-        let recapiti = crate::dalla_configurazione::recapiti(&cfg, &|n| std::env::var(n).ok());
-        crate::mondo::scala_vera(&conf, &recapiti)
-    };
+    let gradini = scala_di(cfg);
     let domanda = domanda.to_string();
     let strumenti = strumenti.to_vec();
     let server = server.clone();

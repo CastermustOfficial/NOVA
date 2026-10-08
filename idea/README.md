@@ -2,7 +2,7 @@
 
 Ogni possibile miglioria, anche solo teorica o non ancora decisa. Per ognuna: cosa, perché, cosa costerebbe. Un'idea non è un impegno: quando si decide di farla passa in [`piano/`](../piano/README.md), quando la si scarta resta qui con il perché.
 
-Aggiornato al 7 ottobre 2026. Le idee che c'erano già erano sparse nei documenti: qui sono raccolte, con il rimando a dove sono nate.
+Aggiornato all'8 ottobre 2026. Le idee che c'erano già erano sparse nei documenti: qui sono raccolte, con il rimando a dove sono nate.
 
 ## CANT-12: decisioni tipizzate al posto delle euristiche
 
@@ -230,4 +230,12 @@ L'ordine che ne viene: registrare le decisioni e le correzioni; un giudice per `
 **Perché.** Un eseguibile vecchio non dà errore finché non gli si chiede una cosa nuova, e a quel punto l'errore arriva lontano da dove si capisce.
 
 **Cosa costerebbe.** Un confronto di date in due funzioni gemelle, e decidere con Gio cosa fare: avvisare soltanto, o preferire il più nuovo. Per chi installa `bin/` è l'unico, e non cambia niente.
+
+## Vedere cosa leggono Claude Code e le CLI
+
+**Cosa.** Lanciare Claude Code con `--output-format stream-json` invece di `json`, e raccogliere dalle sue chiamate agli strumenti (`WebFetch`, `WebSearch`, `Read`) gli indirizzi che ha letto, come fa `EsecutoreDemone::viste` con gli strumenti di NOVA. Per le CLI che lo permettono, lo stesso.
+
+**Perché.** Il ricercatore controlla le fonti del rapporto contro quello che il Dot ha letto davvero (D383). Quando un passo lo fa Claude Code, NOVA non vede cosa ha letto, e le sue fonti restano «da verificare»: con Claude in cima alla scala possono esserlo quasi tutte, perche' fa il piano e i passi che il piano gli assegna.
+
+**Cosa costerebbe.** Leggere un flusso di righe JSON invece di un oggetto solo in `lancia_claude`, e misurare che la risposta finale resti la stessa. Per Gemini CLI va guardato se esiste un'uscita equivalente. Va deciso insieme alla domanda aperta su un Dot che lavora su Claude Code (`docs/dots.md`).
 
