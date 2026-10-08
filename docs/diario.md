@@ -11615,3 +11615,12 @@ Gio ha disegnato l'orb: una nova, con il nucleo d'oro e le punte. Il suo
 shader e' entrato com'era; agli stati che non aveva ho dato le sue manopole,
 e un rosso, un grigio e una pupilla per quelli che il caldo e il freddo non
 sanno dire. E' diventato anche l'icona, e il logo in testa al README.
+
+## 8 ottobre 2026 — Colleghi, non assistenti
+
+La prima bozza dei Dot li faceva chiedere il permesso prima di ogni passo.
+Gio li vuole al contrario: i piu' autonomi della piattaforma, fatti per
+finire il lavoro, con lui che guarda, scrive come un direttore e, se serve,
+ferma. Il primo sara' un ricercatore, con un vault suo, che pianifica col
+cervello piu' grande e fa i passi col cervello giusto, e un revisore che fa
+salire quando i piccoli non bastano.
