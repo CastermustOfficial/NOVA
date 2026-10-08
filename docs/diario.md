@@ -11662,3 +11662,14 @@ costano: un via all'inizio, un tetto per progetto, una memoria del progetto
 oltre a quella di ognuno, e i Dot che restano. Il primo progetto sara' il
 suo: allargare la finestra di contesto pensando in spazi compressi.
 
+## 8 ottobre 2026 — Una voce che risponde subito
+
+Gemini Live adesso e' nel pannello. Si dice «Nova», e dall'altra parte
+risponde la voce scelta, gia' mentre NOVA lavora: il modello vocale tiene la
+conversazione e passa a NOVA quello che riguarda il PC, poi lo racconta. Le
+voci sono trenta, e si ascoltano prima di sceglierne una. Scrivendo le prove
+ho trovato due cose: il «ricomincia da capo» del guscio non faceva
+dimenticare niente al demone, e il microfono di Live ripartiva troppo presto
+dopo che NOVA aveva parlato. Con Google non l'ho provato: qui una chiave non
+c'e'.
+

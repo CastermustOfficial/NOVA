@@ -44,7 +44,7 @@ use crate::capability::{Capability, Ctx};
 /// con il suo strumento e applica con il suo (`harness.*`), che passa dal
 /// suo cancello; un modello che potesse premere «accetta» si accetterebbe da
 /// solo le proposte che fa (D339, D344).
-pub const SOLO_PER_LA_PERSONA: [&str; 6] = [
+pub const SOLO_PER_LA_PERSONA: [&str; 8] = [
     "approvazione.rispondi",
     "finestra.applica",
     "finestra.proposte",
@@ -53,6 +53,10 @@ pub const SOLO_PER_LA_PERSONA: [&str; 6] = [
     // Il giro del calendario: lo fa partire l'attivita' di sistema, non un
     // modello (D346).
     "pianificazione.dovute",
+    // Il pannello della voce: le voci di Gemini Live e la prova di una. La
+    // prova manda una frase fuori dal PC, e la sceglie la persona (D386).
+    "voce.live.prova",
+    "voce.live.voci",
 ];
 
 /// Il testo che il modello legge quando la persona ha detto di no. E' quello

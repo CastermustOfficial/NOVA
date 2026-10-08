@@ -65,6 +65,12 @@ nova-clm = { path = "../nova-clm" }
 # I Dot (D381): la cartella, la coda, la conversazione salvata.
 nova-dot = { path = "../nova-dot" }
 nova-decisioni = { path = "../nova-decisioni" }
+# Gemini Live, la voce dal vivo (D386): il protocollo senza rete sta in
+# `nova-live`; qui la websocket verso Google, con rustls e i certificati
+# compilati dentro, come `ureq`: niente store di sistema.
+nova-live = { path = "../nova-live" }
+tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots"] }
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
 # Il web senza browser: cosa si chiede a DuckDuckGo, come si leggono i
 # risultati, cosa si dice di una pagina scaricata. Confrontato col Python da
 # un banco; qui c'e' solo la rete.

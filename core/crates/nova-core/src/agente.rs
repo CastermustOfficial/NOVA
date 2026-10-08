@@ -54,6 +54,18 @@ pub const SESSIONI_MASSIME: usize = 16;
 /// Il nome della conversazione quando nessuno lo dice.
 pub const SESSIONE_PREDEFINITA: &str = "principale";
 
+/// Il nome vero di una conversazione: senza nome e' quella di sempre. Vale
+/// per chi fa un turno e per chi dimentica, che devono parlare della stessa:
+/// il guscio dimentica con il nome vuoto, e prima di questa regola non
+/// dimenticava niente (D386).
+pub fn nome_della_sessione(nome: &str) -> &str {
+    if nome.trim().is_empty() {
+        SESSIONE_PREDEFINITA
+    } else {
+        nome.trim()
+    }
+}
+
 /// Quanto si aspetta per capire se dall'altra parte c'e' qualcuno.
 pub const ATTESA_COLLEGAMENTO: u64 = 10;
 
@@ -264,6 +276,7 @@ impl Agente {
 
     /// Butta una conversazione: il turno dopo ricomincia da capo.
     pub async fn dimentica(&self, nome: &str) -> bool {
+        let nome = nome_della_sessione(nome);
         self.ordine.lock().await.retain(|x| x != nome);
         self.sessioni.lock().await.remove(nome).is_some()
     }
@@ -478,11 +491,7 @@ pub async fn fai_un_turno(
     }
     let cfg = nova_configurazione::dove::leggi();
     let prompt = sistema(&cfg);
-    let nome = if nome_sessione.trim().is_empty() {
-        SESSIONE_PREDEFINITA
-    } else {
-        nome_sessione.trim()
-    };
+    let nome = nome_della_sessione(nome_sessione);
     let sessione = server
         .agente
         .sessione(nome, || Sessione::nuova(&prompt, Vec::new()))

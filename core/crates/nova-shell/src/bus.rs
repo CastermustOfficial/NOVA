@@ -60,6 +60,35 @@ fn stato_da_evento(topic: &str, dati: &Value) -> Option<&'static str> {
     }
 }
 
+/// Le righe che una conversazione con Gemini Live porta nella chat, come
+/// (chi, testo). Le trascrizioni arrivano a turno finito; un errore si
+/// scrive perche' a voce si e' detto solo che Live non risponde, e il
+/// perche' (la chiave, la rete) serve leggerlo (D386).
+fn righe_dal_vivo(topic: &str, dati: &Value) -> Vec<(&'static str, String)> {
+    let campo = |n: &str| {
+        dati.get(n)
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .trim()
+            .to_string()
+    };
+    match topic {
+        "voce.live.turno" => [("utente", campo("utente")), ("nova", campo("nova"))]
+            .into_iter()
+            .filter(|(_, t)| !t.is_empty())
+            .collect(),
+        "voce.live.errore" if !campo("errore").is_empty() => {
+            let come = if dati.get("aperta").and_then(|v| v.as_bool()) == Some(true) {
+                "La linea con Gemini Live e' caduta"
+            } else {
+                "Gemini Live non parte"
+            };
+            vec![("nova", format!("{come} ({}): continuo con la mia voce.", campo("errore")))]
+        }
+        _ => Vec::new(),
+    }
+}
+
 /// Da evento del demone a riga di stato accanto all'orb.
 ///
 /// E' la stessa cosa che la meta' Python scrive su stderr marcata: «Sto
@@ -247,6 +276,10 @@ async fn giro(app: &AppHandle, endpoint: &str) -> anyhow::Result<()> {
                 }
             });
         }
+        for (da, testo) in righe_dal_vivo(topic, &dati) {
+            crate::cronologia::aggiungi(da, &testo);
+            let _ = app.emit("nova://voce", json!({ "da": da, "testo": testo }));
+        }
         if topic == "voce.comando" {
             if let Some(testo) = dati.get("testo").and_then(|t| t.as_str()) {
                 if !testo.trim().is_empty() {
@@ -264,6 +297,30 @@ async fn giro(app: &AppHandle, endpoint: &str) -> anyhow::Result<()> {
 #[cfg(test)]
 mod prove {
     use super::*;
+
+    #[test]
+    fn gemini_live_scrive_nella_chat_i_due_versi_e_gli_errori() {
+        let turno = json!({ "utente": " che ore sono ", "nova": "Sono le tre." });
+        assert_eq!(
+            righe_dal_vivo("voce.live.turno", &turno),
+            vec![("utente", "che ore sono".to_string()), ("nova", "Sono le tre.".to_string())]
+        );
+        // Un saluto del modello senza niente detto dall'utente: una riga sola.
+        let solo_nova = json!({ "utente": "", "nova": "Ciao!" });
+        assert_eq!(righe_dal_vivo("voce.live.turno", &solo_nova), vec![("nova", "Ciao!".to_string())]);
+        let errore = json!({ "errore": "manca la chiave", "aperta": false });
+        assert_eq!(
+            righe_dal_vivo("voce.live.errore", &errore),
+            vec![("nova", "Gemini Live non parte (manca la chiave): continuo con la mia voce.".to_string())]
+        );
+        let caduta = json!({ "errore": "rete assente", "aperta": true });
+        assert_eq!(
+            righe_dal_vivo("voce.live.errore", &caduta),
+            vec![("nova", "La linea con Gemini Live e' caduta (rete assente): continuo con la mia voce.".to_string())]
+        );
+        assert!(righe_dal_vivo("voce.live.errore", &json!({})).is_empty());
+        assert!(righe_dal_vivo("voce.comando", &turno).is_empty());
+    }
 
     #[test]
     fn il_turno_del_demone_muove_l_orb() {

@@ -126,7 +126,7 @@ fn percorso_configurazione() -> Option<std::path::PathBuf> {
     Some(base.join("NOVA").join("config.json"))
 }
 
-fn configurazione_utente() -> Option<Value> {
+pub(crate) fn configurazione_utente() -> Option<Value> {
     let percorso = percorso_configurazione()?;
     let grezzo = match std::fs::read_to_string(&percorso) {
         Ok(g) => g,
@@ -457,6 +457,88 @@ pub fn register(reg: &mut Registry) {
     reg.add(Arc::new(TrascriviCap));
     reg.add(Arc::new(RisveglioCap));
     reg.add(Arc::new(FaseCap));
+    reg.add(Arc::new(LiveVociCap));
+    reg.add(Arc::new(LiveProvaCap));
+}
+
+/// Le scelte di Gemini Live, dalla configurazione di adesso e
+/// dall'ambiente.
+fn scelte_live() -> crate::live::Scelte {
+    let cfg = configurazione_utente().unwrap_or_else(|| json!({}));
+    crate::live::scelte(&cfg, &|n| std::env::var(n).ok())
+}
+
+/// Di dove viene la chiave di Gemini Live, senza dirla.
+fn origine_chiave(s: &crate::live::Scelte) -> &'static str {
+    if s.chiave.is_empty() {
+        ""
+    } else if ["GEMINI_API_KEY", "GOOGLE_API_KEY"]
+        .iter()
+        .any(|n| std::env::var(n).is_ok_and(|v| v.trim() == s.chiave))
+    {
+        "ambiente"
+    } else {
+        "pannello"
+    }
+}
+
+struct LiveVociCap;
+
+#[async_trait]
+impl Capability for LiveVociCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "voce.live.voci".into(),
+            description: "Le voci di Gemini Live, quella scelta, e se la conversazione dal vivo \
+                          puo' partire (e se no perche'). Per il pannello: la chiave non esce mai."
+                .into(),
+            risk: Risk::Safe,
+            category: "voce".into(),
+            schema: schema(&[]),
+        }
+    }
+
+    async fn call(&self, _args: Value, _ctx: &Ctx) -> Result<Value> {
+        let s = scelte_live();
+        let voci: Vec<Value> = nova_live::VOCI
+            .iter()
+            .map(|(nome, it, en)| json!({ "nome": nome, "it": it, "en": en }))
+            .collect();
+        Ok(json!({
+            "voci": voci,
+            "scelta": s.voce,
+            "predefinita": nova_live::VOCE_PREDEFINITA,
+            "modello": s.modello,
+            "attiva": s.attiva,
+            "interrompibile": s.interrompibile,
+            "chiave": origine_chiave(&s),
+            "pronta": crate::live::pronta(&s).is_ok(),
+            "perche_no": crate::live::pronta(&s).err(),
+        }))
+    }
+}
+
+struct LiveProvaCap;
+
+#[async_trait]
+impl Capability for LiveProvaCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "voce.live.prova".into(),
+            description: "Fa sentire una voce di Gemini Live: si presenta in una frase, dal \
+                          vivo. Serve a sceglierla nel pannello."
+                .into(),
+            risk: Risk::Safe,
+            category: "voce".into(),
+            schema: schema(&[("voce", "string", "Il nome della voce (es. Kore, Puck)", false)]),
+        }
+    }
+
+    async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
+        let s = scelte_live();
+        let voce = arg_str_opt(&args, "voce").unwrap_or_else(|| s.voce.clone());
+        crate::live::prova_voce(&s, &voce).await
+    }
 }
 
 struct FaseCap;

@@ -138,6 +138,32 @@ export const LINGUE = {
     "Scarica dopo un'ora": 'Unload after an hour',
     'Parola di risveglio': 'Wake word',
     'Il microfono resta aperto e si sveglia su «': 'The microphone stays open and wakes on "',
+    /* Gemini Live (D386) */
+    'Conversazione': 'Conversation',
+    'Classica — whisper e il cervello di NOVA': 'Classic — whisper and NOVA’s brain',
+    'Gemini Live — dal vivo, con una voce di Google': 'Gemini Live — live, with a Google voice',
+    'Ascolta il PC, risponde il cervello di NOVA, parla il motore scelto sopra.':
+      'The PC listens, NOVA’s brain answers, the engine chosen above speaks.',
+    'Dopo «Nova» parli con Gemini Live: risponde subito, ti lascia interrompere e passa a NOVA il lavoro sul PC. La voce esce dal PC.':
+      'After "Nova" you talk with Gemini Live: it answers at once, lets you interrupt and hands the work on the PC to NOVA. The voice leaves the PC.',
+    'Il demone non risponde: le voci non ci sono.': 'The daemon is not answering: no voices.',
+    "Pronta: di' «Nova» e parla.": 'Ready: say "Nova" and talk.',
+    'Pronta, ma la parola di risveglio è spenta: accendila qui sopra.':
+      'Ready, but the wake word is off: turn it on above.',
+    'Non parte: ': 'It does not start: ',
+    'Chiave Gemini API': 'Gemini API key',
+    'incolla qui la chiave': 'paste the key here',
+    'Dimentica': 'Forget',
+    "nell'ambiente (GEMINI_API_KEY)": 'in the environment (GEMINI_API_KEY)',
+    "Si prende da Google AI Studio. Sta in config.json in chiaro; GEMINI_API_KEY nell'ambiente ha la precedenza.":
+      'Get it from Google AI Studio. It is stored in config.json in plain text; GEMINI_API_KEY in the environment takes precedence.',
+    'Ascolta': 'Listen',
+    'Ascolta la fa presentare con quella voce, dal vivo.': 'Listen makes it introduce itself with that voice, live.',
+    'Parlarle sopra': 'Talk over it',
+    'Solo con le cuffie: con le casse il microfono sentirebbe la voce di NOVA e la prenderebbe per la tua.':
+      'Headphones only: with speakers the microphone would hear NOVA’s voice and take it for yours.',
+    'Mi collego…': 'Connecting…',
+    "Ha risposto, ma l'altoparlante non suona: ": 'It answered, but the speaker does not play: ',
 
     /* --- componenti --- */
     'Componenti': 'Components',

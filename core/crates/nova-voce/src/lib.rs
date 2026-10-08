@@ -13,6 +13,7 @@ pub mod ascolto;
 pub mod scribe;
 pub mod elevenlabs;
 pub mod audio;
+pub mod dal_vivo;
 pub mod espeak;
 pub mod fonemi;
 pub mod kokoro;

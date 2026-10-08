@@ -116,6 +116,7 @@ input:focus{border-color:rgba(232,115,74,.4)}
 .campo .aiuto{font-size:10.5px;color:var(--fioco);margin-top:5px;line-height:1.45}
 .fila{display:flex;gap:8px;align-items:center}
 .fila>input{flex:1}
+.fila>select{flex:1}
 .chiave-ok{font-family:var(--mono);font-size:10.5px;color:var(--brace);
   padding:4px 9px;border:1px solid rgba(232,115,74,.28);border-radius:8px;white-space:nowrap}
 .chiave-no{font-family:var(--mono);font-size:10.5px;color:var(--fioco);
@@ -262,6 +263,15 @@ titoli invece si traducono davvero, perche' li' non c'e' nessun modello in mezzo
           <span>Il microfono resta aperto e si sveglia su «<span id="ecoRisveglio">nova</span>»</span></div>
         <button class="interruttore" id="swRisveglio"></button>
       </div>
+      <div class="riga" style="display:block">
+        <div class="info" style="margin-bottom:8px"><b>Conversazione</b>
+          <span id="notaConversazione"></span></div>
+        <select id="selConversazione">
+          <option value="classica">Classica — whisper e il cervello di NOVA</option>
+          <option value="gemini_live">Gemini Live — dal vivo, con una voce di Google</option>
+        </select>
+      </div>
+      <div id="dettaglioLive"></div>
     </section>
 
     </div>
@@ -349,7 +359,7 @@ document.addEventListener('DOMContentLoaded', function(){
 </script>
 <script type="module">
 import { STATI, creaOrb } from './orb.js';
-import { T, OFFERTE, avviaLingua, impostaLingua, traduciDocumento } from './lingue.js';
+import { T, OFFERTE, avviaLingua, impostaLingua, traduciDocumento, linguaCorrente } from './lingue.js';
 const invoke = window.__TAURI__?.core?.invoke;
 const ascolta = window.__TAURI__?.event?.listen;
 const $ = id => document.getElementById(id);
@@ -1102,6 +1112,86 @@ function disegnaDettaglioVoce(){
   };
 }
 
+/* --- Gemini Live: la conversazione dal vivo (D386) -------------------
+ * Si apre dicendo «Nova», come la classica: il nome si riconosce sul PC, e
+ * fino a li' non esce niente. Le voci e la prova le da' il demone; la chiave
+ * non torna mai indietro, si sa solo se c'e' e da dove viene. */
+const NOTE_CONVERSAZIONE = {
+  classica: "Ascolta il PC, risponde il cervello di NOVA, parla il motore scelto sopra.",
+  gemini_live: "Dopo «Nova» parli con Gemini Live: risponde subito, ti lascia interrompere e passa a NOVA il lavoro sul PC. La voce esce dal PC.",
+};
+async function disegnaDettaglioLive(){
+  const dove = $('dettaglioLive');
+  const modo = prendi('voice.conversazione', 'classica');
+  $('notaConversazione').textContent = T(NOTE_CONVERSAZIONE[modo] || '');
+  if(modo !== 'gemini_live'){ dove.innerHTML = ''; return; }
+  let info = null;
+  try { info = await chiediAlDemone('voce.live.voci'); } catch(e){ diag('VOCI LIVE: ' + e); }
+  const scelta = info?.scelta || prendi('voice.live_voce', 'Kore');
+  const inglese = linguaCorrente() !== 'it';
+  const voci = (info?.voci || [{ nome: scelta, it: '', en: '' }]).map(v =>
+    `<option value="${esc(v.nome)}"${v.nome === scelta ? ' selected' : ''}>${esc(v.nome)}` +
+    `${(inglese ? v.en : v.it) ? ' — ' + esc(inglese ? v.en : v.it) : ''}</option>`).join('');
+  const chiave = prendi('voice.live_api_key', '');
+  const segno = info?.chiave === 'ambiente'
+    ? `<span class="chiave-ok">nell'ambiente (GEMINI_API_KEY)</span>`
+    : segnoChiave(chiave, 'GEMINI_API_KEY');
+  let stato;
+  if(!info) stato = T('Il demone non risponde: le voci non ci sono.');
+  else if(info.pronta) stato = prendi('voice.wake_enabled', false)
+    ? T('Pronta: di\' «Nova» e parla.')
+    : T('Pronta, ma la parola di risveglio è spenta: accendila qui sopra.');
+  else stato = T('Non parte: ') + (info.perche_no || '');
+  dove.innerHTML = `<div class="riga" style="display:block"><div class="dett" style="border:0;padding:0;margin:0">
+    <div class="campo"><label>Chiave Gemini API</label>
+      <div class="fila">
+        <input type="password" id="liveChiave" placeholder="incolla qui la chiave">
+        <button class="bottone secondo" id="liveSalva">Salva</button>
+        <button class="bottone secondo" id="liveScorda">Dimentica</button>
+      </div>
+      <div style="margin-top:8px">${segno}</div>
+      <p class="aiuto">Si prende da Google AI Studio. Sta in config.json in chiaro;
+        GEMINI_API_KEY nell'ambiente ha la precedenza.</p></div>
+    <div class="campo"><label>Voce</label>
+      <div class="fila">
+        <select id="liveVoce">${voci}</select>
+        <button class="bottone secondo" id="liveAscolta">Ascolta</button>
+      </div>
+      <p class="aiuto" id="liveEsito">Ascolta la fa presentare con quella voce, dal vivo.</p></div>
+    <div class="campo"><label>Parlarle sopra</label>
+      <div class="fila">
+        <button class="interruttore" id="swLiveSopra"></button>
+      </div>
+      <p class="aiuto">Solo con le cuffie: con le casse il microfono sentirebbe
+        la voce di NOVA e la prenderebbe per la tua.</p></div>
+    <p class="nota" id="liveStato">${esc(stato)}</p>
+  </div></div>`;
+  traduciDocumento(dove);
+  $('liveSalva').onclick = async () => {
+    const k = $('liveChiave').value.trim();
+    if(!k) return;
+    await salva({ voice: { live_api_key: k } });
+    $('liveChiave').value = '';
+    disegnaDettaglioLive();
+  };
+  $('liveScorda').onclick = async () => { await salva({ voice: { live_api_key: '' } }); disegnaDettaglioLive(); };
+  $('liveVoce').onchange = ev => salva({ voice: { live_voce: ev.target.value } });
+  interruttore('swLiveSopra', 'voice.live_interrompibile', false);
+  $('liveAscolta').onclick = async () => {
+    const esito = $('liveEsito');
+    const b = $('liveAscolta');
+    b.disabled = true;
+    esito.textContent = T('Mi collego…');
+    try {
+      const r = await chiediAlDemone('voce.live.prova', { voce: $('liveVoce').value });
+      esito.textContent = r.suonato
+        ? `«${r.detto || r.voce}»`
+        : T('Ha risposto, ma l\'altoparlante non suona: ') + (r.perche_non_suonato || '');
+    } catch(e){ esito.textContent = T('Non parte: ') + e; }
+    b.disabled = false;
+  };
+}
+
 function disegnaAutonomia(){
   const v = prendi('safety.autonomy','ask_risky');
   const ordine = ['always_ask','ask_risky','autonomous'];
@@ -1258,7 +1348,11 @@ function disegnaLegenda(){
   interruttore('swProcedure','kb.procedure',true);
   interruttore('swVoce','voice.enabled',false,
                v => $('codaVoce').textContent = T(v ? 'ATTIVA' : 'SPENTA'));
-  interruttore('swRisveglio','voice.wake_enabled',false);
+  interruttore('swRisveglio','voice.wake_enabled',false, v => {
+    // Gemini Live si apre col nome: lo stato qui sotto dipende da questo.
+    cfg.voice = { ...(cfg.voice||{}), wake_enabled: v };
+    disegnaDettaglioLive();
+  });
   $('ecoRisveglio').textContent = prendi('voice.wake_word','nova');
 
   const motore = $('selMotore');
@@ -1288,6 +1382,14 @@ function disegnaLegenda(){
   const sel = $('selVoce');
   sel.value = prendi('voice.tts_voce_locale','im_nicola');
   sel.onchange = () => salva({ voice: { tts_voce_locale: sel.value } });
+
+  const conversazione = $('selConversazione');
+  conversazione.value = prendi('voice.conversazione','classica');
+  conversazione.onchange = async () => {
+    await salva({ voice: { conversazione: conversazione.value } });
+    disegnaDettaglioLive();
+  };
+  disegnaDettaglioLive();
 
   $('codaVoce').textContent = T(prendi('voice.enabled',false) ? 'ATTIVA' : 'SPENTA');
   $('codaMemoria').textContent = T(prendi('kb.auto_learn',true) ? 'IMPARA' : 'FERMA');

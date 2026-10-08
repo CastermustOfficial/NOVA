@@ -94,11 +94,16 @@ controlla("si mostra solo la coda della chiave",
           "function impronta" in html and "slice(-4)" in html)
 controlla("e si puo' dimenticare",
           'id="apiScordaChiave"' in html and 'id="elScorda"' in html)
+controlla("nemmeno quella di Gemini Live, che pure si puo' dimenticare (D386)",
+          not re.search(r'id="liveChiave"[^>]*value=', html) and 'id="liveScorda"' in html)
+controlla("e la pagina non chiede mai la chiave al demone, solo da dove viene",
+          "info?.chiave === 'ambiente'" in html and "live_api_key: k" in html)
 
 print("\n5. niente che il guscio non sappia gia' fare")
 # L'elenco delle capacita' e' compilato dentro il guscio, e Rust qui non si
 # compila: una capacita' nuova sarebbe un pannello che non funziona.
-consentite = set(re.findall(r'"([a-z]+\.[a-z]+)"',
+# Anche coi nomi a tre pezzi, come «voce.live.voci».
+consentite = set(re.findall(r'"([a-z]+(?:\.[a-z]+)+)"',
                             DEMONE.read_text(encoding="utf-8")))
 chieste = set(re.findall(r"chiediAlDemone\(\s*'([^']+)'", html))
 controlla("il guscio dichiara delle capacita'", bool(consentite))

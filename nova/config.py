@@ -688,6 +688,19 @@ class VoiceConfig:
     # La chiave sta qui, cioe' in %APPDATA%\NOVA\config.json, fuori dal
     # repository. ELEVENLABS_API_KEY nell'ambiente ha comunque la precedenza.
     api_key: str = ""
+    # La conversazione dopo il nome (D386): «classica» (whisper, il cervello
+    # di NOVA, la voce scelta sopra) | «gemini_live» (dal vivo con Gemini
+    # Live, che passa il lavoro a NOVA con una funzione). Live parla da
+    # fuori: con brains.routing.solo_locale acceso non parte.
+    conversazione: str = "classica"
+    # Come api_key: GEMINI_API_KEY (o GOOGLE_API_KEY) nell'ambiente ha la
+    # precedenza.
+    live_api_key: str = ""
+    live_voce: str = "Kore"
+    live_modello: str = "gemini-3.8-live"
+    # Con le cuffie si puo' parlare sopra la voce; con le casse no, se no il
+    # microfono sente la voce di NOVA e la prende per l'utente.
+    live_interrompibile: bool = False
 
 
 @dataclass

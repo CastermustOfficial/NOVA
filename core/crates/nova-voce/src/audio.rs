@@ -227,6 +227,11 @@ impl std::error::Error for MicrofonoMuto {}
 /// Serve poterlo scegliere perche' il predefinito di sistema spesso non e'
 /// quello giusto — su questa macchina era un dispositivo virtuale che non
 /// sente niente, e undici secondi di ascolto avevano picco zero.
+/// Il microfono scelto, per chi lo apre in continuo (`dal_vivo`).
+pub(crate) fn microfono_scelto(nome: Option<&str>) -> Result<cpal::Device> {
+    microfono(nome)
+}
+
 fn microfono(nome: Option<&str>) -> Result<cpal::Device> {
     let host = cpal::default_host();
     if let Some(cercato) = nome.map(str::trim).filter(|s| !s.is_empty()) {

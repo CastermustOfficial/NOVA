@@ -1,0 +1,13 @@
+[package]
+name = "nova-live"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Gemini Live: il protocollo della voce dal vivo, senza rete. Chi parla col server e' nova-core."
+
+# Solo i messaggi e le regole: la websocket, il microfono e l'altoparlante
+# stanno in `nova-core` e in `nova-voce`. Qui si prova tutto senza rete.
+[dependencies]
+serde_json = { workspace = true }
+base64 = "0.22"

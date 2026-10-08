@@ -13,6 +13,7 @@ members = [
     "crates/nova-giudizio",
     "crates/nova-clm",
     "crates/nova-dot",
+    "crates/nova-live",
     "crates/nova-calendario",
     "crates/nova-pianificazione",
     "crates/nova-salita",

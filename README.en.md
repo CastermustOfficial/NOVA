@@ -815,6 +815,7 @@ core/crates/
   nova-componenti/    what each feature needs, and how to get it
   nova-cartelle/      whether a folder is being cloud-synced by someone else
   nova-voce/          speaking and listening at home: Kokoro, whisper.cpp; ElevenLabs optional
+  nova-live/          Gemini Live: the messages of the live conversation
   nova-browser/       the code that runs inside the page
   nova-cdp/           the protocol for talking to Edge and Chrome
   nova-harness/       documents and projects: find a position, propose, test
@@ -835,7 +836,7 @@ nova/                 the first version, in Python: what the benches compare aga
 prove/                the tests, grouped by what they need in order to run
 ```
 
-Forty crates. The last three are the ground for CANT-12.
+Forty-one crates. The last three are the ground for CANT-12.
 `nova_core::giudizio_casa` (D371) asks the home model for the logits and hands
 them to `nova-giudizio`, and the first decision to use it is delegation: which
 brain is needed (D373). The Dots' keeper uses `nova-decisioni` to know
@@ -961,6 +962,16 @@ pieces are downloaded when needed:
 Then it's switched on from the settings panel, under **Voice**. NOVA answers
 to its name: there is no dedicated wake-word model, it's whisper transcribing
 and the name opening the sentence.
+
+After the name the conversation can go to **Gemini Live** (D386): in the
+panel, under **Conversation**, with a Gemini API key (or `GEMINI_API_KEY` in
+the environment) and one of the 30 voices, which can be heard before
+choosing. Live answers at once and by voice, and hands the work on the PC to
+NOVA through a function while it keeps talking; the chat shows the
+conversation. The name is still recognised on the PC, so nothing leaves it
+until "Nova"; after that the voice leaves the PC, and with `solo_locale`
+on Live does not start. If it does not answer, NOVA says so and carries on
+with the home voice.
 
 ## Performance and tuning
 

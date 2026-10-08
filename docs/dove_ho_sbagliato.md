@@ -2139,3 +2139,35 @@ Ora la condizione e' quella del nome: almeno due.
 La regola: il nome di un controllo e la sua condizione si rileggono insieme,
 e un numero dentro una condizione dice perche' e' quel numero.
 
+## Il microfono di Live ripartiva quando la voce arrivava, non quando finiva
+
+In Gemini Live (D386), senza cuffie, il microfono deve tacere mentre NOVA
+parla e per 300 ms dopo. Avevo contato i 300 ms dall'ultimo pezzo di voce
+**arrivato** dal server. Ma la voce arriva molto piu' in fretta di come si
+suona: finita di suonare, l'ultimo pezzo era arrivato da secondi, e il
+microfono ripartiva subito, senza coda, sentendo l'eco della stanza. Le prove
+non lo vedevano perche' la bocca finta non parlava mai.
+
+Me ne sono accorto rileggendo la riga di architettura che descriveva i
+300 ms, prima del commit. Ora il conto parte dall'ultima volta che
+l'altoparlante aveva ancora voce in coda, e una prova con una bocca che parla
+per 800 ms controlla che il primo pezzo di microfono arrivi dopo la coda; col
+conto di prima arriva dopo 10-15 ms, ed e' rossa.
+
+La regola: un tempo si misura dall'evento che conta per chi ascolta, e una
+prova con un finto che non fa mai la cosa che il codice aspetta non prova
+quel codice.
+
+## Una sostituzione su un pezzo vuoto ha riscritto un file intero
+
+Per cambiare una sezione di `test_demone_live.py` ho preso il testo fra
+`print("\n6. ...")` e il primo `finally:`. Ma il primo `finally:` del file
+stava piu' in alto, nel server finto: il pezzo era vuoto, e `replace("",
+nuovo)` mette il testo nuovo fra ogni carattere. Il file e' passato da 325 a
+151.979 righe. Me ne sono accorto subito, perche' Python non lo leggeva piu',
+e l'ho ricostruito togliendo le copie in piu'.
+
+La regola: prima di sostituire un pezzo trovato con due indici, si controlla
+che non sia vuoto e che compaia una volta sola; e l'indice di fine si cerca
+dopo quello d'inizio.
+

@@ -241,6 +241,10 @@ try:
         sessioni = c.request("agente/sessioni")
         r2 = c.request("agente/turno", {"testo": "e adesso rispondi e basta"})
         dimenticata = c.request("agente/dimentica", {})
+        # Il guscio dimentica con il nome vuoto: deve buttare la stessa
+        # conversazione, non una che non c'e' (D386).
+        c.request("agente/turno", {"testo": "e adesso rispondi e basta"})
+        dimenticata_vuota = c.request("agente/dimentica", {"sessione": ""})
 
     controlla("il turno finisce con una risposta", r.get("esito") == "risposto",
               json.dumps(r, ensure_ascii=False)[:200])
@@ -399,6 +403,8 @@ try:
     controlla("la sessione e' quella predefinita",
               sessioni.get("aperte") == ["principale"], str(sessioni))
     controlla("e si puo' buttare", dimenticata.get("dimenticata") is True, str(dimenticata))
+    controlla("anche col nome vuoto, come la butta il guscio",
+              dimenticata_vuota.get("dimenticata") is True, str(dimenticata_vuota))
     print("\n8. e a turno finito impara la procedura")
     with CoreClient(endpoint, timeout=60) as c:
         c.request("agente/turno", {"testo": "usa uno strumento e dimmi com'e' andata",

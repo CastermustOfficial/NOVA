@@ -50,6 +50,8 @@ Aggiunta da Gio il 7 ottobre: i tempi morti, il microfono e le interruzioni veng
 
 **Cosa costerebbe.** Un cervello nuovo che parla in WebSocket e in audio, col microfono e l'altoparlante del guscio, e le funzioni di NOVA dichiarate al modello vocale. La voce esce dal PC: e' un cervello di fuori, scelto apposta, mai di serie. Sul piano gratuito, nello Spazio economico europeo i dati non addestrano i modelli di Google (termini della Gemini API, in vigore dal 23 marzo 2026), ma per offrire la Gemini API a utenti europei di un'app i termini chiedono i servizi a pagamento: se NOVA la proponesse a chi la installa, va letto bene. Chi ha un abbonamento Google AI Pro o Ultra ha anche 10 o 100 $ al mese di crediti per la Gemini API (dal 27 gennaio 2026); che valgano per la Live API non e' scritto.
 
+**Fatta l'8 ottobre** (D386, nel piano), con Gemini Live: dopo «Nova», scelta nel pannello. Restano aperte: riprendere dopo una pausa la stessa conversazione di Live con la maniglia, invece di aprirne una nuova (NOVA ricorda gia', il modello vocale no; va verificato quanto vale una maniglia, e se e' scaduta si apre come oggi); il «ferma» riconosciuto sul PC anche durante Live, che oggi passa dal modello; parlarle sopra anche con le casse, togliendo l'eco della voce dal microfono; una seconda voce dal vivo (la Realtime API, GPT-Live-1) dietro le stesse funzioni.
+
 ## OpenDots: colleghi sempre accesi, fra testo, chiamate e Slack
 
 Aggiunta da Gio il 5 ottobre, come spinta per NOVA insieme all'harness, e da decidere insieme alle strade di CANT-12 in un'integrazione sola.

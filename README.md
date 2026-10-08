@@ -804,6 +804,7 @@ core/crates/
   nova-componenti/    cosa serve a ogni funzione, e come procurarlo
   nova-cartelle/      se una cartella la sincronizza qualcun altro col cloud
   nova-voce/          voce e ascolto in casa: Kokoro, whisper.cpp; ElevenLabs a scelta
+  nova-live/          Gemini Live: i messaggi della conversazione dal vivo
   nova-browser/       il codice che gira dentro la pagina
   nova-cdp/           il protocollo per parlare a Edge e Chrome
   nova-harness/       documenti e progetti: cercare una posizione, proporre, provare
@@ -824,7 +825,7 @@ nova/                 la prima versione, in Python: termine di paragone dei banc
 prove/                le prove, divise per cosa serve a farle girare
 ```
 
-Quaranta crate. Gli ultimi tre sono il terreno di CANT-12.
+Quarantuno crate. Gli ultimi tre sono il terreno di CANT-12.
 `nova_core::giudizio_casa` (D371) chiede i logit al modello di casa e li passa
 a `nova-giudizio`, e la prima decisione che lo usa e' la delega: quale
 cervello serve (D373). `nova-decisioni` lo usa il custode dei Dot, per sapere
@@ -951,6 +952,15 @@ quando servono:
 Poi si accende dal pannello, alla voce **Voce**. NOVA risponde al proprio
 nome: non c'e' un modello apposta per la parola di richiamo, e' whisper che
 trascrive e il nome che apre la frase.
+
+Dopo il nome la conversazione puo' andare a **Gemini Live** (D386): nel
+pannello, alla voce **Conversazione**, con una chiave della Gemini API (o
+`GEMINI_API_KEY` nell'ambiente) e una delle 30 voci, che si ascoltano prima
+di sceglierle. Live risponde subito e a voce, e il lavoro sul PC lo passa a
+NOVA con una funzione, mentre continua a parlare; la chat mostra la
+conversazione. Il nome si riconosce ancora sul PC, quindi fino a «Nova» non
+esce niente; dopo, la voce esce dal PC, e con `solo_locale` acceso Live non
+parte. Se non risponde, NOVA lo dice e continua con la voce di casa.
 
 ## Prestazioni e tuning
 

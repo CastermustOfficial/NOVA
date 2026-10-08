@@ -165,7 +165,7 @@ Cosa serve: un banco Rust costruito con `cargo`: la prova stampa la riga per cos
 | `test_semina_rust.py` | La prima mappatura del PC scrive in Rust gli stessi nodi del Python. |
 | `test_strumenti_rust.py` | Gli strumenti dichiarati allo stesso modo, in Rust. |
 
-## `prove/demone/`: 33 prove
+## `prove/demone/`: 34 prove
 
 Cosa serve: il binario `novad` costruito.
 
@@ -189,6 +189,7 @@ Cosa serve: il binario `novad` costruito.
 | `test_demone_harness.py` | Le proposte di NOVA nell'harness, dal demone (D339). |
 | `test_demone_harness_strumenti.py` | Gli strumenti `harness_*` del demone contro quelli del Python (D344). |
 | `test_demone_impara.py` | A turno finito il demone impara i fatti durevoli, come `memory.py`. |
+| `test_demone_live.py` | Gemini Live nel demone (D386), con un server websocket finto scritto sul protocollo: le 30 voci per il pannello, con la scelta e da dove viene la chiave senza dirla; «Ascolta» manda la voce chiesta e il modello, mette la chiave nell'indirizzo e non nei messaggi, e torna cosa ha detto e quanto ha parlato; una voce che non c'e' diventa Kore; con `solo_locale` o senza chiave non si collega a niente; un modello non vede e non chiama le due capacita'; la chiave non finisce nei log, nemmeno a livello debug. |
 | `test_demone_memoria.py` | Il demone scrive nella memoria, e quello che scrive lo rilegge NOVA. |
 | `test_demone_modello_locale.py` | Il demone accende il modello di casa quando un turno ne ha bisogno (D358). |
 | `test_demone_permessi.py` | Prima di agire si chiede: il turno del demone e la porta MCP. |
@@ -202,7 +203,7 @@ Cosa serve: il binario `novad` costruito.
 | `test_demone_schermo.py` | Lo schermo in un'immagine, dal demone. |
 | `test_demone_semina.py` | La prima mappatura del PC, fatta dal demone quando si accende (D365). |
 | `test_demone_sistema.py` | Gli appunti, il volume, le notifiche, l'ora e com'e' fatto il PC, dal demone. |
-| `test_demone_turno.py` | Il demone fa un turno intero da solo: chiede, esegue, risponde; e lascia la decisione, senza segreti. |
+| `test_demone_turno.py` | Il demone fa un turno intero da solo: chiede, esegue, risponde; e lascia la decisione, senza segreti. La conversazione si dimentica anche col nome vuoto, come la dimentica il guscio (D386). |
 | `test_demone_web.py` | Il browser di NOVA, guidato dal demone, con un browser vero. |
 
 ## `prove/macchina/`: 16 prove

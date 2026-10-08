@@ -172,6 +172,77 @@ fn silenzio_per(fase: u8) -> f32 {
     }
 }
 
+/// Com'e' andata con Gemini Live dopo il nome.
+#[derive(Debug, PartialEq)]
+enum DalVivo {
+    /// Nel pannello la conversazione e' quella classica.
+    NonScelta,
+    /// Finita con «fine» o «pausa»: la fase e' gia' a posto.
+    Finita,
+    /// Scelta ma non partita (la chiave manca, «solo sul PC» e' acceso, la
+    /// rete non risponde): si e' detto a voce, e si continua con la
+    /// conversazione classica, gia' sveglia.
+    NonPartita,
+    /// Caduta a conversazione avviata: si e' detto a voce, e si continua con
+    /// la conversazione classica senza ripetere niente.
+    Caduta,
+}
+
+/// La conversazione con Gemini Live dopo il nome (D386). Chi ha chiamato
+/// NOVA va ascoltato comunque: se Live non parte o cade, lo si dice e si
+/// continua con la voce del PC. L'evento `voce.live.errore` dice perche'.
+async fn dal_vivo(bus: &Bus, microfono: &Option<String>, comando: &str, riprende: bool) -> DalVivo {
+    let cfg = crate::caps_voce::configurazione_utente().unwrap_or_else(|| json!({}));
+    let scelte = crate::live::scelte(&cfg, &|n| std::env::var(n).ok());
+    if !scelte.attiva {
+        return DalVivo::NonScelta;
+    }
+    imposta_fase(bus, SVEGLIA);
+    bus.emit(
+        "voce.risveglio",
+        json!({ "testo": comando, "comando": comando, "riprende": riprende, "dal_vivo": true }),
+    );
+    let mut aperta = false;
+    let esito = match (crate::live::pronta(&scelte), crate::caps_memoria::il_server()) {
+        (Err(perche), _) => Err(anyhow::anyhow!(perche)),
+        (Ok(()), None) => Err(anyhow::anyhow!("il demone non e' ancora pronto")),
+        (Ok(()), Some(server)) => {
+            let primo = (!comando.trim().is_empty()).then(|| comando.to_string());
+            crate::live::conversa_davvero(
+                server.clone(),
+                &scelte,
+                microfono.clone(),
+                primo,
+                riprende,
+                &mut aperta,
+            )
+            .await
+        }
+    };
+    match esito {
+        Ok(chiusura) => {
+            tracing::info!(?chiusura, "conversazione dal vivo finita");
+            imposta_fase(
+                bus,
+                if chiusura == nova_live::Chiusura::Fine { DORMIENTE } else { IN_PAUSA },
+            );
+            DalVivo::Finita
+        }
+        Err(e) => {
+            let errore = e.to_string();
+            tracing::warn!(errore = %errore, aperta, "Gemini Live: continuo con la voce del PC");
+            bus.emit("voce.live.errore", json!({ "errore": errore, "aperta": aperta }));
+            let (frase, come) = if aperta {
+                ("La linea con Gemini Live e' caduta: continuo con la mia voce.", DalVivo::Caduta)
+            } else {
+                ("Gemini Live non risponde: continuo con la mia voce.", DalVivo::NonPartita)
+            };
+            crate::caps_voce::annuncia(bus.clone(), frase).await;
+            come
+        }
+    }
+}
+
 /// Accende il ciclo. Ritorna false se girava gia'.
 pub fn avvia(
     bus: Bus,
@@ -290,6 +361,29 @@ pub fn avvia(
                         _ => match crate::caps_voce::dopo_il_risveglio(&testo, &parola) {
                             Some(comando) => {
                                 tracing::info!("risvegliata");
+                                // Gemini Live, se e' scelta nel pannello: la
+                                // conversazione la tiene lei, fino a «fine»
+                                // o «pausa». Se non parte, si continua con la
+                                // voce di sempre e lo si dice (D386).
+                                match dal_vivo(&bus, &microfono, &comando, fase_ora == IN_PAUSA).await {
+                                    DalVivo::NonScelta => {}
+                                    DalVivo::NonPartita => {
+                                        // Il saluto l'ha gia' fatto l'avviso;
+                                        // la domanda detta col nome no.
+                                        if !comando.trim().is_empty() {
+                                            bus.emit(
+                                                "voce.comando",
+                                                json!({ "testo": comando, "primo": true }),
+                                            );
+                                        }
+                                        ultimo_attivo = std::time::Instant::now();
+                                        continue;
+                                    }
+                                    DalVivo::Finita | DalVivo::Caduta => {
+                                        ultimo_attivo = std::time::Instant::now();
+                                        continue;
+                                    }
+                                }
                                 imposta_fase(&bus, SVEGLIA);
                                 bus.emit(
                                     "voce.risveglio",
