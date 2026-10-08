@@ -1,0 +1,13 @@
+[package]
+name = "nova-dot"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "I Dot di NOVA: chi sono, la loro coda di compiti, la conversazione che sopravvive al riavvio."
+
+# Solo il formato e le regole: chi fa i turni e' `nova-core`. Qui si legge e
+# si scrive la cartella di un Dot, e si decide cosa fare dopo.
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }

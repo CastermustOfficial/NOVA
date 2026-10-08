@@ -2000,3 +2000,40 @@ script, e ho corretto a mano guardando l'elenco intero.
 
 La regola: in un elenco numerato prima si fa posto, dall'ultima voce in su,
 e poi si inserisce; e alla fine si guarda l'elenco intero.
+
+## Fermare un Dot non fermava niente finche' il cervello non rispondeva
+
+Il primo ciclo dei Dot faceva il lavoro e aspettava il «ferma» nello stesso
+compito tokio, con un `select!`. Ma la domanda a un cervello in HTTP aspetta
+dentro `block_in_place`: per tutto quel tempo il compito non torna mai allo
+scheduler, e il ramo del «ferma» non viene guardato. Il compito risultava in
+corso per altri sei secondi e poi «fatto». Se n'e' accorta
+`test_demone_dot.py`, prima del commit, con un cervello finto lento.
+
+Ora il lavoro gira in un compito suo, e il «ferma» lo abbandona subito.
+Nella stessa prova avevo fatto chiamare al cervello finto `write_file`, il
+nome del Python, mentre al demone gli strumenti si offrono coi nomi delle
+capacita' (`fs_write`): il demone l'ha detto, «non e' una capacita'».
+
+La regola: dove si aspetta in modo bloccante non si puo' anche ascoltare un
+segnale nello stesso compito; e un cervello finto chiama gli strumenti coi
+nomi che il demone gli offre davvero.
+
+## Due fili nella stessa coda, e su Windows le righe si sono perse
+
+Il ciclo di un Dot scrive in `compiti.jsonl` che un compito e' in corso,
+mentre dal demone qualcuno gliene affida un altro, che scrive nello stesso
+file. Ognuno apriva il file in coda e scriveva la riga con `writeln!`, che su
+un file sono due scritture: il testo e l'a capo. Su Linux la prova passava;
+sulla suite intera del PC di sviluppo `test_demone_dot.py` e' caduta: il
+compito 3 risultava finito senza essere mai cominciato, e il compito 4 non
+c'era piu'. Due righe si erano mescolate, e la coda le ha saltate.
+
+Ora le scritture di una coda o di un diario passano una alla volta, con la
+riga intera in una scrittura sola; e affidare un compito legge il numero e
+scrive la riga sotto lo stesso turno, perche' due compiti affidati insieme
+non prendano lo stesso numero. Una prova lo fa con otto fili insieme.
+
+La regola: un file in cui scrivono due fili si scrive uno alla volta, e una
+riga si scrive in una volta sola; e una prova che passa su un sistema va
+fatta girare anche sull'altro prima di crederci.

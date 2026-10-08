@@ -12,6 +12,7 @@ members = [
     "crates/nova-decisioni",
     "crates/nova-giudizio",
     "crates/nova-clm",
+    "crates/nova-dot",
     "crates/nova-calendario",
     "crates/nova-pianificazione",
     "crates/nova-salita",

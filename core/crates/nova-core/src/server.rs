@@ -26,6 +26,8 @@ pub struct Server {
     /// stessa memoria, e tenerne due copie vorrebbe dire rileggere mille
     /// file per sapere la stessa cosa.
     pub memoria: crate::memoria::Memoria,
+    /// I Dot accesi, ognuno col suo ciclo (D382).
+    pub dots: crate::dot::Dots,
     clients: AtomicUsize,
     spegnimento: Notify,
     chiuso: std::sync::atomic::AtomicBool,
@@ -39,6 +41,7 @@ impl Server {
             config,
             agente: crate::agente::Agente::default(),
             memoria: crate::memoria::Memoria::default(),
+            dots: crate::dot::Dots::default(),
             clients: AtomicUsize::new(0),
             spegnimento: Notify::new(),
             chiuso: std::sync::atomic::AtomicBool::new(false),
@@ -139,6 +142,27 @@ impl Server {
             "agente/pronto" => Ok(crate::agente::pronto(self)),
 
             "agente/sessioni" => Ok(json!({ "aperte": self.agente.aperte().await })),
+
+            // I Dot (D382). Metodi per chi sta fuori — il guscio, la riga di
+            // comando, le prove — e non capacita': affidare un compito a un
+            // Dot dal modello verra' con uno strumento suo, quando Nova li
+            // chiamera' (D381, terzo passo).
+            "dot/crea" => crate::dot::crea(self, testo_di(&params, "nome"), testo_di(&params, "ruolo"))
+                .map_err(|e| (codes::INVALID_PARAMS, e)),
+            "dot/elenco" => Ok(crate::dot::elenco(self)),
+            "dot/affida" => crate::dot::affida(
+                self,
+                testo_di(&params, "nome"),
+                testo_di(&params, "testo"),
+                testo_di(&params, "da"),
+            )
+            .map(|id| json!({ "id": id }))
+            .map_err(|e| (codes::INVALID_PARAMS, e)),
+            "dot/stato" => crate::dot::stato(self, testo_di(&params, "nome"))
+                .map_err(|e| (codes::INVALID_PARAMS, e)),
+            "dot/ferma" => crate::dot::ferma(self, testo_di(&params, "nome"))
+                .map(|c| json!({ "fermato": c }))
+                .map_err(|e| (codes::INVALID_PARAMS, e)),
 
             "agente/dimentica" => {
                 let nome = params
@@ -509,6 +533,11 @@ impl Server {
 /// JSON, cioe' illeggibile. Il turno del demone non se ne accorgeva, perche'
 /// la stessa distinzione l'aveva gia' fatta in `MondoVero::esegui`: il buco
 /// era solo sulla porta da cui entra Claude Code.
+/// Un parametro di testo, o vuoto.
+fn testo_di<'a>(params: &'a Value, chiave: &str) -> &'a str {
+    params.get(chiave).and_then(Value::as_str).unwrap_or("")
+}
+
 pub fn testo_per_mcp(v: &Value) -> String {
     match v {
         Value::String(s) => s.clone(),

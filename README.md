@@ -558,6 +558,22 @@ test torna a NOVA, che sa cosa aggiustare.
 Un'uscita `2` vuol dire «qui non si puo' provare» — serve il demone, serve un
 browser — e non conta come fallimento: contarla bloccherebbe ogni modifica.
 
+## I Dot: colleghi che finiscono il lavoro da soli
+
+In costruzione (D381, [`docs/dots.md`](docs/dots.md)). Un Dot e' un collega con
+un nome che porta a termine un compito mentre tu fai altro: ha un ruolo, una
+coda di compiti e una conversazione sua, e lavora con gli strumenti di NOVA
+**senza chiedere il permesso** — le guardie che non sono permessi restano: il
+recinto, i comandi vietati, le credenziali mai al modello. Tu lo guardi, gli
+scrivi, e se serve lo fermi. Il primo sara' un ricercatore.
+
+Oggi c'e' il primo passo (D382): un Dot nasce, riceve compiti senza far
+aspettare chi li affida, li fa uno alla volta, tiene la conversazione nella
+sua cartella (`dots/<nome>/` accanto a `config.json`), lo si ferma senza
+fermare il resto, e dopo un riavvio riprende il compito a meta'. Lo si usa dal demone, coi metodi
+`dot/crea`, `dot/affida`, `dot/stato`, `dot/elenco` e `dot/ferma`; la vista
+nell'harness e il ricercatore vengono dopo.
+
 ## Installazione
 
 ### Requisiti
@@ -787,6 +803,7 @@ core/crates/
   nova-guasti/        un guasto detto in italiano, e le chiavi che non escono
   nova-calendario/    i conti sulle date, con l'ora passata da fuori
   nova-pianificazione/ «ogni giorno alle 8», e l'attivita' di Windows che lo fa
+  nova-dot/           i Dot: chi sono, la loro coda, la conversazione che resta
   nova-pitone/        le abitudini di Python che il porto doveva rispettare
   nova-decisioni/     quali decisioni possono uscire dal PC (CANT-12)
   nova-giudizio/      decisioni tipizzate lette dai logit (CANT-12)
@@ -795,7 +812,7 @@ nova/                 la prima versione, in Python: termine di paragone dei banc
 prove/                le prove, divise per cosa serve a farle girare
 ```
 
-Trentanove crate. Gli ultimi tre sono il terreno di CANT-12.
+Quaranta crate. Gli ultimi tre sono il terreno di CANT-12.
 `nova_core::giudizio_casa` (D371) chiede i logit al modello di casa e li passa
 a `nova-giudizio`, e la prima decisione che lo usa e' la delega: quale
 cervello serve (D373). `nova-decisioni` non lo usa nessun binario, e lo

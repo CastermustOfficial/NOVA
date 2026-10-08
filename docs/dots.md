@@ -25,7 +25,7 @@ cerca, legge le fonti e consegna un **rapporto in Markdown con le fonti**.
 |---|---|
 | **Memoria** | Il vault è **del Dot**: una cartella sua, nello stesso formato di quello di NOVA. NOVA lo può leggere e anche toccare, ma è suo. |
 | **Primo Dot** | Il ricercatore. |
-| **Cervello** | Il Dot pianifica col cervello **più grande** che ha la scala, e a ogni passo assegna il cervello adatto al tipo di passo. Un **revisore** giudica i risultati dei passi fatti coi cervelli piccoli: se sono scarsi, il passo si rifà un gradino più su, anche a lavoro in corso. Nel primo traguardo il revisore è un ruolo dentro il ricercatore (un passo che chiama il cervello grande); con la squadra diventa un Dot suo. |
+| **Cervello** | Il Dot pianifica col cervello **più grande** che ha la scala, e a ogni passo assegna il cervello adatto al tipo di passo. Un **revisore** giudica i risultati dei passi fatti coi cervelli piccoli: se sono scarsi, il passo si rifà un gradino più su, anche a lavoro in corso. Nel primo traguardo il revisore è un ruolo dentro il ricercatore (un passo che chiama il cervello grande); con la squadra diventa un Dot suo. **Per ora decide il cervello grande** (Gio, 8 ottobre). Poi la scelta passa a un Dot specializzato, **AR** (*Artificial Resources*), che per ogni compito, secondo la complessità e i risultati ottenuti, delega a un modello invece che a un altro. **Ogni scelta si registra**, e su quelle scelte si addestra CLM a fare lo stesso: scegliere. |
 | **Modello sul PC** | Va secondo le risorse: con un posto solo (`n_parallel`, di serie 1) i Dot che lo usano vanno uno dopo l'altro, e dopo la conversazione con Nova. Coi cervelli di fuori possono lavorare insieme, entro i limiti del fornitore. |
 | **Autonomia** | Piena. Un Dot non chiede l'ok prima di agire: è la cosa più autonoma della piattaforma, fatta per finire il compito. L'utente supervisiona, scrive, ferma. |
 
@@ -67,7 +67,7 @@ Un giudizio può solo stringere una guardia, mai allentarla (D313).
 <cartella di NOVA>/dots/<nome>/
   dot.json            chi e': nome, ruolo, quando e' nato
   compiti.jsonl       la coda: affidato, in corso, fatto, fallito, fermato
-  conversazione.jsonl i messaggi, per riprendere dopo un riavvio
+  conversazione.json  i messaggi, per riprendere dopo un riavvio
   diario.jsonl        cosa ha fatto, passo per passo: cervello, strumenti, esito, salite
   vault/              la sua memoria
   rapporti/           quello che consegna (il ricercatore: un .md per compito)
@@ -95,9 +95,49 @@ Un giudizio può solo stringere una guardia, mai allentarla (D313).
    interfaccia, provato dalle prove del demone con cervelli finti.
 2. **Il ricercatore.** Il piano col cervello grande, i passi col cervello
    assegnato, il revisore e la salita, il rapporto con le fonti, il vault suo.
+   Ogni scelta del cervello si registra, con com'è andata, per addestrare
+   CLM.
 3. **Nova lo chiama.** Affidare, chiedere lo stato, leggere l'esito, e
    l'evento a compito finito.
 4. **L'harness.** La vista dei Dot, la chat con un Dot, i rapporti aperti
    nell'editor.
-5. **Dopo.** Il revisore come Dot suo, gli orari, la squadra (un capo,
+5. **Dopo.** AR, il Dot che sceglie i modelli, e CLM addestrato sulle sue
+   scelte; il revisore come Dot suo, gli orari, la squadra (un capo,
    chi guida un gruppo, chi esegue).
+
+## Com'e' andata
+
+**Fase 1 — fatta** (D382). Il Dot su disco e il suo ciclo:
+
+- `nova-dot` (crate nuovo, senza turni) sa com'e' fatta la cartella e come
+  si legge la coda: `compiti.jsonl` e' un diario di passaggi di stato, e lo
+  stato di adesso si ottiene rileggendolo; una riga scritta a meta' si salta,
+  un compito chiuso resta chiuso. Si scrive uno alla volta, la riga intera
+  in una scrittura sola, e il numero di un compito nuovo si prende insieme
+  alla riga che lo mette in coda. La conversazione sta in
+  `conversazione.json`, scritta tutta insieme dopo ogni turno e tagliata a
+  400 messaggi davanti a una domanda; il diario in `diario.jsonl`.
+- `nova_core::dot` accende un ciclo per Dot all'avvio del demone: prende il
+  compito piu' vecchio in coda e fa i turni nella conversazione del Dot, fino
+  a sei se il modello finisce i passi, con il turno di Nova
+  (`agente::turno_in`, separato apposta da `fai_un_turno`).
+- Un Dot **non chiede il permesso** (`permessi::per_un_dot`): neanche con
+  «conferma sempre» nel pannello. Gli strumenti solo per la persona restano
+  suoi. La memoria di NOVA non entra nella sua domanda.
+- I suoi eventi sono `dot.stato`, `dot.strumento` e `dot.compito`, col suo
+  nome: l'orb di Nova non li segue.
+- **Fermarlo** abbandona subito il compito in corso, che si chiude come
+  fermato, e il ciclo passa al successivo. Il lavoro gira in un compito
+  tokio suo perche' la domanda a un cervello in HTTP aspetta dentro
+  `block_in_place`: nello stesso compito il «ferma» sarebbe stato guardato
+  solo a risposta arrivata (la prova l'ha visto).
+- **Dopo un riavvio** i compiti rimasti in corso tornano in coda, al massimo
+  due volte, poi si chiudono come interrotti; la domanda dice al modello che
+  il compito e' ripreso.
+- Si usa dal demone: `dot/crea`, `dot/affida`, `dot/stato`, `dot/elenco`,
+  `dot/ferma`. Non sono capacita': Nova li chiamera' con strumenti suoi
+  (fase 3).
+- Prove: otto in `nova-dot` (una con otto fili che affidano insieme), una in `nova_core::sessione` (la conversazione
+  ripresa), una in `permessi`, e `test_demone_dot.py` con un cervello finto:
+  nascere, affidare senza aspettare, scrivere un file con «conferma sempre»
+  senza nessuna richiesta, fermare, riprendere dopo un riavvio.

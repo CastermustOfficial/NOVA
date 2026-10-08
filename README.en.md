@@ -569,6 +569,24 @@ An exit code of `2` means «this can't be tested here» — it needs the daemon,
 it needs a browser — and doesn't count as a failure: counting it would block
 every change.
 
+## The Dots: colleagues who finish the job on their own
+
+Under construction (D381, [`docs/dots.md`](docs/dots.md)). A Dot is a colleague
+with a name who carries a task through while you do something else: it has a
+role, a queue of tasks and a conversation of its own, and it works with NOVA's
+tools **without asking for permission** — the guards that are not permissions
+stay: the sandbox, the forbidden commands, credentials never shown to the
+model. You watch it, write to it, and stop it if needed. The first one will be
+a researcher.
+
+Today there is the first step (D382): a Dot is born, receives tasks without
+making whoever assigns them wait, does them one at a time, keeps its
+conversation in its own folder (`dots/<name>/` next to `config.json`), can be
+stopped without stopping the rest, and after a restart picks up the task it was halfway through. It is
+used from the daemon, with the methods `dot/crea`, `dot/affida`, `dot/stato`,
+`dot/elenco` and `dot/ferma`; the view in the harness and the researcher come
+later.
+
 ## Installation
 
 ### Requirements
@@ -796,6 +814,7 @@ core/crates/
   nova-guasti/        a failure said in plain words, and keys that never leak
   nova-calendario/    date arithmetic, with the time passed in from outside
   nova-pianificazione/ «every day at 8», and the Windows task that does it
+  nova-dot/           the Dots: who they are, their queue, the conversation that stays
   nova-pitone/        the habits of Python the port had to respect
   nova-decisioni/     which decisions may leave the PC (CANT-12)
   nova-giudizio/      typed decisions read from the logits (CANT-12)
@@ -804,7 +823,7 @@ nova/                 the first version, in Python: what the benches compare aga
 prove/                the tests, grouped by what they need in order to run
 ```
 
-Thirty-nine crates. The last three are the ground for CANT-12.
+Forty crates. The last three are the ground for CANT-12.
 `nova_core::giudizio_casa` (D371) asks the home model for the logits and hands
 them to `nova-giudizio`, and the first decision to use it is delegation: which
 brain is needed (D373). No binary uses `nova-decisioni`, and the same goes for

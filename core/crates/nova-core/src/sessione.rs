@@ -62,6 +62,26 @@ impl Sessione {
         }
     }
 
+    /// Una conversazione salvata, ripresa com'era: il messaggio numero zero
+    /// resta quello di allora, anche se intanto il prompt e' cambiato, perche'
+    /// e' quello su cui la conversazione e' stata fatta. Se il primo
+    /// messaggio non e' di sistema, la conversazione non si riprende.
+    pub fn ripresa(messaggi: Vec<Value>, claude: &str, deleghe: u32) -> Option<Sessione> {
+        let primo = messaggi.first()?;
+        if primo.get("role").and_then(Value::as_str) != Some("system") {
+            return None;
+        }
+        let sistema = primo.get("content").and_then(Value::as_str)?.to_string();
+        Some(Sessione {
+            sistema,
+            messaggi,
+            gradini: Vec::new(),
+            misure: Misure::default(),
+            deleghe,
+            claude: claude.to_string(),
+        })
+    }
+
     /// Il prompt di sistema, per chi deve contarne i token.
     pub fn sistema(&self) -> &str {
         &self.sistema
@@ -114,6 +134,17 @@ mod prove {
         (0..quanti)
             .map(|i| Gradino::nuovo(&format!("g{i}"), Specie::Api, "http://x", "m", vec![], true, crate::mondo::Come::Niente))
             .collect()
+    }
+
+    #[test]
+    fn una_conversazione_salvata_si_riprende_com_era() {
+        let msg = vec![json!({"role": "system", "content": "sei un Dot"}), json!({"role": "user", "content": "ciao"})];
+        let s = Sessione::ripresa(msg.clone(), "filo", 3).unwrap();
+        assert_eq!(s.sistema(), "sei un Dot");
+        assert_eq!(s.messaggi, msg);
+        assert_eq!((s.claude.as_str(), s.deleghe), ("filo", 3));
+        assert!(Sessione::ripresa(vec![json!({"role": "user", "content": "x"})], "", 0).is_none());
+        assert!(Sessione::ripresa(Vec::new(), "", 0).is_none());
     }
 
     #[test]

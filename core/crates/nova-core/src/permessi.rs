@@ -159,6 +159,23 @@ pub fn racconta(v: &Value) -> String {
     righe.join("\n")
 }
 
+/// Il permesso per una chiamata voluta da un Dot (D381).
+///
+/// Un Dot ha l'autonomia piena: non si chiede niente a nessuno, e' fatto per
+/// finire il compito mentre l'utente fa altro. Restano le guardie che non
+/// sono permessi: gli strumenti solo per la persona non li chiama, e le
+/// guardie dentro le capacita' (il recinto, i comandi vietati, i percorsi
+/// protetti) valgono per lui come per tutti, perche' stanno li' e non qui.
+pub fn per_un_dot(cap: &dyn Capability) -> Result<(), String> {
+    let nome = cap.info().name;
+    if !per_un_modello(&nome) {
+        return Err(format!(
+            "«{nome}» la usa la persona, non un modello: le richieste di permesso le decide lei."
+        ));
+    }
+    Ok(())
+}
+
 /// Il permesso per una chiamata voluta da un modello.
 ///
 /// `Ok` vuol dire «vai». `Err` porta il testo da restituire al modello al
@@ -287,6 +304,18 @@ mod prove {
             racconta(&riga),
             "shutdown /s\ndove: C:\\\nshell: powershell"
         );
+    }
+
+    #[test]
+    fn un_dot_non_chiede_ma_i_bottoni_della_persona_restano_suoi() {
+        // Autonomia piena (D381): neanche un comando pericoloso chiede.
+        assert!(per_un_dot(&Finta("shell.exec", "shell", Risk::Dangerous)).is_ok());
+        assert!(per_un_dot(&Finta("fs.write", "file", Risk::Moderate)).is_ok());
+        // Ma rispondere a un'approvazione o premere «accetta» nell'harness no.
+        for nome in SOLO_PER_LA_PERSONA {
+            let e = per_un_dot(&Finta(nome, "x", Risk::Safe)).unwrap_err();
+            assert!(e.contains("la usa la persona"), "{nome}: {e}");
+        }
     }
 
     #[test]

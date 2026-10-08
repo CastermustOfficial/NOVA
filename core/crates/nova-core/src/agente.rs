@@ -101,13 +101,50 @@ impl Trasporto for ReteNelDemone {
     }
 }
 
+/// Per conto di chi gira un turno.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Chi {
+    /// La conversazione con Nova: chiede i permessi con l'autonomia del
+    /// pannello, e l'orb la segue.
+    Nova,
+    /// Un Dot (D381): autonomia piena, e i suoi eventi portano il suo nome,
+    /// perche' l'orb di Nova non si metta a «fare» mentre lavora un altro.
+    Dot(String),
+}
+
 /// Esegue gli strumenti chiamando le capacita' del demone.
 ///
 /// Non c'e' un secondo elenco di strumenti: sono le stesse capacita' che
 /// usano la CLI, il guscio e Claude Code. Un turno che ne aggiunge uno suo
-/// sarebbe un turno con guardie diverse dagli altri.
+/// sarebbe un turno con guardie diverse dagli altri. Anche un Dot passa di
+/// qui: cambia solo se si chiede il permesso.
 pub struct EsecutoreDemone {
     pub server: Arc<Server>,
+    pub chi: Chi,
+}
+
+impl EsecutoreDemone {
+    /// L'esecutore della conversazione con Nova.
+    pub fn di_nova(server: Arc<Server>) -> Self {
+        EsecutoreDemone { server, chi: Chi::Nova }
+    }
+
+    /// Dove vanno gli eventi di uno strumento, e con quali campi in piu'.
+    fn evento(&self) -> (&'static str, Value) {
+        match &self.chi {
+            Chi::Nova => ("agente.strumento", json!({})),
+            Chi::Dot(n) => ("dot.strumento", json!({ "dot": n })),
+        }
+    }
+}
+
+fn con(mut base: Value, altro: &Value) -> Value {
+    if let (Some(b), Some(a)) = (base.as_object_mut(), altro.as_object()) {
+        for (k, v) in a {
+            b.insert(k.clone(), v.clone());
+        }
+    }
+    base
 }
 
 #[async_trait]
@@ -117,7 +154,13 @@ impl Esecutore for EsecutoreDemone {
         let Some(cap) = self.server.registry.get(nome) else {
             return Ok(());
         };
-        crate::permessi::chiedi_per_un_modello(cap.as_ref(), argomenti, &self.server.ctx).await
+        match &self.chi {
+            Chi::Nova => {
+                crate::permessi::chiedi_per_un_modello(cap.as_ref(), argomenti, &self.server.ctx)
+                    .await
+            }
+            Chi::Dot(_) => crate::permessi::per_un_dot(cap.as_ref()),
+        }
     }
 
     async fn esegui(&self, nome: &str, argomenti: Value) -> Result<Value, String> {
@@ -130,10 +173,13 @@ impl Esecutore for EsecutoreDemone {
         // modello, la frase e' per la persona. Si prende dal registro qui,
         // che e' l'unico posto dove sono tutt'e due in mano insieme.
         let info = cap.info();
-        crate::imparare::nota(&info.name);
+        if self.chi == Chi::Nova {
+            crate::imparare::nota(&info.name);
+        }
+        let (argomento, piu) = self.evento();
         self.server.ctx.bus.emit(
-            "agente.strumento",
-            json!({ "nome": nome, "stato": "inizio", "descrizione": info.description }),
+            argomento,
+            con(json!({ "nome": nome, "stato": "inizio", "descrizione": info.description }), &piu),
         );
         // Lo stesso avvolgimento del resto del demone: cosi' il «fermati»
         // ferma anche uno strumento partito dentro un turno.
@@ -141,8 +187,8 @@ impl Esecutore for EsecutoreDemone {
             crate::interruzione::interrompibile(cap.call(argomenti, &self.server.ctx)).await;
         let ms = inizio.elapsed().as_millis() as u64;
         self.server.ctx.bus.emit(
-            "agente.strumento",
-            json!({ "nome": nome, "stato": "fine", "ok": esito.is_ok(), "ms": ms }),
+            argomento,
+            con(json!({ "nome": nome, "stato": "fine", "ok": esito.is_ok(), "ms": ms }), &piu),
         );
         esito.map_err(|e| e.to_string())
     }
@@ -371,6 +417,61 @@ pub async fn fai_un_turno(
         return Err(anyhow!("un turno senza domanda non ha niente da fare"));
     }
     let cfg = nova_configurazione::dove::leggi();
+    let prompt = sistema(&cfg);
+    let nome = if nome_sessione.trim().is_empty() {
+        SESSIONE_PREDEFINITA
+    } else {
+        nome_sessione.trim()
+    };
+    let sessione = server
+        .agente
+        .sessione(nome, || Sessione::nuova(&prompt, Vec::new()))
+        .await;
+    let mut s = sessione.lock().await;
+    if ricomincia {
+        s.ricomincia();
+    }
+    let esecutore = EsecutoreDemone::di_nova(server.clone());
+    let svolto = turno_in(server, &cfg, &mut s, testo, nome, dalla_voce, in_coda, &esecutore).await?;
+    drop(s);
+    chiudi(server, &cfg, testo, svolto, true)
+}
+
+/// Cio' che resta di un turno appena girato, per chi lo chiude.
+pub struct Svolto {
+    pub nome: String,
+    pub fine: Fine,
+    pub consegnato: Vec<String>,
+    pub gradino: usize,
+    pub durata: f64,
+    pub strumenti_usati: Vec<String>,
+    pub quanti_strumenti: usize,
+    pub quante_righe: usize,
+    sguardi_prima: u64,
+}
+
+/// Il giro di un turno dentro una conversazione gia' presa: la scala, il
+/// modello di casa, la domanda con quel che si sa, il ciclo degli strumenti.
+///
+/// Lo usano la conversazione con Nova ([`fai_un_turno`]) e i Dot
+/// (`crate::dot`), con due differenze che decide l'esecutore: per un Dot non
+/// si chiede il permesso, e la memoria di NOVA non entra nella domanda (il
+/// vault di un Dot e' suo, D381).
+#[allow(clippy::too_many_arguments)]
+pub async fn turno_in(
+    server: &Arc<Server>,
+    cfg: &Value,
+    s: &mut Sessione,
+    testo: &str,
+    nome: &str,
+    dalla_voce: bool,
+    in_coda: &str,
+    esecutore: &EsecutoreDemone,
+) -> Result<Svolto> {
+    if testo.trim().is_empty() {
+        return Err(anyhow!("un turno senza domanda non ha niente da fare"));
+    }
+    let cfg = cfg.clone();
     let conf = crate::dalla_configurazione::scala(&cfg);
     let recapiti = crate::dalla_configurazione::recapiti(&cfg, &|n| std::env::var(n).ok());
     let gradini = crate::mondo::scala_vera(&conf, &recapiti);
@@ -385,25 +486,11 @@ pub async fn fai_un_turno(
         }
     }
     let mano = crate::dalla_configurazione::manopole(&cfg);
-    let prompt = sistema(&cfg);
     // A un cervello in HTTP gli schemi viaggiano dentro ogni richiesta, e
     // tutti e 129 non stanno nel contesto del modello di casa: se ne offrono
     // 58, sempre gli stessi (D361). Claude e le CLI non li ricevono da qui.
     let strumenti = crate::strumenti_in_http::schemi(&server.registry);
 
-    let nome = if nome_sessione.trim().is_empty() {
-        SESSIONE_PREDEFINITA
-    } else {
-        nome_sessione.trim()
-    };
-    let sessione = server
-        .agente
-        .sessione(nome, || Sessione::nuova(&prompt, gradini.clone()))
-        .await;
-    let mut s = sessione.lock().await;
-    if ricomincia {
-        s.ricomincia();
-    }
     // I gradini si rileggono a ogni turno: se l'utente ha appena cambiato
     // cervello nel pannello, deve valere adesso e non alla prossima
     // conversazione.
@@ -426,9 +513,15 @@ pub async fn fai_un_turno(
     //
     // L'ordine — domanda, memoria, procedure — non e' scelto qui: sta in
     // `nova_contesto::blocchi`, con scritto perche' l'istruzione resta
-    // l'ultima cosa letta.
-    let memoria = nova_contesto::blocchi::memoria(&server.memoria.contesto_del_turno(testo, &cfg));
-    let procedure = crate::ricette::blocco_per(testo);
+    // l'ultima cosa letta. Un Dot non riceve ne' la memoria ne' le procedure
+    // di NOVA: il suo vault e' suo (D381).
+    let (memoria, procedure) = match esecutore.chi {
+        Chi::Nova => (
+            nova_contesto::blocchi::memoria(&server.memoria.contesto_del_turno(testo, &cfg)),
+            crate::ricette::blocco_per(testo),
+        ),
+        Chi::Dot(_) => (String::new(), String::new()),
+    };
     // La postilla della voce e' un'istruzione per il cervello e basta: non
     // entra nella ricerca in memoria e non viene imparata. Per questo si
     // attacca qui, in coda alla domanda, e non al testo che gira per il
@@ -449,24 +542,18 @@ pub async fn fai_un_turno(
     s.messaggi
         .push(json!({ "role": "user", "content": contenuto }));
 
-    server
-        .ctx
-        .bus
-        .emit("agente.stato", json!({ "sessione": nome, "fase": "penso" }));
+    emetti_stato(server, &esecutore.chi, nome, json!({ "fase": "penso" }));
 
     // Dieci secondi per capire se c'e' qualcuno, e un quarto d'ora per
     // aspettare che risponda: sono due tempi diversi apposta. Gli stessi del
     // Python, che li ha scelti dopo aver interrotto a meta' una risposta di
     // un modello che stava solo pensando.
     let trasporto = ReteNelDemone(Rete::nuova(ATTESA_COLLEGAMENTO, ATTESA_RISPOSTA));
-    let esecutore = EsecutoreDemone {
-        server: server.clone(),
-    };
     let quanti_strumenti = strumenti.len();
     let mut mondo = MondoVero {
         trasporto: &trasporto,
-        esecutore: &esecutore,
-        sessione: &mut s,
+        esecutore,
+        sessione: &mut *s,
         gradino: 0,
         strumenti,
         consegnato: Vec::new(),
@@ -488,45 +575,89 @@ pub async fn fai_un_turno(
         .filter_map(|m| m.get("name").and_then(Value::as_str).map(str::to_string))
         .collect();
     let quante_righe = s.messaggi.len();
-    drop(s);
+    let esito = esito_di(&fine).0;
+    emetti_stato(server, &esecutore.chi, nome, json!({ "fase": "finito", "esito": esito }));
+    Ok(Svolto {
+        nome: nome.to_string(),
+        fine,
+        consegnato,
+        gradino,
+        durata,
+        strumenti_usati,
+        quanti_strumenti,
+        quante_righe,
+        sguardi_prima,
+    })
+}
 
-    let (esito, risposta) = match &fine {
+/// L'evento di stato di un turno: `agente.stato` per Nova, `dot.stato` per
+/// un Dot, che l'orb di Nova non segue.
+fn emetti_stato(server: &Arc<Server>, chi: &Chi, nome: &str, campi: Value) {
+    match chi {
+        Chi::Nova => server
+            .ctx
+            .bus
+            .emit("agente.stato", con(json!({ "sessione": nome }), &campi)),
+        Chi::Dot(d) => server
+            .ctx
+            .bus
+            .emit("dot.stato", con(json!({ "dot": d }), &campi)),
+    }
+}
+
+/// L'esito di un turno in due parole, e la frase che lo dice.
+pub fn esito_di(fine: &Fine) -> (&'static str, String) {
+    match fine {
         Fine::Risposto(t) => ("risposto", t.clone()),
         Fine::PassiFiniti(t) => ("passi_finiti", t.clone()),
         Fine::Fermato => ("fermato", "Mi sono fermata.".to_string()),
         Fine::Rotto(e) => ("rotto", e.clone()),
-    };
-    server.ctx.bus.emit(
-        "agente.stato",
-        json!({ "sessione": nome, "fase": "finito", "esito": esito }),
-    );
+    }
+}
+
+/// Chiude il turno di Nova a conversazione gia' rilasciata: cosa imparare,
+/// la riga delle decisioni, la risposta per chi ha chiesto.
+fn chiudi(server: &Arc<Server>, cfg: &Value, testo: &str, svolto: Svolto, impara: bool) -> Result<Value> {
+    let Svolto {
+        nome,
+        fine,
+        consegnato,
+        gradino,
+        durata,
+        strumenti_usati,
+        quanti_strumenti,
+        quante_righe,
+        sguardi_prima,
+    } = svolto;
+    let (esito, risposta) = esito_di(&fine);
     if matches!(fine, Fine::Rotto(_)) {
         return Err(anyhow!("{risposta}"));
     }
-
-    // Imparare non fa aspettare nessuno. Dalla parte Python il processo
-    // moriva subito dopo la risposta, quindi l'estrazione della procedura
-    // andava attesa fino a trenta secondi con un filo apposta; il demone
-    // resta acceso, e puo' semplicemente farlo dopo.
-    impara_dopo(server, &cfg, testo, &risposta, &strumenti_usati, durata);
-    // E la decisione, per chi addestra le teste di CLM (D374): la richiesta,
-    // gli strumenti usati davvero, il gradino a cui e' finito il turno.
-    crate::decisioni::annota(
-        &cfg,
-        &crate::decisioni::riga_turno(
-            &crate::decisioni::adesso(),
-            testo,
-            &strumenti_usati,
-            gradino,
-            esito,
-            durata,
-        ),
-    );
-    // E i fatti durevoli, come `agent._impara`: non da un turno fermato a
-    // meta', e non da uno che ha guardato lo schermo.
-    if matches!(fine, Fine::Risposto(_) | Fine::PassiFiniti(_)) {
-        let riservato = crate::imparare::sguardi() != sguardi_prima;
-        crate::imparare::osserva(server, &cfg, testo, &risposta, riservato);
+    if impara {
+        // Imparare non fa aspettare nessuno. Dalla parte Python il processo
+        // moriva subito dopo la risposta, quindi l'estrazione della procedura
+        // andava attesa fino a trenta secondi con un filo apposta; il demone
+        // resta acceso, e puo' semplicemente farlo dopo.
+        impara_dopo(server, cfg, testo, &risposta, &strumenti_usati, durata);
+        // E la decisione, per chi addestra le teste di CLM (D374): la richiesta,
+        // gli strumenti usati davvero, il gradino a cui e' finito il turno.
+        crate::decisioni::annota(
+            cfg,
+            &crate::decisioni::riga_turno(
+                &crate::decisioni::adesso(),
+                testo,
+                &strumenti_usati,
+                gradino,
+                esito,
+                durata,
+            ),
+        );
+        // E i fatti durevoli, come `agent._impara`: non da un turno fermato a
+        // meta', e non da uno che ha guardato lo schermo.
+        if matches!(fine, Fine::Risposto(_) | Fine::PassiFiniti(_)) {
+            let riservato = crate::imparare::sguardi() != sguardi_prima;
+            crate::imparare::osserva(server, cfg, testo, &risposta, riservato);
+        }
     }
     Ok(json!({
         "risposta": risposta,
@@ -748,7 +879,7 @@ mod prove {
     #[tokio::test]
     async fn uno_strumento_che_non_esiste_lo_dice_invece_di_esplodere() {
         let server = crate::build(crate::config::Config::default()).unwrap();
-        let e = EsecutoreDemone { server };
+        let e = EsecutoreDemone::di_nova(server);
         let errore = e.esegui("mai.visto", json!({})).await.unwrap_err();
         assert!(errore.contains("mai.visto"), "{errore}");
     }

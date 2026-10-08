@@ -11624,3 +11624,10 @@ finire il lavoro, con lui che guarda, scrive come un direttore e, se serve,
 ferma. Il primo sara' un ricercatore, con un vault suo, che pianifica col
 cervello piu' grande e fa i passi col cervello giusto, e un revisore che fa
 salire quando i piccoli non bastano.
+
+## 8 ottobre 2026 — Il primo Dot respira
+
+Un Dot adesso nasce, prende i compiti, li fa da solo e si ricorda la
+conversazione anche se il demone si spegne a meta'. La prova ha trovato una
+cosa che non avrei visto leggendo: fermarlo non fermava niente finche' il
+cervello non rispondeva, perche' la domanda aspetta bloccando il filo.

@@ -62,6 +62,8 @@ ureq = "2"
 # llama-server, in `giudizio_casa`.
 nova-giudizio = { path = "../nova-giudizio" }
 nova-clm = { path = "../nova-clm" }
+# I Dot (D381): la cartella, la coda, la conversazione salvata.
+nova-dot = { path = "../nova-dot" }
 # Il web senza browser: cosa si chiede a DuckDuckGo, come si leggono i
 # risultati, cosa si dice di una pagina scaricata. Confrontato col Python da
 # un banco; qui c'e' solo la rete.
