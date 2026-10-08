@@ -107,6 +107,79 @@ Un giudizio può solo stringere una guardia, mai allentarla (D313).
    scelte; il revisore come Dot suo, gli orari, la squadra (un capo,
    chi guida un gruppo, chi esegue).
 
+L'ordine dal terzo passo in poi l'ha cambiato l'azienda dei Dot (D385, qui
+sotto): vale «In che ordine, con l'azienda».
+
+## L'azienda dei Dot
+
+Decisa con Gio l'8 ottobre, prima del codice (D385). I Dot non sono solo
+colleghi uno per uno: sono un'azienda che si organizza da sola attorno a un
+progetto, e che resta.
+
+### Come va
+
+1. **L'utente chiede a Nova un progetto**, anche grande. L'esempio di Gio,
+   che sarà il progetto di prova: cercare nuovi spazi matematici e tecniche
+   di addestramento nativo in spazi compressi senza perdita, per allargare la
+   finestra di contesto — le dimensioni delle onde audio, la trasformata di
+   Fourier, gli spettrogrammi, Huffman, Brotli, o qualunque altro metodo
+   esistente o da inventare — per un nuovo «formato» di pensiero, di
+   ragionamento e di uscita, da tradurre con un decoder.
+2. **Nova lo passa all'APM** (*Artificial Project Manager*), il Dot in cima
+   alla gerarchia: il CEO. L'utente sta sopra di lui.
+3. **L'APM dice ad AR cosa gli serve.** AR (*Artificial Resources*) è le
+   risorse umane dell'azienda: **assume i Dot** — ricercatori, programmatori,
+   revisori, capi gruppo — con il mestiere, il ruolo e il cervello adatti, e
+   per ogni compito **sceglie il modello** (la nota di Gio del D382).
+4. **Si forma la piramide**: chi guida un gruppo, chi esegue, chi rivede. I
+   compiti scendono, i rapporti salgono.
+5. **L'APM mostra il progetto all'utente e aspetta il via**: il piano,
+   l'organigramma, il tetto di spesa. Poi va da solo fino alla fine. L'utente
+   lo può fermare o cambiare in corsa.
+6. **La squadra lavora**, e consegna; Nova legge il resoconto.
+
+### Le scelte di Gio
+
+| | Deciso |
+|---|---|
+| **Il via** | L'APM mostra piano, organigramma e costo, e aspetta un sì. Poi è autonomo fino alla fine. |
+| **Il tetto** | Uno per progetto: lo propone l'APM nel piano, lo conferma l'utente. Quando sta per finirlo, l'APM chiede se allargarlo. I cervelli gratis (il modello di casa, gli abbonamenti) non contano. |
+| **La memoria** | Un vault del progetto, condiviso dalla squadra, e il vault personale di ogni Dot, che se lo porta al progetto dopo: come una persona che cambia lavoro e si ricorda il mestiere. |
+| **Dopo il progetto** | I Dot restano, liberi, con la loro esperienza. AR li riprende per il progetto dopo se fanno al caso, prima di assumerne di nuovi. L'utente può licenziarli. |
+| **Le chat** | L'utente scrive a chi vuole: la chat di gruppo completa, i gruppi interni che si formano, i rappresentanti, un Dot solo. |
+| **Nova** | È il tramite e il vero compagno dell'utente: legge il resoconto finale o un aggiornamento preciso, e se l'utente lo chiede cambia le cose. |
+| **I permessi** | Li decide il custode (D384), per tutti i Dot dell'azienda. Le guardie che non sono permessi restano. |
+
+### Cosa non è ancora deciso
+
+- **L'APM è uno solo**, come il custode e AR, e guida tutti i progetti; o
+  ogni progetto ha il suo, assunto da AR? La mia proposta: uno solo, che per
+  i progetti grandi fa assumere un capo progetto per ciascuno.
+- **Quanti Dot lavorano insieme.** Col modello di casa c'è un posto solo
+  (D381): i Dot che lo usano vanno in fila. Coi cervelli di fuori possono
+  lavorare insieme entro i limiti del fornitore, e il tetto del progetto.
+- **Cosa vede un Dot degli altri**: il vault del progetto, i messaggi del suo
+  gruppo, i rapporti di chi gli sta sotto. Quanto del resto, da decidere
+  quando si fanno i messaggi fra Dot.
+
+### In che ordine, con l'azienda
+
+1. ~~Il Dot su disco e il suo ciclo~~ (D382), ~~il ricercatore~~ (D383),
+   ~~il custode~~ (D384).
+2. **Nova li chiama**: affidare, chiedere lo stato, leggere l'esito.
+3. **I Dot parlano fra loro**: i messaggi, la chat di gruppo e i gruppi,
+   affidare un compito a chi sta sotto e consegnarlo a chi sta sopra.
+4. **L'harness**: la vista dei Dot e dei progetti, l'organigramma, le chat,
+   i rapporti nell'editor. Da qui l'utente vede e scrive.
+5. **AR**: assume i Dot (mestiere, ruolo, cervello), li riprende, li
+   licenzia, sceglie il modello per ogni compito. Ogni scelta si registra.
+6. **L'APM e i progetti**: il piano, l'organigramma, il via, il tetto, il
+   vault del progetto, i resoconti.
+7. **Nova tramite**: i resoconti e gli aggiornamenti, e le modifiche chieste
+   dall'utente.
+8. **CLM addestrato** sulle scelte di AR e del custode.
+9. Il progetto di prova di Gio, dall'inizio alla fine.
+
 ## Com'e' andata
 
 **Fase 1 — fatta** (D382). Il Dot su disco e il suo ciclo:

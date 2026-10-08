@@ -11652,3 +11652,13 @@ parla col demone da un altro processo: adesso il ponte si presenta col
 gettone del Dot, e il demone sa per chi lavora. Scrivendo la prova ho trovato
 un controllo del primo passo che non controllava niente.
 
+## 8 ottobre 2026 — Un'azienda
+
+Gio ha disegnato dove vanno i Dot: un'azienda. Un progetto chiesto a Nova
+arriva all'APM, che chiede ad AR la squadra; AR assume, sceglie i modelli,
+riprende i Dot che hanno gia' lavorato. L'utente sta sopra il CEO e scrive a
+chi vuole; Nova gli resta accanto. Gli ho chiesto le quattro cose che
+costano: un via all'inizio, un tetto per progetto, una memoria del progetto
+oltre a quella di ognuno, e i Dot che restano. Il primo progetto sara' il
+suo: allargare la finestra di contesto pensando in spazi compressi.
+
