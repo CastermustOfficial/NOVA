@@ -2125,3 +2125,17 @@ Ora la voce c'e' anche nel demone, con le stesse parole.
 La regola e' quella della prima voce di oggi, un'altra volta: quando si
 corregge una cosa che ha un gemello, si corregge anche il gemello.
 
+## Una prova che diceva «piu' di uno» e chiedeva tre
+
+`test_cerca.py` controlla che una ricerca vera dia «piu' di un risultato», e
+dal 29 agosto lo faceva con `len(ris) >= 3`. Il nome e la condizione non
+dicevano la stessa cosa, e la condizione era quella sbagliata: quanti
+risultati restituisce un motore di qualcun altro NOVA non lo decide. L'8
+ottobre, sul commit `6ccc57c`, che cambiava solo documenti, il motore ne ha
+dati due e la CI e' diventata rossa.
+
+Ora la condizione e' quella del nome: almeno due.
+
+La regola: il nome di un controllo e la sua condizione si rileggono insieme,
+e un numero dentro una condizione dice perche' e' quel numero.
+

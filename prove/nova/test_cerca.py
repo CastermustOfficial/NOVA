@@ -167,7 +167,11 @@ else:
         sys.exit(1 if falliti else 2)
     controlla("la ricerca risponde", d.get("ok"), str(d.get("motivo")))
     ris = d.get("risultati") or []
-    controlla("con piu' di un risultato", len(ris) >= 3, f"{len(ris)}")
+    # «Piu' di uno», come dice il nome: fino all'8 ottobre ne chiedeva tre, e
+    # quanti risultati da' un motore di qualcun altro NOVA non lo decide. Il
+    # 6ccc57c la CI ne ha avuti due, ed e' diventata rossa su un commit che
+    # cambiava solo documenti.
+    controlla("con piu' di un risultato", len(ris) >= 2, f"{len(ris)}")
     # «Del motore» vuol dire il rimbalzo che Bing mette al posto dell'indirizzo
     # (`bing.com/ck/a?...`), non qualunque pagina di bing.com: cercando «bing»,
     # i primi risultati veri sono `www.bing.com` e `get.bing.com`, e il 4 ottobre
