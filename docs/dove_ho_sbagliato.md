@@ -2171,3 +2171,19 @@ La regola: prima di sostituire un pezzo trovato con due indici, si controlla
 che non sia vuoto e che compaia una volta sola; e l'indice di fine si cerca
 dopo quello d'inizio.
 
+## Un push sul ramo sbagliato
+
+Il commit del D386 l'ho fatto sul PC di sviluppo, dove la cartella era sul
+ramo `ottimizzazione`, e l'ho mandato con `git push origin HEAD`. Il ramo su
+GitHub non c'era: ne e' nato uno nuovo, e `master` e' rimasto indietro. Il
+giro dei commit di prima era un altro: il commit su `ottimizzazione`, poi
+`master` portato avanti senza unioni (`merge --ff-only`), il push di
+`master`, e di nuovo su `ottimizzazione`. L'ho visto dalla risposta del push
+(«new branch») e dal reflog.
+
+Ho fatto il giro giusto, e ho tolto da GitHub il ramo nato per sbaglio, che
+nessuno aveva ancora usato.
+
+La regola: prima di un push si guarda su che ramo si e', e si nomina il ramo
+di destinazione invece di scrivere `HEAD`.
+

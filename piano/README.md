@@ -37,7 +37,7 @@ Deciso con Gio il 30 settembre: non ci sono scadenze, conta solo il risultato, e
 
 Quando una voce si chiude la si sposta qui, con la data e il commit.
 
-- 08/10/2026: Gemini Live: dopo «Nova» la conversazione dal vivo, con le funzioni di NOVA, la chiave e le 30 voci nel pannello, da ascoltare prima di scegliere; e il guscio che dimentica davvero la conversazione del demone (D386).
+- 08/10/2026: Gemini Live: dopo «Nova» la conversazione dal vivo, con le funzioni di NOVA, la chiave e le 30 voci nel pannello, da ascoltare prima di scegliere; e il guscio che dimentica davvero la conversazione del demone (D386, `6ac29d7`).
 - 08/10/2026: l'azienda dei Dot, il disegno: APM, AR che assume, la piramide, il via e il tetto per progetto, i Dot che restano (D385, `6ccc57c`).
 - 08/10/2026: il custode dei permessi: un Dot chiede a lui quando Nova chiederebbe all'utente, anche dal suo Claude Code, col modello di casa e se no il cervello grande (D384, `eb68820`).
 - 08/10/2026: il ricercatore: il piano col cervello grande, i passi col cervello assegnato, il revisore, il rapporto con le fonti controllate, il vault suo, ogni scelta del cervello registrata (D383, `d742a89`).
