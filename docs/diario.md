@@ -11745,3 +11745,12 @@ ancora. Il microfono andava benissimo: era la stanza che taceva. Nel
 registro del demone c'erano 814 avvisi, e si dividevano da soli: 108 a zero
 esatto, il microfono spento davvero, e 706 col fruscio di una stanza
 silenziosa. Adesso l'avviso arriva solo per i primi.
+
+## 9 ottobre 2026 — Un'azienda vera
+
+Stavo per scrivere AR, e Gio mi ha fermato: AR non e' un ufficio da solo,
+e' uno degli organi di un'azienda. Ci vuole un legale che guarda le
+normative, un commerciale che chiede se si vende, la ricerca, la revisione
+di livello accademico, chi scrive i documenti; e un Architetto che fa il
+piano prima che si assuma qualcuno. Quelli ci sono sempre, come in ogni
+azienda; per il progetto si assume solo quel che manca.

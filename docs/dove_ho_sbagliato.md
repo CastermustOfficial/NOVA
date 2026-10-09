@@ -2464,3 +2464,14 @@ Ora prima di tutto chiede `daemon.status`, come `test_approvazione.py`, e se
 non risponde salta. La regola, scritta finora solo in un commento di
 `test_approvazione.py`, vale per ogni prova che parla col demone: la prima
 connessione sta fuori dal lavoro, e un no diventa un salto.
+
+## Il D394 mandato su GitHub dal ramo sbagliato
+
+Su Windows si lavora sul ramo `ottimizzazione`, e a ogni commit si porta
+`master` in avanti e si manda `master`. Col D394 ho fatto il commit e ho
+mandato subito `master`, che era ancora al commit di prima: il push non ha
+mandato niente. Me ne sono accorto cercando la CI del commit, che non
+c'era; ho portato `master` in avanti, l'ho mandato, e la CI e' stata verde.
+
+La regola: dopo un push si controlla che il commit sia davvero sul ramo
+remoto (`git ls-remote origin master`), prima ancora di cercare la CI.

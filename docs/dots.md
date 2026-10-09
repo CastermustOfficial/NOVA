@@ -138,6 +138,66 @@ progetto, e che resta.
    lo può fermare o cambiare in corsa.
 6. **La squadra lavora**, e consegna; Nova legge il resoconto.
 
+### Come un'azienda (D395)
+
+Deciso con Gio il 9 ottobre, sulla bozza, prima del codice. Il disegno del
+D385 resta, ma l'azienda e' **un'azienda vera**: una direzione e dei
+reparti che ci sono sempre, come in ogni azienda, e gli assunti per il
+progetto. L'ordine cambia: prima il piano, poi la squadra.
+
+1. **L'utente chiede un progetto grosso a Nova.** Nova propone di farlo
+   fare ai Dot, e aspetta un si'.
+2. **Nova passa il progetto all'APM.**
+3. **L'Architetto fa il piano di sviluppo**: le fasi, e i ruoli che
+   servono a ognuna.
+4. **AR forma la squadra per quel piano**: riprende i Dot liberi che fanno
+   al caso, assume quelli che mancano.
+5. **L'APM mostra all'utente piano, organigramma e tetto, e aspetta il
+   via.** L'utente dice si', no, o cambia.
+6. **L'APM dispone i Dot**: affida le fasi ai capi; i compiti scendono, i
+   rapporti salgono.
+7. **La consegna**: la revisione formale, i documenti, il legale prima del
+   rilascio; Nova legge il resoconto all'utente.
+
+**La direzione**, sempre presente:
+
+| | Cosa fa |
+|---|---|
+| **APM** | Guida i progetti: riceve il progetto da Nova, chiede il piano, chiede la squadra, mostra tutto all'utente, dispone i Dot, decide i controlli del legale. |
+| **AR** | Le risorse: riprende, assume, licenzia, e sceglie il cervello di ogni compito che assegna. |
+| **Architetto** | Il piano di sviluppo: le fasi, cosa produce ognuna, i ruoli che servono. |
+
+**I reparti**, sempre presenti, ognuno col suo capo; un reparto cresce se
+AR assume qualcuno sotto il suo capo:
+
+| Reparto | Cosa fa |
+|---|---|
+| **Legale** | Il rispetto delle normative. |
+| **Commerciale** | La vendibilita', la posizione e la ricerca di mercato. |
+| **Ricerca** | Lo stato dell'arte. |
+| **Revisione** | Il controllo formale, di livello accademico. |
+| **Scrittura** | La documentazione, e i paper quando servono. |
+| **Dati e misure** | Gli esperimenti, i benchmark, l'analisi dei numeri. |
+| **Qualita' e prove** | Il collaudo di quel che si produce: il codice, gli esperimenti. E' un'altra cosa dalla revisione formale. |
+| **Amministrazione** | Il conto della spesa contro il tetto: avvisa l'APM prima che finisca. |
+| **Sicurezza** | Il custode dei permessi (D384), messo nell'organigramma. |
+
+**Gli assunti** sono quelli che il progetto chiede in piu': programmatori,
+specialisti. Li assume AR.
+
+**Le scelte del 9 ottobre:**
+
+| | Deciso |
+|---|---|
+| **Chi parte** | Nova propone di far fare il progetto ai Dot, e aspetta un si'. |
+| **L'ordine** | APM, Architetto (il piano), AR (la squadra per quel piano), il via dell'utente, l'APM che dispone. |
+| **La direzione e i reparti** | Sempre presenti, come il custode: nascono **all'avvio**, coi Dot accesi, e senza compiti non costano niente. Passano da un progetto all'altro col loro vault, e a ogni progetto lavorano anche sul vault del progetto. |
+| **Il legale** | Si chiama **come il custode**: una domanda che aspetta la risposta. Guarda il progetto **all'inizio**, a **uno o piu' controlli** decisi dall'APM, e **prima del rilascio**; e ogni Dot lo puo' chiamare quando gli serve. |
+| **AR, quando entra** | Quando serve un Dot: si riprende o si assume. Un compito affidato direttamente a un Dot che c'e' va come oggi. |
+| **AR, il cervello** | AR sceglie il cervello **per tutto il compito**, e decide **col cervello piu' grande**. Il revisore puo' ancora far rifare un passo scarso un gradino piu' su, e si registra come salita: e' il segnale che AR aveva scelto basso. |
+| **Licenziare** | L'utente, e anche AR: un **assunto** fermo da **30 giorni**, che non e' capo di nessuno. AR lo dice in chat, e il vault resta in archivio. La direzione e i reparti non si licenziano. |
+| **Il registro** | Ogni scelta di AR e dell'APM va in `decisioni.jsonl`, con l'esito: sono gli esempi per CLM. |
+
 ### Le scelte di Gio
 
 | | Deciso |
@@ -154,7 +214,9 @@ progetto, e che resta.
 
 - **L'APM è uno solo**, come il custode e AR, e guida tutti i progetti; o
   ogni progetto ha il suo, assunto da AR? La mia proposta: uno solo, che per
-  i progetti grandi fa assumere un capo progetto per ciascuno.
+  i progetti grandi fa assumere un capo progetto per ciascuno. Con il D395
+  l'APM sta nella direzione, che c'e' sempre: e' uno. Resta da decidere il
+  capo progetto per i progetti grandi.
 - **Quanti Dot lavorano insieme.** Col modello di casa c'è un posto solo
   (D381): i Dot che lo usano vanno in fila. Coi cervelli di fuori possono
   lavorare insieme entro i limiti del fornitore, e il tetto del progetto.
@@ -172,14 +234,17 @@ progetto, e che resta.
 4. ~~**L'harness**: la vista dei Dot, l'organigramma, le chat, i rapporti
    nell'editor. Da qui l'utente vede e scrive~~ (D391). I progetti si
    vedranno quando ci saranno, col sesto passo.
-5. **AR**: assume i Dot (mestiere, ruolo, cervello), li riprende, li
-   licenzia, sceglie il modello per ogni compito. Ogni scelta si registra.
-6. **L'APM e i progetti**: il piano, l'organigramma, il via, il tetto, il
-   vault del progetto, i resoconti.
-7. **Nova tramite**: i resoconti e gli aggiornamenti, e le modifiche chieste
-   dall'utente.
-8. **CLM addestrato** sulle scelte di AR e del custode.
-9. Il progetto di prova di Gio, dall'inizio alla fine.
+5. **La direzione e i reparti** (D395): chi sono, i ruoli, l'organigramma
+   che nasce all'avvio.
+6. **AR**: riprende, assume, licenzia, sceglie il cervello del compito.
+   Ogni scelta si registra.
+7. **L'Architetto** e il piano di sviluppo.
+8. **L'APM e i progetti**: il via, il tetto, il vault del progetto, i Dot
+   disposti, i controlli del legale.
+9. **Nova tramite**: la proposta, il via, i resoconti e gli aggiornamenti,
+   e le modifiche chieste dall'utente.
+10. **CLM addestrato** sulle scelte di AR, dell'APM e del custode.
+11. Il progetto di prova di Gio, dall'inizio alla fine.
 
 ## Com'e' andata
 
