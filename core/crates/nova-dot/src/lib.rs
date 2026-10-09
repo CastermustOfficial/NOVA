@@ -502,7 +502,8 @@ pub fn squadra(capo: &str, sottoposti: &[String]) -> String {
     if !sottoposti.is_empty() {
         righe.push(format!(
             "I tuoi sottoposti: {}. A loro puoi affidare pezzi di questo compito con \
-             dot.affida: il compito aspetta che consegnino, e riprende con i loro esiti.",
+             dot.affida: il compito aspetta che consegnino, e riprende con i loro esiti. \
+             Se serve, con loro puoi fare un gruppo (dot.gruppo).",
             sottoposti.join(", ")
         ));
     }
@@ -559,11 +560,13 @@ pub fn con_la_posta(domanda: &str, posta: &[Messaggio]) -> (String, Option<u64>)
     let mut letto = None;
     let mut usati = 0usize;
     for m in posta {
-        let dove = m
-            .a
-            .strip_prefix("gruppo:")
-            .map(|g| format!(" nel gruppo «{g}»"))
-            .unwrap_or_default();
+        // A piu' Dot insieme (D392): si dice a chi, cosi' chi risponde sa a
+        // chi scrivere per rispondere a tutti.
+        let dove = match m.a.strip_prefix("gruppo:") {
+            Some(g) => format!(" nel gruppo «{g}»"),
+            None if m.a.contains(',') => format!(" a {} insieme", m.a.replace(',', ", ")),
+            None => String::new(),
+        };
         let riga = format!("\n- da {}{dove}: {}", m.da, m.testo.trim());
         if usati > 0 && usati + riga.chars().count() > POSTA_IN_DOMANDA {
             t.push_str("\n(Ci sono altri messaggi: li leggerai al prossimo compito.)");
@@ -1193,18 +1196,20 @@ mod prove_squadra {
         assert!(c.non_letta().is_empty());
         assert_eq!(c.imbuca("nova", "uno", "Ricorda il formato", "t1").unwrap(), 1);
         assert_eq!(c.imbuca("due", "gruppo:squadra", "Ci sono", "t2").unwrap(), 2);
+        assert_eq!(c.imbuca("tre", "due,uno", "A tutti e due", "t3").unwrap(), 3);
         let posta = c.non_letta();
         let (domanda, letto) = con_la_posta("Compito n. 1:\nfai", &posta);
         assert_eq!(
             domanda,
             "Compito n. 1:\nfai\n\nMessaggi arrivati prima di questo compito:\n\
-             - da nova: Ricorda il formato\n- da due nel gruppo «squadra»: Ci sono"
+             - da nova: Ricorda il formato\n- da due nel gruppo «squadra»: Ci sono\n\
+             - da tre a due, uno insieme: A tutti e due"
         );
-        assert_eq!(letto, Some(2));
-        c.segna_letta(2).unwrap();
+        assert_eq!(letto, Some(3));
+        c.segna_letta(3).unwrap();
         assert!(c.non_letta().is_empty());
         c.segna_letta(1).unwrap();
-        assert_eq!(c.letta_fino_a(), 2, "segnare meno non torna indietro");
+        assert_eq!(c.letta_fino_a(), 3, "segnare meno non torna indietro");
         assert_eq!(con_la_posta("d", &[]), ("d".to_string(), None));
         let _ = std::fs::remove_dir_all(&d);
     }

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""I Dot nell'harness: la pagina e il guscio dicono la stessa cosa (D391).
+"""I Dot nell'harness: la pagina e il guscio dicono la stessa cosa (D391, D392).
 
 Le scelte sulla bozza, il 9 ottobre: una vista a sinistra con
 l'organigramma, i gruppi e i file toccati; le schede dei Dot al centro, coi
@@ -76,7 +76,22 @@ controlla("si scrive e si affida", len(scrive) == 2, str(scrive))
 controlla("senza dire chi scrive: lo dice il demone, ed e' Nova",
           all("da:" not in s for s in scrive), str(scrive))
 
-print("\n4. ogni frase ha la sua traduzione")
+print("\n4. come Teams: prima le chat (D392)")
+controlla("tre linguette, e la prima e' Chat",
+          "let linguetta = 'chat';" in DOT
+          and "[['chat', T('Chat')], ['organigramma', T('Organigramma')], ['file', T('File')]]" in DOT)
+controlla("le conversazioni: con te, i gruppi, fra di loro",
+          all(f"T('{t}')" in DOT for t in ("Con te", "Gruppi", "Fra di loro")))
+controlla("i gruppi interni sotto quello che li contiene", "g.dentro === nome" in DOT)
+controlla("nelle chat fra di loro scrivi anche tu, a tutti",
+          'data-manda="piu"' in DOT and "`fra:${s.chi}`" in DOT)
+controlla("quello che si e' visto lo ricorda la finestra, e se non puo' non si rompe",
+          "localStorage.setItem(DEPOSITO_VISTI" in DOT
+          and "try { localStorage.setItem(DEPOSITO_VISTI, JSON.stringify(visti)); } catch (_) {}" in DOT
+          and "try { visti = JSON.parse(localStorage.getItem(DEPOSITO_VISTI) || '{}') || {}; } catch (_) { visti = {}; }" in DOT)
+controlla("una chat fra di loro ha la sua linguetta", "s.cosa === 'fra' ? 'CHAT'" in HARNESS)
+
+print("\n5. ogni frase ha la sua traduzione")
 frasi = {m.group(2) for m in re.finditer(r"""\bT\((['"])(.+?)\1\)""", DOT)}
 # Le parole che passano da T() senza essere scritte li': come sta un Dot
 # (il primo di ogni coppia in STA), lo stato di un compito, il mestiere.

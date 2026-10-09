@@ -199,6 +199,88 @@ pub fn riassumi(tocchi: &[(String, Tocco)]) -> Vec<Value> {
         .collect()
 }
 
+/// Chi sta in una conversazione, da un messaggio (D392): chi scrive, se non
+/// e' Nova, e chi riceve. `None` per un gruppo o per un messaggio a Nova:
+/// quelli hanno la loro chat. Un insieme di un Dot solo e' la chat fra lui e
+/// Nova; di due o piu', la chat «fra di loro».
+pub fn partecipanti(da: &str, a: &str) -> Option<Vec<String>> {
+    let a = a.trim();
+    if a.starts_with("gruppo:") || a == crate::DA_NOVA {
+        return None;
+    }
+    let mut chi: Vec<String> = a
+        .split(',')
+        .map(str::trim)
+        .filter(|n| !n.is_empty())
+        .map(str::to_string)
+        .collect();
+    let da = da.trim();
+    if da != crate::DA_NOVA && !da.is_empty() {
+        chi.push(da.to_string());
+    }
+    chi.sort();
+    chi.dedup();
+    (!chi.is_empty()).then_some(chi)
+}
+
+/// Quanti messaggi di una chat «fra di loro» si rileggono al massimo.
+pub const FRA_RILETTI: usize = 200;
+
+/// Le chat «fra di loro», dalla posta di tutti i Dot: `posta` e' ogni
+/// messaggio ricevuto, con chi l'ha ricevuto. Un messaggio a piu' Dot sta
+/// nella posta di ognuno, e conta una volta sola. Ogni chat ha i suoi
+/// partecipanti e i messaggi in ordine; le chat, dalla piu' recente.
+pub fn fra_di_loro(posta: &[Messaggio]) -> Vec<(Vec<String>, Vec<Messaggio>)> {
+    let mut chat: Vec<(Vec<String>, Vec<Messaggio>)> = Vec::new();
+    for m in posta {
+        let Some(chi) = partecipanti(&m.da, &m.a) else {
+            continue;
+        };
+        if chi.len() < 2 {
+            continue;
+        }
+        let i = match chat.iter().position(|(c, _)| *c == chi) {
+            Some(i) => i,
+            None => {
+                chat.push((chi, Vec::new()));
+                chat.len() - 1
+            }
+        };
+        let gia = chat[i]
+            .1
+            .iter()
+            .any(|x| x.da == m.da && x.testo == m.testo && x.quando == m.quando && x.a == m.a);
+        if !gia {
+            chat[i].1.push(m.clone());
+        }
+    }
+    for (_, ms) in chat.iter_mut() {
+        ms.sort_by(|a, b| a.quando.cmp(&b.quando));
+        let da = ms.len().saturating_sub(FRA_RILETTI);
+        ms.drain(..da);
+    }
+    let ultimo = |ms: &Vec<Messaggio>| ms.last().map(|m| m.quando.clone()).unwrap_or_default();
+    chat.sort_by(|a, b| ultimo(&b.1).cmp(&ultimo(&a.1)).then(a.0.cmp(&b.0)));
+    chat
+}
+
+/// Il gruppo dentro cui sta un gruppo «interno» (D392): quello piu' piccolo
+/// che ne contiene tutti i membri e ne ha di piu'. A parita', il primo per
+/// nome. `None` se non sta dentro nessuno.
+pub fn dentro(g: &crate::gruppi::Gruppo, tutti: &[crate::gruppi::Gruppo]) -> Option<String> {
+    tutti
+        .iter()
+        .filter(|o| o.nome != g.nome && o.membri.len() > g.membri.len())
+        .filter(|o| g.membri.iter().all(|m| o.membri.contains(m)))
+        .min_by(|a, b| {
+            a.membri
+                .len()
+                .cmp(&b.membri.len())
+                .then(a.nome.cmp(&b.nome))
+        })
+        .map(|o| o.nome.clone())
+}
+
 #[cfg(test)]
 mod prove {
     use super::*;
@@ -362,6 +444,71 @@ mod prove {
             (m[1].a.as_str(), m[1].testo.as_str(), m[1].da.as_str()),
             ("gruppo:squadra", "ci sono", "uno")
         );
+    }
+
+    fn msg(da: &str, a: &str, testo: &str, quando: &str) -> Messaggio {
+        Messaggio {
+            n: 1,
+            da: da.into(),
+            a: a.into(),
+            testo: testo.into(),
+            quando: quando.into(),
+        }
+    }
+
+    #[test]
+    fn chi_sta_in_una_conversazione() {
+        let v = |x: &[&str]| Some(x.iter().map(|s| s.to_string()).collect::<Vec<_>>());
+        assert_eq!(partecipanti("uno", "due"), v(&["due", "uno"]));
+        assert_eq!(
+            partecipanti("nova", "uno"),
+            v(&["uno"]),
+            "con Nova: la sua chat"
+        );
+        assert_eq!(partecipanti("nova", "uno,due"), v(&["due", "uno"]));
+        assert_eq!(partecipanti("tre", "uno,due"), v(&["due", "tre", "uno"]));
+        assert_eq!(partecipanti("uno", "gruppo:squadra"), None);
+        assert_eq!(partecipanti("uno", "nova"), None);
+    }
+
+    #[test]
+    fn le_chat_fra_di_loro_si_ricostruiscono_dalla_posta() {
+        let posta = [
+            msg("uno", "due", "ciao", "t1"),
+            msg("due", "uno", "eccomi", "t3"),
+            // A tutti e due: sta nella posta di ognuno, conta una volta.
+            msg("nova", "due,uno", "brave", "t4"),
+            msg("nova", "due,uno", "brave", "t4"),
+            msg("tre", "due,uno", "posso?", "t2"),
+            msg("nova", "uno", "solo a te", "t5"),
+            msg("uno", "gruppo:squadra", "a tutti", "t6"),
+        ];
+        let c = fra_di_loro(&posta);
+        assert_eq!(c.len(), 2, "{c:?}");
+        assert_eq!(c[0].0, ["due", "uno"], "la piu' recente prima");
+        let testi: Vec<&str> = c[0].1.iter().map(|m| m.testo.as_str()).collect();
+        assert_eq!(testi, ["ciao", "eccomi", "brave"]);
+        assert_eq!(c[1].0, ["due", "tre", "uno"]);
+    }
+
+    #[test]
+    fn un_gruppo_interno_sta_dentro_il_piu_piccolo_che_lo_contiene() {
+        let g = |nome: &str, membri: &[&str]| crate::gruppi::Gruppo {
+            nome: nome.into(),
+            membri: membri.iter().map(|s| s.to_string()).collect(),
+            nato: "t".into(),
+            da: String::new(),
+        };
+        let tutti = [
+            g("azienda", &["a", "b", "c", "d"]),
+            g("squadra", &["a", "b", "c"]),
+            g("coppia", &["a", "b"]),
+            g("altri", &["c", "e"]),
+        ];
+        assert_eq!(dentro(&tutti[2], &tutti).as_deref(), Some("squadra"));
+        assert_eq!(dentro(&tutti[1], &tutti).as_deref(), Some("azienda"));
+        assert_eq!(dentro(&tutti[0], &tutti), None);
+        assert_eq!(dentro(&tutti[3], &tutti), None, "e non sta in nessuno");
     }
 
     #[test]

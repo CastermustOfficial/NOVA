@@ -576,6 +576,18 @@ export const LINGUE = {
     'Manda al gruppo': 'Send to the group',
     'Affidato a': 'Handed over to',
     'messaggi da leggere': 'messages to read',
+    /* --- harness: le chat dei Dot (D392) --- */
+    'Quando due Dot si scrivono, la loro chat compare qui.': 'When two Dots write to each other, their chat shows up here.',
+    'Lo leggono tutti, al prossimo compito.': 'Everyone reads it, at the next task.',
+    'Manda a tutti': 'Send to everyone',
+    'Con te': 'With you',
+    'Gruppo': 'Group',
+    'Con uno, la sua chat; con più di uno, una chat a più voci: scrivi a tutti, e lo leggono al prossimo compito.': 'With one, its chat; with more than one, a chat with several voices: you write to all of them, and they read it at the next task.',
+    'Si scrivono fra loro. Quello che scrivi tu va a tutti, e lo leggono al prossimo compito.': 'They write to each other. What you write goes to all of them, and they read it at the next task.',
+    'Apri la chat': 'Open the chat',
+    'Fra di loro': 'Among themselves',
+    'ancora niente': 'nothing yet',
+    'Cerca nelle chat…': 'Search the chats…',
   },
 };
 

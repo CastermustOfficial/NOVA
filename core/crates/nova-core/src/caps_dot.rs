@@ -19,8 +19,9 @@
 //!   scrivere sono Nova e i Dot;
 //! - **i gruppi li crea Nova** se l'utente lo chiede (`dot.gruppo`).
 //!
-//! Far nascere un Dot, fermarlo e fare i gruppi resta di Nova: un Dot che lo
-//! chiede si sente dire di no.
+//! Far nascere un Dot e fermarlo resta di Nova: un Dot che lo chiede si sente
+//! dire di no. I gruppi li fa Nova, e dal D392 anche un capo, coi suoi
+//! sottoposti; un messaggio va anche a piu' Dot insieme.
 
 use std::sync::Arc;
 
@@ -43,10 +44,10 @@ pub fn register(reg: &mut Registry) {
     reg.add(Arc::new(VistaCap));
 }
 
-/// La vista dei Dot nell'harness (D391): senza nome l'organigramma, i gruppi
-/// e i file toccati; col nome la scheda di un Dot; con `gruppo:<nome>` la
-/// chat del gruppo. Solo della persona: a un modello basta `dot.stato`, e
-/// questa e' lunga.
+/// La vista dei Dot nell'harness (D391): senza nome l'organigramma, le chat
+/// (D392), i gruppi e i file toccati; col nome la scheda di un Dot; con
+/// `gruppo:<nome>` la chat del gruppo, con `fra:<uno,due>` quella fra loro.
+/// Solo della persona: a un modello basta `dot.stato`, e questa e' lunga.
 struct VistaCap;
 
 #[async_trait]
@@ -54,8 +55,9 @@ impl Capability for VistaCap {
     fn info(&self) -> CapabilityInfo {
         CapabilityInfo {
             name: "dot.vista".into(),
-            description: "Per l'harness: senza nome l'organigramma dei Dot, i gruppi e i file \
-                          che toccano; col nome la scheda di un Dot; con gruppo:<nome> la chat."
+            description: "Per l'harness: senza nome l'organigramma dei Dot, le chat, i gruppi e \
+                          i file che toccano; col nome la scheda di un Dot; con gruppo:<nome> o \
+                          fra:<uno,due> la chat."
                 .into(),
             risk: Risk::Safe,
             category: "dot".into(),
@@ -72,6 +74,9 @@ impl Capability for VistaCap {
         }
         if let Some(g) = nome.strip_prefix("gruppo:") {
             return crate::dot::stato_gruppo(g).map_err(|e| anyhow!(e));
+        }
+        if let Some(chi) = nome.strip_prefix("fra:") {
+            return crate::dot::fra(chi).map_err(|e| anyhow!(e));
         }
         crate::dot::scheda(server, nome).map_err(|e| anyhow!(e))
     }
@@ -328,13 +333,13 @@ impl Capability for ScriviCap {
     fn info(&self) -> CapabilityInfo {
         CapabilityInfo {
             name: "dot.scrivi".into(),
-            description: "Messaggio a un Dot, a gruppo:<nome> o a nova. Un Dot lo legge al suo \
-                          prossimo compito."
+            description: "Messaggio a uno o piu' Dot (con la virgola), a gruppo:<nome> o a nova. \
+                          Un Dot lo legge al suo prossimo compito."
                 .into(),
             risk: Risk::Safe,
             category: "dot".into(),
             schema: schema(&[
-                ("a", "string", "un Dot, gruppo:<nome> o nova", true),
+                ("a", "string", "Dot (uno,due), gruppo:<nome> o nova", true),
                 ("testo", "string", "il messaggio", true),
             ]),
         }
@@ -355,7 +360,8 @@ impl Capability for GruppoCap {
     fn info(&self) -> CapabilityInfo {
         CapabilityInfo {
             name: "dot.gruppo".into(),
-            description: "Fa un gruppo di Dot, o ne cambia i membri. Solo se l'utente lo chiede."
+            description: "Fa un gruppo di Dot, o ne cambia i membri. Nova solo se l'utente lo \
+                          chiede; un capo solo coi suoi sottoposti."
                 .into(),
             risk: Risk::Moderate,
             category: "dot".into(),
@@ -380,9 +386,9 @@ impl Capability for GruppoCap {
     }
 
     async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
-        per_nova("fare i gruppi")?;
+        il_server()?;
         let nome = arg_str(&args, "nome")?;
-        crate::dot::gruppo(&nome, &membri(&args)?).map_err(|e| anyhow!(e))
+        crate::dot::gruppo(&nome, &membri(&args)?, &chi()).map_err(|e| anyhow!(e))
     }
 }
 
@@ -433,15 +439,15 @@ mod prove {
     }
 
     #[tokio::test]
-    async fn far_nascere_fermare_e_fare_i_gruppi_resta_di_nova() {
+    async fn far_nascere_e_fermare_resta_di_nova() {
         let e = crate::agente::per_conto_di_un_dot("lavoratore".into(), async {
-            per_nova("fare i gruppi").err()
+            per_nova("far nascere un Dot").err()
         })
         .await
         .expect("un Dot deve sentirsi dire di no");
         assert_eq!(
             e.to_string(),
-            "lavoratore e' un Dot: fare i gruppi lo fa solo Nova"
+            "lavoratore e' un Dot: far nascere un Dot lo fa solo Nova"
         );
         let chi_scrive = crate::agente::per_conto_di_un_dot("uno".into(), async { chi() }).await;
         assert_eq!((chi_scrive.as_str(), chi().as_str()), ("uno", "nova"));

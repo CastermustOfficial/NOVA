@@ -5,6 +5,11 @@
 //! al gruppo va nella posta di ogni membro e nella chat del gruppo, che Nova
 //! puo' rileggere.
 //!
+//! Dal D392, come in Teams: un capo puo' fare un gruppo coi suoi sottoposti
+//! ([`Gruppo::da`] dice chi l'ha fatto), e un messaggio puo' andare a piu' Dot
+//! insieme senza fare un gruppo ([`Destinatario::Piu`], i nomi con la
+//! virgola): e' la chat «fra di loro», in cui l'utente scrive come Nova.
+//!
 //! ```text
 //! <cartella di NOVA>/dots/gruppi/
 //!   <nome>.json    chi c'e': nome, membri, quando e' nato
@@ -29,6 +34,10 @@ pub struct Gruppo {
     pub nome: String,
     pub membri: Vec<String>,
     pub nato: String,
+    /// Chi l'ha fatto: un capo, coi suoi sottoposti (D392). Vuoto: Nova, o
+    /// l'utente dall'harness, che per i Dot sono la stessa cosa.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub da: String,
 }
 
 /// A chi va un messaggio.
@@ -40,10 +49,14 @@ pub enum Destinatario {
     Dot(String),
     /// A tutti i membri di un gruppo.
     Gruppo(String),
+    /// A piu' Dot insieme, senza un gruppo (D392): i nomi in ordine e senza
+    /// ripetizioni, almeno due.
+    Piu(Vec<String>),
 }
 
-/// Il destinatario come lo scrive chi manda: `nova`, `gruppo:<nome>`, o il
-/// nome di un Dot.
+/// Il destinatario come lo scrive chi manda: `nova`, `gruppo:<nome>`, il
+/// nome di un Dot, o i nomi di piu' Dot con la virgola. Nova non sta fra i
+/// piu': a lei si scrive a parte.
 pub fn destinatario(a: &str) -> Result<Destinatario, String> {
     let a = a.trim();
     if a == DA_NOVA {
@@ -52,7 +65,31 @@ pub fn destinatario(a: &str) -> Result<Destinatario, String> {
     if let Some(g) = a.strip_prefix("gruppo:") {
         return Ok(Destinatario::Gruppo(nome_valido_gruppo(g)?));
     }
+    if a.contains(',') {
+        let mut nomi: Vec<String> = Vec::new();
+        for n in a.split(',').map(str::trim).filter(|n| !n.is_empty()) {
+            if n == DA_NOVA {
+                return Err("a Nova si scrive a parte, non insieme ad altri Dot".into());
+            }
+            let n = nome_valido(n)?;
+            if !nomi.contains(&n) {
+                nomi.push(n);
+            }
+        }
+        nomi.sort();
+        return match nomi.len() {
+            0 => Err("a chi? Non c'e' nessun nome".into()),
+            1 => Ok(Destinatario::Dot(nomi.remove(0))),
+            _ => Ok(Destinatario::Piu(nomi)),
+        };
+    }
     Ok(Destinatario::Dot(nome_valido(a)?))
+}
+
+/// Come si scrive un destinatario di piu' Dot: i nomi in ordine, con la
+/// virgola.
+pub fn piu(nomi: &[String]) -> String {
+    nomi.join(",")
 }
 
 /// Il nome di un gruppo: le stesse regole del nome di un Dot, perche' anche
@@ -92,6 +129,7 @@ pub fn salva(base: &Path, g: &Gruppo) -> Result<Gruppo, String> {
         nome: nome.clone(),
         membri,
         nato: g.nato.clone(),
+        da: g.da.clone(),
     };
     let dir = cartella(base);
     std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
@@ -172,6 +210,16 @@ mod prove {
             .unwrap_err()
             .contains("di un gruppo"));
         assert!(destinatario("../x").is_err());
+        assert_eq!(
+            destinatario(" uno , due,uno ").unwrap(),
+            Destinatario::Piu(vec!["due".into(), "uno".into()]),
+            "in ordine e senza ripetizioni"
+        );
+        assert_eq!(destinatario("uno,").unwrap(), Destinatario::Dot("uno".into()));
+        assert!(destinatario("uno,nova").unwrap_err().contains("a parte"));
+        assert!(destinatario(",").is_err());
+        assert!(destinatario("uno,../x").is_err());
+        assert_eq!(piu(&["due".into(), "uno".into()]), "due,uno");
     }
 
     #[test]
@@ -183,6 +231,7 @@ mod prove {
                 nome: "squadra".into(),
                 membri: vec!["due".into(), "uno".into(), "due".into()],
                 nato: "t".into(),
+                da: String::new(),
             },
         )
         .unwrap();
@@ -194,7 +243,8 @@ mod prove {
             &Gruppo {
                 nome: "vuoto".into(),
                 membri: vec![],
-                nato: "t".into()
+                nato: "t".into(),
+                da: String::new(),
             }
         )
         .is_err());
@@ -203,7 +253,8 @@ mod prove {
             &Gruppo {
                 nome: "x".into(),
                 membri: vec!["A".into()],
-                nato: "t".into()
+                nato: "t".into(),
+                da: String::new(),
             }
         )
         .is_err());

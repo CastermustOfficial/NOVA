@@ -1010,7 +1010,7 @@ function disegnaSchede() {
     const d = document.createElement('div');
     d.className = 'scheda' + (s.percorso === stato.attiva ? ' si' : '') + (s.sporco ? ' sporca' : '');
     d.title = s.tipo === 'proposta' ? T('Proposta di NOVA su ') + s.file : s.tipo === 'dot' ? s.nome : s.percorso;
-    const est = s.tipo === 'proposta' ? '⇄' : s.tipo === 'dot' ? (s.cosa === 'gruppo' ? T('GRUPPO') : s.cosa === 'schema' ? T('SCHEMA') : 'DOT')
+    const est = s.tipo === 'proposta' ? '⇄' : s.tipo === 'dot' ? (s.cosa === 'gruppo' ? T('GRUPPO') : s.cosa === 'fra' ? 'CHAT' : s.cosa === 'schema' ? T('SCHEMA') : 'DOT')
       : estensione(s.percorso).slice(1).toUpperCase();
     if (s.tipo !== 'testo' && est) {
       const t = document.createElement('span');

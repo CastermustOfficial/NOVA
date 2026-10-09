@@ -11721,3 +11721,12 @@ prima versione non ne vedeva nessuno, perche' guardava il nome dello
 strumento come lo scrive il modello, `fs_write`, e non come lo conosce il
 demone, `fs.write`. L'ha detto la prova col demone vero.
 
+## 9 ottobre 2026 — Come Teams
+
+La vista dei Dot era un organigramma con le chat dentro. Il riferimento era
+un altro: Teams, dove si comincia dalle conversazioni. Adesso la prima cosa
+che si vede sono le chat, con quelle nuove contate; e i Dot non si scrivono
+piu' solo uno a uno o a un gruppo: anche a piu' di uno insieme, e li' scrivi
+anche tu. Le chat fra di loro non sono un file nuovo: si ricostruiscono dalla
+posta di tutti, che c'era gia'.
+

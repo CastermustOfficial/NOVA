@@ -513,14 +513,60 @@ pub fn scrivi(server: &Arc<Server>, da: &str, a: &str, testo: &str) -> Result<Va
             evento(&a);
             Ok(json!({ "a": a, "membri": a_chi, "nota": "lo leggeranno al prossimo compito" }))
         }
+        Destinatario::Piu(nomi) => {
+            // A piu' Dot insieme, senza un gruppo (D392): e' la chat «fra di
+            // loro». Si controllano tutti prima di imbucare a qualcuno.
+            for n in &nomi {
+                if n == da {
+                    return Err("un Dot non scrive a se stesso: togli il tuo nome".into());
+                }
+                let c = cartella(n)?;
+                if !c.esiste() {
+                    return Err(format!("non c'e' nessun Dot che si chiama «{n}»"));
+                }
+                if c.dot().is_ok_and(|x| x.mestiere == d::Mestiere::Custode) {
+                    return Err("il custode dei permessi non legge la posta: decide e basta".into());
+                }
+            }
+            let a = gruppi::piu(&nomi);
+            for n in &nomi {
+                cartella(n)?.imbuca(da, &a, testo.trim(), &quando)?;
+            }
+            evento(&a);
+            Ok(json!({ "a": a, "membri": nomi, "nota": "lo leggeranno al prossimo compito" }))
+        }
     }
 }
 
 /// Fa nascere un gruppo, o ne cambia i membri (D388). I membri sono Dot che
-/// ci sono e prendono compiti.
-pub fn gruppo(nome: &str, membri: &[String]) -> Result<Value, String> {
+/// ci sono e prendono compiti. `da` e' chi lo fa: Nova (o l'utente
+/// dall'harness), o un capo, che lo fa solo coi suoi sottoposti e cambia
+/// solo i gruppi che ha fatto lui (D392).
+pub fn gruppo(nome: &str, membri: &[String], da: &str) -> Result<Value, String> {
     use nova_dot::gruppi;
     crate::dot_accesi::se_spenti()?;
+    let prima = gruppi::leggi(&base(), nome).ok();
+    if da != d::DA_NOVA {
+        let suoi = sottoposti(da);
+        if suoi.is_empty() {
+            return Err(format!(
+                "{da} non ha sottoposti: un Dot fa un gruppo solo coi suoi, e i gruppi \
+                 degli altri li fa Nova"
+            ));
+        }
+        if let Some(fuori) = membri.iter().find(|m| m.trim() != da && !suoi.iter().any(|s| s == m.trim())) {
+            return Err(format!(
+                "«{}» non e' un tuo sottoposto: fai un gruppo solo coi tuoi ({})",
+                fuori.trim(),
+                suoi.join(", ")
+            ));
+        }
+        if let Some(g) = &prima {
+            if g.da != da {
+                return Err(format!("il gruppo «{}» non l'hai fatto tu: lo cambia chi l'ha fatto", g.nome));
+            }
+        }
+    }
     for m in membri {
         let c = cartella(m)?;
         if !c.esiste() {
@@ -530,10 +576,13 @@ pub fn gruppo(nome: &str, membri: &[String]) -> Result<Value, String> {
             return Err("il custode dei permessi non sta nei gruppi: decide e basta".into());
         }
     }
-    let nato = gruppi::leggi(&base(), nome).map(|g| g.nato).unwrap_or_else(|_| adesso());
+    let (nato, chi) = match &prima {
+        Some(g) => (g.nato.clone(), g.da.clone()),
+        None => (adesso(), if da == d::DA_NOVA { String::new() } else { da.to_string() }),
+    };
     let g = gruppi::salva(
         &base(),
-        &gruppi::Gruppo { nome: nome.trim().to_string(), membri: membri.to_vec(), nato },
+        &gruppi::Gruppo { nome: nome.trim().to_string(), membri: membri.to_vec(), nato, da: chi },
     )?;
     serde_json::to_value(&g).map_err(|e| e.to_string())
 }
@@ -649,7 +698,117 @@ pub fn vista(server: &Arc<Server>) -> Value {
         "dots": dots,
         "gruppi": gruppi,
         "file": d::vista::riassumi(&tocchi),
+        "conversazioni": conversazioni(),
     })
+}
+
+/// Quanti orari dei messaggi degli altri porta ogni conversazione: bastano
+/// alla pagina per contare quelli nuovi.
+const ORARI_PER_CONTARE: usize = 20;
+
+/// Le conversazioni, come la lista delle chat di Teams (D392): una con ogni
+/// Dot, una per gruppo (con quello dentro cui sta, se e' interno), e una per
+/// ogni chat «fra di loro». Per ognuna, l'ultimo messaggio e gli orari dei
+/// messaggi che non ha scritto Nova, per contare i nuovi.
+fn conversazioni() -> Vec<Value> {
+    let ultimo = |m: Option<&d::Messaggio>| {
+        m.map(|m| json!({ "da": m.da, "testo": in_breve(&m.testo), "quando": m.quando }))
+    };
+    let orari = |ms: &[&d::Messaggio]| -> Vec<String> {
+        let loro: Vec<String> = ms
+            .iter()
+            .filter(|m| m.da != d::DA_NOVA)
+            .map(|m| m.quando.clone())
+            .collect();
+        let da = loro.len().saturating_sub(ORARI_PER_CONTARE);
+        loro[da..].to_vec()
+    };
+    let mut fuori = Vec::new();
+    let mut tutta: Vec<d::Messaggio> = Vec::new();
+    for n in d::elenco(&base()) {
+        let Ok(c) = cartella(&n) else { continue };
+        let Ok(dot) = c.dot() else { continue };
+        let posta = c.posta();
+        tutta.extend(posta.iter().cloned());
+        if dot.mestiere == d::Mestiere::Custode {
+            continue;
+        }
+        // La chat con Nova: quello che lei (o l'utente) gli ha scritto da
+        // solo, i compiti che gli ha dato, e quello che lui le ha scritto.
+        let mut ms: Vec<d::Messaggio> = posta
+            .into_iter()
+            .filter(|m| m.da == d::DA_NOVA && m.a == dot.nome)
+            .collect();
+        ms.extend(c.inviati().into_iter().filter(|m| m.a == d::DA_NOVA));
+        ms.extend(c.compiti().into_iter().filter(|x| x.da == d::DA_NOVA).map(|x| d::Messaggio {
+            n: 0,
+            da: d::DA_NOVA.into(),
+            a: dot.nome.clone(),
+            testo: format!("compito n. {}: {}", x.id, x.testo),
+            quando: x.affidato,
+        }));
+        ms.sort_by(|a, b| a.quando.cmp(&b.quando));
+        let refs: Vec<&d::Messaggio> = ms.iter().collect();
+        fuori.push(json!({
+            "tipo": "dot",
+            "chiave": dot.nome,
+            "membri": [dot.nome],
+            "ultimo": ultimo(ms.last()),
+            "loro": orari(&refs),
+        }));
+    }
+    let gruppi = nova_dot::gruppi::elenco(&base());
+    for g in &gruppi {
+        let (chat, _) = nova_dot::gruppi::chat(&base(), &g.nome).unwrap_or_default();
+        let refs: Vec<&d::Messaggio> = chat.iter().collect();
+        fuori.push(json!({
+            "tipo": "gruppo",
+            "chiave": g.nome,
+            "membri": g.membri,
+            "da": g.da,
+            "dentro": d::vista::dentro(g, &gruppi),
+            "ultimo": ultimo(chat.last()),
+            "loro": orari(&refs),
+        }));
+    }
+    for (chi, ms) in d::vista::fra_di_loro(&tutta) {
+        let refs: Vec<&d::Messaggio> = ms.iter().collect();
+        fuori.push(json!({
+            "tipo": "fra",
+            "chiave": nova_dot::gruppi::piu(&chi),
+            "membri": chi,
+            "ultimo": ultimo(ms.last()),
+            "loro": orari(&refs),
+        }));
+    }
+    fuori
+}
+
+/// Una chat «fra di loro» (D392): i Dot che ci sono, scritti con la virgola,
+/// e i loro messaggi. Una chat appena aperta dall'harness, senza messaggi,
+/// e' vuota ma c'e': i Dot devono esistere.
+pub fn fra(chi: &str) -> Result<Value, String> {
+    let membri = match nova_dot::gruppi::destinatario(chi)? {
+        nova_dot::gruppi::Destinatario::Piu(m) => m,
+        _ => return Err(format!("«{chi}» non e' una chat fra piu' Dot: servono almeno due nomi")),
+    };
+    for m in &membri {
+        if !cartella(m)?.esiste() {
+            return Err(format!("non c'e' nessun Dot che si chiama «{m}»"));
+        }
+    }
+    let mut tutta: Vec<d::Messaggio> = Vec::new();
+    for n in d::elenco(&base()) {
+        if let Ok(c) = cartella(&n) {
+            tutta.extend(c.posta());
+        }
+    }
+    let messaggi = d::vista::fra_di_loro(&tutta)
+        .into_iter()
+        .find(|(c, _)| *c == membri)
+        .map(|(_, ms)| ms)
+        .unwrap_or_default();
+    Ok(json!({ "membri": membri, "messaggi": messaggi }))
 }
 
 /// La scheda di un Dot nell'harness (D391): chi e', i compiti coi loro passi

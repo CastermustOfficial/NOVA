@@ -203,10 +203,11 @@ Con questo le cinque fasi sono fatte.
 altri sette sono nel demone, e li ha ogni cervello, non solo Claude Code. I
 bottoni della finestra si chiamano `finestra.*`.
 
-**I Dot** (D391): una quinta vista a sinistra (Ctrl+Maiusc+D), con
-l'organigramma, i gruppi e i file che i Dot stanno toccando; l'organigramma
-anche come schema, e ogni Dot in una scheda al centro, con la sua chat, i
-compiti e i loro passi. Il disegno e com'e' andata stanno in
+**I Dot** (D391, D392): una quinta vista a sinistra (Ctrl+Maiusc+D), fatta
+come Teams: le chat (con ogni Dot, i gruppi, quelle fra di loro), poi
+l'organigramma, che si vede anche come schema, e i file che i Dot stanno
+toccando. Ogni conversazione si apre in una scheda al centro; quella con un
+Dot ha anche i compiti e i loro passi. Il disegno e com'e' andata stanno in
 [`dots.md`](dots.md).
 
 ## Dopo

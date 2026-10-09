@@ -17,6 +17,13 @@
    persona); quello che si fa passa da `dot.scrivi`, `dot.affida`,
    `dot.ferma`, `dot.crea` e `dot.gruppo`, gli stessi strumenti che usa
    Nova. La pagina si ridisegna sugli eventi `dot.*` del demone.
+
+   Come Teams (D392): la vista a sinistra ha tre linguette. **Chat**, la
+   prima: tutte le conversazioni dalla piu' recente, coi messaggi nuovi
+   contati: una con ogni Dot, i gruppi (quelli interni dentro quello che li
+   contiene) e le chat «fra di loro», in cui scrivi anche tu e il messaggio
+   va a tutti. **Organigramma** e **File** sono le altre due. Quello che si
+   e' gia' visto lo ricorda questa finestra, per chi la guarda.
    ============================================================ */
 import { T } from './lingue.js';
 
@@ -73,6 +80,31 @@ const STILE = `
 .dot-modulo .fila{display:flex;gap:6px;justify-content:flex-end}
 .dot-modulo button{font-size:11.5px;padding:4px 10px;border-radius:7px;border:1px solid var(--linea-2);color:var(--mezzo)}
 .dot-modulo button.primo{background:var(--brace);color:#160a06;border-color:transparent;font-weight:600}
+.dot-linguette{display:flex;gap:4px;padding:10px 10px 6px}
+.dot-linguette button{flex:1;padding:5px 0;border-radius:8px;font-size:12px;color:var(--fioco)}
+.dot-linguette button.si{background:var(--vetro-2);color:var(--inchiostro)}
+.dot-linguette b{font-size:10px;color:#160a06;background:var(--brace);border-radius:8px;padding:0 5px;margin-left:3px}
+.dot-cerca{padding:2px 10px 6px}
+.dot-cerca input{width:100%;height:28px;border-radius:8px;border:1px solid var(--linea-2);background:var(--fondo);color:var(--inchiostro);padding:0 9px;font:12px var(--testo);outline:none}
+.dot-cerca input:focus{border-color:rgba(232,115,74,.55)}
+.dot-nuova{display:flex;gap:6px;padding:0 10px 4px}
+.dot-nuova button{flex:1;font-size:11.5px;padding:5px;border-radius:7px;border:1px solid var(--linea-2);color:var(--mezzo)}
+.dot-nuova button:hover{color:var(--inchiostro);background:var(--vetro-2)}
+.dot-conv{display:flex;gap:9px;padding:7px 8px;border-radius:9px;cursor:pointer;align-items:flex-start}
+.dot-conv:hover{background:var(--vetro)}
+.dot-conv.si{background:var(--brace-08)}
+.dot-conv.dentro{padding-left:24px}
+.dot-av{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-weight:700;font-size:12px;flex:none;position:relative;background:var(--brace-16);color:var(--brace);text-transform:uppercase}
+.dot-av.gr{background:rgba(122,162,247,.16);color:var(--pensiero)}
+.dot-av.fra{background:rgba(224,139,208,.14);color:var(--parola);font-size:10px}
+.dot-av .st{position:absolute;right:-2px;bottom:-2px;width:9px;height:9px;border-radius:50%;border:2px solid var(--fondo-2)}
+.dot-conv .cv{flex:1;min-width:0;display:flex;flex-direction:column}
+.dot-conv .r1{display:flex;gap:6px;align-items:baseline}
+.dot-conv .r1 b{font-weight:600;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dot-conv .r1 small{margin-left:auto;font:10.5px var(--mono);color:var(--fioco);flex:none}
+.dot-conv .ult{font-size:11.5px;color:var(--mezzo);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dot-conv .ult.nuovo{color:var(--inchiostro);font-weight:600}
+.dot-nuovi{min-width:17px;height:17px;padding:0 5px;border-radius:9px;background:var(--brace);color:#160a06;font-size:10px;font-weight:700;display:grid;place-items:center;align-self:center}
 
 .dot-pagina{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;background:var(--fondo)}
 .dot-scorre{flex:1;overflow:auto;padding:18px 22px 24px;display:flex;flex-direction:column;gap:14px;min-height:0}
@@ -161,7 +193,9 @@ export function avviaDot(h) {
   document.head.appendChild(stile);
 
   let vista = null;           // l'ultima risposta di dot.vista, senza nome
-  let modulo = '';            // '', 'dot' o 'gruppo': il modulo aperto a sinistra
+  let modulo = '';            // '', 'dot', 'gruppo' o 'chat': il modulo aperto a sinistra
+  let linguetta = 'chat';     // 'chat', 'organigramma' o 'file'
+  let cerca = '';             // il filtro delle chat
   const fileChiusi = new Set();
   let nuove = 0;              // compiti chiusi da quando non si guarda
 
@@ -185,7 +219,17 @@ export function avviaDot(h) {
     else if (vista.accesi && !vista.accesi.accesi) {
       html += `<div class="dot-nota"><b>${esc(T('I Dot sono spenti'))}</b> (${esc(vista.accesi.perche)}). ${esc(T('Si accendono nelle impostazioni, alla voce «I Dot».'))}</div>`;
     }
-    html += `<div class="sez"><span>${esc(T('Organigramma'))}</span>
+    html += `<div class="dot-linguette">${[['chat', T('Chat')], ['organigramma', T('Organigramma')], ['file', T('File')]]
+      .map(([k, t]) => `<button data-linguetta="${k}" class="${linguetta === k ? 'si' : ''}">${esc(t)}${k === 'chat' && nonLetti() ? ` <b>${nonLetti()}</b>` : ''}</button>`).join('')}</div>`;
+    if (linguetta === 'chat') html += vistaChat();
+    else if (linguetta === 'file') html += `<div class="albero">${alberoFile()}</div>`;
+    else html += vistaOrganigramma();
+    el.innerHTML = html;
+    lega(el);
+  }
+
+  function vistaOrganigramma() {
+    let html = `<div class="sez"><span>${esc(T('Organigramma'))}</span>
       <button data-dot-azione="schema" title="${esc(T('Vedi come schema'))}"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="5" rx="1"/><rect x="3" y="16" width="6" height="5" rx="1"/><rect x="15" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M6 16v-4h12v4"/></svg></button>
       <button data-dot-azione="nuovo" title="${esc(T('Fai nascere un Dot'))}"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div>`;
     if (modulo === 'dot') html += moduloDot();
@@ -195,17 +239,77 @@ export function avviaDot(h) {
       html += `<div class="sez"><span>${esc(T('Fuori dalla piramide'))}</span></div><div class="albero">`
         + custodi.map(d => rigaDot(d, 0)).join('') + `</div>`;
     }
-    html += `<div class="sez"><span>${esc(T('Gruppi'))}</span>
-      <button data-dot-azione="gruppo" title="${esc(T('Fai un gruppo'))}"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div>`;
+    return html;
+  }
+
+  /* ------------------------------------------ le chat, come in Teams --- */
+  const DEPOSITO_VISTI = 'nova.dot.visti';
+  let visti = {};
+  try { visti = JSON.parse(localStorage.getItem(DEPOSITO_VISTI) || '{}') || {}; } catch (_) { visti = {}; }
+  const chiaveConv = c => `${c.tipo}:${c.chiave}`;
+  const nuoviDi = c => (c.loro || []).filter(q => q > (visti[chiaveConv(c)] || '')).length;
+  const nonLetti = () => (vista?.conversazioni || []).reduce((n, c) => n + nuoviDi(c), 0);
+  function segnaVista(tipo, chiave) {
+    const c = (vista?.conversazioni || []).find(x => x.tipo === tipo && x.chiave === chiave);
+    const ultimo = (c?.loro || []).slice(-1)[0];
+    if (!ultimo || (visti[`${tipo}:${chiave}`] || '') >= ultimo) return;
+    visti[`${tipo}:${chiave}`] = ultimo;
+    try { localStorage.setItem(DEPOSITO_VISTI, JSON.stringify(visti)); } catch (_) {}
+    h.pallino(nonLetti() + nuove);
+  }
+  const nomeConv = c => c.tipo === 'gruppo' ? `# ${c.chiave}` : c.tipo === 'fra' ? c.membri.join(' ↔ ') : c.chiave;
+  function faccina(c) {
+    if (c.tipo === 'gruppo') return `<span class="dot-av gr">#</span>`;
+    if (c.tipo === 'fra') return `<span class="dot-av fra">${esc(c.membri.slice(0, 2).map(m => m.slice(0, 1)).join('·'))}</span>`;
+    const d = dotDi(c.chiave);
+    const [, classe] = STA[d?.sta] || STA.libero;
+    return `<span class="dot-av">${esc(c.chiave.slice(0, 1))}<i class="st ${classe}"></i></span>`;
+  }
+  function rigaConv(c, dentro = false) {
+    const n = nuoviDi(c);
+    const u = c.ultimo;
+    const chi = !u ? '' : u.da === 'nova' ? `${T('Tu')}: ` : c.tipo === 'dot' ? '' : `${u.da}: `;
+    const ora = `${c.tipo}:${c.chiave}`;
+    const aperta = h.attiva()?.percorso === PREFISSO + (c.tipo === 'dot' ? c.chiave : ora);
+    return `<div class="dot-conv${aperta ? ' si' : ''}${dentro ? ' dentro' : ''}" data-conv="${esc(c.tipo)}" data-chiave="${esc(c.chiave)}" title="${esc(c.membri.join(', '))}">
+      ${faccina(c)}
+      <span class="cv"><span class="r1"><b>${esc(nomeConv(c))}</b><small>${esc(u ? quando(u.quando) : '')}</small></span>
+        <span class="ult${n ? ' nuovo' : ''}">${esc(u ? chi + u.testo : T('ancora niente'))}</span></span>
+      ${n ? `<span class="dot-nuovi">${n}</span>` : ''}</div>`;
+  }
+  function vistaChat() {
+    const tutte = vista.conversazioni || [];
+    const filtro = cerca.trim().toLowerCase();
+    const passa = c => !filtro || nomeConv(c).toLowerCase().includes(filtro)
+      || c.membri.some(m => m.includes(filtro)) || (c.ultimo?.testo || '').toLowerCase().includes(filtro);
+    const recenti = (a, b) => String(b.ultimo?.quando || '').localeCompare(String(a.ultimo?.quando || ''));
+    const di = tipo => tutte.filter(c => c.tipo === tipo && passa(c)).sort(recenti);
+    let html = `<div class="dot-cerca"><input data-dot-cerca placeholder="${esc(T('Cerca nelle chat…'))}" value="${esc(cerca)}"></div>
+      <div class="dot-nuova"><button data-dot-azione="chat">+ ${esc(T('Chat'))}</button><button data-dot-azione="gruppo">+ ${esc(T('Gruppo'))}</button></div>`;
+    if (modulo === 'chat') html += moduloChat();
     if (modulo === 'gruppo') html += moduloGruppo();
-    html += `<div class="albero">${(vista.gruppi || []).length
-      ? vista.gruppi.map(g => `<div class="nodo dot-nodo" data-dot-gruppo="${esc(g.nome)}" title="${esc(g.membri.join(', '))}">
-          <span class="ic">#</span><span class="n">${esc(g.nome)}<small>${g.membri.length} ${esc(T('membri'))}</small></span>
-          <span class="seg">${g.messaggi || ''}</span></div>`).join('')
-      : `<div class="dot-vuoto">${esc(T('Nessun gruppo.'))}</div>`}</div>`;
-    html += `<div class="sez"><span>${esc(T('File toccati'))}</span></div><div class="albero">${alberoFile()}</div>`;
-    el.innerHTML = html;
-    lega(el);
+    const sezione = (titolo, righe, vuoto) => `<div class="sez"><span>${esc(titolo)}</span></div>
+      <div class="albero">${righe || `<div class="dot-vuoto">${esc(vuoto)}</div>`}</div>`;
+    html += sezione(T('Con te'), di('dot').map(c => rigaConv(c)).join(''), T('Ancora nessun Dot. Si fanno nascere col +, o chiedendolo a Nova.'));
+    // I gruppi interni sotto quello che li contiene.
+    const gruppi = di('gruppo');
+    const sotto = nome => gruppi.filter(g => g.dentro === nome);
+    const ramo = (g, livello, visti2) => visti2.has(g.chiave) ? '' : (visti2.add(g.chiave),
+      rigaConv(g, livello > 0) + sotto(g.chiave).map(f => ramo(f, livello + 1, visti2)).join(''));
+    const visti2 = new Set();
+    const cime = gruppi.filter(g => !g.dentro || !gruppi.some(x => x.chiave === g.dentro));
+    html += sezione(T('Gruppi'), cime.map(g => ramo(g, 0, visti2)).join(''), T('Nessun gruppo.'));
+    html += sezione(T('Fra di loro'), di('fra').map(c => rigaConv(c)).join(''), T('Quando due Dot si scrivono, la loro chat compare qui.'));
+    return html;
+  }
+  function moduloChat() {
+    const ds = lavoratori();
+    return `<form class="dot-modulo" data-dot-modulo="chat">
+      <div class="dot-vuoto" style="padding:0">${esc(T('Con uno, la sua chat; con più di uno, una chat a più voci: scrivi a tutti, e lo leggono al prossimo compito.'))}</div>
+      ${ds.length ? ds.map(d => `<label><input type="checkbox" name="membri" value="${esc(d.nome)}"> ${esc(d.nome)}</label>`).join('')
+        : `<div class="dot-vuoto">${esc(T('Ancora nessun Dot. Si fanno nascere col +, o chiedendolo a Nova.'))}</div>`}
+      <div class="fila"><button type="button" data-dot-azione="annulla">${esc(T('Annulla'))}</button><button class="primo">${esc(T('Apri la chat'))}</button></div>
+    </form>`;
   }
 
   /* Tu e Nova in cima, poi i Dot senza capo, e sotto ognuno i suoi. Un capo
@@ -309,6 +413,17 @@ export function avviaDot(h) {
   }
 
   function lega(el) {
+    el.querySelectorAll('[data-linguetta]').forEach(b => b.onclick = () => { linguetta = b.dataset.linguetta; modulo = ''; disegnaVista(); });
+    el.querySelectorAll('[data-conv]').forEach(n => n.onclick = () => apri(n.dataset.conv, n.dataset.chiave));
+    const c = el.querySelector('[data-dot-cerca]');
+    if (c) c.oninput = () => {
+      cerca = c.value;
+      const fine = c.selectionEnd;
+      disegnaVista();
+      const nuovo = $('elencoDot').querySelector('[data-dot-cerca]');
+      nuovo?.focus();
+      nuovo?.setSelectionRange(fine, fine);
+    };
     el.querySelectorAll('[data-dot]').forEach(n => n.onclick = () => apri('dot', n.dataset.dot));
     el.querySelectorAll('[data-dot-gruppo]').forEach(n => n.onclick = () => apri('gruppo', n.dataset.dotGruppo));
     el.querySelectorAll('[data-dot-cartella]').forEach(n => n.onclick = () => {
@@ -324,7 +439,8 @@ export function avviaDot(h) {
       const a = b.dataset.dotAzione;
       if (a === 'schema') apri('schema', 'organigramma');
       else if (a === 'nuovo') { modulo = modulo === 'dot' ? '' : 'dot'; disegnaVista(); el.querySelector('[data-dot-modulo] input')?.focus(); }
-      else if (a === 'gruppo') { modulo = modulo === 'gruppo' ? '' : 'gruppo'; disegnaVista(); el.querySelector('[data-dot-modulo] input')?.focus(); }
+      else if (a === 'gruppo') { modulo = modulo === 'gruppo' ? '' : 'gruppo'; disegnaVista(); $('elencoDot').querySelector('[data-dot-modulo] input')?.focus(); }
+      else if (a === 'chat') { modulo = modulo === 'chat' ? '' : 'chat'; disegnaVista(); }
       else if (a === 'annulla') { modulo = ''; disegnaVista(); }
     });
     const f = el.querySelector('[data-dot-modulo]');
@@ -332,7 +448,13 @@ export function avviaDot(h) {
       ev.preventDefault();
       const dati = new FormData(f);
       try {
-        if (f.dataset.dotModulo === 'dot') {
+        if (f.dataset.dotModulo === 'chat') {
+          const chi = dati.getAll('membri').map(String).sort();
+          if (!chi.length) return;
+          modulo = '';
+          disegnaVista();
+          if (chi.length === 1) apri('dot', chi[0]); else apri('fra', chi.join(','));
+        } else if (f.dataset.dotModulo === 'dot') {
           const nome = String(dati.get('nome') || '').trim();
           await chiama('dot.crea', { nome, ruolo: String(dati.get('ruolo') || '').trim(),
             mestiere: String(dati.get('mestiere') || ''), capo: String(dati.get('capo') || '') });
@@ -356,7 +478,8 @@ export function avviaDot(h) {
     let s = h.schede().find(x => x.percorso === percorso);
     if (!s) {
       s = { percorso, tipo: 'dot', cosa, chi, sotto: 'chat', bozza: '',
-            nome: cosa === 'schema' ? T('Organigramma') : cosa === 'gruppo' ? `# ${chi}` : chi };
+            nome: cosa === 'schema' ? T('Organigramma') : cosa === 'gruppo' ? `# ${chi}`
+              : cosa === 'fra' ? chi.split(',').join(' ↔ ') : chi };
       h.aggiungiScheda(s);
     }
     h.mostraScheda(s);
@@ -372,11 +495,13 @@ export function avviaDot(h) {
     }
     if (!s.dati) el.innerHTML = `<div class="dot-scorre"><div class="dot-vuoto">${esc(T('Leggo…'))}</div></div>`;
     await ricaricaScheda(s);
+    segnaVista(s.cosa, s.chi);
+    disegnaVista();
   }
 
   async function ricaricaScheda(s) {
     try {
-      s.dati = await chiama('dot.vista', { nome: s.cosa === 'gruppo' ? `gruppo:${s.chi}` : s.chi });
+      s.dati = await chiama('dot.vista', { nome: s.cosa === 'gruppo' ? `gruppo:${s.chi}` : s.cosa === 'fra' ? `fra:${s.chi}` : s.chi });
       s.errore = '';
     } catch (e) { s.errore = String(e); }
     if (h.attiva() === s) disegnaScheda(s);
@@ -394,7 +519,7 @@ export function avviaDot(h) {
       el.innerHTML = `<div class="dot-scorre"><div class="dot-nota">${esc(s.errore)}</div></div>`;
       return;
     }
-    el.innerHTML = (s.cosa === 'gruppo' ? paginaGruppo(s) : paginaDot(s));
+    el.innerHTML = s.cosa === 'gruppo' ? paginaGruppo(s) : s.cosa === 'fra' ? paginaFra(s) : paginaDot(s);
     const nuovo = el.querySelector('.dot-scorre');
     if (nuovo) nuovo.scrollTop = inFondo || alto == null ? (s.sotto === 'chat' ? nuovo.scrollHeight : 0) : alto;
     legaScheda(el, s);
@@ -537,6 +662,32 @@ export function avviaDot(h) {
     </div>`;
   }
 
+  /* La chat «fra di loro» (D392): quello che i Dot si scrivono, e quello che
+     scrivi tu, che va a tutti. */
+  function paginaFra(s) {
+    const x = s.dati;
+    const membri = x.membri.map(m => `<span class="vai" data-dot="${esc(m)}">${esc(m)}</span>`).join('');
+    const chat = (x.messaggi || []).map(m => {
+      const nostro = m.da === 'nova';
+      // A chi: si dice solo se non e' a tutti gli altri della chat.
+      const a = String(m.a).split(',');
+      const altri = x.membri.filter(n => n !== m.da);
+      const verso = altri.every(n => a.includes(n)) ? '' : ` → ${a.join(', ')}`;
+      return `<div class="dot-msg ${nostro ? 'nostro' : 'suo'}"><div class="da">${esc(nostro ? T('Nova e tu') : m.da)}${esc(verso)} · ${esc(quando(m.quando))}</div>${esc(m.testo)}</div>`;
+    }).join('');
+    return `<div class="dot-scorre">
+      <div class="dot-chi"><div class="dot-faccia">${esc(x.membri.slice(0, 2).map(m => m.slice(0, 1)).join('·'))}</div>
+        <div><h2>${esc(x.membri.join(' ↔ '))}</h2><p>${esc(T('Si scrivono fra loro. Quello che scrivi tu va a tutti, e lo leggono al prossimo compito.'))}</p>
+        <div class="dot-et">${membri}</div></div></div>
+      ${chat ? `<div class="dot-filo">${chat}</div>` : `<div class="dot-vuoto">${esc(T('Ancora nessun messaggio.'))}</div>`}
+    </div>
+    <div class="dot-scrivi">
+      <textarea placeholder="${esc(T('Scrivi a') + ' ' + x.membri.join(', ') + '…')}">${esc(s.bozza || '')}</textarea>
+      <div class="fila"><span>${esc(T('Lo leggono tutti, al prossimo compito.'))}</span>
+        <button class="dot-btn primo" data-manda="piu">${esc(T('Manda a tutti'))}</button></div>
+    </div>`;
+  }
+
   function legaScheda(el, s) {
     el.querySelectorAll('[data-dot]').forEach(n => n.onclick = () => apri('dot', n.dataset.dot));
     el.querySelectorAll('[data-dot-gruppo]').forEach(n => n.onclick = () => apri('gruppo', n.dataset.dotGruppo));
@@ -573,6 +724,8 @@ export function avviaDot(h) {
           messaggio(`${T('Affidato a')} ${s.chi}: ${T('compito')} n.${r.compito}`, 5000);
         } else {
           await chiama('dot.scrivi', { a: s.cosa === 'gruppo' ? `gruppo:${s.chi}` : s.chi, testo });
+          // Una chat a piu' voci nata adesso entra nella lista col primo
+          // messaggio.
         }
         s.bozza = '';
         if (area) area.value = '';
@@ -622,14 +775,16 @@ export function avviaDot(h) {
 
   /* ---------------------------------------------- gli eventi del demone - */
   let _presto = 0;
-  function aggiornaPresto() {
+  function aggiornaPresto(sempre = false) {
     clearTimeout(_presto);
     _presto = setTimeout(async () => {
       const guardo = h.vistaAttiva() === 'dot';
       const s = h.attiva();
       const aperta = s?.tipo === 'dot';
-      if (!guardo && !aperta) return;
+      if (!guardo && !aperta && !sempre) return;
       await carica();
+      if (aperta && s.cosa !== 'schema') segnaVista(s.cosa, s.chi);
+      h.pallino(nonLetti() + nuove);
       if (aperta && s.cosa === 'schema') disegnaSchema(s);
       else if (aperta) ricaricaScheda(s);
     }, 400);
@@ -639,15 +794,16 @@ export function avviaDot(h) {
     if (!String(topic).startsWith('dot.')) return;
     if (topic === 'dot.compito' && CHIUSI.includes(String(dati?.stato)) && h.vistaAttiva() !== 'dot') {
       nuove += 1;
-      h.pallino(nuove);
+      h.pallino(nonLetti() + nuove);
     }
-    aggiornaPresto();
+    // Un messaggio nuovo si conta anche a vista chiusa: la vista si rilegge.
+    if (topic === 'dot.messaggio') aggiornaPresto(true);
+    else aggiornaPresto();
   }
 
   function mostrata() {
     nuove = 0;
-    h.pallino(0);
-    carica();
+    carica().then(() => h.pallino(nonLetti()));
   }
 
   return { mostra, evento, mostrata, apri, PREFISSO };

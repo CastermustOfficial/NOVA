@@ -37,7 +37,8 @@ Deciso con Gio il 30 settembre: non ci sono scadenze, conta solo il risultato, e
 
 Quando una voce si chiude la si sposta qui, con la data e il commit.
 
-- 09/10/2026: i Dot nell'harness: l'organigramma (anche come schema), i gruppi, i file che toccano, e la scheda di ogni Dot con la sua chat (D391).
+- 09/10/2026: i Dot come Teams: le chat prima di tutto, i messaggi a piu' Dot, le chat fra di loro in cui scrivi anche tu, i gruppi interni, e i gruppi di un capo (D392).
+- 09/10/2026: i Dot nell'harness: l'organigramma (anche come schema), i gruppi, i file che toccano, e la scheda di ogni Dot con la sua chat (D391, `d0aff4b`).
 - 09/10/2026: la scheda Cervello a voci: si spuntano i motori, si scelgono chi orchestra, il modello veloce e il modello, e si scrive solo con «Conferma» (D390, `643557c`).
 - 09/10/2026: i Dot si accendono solo dove conviene: un interruttore nel pannello, di serie deciso da NOVA (D389, `eb0479a`).
 - 09/10/2026: i Dot parlano fra loro: ogni Dot puo' avere un capo, il capo aspetta e riprende, la posta si legge al compito dopo, i gruppi li fa Nova (D388, `48e72ab`).

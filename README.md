@@ -594,7 +594,8 @@ un Dot puo' avere un capo, e il capo affida pezzi del lavoro ai suoi
 sottoposti, aspetta che consegnino facendo intanto altro, e riprende con i
 loro esiti. Si scrivono (`dot.scrivi`): la posta la leggono al compito dopo,
 e quella per Nova arriva in chat. I gruppi li fa Nova se glielo chiedi
-(`dot.gruppo`). Dal demone ci sono anche i metodi `dot/crea`, `dot/affida`,
+(`dot.gruppo`), e un capo coi suoi sottoposti (D392); un messaggio va anche
+a piu' Dot insieme, coi nomi separati dalla virgola. Dal demone ci sono anche i metodi `dot/crea`, `dot/affida`,
 `dot/stato`, `dot/elenco` e `dot/ferma`.
 
 I Dot sono per chi ha un abbonamento, un'API o una scheda video da almeno
@@ -604,18 +605,23 @@ spengono a mano. Spenti non lavorano, non nascono e non ricevono compiti, e
 il modello sul PC non riceve i loro strumenti: gli resta piu' spazio per la
 conversazione.
 
-Nell'harness (D391) i Dot hanno una vista loro, a sinistra (Ctrl+Maiusc+D):
-l'organigramma, con te e Nova in cima e ogni Dot sotto il suo capo, che si
-vede anche come schema; il custode a parte; i gruppi; e i file che i Dot
-stanno toccando, come in *Esplora*, con chi li ha letti, scritti o tolti. Un
-Dot si apre in una scheda accanto ai file: chi e', cosa sta facendo, e la sua
-chat coi compiti, i passi di ognuno e i messaggi che riceve e manda. I
-rapporti si aprono nell'editor. Da li' gli scrivi un messaggio, che legge al
-prossimo compito, o gli affidi un compito; per i Dot quello che scrivi tu e
+Nell'harness (D391, D392) i Dot hanno una vista loro, a sinistra
+(Ctrl+Maiusc+D), fatta come Teams. La prima linguetta e' **Chat**: tutte le
+conversazioni dalla piu' recente, coi messaggi nuovi contati: una con ogni
+Dot, i gruppi (quelli interni sotto quello che li contiene) e le chat «fra di
+loro», che nascono quando due o piu' Dot si scrivono e in cui scrivi anche
+tu, a tutti. Le altre due sono l'**Organigramma**, con te e Nova in cima e
+ogni Dot sotto il suo capo, che si vede anche come schema, col custode a
+parte; e i **File** che i Dot stanno toccando, come in *Esplora*, con chi li
+ha letti, scritti o tolti. Una conversazione si apre in una scheda accanto ai
+file; quella con un Dot dice chi e', cosa sta facendo, e ha i compiti coi
+passi di ognuno in mezzo ai messaggi. I rapporti si aprono nell'editor. Da
+li' a un Dot scrivi un messaggio, che legge al prossimo compito, o affidi un
+compito; per i Dot quello che scrivi tu e
 quello che scrive Nova sono la stessa cosa. Da li' si fanno anche nascere i
-Dot e i gruppi. I file toccati sono quelli degli strumenti di NOVA che
-leggono, scrivono, copiano, spostano e cancellano: quali file tocca un
-comando di shell non si indovina.
+Dot, i gruppi e le chat con piu' Dot. I file toccati sono quelli degli
+strumenti di NOVA che leggono, scrivono, copiano, spostano e cancellano:
+quali file tocca un comando di shell non si indovina.
 
 ## Installazione
 

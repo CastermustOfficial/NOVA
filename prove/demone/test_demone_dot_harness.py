@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""I Dot nell'harness: quello che la vista legge dal demone (D391).
+"""I Dot nell'harness: quello che la vista legge dal demone (D391, D392).
 
 Le scelte sulla bozza dei Dot nell'harness, il 9 ottobre: a sinistra
 l'organigramma, i gruppi e i file che i Dot stanno toccando; al centro la
@@ -11,6 +11,10 @@ Qui il demone gira in una casa finta, con un cervello finto: il Dot
 «scrivano», a un compito «Copia la fonte», legge un file, ne scrive un altro
 (con `~` nel percorso) e scrive a Nova. Poi si guarda cosa dice `dot.vista`,
 la capacita' della vista, che e' solo della persona.
+
+Poi le chat come Teams (D392): un messaggio a piu' Dot insieme, un Dot che
+scrive a un altro, un capo che fa un gruppo coi suoi sottoposti (e non con
+gli altri), e la lista delle conversazioni coi gruppi interni.
 
 Esce 2 — «qui non si puo' provare» — se il demone non e' costruito.
 """
@@ -61,6 +65,8 @@ lavoro.mkdir()
 FONTE = lavoro / "fonte.txt"
 FONTE.write_bytes("la fonte\n".encode("utf-8"))
 COPIA = lavoro / "copia.txt"
+#: Quello che e' tornato dagli strumenti, per compito: (parola chiave, testo).
+risultati: list[tuple[str, str]] = []
 
 
 def manda(h, codice, corpo):
@@ -112,6 +118,19 @@ class Cervello(BaseHTTPRequestHandler):
         ultima = messaggi[utente[-1]].get("content") or "" if utente else ""
         dopo = messaggi[utente[-1] + 1:] if utente else []
         fatti = [m for m in dopo if m.get("role") == "tool"]
+        for chiave, nome, argomenti in [
+            ("Scrivi ad aiuto", "dot_scrivi", {"a": "aiuto", "testo": "Mi aiuti?"}),
+            ("Fai il gruppo largo", "dot_gruppo", {"nome": "larga", "membri": ["aiuto", "esterno"]}),
+            ("Cambia la squadra", "dot_gruppo", {"nome": "squadra", "membri": ["scrivano"]}),
+            ("Fai il gruppo", "dot_gruppo", {"nome": "bottega", "membri": ["scrivano", "aiuto"]}),
+        ]:
+            if chiave in ultima:
+                if fatti:
+                    risultati.append((chiave, fatti[-1].get("content") or ""))
+                    testo(self, "Fatto.")
+                else:
+                    chiama(self, nome, argomenti)
+                return
         if "Copia la fonte" in ultima:
             passi = [("fs_read", {"path": str(FONTE)}),
                      ("fs_write", {"path": "~/lavoro/copia.txt", "content": "la copia\n"}),
@@ -178,6 +197,21 @@ eventi: list[dict] = []
 
 def di(topic):
     return [e["data"] for e in list(eventi) if e.get("topic") == topic]
+
+
+def fino_a_fatto(dot, id_, secondi=40):
+    fine = time.time() + secondi
+    c = {}
+    while time.time() < fine:
+        c = next((x for x in capacita("dot.vista", nome=dot).get("compiti", []) if x["id"] == id_), {})
+        if c.get("stato") in ("fatto", "fallito", "fermato"):
+            break
+        time.sleep(0.2)
+    return c
+
+
+def detto(chiave):
+    return next((t for k, t in reversed(risultati) if k == chiave), "")
 
 
 try:
@@ -278,6 +312,54 @@ try:
     g = capacita("dot.vista", nome="gruppo:squadra")
     controlla("la chat del gruppo", [m["testo"] for m in g.get("chat", [])] == ["Ci siamo tutti?"], str(g)[:300])
     controlla("un Dot che non c'e' si dice", "nessun Dot" in errore("dot.vista", nome="fantasma"))
+
+    print("\n5. come Teams: piu' Dot insieme, un Dot che scrive a un altro, i gruppi di un capo")
+    capacita("dot.crea", nome="esterno", ruolo="Lavori per conto tuo.")
+    r = capacita("dot.scrivi", a="scrivano, aiuto", testo="A tutti e due.")
+    controlla("un messaggio va a piu' Dot insieme, senza un gruppo",
+              r.get("a") == "aiuto,scrivano" and r.get("membri") == ["aiuto", "scrivano"], str(r))
+    controlla("e non a Nova insieme a loro", "a parte" in errore("dot.scrivi", a="aiuto,nova", testo="x"))
+    controlla("ne' al custode", "custode" in errore("dot.scrivi", a="aiuto,custode", testo="x"))
+    id_ = capacita("dot.affida", nome="scrivano", compito="Scrivi ad aiuto")["compito"]
+    fino_a_fatto("scrivano", id_)
+    id_ = capacita("dot.affida", nome="scrivano", compito="Fai il gruppo")["compito"]
+    fino_a_fatto("scrivano", id_)
+    g = capacita("dot.vista", nome="gruppo:bottega")
+    controlla("un capo fa un gruppo coi suoi", g.get("gruppo", {}).get("membri") == ["aiuto", "scrivano"]
+              and g["gruppo"].get("da") == "scrivano", str(g)[:300])
+    id_ = capacita("dot.affida", nome="scrivano", compito="Fai il gruppo largo")["compito"]
+    fino_a_fatto("scrivano", id_)
+    controlla("e non con chi non e' suo", "«esterno» non e' un tuo sottoposto" in detto("Fai il gruppo largo"),
+              detto("Fai il gruppo largo")[:200])
+    id_ = capacita("dot.affida", nome="scrivano", compito="Cambia la squadra")["compito"]
+    fino_a_fatto("scrivano", id_)
+    controlla("un capo non cambia un gruppo che non ha fatto lui",
+              "non l'hai fatto tu" in detto("Cambia la squadra")
+              and capacita("dot.vista", nome="gruppo:squadra")["gruppo"]["membri"] == ["aiuto", "scrivano"],
+              detto("Cambia la squadra")[:200])
+    tutti = capacita("dot.gruppo", nome="tutti", membri=["aiuto", "esterno", "scrivano"])
+    controlla("un gruppo di Nova non dice chi l'ha fatto: e' di Nova", "da" not in tutti, str(tutti))
+    conv = capacita("dot.vista").get("conversazioni", [])
+    per = {(c["tipo"], c["chiave"]): c for c in conv}
+    fra = per.get(("fra", "aiuto,scrivano"), {})
+    controlla("la chat fra di loro c'e', con l'ultimo messaggio",
+              fra.get("membri") == ["aiuto", "scrivano"] and fra.get("ultimo", {}).get("testo") == "Mi aiuti?",
+              json.dumps(fra, ensure_ascii=False)[:300])
+    controlla("e conta solo i messaggi che non ha scritto Nova", len(fra.get("loro", [])) == 1, str(fra.get("loro")))
+    t = capacita("dot.vista", nome="fra:scrivano,aiuto")
+    controlla("si rilegge, in ordine",
+              [(m["da"], m["testo"]) for m in t.get("messaggi", [])]
+              == [("nova", "A tutti e due."), ("scrivano", "Mi aiuti?")], str(t)[:400])
+    controlla("una chat fra di loro vuole almeno due Dot", "almeno due" in errore("dot.vista", nome="fra:aiuto"))
+    controlla("che esistano", "nessun Dot" in errore("dot.vista", nome="fra:aiuto,fantasma"))
+    gruppi = {c["chiave"]: c for c in conv if c["tipo"] == "gruppo"}
+    controlla("i gruppi interni stanno dentro quello che li contiene",
+              gruppi.get("bottega", {}).get("dentro") == "tutti" and gruppi.get("squadra", {}).get("dentro") == "tutti"
+              and gruppi.get("tutti", {}).get("dentro") is None, json.dumps(gruppi, ensure_ascii=False)[:400])
+    con = per.get(("dot", "scrivano"), {})
+    controlla("la chat con lo scrivano conta quello che ha scritto a Nova",
+              len(con.get("loro", [])) == 1 and con.get("ultimo") is not None, json.dumps(con, ensure_ascii=False)[:300])
+    controlla("e il custode non ha una chat", ("dot", "custode") not in per)
 finally:
     if processo.poll() is None:
         processo.kill()

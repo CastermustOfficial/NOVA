@@ -479,3 +479,16 @@ di un Dot ci sono due file in piu', `file.jsonl` e `inviati.jsonl`.
   «cosa sta facendo questo?» guardando un Dot vuol dire nominarlo.
 - **I progetti** non ci sono ancora: la vista li mostrera' col sesto passo,
   l'APM.
+
+**Come Teams** (D392). Il riferimento, dopo il D391: «tipo un Teams, ma per
+i Dot». Nella vista dell'harness la prima linguetta e' **Chat**: una
+conversazione con ogni Dot, i gruppi (quelli interni sotto quello che li
+contiene) e le chat «fra di loro», dalla piu' recente, coi messaggi nuovi
+contati. Un messaggio va anche a piu' Dot insieme (`dot.scrivi` con i nomi
+separati dalla virgola), e nelle chat fra di loro scrivi anche tu, a tutti.
+Un capo fa gruppi coi suoi sottoposti, e cambia solo quelli che ha fatto lui.
+
+- **Un Dot che risponde in una chat a piu' voci** legge a chi era scritto il
+  messaggio («da nova a due, uno insieme») e risponde a tutti scrivendo i
+  nomi: non c'e' un «rispondi a tutti».
+

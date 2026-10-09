@@ -371,15 +371,17 @@ try:
     controlla("un membro si', e il messaggio va agli altri due, non a se'",
               [stato(n)["posta_da_leggere"] for n in ("uno", "due", "capo")] == [0, 1, 1])
 
-    print("\n8. far nascere, fermare e fare i gruppi resta di Nova")
-    for i, (chiave, parola) in enumerate([("fai un gruppo", "fare i gruppi"),
-                                          ("fai nascere", "far nascere un Dot"),
-                                          ("ferma due", "fermare un Dot")], start=2):
+    print("\n8. far nascere e fermare resta di Nova; i gruppi, un capo li fa coi suoi")
+    for i, (chiave, attesa) in enumerate([
+            # Dal D392 un capo fa un gruppo coi suoi sottoposti: l'estraneo
+            # non ne ha.
+            ("fai un gruppo", "estraneo non ha sottoposti: un Dot fa un gruppo solo coi suoi"),
+            ("fai nascere", "estraneo e' un Dot: far nascere un Dot lo fa solo Nova"),
+            ("ferma due", "estraneo e' un Dot: fermare un Dot lo fa solo Nova")], start=2):
         capacita("dot.affida", nome="estraneo", compito=chiave)
         aspetta("estraneo", i)
         detto = [t for c, t in risultati if c == "estraneo"][-1]
-        controlla(f"un Dot non puo' {parola}", f"estraneo e' un Dot: {parola} lo fa solo Nova" in detto,
-                  detto[:200])
+        controlla(f"«{chiave}»: {attesa[:40]}…", attesa in detto, detto[:200])
     controlla("e il gruppo dei pirati non c'e'", "nessun gruppo" in errore("dot.stato", nome="gruppo:pirati"))
 
     print("\n9. un capo che a ogni ripresa riaffida non gira per sempre")
