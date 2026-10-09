@@ -11710,3 +11710,14 @@ e si scelgono tre voci, chi orchestra, il modello veloce e il modello, e la
 scala si vede mentre si sceglie. La prima bozza faceva orchestrare il modello
 sul PC solo perche' era spuntato: era la ricetta del consiglio, non una
 scelta. Chi orchestra ora e' una voce come le altre.
+
+## 9 ottobre 2026 — L'azienda si vede
+
+I Dot lavoravano e si scrivevano, ma per sapere cosa facevano bisognava
+chiederlo a Nova. Adesso nell'harness c'e' l'organigramma, che si guarda
+anche come schema, e ogni Dot ha la sua scheda con la chat. Da li' gli si
+scrive come scrive Nova. I file che toccano si vedono come in *Esplora*: la
+prima versione non ne vedeva nessuno, perche' guardava il nome dello
+strumento come lo scrive il modello, `fs_write`, e non come lo conosce il
+demone, `fs.write`. L'ha detto la prova col demone vero.
+

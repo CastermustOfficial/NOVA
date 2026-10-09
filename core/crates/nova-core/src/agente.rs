@@ -224,6 +224,13 @@ impl Esecutore for EsecutoreDemone {
             con(json!({ "nome": nome, "stato": "inizio", "descrizione": info.description }), &piu),
         );
         let detti = self.viste.as_ref().map(|_| argomenti.to_string());
+        // I file che tocca un Dot si vedono nell'harness (D391).
+        let per_i_file = match &self.chi {
+            Chi::Dot(_) if !nova_dot::vista::toccati(&info.name, &argomenti).is_empty() => {
+                Some(argomenti.clone())
+            }
+            _ => None,
+        };
         // Lo stesso avvolgimento del resto del demone: cosi' il «fermati»
         // ferma anche uno strumento partito dentro un turno. E attorno, per
         // conto di chi gira: la memoria lo guarda.
@@ -247,6 +254,9 @@ impl Esecutore for EsecutoreDemone {
                     viste.push(u);
                 }
             }
+        }
+        if let (Chi::Dot(d), Some(args), Ok(_)) = (&self.chi, &per_i_file, &esito) {
+            crate::dot::annota_file(&self.server, d, &info.name, args);
         }
         let ms = inizio.elapsed().as_millis() as u64;
         self.server.ctx.bus.emit(

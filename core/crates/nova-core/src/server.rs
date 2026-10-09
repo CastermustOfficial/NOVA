@@ -346,6 +346,13 @@ impl Server {
         } else {
             crate::interruzione::interrompibile(cap.call(richiesta.args.clone(), &self.ctx)).await
         };
+        // Il Claude Code di un Dot passa di qui: anche i file che tocca lui
+        // si vedono nell'harness (D391).
+        if mcp && esito.is_ok() {
+            if let crate::agente::Chi::Dot(d) = crate::agente::per_conto_di() {
+                crate::dot::annota_file(self, &d, &cap.info().name, &richiesta.args);
+            }
+        }
         let durata = inizio.elapsed().as_millis() as u64;
 
         self.ctx.bus.emit(

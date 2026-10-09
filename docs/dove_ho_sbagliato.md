@@ -2297,3 +2297,55 @@ voce usa resta spuntato, scritto in `brains.routing.motori`.
 La regola: dove l'utente sceglie, ogni ruolo che la ricetta assegna da sola
 diventa una voce che si vede.
 
+## Il nome di uno strumento come lo scrive il modello
+
+Per vedere nell'harness i file che i Dot toccano, l'esecutore dei turni
+guarda quale strumento e' stato chiamato e con quali argomenti. La prima
+versione guardava il nome come arriva dal modello: `fs_write`, coi trattini
+bassi, perche' i modelli non accettano i punti nei nomi degli strumenti. Il
+demone li conosce come `fs.write`, e l'elenco degli strumenti che toccano un
+file usa quei nomi: non ne trovava nessuno, e la vista dei file restava vuota
+senza dire niente.
+
+Se n'e' accorta la prova col demone vero (`test_demone_dot_harness.py`), al
+primo giro. Ora si usa il nome che dichiara la capacita' (`info.name`), sia
+nell'esecutore sia nella porta MCP.
+
+La regola: un nome che attraversa un confine (modello, MCP, pagina) si
+confronta nella forma del demone, presa dalla capacita', mai in quella con
+cui e' arrivato.
+
+## Una prova che passava per caso
+
+La stessa prova controllava che i file si elencassero dal piu' recente. Il
+Dot legge un file e ne scrive un altro nello stesso secondo, e i due tocchi
+hanno la stessa ora: a parita', la prima versione ordinava per nome, e
+«copia» viene prima di «fonte». La prova passava perche' l'ultimo file
+toccato aveva il nome giusto, non perche' l'ordine fosse giusto. Me ne sono
+accorto rileggendo la prova.
+
+Ora a parita' d'ora vale l'ordine in cui i tocchi sono arrivati, e una prova
+di unita' lo controlla con i nomi nei due ordini.
+
+La regola: una prova su un ordinamento usa dati che un ordinamento sbagliato
+metterebbe al contrario.
+
+## Una suite di Windows letta senza guardare quando era stata scritta
+
+Per il D390 ho lanciato la suite su Windows (`suite.ps1`, con `Start-Process`)
+e dopo nove minuti ho letto i risultati: la compilazione finita, `cargo test`
+senza rossi, le prove Python tutte come al solito. Erano i file della corsa
+del D389. La suite lanciata quel giorno non era partita, e la cartella dei
+risultati era rimasta com'era: ho scritto che su Windows era tutto verde
+senza averlo visto.
+
+Me ne sono accorto al D391: le due prove nuove non comparivano nei
+risultati, e le ore dei file erano di sei ore prima. Rilanciata, la suite e'
+partita davvero, e su quell'albero (il D390 e il D391 insieme) e' verde, a
+parte le prove che su Windows si saltano e il controllo sull'eta' del
+guscio. La CI del D390 era verde.
+
+La regola: prima di leggere i risultati di una corsa si guarda che siano
+suoi: l'ora dei file dopo l'avvio, il processo vivo o finito, e le prove
+nuove nell'elenco.
+

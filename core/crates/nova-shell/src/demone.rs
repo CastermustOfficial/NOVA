@@ -35,6 +35,15 @@ const CONSENTITE: &[&str] = &[
     "voce.live.prova",
     // Il pannello dei Dot: se sono accesi e perche' (D389).
     "dot.accesi",
+    // I Dot nell'harness (D391): guardarli, scrivere a uno o a un gruppo,
+    // affidargli un compito, fermarlo, farne nascere uno, fare un gruppo.
+    // Chi scrive dall'harness firma come Nova: per i Dot sono la stessa cosa.
+    "dot.vista",
+    "dot.scrivi",
+    "dot.affida",
+    "dot.ferma",
+    "dot.crea",
+    "dot.gruppo",
     "azione.ferma",
     "azione.stato",
     "approvazione.attese",

@@ -608,8 +608,7 @@ them to deliver while doing something else, and resumes with their results.
 They write to each other (`dot.scrivi`): mail is read at the next task, and
 mail for Nova shows up in the chat. Groups are made by Nova if you ask it to
 (`dot.gruppo`). The daemon also has the methods `dot/crea`, `dot/affida`,
-`dot/stato`, `dot/elenco` and `dot/ferma`; the view in the harness comes
-later.
+`dot/stato`, `dot/elenco` and `dot/ferma`.
 
 The Dots are for whoever has a subscription, an API or a graphics card with
 at least 24 GB (D389): by default NOVA turns them on when one of the three
@@ -617,6 +616,19 @@ is there, and off when it isn't. In the panel, under **The Dots**, they are
 turned on and off by hand. When off they don't work, aren't born and don't
 receive tasks, and the model on the PC doesn't receive their tools: it keeps
 more room for the conversation.
+
+In the harness (D391) the Dots have a view of their own, on the left
+(Ctrl+Shift+D): the org chart, with you and Nova at the top and each Dot under
+its boss, which can also be seen as a chart; the keeper apart; the groups;
+and the files the Dots are touching, as in *Explorer*, with who read, wrote or
+removed them. A Dot opens in a tab next to the files: who it is, what it is
+doing, and its chat with the tasks, the steps of each one and the messages it
+receives and sends. Reports open in the editor. From there you send it a
+message, which it reads at the next task, or hand it a task; for the Dots
+what you write and what Nova writes are the same thing. Dots and groups can
+also be brought to life from there. The files touched are those of NOVA's
+tools that read, write, copy, move and delete: which files a shell command
+touches is not guessed.
 
 ## Installation
 

@@ -448,7 +448,14 @@ pub fn scrivi(server: &Arc<Server>, da: &str, a: &str, testo: &str) -> Result<Va
         return Err("un messaggio vuoto non dice niente".into());
     }
     let quando = adesso();
+    // Chi scrive, se e' un Dot, si tiene la copia di quel che manda: nella
+    // sua chat nell'harness si vede anche quello (D391).
     let evento = |a: &str| {
+        if da != d::DA_NOVA {
+            if let Err(e) = cartella(da).and_then(|c| c.spedito(da, a, testo.trim(), &quando)) {
+                tracing::warn!(dot = da, errore = %e, "la copia del messaggio mandato non si scrive");
+            }
+        }
         server
             .ctx
             .bus
@@ -537,6 +544,164 @@ pub fn stato_gruppo(nome: &str) -> Result<Value, String> {
     let g = gruppi::leggi(&base(), nome)?;
     let (chat, quanti) = gruppi::chat(&base(), &g.nome)?;
     Ok(json!({ "gruppo": g, "chat": chat, "messaggi": quanti }))
+}
+
+/// Un Dot ha usato uno strumento: se ha toccato dei file, si scrivono nella
+/// sua cartella e lo si dice all'harness (D391). Il percorso si scioglie come
+/// lo scioglie lo strumento (`~`, `%VAR%`, `$VAR`), cosi' nell'harness si apre.
+pub fn annota_file(server: &Arc<Server>, nome: &str, strumento: &str, argomenti: &Value) {
+    let toccati = d::vista::toccati(strumento, argomenti);
+    if toccati.is_empty() {
+        return;
+    }
+    let Ok(c) = cartella(nome) else {
+        return;
+    };
+    let compito = compito_in_corso(server, nome).unwrap_or(0);
+    for (percorso, come) in toccati {
+        let percorso = nova_strumenti::file_disco::Percorso::nuovo(&percorso)
+            .map(|p| p.scritto.display().to_string())
+            .unwrap_or(percorso);
+        let t = d::vista::Tocco {
+            quando: adesso(),
+            compito,
+            percorso: percorso.clone(),
+            come,
+            strumento: strumento.to_string(),
+        };
+        if let Err(e) = c.tocca(&t) {
+            tracing::warn!(dot = nome, errore = %e, "il file toccato non si scrive");
+            continue;
+        }
+        server
+            .ctx
+            .bus
+            .emit("dot.file", json!({ "dot": nome, "percorso": percorso, "come": come }));
+    }
+}
+
+/// Come sta un Dot, in una parola, per l'organigramma: `custode`,
+/// `lavora`, `aspetta` (i suoi sottoposti), `in_coda` o `libero`.
+fn come_sta(dot: &d::Dot, coda: &[d::Compito], in_corso: u64) -> &'static str {
+    if dot.mestiere == d::Mestiere::Custode {
+        "custode"
+    } else if in_corso != 0 {
+        "lavora"
+    } else if coda.iter().any(|c| c.stato == d::Stato::InAttesa) {
+        "aspetta"
+    } else if coda.iter().any(|c| c.stato == d::Stato::Affidato) {
+        "in_coda"
+    } else {
+        "libero"
+    }
+}
+
+/// Le prime parole di un compito, per l'organigramma.
+fn in_breve(testo: &str) -> String {
+    const PAROLE: usize = 140;
+    let t: String = testo.split_whitespace().collect::<Vec<_>>().join(" ");
+    if t.chars().count() <= PAROLE {
+        t
+    } else {
+        format!("{}…", t.chars().take(PAROLE).collect::<String>())
+    }
+}
+
+/// Tutto quello che la vista dei Dot nell'harness mostra a sinistra (D391):
+/// se sono accesi, i Dot con il capo e come stanno, i gruppi, e i file che
+/// hanno toccato. Si legge anche coi Dot spenti: guardare non costa niente.
+pub fn vista(server: &Arc<Server>) -> Value {
+    let mut tocchi: Vec<(String, d::vista::Tocco)> = Vec::new();
+    let dots: Vec<Value> = d::elenco(&base())
+        .into_iter()
+        .filter_map(|n| {
+            let c = cartella(&n).ok()?;
+            let dot = c.dot().ok()?;
+            let coda = c.compiti();
+            let in_corso = compito_in_corso(server, &n).unwrap_or(0);
+            let ora = coda
+                .iter()
+                .find(|x| x.id == in_corso)
+                .or_else(|| coda.iter().find(|x| x.stato == d::Stato::InAttesa));
+            tocchi.extend(c.tocchi().into_iter().map(|t| (n.clone(), t)));
+            Some(json!({
+                "nome": dot.nome,
+                "ruolo": dot.ruolo,
+                "mestiere": dot.mestiere,
+                "capo": dot.capo,
+                "sta": come_sta(&dot, &coda, in_corso),
+                "compito": ora.map(|x| json!({ "id": x.id, "testo": in_breve(&x.testo), "stato": x.stato })),
+                "in_coda": coda.iter().filter(|x| x.stato == d::Stato::Affidato).count(),
+                "fatti": coda.iter().filter(|x| x.stato == d::Stato::Fatto).count(),
+                "posta_da_leggere": c.non_letta().len(),
+            }))
+        })
+        .collect();
+    let gruppi: Vec<Value> = nova_dot::gruppi::elenco(&base())
+        .into_iter()
+        .map(|g| {
+            let (_, messaggi) = nova_dot::gruppi::chat(&base(), &g.nome).unwrap_or_default();
+            json!({ "nome": g.nome, "membri": g.membri, "messaggi": messaggi })
+        })
+        .collect();
+    json!({
+        "accesi": crate::dot_accesi::adesso(),
+        "dots": dots,
+        "gruppi": gruppi,
+        "file": d::vista::riassumi(&tocchi),
+    })
+}
+
+/// La scheda di un Dot nell'harness (D391): chi e', i compiti coi loro passi
+/// e i rapporti, la posta che riceve (con quella gia' letta), i messaggi che
+/// manda, e i file che tocca.
+pub fn scheda(server: &Arc<Server>, nome: &str) -> Result<Value, String> {
+    let c = cartella(nome)?;
+    if !c.esiste() {
+        return Err(format!("non c'e' nessun Dot che si chiama «{}»", nome.trim()));
+    }
+    let dot = c.dot()?;
+    let coda = c.compiti();
+    let in_corso = compito_in_corso(server, &dot.nome).unwrap_or(0);
+    let letta = c.letta_fino_a();
+    let compiti: Vec<Value> = coda
+        .iter()
+        .map(|x| {
+            let mut v = serde_json::to_value(x).unwrap_or(Value::Null);
+            let r = c.rapporto(x.id);
+            v["rapporto"] = if r.is_file() { json!(r.display().to_string()) } else { Value::Null };
+            v
+        })
+        .collect();
+    let posta: Vec<Value> = c
+        .posta()
+        .into_iter()
+        .map(|m| {
+            let letto = m.n <= letta;
+            let mut v = serde_json::to_value(m).unwrap_or(Value::Null);
+            v["letto"] = json!(letto);
+            v
+        })
+        .collect();
+    let tocchi: Vec<(String, d::vista::Tocco)> =
+        c.tocchi().into_iter().map(|t| (dot.nome.clone(), t)).collect();
+    Ok(json!({
+        "dot": dot,
+        "acceso": server.dots.maniglia(&dot.nome).is_some(),
+        "sta": come_sta(&dot, &coda, in_corso),
+        "in_corso": if in_corso == 0 { Value::Null } else { json!(in_corso) },
+        "compiti": compiti,
+        "sottoposti": sottoposti(&dot.nome),
+        "gruppi": nova_dot::gruppi::elenco(&base())
+            .into_iter()
+            .filter(|g| g.membri.contains(&dot.nome))
+            .map(|g| g.nome)
+            .collect::<Vec<_>>(),
+        "posta": posta,
+        "inviati": c.inviati(),
+        "passi": c.passi(),
+        "file": d::vista::riassumi(&tocchi),
+    }))
 }
 
 /// Quanto di un rapporto si legge con un compito: il resto sta nel file.

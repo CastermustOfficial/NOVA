@@ -40,6 +40,41 @@ pub fn register(reg: &mut Registry) {
     reg.add(Arc::new(ScriviCap));
     reg.add(Arc::new(GruppoCap));
     reg.add(Arc::new(AccesiCap));
+    reg.add(Arc::new(VistaCap));
+}
+
+/// La vista dei Dot nell'harness (D391): senza nome l'organigramma, i gruppi
+/// e i file toccati; col nome la scheda di un Dot; con `gruppo:<nome>` la
+/// chat del gruppo. Solo della persona: a un modello basta `dot.stato`, e
+/// questa e' lunga.
+struct VistaCap;
+
+#[async_trait]
+impl Capability for VistaCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "dot.vista".into(),
+            description: "Per l'harness: senza nome l'organigramma dei Dot, i gruppi e i file \
+                          che toccano; col nome la scheda di un Dot; con gruppo:<nome> la chat."
+                .into(),
+            risk: Risk::Safe,
+            category: "dot".into(),
+            schema: schema(&[("nome", "string", "vuoto = tutti", false)]),
+        }
+    }
+
+    async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
+        let server = il_server()?;
+        let nome = arg_str_opt(&args, "nome").unwrap_or_default();
+        let nome = nome.trim();
+        if nome.is_empty() {
+            return Ok(crate::dot::vista(server));
+        }
+        if let Some(g) = nome.strip_prefix("gruppo:") {
+            return crate::dot::stato_gruppo(g).map_err(|e| anyhow!(e));
+        }
+        crate::dot::scheda(server, nome).map_err(|e| anyhow!(e))
+    }
 }
 
 /// Il pannello: se i Dot sono accesi, come l'ha scelto l'utente, e perche'

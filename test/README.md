@@ -44,7 +44,7 @@ Le prove del recinto di Windows (`nova-platform` e `nova-core`, solo `cfg(window
 - `misure/`: i banchi di prestazione, lanciati a mano sul PC con la scheda video.
 - `attrezzi/`: gli script lanciati a mano, compresi i giri di mutazione con cui si verifica che un banco gemello guardi davvero.
 
-## `prove/progetto/`: 28 prove
+## `prove/progetto/`: 29 prove
 
 Cosa serve: niente: guardano il repository stesso.
 
@@ -60,6 +60,7 @@ Cosa serve: niente: guardano il repository stesso.
 | `test_dove_stanno_i_dati.py` | La mappa dei dati non deve tacere su niente, ne' inventare niente. |
 | `test_elenchi_gemelli.py` | Ogni elenco dichiarato in Rust ha un gemello in Python, e si confronta. |
 | `test_guardie_predefinite.py` | Le guardie sono un elenco solo, e non ne esiste un secondo. |
+| `test_harness_dot.py` | I Dot nell'harness, guardando la pagina (D391): ogni capacita' che la pagina chiede passa dall'elenco del guscio ed esiste nel demone, la vista e' solo della persona; la vista, il bottone e il posto delle schede ci sono; le schede dei Dot non si ricordano e non vanno con la domanda a NOVA; chi scrive da li' non dice chi e' (lo dice il demone: Nova); ogni frase ha la sua traduzione. |
 | `test_impostazioni.py` | Il pannello deve saper aggiungere, non solo scegliere; nella scheda Cervello si spuntano i motori e si scelgono tre voci, la consigliata le rimette, e si scrive solo con «Conferma», che il guscio ricontrolla, con le frasi anche in inglese (D379, D390). |
 | `test_installer.py` | L'installer chiede quattro cose, e scrive solo valori che qualcuno legge. |
 | `test_niente_cresce_per_sempre.py` | Nessun diario di NOVA puo' crescere per sempre. |
@@ -165,7 +166,7 @@ Cosa serve: un banco Rust costruito con `cargo`: la prova stampa la riga per cos
 | `test_semina_rust.py` | La prima mappatura del PC scrive in Rust gli stessi nodi del Python. |
 | `test_strumenti_rust.py` | Gli strumenti dichiarati allo stesso modo, in Rust. |
 
-## `prove/demone/`: 37 prove
+## `prove/demone/`: 38 prove
 
 Cosa serve: il binario `novad` costruito.
 
@@ -183,6 +184,7 @@ Cosa serve: il binario `novad` costruito.
 | `test_demone_custode.py` | Il custode dei permessi (D384), con due cervelli finti e un Claude Code finto: un Dot chiede a lui quando Nova chiederebbe all'utente; decide il modello di casa (si', no, «non so»), se no il cervello grande (CONSENTI, NEGA, una risposta illeggibile che e' un no); con l'autonomia piena non si chiede; Nova chiede ancora all'utente; il Claude di un Dot, attraverso il ponte vero col gettone del Dot, passa dal custode per gli strumenti di NOVA e per lo sportello, e un gettone falso non viene servito. |
 | `test_demone_dot.py` | I Dot nel demone (D382), con un cervello finto: un Dot nasce con nome e ruolo, riceve compiti senza far aspettare, li fa uno alla volta senza chiedere il permesso all'utente (un file scritto con «conferma sempre» nel pannello, deciso dal custode), tiene la conversazione su disco, si ferma senza fermare il resto, e dopo un riavvio riprende il compito a meta'. |
 | `test_demone_dot_accesi.py` | I Dot si accendono solo dove conviene (D389), con la memoria video fissata dalla prova (`NOVA_PROVA_VRAM_MIB`, 8 GB): di serie, senza abbonamenti ne' API, sono spenti, il pannello dice perche', un Dot non nasce e non riceve compiti, a Claude e al modello di casa non arriva nessuno dei loro strumenti (58); accesi a mano nascono, lavorano, e gli strumenti tornano (62); spenti, un Dot finisce il compito in corso e non prende il successivo, che fa appena riacceso; un'API nella scala li accende, con «solo sul PC» no; Claude Code nel catalogo li accende, e a mano si spengono lo stesso. |
+| `test_demone_dot_harness.py` | Quello che la vista dei Dot nell'harness legge dal demone (D391), con un cervello finto: `dot.vista` e' solo della persona; un Dot che legge un file e ne scrive un altro (con `~` nel percorso) li lascia nella scheda e nella vista di tutti, col percorso sciolto, il compito e lo strumento, e un evento per l'harness; la chat del Dot ha i passi del compito, i messaggi che manda e quelli che riceve, e chi scrive dall'harness firma come Nova; l'organigramma col capo e come sta ogni Dot, i gruppi coi messaggi, la chat di un gruppo. |
 | `test_demone_dot_fra_loro.py` | I Dot parlano fra loro (D388), con un cervello finto che riconosce chi gli parla: la piramide (il capo e i suoi sottoposti, i capi che non si possono dare, i nomi presi); i gruppi che fa Nova; la posta che arriva subito e si legge al compito dopo, insieme alla squadra; il capo che affida ai suoi e non agli altri, va in attesa, fa un altro compito, e riprende con gli esiti di tutti; a Nova si consegnano solo i compiti che ha dato lei; un Dot che scrive a Nova finisce in chat, e in un gruppo scrivono solo i membri; far nascere, fermare e fare i gruppi resta di Nova; un capo che a ogni ripresa riaffida si ferma dopo cinque attese. |
 | `test_demone_documenti.py` | Leggere un documento, dal demone. |
 | `test_demone_elevato.py` | Un comando confinato non riceve mai i poteri dell'amministratore, nemmeno da un demone elevato: o parte senza (gruppo non attivo, cartella degli Amministratori non scrivibile, `write_roots` si') o il demone rifiuta e lo dice (D369). Va lanciata da amministratore; da utente normale, e in CI, esce 2: la guardia in CI e' la prova Rust `windows_un_comando_non_riceve_i_poteri_dell_amministratore`. |

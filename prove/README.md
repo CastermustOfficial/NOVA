@@ -8,9 +8,9 @@ che non si conosce. L'indice di tutte, una per una, sta in
 | cartella | quante | cosa serve | se non c'e' |
 | --- | ---: | --- | --- |
 | `gemelli/` | 31 | un banco Rust costruito con `cargo` | esce 2 e stampa la riga per costruirlo |
-| `demone/` | 37 | il binario `novad` costruito | esce 2 |
+| `demone/` | 38 | il binario `novad` costruito | esce 2 |
 | `macchina/` | 16 | una macchina vera: Windows, uno schermo, l'audio, Chrome | esce 2 |
-| `progetto/` | 28 | niente: guarda il repository stesso | — |
+| `progetto/` | 29 | niente: guarda il repository stesso | — |
 | `nova/` | 41 | niente: sono prove di unita' in puro Python | — |
 
 **Uscita 0 passata, 1 rossa, 2 «qui non si puo' fare».** Il 2 non e' un

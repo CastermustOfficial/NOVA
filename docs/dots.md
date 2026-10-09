@@ -169,8 +169,9 @@ progetto, e che resta.
 2. ~~**Nova li chiama**: affidare, chiedere lo stato, leggere l'esito~~ (D387).
 3. ~~**I Dot parlano fra loro**: i messaggi, la chat di gruppo e i gruppi,
    affidare un compito a chi sta sotto e consegnarlo a chi sta sopra~~ (D388).
-4. **L'harness**: la vista dei Dot e dei progetti, l'organigramma, le chat,
-   i rapporti nell'editor. Da qui l'utente vede e scrive.
+4. ~~**L'harness**: la vista dei Dot, l'organigramma, le chat, i rapporti
+   nell'editor. Da qui l'utente vede e scrive~~ (D391). I progetti si
+   vedranno quando ci saranno, col sesto passo.
 5. **AR**: assume i Dot (mestiere, ruolo, cervello), li riprende, li
    licenzia, sceglie il modello per ogni compito. Ogni scelta si registra.
 6. **L'APM e i progetti**: il piano, l'organigramma, il via, il tetto, il
@@ -459,3 +460,22 @@ messaggi, finisce quello in corso e non prende il successivo; e i loro
 strumenti non arrivano ai modelli, cosi' il modello di casa si riprende il
 contesto (2.549 token alla conversazione invece di 2.100).
 
+**Nell'harness — fatto** (D391). Le scelte sulla bozza, il 9 ottobre: una
+vista a sinistra, «I Dot», con l'organigramma (Tu e Nova in cima, ogni Dot
+sotto il suo capo), il custode a parte, i gruppi e i file che i Dot stanno
+toccando, come in *Esplora*; l'organigramma anche come schema, in una
+scheda. Un Dot si apre in una scheda al centro: chi e', come sta, e la sua
+chat coi compiti, i passi, i messaggi che riceve e quelli che manda; i
+rapporti nell'editor. Si scrive un messaggio o si affida un compito, e chi
+scrive da li' firma come Nova: per i Dot l'utente e Nova sono la stessa
+cosa. Il demone lo dice con `dot.vista`, solo della persona; nella cartella
+di un Dot ci sono due file in piu', `file.jsonl` e `inviati.jsonl`.
+
+### Cosa resta aperto, dopo l'harness
+
+- **I file di un comando di shell non si vedono**: quali file tocca un
+  comando non si indovina.
+- **La scheda di un Dot non va con la domanda a NOVA**: chiedere a Nova
+  «cosa sta facendo questo?» guardando un Dot vuol dire nominarlo.
+- **I progetti** non ci sono ancora: la vista li mostrera' col sesto passo,
+  l'APM.

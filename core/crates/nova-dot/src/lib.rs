@@ -15,6 +15,8 @@
 //!   diario.jsonl        cosa ha fatto, passo per passo
 //!   vault/              la sua memoria, nello stesso formato di quella di NOVA
 //!   rapporti/           quello che consegna: il ricercatore, un .md per compito
+//!   file.jsonl          i file che ha toccato, per l'harness (D391, [`vista`])
+//!   inviati.jsonl       i messaggi che ha mandato (D391)
 //! ```
 //!
 //! Il ricercatore (D383) ha le sue regole in [`ricerca`]: il piano, i passi,
@@ -35,6 +37,7 @@ pub mod consegna;
 pub mod custode;
 pub mod gruppi;
 pub mod ricerca;
+pub mod vista;
 
 /// I nomi che un Dot non puo' avere: la cartella dei gruppi e Nova.
 pub const NOMI_PRESI: [&str; 2] = [gruppi::CARTELLA, DA_NOVA];
@@ -624,7 +627,7 @@ pub(crate) fn scrivi_intero(p: &Path, testo: &str) -> Result<(), String> {
 /// chi gli affida un compito scrivono nello stesso file da due fili: senza
 /// questo, su Windows due righe si sono mescolate e la coda ha perso dei
 /// passaggi (`test_demone_dot.py`).
-static SCRITTURA: std::sync::Mutex<()> = std::sync::Mutex::new(());
+pub(crate) static SCRITTURA: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 pub(crate) fn aggiungi_riga(p: &Path, riga: &str) -> Result<(), String> {
     let _turno = SCRITTURA.lock().unwrap_or_else(|e| e.into_inner());
@@ -633,7 +636,7 @@ pub(crate) fn aggiungi_riga(p: &Path, riga: &str) -> Result<(), String> {
 
 /// La riga intera, a capo compreso, in una scrittura sola: `writeln!` su un
 /// file ne fa due, e fra le due puo' passare un altro.
-fn aggiungi_riga_gia_in_turno(p: &Path, riga: &str) -> Result<(), String> {
+pub(crate) fn aggiungi_riga_gia_in_turno(p: &Path, riga: &str) -> Result<(), String> {
     use std::io::Write;
     let mut f = std::fs::OpenOptions::new()
         .create(true)

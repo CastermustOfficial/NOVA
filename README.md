@@ -595,7 +595,7 @@ sottoposti, aspetta che consegnino facendo intanto altro, e riprende con i
 loro esiti. Si scrivono (`dot.scrivi`): la posta la leggono al compito dopo,
 e quella per Nova arriva in chat. I gruppi li fa Nova se glielo chiedi
 (`dot.gruppo`). Dal demone ci sono anche i metodi `dot/crea`, `dot/affida`,
-`dot/stato`, `dot/elenco` e `dot/ferma`; la vista nell'harness viene dopo.
+`dot/stato`, `dot/elenco` e `dot/ferma`.
 
 I Dot sono per chi ha un abbonamento, un'API o una scheda video da almeno
 24 GB (D389): di serie NOVA li accende quando c'e' uno dei tre, e li spegne
@@ -603,6 +603,19 @@ quando non c'e'. Nel pannello, alla voce **I Dot**, si accendono e si
 spengono a mano. Spenti non lavorano, non nascono e non ricevono compiti, e
 il modello sul PC non riceve i loro strumenti: gli resta piu' spazio per la
 conversazione.
+
+Nell'harness (D391) i Dot hanno una vista loro, a sinistra (Ctrl+Maiusc+D):
+l'organigramma, con te e Nova in cima e ogni Dot sotto il suo capo, che si
+vede anche come schema; il custode a parte; i gruppi; e i file che i Dot
+stanno toccando, come in *Esplora*, con chi li ha letti, scritti o tolti. Un
+Dot si apre in una scheda accanto ai file: chi e', cosa sta facendo, e la sua
+chat coi compiti, i passi di ognuno e i messaggi che riceve e manda. I
+rapporti si aprono nell'editor. Da li' gli scrivi un messaggio, che legge al
+prossimo compito, o gli affidi un compito; per i Dot quello che scrivi tu e
+quello che scrive Nova sono la stessa cosa. Da li' si fanno anche nascere i
+Dot e i gruppi. I file toccati sono quelli degli strumenti di NOVA che
+leggono, scrivono, copiano, spostano e cancellano: quali file tocca un
+comando di shell non si indovina.
 
 ## Installazione
 

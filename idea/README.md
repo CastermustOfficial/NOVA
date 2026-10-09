@@ -43,6 +43,19 @@ scritte una sola volta. **Cosa costerebbe.** Leggere `brains.routing.motori`
 in quei tre posti, decidere cosa fare quando la lista manca (le scale scritte
 prima del D390 non ce l'hanno), e una prova per ognuno.
 
+## I file di un comando, e la scheda di un Dot con la domanda
+
+Nate col D391 (9 ottobre). **Cosa.** Due cose che la vista dei Dot
+nell'harness non fa. La prima: i file toccati da un comando di shell; oggi
+si vedono solo quelli degli strumenti di NOVA. La seconda: guardando un Dot,
+chiedere a Nova «cosa sta facendo?» senza nominarlo, come oggi la domanda
+porta con se' il file aperto. **Perche'.** Un Dot che programma lavora molto
+coi comandi; e la scheda aperta e' il contesto piu' ovvio. **Cosa
+costerebbe.** Per la prima, guardare la cartella prima e dopo il comando
+(nel recinto si sa dove puo' scrivere), senza indovinare dal testo del
+comando; per la seconda, una postilla «sta guardando il Dot X» accanto a
+quella dei file (`nova_harness::aperti`), e una prova che la porti.
+
 ## Una voce che parla davvero: un modello speech-to-speech davanti a NOVA
 
 Aggiunta da Gio il 7 ottobre: i tempi morti, il microfono e le interruzioni vengono dalla catena voce -> testo -> cervello -> voce, che occupa memoria e somma ritardi. Serve un modello che ascolti e parli da solo, e che passi il lavoro a NOVA. Per dopo, ed e' un di piu': chi ha una chiave la usa, guidato da NOVA, gli altri restano con la voce di oggi.

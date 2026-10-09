@@ -399,6 +399,10 @@ body.lavora #btnFerma{display:flex}
       <button id="attTest" title="Test">
         <svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/></svg>
       </button>
+      <button id="attDot" title="I Dot (Ctrl+Maiusc+D)">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.2"/><circle cx="5" cy="18" r="2.2"/><circle cx="12" cy="18" r="2.2"/><circle cx="19" cy="18" r="2.2"/><path d="M12 7.2V12M5 15.8V12h14v3.8M12 12v3.8"/></svg>
+        <span class="pallino" id="pallinoDot" hidden></span>
+      </button>
     </nav>
 
     <aside class="lato">
@@ -439,6 +443,9 @@ body.lavora #btnFerma{display:flex}
         </div>
         <div class="prova-sintesi" id="sintesiProva">Riconosco da solo come si provano i test: cargo, npm, go, pytest, o gli script di prova.</div>
       </div>
+      <div class="vista dot-vista" id="vDot" hidden>
+        <div class="elenco-vista" id="elencoDot"></div>
+      </div>
     </aside>
 
     <main class="centro">
@@ -462,6 +469,7 @@ body.lavora #btnFerma{display:flex}
         </div>
         <div class="word" id="word" hidden></div>
         <div class="immagine" id="immagine" hidden></div>
+        <div class="dot-pagina" id="dotPagina" hidden></div>
         <div id="confronto" hidden>
           <div class="barra-confronto" id="barraConfronto"></div>
           <div class="avviso" id="avvisoConfronto" hidden></div>
@@ -558,6 +566,7 @@ import { creaOrb } from './orb.js';
 import { rendi, pulisci } from './markdown.js';
 import { T, avviaLingua, traduciDocumento, linguaCorrente } from './lingue.js';
 import { sportello } from './permessi.js';
+import { avviaDot } from './dot.js';
 
 const tauri = window.__TAURI__;
 const invoke = tauri?.core?.invoke;
@@ -622,7 +631,9 @@ function fotografia({ bozze = false } = {}) {
   if (a?.tipo === 'testo' && ed.monaco && a.modello) a.vista = ed.monaco.saveViewState();
   return {
     cartella: stato.cartella,
-    schede: stato.schede.filter(s => s.tipo !== 'altro' && s.tipo !== 'proposta').map(s => {
+    // Le schede dei Dot non si ricordano: si riaprono dalla vista, e un Dot
+    // puo' non esserci piu'.
+    schede: stato.schede.filter(s => s.tipo !== 'altro' && s.tipo !== 'proposta' && s.tipo !== 'dot').map(s => {
       const x = { percorso: s.percorso };
       if (s.tipo === 'testo' && s.vista) x.vista = s.vista;
       if (s.tipo === 'pdf') { x.pagina = s.pagina || 1; x.scala = s.scala || null; }
@@ -632,7 +643,7 @@ function fotografia({ bozze = false } = {}) {
       }
       return x;
     }),
-    attiva: stato.attiva,
+    attiva: attiva()?.tipo === 'dot' ? null : stato.attiva,
     espanse: [...stato.espanse],
     chat: stato.chat,
     vista: stato.vista || 'esplora',
@@ -998,8 +1009,9 @@ function disegnaSchede() {
   for (const s of stato.schede) {
     const d = document.createElement('div');
     d.className = 'scheda' + (s.percorso === stato.attiva ? ' si' : '') + (s.sporco ? ' sporca' : '');
-    d.title = s.tipo === 'proposta' ? T('Proposta di NOVA su ') + s.file : s.percorso;
-    const est = s.tipo === 'proposta' ? '⇄' : estensione(s.percorso).slice(1).toUpperCase();
+    d.title = s.tipo === 'proposta' ? T('Proposta di NOVA su ') + s.file : s.tipo === 'dot' ? s.nome : s.percorso;
+    const est = s.tipo === 'proposta' ? '⇄' : s.tipo === 'dot' ? (s.cosa === 'gruppo' ? T('GRUPPO') : s.cosa === 'schema' ? T('SCHEMA') : 'DOT')
+      : estensione(s.percorso).slice(1).toUpperCase();
     if (s.tipo !== 'testo' && est) {
       const t = document.createElement('span');
       t.className = 'tipo';
@@ -1033,6 +1045,14 @@ function disegnaBriciole() {
   const b = $('briciole');
   b.innerHTML = '';
   if (!s) return;
+  if (s.tipo === 'dot') {
+    b.innerHTML = '';
+    const a = document.createElement('span'); a.textContent = T('I Dot'); b.appendChild(a);
+    const sep = document.createElement('b'); sep.textContent = ' › '; b.appendChild(sep);
+    const n = document.createElement('span'); n.className = 'io'; n.textContent = s.nome; b.appendChild(n);
+    b.title = s.nome;
+    return;
+  }
   const vero = s.file || s.percorso;
   const pezzi = relativo(vero, stato.cartella).split(/[\\/]/).filter(Boolean);
   if (stato.cartella && dentro(vero, stato.cartella)) pezzi.unshift(nomeDi(stato.cartella));
@@ -1057,8 +1077,10 @@ function mostraScheda(s) {
   $('pdf').hidden = s.tipo !== 'pdf';
   $('word').hidden = s.tipo !== 'docx';
   $('immagine').hidden = s.tipo !== 'immagine';
+  $('dotPagina').hidden = s.tipo !== 'dot';
   $('anteprima').hidden = true;
-  if (s.tipo === 'testo') ed.mostra(s);
+  if (s.tipo === 'dot') dot.mostra(s);
+  else if (s.tipo === 'testo') ed.mostra(s);
   else if (s.tipo === 'proposta') mostraConfronto(s);
   else if (s.tipo === 'pdf') mostraPdf(s);
   else if (s.tipo === 'docx') mostraWord(s);
@@ -1677,7 +1699,7 @@ async function chiudiScheda(s) {
     else {
       $('editor').hidden = true; $('ripiego').hidden = true; $('documento').hidden = true;
       $('confronto').hidden = true;
-      $('pdf').hidden = $('word').hidden = $('immagine').hidden = true;
+      $('pdf').hidden = $('word').hidden = $('immagine').hidden = $('dotPagina').hidden = true;
       $('anteprima').hidden = true; $('btnAnteprima').hidden = true;
       disegnaSchede(); disegnaBriciole(); disegnaAlbero(); disegnaContesto(); aggiornaPiede(); ricorda();
     }
@@ -2076,8 +2098,8 @@ const includi = { file: true, selezione: true };
 
 function contesto() {
   const s = attiva();
-  const c = { cartella: stato.cartella || '', aperti: [...new Set(stato.schede.map(x => x.file || x.percorso))] };
-  if (s && includi.file) {
+  const c = { cartella: stato.cartella || '', aperti: [...new Set(stato.schede.filter(x => x.tipo !== 'dot').map(x => x.file || x.percorso))] };
+  if (s && s.tipo !== 'dot' && includi.file) {
     c.attivo = { percorso: s.file || s.percorso };
     if (s.tipo === 'testo') {
       c.attivo.riga = ed.posizione()?.riga || 0;
@@ -2099,7 +2121,8 @@ function disegnaContesto() {
   const el = $('contesto');
   el.innerHTML = '';
   const s = attiva();
-  if (!s) return;
+  // La scheda di un Dot non e' un file: non va con la domanda.
+  if (!s || s.tipo === 'dot') return;
   const pezzo = (testo, titolo, chiaveIncludi) => {
     const p = document.createElement('div');
     p.className = 'pezzo' + (includi[chiaveIncludi] ? '' : ' via');
@@ -2171,7 +2194,7 @@ function mostraChat(si) {
 const permessi = sportello({ discorso: $('discorso'), invoke, T, nota, fondo, prima: togliInizio });
 
 /* ============================================ le viste a sinistra === */
-const VISTE = ['esplora', 'cerca', 'modifiche', 'test'];
+const VISTE = ['esplora', 'cerca', 'modifiche', 'test', 'dot'];
 const maiuscola = x => x[0].toUpperCase() + x.slice(1);
 function mostraVista(v) {
   for (const x of VISTE) {
@@ -2179,6 +2202,7 @@ function mostraVista(v) {
     $('att' + maiuscola(x)).classList.toggle('si', x === v);
   }
   stato.vista = v;
+  if (v === 'dot') dot.mostrata();
   if (v === 'cerca') {
     // Quel che e' selezionato nell'editor diventa la domanda, come in VS Code.
     const sel = attiva()?.tipo === 'testo' ? ed.selezione() : null;
@@ -2306,6 +2330,18 @@ async function vaiAlTrovato(f, x) {
 let proposte = [];
 
 const chiama = (capacita, args = {}) => invoke('demone_chiama', { capacita, args });
+
+/* I Dot (D391): la vista a sinistra e le loro schede al centro stanno in
+   dot.js; qui gli si da' quello che gli serve della finestra. */
+const dot = avviaDot({
+  $, chiama, apriFile, messaggio,
+  attiva,
+  schede: () => stato.schede,
+  aggiungiScheda: s => stato.schede.push(s),
+  mostraScheda,
+  vistaAttiva: () => stato.vista,
+  pallino: n => { const p = $('pallinoDot'); p.hidden = !n; p.textContent = n > 9 ? '9+' : String(n || ''); },
+});
 
 async function caricaProposte() {
   if (!invoke) return;
@@ -3148,6 +3184,7 @@ for (const [id, k] of [['cercaMaiuscole', 'maiuscole'], ['cercaParola', 'parola'
 $('cercaDocumenti').onchange = () => { cercaOpzioni.documenti = $('cercaDocumenti').checked; cercaOra(); };
 $('attModifiche').onclick = () => mostraVista('modifiche');
 $('attTest').onclick = () => mostraVista('test');
+$('attDot').onclick = () => mostraVista('dot');
 $('stProposte').onclick = () => mostraVista('modifiche');
 $('btnAccettaTutto').onclick = () => applicaProposte(tutteLeProposte());
 $('btnProvaTutto').onclick = () => applicaProposte(tutteLeProposte(), { verifica: true });
@@ -3216,6 +3253,7 @@ document.addEventListener('keydown', e => {
   else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'o') { e.preventDefault(); scegli(true); }
   else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'e') { e.preventDefault(); mostraVista('esplora'); }
   else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'm') { e.preventDefault(); mostraVista('modifiche'); }
+  else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'd') { e.preventDefault(); mostraVista('dot'); }
   else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'f') { e.preventDefault(); mostraVista('cerca'); }
   else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'v') { e.preventDefault(); $('btnAnteprima').hidden || $('btnAnteprima').click(); }
   else if (ctrl && e.key === 'Tab' && stato.schede.length > 1) {
@@ -3237,6 +3275,7 @@ ascolta?.('nova://evento', ev => {
   permessi.evento(e);
   if (e.topic === 'harness.prova') eventoProva(e.dati || {});
   if (e.topic === 'shell.executed') comandoDiNova(e.dati || {});
+  dot.evento(e.topic, e.dati || {});
 });
 ascolta?.('nova://proposte', () => caricaProposte());
 /* La voce e la nuvoletta finiscono qui come nell'orb: la conversazione e'
