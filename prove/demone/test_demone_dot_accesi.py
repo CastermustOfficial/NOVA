@@ -208,11 +208,11 @@ try:
     controlla("un Dot nasce", any(d["nome"] == "lavoratore" for d in capacita("dot.stato")["dots"]))
     nomi = per_claude()
     controlla("Claude vede i sei strumenti dei Dot, non quello del pannello",
-              {"dot_crea", "dot_affida", "dot_stato", "dot_ferma", "dot_scrivi", "dot_gruppo"} <= nomi
-              and "dot_accesi" not in nomi, str(sorted(n for n in nomi if n.startswith("dot"))))
+              {"dot_assumi", "dot_affida", "dot_stato", "dot_ferma", "dot_scrivi", "dot_gruppo"} <= nomi
+              and "dot_accesi" not in nomi and "dot_crea" not in nomi, str(sorted(n for n in nomi if n.startswith("dot"))))
     o = offerti_in_un_turno()
     controlla("al modello di casa ne arrivano 62, coi quattro dei Dot",
-              len(o) == 62 and {"dot_affida", "dot_crea", "dot_scrivi", "dot_stato"} <= set(o), f"{len(o)}")
+              len(o) == 62 and {"dot_affida", "dot_assumi", "dot_scrivi", "dot_stato"} <= set(o), f"{len(o)}")
     capacita("dot.affida", nome="lavoratore", compito="primo")
     fine = time.time() + 30
     while time.time() < fine and compito("lavoratore", 1).get("stato") != "fatto":

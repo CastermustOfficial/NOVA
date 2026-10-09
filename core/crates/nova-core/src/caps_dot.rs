@@ -7,9 +7,11 @@
 //! - **affidare non chiede il permesso** (`dot.affida`, innocua): e' passare
 //!   la palla; dei permessi del Dot, mentre lavora, si occupa il custode
 //!   (D384);
-//! - **Nova fa nascere un Dot solo se l'utente lo chiede** (`dot.crea`), con
-//!   la conferma del pannello come ogni azione che modifica. Quando ci sara'
-//!   AR (*Artificial Resources*), assumera' lui;
+//! - **Nova fa nascere un Dot solo se l'utente lo chiede**, con la conferma
+//!   del pannello come ogni azione che modifica. Dal D397 non lo fa nascere
+//!   lei: chiede ad AR (`dot.assumi`), che ne riprende uno libero o ne
+//!   assume uno, e sceglie il cervello del compito. `dot.crea` resta alla
+//!   persona, per il «+» dell'harness;
 //! - quando un Dot finisce un compito di Nova, l'utente lo sa **in chat e a
 //!   voce** (`nova_core::dot::consegna`).
 //!
@@ -35,6 +37,7 @@ use crate::capability::{arg_str, arg_str_opt, schema, Capability, Ctx, Registry}
 
 pub fn register(reg: &mut Registry) {
     reg.add(Arc::new(CreaCap));
+    reg.add(Arc::new(AssumiCap));
     reg.add(Arc::new(AffidaCap));
     reg.add(Arc::new(StatoCap));
     reg.add(Arc::new(FermaCap));
@@ -193,6 +196,51 @@ impl Capability for CreaCap {
         let mestiere = arg_str_opt(&args, "mestiere").unwrap_or_default();
         let capo = arg_str_opt(&args, "capo").unwrap_or_default();
         crate::dot::crea(server, &nome, &ruolo, &mestiere, &capo).map_err(|e| anyhow!(e))
+    }
+}
+
+/// Nova chiede un Dot ad AR (D397).
+struct AssumiCap;
+
+#[async_trait]
+impl Capability for AssumiCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "dot.assumi".into(),
+            description: "Chiede ad AR, le risorse dei Dot, un Dot per un lavoro: ne riprende uno \
+                          libero che fa al caso o ne assume uno, e sceglie il cervello del \
+                          compito. Solo se l'utente chiede un Dot o un lavoro per un Dot."
+                .into(),
+            risk: Risk::Moderate,
+            category: "dot".into(),
+            schema: schema(&[
+                ("bisogno", "string", "chi serve, per fare cosa", true),
+                ("compito", "string", "il compito da affidargli, o vuoto", false),
+                ("capo", "string", "un Dot, o vuoto", false),
+            ]),
+        }
+    }
+
+    async fn anteprima(&self, args: Value, _ctx: &Ctx) -> Option<Result<Value>> {
+        let capo = arg_str_opt(&args, "capo").unwrap_or_default();
+        Some(Ok(json!({
+            "farei": "chiederei ad AR un Dot per questo lavoro: ne riprende uno libero che fa al \
+                      caso o ne assume uno nuovo, e sceglie il cervello del compito",
+            "bisogno": arg_str_opt(&args, "bisogno").unwrap_or_default(),
+            "compito": arg_str_opt(&args, "compito").unwrap_or_default(),
+            "capo": if capo.trim().is_empty() { "nessuno".to_string() } else { capo },
+            "annullabile": false,
+        })))
+    }
+
+    async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
+        let server = per_nova("chiedere un Dot ad AR")?;
+        let bisogno = arg_str(&args, "bisogno")?;
+        let compito = arg_str_opt(&args, "compito").unwrap_or_default();
+        let capo = arg_str_opt(&args, "capo").unwrap_or_default();
+        crate::risorse::assumi(server, &bisogno, &compito, &capo)
+            .await
+            .map_err(|e| anyhow!(e))
     }
 }
 

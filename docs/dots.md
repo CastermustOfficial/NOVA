@@ -237,7 +237,8 @@ specialisti. Li assume AR.
 5. ~~**La direzione e i reparti** (D395): chi sono, i ruoli, l'organigramma
    che nasce all'avvio~~ (D396).
 6. **AR**: riprende, assume, licenzia, sceglie il cervello del compito.
-   Ogni scelta si registra.
+   Ogni scelta si registra. ~~Riprendere, assumere e il cervello del
+   compito~~ (D397); resta licenziare.
 7. **L'Architetto** e il piano di sviluppo.
 8. **L'APM e i progetti**: il via, il tetto, il vault del progetto, i Dot
    disposti, i controlli del legale.
@@ -587,3 +588,42 @@ L'APM (`apm`) e' il capo di tutti; sotto di lui `ar`, `architetto`,
   e' da decidere.
 - **L'amministrazione e' un Dot generico**: il conto della spesa contro il
   tetto arriva con l'APM e i progetti.
+
+**AR, chi lavora e con che cervello — fatto** (D397). Nova non fa piu'
+nascere un Dot da se': chiede ad AR con `dot.assumi` (cosa serve, il
+compito se c'e', sotto chi), che chiede la conferma come prima. Le regole
+stanno in `nova_dot::risorse`, il lavoro in `nova_core::risorse`.
+
+- **AR chiede al cervello piu' grande che risponde a un indirizzo**, con una
+  domanda sola e senza strumenti, come il custode quando il modello di casa
+  non sa. La domanda dice cosa serve, il compito, i Dot che prendono compiti
+  (i liberi prima, al massimo 40, con quanti compiti hanno fatto e fallito)
+  e i cervelli della scala; la risposta e' un oggetto JSON, «riprendi» o
+  «assumi». Se la domanda dovrebbe uscire dal PC si chiede prima a
+  `nova_decisioni` (`SceltaDiAr`), e una credenziale dentro non esce.
+- **Riprende** un Dot che c'e' e, se Nova ha detto sotto chi, gli cambia il
+  capo (`dot::cambia_capo`: non i posti fissi, e mai un giro). **Assume** un
+  Dot nuovo, generico o ricercatore, segnato `assunto` nel suo `dot.json`.
+- **Il cervello e' di tutto il compito**: sta nella riga con cui il compito
+  entra in coda (`cervello`). Un Dot generico fa ogni turno a partire da li';
+  il ricercatore lo usa per il piano e per ogni passo (scelto da `ar`) anche
+  se il piano ne chiede un altro, e il revisore grande puo' ancora far
+  salire un passo scarso.
+- **Se AR non sa scegliere non sceglie nessuno**: nessun cervello a cui
+  chiedere, una risposta che non si legge, un Dot che non c'e', il nome di
+  un posto fisso; Nova riceve il perche'.
+- **Ogni scelta si registra**: `scelta_ar` in `decisioni.jsonl` e nel diario
+  di AR, con la domanda, cosa ha scelto, il cervello, il perche' e le note; e
+  quando il compito finisce, accanto, `esito_ar` con com'e' andato.
+- **Far nascere un Dot a mano resta della persona**: `dot.crea` sta fra le
+  capacita' solo della persona, per il «+» dell'harness; un modello vede
+  `dot.assumi`. Anche col modello di casa gli strumenti dei Dot restano
+  quattro.
+
+### Cosa resta aperto, dopo AR
+
+- **Licenziare**: un assunto fermo da 30 giorni, che non e' capo di nessuno,
+  AR lo licenzia e lo dice in chat; e l'utente lo puo' licenziare quando
+  vuole. E' il prossimo pezzo di AR.
+- **Un compito affidato direttamente** a un Dot che c'e' va come prima: il
+  cervello lo sceglie il Dot (deciso con Gio).

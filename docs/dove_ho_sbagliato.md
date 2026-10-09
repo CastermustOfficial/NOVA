@@ -2504,3 +2504,14 @@ La regola c'era gia', ed e' quella delle cinque cartelle: `test/` si
 aggiorna nello stesso commit della prova. Prima del commit si guarda il
 `git diff --stat`: una prova cambiata senza `test/README.md` accanto e' un
 commit da finire.
+
+## Il D396 uscito senza il README
+
+La direzione e i reparti dei Dot (D396) cambiano quello che l'utente vede:
+nell'harness compaiono undici Dot che prima non c'erano. Il README racconta
+i Dot un passo alla volta, e il D396 non c'era, ne' in italiano ne' in
+inglese. L'ho visto scrivendo il D397, e li ho aggiunti tutti e due li'.
+
+La regola: un comportamento che l'utente vede va nel README nello stesso
+commit, in tutte e due le lingue; prima del commit si cerca nel README la
+sezione di quello che si e' toccato.

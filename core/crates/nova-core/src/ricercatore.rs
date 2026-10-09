@@ -327,13 +327,26 @@ pub async fn lavora(
         cfg,
     };
     let cima = l.cima();
+    // Il cervello che AR ha scelto per tutto il compito (D397): fa il piano e
+    // ogni passo, e il revisore puo' ancora far salire un passo scarso. Uno
+    // che non e' piu' nella scala non vale: decide il piano, come prima.
+    let di_ar = (!compito.cervello.is_empty())
+        .then(|| l.scala.iter().find(|g| **g == compito.cervello).cloned())
+        .flatten();
+    if !compito.cervello.is_empty() && di_ar.is_none() {
+        l.diario(json!({
+            "tipo": "nota",
+            "nota": format!("«{}», il cervello scelto da AR, non e' piu' nella scala: decide il piano", compito.cervello),
+        }));
+    }
 
-    // 1. Il piano, col cervello grande.
+    // 1. Il piano, col cervello grande, o con quello di AR.
     let mut chiesta = r::richiesta_del_piano(&compito.testo, &l.scala);
     if compito.riprese > 0 {
         chiesta.push_str(d::RIPRESO);
     }
-    let detto = match l.turno(&chiesta, &cima, "piano").await {
+    let chi_pianifica = di_ar.clone().unwrap_or_else(|| cima.clone());
+    let detto = match l.turno(&chiesta, &chi_pianifica, "piano").await {
         Ok(s) => match s.fine {
             Fine::Risposto(t) | Fine::PassiFiniti(t) => t,
             Fine::Fermato => return (d::Stato::Fermato, "fermato col «fermati» di Nova".into()),
@@ -355,8 +368,10 @@ pub async fn lavora(
     let mut fatti: Vec<r::Fatto> = Vec::new();
     for (i, passo) in piano.passi.iter().enumerate() {
         let numero = i + 1;
-        let mut cervello = passo.cervello.clone();
-        let mut scelto_da = passo.scelto_da;
+        let (mut cervello, mut scelto_da) = match &di_ar {
+            Some(g) => (g.clone(), r::SceltoDa::Ar),
+            None => (passo.cervello.clone(), passo.scelto_da),
+        };
         let mut rifatto: Option<(String, String)> = None;
         loop {
             l.evento(

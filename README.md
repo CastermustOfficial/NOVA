@@ -595,7 +595,16 @@ sottoposti, aspetta che consegnino facendo intanto altro, e riprende con i
 loro esiti. Si scrivono (`dot.scrivi`): la posta la leggono al compito dopo,
 e quella per Nova arriva in chat. I gruppi li fa Nova se glielo chiedi
 (`dot.gruppo`), e un capo coi suoi sottoposti (D392); un messaggio va anche
-a piu' Dot insieme, coi nomi separati dalla virgola. Dal demone ci sono anche i metodi `dot/crea`, `dot/affida`,
+a piu' Dot insieme, coi nomi separati dalla virgola. Poi sono diventati
+un'azienda (D395): coi Dot accesi NOVA fa nascere la direzione (l'APM, AR,
+l'Architetto) e i reparti (legale, commerciale, ricerca, revisione,
+scrittura, dati, qualita', amministrazione), che ci sono sempre; la
+direzione e il legale per ora non prendono compiti, i reparti si' (D396). E
+Nova non fa piu' nascere un Dot da se': lo chiede ad AR (`dot.assumi`, con
+la conferma come prima), che ne riprende uno libero che fa al caso o ne
+assume uno nuovo, e col cervello piu' grande sceglie il cervello di tutto il
+compito; ogni scelta finisce in `decisioni.jsonl` (D397). Far nascere un Dot
+a mano resta tuo, col «+» dell'harness. Dal demone ci sono anche i metodi `dot/crea`, `dot/affida`,
 `dot/stato`, `dot/elenco` e `dot/ferma`.
 
 I Dot sono per chi ha un abbonamento, un'API o una scheda video da almeno

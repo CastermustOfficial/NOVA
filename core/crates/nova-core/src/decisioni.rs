@@ -214,6 +214,50 @@ pub fn riga_permesso_dot(
     r
 }
 
+/// Una scelta di AR (D397): chi lavora e con che cervello.
+///
+/// `richiesta` e' la domanda che AR ha fatto al cervello grande, col
+/// bisogno, il compito e i candidati; `scelta` e' `riprendi` o `assumi`.
+#[allow(clippy::too_many_arguments)]
+pub fn riga_scelta_ar(
+    quando: &str,
+    richiesta: &str,
+    scelta: &str,
+    dot: &str,
+    cervello: &str,
+    perche: &str,
+    note: &[String],
+    candidati: usize,
+    deciso_da: &str,
+) -> Value {
+    let mut r = json!({
+        "quando": quando,
+        "tipo": "scelta_ar",
+        "scelta": scelta,
+        "dot": dot,
+        "cervello": cervello,
+        "note": note,
+        "candidati": candidati,
+        "deciso_da": deciso_da,
+    });
+    campo(&mut r, "richiesta", richiesta);
+    campo(&mut r, "perche", perche);
+    r
+}
+
+/// Com'e' finito un compito col cervello scelto da AR (D397): accanto alla
+/// scelta, e' l'esempio completo per insegnare a scegliere.
+pub fn riga_esito_ar(quando: &str, dot: &str, compito: u64, cervello: &str, stato: &str) -> Value {
+    json!({
+        "quando": quando,
+        "tipo": "esito_ar",
+        "dot": dot,
+        "compito": compito,
+        "cervello": cervello,
+        "stato": stato,
+    })
+}
+
 /// Scrive una riga nel registro, se e' acceso.
 pub fn annota(cfg: &Value, riga: &Value) {
     if attivo(cfg) {
@@ -242,6 +286,28 @@ mod prove {
     /// vedrebbe, giustamente, come una chiave.
     fn finta(prefisso: &str) -> String {
         format!("{prefisso}AbCdEfGhIjKlMnOpQrStUvWxYz0123456789")
+    }
+
+    #[test]
+    fn la_riga_di_ar_dice_cosa_ha_scelto_e_non_porta_credenziali() {
+        let chiave = finta("sk-ant-");
+        let r = riga_scelta_ar(
+            "t",
+            &format!("Cosa serve: uno che usi {chiave}"),
+            "assumi",
+            "lettore",
+            "medio",
+            "manca",
+            &["una nota".into()],
+            3,
+            "grande",
+        );
+        assert_eq!(r["tipo"], "scelta_ar");
+        assert_eq!((r["scelta"].as_str(), r["dot"].as_str(), r["cervello"].as_str()), (Some("assumi"), Some("lettore"), Some("medio")));
+        assert_eq!(r["candidati"], 3);
+        assert!(!r.to_string().contains(&chiave), "{r}");
+        let e = riga_esito_ar("t", "lettore", 4, "medio", "fatto");
+        assert_eq!((e["tipo"].as_str(), e["compito"].as_u64(), e["stato"].as_str()), (Some("esito_ar"), Some(4), Some("fatto")));
     }
 
     #[test]

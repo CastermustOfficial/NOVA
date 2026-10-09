@@ -118,6 +118,12 @@ class Cervello(BaseHTTPRequestHandler):
             testo(self, "Risultato: " + (ultimo.get("content") or "")[:400])
             return
         domanda = ultimo.get("content") or ""
+        # AR (D397) chiede al cervello piu' grande chi assumere: aiutante.
+        if domanda.startswith("[risorse]"):
+            testo(self, json.dumps({"scelta": "assumi", "nome": "aiutante",
+                                    "ruolo": "Fai i lavori che ti affida Nova.",
+                                    "mestiere": "generico", "cervello": "locale"}))
+            return
         if domanda.startswith("USA "):
             nome, _, argomenti = domanda[4:].partition(" ")
             chiama(self, nome, json.loads(argomenti or "{}"))
@@ -262,15 +268,15 @@ try:
     ascolto.watch_async(eventi.append)
     time.sleep(0.3)
 
-    print("\n1. Nova fa nascere un Dot solo con il si' dell'utente")
+    print("\n1. Nova chiede un Dot ad AR solo con il si' dell'utente (D397)")
     with Persona(consenti=False) as p:
-        usa("dot_crea", nome="aiutante", ruolo="Fai i lavori che ti affida Nova.")
-    controlla("l'utente se l'e' visto chiedere, con chi nasce",
-              len(p.viste) == 1 and "aiutante" in json.dumps(p.viste[0], ensure_ascii=False),
+        usa("dot_assumi", bisogno="uno che faccia i lavori di Nova")
+    controlla("l'utente se l'e' visto chiedere, con cosa serve",
+              len(p.viste) == 1 and "uno che faccia i lavori di Nova" in json.dumps(p.viste[0], ensure_ascii=False),
               json.dumps(p.viste, ensure_ascii=False)[:300])
     controlla("ha detto no, e il Dot non c'e'", not (AIUTANTE / "dot.json").exists())
     with Persona(consenti=True) as p:
-        usa("dot_crea", nome="aiutante", ruolo="Fai i lavori che ti affida Nova.")
+        usa("dot_assumi", bisogno="uno che faccia i lavori di Nova")
     controlla("ha detto si', e il Dot e' nato", (AIUTANTE / "dot.json").is_file()
               and len(p.viste) == 1, str(p.viste)[:200])
     elenco = capacita("dot.stato")["dots"]
@@ -357,7 +363,8 @@ try:
     with CoreClient(endpoint, timeout=30) as cc:
         per_claude = {t["name"] for t in cc.request("tools/list")["tools"]}
     controlla("Claude vede i quattro strumenti dei Dot",
-              {"dot_crea", "dot_affida", "dot_stato", "dot_ferma"} <= per_claude,
+              {"dot_assumi", "dot_affida", "dot_stato", "dot_ferma"} <= per_claude
+              and "dot_crea" not in per_claude,
               str(sorted(x for x in per_claude if x.startswith("dot"))))
     controlla("e il custode non prende compiti nemmeno da Nova",
               "non prende compiti" in errore("dot.affida", nome="custode", compito="x"))

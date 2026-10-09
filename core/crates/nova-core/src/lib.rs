@@ -65,6 +65,7 @@ pub mod recinto_controllo;
 pub mod recinto_registro;
 pub mod registro;
 pub mod ricercatore;
+pub mod risorse;
 pub mod ricette;
 pub mod righe;
 pub mod risveglio;

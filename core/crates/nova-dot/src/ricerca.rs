@@ -98,6 +98,8 @@ pub enum SceltoDa {
     Ripiego,
     /// Il revisore: il passo era scarso e si rifa' un gradino piu' su.
     Salita,
+    /// AR, che ha scelto il cervello di tutto il compito (D397).
+    Ar,
 }
 
 impl SceltoDa {
@@ -106,6 +108,7 @@ impl SceltoDa {
             SceltoDa::Piano => "piano",
             SceltoDa::Ripiego => "ripiego",
             SceltoDa::Salita => "salita",
+            SceltoDa::Ar => "ar",
         }
     }
 }
@@ -166,7 +169,7 @@ pub fn richiesta_del_piano(compito: &str, scala: &[String]) -> String {
 
 /// Il JSON dentro un testo: dalla prima graffa aperta all'ultima chiusa. I
 /// modelli lo mettono fra tre apici, o con una frase davanti.
-fn oggetto_dentro(testo: &str) -> Option<&str> {
+pub(crate) fn oggetto_dentro(testo: &str) -> Option<&str> {
     let inizio = testo.find('{')?;
     let fine = testo.rfind('}')?;
     (fine > inizio).then(|| &testo[inizio..=fine])
@@ -174,7 +177,7 @@ fn oggetto_dentro(testo: &str) -> Option<&str> {
 
 /// Il nome di un gradino come lo scrive la scala, se il piano ne ha scritto
 /// uno che c'e'. Le maiuscole non contano: «Grande» e' «grande».
-fn nella_scala(nome: &str, scala: &[String]) -> Option<String> {
+pub(crate) fn nella_scala(nome: &str, scala: &[String]) -> Option<String> {
     let n = nome.trim();
     scala
         .iter()

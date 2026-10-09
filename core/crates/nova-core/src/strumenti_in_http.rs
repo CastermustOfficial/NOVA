@@ -98,13 +98,14 @@ pub const DAL_PYTHON: [(&str, &str); 60] = [
 
 /// Le capacita' che il Python non aveva e che si offrono lo stesso: i Dot
 /// (D387, D388). Nova li chiama anche col modello di casa: affida, chiede
-/// com'e' andata, scrive e, se l'utente lo chiede, ne fa nascere uno; e un
+/// com'e' andata, scrive e, se l'utente lo chiede, chiede un Dot ad AR
+/// (`dot.assumi`, D397: far nascere un Dot a mano e' della persona); e un
 /// Dot sul modello di casa affida ai suoi sottoposti e scrive agli altri.
 /// Restano fuori `dot.ferma`, perche' il «fermati» di Nova ferma gia'
 /// tutti, e `dot.gruppo`: con lui alla conversazione restavano 1.998 token,
 /// sotto la soglia di 2.000. I gruppi, col modello di casa, si fanno da
 /// Claude o dalla porta del demone.
-pub const SOLO_DEL_DEMONE: [&str; 4] = ["dot.affida", "dot.crea", "dot.scrivi", "dot.stato"];
+pub const SOLO_DEL_DEMONE: [&str; 4] = ["dot.affida", "dot.assumi", "dot.scrivi", "dot.stato"];
 
 /// Il tetto degli schemi, in caratteri di JSON.
 ///

@@ -190,6 +190,7 @@ fn assicura_il_custode() {
         mestiere: d::Mestiere::Custode,
         capo: String::new(),
         fisso: false,
+        assunto: false,
     };
     if let Err(e) = c.crea(&custode) {
         tracing::warn!(errore = %e, "il custode dei permessi non nasce");
@@ -351,6 +352,19 @@ pub fn crea(
     mestiere: &str,
     capo: &str,
 ) -> Result<Value, String> {
+    nasce(server, nome, ruolo, mestiere, capo, false)
+}
+
+/// Come [`crea`], per un Dot che assume AR (D397): `assunto` e' vero, ed e'
+/// solo lui che AR puo' licenziare da solo.
+pub fn nasce(
+    server: &Arc<Server>,
+    nome: &str,
+    ruolo: &str,
+    mestiere: &str,
+    capo: &str,
+    assunto: bool,
+) -> Result<Value, String> {
     crate::dot_accesi::se_spenti()?;
     let c = cartella(nome)?;
     if d::nome_valido(nome)? == nova_dot::custode::NOME_CUSTODE {
@@ -369,18 +383,7 @@ pub fn crea(
         return Err("un Dot ha bisogno di un ruolo: e' quello che lo fa essere lui".into());
     }
     let capo = capo.trim();
-    if !capo.is_empty() {
-        if capo == nome.trim() {
-            return Err("un Dot non puo' essere il capo di se stesso".into());
-        }
-        let cc = cartella(capo)?;
-        if !cc.esiste() {
-            return Err(format!("il capo «{capo}» non c'e': prima nasce il capo, poi i sottoposti"));
-        }
-        if let Some((chi, cosa)) = a_parte(&cc) {
-            return Err(format!("{chi} non ha sottoposti: {cosa}"));
-        }
-    }
+    capo_valido(nome, capo)?;
     let dot = d::Dot {
         nome: d::nome_valido(nome)?,
         ruolo: ruolo.trim().to_string(),
@@ -388,11 +391,62 @@ pub fn crea(
         mestiere: d::Mestiere::da(mestiere)?,
         capo: capo.to_string(),
         fisso: false,
+        assunto,
     };
     c.crea(&dot)?;
     avvia(server, &dot.nome);
     server.ctx.bus.emit("dot.creato", json!({ "dot": dot.nome }));
     serde_json::to_value(&dot).map_err(|e| e.to_string())
+}
+
+/// Se `capo` puo' essere il capo di `nome`: vuoto (nessun capo), o un Dot
+/// che c'e', prende compiti, non e' lui, e non sta sotto di lui (un giro
+/// A capo di B capo di A non finirebbe mai di consegnare).
+pub(crate) fn capo_valido(nome: &str, capo: &str) -> Result<(), String> {
+    let (nome, capo) = (nome.trim(), capo.trim());
+    if capo.is_empty() {
+        return Ok(());
+    }
+    if capo == nome {
+        return Err("un Dot non puo' essere il capo di se stesso".into());
+    }
+    let cc = cartella(capo)?;
+    if !cc.esiste() {
+        return Err(format!("il capo «{capo}» non c'e': prima nasce il capo, poi i sottoposti"));
+    }
+    if let Some((chi, cosa)) = a_parte(&cc) {
+        return Err(format!("{chi} non ha sottoposti: {cosa}"));
+    }
+    let mut sopra = capo.to_string();
+    for _ in 0..64 {
+        let Some(su) = cartella(&sopra).ok().and_then(|c| c.dot().ok()).map(|d| d.capo) else {
+            break;
+        };
+        if su.is_empty() {
+            break;
+        }
+        if su == nome {
+            return Err(format!("«{capo}» sta gia' sotto «{nome}»: sarebbe un giro"));
+        }
+        sopra = su;
+    }
+    Ok(())
+}
+
+/// Cambia il capo di un Dot che c'e' (D397): lo fa AR quando lo riprende. I
+/// posti fissi dell'azienda non si spostano.
+pub fn cambia_capo(nome: &str, capo: &str) -> Result<(), String> {
+    let c = cartella(nome)?;
+    let mut dot = c.dot()?;
+    if dot.fisso {
+        return Err(format!("«{}» e' un posto fisso dell'azienda: il suo capo non cambia", dot.nome));
+    }
+    if dot.capo == capo.trim() {
+        return Ok(());
+    }
+    capo_valido(&dot.nome, capo)?;
+    dot.capo = capo.trim().to_string();
+    c.riscrivi(&dot)
 }
 
 /// Mette un compito in coda e sveglia il Dot. Torna subito, col numero del
@@ -411,6 +465,19 @@ pub fn affida_per(
     da: &str,
     padre: Option<d::Rif>,
 ) -> Result<u64, String> {
+    affida_con(server, nome, testo, da, padre, "")
+}
+
+/// Come [`affida_per`], col cervello che AR ha scelto per tutto il compito
+/// (D397). Vuoto: decide il Dot.
+pub fn affida_con(
+    server: &Arc<Server>,
+    nome: &str,
+    testo: &str,
+    da: &str,
+    padre: Option<d::Rif>,
+    cervello: &str,
+) -> Result<u64, String> {
     crate::dot_accesi::se_spenti()?;
     let c = cartella(nome)?;
     if !c.esiste() {
@@ -423,7 +490,7 @@ pub fn affida_per(
         return Err("un compito vuoto non e' un compito".into());
     }
     let da = if da.trim().is_empty() { "utente" } else { da.trim() };
-    let id = c.affida_per(testo.trim(), da, &adesso(), padre.clone())?;
+    let id = c.affida_con(testo.trim(), da, &adesso(), padre.clone(), cervello)?;
     if let Some(p) = &padre {
         let nota = d::Nota {
             id: p.id,
@@ -1012,6 +1079,7 @@ async fn ciclo(server: Arc<Server>, nome: String, m: Arc<Maniglia>) {
             da: String::new(),
             esito: String::new(),
             padre: None,
+            cervello: String::new(),
         });
         m.in_corso.store(compito.id, Ordering::SeqCst);
         server
@@ -1057,6 +1125,7 @@ async fn ciclo(server: Arc<Server>, nome: String, m: Arc<Maniglia>) {
                 da: String::new(),
                 esito: nota.clone(),
                 padre: None,
+                cervello: String::new(),
             });
             let _ = c.diario(&json!({
                 "quando": adesso(), "compito": compito.id, "tipo": "aspetta", "chi": attesi,
@@ -1082,6 +1151,7 @@ async fn ciclo(server: Arc<Server>, nome: String, m: Arc<Maniglia>) {
             da: String::new(),
             esito: esito.clone(),
             padre: None,
+            cervello: String::new(),
         });
         let _ = c.diario(&json!({
             "quando": adesso(), "compito": compito.id, "tipo": "finisce", "stato": stato,
@@ -1090,6 +1160,11 @@ async fn ciclo(server: Arc<Server>, nome: String, m: Arc<Maniglia>) {
             "dot.compito",
             json!({ "dot": nome, "id": compito.id, "stato": stato, "esito": esito }),
         );
+        // Il compito aveva il cervello scelto da AR: com'e' andata torna nel
+        // registro, accanto alla scelta (D397).
+        if !compito.cervello.is_empty() {
+            crate::risorse::esito(&nome, &compito, stato);
+        }
         if nova_dot::consegna::di_nova(&compito) {
             consegna(&server, &nome, &compito, stato, &esito);
         }
@@ -1259,7 +1334,20 @@ async fn lavora(
         } else {
             format!("{}{aggiunta}", d::domanda(compito))
         };
-        let r = crate::agente::turno_in(server, &cfg, &mut s, &testo, &sessione, false, "", &esecutore, "").await;
+        // Il cervello di AR, se l'ha scelto lui (D397): da li' parte ogni
+        // turno del compito.
+        let r = crate::agente::turno_in(
+            server,
+            &cfg,
+            &mut s,
+            &testo,
+            &sessione,
+            false,
+            "",
+            &esecutore,
+            &compito.cervello,
+        )
+        .await;
         salva(c, nome, &s);
         let svolto = match r {
             Ok(x) => x,

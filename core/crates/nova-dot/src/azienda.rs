@@ -156,6 +156,7 @@ pub fn dot_del_posto(p: &Posto, nato: &str) -> Dot {
         mestiere: p.mestiere,
         capo: p.capo.to_string(),
         fisso: true,
+        assunto: false,
     }
 }
 

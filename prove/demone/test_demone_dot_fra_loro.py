@@ -162,7 +162,7 @@ class Cervello(BaseHTTPRequestHandler):
             ("scrivi a nova", "dot_scrivi", {"a": "nova", "testo": "Ciao Nova, ho una domanda."}),
             ("scrivi al gruppo", "dot_scrivi", {"a": "gruppo:squadra", "testo": "Ci sono anch'io."}),
             ("fai un gruppo", "dot_gruppo", {"nome": "pirati", "membri": ["uno"]}),
-            ("fai nascere", "dot_crea", {"nome": "nuovo", "ruolo": "r"}),
+            ("fai nascere", "dot_assumi", {"bisogno": "un aiuto per la squadra"}),
             ("ferma due", "dot_ferma", {"nome": "due"}),
         ]:
             if chiave in ultima:
@@ -376,7 +376,8 @@ try:
             # Dal D392 un capo fa un gruppo coi suoi sottoposti: l'estraneo
             # non ne ha.
             ("fai un gruppo", "estraneo non ha sottoposti: un Dot fa un gruppo solo coi suoi"),
-            ("fai nascere", "estraneo e' un Dot: far nascere un Dot lo fa solo Nova"),
+            # Dal D397 un Dot si chiede ad AR, e lo chiede Nova.
+            ("fai nascere", "estraneo e' un Dot: chiedere un Dot ad AR lo fa solo Nova"),
             ("ferma due", "estraneo e' un Dot: fermare un Dot lo fa solo Nova")], start=2):
         capacita("dot.affida", nome="estraneo", compito=chiave)
         aspetta("estraneo", i)

@@ -608,7 +608,16 @@ them to deliver while doing something else, and resumes with their results.
 They write to each other (`dot.scrivi`): mail is read at the next task, and
 mail for Nova shows up in the chat. Groups are made by Nova if you ask it to
 (`dot.gruppo`), and by a boss with its subordinates (D392); a message can
-also go to several Dots at once, with the names separated by commas. The daemon also has the methods `dot/crea`, `dot/affida`,
+also go to several Dots at once, with the names separated by commas. Then
+they became a company (D395): with the Dots on, NOVA creates the management
+(the APM, AR, the Architect) and the departments (legal, sales, research,
+review, writing, data, quality, administration), which are always there;
+for now the management and legal take no tasks, the departments do (D396).
+And Nova no longer creates a Dot by itself: it asks AR (`dot.assumi`, with
+the same confirmation as before), which takes back a free Dot that fits or
+hires a new one, and with the biggest brain picks the brain for the whole
+task; every choice ends up in `decisioni.jsonl` (D397). Creating a Dot by
+hand stays yours, with the harness's «+». The daemon also has the methods `dot/crea`, `dot/affida`,
 `dot/stato`, `dot/elenco` and `dot/ferma`.
 
 The Dots are for whoever has a subscription, an API or a graphics card with

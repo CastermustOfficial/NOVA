@@ -109,6 +109,7 @@ mod prove {
             padre: None,
             attende: Vec::new(),
             attese: 0,
+            cervello: String::new(),
         }
     }
 

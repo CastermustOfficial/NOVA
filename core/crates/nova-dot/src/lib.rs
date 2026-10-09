@@ -38,6 +38,7 @@ pub mod consegna;
 pub mod custode;
 pub mod gruppi;
 pub mod ricerca;
+pub mod risorse;
 pub mod vista;
 
 /// I nomi che un Dot non puo' avere: la cartella dei gruppi e Nova.
@@ -93,6 +94,10 @@ pub struct Dot {
     /// scritto, e non lo e'.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub fisso: bool,
+    /// L'ha assunto AR (D397): e' solo lui che AR puo' licenziare da solo,
+    /// quando resta fermo troppo. Un Dot fatto nascere dall'utente no.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub assunto: bool,
 }
 
 /// Come lavora un Dot.
@@ -222,6 +227,10 @@ pub struct Evento {
     /// un pezzo (D388). Quando si chiude, l'esito torna li'.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub padre: Option<Rif>,
+    /// Nella riga con cui entra in coda: il cervello che AR ha scelto per
+    /// tutto il compito (D397). Vuoto: decide il Dot, come prima.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub cervello: String,
 }
 
 /// Un compito di un Dot: chi e quale.
@@ -286,6 +295,8 @@ pub struct Compito {
     pub attende: Vec<Sottocompito>,
     /// Quante volte e' andato in attesa.
     pub attese: u32,
+    /// Il cervello che AR ha scelto per tutto il compito (D397), o vuoto.
+    pub cervello: String,
 }
 
 /// Il nome di un Dot, se va bene: minuscole, cifre e trattini, non vuoto,
@@ -347,6 +358,7 @@ pub fn compiti(righe: &str) -> Vec<Compito> {
                         padre: e.padre,
                         attende: Vec::new(),
                         attese: 0,
+                        cervello: e.cervello,
                     });
                 }
             }
@@ -477,6 +489,7 @@ pub fn alla_ripartenza(coda: &[Compito], quando: &str) -> Vec<Evento> {
                     da: String::new(),
                     esito: "ripreso dopo un riavvio".into(),
                     padre: None,
+                    cervello: String::new(),
                 }
             } else {
                 Evento {
@@ -490,6 +503,7 @@ pub fn alla_ripartenza(coda: &[Compito], quando: &str) -> Vec<Evento> {
                         c.riprese + 1
                     ),
                     padre: None,
+                    cervello: String::new(),
                 }
             }
         })
@@ -768,6 +782,17 @@ impl Cartella {
         serde_json::from_str(t.trim_start_matches('\u{feff}')).map_err(|e| format!("{}: {e}", p.display()))
     }
 
+    /// Riscrive chi e' un Dot che c'e' gia', tutto insieme: serve a AR per
+    /// cambiargli il capo quando lo riprende (D397). Il nome non cambia.
+    pub fn riscrivi(&self, dot: &Dot) -> Result<(), String> {
+        let prima = self.dot()?;
+        if prima.nome != dot.nome {
+            return Err(format!("il Dot «{}» non cambia nome", prima.nome));
+        }
+        let testo = serde_json::to_string_pretty(dot).map_err(|e| e.to_string())? + "\n";
+        scrivi_intero(&self.radice.join("dot.json"), &testo)
+    }
+
     /// La coda di adesso.
     pub fn compiti(&self) -> Vec<Compito> {
         compiti(&std::fs::read_to_string(self.radice.join("compiti.jsonl")).unwrap_or_default())
@@ -789,6 +814,19 @@ impl Cartella {
         quando: &str,
         padre: Option<Rif>,
     ) -> Result<u64, String> {
+        self.affida_con(testo, da, quando, padre, "")
+    }
+
+    /// Come [`Cartella::affida_per`], col cervello che AR ha scelto per
+    /// tutto il compito (D397). Vuoto: decide il Dot.
+    pub fn affida_con(
+        &self,
+        testo: &str,
+        da: &str,
+        quando: &str,
+        padre: Option<Rif>,
+        cervello: &str,
+    ) -> Result<u64, String> {
         let _turno = SCRITTURA.lock().unwrap_or_else(|e| e.into_inner());
         let id = prossimo_id(&self.compiti());
         let e = Evento {
@@ -799,6 +837,7 @@ impl Cartella {
             da: da.to_string(),
             esito: String::new(),
             padre,
+            cervello: cervello.trim().to_string(),
         };
         let riga = serde_json::to_string(&e).map_err(|e| e.to_string())?;
         aggiungi_riga_gia_in_turno(&self.radice.join("compiti.jsonl"), &riga)?;
@@ -915,6 +954,7 @@ mod prove {
             da: if stato == Stato::Affidato { "utente".into() } else { String::new() },
             esito: if stato.chiuso() { format!("esito {id}") } else { String::new() },
             padre: None,
+            cervello: String::new(),
         })
         .unwrap()
     }
@@ -1013,7 +1053,7 @@ mod prove {
 
     #[test]
     fn il_prompt_dice_chi_e_e_le_domande_dicono_quale_compito() {
-        let d = Dot { nome: "ricercatore".into(), ruolo: "Cerchi e riassumi.".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: String::new(), fisso: false };
+        let d = Dot { nome: "ricercatore".into(), ruolo: "Cerchi e riassumi.".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: String::new(), fisso: false, assunto: false };
         let p = prompt(&d, "BASE");
         assert!(p.starts_with("BASE\n\n"));
         assert!(p.contains("sei ricercatore, un Dot di NOVA") && p.contains("Cerchi e riassumi."));
@@ -1081,11 +1121,34 @@ mod prove {
     }
 
     #[test]
+    fn il_cervello_di_ar_resta_col_compito_e_il_capo_si_riscrive() {
+        let base = std::env::temp_dir().join(format!("nova-dot-ar-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let c = Cartella::di(&base, "uno").unwrap();
+        c.crea(&Dot { nome: "uno".into(), ruolo: "r".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: String::new(), fisso: false, assunto: true }).unwrap();
+        assert!(c.dot().unwrap().assunto, "assunto da AR si scrive e si rilegge");
+        c.affida_con("fai", "nova", "t", None, " medio ").unwrap();
+        c.affida("altro", "nova", "t").unwrap();
+        let coda = c.compiti();
+        assert_eq!(coda[0].cervello, "medio");
+        assert_eq!(coda[1].cervello, "", "senza AR decide il Dot");
+        let righe = std::fs::read_to_string(c.radice.join("compiti.jsonl")).unwrap();
+        assert_eq!(righe.matches("cervello").count(), 1, "vuoto non si scrive: {righe}");
+        let mut d = c.dot().unwrap();
+        d.capo = "capo".into();
+        c.riscrivi(&d).unwrap();
+        assert_eq!(c.dot().unwrap().capo, "capo");
+        d.nome = "altro".into();
+        assert!(c.riscrivi(&d).unwrap_err().contains("non cambia nome"));
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
     fn due_fili_che_scrivono_insieme_non_perdono_righe() {
         let base = std::env::temp_dir().join(format!("nova-dot-fili-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&base);
         let c = Cartella::di(&base, "fili").unwrap();
-        c.crea(&Dot { nome: "fili".into(), ruolo: "r".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: String::new(), fisso: false }).unwrap();
+        c.crea(&Dot { nome: "fili".into(), ruolo: "r".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: String::new(), fisso: false, assunto: false }).unwrap();
         let fili: Vec<_> = (0..8)
             .map(|f| {
                 let c = c.clone();
@@ -1100,6 +1163,7 @@ mod prove {
                             da: String::new(),
                             esito: String::new(),
                             padre: None,
+                            cervello: String::new(),
                         })
                         .unwrap();
                     }
@@ -1124,7 +1188,7 @@ mod prove {
         let _ = std::fs::remove_dir_all(&base);
         let c = Cartella::di(&base, "ricercatore").unwrap();
         assert!(Cartella::di(&base, "../fuori").is_err());
-        let d = Dot { nome: "ricercatore".into(), ruolo: "r".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: String::new(), fisso: false };
+        let d = Dot { nome: "ricercatore".into(), ruolo: "r".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: String::new(), fisso: false, assunto: false };
         c.crea(&d).unwrap();
         assert_eq!(c.dot().unwrap(), d);
         assert!(c.vault().is_dir() && base.join("ricercatore").join("rapporti").is_dir());
@@ -1164,6 +1228,7 @@ mod prove_squadra {
             da: if stato == Stato::Affidato { "nova".into() } else { String::new() },
             esito: String::new(),
             padre: None,
+            cervello: String::new(),
         }
     }
 
@@ -1266,7 +1331,7 @@ mod prove_squadra {
         let d = std::env::temp_dir().join(format!("nova-posta-{}-{:?}", std::process::id(), std::thread::current().id()));
         let _ = std::fs::remove_dir_all(&d);
         let c = Cartella::di(&d, "uno").unwrap();
-        c.crea(&Dot { nome: "uno".into(), ruolo: "r".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: "capo".into(), fisso: false })
+        c.crea(&Dot { nome: "uno".into(), ruolo: "r".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: "capo".into(), fisso: false, assunto: false })
             .unwrap();
         assert_eq!(c.dot().unwrap().capo, "capo");
         assert!(c.non_letta().is_empty());
@@ -1328,6 +1393,7 @@ mod prove_attese {
                 da: "nova".into(),
                 esito: String::new(),
                 padre: None,
+                cervello: String::new(),
             })
             .unwrap()
         };

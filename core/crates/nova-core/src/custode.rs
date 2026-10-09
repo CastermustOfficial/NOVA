@@ -63,6 +63,18 @@ fn no(chi: &'static str, come: String, motivo: String) -> Decisa {
 /// dentro non esce mai; con «solo sul PC» acceso non esce niente
 /// (`nova_decisioni::Fuori`). Un cervello sul PC non e' fuori.
 pub fn si_puo_chiedere(in_casa: bool, stato: &str, solo_locale: bool) -> Result<(), String> {
+    si_puo_chiedere_per(Decisione::PermessoDiUnDot, "il custode", in_casa, stato, solo_locale)
+}
+
+/// Come [`si_puo_chiedere`], per un'altra decisione e un altro che chiede:
+/// AR, quando sceglie chi lavora (D397).
+pub fn si_puo_chiedere_per(
+    decisione: Decisione,
+    chi: &str,
+    in_casa: bool,
+    stato: &str,
+    solo_locale: bool,
+) -> Result<(), String> {
     if in_casa {
         return Ok(());
     }
@@ -71,8 +83,8 @@ pub fn si_puo_chiedere(in_casa: bool, stato: &str, solo_locale: bool) -> Result<
             "nella domanda c'e' {cosa}, e una credenziale non esce dal PC"
         ));
     }
-    if Fuori::prepara(Decisione::PermessoDiUnDot, stato, solo_locale).is_none() {
-        return Err("con «solo sul PC» acceso il custode non chiede fuori".into());
+    if Fuori::prepara(decisione, stato, solo_locale).is_none() {
+        return Err(format!("con «solo sul PC» acceso {chi} non chiede fuori"));
     }
     Ok(())
 }
