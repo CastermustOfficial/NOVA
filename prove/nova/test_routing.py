@@ -3,10 +3,27 @@
 La configurazione e' quella di fabbrica, non quella di chi lancia la prova:
 sul PC di sviluppo la scala e' un'altra, e la prova misurava quella.
 """
+import os
+import site
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+# La casa e' finta (`test_prove_in_casa_loro.py`): NOVA scrive in APPDATA e
+# nella cartella dell'utente (il registro delle azioni, i guasti, il
+# fascicolo in Documenti), e una prova non tocca i dati di chi la lancia.
+CASA = Path(tempfile.mkdtemp(prefix="nova-prova-casa-"))
+# I pacchetti Python dell'utente, cargo e rustup restano dove sono: si
+# calcolano prima di spostare la casa, e li trovano anche i processi che la
+# prova accende (su Windows i pacchetti dell'utente stanno in APPDATA).
+os.environ.setdefault("PYTHONUSERBASE", site.getuserbase())
+os.environ.setdefault("CARGO_HOME", str(Path.home() / ".cargo"))
+os.environ.setdefault("RUSTUP_HOME", str(Path.home() / ".rustup"))
+for _k in ("APPDATA", "LOCALAPPDATA", "HOME", "USERPROFILE",
+           "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME", "XDG_STATE_HOME"):
+    os.environ[_k] = str(CASA)
 
 from nova.agent import Agent, AgentCallbacks
 from nova.brains.base import LimiteUso, Risposta

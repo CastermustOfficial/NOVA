@@ -9,6 +9,7 @@ Le prove stanno in [`prove/`](../prove/README.md), divise per cosa serve a farle
 - **Uscita 0** vuol dire passata, **1** rossa, **2** «qui non si può fare», per esempio perché manca un binario o una macchina vera. Il 2 non è un fallimento.
 - Ogni prova Python è un programma, non un caso di `pytest`: si lancia da sola e stampa cosa controlla.
 - Si fanno girare **dopo** `git add`, così vedono i file come li vedrà la CI.
+- **Una prova non scrive nei dati di chi la lancia.** NOVA scrive in APPDATA e nella cartella dell'utente (il registro delle azioni, i guasti, il fascicolo in Documenti): una prova che arriva a quei file si fa prima una casa finta, spostando APPDATA, LOCALAPPDATA, HOME, USERPROFILE e XDG_* su una cartella temporanea prima di importare `nova`. Prima di spostarla tiene dove sono PYTHONUSERBASE, CARGO_HOME e RUSTUP_HOME: su Windows i pacchetti Python dell'utente stanno in APPDATA, e i processi che la prova accende non li troverebbero. Lo controlla `prove/progetto/test_prove_in_casa_loro.py` (D393).
 
 ```bash
 python prove/nova/test_taglio.py                    # una sola
@@ -44,7 +45,7 @@ Le prove del recinto di Windows (`nova-platform` e `nova-core`, solo `cfg(window
 - `misure/`: i banchi di prestazione, lanciati a mano sul PC con la scheda video.
 - `attrezzi/`: gli script lanciati a mano, compresi i giri di mutazione con cui si verifica che un banco gemello guardi davvero.
 
-## `prove/progetto/`: 29 prove
+## `prove/progetto/`: 30 prove
 
 Cosa serve: niente: guardano il repository stesso.
 
@@ -75,6 +76,7 @@ Cosa serve: niente: guardano il repository stesso.
 | `test_primi_minuti.py` | «Cosa le chiedo?» e' la prima domanda, e non e' «come funziona». |
 | `test_prove_ordinate.py` | Le prove stanno in una cartella, e ogni cartella dice cosa serve per girarci. |
 | `test_python_minimo.py` | CMP-5. «Python 3.10 o superiore» e' una promessa: che sia vera. |
+| `test_prove_in_casa_loro.py` | Le prove di `prove/nova/` e `prove/gemelli/` girano una per una con tutte le cartelle di casa puntate su una cartella vuota, e la lasciano vuota: nessuna scrive nei dati di chi la lancia. E passano anche cosi', cioe' non dipendono dalla configurazione di chi le lancia (D393). Cargo, rustup e i pacchetti Python dell'utente restano dove sono. Poi guarda nel codice che chi si sposta la casa da solo tenga i pacchetti dove sono. Circa 30 secondi. |
 | `test_readme.py` | Il README dice numeri: che siano quelli veri. |
 | `test_stringhe_senza_buchi.py` | Nessuna stringa con dentro l'indentazione della riga dopo. |
 | `test_una_porta.py` | Di interfacce ce n'e' una, e si sa qual e'. |

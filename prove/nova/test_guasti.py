@@ -12,12 +12,27 @@ della classe dentro un messaggio per l'utente.
 import json
 import os
 import re
+import site
 import sys
 import tempfile
 from pathlib import Path
 
 RADICE = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(RADICE))
+
+# La casa e' finta (`test_prove_in_casa_loro.py`): NOVA scrive in APPDATA e
+# nella cartella dell'utente (il registro delle azioni, i guasti, il
+# fascicolo in Documenti), e una prova non tocca i dati di chi la lancia.
+CASA = Path(tempfile.mkdtemp(prefix="nova-prova-casa-"))
+# I pacchetti Python dell'utente, cargo e rustup restano dove sono: si
+# calcolano prima di spostare la casa, e li trovano anche i processi che la
+# prova accende (su Windows i pacchetti dell'utente stanno in APPDATA).
+os.environ.setdefault("PYTHONUSERBASE", site.getuserbase())
+os.environ.setdefault("CARGO_HOME", str(Path.home() / ".cargo"))
+os.environ.setdefault("RUSTUP_HOME", str(Path.home() / ".rustup"))
+for _k in ("APPDATA", "LOCALAPPDATA", "HOME", "USERPROFILE",
+           "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME", "XDG_STATE_HOME"):
+    os.environ[_k] = str(CASA)
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 passati = 0

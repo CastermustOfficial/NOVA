@@ -41,7 +41,9 @@ def controlla(nome, condizione, dettaglio=""):
 
 
 def guardia(protetti=(), radici=()):
-    cfg = Config.load()
+    # La configurazione di fabbrica, non quella di chi lancia la prova: con
+    # quella vera la prova cambierebbe da un PC all'altro.
+    cfg = Config()
     cfg.safety.protected_paths = list(protetti)
     cfg.safety.write_roots = list(radici)
     return SafetyContext(cfg)

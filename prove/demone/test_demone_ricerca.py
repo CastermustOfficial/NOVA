@@ -178,6 +178,10 @@ try:
                     f"--user-data-dir={Path(casa) / 'riscaldamento'}", "--dump-dom", "about:blank"],
                    env=ambiente, capture_output=True, timeout=120)
     print(f"(il browser, a vuoto, in {time.time() - inizio:.1f} s)")
+    # In CI anche fra gli avvisi del giro, che si leggono senza aprire il
+    # registro: e' il numero che dice se il runner carica lento.
+    if os.environ.get("GITHUB_ACTIONS"):
+        print(f"::notice::test_demone_ricerca: il browser, a vuoto, in {time.time() - inizio:.1f} s")
 except subprocess.TimeoutExpired:
     print("(il browser, a vuoto, non ha finito in 120 s)")
 

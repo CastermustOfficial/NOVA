@@ -284,7 +284,9 @@ if q.returncode != 0:
     sys.exit(1)
 gr = json.loads(q.stdout)
 
-cfg = Config.load()
+# La configurazione di fabbrica, non quella di chi lancia la prova: con
+# quella vera la prova cambierebbe da un PC all'altro.
+cfg = Config()
 cfg.safety.protected_paths = list(PROTETTI)
 cfg.safety.write_roots = list(RADICI)
 cfg.safety.forbidden_command_patterns = list(VIETATI)

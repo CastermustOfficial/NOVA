@@ -6,10 +6,12 @@ qualcosa quando nessuno guarda, e allora quello che fa dev'essere fondato su
 dati veri e deve lasciare traccia.
 
 Niente qui tocca il calendario vero dell'utente ne' registra attivita' nel
-sistema: APPDATA e' dirottato su una cartella temporanea prima degli import.
+sistema: APPDATA e la cartella dell'utente sono dirottati su una cartella
+temporanea prima degli import.
 """
 import json
 import os
+import site
 import sys
 import tempfile
 from datetime import datetime, timedelta
@@ -19,8 +21,20 @@ RADICE = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(RADICE))
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
+# La casa e' finta, tutta (`test_prove_in_casa_loro.py`): non solo APPDATA
+# ma anche la cartella dell'utente, dove sta il fascicolo (Documenti\NOVA).
+# Prima si spostava solo APPDATA, e il fascicolo di prova finiva in quello
+# vero di chi lanciava la prova.
 finto = Path(tempfile.mkdtemp(prefix="nova_pian_"))
-os.environ["APPDATA"] = str(finto)
+# I pacchetti Python dell'utente, cargo e rustup restano dove sono: si
+# calcolano prima di spostare la casa, e li trovano anche i processi che la
+# prova accende (su Windows i pacchetti dell'utente stanno in APPDATA).
+os.environ.setdefault("PYTHONUSERBASE", site.getuserbase())
+os.environ.setdefault("CARGO_HOME", str(Path.home() / ".cargo"))
+os.environ.setdefault("RUSTUP_HOME", str(Path.home() / ".rustup"))
+for _k in ("APPDATA", "LOCALAPPDATA", "HOME", "USERPROFILE",
+           "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME", "XDG_STATE_HOME"):
+    os.environ[_k] = str(finto)
 
 from nova import pianificazione as pi  # noqa: E402
 from nova import fascicolo             # noqa: E402

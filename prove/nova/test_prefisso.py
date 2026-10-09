@@ -185,7 +185,9 @@ print("\n5. il prefisso e' davvero stabile, misurato")
 # devono essere identici. Se qualcuno ci infila qualcosa di variabile, qui
 # si vede.
 from nova.config import Config                                   # noqa: E402
-cfg = Config.load()
+# La configurazione di fabbrica, non quella di chi lancia la prova: con
+# quella vera la prova cambierebbe da un PC all'altro.
+cfg = Config()
 
 
 class Finto(Agent):

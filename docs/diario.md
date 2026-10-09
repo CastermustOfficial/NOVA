@@ -11730,3 +11730,11 @@ piu' solo uno a uno o a un gruppo: anche a piu' di uno insieme, e li' scrivi
 anche tu. Le chat fra di loro non sono un file nuovo: si ricostruiscono dalla
 posta di tutti, che c'era gia'.
 
+## 9 ottobre 2026 — Ognuno a casa sua
+
+Una prova che scrive nel registro delle azioni vero sembrava un fastidio da
+sistemare dopo. Contando, era quasi tutto il registro: 614 righe su 637. Ora
+ogni prova gira anche con la casa puntata su una cartella vuota, e la deve
+lasciare vuota. Ripulendo, del registro non e' rimasta nessuna riga: anche le
+altre 23 erano di misure e prove.
+

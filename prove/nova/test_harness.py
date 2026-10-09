@@ -38,7 +38,9 @@ class Muto:
         return Risposta(contenuto="basta")
 
 
-cfg = Config.load()
+# La configurazione di fabbrica, non quella di chi lancia la prova: con
+# quella vera la prova cambierebbe da un PC all'altro.
+cfg = Config()
 a = Agent(cfg, AgentCallbacks(), brain=Muto())
 
 # ----------------------------------------------------------------- 1

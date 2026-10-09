@@ -2349,3 +2349,68 @@ La regola: prima di leggere i risultati di una corsa si guarda che siano
 suoi: l'ora dei file dopo l'avvio, il processo vivo o finito, e le prove
 nuove nell'elenco.
 
+## Le prove scrivevano nei dati veri, e la suite le lanciava ogni giorno
+
+Il 7 ottobre si era visto che `test_harness_prova.py` scriveva nel registro
+delle azioni vero, e la voce era nel piano, seconda. Intanto ho continuato a
+far girare la suite intera sul PC di sviluppo a ogni passo: ogni volta altre
+righe finte nel registro delle azioni, altri guasti finti, altre righe nel
+diario delle procedure. Misurato il 9: 614 righe su 637 del registro erano
+delle prove, e il fascicolo in Documenti l'aveva fatto nascere una prova, il
+29 agosto, con un curriculum di prova («cv.md») e un file «note.xyz».
+
+Ripulito il 9, lasciando accanto a ogni file la copia di prima
+(`.prima-della-pulizia`). Dal registro delle azioni sono uscite tutte le 637
+righe: oltre alle 614 delle prove, 21 erano della misura
+`misure/banco_web_demone.py`, che per costruzione lavora col demone vero, e
+2 del 30 agosto («prova del banco»), che nella storia del codice non
+compaiono. Dai guasti sono uscite tutte le 212 righe, ed erano tutte di
+`test_guasti.py`. I due file finti del fascicolo sono stati rinominati. Il
+diario delle procedure e' rimasto com'era: le righe delle prove («saltata:
+0s sotto la soglia di 8») non si distinguono da quelle vere.
+
+`test_pianificazione.py` diceva di spostare APPDATA «prima degli import»,
+ed era vero; ma il fascicolo sta nella cartella dell'utente, non in APPDATA.
+Spostare una variabile sembrava bastare perche' era quella che si conosceva.
+
+Ora ogni prova di `prove/nova/` e `prove/gemelli/` gira anche in una casa
+vuota, in `test_prove_in_casa_loro.py`, e deve lasciarla vuota: non conta
+cosa la prova dice di spostare, conta dove scrive.
+
+La regola: un difetto che tocca i dati dell'utente si chiude prima di far
+girare di nuovo la cosa che lo produce; e una promessa come «niente qui
+tocca i dati veri» si controlla guardando dove si scrive, non leggendo cosa
+si sposta.
+
+## Il piano diceva ancora da fare l'harness dei Dot
+
+Col D391 e il D392 ho aggiunto le righe in «Fatto» del piano, ma nella voce
+dei Dot, in «Da fare», l'elenco dei passi diceva ancora «l'harness (vista,
+organigramma, chat)» senza spunta: ho aggiornato la riga nuova e non quella
+vecchia che diceva la stessa cosa. Me ne sono accorto rileggendo il piano per
+chiudere la voce delle prove, e ora e' spuntata.
+
+La regola: quando una cosa si chiude, si cerca ogni posto del piano che la
+nomina, non solo quello in cui la si scrive fatta.
+
+
+## Spostando la casa, le prove perdevano i pacchetti Python
+
+Per il D393 cinque prove si spostano la casa (APPDATA, USERPROFILE e le
+altre) prima di importare `nova`. Su Linux la suite era verde. Su Windows
+`test_avvio_cervello.py` e' caduto: il server MCP che la prova accende non
+trovava `requests` («No module named 'requests'»). Su Windows i pacchetti
+installati per l'utente stanno in APPDATA, e un processo acceso con APPDATA
+spostata non li vede piu'; su Linux stavano nel sistema, e non si vedeva.
+
+La guardia nuova non poteva accorgersene: alle prove che lancia la
+sentinella tiene gia' i pacchetti dove sono (PYTHONUSERBASE), e i processi
+accesi dalla prova li ereditano. Lo stesso accorgimento mancava nelle prove.
+
+Ora ogni prova che si sposta la casa calcola prima PYTHONUSERBASE,
+CARGO_HOME e RUSTUP_HOME e li tiene, e la guardia lo controlla nel codice
+(parte 2): togliendo la riga da `test_routing.py`, la guardia la nomina.
+
+La regola: quando si sposta l'ambiente di un processo, si fa l'elenco di
+cosa ci sta dentro oltre ai dati (i pacchetti, gli strumenti) su ogni
+sistema, non solo su quello dove si prova per primo.
