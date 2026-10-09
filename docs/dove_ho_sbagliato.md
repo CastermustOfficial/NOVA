@@ -1274,7 +1274,7 @@ Anche quella prova credeva una cosa falsa: «la porta e' chiusa, quindi non
 serve un browser». Ma `cerca.cerca` il browser lo accende, e sulla CI Windows
 Edge c'e'. L'Edge acceso dalla prova restava vivo, teneva occupato il profilo,
 e la parte 4 della stessa prova non poteva piu' accendere il suo: sulla CI
-di `277c0ac` si e' dichiarata non provabile, e sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X) pure.
+di `69592b6` si e' dichiarata non provabile, e sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X) pure.
 
 Adesso il Python riprova come il Rust, tutti e due dicono l'ultimo errore, e
 la prova non accende niente.
@@ -1628,7 +1628,7 @@ mutazione che lo fa cadere prima che io dica che e' coperto.
 
 ## Ho provato il recinto di Windows solo da utente normale
 
-Prima di `e9d298b` il `cargo test` e le prove Python del recinto giravano da
+Prima di `d7b5ae8` il `cargo test` e le prove Python del recinto giravano da
 utente normale, sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X), e le mie verifiche anche. La sola prova lanciata
 da amministratore, `test_demone_recinto_strumenti.py`, non guardava con quali
 poteri partisse il comando. La CI di Windows gira da amministratore, e al primo
@@ -1645,7 +1645,7 @@ In `windows_cartella_dei_soli_diritti_del_proprietario` il proprietario della
 cartella si controllava cercando il nome dell'utente nel testo che restituisce
 PowerShell. Quel testo dipende dalla lingua, dal dominio e dal fatto che
 PowerShell risponda. Sul PC di sviluppo (GPU RTX 4060 Ti, 16 GB di VRAM; 32 GB di RAM DDR5; scheda madre Gigabyte B650 EAGLE AX; CPU Ryzen 5 7600X) funzionava; sull'agente Windows della CI
-(Windows Server, `runneradmin`, UAC spento) no, e la CI di `8afff6b` e' caduta
+(Windows Server, `runneradmin`, UAC spento) no, e la CI di `92b1b6f` e' caduta
 con «il proprietario non e' l'utente». Dal log non si capisce quale delle tre
 cose sia andata storta.
 
@@ -2131,7 +2131,7 @@ corregge una cosa che ha un gemello, si corregge anche il gemello.
 dal 29 agosto lo faceva con `len(ris) >= 3`. Il nome e la condizione non
 dicevano la stessa cosa, e la condizione era quella sbagliata: quanti
 risultati restituisce un motore di qualcun altro NOVA non lo decide. L'8
-ottobre, sul commit `6ccc57c`, che cambiava solo documenti, il motore ne ha
+ottobre, sul commit `0efe9e8`, che cambiava solo documenti, il motore ne ha
 dati due e la CI e' diventata rossa.
 
 Ora la condizione e' quella del nome: almeno due.
@@ -2244,4 +2244,24 @@ fermava; ora lo ferma (D388).
 La regola: un controllo che cerca un numero lo cerca dove il numero vuol
 dire quella cosa; e in un cervello finto il caso piu' specifico si guarda per
 primo.
+
+## Nei messaggi dei commit c'era il nome di chi mi guida
+
+La regola sui commit dice che l'unico autore e' CastermustOfficial, senza
+co-autori ne' link di sessione. Io nei messaggi scrivevo chi aveva deciso:
+«le scelte di ...», «deciso con ...», le sue frasi tra virgolette, e in tre
+messaggi un percorso con il nome dell'utente di Windows. Me l'ha fatto
+notare il 9 ottobre, leggendo il messaggio del D388: un commit non nomina
+nessuno. Controllando, i messaggi erano 35, dal 2 settembre.
+
+Ho riscritto i 35 messaggi, e solo quelli: gli alberi, gli autori e le date
+sono rimasti uguali, controllati uno per uno sui 332 commit. Gli hash da
+quel giorno in poi sono cambiati, e nei documenti (il piano, le decisioni, il
+diario, questo file, una prova) gli hash vecchi sono diventati quelli nuovi.
+Anche l'avviso GHSA-38cw-xfm5-xq9f citava tre hash che non ci sono piu': i
+nuovi sono `d7b5ae8`, `9c7a3f1` e `43b6263`, e l'avviso va corretto su
+GitHub.
+
+La regola: un messaggio di commit dice cosa cambia e perche', mai chi l'ha
+chiesto o deciso; e nemmeno un percorso col nome di un utente.
 

@@ -6858,7 +6858,7 @@ una che dipende da cio' che si sta provando.
 ### v0.1.1, per davvero questa volta
 
 Il tag stava su un commit che non compilava le prove. L'ho spostato: cancellato
-e rifatto su `3b1c047`, che e' il primo commit con tutti e sei i lavori verdi.
+e rifatto su `ced1849`, che e' il primo commit con tutti e sei i lavori verdi.
 Cancellare un tag non e' una cosa da fare a cuor leggero, ma qui non c'era
 niente da perdere - a quel tag non era mai stata attaccata nessuna release,
 perche' il lavoro era morto prima di compilare. Nessuno ha scaricato niente,

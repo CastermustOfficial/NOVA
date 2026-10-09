@@ -169,7 +169,7 @@ else:
     ris = d.get("risultati") or []
     # «Piu' di uno», come dice il nome: fino all'8 ottobre ne chiedeva tre, e
     # quanti risultati da' un motore di qualcun altro NOVA non lo decide. Il
-    # 6ccc57c la CI ne ha avuti due, ed e' diventata rossa su un commit che
+    # 0efe9e8 la CI ne ha avuti due, ed e' diventata rossa su un commit che
     # cambiava solo documenti.
     controlla("con piu' di un risultato", len(ris) >= 2, f"{len(ris)}")
     # «Del motore» vuol dire il rimbalzo che Bing mette al posto dell'indirizzo
