@@ -14,8 +14,8 @@ Gio, l'8 ottobre:
 
 Il cervello e' finto. Nella conversazione di Nova, «USA nome {argomenti}» gli
 fa chiamare quello strumento; nella conversazione di un Dot risponde col
-compito, e «delega» gli fa provare ad affidare a un altro Dot, che a un Dot
-non e' permesso. Il custode (D384) chiede al modello di casa con le lettere,
+compito, e «delega» gli fa provare ad affidare a un Dot che non e' suo
+sottoposto, che non e' permesso (D388). Il custode (D384) chiede al modello di casa con le lettere,
 e qui il modello di casa dice si'.
 
 Esce 2 — «qui non si puo' provare» — se il demone non e' costruito.
@@ -338,13 +338,13 @@ try:
               in errore("dot.stato", nome="aiutante", compito=9))
     controlla("e un Dot che non c'e'", "nessun Dot" in errore("dot.stato", nome="nessuno", compito=1))
 
-    print("\n7. un Dot non affida ad altri Dot, per ora")
+    print("\n7. un Dot affida solo ai suoi sottoposti, e aiutante non ne ha (D388)")
     prima = len(risultati)
     id4 = rpc("dot/affida", nome="aiutante", testo="delega a qualcuno", da="utente")["id"]
     c = aspetta("aiutante", id4)
     rifiuto = risultati[prima] if len(risultati) > prima else ""
     controlla("lo strumento gli risponde di no, e perche'",
-              "aiutante e' un Dot" in rifiuto and "solo Nova" in rifiuto, rifiuto[:300])
+              "non e' un tuo sottoposto" in rifiuto and "non ne hai" in rifiuto, rifiuto[:300])
     controlla("e nella coda non e' entrato niente di nuovo",
               [x["id"] for x in capacita("dot.stato", nome="aiutante")["compiti"]] == [1, 2, 3, 4])
 

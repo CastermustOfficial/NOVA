@@ -162,6 +162,7 @@ impl Server {
                 testo_di(&params, "nome"),
                 testo_di(&params, "ruolo"),
                 testo_di(&params, "mestiere"),
+                testo_di(&params, "capo"),
             )
             .map_err(|e| (codes::INVALID_PARAMS, e)),
             "dot/elenco" => Ok(crate::dot::elenco(self)),

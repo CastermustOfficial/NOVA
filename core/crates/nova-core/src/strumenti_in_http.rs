@@ -13,8 +13,8 @@
 //! lavoro di ogni strumento del Python. Il demone ha un modo solo di lanciare
 //! un comando, `shell.exec` (PowerShell su Windows, sh altrove), che fa il
 //! lavoro dei tre del Python (`run_cmd`, `run_powershell`, `run_python`):
-//! quindi le capacita' sono 58. Dal D387 se ne aggiungono tre per i Dot
-//! ([`SOLO_DEL_DEMONE`]): 61.
+//! quindi le capacita' sono 58. Dal D387 se ne aggiungono per i Dot
+//! ([`SOLO_DEL_DEMONE`]): tre col D387, quattro col D388, 62.
 //!
 //! Claude Code e le CLI agentiche non passano di qui: Claude vede tutti gli
 //! strumenti via MCP, e una CLI ha le mani sue. L'elenco e' fisso e non si
@@ -97,11 +97,14 @@ pub const DAL_PYTHON: [(&str, &str); 60] = [
 ];
 
 /// Le capacita' che il Python non aveva e che si offrono lo stesso: i Dot
-/// (D387). Nova li chiama anche col modello di casa: affida, chiede com'e'
-/// andata e, se l'utente lo chiede, ne fa nascere uno. `dot.ferma` resta
-/// fuori: il «fermati» di Nova ferma gia' tutti, e ogni schema costa
-/// contesto.
-pub const SOLO_DEL_DEMONE: [&str; 3] = ["dot.affida", "dot.crea", "dot.stato"];
+/// (D387, D388). Nova li chiama anche col modello di casa: affida, chiede
+/// com'e' andata, scrive e, se l'utente lo chiede, ne fa nascere uno; e un
+/// Dot sul modello di casa affida ai suoi sottoposti e scrive agli altri.
+/// Restano fuori `dot.ferma`, perche' il «fermati» di Nova ferma gia'
+/// tutti, e `dot.gruppo`: con lui alla conversazione restavano 1.998 token,
+/// sotto la soglia di 2.000. I gruppi, col modello di casa, si fanno da
+/// Claude o dalla porta del demone.
+pub const SOLO_DEL_DEMONE: [&str; 4] = ["dot.affida", "dot.crea", "dot.scrivi", "dot.stato"];
 
 /// Il tetto degli schemi, in caratteri di JSON.
 ///
@@ -167,8 +170,8 @@ mod prove {
         }
         assert_eq!(
             capacita().len(),
-            61,
-            "sessanta strumenti Python, tre dei quali sono shell.exec, e tre per i Dot"
+            62,
+            "sessanta strumenti Python, tre dei quali sono shell.exec, e quattro per i Dot"
         );
     }
 
@@ -187,7 +190,7 @@ mod prove {
     fn gli_schemi_stanno_nel_tetto() {
         let server = registro();
         let s = schemi(&server.registry);
-        assert_eq!(s.len(), 61);
+        assert_eq!(s.len(), 62);
         let nomi: Vec<&str> = s
             .iter()
             .filter_map(|t| t["function"]["name"].as_str())

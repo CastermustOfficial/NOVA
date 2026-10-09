@@ -67,6 +67,8 @@ fn stato_da_evento(topic: &str, dati: &Value) -> Option<&'static str> {
 ///   perche' (la chiave, la rete) serve leggerlo.
 /// - Un Dot che ha finito un compito di Nova (D387): la riga la prepara il
 ///   demone, con l'esito; a voce, se serve, la dice lui.
+/// - Un Dot che scrive a Nova (D388): finche' non c'e' l'harness, la chat e'
+///   dove l'utente legge i messaggi dei Dot.
 fn righe_per_la_chat(topic: &str, dati: &Value) -> Vec<(&'static str, String)> {
     let campo = |n: &str| {
         dati.get(n)
@@ -89,6 +91,9 @@ fn righe_per_la_chat(topic: &str, dati: &Value) -> Vec<(&'static str, String)> {
             vec![("nova", format!("{come} ({}): continuo con la mia voce.", campo("errore")))]
         }
         "dot.consegna" if !campo("chat").is_empty() => vec![("nova", campo("chat"))],
+        "dot.messaggio" if campo("a") == "nova" && !campo("testo").is_empty() => {
+            vec![("nova", format!("Messaggio da {}: {}", campo("da"), campo("testo")))]
+        }
         _ => Vec::new(),
     }
 }
@@ -338,6 +343,18 @@ mod prove {
         // di un compito, da solo, nella chat non va.
         assert!(righe_per_la_chat("dot.consegna", &json!({ "chat": " " })).is_empty());
         assert!(righe_per_la_chat("dot.compito", &d).is_empty());
+    }
+
+    #[test]
+    fn un_dot_che_scrive_a_nova_si_legge_in_chat_gli_altri_messaggi_no() {
+        let a_nova = json!({ "da": "uno", "a": "nova", "testo": " Ho finito la bozza. " });
+        assert_eq!(
+            righe_per_la_chat("dot.messaggio", &a_nova),
+            vec![("nova", "Messaggio da uno: Ho finito la bozza.".to_string())]
+        );
+        let fra_loro = json!({ "da": "uno", "a": "due", "testo": "ciao" });
+        assert!(righe_per_la_chat("dot.messaggio", &fra_loro).is_empty());
+        assert!(righe_per_la_chat("dot.messaggio", &json!({ "da": "uno", "a": "nova", "testo": "" })).is_empty());
     }
 
     #[test]

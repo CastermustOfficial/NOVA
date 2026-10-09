@@ -11684,3 +11684,13 @@ quasi cinquecento. Scrivendo la prova ho scoperto che «conferma sempre»
 chiede anche per le cose innocue: affidare l'ho dovuto mettere accanto al
 freno, fra quelle che non chiedono mai.
 
+## 9 ottobre 2026 — Una squadra
+
+Gio mi ha fermato a meta' delle domande: per rispondere voleva vedere il
+flusso. Gliel'ho disegnato, ha confermato, e adesso i Dot fanno squadra: un
+capo affida ai suoi, aspetta, e intanto fa altro; quando tutti hanno
+consegnato riprende e chiude il lavoro. La posta la leggono al compito dopo,
+i gruppi li fa Nova. La prova ha trovato un giro senza fine che il disegno
+non diceva: un capo che a ogni ripresa riaffida. Adesso dopo cinque attese
+il compito si chiude e dice cosa resta aperto.
+

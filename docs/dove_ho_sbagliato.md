@@ -2223,3 +2223,25 @@ prova confronta byte per byte si scrive in byte. Prima di lanciare la
 suite si guarda che non ne stia gia' girando un'altra, e che il binario sia
 stato davvero ricostruito.
 
+## Un conteggio del README trovato in una tabella
+
+Col D387 gli strumenti del modello di casa erano passati a 61, e il README lo
+diceva. Col D388 sono diventati 62, e `test_readme.py` ha detto che il README
+diceva 62 anche prima che lo cambiassi: il controllo cercava il numero in
+tutto il testo, e «62» c'era, in una tabella delle misure («62 layer»). Il
+README diceva ancora 61. Me ne sono accorto perche' l'altro conteggio, 135,
+era rosso e questo no.
+
+Ora i due conteggi degli strumenti si cercano nella frase che li dice, in
+italiano e in inglese; il controllo largo resta per gli altri numeri.
+
+Nella stessa prova il cervello finto del capo guardava se la domanda diceva
+«Organizza» prima di guardare se era una ripresa, e la ripresa ripete il
+testo del compito: il capo riaffidava a ogni ripresa, e la prova girava in
+tondo. Era un difetto della prova, ma ha mostrato un giro che il demone non
+fermava; ora lo ferma (D388).
+
+La regola: un controllo che cerca un numero lo cerca dove il numero vuol
+dire quella cosa; e in un cervello finto il caso piu' specifico si guarda per
+primo.
+

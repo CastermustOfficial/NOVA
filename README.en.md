@@ -78,7 +78,7 @@ If something doesn't work, the rest of the document explains why.
 ## What it can do
 
 A list of adjectives says nothing. These are the numbers, counted from the
-code: **133 tools** for an agentic brain like Claude Code, and **61** for the
+code: **135 tools** for an agentic brain like Claude Code, and **62** for the
 model running on your PC and for the APIs, always the same ones, because all
 of them together wouldn't fit in its context; **38 file formats** it can open
 and show.
@@ -580,7 +580,7 @@ The guards that are not permissions stay: the sandbox, the forbidden commands,
 credentials never shown to the model. You watch it, write to it, and stop it
 if needed. The first one is a researcher.
 
-Today there are the first four steps. With the first (D382) a Dot is born,
+Today there are the first five steps. With the first (D382) a Dot is born,
 receives tasks without making whoever assigns them wait, does them one at a
 time, keeps its conversation in its own folder (`dots/<name>/` next to
 `config.json`), can be stopped without stopping the rest, and after a restart
@@ -601,7 +601,12 @@ asking your permission (`dot.affida`), tells you how it went (`dot.stato`),
 and creates one if you ask it to (`dot.crea`, which asks for confirmation
 like every action that changes something, according to the panel). When a
 Dot finishes a task from Nova you learn it in the chat and, with the voice
-on, out loud. The daemon also has the methods `dot/crea`, `dot/affida`,
+on, out loud. With the fifth (D388) they work as a team: a Dot can have a
+boss, and the boss hands pieces of the work to its subordinates, waits for
+them to deliver while doing something else, and resumes with their results.
+They write to each other (`dot.scrivi`): mail is read at the next task, and
+mail for Nova shows up in the chat. Groups are made by Nova if you ask it to
+(`dot.gruppo`). The daemon also has the methods `dot/crea`, `dot/affida`,
 `dot/stato`, `dot/elenco` and `dot/ferma`; the view in the harness comes
 later.
 
@@ -1338,9 +1343,9 @@ already authenticated. NOVA:
   | Autonomous | `bypassPermissions` |
 
 - connects it to the daemon as an **MCP server** (`nova mcp`, a bridge between
-  standard input and the daemon's channel): Claude sees all 133 tools, from
+  standard input and the daemon's channel): Claude sees all 135 tools, from
   `mcp__nova-core__kb_cerca` down, with the same guards as the home model,
-  which gets 61 because they don't all fit in its context.
+  which gets 62 because they don't all fit in its context.
   Confirmations go through NOVA's counter (`--permission-prompt-tool`), that is
   the button in the chat.
 - reports cost and tokens for every turn in the action log.

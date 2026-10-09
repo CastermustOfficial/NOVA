@@ -70,7 +70,7 @@ Se qualcosa non funziona, il resto del documento spiega perche'.
 ## Cosa sa fare
 
 Un elenco di aggettivi non dice niente. Questi sono i numeri, contati dal
-codice: **133 strumenti** per un cervello agentico come Claude Code, e **61**
+codice: **135 strumenti** per un cervello agentico come Claude Code, e **62**
 per il modello che gira sul tuo PC e per le API, sempre gli stessi, perche'
 tutti insieme non starebbero nel suo contesto; **38 formati** di file che sa
 aprire e mostrare.
@@ -569,7 +569,7 @@ guardie che non sono permessi restano: il recinto, i comandi vietati, le
 credenziali mai al modello. Tu lo guardi, gli scrivi, e se serve lo fermi. Il
 primo e' un ricercatore.
 
-Oggi ci sono i primi quattro passi. Col primo (D382) un Dot nasce, riceve compiti
+Oggi ci sono i primi cinque passi. Col primo (D382) un Dot nasce, riceve compiti
 senza far aspettare chi li affida, li fa uno alla volta, tiene la
 conversazione nella sua cartella (`dots/<nome>/` accanto a `config.json`), lo
 si ferma senza fermare il resto, e dopo un riavvio riprende il compito a
@@ -588,9 +588,13 @@ Nova: gli chiedi un lavoro e lui lo affida a un Dot senza chiederti il
 permesso (`dot.affida`), ti dice com'e' andata (`dot.stato`), e ne fa nascere
 uno se glielo chiedi tu (`dot.crea`, che chiede conferma come ogni azione che
 modifica, secondo il pannello). Quando un Dot finisce un compito di Nova lo
-sai in chat e, con la voce accesa, a voce. Dal demone ci sono anche i metodi
-`dot/crea`, `dot/affida`, `dot/stato`, `dot/elenco` e `dot/ferma`; la vista
-nell'harness viene dopo.
+sai in chat e, con la voce accesa, a voce. Col quinto (D388) fanno squadra:
+un Dot puo' avere un capo, e il capo affida pezzi del lavoro ai suoi
+sottoposti, aspetta che consegnino facendo intanto altro, e riprende con i
+loro esiti. Si scrivono (`dot.scrivi`): la posta la leggono al compito dopo,
+e quella per Nova arriva in chat. I gruppi li fa Nova se glielo chiedi
+(`dot.gruppo`). Dal demone ci sono anche i metodi `dot/crea`, `dot/affida`,
+`dot/stato`, `dot/elenco` e `dot/ferma`; la vista nell'harness viene dopo.
 
 ## Installazione
 
@@ -1329,9 +1333,9 @@ autenticato. NOVA:
   | Autonomo | `bypassPermissions` |
 
 - gli collega il demone come **server MCP** (`nova mcp`, un ponte fra lo
-  standard input e il canale del demone): Claude vede tutti i 133
+  standard input e il canale del demone): Claude vede tutti i 135
   strumenti, da `mcp__nova-core__kb_cerca` in giu', con le stesse guardie del
-  modello di casa, che ne riceve 61 perche' nel suo contesto tutti non ci
+  modello di casa, che ne riceve 62 perche' nel suo contesto tutti non ci
   stanno. Le conferme passano dallo sportello di NOVA
   (`--permission-prompt-tool`), cioe' dal bottone nella chat.
 - riporta costo e token di ogni turno nel registro azioni.

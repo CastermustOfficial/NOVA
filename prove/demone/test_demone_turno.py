@@ -22,10 +22,10 @@ Cinque cose che non si vedono e valgono la prova:
 3. la conversazione **resta** fra un turno e l'altro, e `nuova` la butta;
 4. il prompt di sistema e i cervelli vengono dallo stesso `config.json` che
    legge NOVA, non da una configurazione del demone;
-5. a un cervello in HTTP se ne offrono 61, sempre gli stessi, e la
+5. a un cervello in HTTP se ne offrono 62, sempre gli stessi, e la
    conversazione si taglia sul contesto che resta tolti prompt e schemi:
    tutti non stavano nel contesto del modello di casa (D361). Sono i 58
-   del Python e tre per i Dot (D387).
+   del Python e quattro per i Dot (D387, D388).
 
 Esce 2 — «qui non si puo' provare» — se il demone non e' costruito.
 """
@@ -269,22 +269,24 @@ try:
               r.get("strumenti_offerti") == len(offerti),
               f"{r.get('strumenti_offerti')} vs {len(offerti)}")
 
-    print("\n2b. ma a un cervello in HTTP non tutte: 61, sempre le stesse (D361, D387)")
+    print("\n2b. ma a un cervello in HTTP non tutte: 62, sempre le stesse (D361, D387, D388)")
     with CoreClient(endpoint, timeout=60) as c:
         per_claude = {t["name"] for t in c.request("tools/list")["tools"]}
     # Quanti ne vede Claude li conta il registro; qui conta che siano di piu'
     # e che il pezzo offerto stia tutto dentro. Una casa nuova non ha
-    # automazioni, quindi nessun `auto_*` si aggiunge ai 61.
-    controlla("al modello di casa ne arrivano 61", len(offerti) == 61, str(len(offerti)))
+    # automazioni, quindi nessun `auto_*` si aggiunge ai 62.
+    controlla("al modello di casa ne arrivano 62", len(offerti) == 62, str(len(offerti)))
     controlla("tutti fra quelli che vede Claude, che ne vede di piu'",
               set(offerti) < per_claude, f"{len(offerti)} contro {len(per_claude)}")
     controlla("quelli del Python ci sono, quelli nuovi del browser no",
               {"fs_read", "shell_exec", "rete_cerca", "sys_info"} <= set(offerti)
               and "web_apri" not in offerti and "web_apri" in per_claude,
               str(sorted(offerti)[:8]))
-    controlla("e ci sono i Dot, per affidare, chiedere e far nascere; fermare no (D387)",
-              {"dot_affida", "dot_stato", "dot_crea"} <= set(offerti)
-              and "dot_ferma" not in offerti and "dot_ferma" in per_claude,
+    controlla("e ci sono i Dot, per affidare, chiedere, scrivere e far nascere; fermare e "
+              "fare i gruppi no (D387, D388)",
+              {"dot_affida", "dot_stato", "dot_crea", "dot_scrivi"} <= set(offerti)
+              and "dot_ferma" not in offerti and "dot_ferma" in per_claude
+              and "dot_gruppo" not in offerti and "dot_gruppo" in per_claude,
               str(sorted(x for x in offerti if x.startswith("dot"))))
 
     print("\n3. lo strumento l'ha eseguito il demone davvero")

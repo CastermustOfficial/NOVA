@@ -81,7 +81,7 @@ pub fn avviso(dot: &str, compito: &Compito, stato: Stato, esito: &str) -> Option
             format!("{dot} ha lasciato «{breve}»: troppi riavvii a meta'."),
             format!("{dot} ha lasciato il compito che gli avevo dato."),
         ),
-        Stato::Affidato | Stato::InCorso => return None,
+        Stato::Affidato | Stato::InCorso | Stato::InAttesa => return None,
     };
     let chat = if esito.is_empty() {
         chat
@@ -106,6 +106,9 @@ mod prove {
             finito: String::new(),
             esito: String::new(),
             riprese: 0,
+            padre: None,
+            attende: Vec::new(),
+            attese: 0,
         }
     }
 
@@ -161,6 +164,7 @@ mod prove {
             .contains("riavvii"));
         assert!(avviso("a", &c, Stato::Affidato, "").is_none());
         assert!(avviso("a", &c, Stato::InCorso, "").is_none());
+        assert!(avviso("a", &c, Stato::InAttesa, "").is_none(), "in attesa non e' finito");
     }
 
     #[test]

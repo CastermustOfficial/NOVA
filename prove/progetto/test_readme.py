@@ -276,6 +276,16 @@ for quanti, cosa in [(len(PER_I_MODELLI), "strumenti per i cervelli"),
                      (len(LEGGIBILI), "formati")]:
     controlla(f"anche l'inglese dice {quanti} per «{cosa}»", str(quanti) in EN,
               "il numero non compare nella traduzione")
+# Il numero da solo si trova anche altrove («62 layer» in una tabella): i
+# due conteggi degli strumenti si cercano nella frase che li dice, in testa
+# a «Cosa sa fare» e a «What it can do» (D388).
+for testo, lingua, frase in [(README, "italiano", "**{t} strumenti** per un cervello agentico come "
+                                                  "Claude Code, e **{h}**"),
+                             (EN, "inglese", "**{t} tools** for an agentic brain like Claude Code, "
+                                             "and **{h}**")]:
+    attesa = frase.format(t=len(PER_I_MODELLI), h=len(IN_HTTP))
+    controlla(f"in {lingua} la frase dei conteggi dice {len(PER_I_MODELLI)} e {len(IN_HTTP)}",
+              attesa in " ".join(testo.split()), attesa)
 controlla("nomina lo stesso modello del catalogo", radice_nome in EN)
 controlla("e non ne nomina un'altra versione",
           not (set(re.findall(r"Qwen3\.\d+", EN)) - {radice_nome}))

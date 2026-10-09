@@ -402,6 +402,9 @@ SENZA_GEMELLO: dict[str, str] = {
     # (D387). Il gemello di quelle che c'erano e' DAL_PYTHON, qui sopra.
     "SOLO_DEL_DEMONE": "gli strumenti per i Dot offerti al modello di casa; "
                        "in Python i Dot non ci sono",
+    # I nomi che un Dot non puo' avere, perche' sono la cartella dei gruppi
+    # e il destinatario «nova» dei messaggi (D388). I Dot sono solo in Rust.
+    "NOMI_PRESI": "i nomi riservati dei Dot; in Python i Dot non ci sono",
     # I dispositivi che restano scrivibili dentro il recinto del kernel. In
     # Python non c'e' niente da confrontare: il recinto e' una cosa che fa il
     # sistema operativo, e dalla parte Python non esiste affatto. Non sono

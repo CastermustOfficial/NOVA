@@ -188,6 +188,7 @@ fn assicura_il_custode() {
         ruolo: nova_dot::custode::RUOLO.into(),
         nato: adesso(),
         mestiere: d::Mestiere::Custode,
+        capo: String::new(),
     };
     if let Err(e) = c.crea(&custode) {
         tracing::warn!(errore = %e, "il custode dei permessi non nasce");
@@ -283,12 +284,14 @@ fn avvia(server: &Arc<Server>, nome: &str) {
 }
 
 /// Fa nascere un Dot e ne accende il ciclo. `mestiere` vuoto vuol dire
-/// generico (`nova_dot::Mestiere::da`).
+/// generico (`nova_dot::Mestiere::da`). `capo` vuoto vuol dire nessun capo;
+/// se c'e', e' un Dot che c'e' gia' e prende compiti (D388).
 pub fn crea(
     server: &Arc<Server>,
     nome: &str,
     ruolo: &str,
     mestiere: &str,
+    capo: &str,
 ) -> Result<Value, String> {
     let c = cartella(nome)?;
     if d::nome_valido(nome)? == nova_dot::custode::NOME_CUSTODE {
@@ -300,11 +303,25 @@ pub fn crea(
     if ruolo.trim().is_empty() {
         return Err("un Dot ha bisogno di un ruolo: e' quello che lo fa essere lui".into());
     }
+    let capo = capo.trim();
+    if !capo.is_empty() {
+        if capo == nome.trim() {
+            return Err("un Dot non puo' essere il capo di se stesso".into());
+        }
+        let cc = cartella(capo)?;
+        if !cc.esiste() {
+            return Err(format!("il capo «{capo}» non c'e': prima nasce il capo, poi i sottoposti"));
+        }
+        if cc.dot().is_ok_and(|x| x.mestiere == d::Mestiere::Custode) {
+            return Err("il custode dei permessi non ha sottoposti: decide e basta".into());
+        }
+    }
     let dot = d::Dot {
         nome: d::nome_valido(nome)?,
         ruolo: ruolo.trim().to_string(),
         nato: adesso(),
         mestiere: d::Mestiere::da(mestiere)?,
+        capo: capo.to_string(),
     };
     c.crea(&dot)?;
     avvia(server, &dot.nome);
@@ -315,6 +332,19 @@ pub fn crea(
 /// Mette un compito in coda e sveglia il Dot. Torna subito, col numero del
 /// compito: chi affida non aspetta.
 pub fn affida(server: &Arc<Server>, nome: &str, testo: &str, da: &str) -> Result<u64, String> {
+    affida_per(server, nome, testo, da, None)
+}
+
+/// Come [`affida`], per un pezzo del compito `padre` di un capo (D388): nella
+/// coda del capo si annota il pezzo, e il suo compito, finiti i turni,
+/// aspettera' che il pezzo si chiuda.
+pub fn affida_per(
+    server: &Arc<Server>,
+    nome: &str,
+    testo: &str,
+    da: &str,
+    padre: Option<d::Rif>,
+) -> Result<u64, String> {
     let c = cartella(nome)?;
     if !c.esiste() {
         return Err(format!("non c'e' nessun Dot che si chiama «{}»", nome.trim()));
@@ -328,7 +358,15 @@ pub fn affida(server: &Arc<Server>, nome: &str, testo: &str, da: &str) -> Result
         return Err("un compito vuoto non e' un compito".into());
     }
     let da = if da.trim().is_empty() { "utente" } else { da.trim() };
-    let id = c.affida(testo.trim(), da, &adesso())?;
+    let id = c.affida_per(testo.trim(), da, &adesso(), padre.clone())?;
+    if let Some(p) = &padre {
+        let nota = d::Nota {
+            id: p.id,
+            quando: adesso(),
+            nota: d::Squadra::Affidato { dot: nome.trim().to_string(), compito: id },
+        };
+        cartella(&p.dot)?.annota_squadra(&nota)?;
+    }
     // Un Dot nato mentre il demone era spento, o scritto a mano: si accende
     // qui, al primo compito.
     avvia(server, nome.trim());
@@ -356,6 +394,13 @@ pub fn stato(server: &Arc<Server>, nome: &str) -> Result<Value, String> {
         "acceso": server.dots.maniglia(&dot.nome).is_some(),
         "in_corso": if in_corso == 0 { Value::Null } else { json!(in_corso) },
         "compiti": c.compiti(),
+        "sottoposti": sottoposti(&dot.nome),
+        "posta_da_leggere": c.non_letta().len(),
+        "gruppi": nova_dot::gruppi::elenco(&base())
+            .into_iter()
+            .filter(|g| g.membri.contains(&dot.nome))
+            .map(|g| g.nome)
+            .collect::<Vec<_>>(),
     }))
 }
 
@@ -377,12 +422,117 @@ pub fn elenco(server: &Arc<Server>) -> Value {
                 "ruolo": dot.ruolo,
                 "mestiere": dot.mestiere,
                 "prende_compiti": dot.mestiere != d::Mestiere::Custode,
+                "capo": dot.capo,
                 "in_coda": coda.iter().filter(|c| c.stato == d::Stato::Affidato).count(),
                 "in_corso": if in_corso == 0 { Value::Null } else { json!(in_corso) },
             }))
         })
         .collect();
-    json!({ "dots": dots })
+    let gruppi: Vec<Value> = nova_dot::gruppi::elenco(&base())
+        .into_iter()
+        .map(|g| json!({ "nome": g.nome, "membri": g.membri }))
+        .collect();
+    json!({ "dots": dots, "gruppi": gruppi })
+}
+
+/// Scrive un messaggio (D388). `da` e' `nova` o il Dot che scrive; `a` e'
+/// `nova`, un Dot, o `gruppo:<nome>`. Il messaggio va nella posta: il Dot lo
+/// legge al prossimo compito, non subito, come ha scelto Gio. A Nova arriva
+/// in chat. In un gruppo scrivono Nova e i membri.
+pub fn scrivi(server: &Arc<Server>, da: &str, a: &str, testo: &str) -> Result<Value, String> {
+    use nova_dot::gruppi::{self, Destinatario};
+    if testo.trim().is_empty() {
+        return Err("un messaggio vuoto non dice niente".into());
+    }
+    let quando = adesso();
+    let evento = |a: &str| {
+        server
+            .ctx
+            .bus
+            .emit("dot.messaggio", json!({ "da": da, "a": a, "testo": testo.trim() }));
+    };
+    match gruppi::destinatario(a)? {
+        Destinatario::Nova => {
+            if da == d::DA_NOVA {
+                return Err("Nova non scrive a se stessa".into());
+            }
+            evento(d::DA_NOVA);
+            Ok(json!({ "a": d::DA_NOVA, "consegnato": true }))
+        }
+        Destinatario::Dot(nome) => {
+            if nome == da {
+                return Err("un Dot non scrive a se stesso".into());
+            }
+            let c = cartella(&nome)?;
+            if !c.esiste() {
+                return Err(format!("non c'e' nessun Dot che si chiama «{nome}»"));
+            }
+            if c.dot().is_ok_and(|x| x.mestiere == d::Mestiere::Custode) {
+                return Err("il custode dei permessi non legge la posta: decide e basta".into());
+            }
+            let n = c.imbuca(da, &nome, testo.trim(), &quando)?;
+            evento(&nome);
+            Ok(json!({ "a": nome, "messaggio": n, "nota": "lo leggera' al prossimo compito" }))
+        }
+        Destinatario::Gruppo(g) => {
+            let gruppo = gruppi::leggi(&base(), &g)?;
+            if da != d::DA_NOVA && !gruppo.membri.iter().any(|m| m == da) {
+                return Err(format!("{da} non e' nel gruppo «{g}»: ci scrivono Nova e i membri"));
+            }
+            let a = format!("gruppo:{g}");
+            let (_, gia) = gruppi::chat(&base(), &g)?;
+            gruppi::scrivi(
+                &base(),
+                &g,
+                &d::Messaggio {
+                    n: gia as u64 + 1,
+                    da: da.to_string(),
+                    a: a.clone(),
+                    testo: testo.trim().to_string(),
+                    quando: quando.clone(),
+                },
+            )?;
+            let mut a_chi = Vec::new();
+            for m in gruppo.membri.iter().filter(|m| m.as_str() != da) {
+                if let Ok(c) = cartella(m) {
+                    if c.esiste() && c.imbuca(da, &a, testo.trim(), &quando).is_ok() {
+                        a_chi.push(m.clone());
+                    }
+                }
+            }
+            evento(&a);
+            Ok(json!({ "a": a, "membri": a_chi, "nota": "lo leggeranno al prossimo compito" }))
+        }
+    }
+}
+
+/// Fa nascere un gruppo, o ne cambia i membri (D388). I membri sono Dot che
+/// ci sono e prendono compiti.
+pub fn gruppo(nome: &str, membri: &[String]) -> Result<Value, String> {
+    use nova_dot::gruppi;
+    for m in membri {
+        let c = cartella(m)?;
+        if !c.esiste() {
+            return Err(format!("non c'e' nessun Dot che si chiama «{}»", m.trim()));
+        }
+        if c.dot().is_ok_and(|x| x.mestiere == d::Mestiere::Custode) {
+            return Err("il custode dei permessi non sta nei gruppi: decide e basta".into());
+        }
+    }
+    let nato = gruppi::leggi(&base(), nome).map(|g| g.nato).unwrap_or_else(|_| adesso());
+    let g = gruppi::salva(
+        &base(),
+        &gruppi::Gruppo { nome: nome.trim().to_string(), membri: membri.to_vec(), nato },
+    )?;
+    serde_json::to_value(&g).map_err(|e| e.to_string())
+}
+
+/// Un gruppo, con gli ultimi messaggi della chat.
+pub fn stato_gruppo(nome: &str) -> Result<Value, String> {
+    use nova_dot::gruppi;
+    let g = gruppi::leggi(&base(), nome)?;
+    let (chat, quanti) = gruppi::chat(&base(), &g.nome)?;
+    Ok(json!({ "gruppo": g, "chat": chat, "messaggi": quanti }))
 }
 
 /// Quanto di un rapporto si legge con un compito: il resto sta nel file.
@@ -436,6 +586,17 @@ async fn ciclo(server: Arc<Server>, nome: String, m: Arc<Maniglia>) {
             m.sveglia.notified().await;
             continue;
         };
+        // Come comincia: un compito in attesa riprende con gli esiti dei
+        // sottoposti; e in coda la squadra e la posta arrivata (D388). La
+        // posta si segna letta qui, quando entra nella domanda.
+        let riprende = d::pronto(&compito);
+        let dot = c.dot().ok();
+        let capo = dot.as_ref().map(|x| x.capo.clone()).unwrap_or_default();
+        let (posta, letta) = d::con_la_posta("", &c.non_letta());
+        let aggiunta = format!("{}{posta}", d::squadra(&capo, &sottoposti(&nome)));
+        if let Some(n) = letta {
+            let _ = c.segna_letta(n);
+        }
         let _ = c.annota(&d::Evento {
             id: compito.id,
             stato: d::Stato::InCorso,
@@ -443,6 +604,7 @@ async fn ciclo(server: Arc<Server>, nome: String, m: Arc<Maniglia>) {
             testo: String::new(),
             da: String::new(),
             esito: String::new(),
+            padre: None,
         });
         m.in_corso.store(compito.id, Ordering::SeqCst);
         server
@@ -459,7 +621,8 @@ async fn ciclo(server: Arc<Server>, nome: String, m: Arc<Maniglia>) {
         // non verrebbe guardato finche' la risposta non arriva. Da fuori lo
         // si abbandona subito, e si annulla al primo punto in cui si ferma.
         let (s2, c2, n2, comp2) = (server.clone(), c.clone(), nome.clone(), compito.clone());
-        let mut lavoro = tokio::spawn(async move { lavora(&s2, &c2, &n2, &comp2).await });
+        let mut lavoro =
+            tokio::spawn(async move { lavora(&s2, &c2, &n2, &comp2, riprende, &aggiunta).await });
         let (stato, esito) = tokio::select! {
             r = &mut lavoro => r.unwrap_or_else(|e| (d::Stato::Fallito, format!("il lavoro si e' rotto: {e}"))),
             _ = &mut fermato => {
@@ -468,6 +631,42 @@ async fn ciclo(server: Arc<Server>, nome: String, m: Arc<Maniglia>) {
             }
         };
         m.in_corso.store(0, Ordering::SeqCst);
+        // Finito bene, ma con pezzi affidati di cui non ha ancora l'esito:
+        // il compito aspetta, e il Dot passa al prossimo (D388).
+        let adesso_compito = c.compiti().into_iter().find(|x| x.id == compito.id);
+        if stato == d::Stato::Fatto && adesso_compito.as_ref().is_some_and(d::da_aspettare) {
+            let attesi: Vec<String> = adesso_compito
+                .iter()
+                .flat_map(|x| x.attende.iter())
+                .filter(|x| !x.letto)
+                .map(|x| format!("{} n. {}", x.dot, x.id))
+                .collect();
+            let nota = format!("aspetta: {}", attesi.join(", "));
+            let _ = c.annota(&d::Evento {
+                id: compito.id,
+                stato: d::Stato::InAttesa,
+                quando: adesso(),
+                testo: String::new(),
+                da: String::new(),
+                esito: nota.clone(),
+                padre: None,
+            });
+            let _ = c.diario(&json!({
+                "quando": adesso(), "compito": compito.id, "tipo": "aspetta", "chi": attesi,
+            }));
+            server.ctx.bus.emit(
+                "dot.compito",
+                json!({ "dot": nome, "id": compito.id, "stato": d::Stato::InAttesa, "esito": nota }),
+            );
+            // Se intanto hanno gia' consegnato tutti, si riprende subito.
+            m.sveglia.notify_one();
+            continue;
+        }
+        // Ha aspettato troppe volte: si chiude con quel che ha, e lo si dice.
+        let esito = match adesso_compito.as_ref().and_then(d::senza_aspettare_oltre) {
+            Some(nota) if stato == d::Stato::Fatto => format!("{esito}\n\n{nota}"),
+            _ => esito,
+        };
         let _ = c.annota(&d::Evento {
             id: compito.id,
             stato,
@@ -475,6 +674,7 @@ async fn ciclo(server: Arc<Server>, nome: String, m: Arc<Maniglia>) {
             testo: String::new(),
             da: String::new(),
             esito: esito.clone(),
+            padre: None,
         });
         let _ = c.diario(&json!({
             "quando": adesso(), "compito": compito.id, "tipo": "finisce", "stato": stato,
@@ -486,6 +686,59 @@ async fn ciclo(server: Arc<Server>, nome: String, m: Arc<Maniglia>) {
         if nova_dot::consegna::di_nova(&compito) {
             consegna(&server, &nome, &compito, stato, &esito);
         }
+        if let Some(p) = &compito.padre {
+            consegna_al_capo(&server, p, &nome, compito.id, stato, &esito);
+        }
+    }
+}
+
+/// Il compito che un Dot sta facendo adesso, se ne fa uno.
+pub fn compito_in_corso(server: &Arc<Server>, nome: &str) -> Option<u64> {
+    let id = server.dots.maniglia(nome)?.in_corso.load(Ordering::SeqCst);
+    (id != 0).then_some(id)
+}
+
+/// I sottoposti di un Dot: quelli che lo hanno come capo, in ordine.
+pub fn sottoposti(nome: &str) -> Vec<String> {
+    d::elenco(&base())
+        .into_iter()
+        .filter(|n| cartella(n).ok().and_then(|c| c.dot().ok()).is_some_and(|x| x.capo == nome))
+        .collect()
+}
+
+/// Un pezzo e' chiuso: l'esito torna al compito del capo, e il capo si
+/// sveglia, che se era l'ultimo pezzo riprende (D388).
+fn consegna_al_capo(
+    server: &Arc<Server>,
+    padre: &d::Rif,
+    nome: &str,
+    id: u64,
+    stato: d::Stato,
+    esito: &str,
+) {
+    let nota = d::Nota {
+        id: padre.id,
+        quando: adesso(),
+        nota: d::Squadra::Consegnato {
+            dot: nome.to_string(),
+            compito: id,
+            stato,
+            esito: esito.to_string(),
+        },
+    };
+    match cartella(&padre.dot).and_then(|c| c.annota_squadra(&nota)) {
+        Ok(()) => {}
+        Err(e) => {
+            tracing::warn!(dot = nome, capo = %padre.dot, errore = %e, "la consegna al capo non si scrive");
+            return;
+        }
+    }
+    server.ctx.bus.emit(
+        "dot.squadra",
+        json!({ "dot": nome, "id": id, "capo": padre.dot, "compito_del_capo": padre.id, "stato": stato }),
+    );
+    if let Some(m) = server.dots.maniglia(&padre.dot) {
+        m.sveglia.notify_one();
     }
 }
 
@@ -557,18 +810,29 @@ pub(crate) fn salva(c: &d::Cartella, nome: &str, s: &Sessione) {
 
 /// Fa un compito: i turni nella conversazione del Dot, finche' il modello
 /// risponde o finiscono i turni concessi.
+///
+/// `riprende`: e' un compito in attesa i cui sottoposti hanno consegnato, e
+/// comincia con i loro esiti. `aggiunta` va in coda alla prima domanda: la
+/// squadra e la posta (D388).
 async fn lavora(
     server: &Arc<Server>,
     c: &d::Cartella,
     nome: &str,
     compito: &d::Compito,
+    riprende: bool,
+    aggiunta: &str,
 ) -> (d::Stato, String) {
     let dot = match c.dot() {
         Ok(x) => x,
         Err(e) => return (d::Stato::Fallito, e),
     };
     if dot.mestiere == d::Mestiere::Ricercatore {
-        return crate::ricercatore::lavora(server, c, &dot, compito).await;
+        // Il ricercatore fa il piano dal testo del compito: gli esiti dei
+        // sottoposti e la posta entrano li'.
+        let mut per_lui = compito.clone();
+        let base = if riprende { d::ripresa(compito) } else { compito.testo.clone() };
+        per_lui.testo = format!("{base}{aggiunta}");
+        return crate::ricercatore::lavora(server, c, &dot, &per_lui).await;
     }
     let cfg = nova_configurazione::dove::leggi();
     let mut s = conversazione_di(c, &dot, &cfg);
@@ -581,10 +845,12 @@ async fn lavora(
     for giro in 0..d::TURNI_PER_COMPITO {
         let testo = if giro > 0 {
             d::continua(compito)
+        } else if riprende {
+            format!("{}{aggiunta}", d::ripresa(compito))
         } else if compito.riprese > 0 {
-            format!("{}{}", d::domanda(compito), d::RIPRESO)
+            format!("{}{}{aggiunta}", d::domanda(compito), d::RIPRESO)
         } else {
-            d::domanda(compito)
+            format!("{}{aggiunta}", d::domanda(compito))
         };
         let r = crate::agente::turno_in(server, &cfg, &mut s, &testo, &sessione, false, "", &esecutore, "").await;
         salva(c, nome, &s);

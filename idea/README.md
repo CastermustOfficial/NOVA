@@ -259,3 +259,13 @@ Nata col D387, l'8 ottobre.
 
 **Cosa costerebbe.** Per Live: un canale dal demone alla sessione aperta (oggi `conversa` ascolta solo il microfono e il server), e un messaggio `clientContent` che non interrompa l'utente mentre parla; va provato come lo prende il modello. Per la conversazione di Nova: un messaggio senza una domanda davanti, o una domanda finta; va visto come lo prendono i cervelli della scala, e la cache del prefisso non cambia perche' si aggiunge in coda.
 
+## I Dot dopo il D388: il capo che cambia, i gruppi col modello di casa, il capo fermato
+
+Nate col D388, il 9 ottobre.
+
+**Cosa.** Tre cose che i Dot fra loro non fanno ancora. Cambiare il capo di un Dot dopo la nascita, o spostarlo in un'altra parte della piramide. Fare i gruppi col modello di casa, che `dot.gruppo` non lo riceve. Fermare un capo e, con lui, i pezzi che ha affidato e che aspetta.
+
+**Perché.** Senza la prima la piramide si sbaglia una volta e resta sbagliata; la faranno AR e l'APM, e ne avranno bisogno. Senza la seconda chi usa NOVA solo col modello del PC non ha gruppi, se non chiedendoli a Claude o alla porta del demone. Senza la terza un capo fermato lascia i sottoposti a lavorare per un compito che nessuno aspetta piu'.
+
+**Cosa costerebbe.** La prima: un campo che cambia in `dot.json`, scritto tutto insieme, e una regola contro i giri (A capo di B capo di A). La seconda: circa cento token di schema in piu' per il modello di casa, che oggi ha 2.100 token per la conversazione contro una soglia di 2.000; si potrebbe accorciare un altro schema, o fare di `dot.gruppo` un modo di `dot.crea`. La terza: `dot.ferma` che chiude anche un compito in attesa e manda il «ferma» ai pezzi aperti, uno per uno.
+

@@ -99,7 +99,10 @@ pub fn autonomia(cfg: &Value) -> Autonomia {
 /// Il freno (`azione.*`, `dot.ferma`): fermarsi deve funzionare sempre.
 /// Affidare a un Dot (`dot.affida`): deciso con Gio l'8 ottobre, e' passare
 /// la palla, e dei permessi del Dot mentre lavora si occupa il custode (D387).
-pub const NON_CHIEDONO_MAI: [&str; 4] = ["azione.ferma", "azione.stato", "dot.affida", "dot.ferma"];
+/// Scrivere un messaggio a un Dot o a un gruppo (`dot.scrivi`): e' parlare
+/// fra colleghi, e non tocca niente fuori dalla posta dei Dot (D388).
+pub const NON_CHIEDONO_MAI: [&str; 5] =
+    ["azione.ferma", "azione.stato", "dot.affida", "dot.ferma", "dot.scrivi"];
 
 /// Se prima di questa capacita' si chiede. Le capacita' dello sportello non
 /// chiedono mai — chiedere il permesso di chiedere un permesso non finisce —
@@ -327,6 +330,8 @@ mod prove {
         let sempre = Autonomia::Chiedi;
         assert!(!si_chiede(&Finta("dot.affida", "dot", Risk::Safe), sempre));
         assert!(!si_chiede(&Finta("dot.ferma", "dot", Risk::Safe), sempre));
+        assert!(!si_chiede(&Finta("dot.scrivi", "dot", Risk::Safe), sempre));
+        assert!(si_chiede(&Finta("dot.gruppo", "dot", Risk::Moderate), sempre));
         assert!(si_chiede(&Finta("dot.crea", "dot", Risk::Moderate), sempre));
         assert!(si_chiede(&Finta("dot.stato", "dot", Risk::Safe), sempre));
         assert!(!si_chiede(

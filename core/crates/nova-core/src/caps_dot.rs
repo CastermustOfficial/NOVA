@@ -1,7 +1,8 @@
-//! Nova e i Dot: affidare, chiedere com'e' andata, fermare (D387).
+//! Nova e i Dot: affidare, chiedere com'e' andata, fermare (D387); e i Dot
+//! fra loro: la squadra, i messaggi, i gruppi (D388).
 //!
-//! E' il passo «Nova li chiama» dell'azienda dei Dot (D385, `docs/dots.md`).
-//! Le scelte di Gio, l'8 ottobre:
+//! Sono i passi «Nova li chiama» e «I Dot parlano fra loro» dell'azienda dei
+//! Dot (D385, `docs/dots.md`). Le scelte di Gio, l'8 ottobre:
 //!
 //! - **affidare non chiede il permesso** (`dot.affida`, innocua): e' passare
 //!   la palla; dei permessi del Dot, mentre lavora, si occupa il custode
@@ -12,8 +13,14 @@
 //! - quando un Dot finisce un compito di Nova, l'utente lo sa **in chat e a
 //!   voce** (`nova_core::dot::consegna`).
 //!
-//! Le chiama Nova. Un Dot che le chiama si sente dire di no: i Dot che si
-//! affidano compiti fra loro sono il passo dopo, coi messaggi e i gruppi.
+//! - **ogni Dot puo' avere un capo**, e affida solo ai suoi sottoposti; il
+//!   suo compito aspetta che consegnino, e intanto fa gli altri;
+//! - **i messaggi si leggono al prossimo compito** (`dot.scrivi`), e a
+//!   scrivere sono Nova e i Dot;
+//! - **i gruppi li crea Nova** se l'utente lo chiede (`dot.gruppo`).
+//!
+//! Far nascere un Dot, fermarlo e fare i gruppi resta di Nova: un Dot che lo
+//! chiede si sente dire di no.
 
 use std::sync::Arc;
 
@@ -30,17 +37,29 @@ pub fn register(reg: &mut Registry) {
     reg.add(Arc::new(AffidaCap));
     reg.add(Arc::new(StatoCap));
     reg.add(Arc::new(FermaCap));
+    reg.add(Arc::new(ScriviCap));
+    reg.add(Arc::new(GruppoCap));
 }
 
-/// Il server, e un no se a chiamare e' un Dot.
-fn per_nova() -> Result<&'static Arc<crate::server::Server>> {
-    if let Chi::Dot(nome) = crate::agente::per_conto_di() {
-        return Err(anyhow!(
-            "{nome} e' un Dot: affidare compiti ad altri Dot, per ora, lo fa solo Nova. \
-             I Dot che si passano il lavoro fra loro arrivano coi messaggi e i gruppi"
-        ));
-    }
+fn il_server() -> Result<&'static Arc<crate::server::Server>> {
     crate::caps_memoria::il_server().ok_or_else(|| anyhow!("il demone non e' ancora pronto"))
+}
+
+/// Il server, e un no se a chiamare e' un Dot: `cosa` e' quello che fa solo
+/// Nova.
+fn per_nova(cosa: &str) -> Result<&'static Arc<crate::server::Server>> {
+    if let Chi::Dot(nome) = crate::agente::per_conto_di() {
+        return Err(anyhow!("{nome} e' un Dot: {cosa} lo fa solo Nova"));
+    }
+    il_server()
+}
+
+/// Chi scrive o affida: `nova`, o il Dot per cui gira la capacita'.
+fn chi() -> String {
+    match crate::agente::per_conto_di() {
+        Chi::Nova => nova_dot::DA_NOVA.to_string(),
+        Chi::Dot(nome) => nome,
+    }
 }
 
 /// Il numero di un compito, se c'e'. Accetta un numero o un testo con un
@@ -83,6 +102,7 @@ impl Capability for CreaCap {
                     "ricercatore (rapporto con fonti) o vuoto",
                     false,
                 ),
+                ("capo", "string", "un Dot, o vuoto", false),
             ]),
         }
     }
@@ -91,21 +111,24 @@ impl Capability for CreaCap {
         let nome = arg_str_opt(&args, "nome").unwrap_or_default();
         let ruolo = arg_str_opt(&args, "ruolo").unwrap_or_default();
         let mestiere = arg_str_opt(&args, "mestiere").unwrap_or_default();
+        let capo = arg_str_opt(&args, "capo").unwrap_or_default();
         Some(Ok(json!({
             "farei": "farei nascere un Dot, che lavora da solo ai compiti che gli si affidano",
             "nome": nome,
             "ruolo": ruolo,
             "mestiere": if mestiere.trim().is_empty() { "generico".to_string() } else { mestiere },
+            "capo": if capo.trim().is_empty() { "nessuno".to_string() } else { capo },
             "annullabile": false,
         })))
     }
 
     async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
-        let server = per_nova()?;
+        let server = per_nova("far nascere un Dot")?;
         let nome = arg_str(&args, "nome")?;
         let ruolo = arg_str(&args, "ruolo")?;
         let mestiere = arg_str_opt(&args, "mestiere").unwrap_or_default();
-        crate::dot::crea(server, &nome, &ruolo, &mestiere).map_err(|e| anyhow!(e))
+        let capo = arg_str_opt(&args, "capo").unwrap_or_default();
+        crate::dot::crea(server, &nome, &ruolo, &mestiere, &capo).map_err(|e| anyhow!(e))
     }
 }
 
@@ -116,9 +139,8 @@ impl Capability for AffidaCap {
     fn info(&self) -> CapabilityInfo {
         CapabilityInfo {
             name: "dot.affida".into(),
-            description: "Affida un compito a un Dot, che lo fa da solo. Torna subito; quando \
-                          finisce l'utente lo sa. Il Dot non vede questa conversazione: scrivi \
-                          il compito per intero."
+            description: "Affida un compito a un Dot, che lo fa da solo; torna subito. Un Dot \
+                          affida solo ai suoi sottoposti. Scrivi il compito per intero."
                 .into(),
             risk: Risk::Safe,
             category: "dot".into(),
@@ -130,16 +152,53 @@ impl Capability for AffidaCap {
     }
 
     async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
-        let server = per_nova()?;
+        let server = il_server()?;
         let nome = arg_str(&args, "nome")?;
         let compito = arg_str(&args, "compito")?;
-        let id = crate::dot::affida(server, &nome, &compito, nova_dot::consegna::DA_NOVA)
+        let Chi::Dot(capo) = crate::agente::per_conto_di() else {
+            let id = crate::dot::affida(server, &nome, &compito, nova_dot::DA_NOVA)
+                .map_err(|e| anyhow!(e))?;
+            return Ok(json!({
+                "dot": nome.trim(),
+                "compito": id,
+                "nota": "Il Dot ci lavora da solo. Quando finisce, l'utente lo sa in chat, e a \
+                         voce se la voce e' accesa; a che punto e', intanto, con dot.stato.",
+            }));
+        };
+        // Un Dot affida un pezzo del compito che sta facendo, e solo ai suoi
+        // sottoposti (D388).
+        let suoi = crate::dot::sottoposti(&capo);
+        if !suoi.iter().any(|s| s == nome.trim()) {
+            return Err(anyhow!(
+                "«{}» non e' un tuo sottoposto: affidi solo ai tuoi ({}). Per dire qualcosa \
+                 a chiunque c'e' dot.scrivi",
+                nome.trim(),
+                if suoi.is_empty() {
+                    "non ne hai".to_string()
+                } else {
+                    suoi.join(", ")
+                }
+            ));
+        }
+        let Some(mio) = crate::dot::compito_in_corso(server, &capo) else {
+            return Err(anyhow!(
+                "affidi un pezzo del compito che stai facendo, e adesso non ne fai"
+            ));
+        };
+        let padre = nova_dot::Rif {
+            dot: capo.clone(),
+            id: mio,
+        };
+        let id = crate::dot::affida_per(server, &nome, &compito, &capo, Some(padre))
             .map_err(|e| anyhow!(e))?;
         Ok(json!({
             "dot": nome.trim(),
             "compito": id,
-            "nota": "Il Dot ci lavora da solo. Quando finisce, l'utente lo sa in chat, e a voce \
-                     se la voce e' accesa; a che punto e', intanto, con dot.stato.",
+            "nota": format!(
+                "Quando hai finito questo turno, il tuo compito n. {mio} aspetta che {} \
+                 consegni, e poi riprende con il suo esito.",
+                nome.trim()
+            ),
         }))
     }
 }
@@ -151,8 +210,8 @@ impl Capability for StatoCap {
     fn info(&self) -> CapabilityInfo {
         CapabilityInfo {
             name: "dot.stato".into(),
-            description: "I Dot e il loro lavoro: senza nome tutti, col nome i suoi compiti, \
-                          col compito l'esito e il rapporto."
+            description: "I Dot e il loro lavoro: senza nome tutti, col nome i compiti, col \
+                          compito l'esito, con gruppo:<nome> la chat."
                 .into(),
             risk: Risk::Safe,
             category: "dot".into(),
@@ -164,11 +223,13 @@ impl Capability for StatoCap {
     }
 
     async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
-        let server = crate::caps_memoria::il_server()
-            .ok_or_else(|| anyhow!("il demone non e' ancora pronto"))?;
+        let server = il_server()?;
         let nome = arg_str_opt(&args, "nome").unwrap_or_default();
         if nome.trim().is_empty() {
             return Ok(crate::dot::elenco(server));
+        }
+        if let Some(g) = nome.trim().strip_prefix("gruppo:") {
+            return crate::dot::stato_gruppo(g).map_err(|e| anyhow!(e));
         }
         match numero(&args, "compito")? {
             None => crate::dot::stato(server, &nome).map_err(|e| anyhow!(e)),
@@ -194,10 +255,96 @@ impl Capability for FermaCap {
     }
 
     async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
-        let server = per_nova()?;
+        let server = per_nova("fermare un Dot")?;
         let nome = arg_str(&args, "nome")?;
         let fermato = crate::dot::ferma(server, &nome).map_err(|e| anyhow!(e))?;
         Ok(json!({ "dot": nome.trim(), "fermato": fermato }))
+    }
+}
+
+struct ScriviCap;
+
+#[async_trait]
+impl Capability for ScriviCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "dot.scrivi".into(),
+            description: "Messaggio a un Dot, a gruppo:<nome> o a nova. Un Dot lo legge al suo \
+                          prossimo compito."
+                .into(),
+            risk: Risk::Safe,
+            category: "dot".into(),
+            schema: schema(&[
+                ("a", "string", "un Dot, gruppo:<nome> o nova", true),
+                ("testo", "string", "il messaggio", true),
+            ]),
+        }
+    }
+
+    async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
+        let server = il_server()?;
+        let a = arg_str(&args, "a")?;
+        let testo = arg_str(&args, "testo")?;
+        crate::dot::scrivi(server, &chi(), &a, &testo).map_err(|e| anyhow!(e))
+    }
+}
+
+struct GruppoCap;
+
+#[async_trait]
+impl Capability for GruppoCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "dot.gruppo".into(),
+            description: "Fa un gruppo di Dot, o ne cambia i membri. Solo se l'utente lo chiede."
+                .into(),
+            risk: Risk::Moderate,
+            category: "dot".into(),
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "nome": { "type": "string", "description": "minuscole, cifre, trattini" },
+                    "membri": { "type": "array", "items": { "type": "string" }, "description": "i Dot" }
+                },
+                "required": ["nome", "membri"]
+            }),
+        }
+    }
+
+    async fn anteprima(&self, args: Value, _ctx: &Ctx) -> Option<Result<Value>> {
+        Some(Ok(json!({
+            "farei": "farei un gruppo di Dot, o ne cambierei i membri",
+            "nome": arg_str_opt(&args, "nome").unwrap_or_default(),
+            "membri": membri(&args).unwrap_or_default().join(", "),
+            "annullabile": false,
+        })))
+    }
+
+    async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
+        per_nova("fare i gruppi")?;
+        let nome = arg_str(&args, "nome")?;
+        crate::dot::gruppo(&nome, &membri(&args)?).map_err(|e| anyhow!(e))
+    }
+}
+
+/// I membri di un gruppo: una lista di nomi, o un testo con le virgole, che
+/// i modelli scrivono l'uno e l'altro.
+fn membri(args: &Value) -> Result<Vec<String>> {
+    match args.get("membri") {
+        Some(Value::Array(v)) => v
+            .iter()
+            .map(|x| {
+                x.as_str()
+                    .map(|s| s.trim().to_string())
+                    .ok_or_else(|| anyhow!("i membri sono nomi di Dot"))
+            })
+            .collect(),
+        Some(Value::String(s)) => Ok(s
+            .split(',')
+            .map(|x| x.trim().to_string())
+            .filter(|x| !x.is_empty())
+            .collect()),
+        _ => Err(anyhow!("manca «membri»: i Dot del gruppo")),
     }
 }
 
@@ -227,10 +374,31 @@ mod prove {
     }
 
     #[tokio::test]
-    async fn un_dot_non_affida_ad_altri_dot() {
-        let e = crate::agente::per_conto_di_un_dot("lavoratore".into(), async { per_nova().err() })
-            .await
-            .expect("un Dot deve sentirsi dire di no");
-        assert!(e.to_string().contains("lavoratore e' un Dot"), "{e}");
+    async fn far_nascere_fermare_e_fare_i_gruppi_resta_di_nova() {
+        let e = crate::agente::per_conto_di_un_dot("lavoratore".into(), async {
+            per_nova("fare i gruppi").err()
+        })
+        .await
+        .expect("un Dot deve sentirsi dire di no");
+        assert_eq!(
+            e.to_string(),
+            "lavoratore e' un Dot: fare i gruppi lo fa solo Nova"
+        );
+        let chi_scrive = crate::agente::per_conto_di_un_dot("uno".into(), async { chi() }).await;
+        assert_eq!((chi_scrive.as_str(), chi().as_str()), ("uno", "nova"));
+    }
+
+    #[test]
+    fn i_membri_si_leggono_in_lista_o_con_le_virgole() {
+        assert_eq!(
+            membri(&json!({ "membri": ["uno", " due "] })).unwrap(),
+            ["uno", "due"]
+        );
+        assert_eq!(
+            membri(&json!({ "membri": "uno, due,," })).unwrap(),
+            ["uno", "due"]
+        );
+        assert!(membri(&json!({})).is_err());
+        assert!(membri(&json!({ "membri": [1] })).is_err());
     }
 }

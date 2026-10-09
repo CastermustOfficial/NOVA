@@ -167,8 +167,8 @@ progetto, e che resta.
 1. ~~Il Dot su disco e il suo ciclo~~ (D382), ~~il ricercatore~~ (D383),
    ~~il custode~~ (D384).
 2. ~~**Nova li chiama**: affidare, chiedere lo stato, leggere l'esito~~ (D387).
-3. **I Dot parlano fra loro**: i messaggi, la chat di gruppo e i gruppi,
-   affidare un compito a chi sta sotto e consegnarlo a chi sta sopra.
+3. ~~**I Dot parlano fra loro**: i messaggi, la chat di gruppo e i gruppi,
+   affidare un compito a chi sta sotto e consegnarlo a chi sta sopra~~ (D388).
 4. **L'harness**: la vista dei Dot e dei progetti, l'organigramma, le chat,
    i rapporti nell'editor. Da qui l'utente vede e scrive.
 5. **AR**: assume i Dot (mestiere, ruolo, cervello), li riprende, li
@@ -400,4 +400,52 @@ l'utente lo sa **in chat e a voce**.
   prendono i cervelli della scala.
 - **Durante Gemini Live** la consegna si scrive e non si dice. Si potrebbe
   passarla a Live, che la racconterebbe con la sua voce (`idea/`).
+
+**I Dot parlano fra loro — fatto** (D388). Le scelte di Gio, l'8 ottobre,
+prese su un diagramma di flusso: ogni Dot puo' avere un capo, e affida solo
+ai suoi sottoposti; il capo aspetta e riprende; i messaggi si leggono al
+prossimo compito; i gruppi li fa Nova se l'utente lo chiede.
+
+- **La piramide**: il capo si da' alla nascita (`dot.crea` con `capo`), ed
+  e' un Dot che c'e' e prende compiti. I sottoposti di un Dot sono quelli
+  che lo hanno come capo; ogni domanda gli dice chi e' il suo capo e chi
+  sono i suoi sottoposti.
+- **Affidare in giu'**: un Dot affida con `dot.affida` un pezzo del compito
+  che sta facendo, e solo ai suoi sottoposti. Il pezzo sa di chi e'
+  (`padre`), e nella coda del capo una nota lo segue. Finiti i turni, se ci
+  sono pezzi di cui non ha l'esito, il compito va **in attesa** e il Dot fa
+  gli altri compiti. Quando tutti i pezzi sono chiusi riprende, prima dei
+  compiti nuovi, con gli esiti nella domanda; un pezzo affidato dopo la
+  ripresa si aspetta di nuovo. Un compito va in attesa al massimo cinque
+  volte, poi si chiude e dice quali pezzi restano aperti.
+- **Consegnare in su**: un pezzo chiuso torna al compito del capo, che si
+  sveglia. A Nova, e quindi a te in chat e a voce, arrivano solo i compiti
+  che ha dato lui.
+- **La posta**: `dot.scrivi` scrive a un Dot, a un gruppo
+  (`gruppo:<nome>`) o a Nova (`nova`, che arriva in chat). Un Dot la legge in
+  coda alla domanda del compito dopo, e la segna letta; un Dot fermo la
+  tiene da parte. Scrivere non chiede mai, come affidare.
+- **I gruppi**: `dot.gruppo` (solo Nova, con la conferma del pannello) fa un
+  gruppo o ne cambia i membri. Un messaggio al gruppo va nella posta di ogni
+  membro tranne chi scrive, e nella chat del gruppo, che Nova rilegge con
+  `dot.stato` e `gruppo:<nome>`. Nel gruppo scrivono Nova e i membri.
+- Far nascere un Dot, fermarlo e fare i gruppi resta di Nova.
+- Prove: in `nova-dot` (la coda con le note, l'attesa, la posta, i gruppi, i
+  nomi presi, le attese massime), in `caps_dot`, in `permessi`, nel guscio, e
+  `test_demone_dot_fra_loro.py` (39 controlli).
+
+### Cosa resta aperto, dopo che i Dot parlano fra loro
+
+- **Un messaggio a un Dot fermo resta li'** finche' non gli arriva un
+  compito: e' la scelta di Gio, e una domanda di Nova a un Dot a riposo non
+  ha risposta finche' qualcuno non gli affida qualcosa.
+- **Il capo non si cambia**: si da' alla nascita. Spostare un Dot nella
+  piramide lo fara' AR.
+- **Fermare il capo non ferma i pezzi**: `dot.ferma` ferma il compito in
+  corso, e un compito in attesa non e' in corso. I pezzi gia' affidati
+  vanno avanti, e le loro consegne a un compito chiuso si annotano e basta.
+- **Il ricercatore che riprende** rifa' il piano col testo del compito, gli
+  esiti dei pezzi e la posta.
+- **Col modello di casa i gruppi non si fanno**: `dot.gruppo` non ci sta nel
+  contesto (1.998 token contro una soglia di 2.000).
 
