@@ -11738,3 +11738,10 @@ ogni prova gira anche con la casa puntata su una cartella vuota, e la deve
 lasciare vuota. Ripulendo, del registro non e' rimasta nessuna riga: anche le
 altre 23 erano di misure e prove.
 
+## 9 ottobre 2026 — Il silenzio non e' un guasto
+
+«Il microfono non consegna niente», poi «microfono di nuovo attivo», poi
+ancora. Il microfono andava benissimo: era la stanza che taceva. Nel
+registro del demone c'erano 814 avvisi, e si dividevano da soli: 108 a zero
+esatto, il microfono spento davvero, e 706 col fruscio di una stanza
+silenziosa. Adesso l'avviso arriva solo per i primi.

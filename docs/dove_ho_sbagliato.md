@@ -2414,3 +2414,53 @@ CARGO_HOME e RUSTUP_HOME e li tiene, e la guardia lo controlla nel codice
 La regola: quando si sposta l'ambiente di un processo, si fa l'elenco di
 cosa ci sta dentro oltre ai dati (i pacchetti, gli strumenti) su ogni
 sistema, non solo su quello dove si prova per primo.
+
+## Il primo commit del D393 e' uscito col messaggio vecchio
+
+Avevo corretto il messaggio del commit qui, ma su Windows e' arrivata la
+versione di prima: il commit diceva «31 giri verdi; l'unico rosso era
+test_cerca», che si contraddice, e non diceva la correzione dei pacchetti.
+Me ne sono accorto rileggendo il commit prima del push, e l'ho corretto con
+un file dal nome nuovo prima di pubblicarlo.
+
+La regola: il messaggio si rilegge **sul commit**, `git log -1`, prima del
+push, non nel file da cui lo si e' preso; e un file corretto si manda con un
+nome nuovo, come le patch.
+
+## «Il microfono non consegna niente» con la stanza silenziosa
+
+La soglia del microfono muto, 0,001, era un quarto del pavimento del
+parlato: un numero ragionevole, non misurato. Con cuffie che nel silenzio
+tagliano il fruscio una stanza silenziosa ci stava sotto, e l'avviso andava
+e veniva a ogni pausa: 27 volte il 9 ottobre. Me l'ha fatto notare chi usava
+NOVA, chiedendo perche' andava in loop. Il registro del demone l'aveva gia'
+detto da agosto: 706 avvisi su 814 avevano un picco fra 0,00015 e 0,00099.
+
+La regola: una soglia che distingue due stati si fissa guardando i valori
+veri dei due stati, e il registro che li ha gia' raccolti si legge prima di
+scegliere il numero (D394).
+
+## Una prova che aspettava un file che c'era gia'
+
+`test_demone_turno.py`, al punto 8, aspettava che il demone scrivesse
+`ricette.json` guardando se il file c'era. Ma il file la prova l'aveva
+scritto lei, all'inizio, con la procedura «abc123»: l'attesa finiva subito,
+e la lettura poteva cadere proprio mentre il demone sostituiva il file. Su
+Windows quel file non si apre, e il 9 ottobre un giro della suite e' caduto
+con `PermissionError`; rilanciata tre volte, era verde.
+
+Adesso la prova aspetta che dentro ci sia la procedura imparata, e rilegge
+finche' il file non si legge. La regola: un'attesa guarda il cambiamento che
+aspetta, non una condizione che poteva essere vera gia' prima.
+
+## Una prova che prometteva di saltare, e invece cadeva
+
+`test_scrittura_senza_tastiera.py` dice nel docstring che senza demone esce
+con 2, «non eseguibile qui». Ma si collegava dentro un `try` che aveva solo
+un `finally`: senza demone usciva con una traccia e con 1, «rotto». Lo ha
+mostrato la suite del 9 ottobre su Windows, con NOVA spenta.
+
+Ora prima di tutto chiede `daemon.status`, come `test_approvazione.py`, e se
+non risponde salta. La regola, scritta finora solo in un commento di
+`test_approvazione.py`, vale per ogni prova che parla col demone: la prima
+connessione sta fuori dal lavoro, e un no diventa un salto.

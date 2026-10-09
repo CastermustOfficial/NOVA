@@ -293,3 +293,36 @@ Nate col D388, il 9 ottobre.
 
 **Cosa costerebbe.** La prima: un campo che cambia in `dot.json`, scritto tutto insieme, e una regola contro i giri (A capo di B capo di A). La seconda: circa cento token di schema in piu' per il modello di casa, che oggi ha 2.100 token per la conversazione contro una soglia di 2.000; si potrebbe accorciare un altro schema, o fare di `dot.gruppo` un modo di `dot.crea`. La terza: `dot.ferma` che chiude anche un compito in attesa e manda il «ferma» ai pezzi aperti, uno per uno.
 
+
+## Gemini Live sente i rumori come parole
+
+Nata il 9 ottobre, dalla prima conversazione vera con Gemini Live. **Cosa.**
+Nella trascrizione sono comparse parole mai dette («chup», «que se», un «Sì»
+isolato), e Gemini ci ha risposto. Con «interrompibile» acceso il microfono
+va al server anche mentre NOVA parla, e il guadagno automatico
+(`nova_live::guadagno`) alza il pezzo verso il picco obiettivo: alza anche il
+fruscio. Due leve, da provare una alla volta: rendere meno sensibile il
+riconoscimento del parlato del server (`realtimeInputConfig.
+automaticActivityDetection`, con `startOfSpeechSensitivity` bassa e una
+`prefixPaddingMs` piu' lunga; da verificare che il modello Live in uso la
+accetti), oppure non alzare i pezzi sotto una soglia, come fa gia'
+`normalizza` per whisper. **Perche'.** Una risposta a una parola mai detta
+interrompe e confonde. **Cosa costerebbe.** Un campo nel `setup`, o una
+soglia nel guadagno, e una prova a voce con le stesse cuffie: va misurato
+quante parole finte spariscono e se le frasi dette piano arrivano ancora.
+
+## Un modulo di riduzione del rumore per il microfono
+
+Chiesto il 9 ottobre. **Cosa.** Pulire il microfono prima che arrivi a
+whisper e a Gemini Live. La strada piu' vicina e' RNNoise: in Rust c'e'
+`nnnoiseless` (0.5.2, BSD-3, derivato da RNNoise di Xiph), che lavora a
+48 kHz su pezzi di 480 campioni, cioe' 10 ms. Starebbe in `nova_voce`,
+dove il microfono si apre (`audio::ascolta_con_attesa` e
+`dal_vivo::microfono`), prima del ricampionamento a 16 kHz. **Perche'.** Il
+rumore oggi fa due danni: Gemini Live risponde a parole mai dette, e whisper
+davanti al quasi-silenzio inventa. **Cosa costerebbe.** Una dipendenza
+senza modelli da scaricare (i pesi sono dentro il crate), il ricampionamento
+a 48 kHz quando la scheda non lo e', e una misura prima di accenderla di
+serie: le parole finte con e senza, il «Nova» riconosciuto con e senza, e
+quanto tempo costa ogni pezzo. Da decidere: sempre accesa, o una scelta nel
+pannello della voce.

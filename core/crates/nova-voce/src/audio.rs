@@ -170,6 +170,25 @@ pub fn dispositivi() -> (Vec<String>, Vec<String>) {
 const SOPRA_IL_FONDO: f32 = 3.5;
 /// Il minimo assoluto: sotto questo e' silenzio anche in una camera anecoica.
 const PAVIMENTO: f32 = 0.004;
+/// Sotto questo il microfono non consegna niente: zero, o un campione a 16 bit
+/// (1/32768 e' 0,00003). Non e' «una stanza silenziosa».
+///
+/// Prima la soglia era `PAVIMENTO / 4`, 0,001, e una stanza silenziosa ci
+/// stava sotto. Misurato sul PC di sviluppo, nel registro del demone dal 21
+/// agosto al 9 ottobre, con cuffie che nel silenzio tagliano il fruscio: 814
+/// finestre di otto secondi dette «mute». 108 avevano il picco esattamente a
+/// zero, il microfono spento davvero; le altre 706 fra 0,00015 e 0,00099, il
+/// silenzio della stanza. In mezzo niente. Con la soglia vecchia bastavano
+/// otto secondi senza parlare per sentirsi dire che il microfono non
+/// consegnava niente, e alla prima parola che era tornato: 27 volte in un
+/// giorno.
+const MICROFONO_SPENTO: f32 = 0.00005;
+
+/// Il picco di una finestra d'ascolto dice un microfono spento, non solo
+/// silenzio.
+fn e_spento(picco: f32) -> bool {
+    picco < MICROFONO_SPENTO
+}
 
 /// Un pezzo di ascolto: campioni mono a 16 kHz, che e' cio' che vuole Whisper.
 pub struct Ascolto {
@@ -384,10 +403,11 @@ pub fn ascolta_con_attesa(nome: Option<&str>, attesa_inizio_s: f32, massimo_s: f
     let da = scartati.saturating_sub(margine).min(tutti.len());
     let grezzi = if ha_parlato { tutti[da..].to_vec() } else { tutti };
     let campioni = ricampiona(&grezzi, frequenza_scheda, frequenza);
-    // Un picco praticamente nullo non e' «hai parlato piano»: e' un
-    // microfono che non sente. Dirlo qui evita di mandare a trascrivere del
-    // silenzio e di ricevere indietro parole inventate.
-    if picco_totale < PAVIMENTO / 4.0 {
+    // Un picco nullo non e' «hai parlato piano», e nemmeno una stanza
+    // silenziosa: e' un microfono che non sente. Il silenzio della stanza
+    // torna come ascolto senza parlato (`ha_parlato` falso), e chi chiama non
+    // lo manda a trascrivere.
+    if e_spento(picco_totale) {
         return Err(MicrofonoMuto { microfono: nome_usato, picco: picco_totale }.into());
     }
     let mut campioni = campioni;
@@ -449,4 +469,20 @@ pub fn in_wav(campioni: &[f32], frequenza: u32) -> Vec<u8> {
         f.extend_from_slice(&((c.clamp(-1.0, 1.0) * 32767.0) as i16).to_le_bytes());
     }
     f
+}
+
+#[cfg(test)]
+mod prove {
+    use super::*;
+
+    #[test]
+    fn spento_e_solo_il_microfono_che_non_consegna_niente() {
+        // I picchi misurati sul PC di sviluppo (vedi `MICROFONO_SPENTO`).
+        assert!(e_spento(0.0), "un picco a zero e' un microfono spento");
+        assert!(e_spento(1.0 / 32768.0), "un campione a 16 bit e' ancora zero");
+        for silenzio in [0.00015f32, 0.00024, 0.00048, 0.00099] {
+            assert!(!e_spento(silenzio), "{silenzio} e' una stanza silenziosa");
+        }
+        assert!(!e_spento(PAVIMENTO), "il parlato piu' piano non e' spento");
+    }
 }

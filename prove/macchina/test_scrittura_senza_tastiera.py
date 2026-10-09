@@ -79,6 +79,17 @@ def spegni():
                            capture_output=True, timeout=15)
 
 
+# Il docstring lo promette: senza demone si esce con 2, «non eseguibile
+# qui». La connessione stava dentro il try, che ha solo un finally: senza
+# demone usciva con una traccia e con 1, «rotto» (9 ottobre, su un PC con
+# NOVA spenta).
+try:
+    with CoreClient(timeout=10) as _prova:
+        _prova.call("daemon.status")
+except Exception as e:                                          # noqa: BLE001
+    print(f"demone non raggiungibile ({type(e).__name__}: {e}): salto")
+    sys.exit(2)
+
 spegni()
 try:
     with CoreClient(timeout=30) as c:

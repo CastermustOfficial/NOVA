@@ -36,8 +36,9 @@ Deciso con Gio il 30 settembre: non ci sono scadenze, conta solo il risultato, e
 
 Quando una voce si chiude la si sposta qui, con la data e il commit.
 
-- 09/10/2026: `test_demone_ricerca` non cade piu' in CI: verde in tutti i 31 giri su master dal 6 ottobre, eseguita e non saltata; il giro a vuoto del browser, messo quel giorno, era la cura. In CI il tempo del giro a vuoto ora e' anche fra gli avvisi, per continuare a guardarlo (D393).
-- 09/10/2026: le prove stanno in casa loro: nessuna scrive piu' nei dati di chi la lancia (il registro delle azioni, i guasti, il fascicolo), e quelle che leggevano la sua configurazione usano quella di fabbrica; lo controlla `test_prove_in_casa_loro.py` (D393).
+- 09/10/2026: «il microfono non consegna niente» solo col microfono spento davvero, non con la stanza silenziosa (D394).
+- 09/10/2026: `test_demone_ricerca` non cade piu' in CI: verde in tutti i 31 giri su master dal 6 ottobre, eseguita e non saltata; il giro a vuoto del browser, messo quel giorno, era la cura. In CI il tempo del giro a vuoto ora e' anche fra gli avvisi, per continuare a guardarlo (D393, `1a72c8b`).
+- 09/10/2026: le prove stanno in casa loro: nessuna scrive piu' nei dati di chi la lancia (il registro delle azioni, i guasti, il fascicolo), e quelle che leggevano la sua configurazione usano quella di fabbrica; lo controlla `test_prove_in_casa_loro.py` (D393, `1a72c8b`).
 - 09/10/2026: i Dot come Teams: le chat prima di tutto, i messaggi a piu' Dot, le chat fra di loro in cui scrivi anche tu, i gruppi interni, e i gruppi di un capo (D392, `8f94ae4`).
 - 09/10/2026: i Dot nell'harness: l'organigramma (anche come schema), i gruppi, i file che toccano, e la scheda di ogni Dot con la sua chat (D391, `d0aff4b`).
 - 09/10/2026: la scheda Cervello a voci: si spuntano i motori, si scelgono chi orchestra, il modello veloce e il modello, e si scrive solo con «Conferma» (D390, `643557c`).

@@ -417,19 +417,33 @@ try:
     with CoreClient(endpoint, timeout=60) as c:
         c.request("agente/turno", {"testo": "usa uno strumento e dimmi com'e' andata",
                                    "sessione": "imparare"})
-    # L'archivio non c'era: il primo turno ha usato uno strumento, quindi
-    # c'era qualcosa da imparare. Il demone non fa aspettare nessuno — impara
-    # dopo aver risposto — quindi qui si aspetta lui.
+    # Il turno ha usato uno strumento, quindi c'era qualcosa da imparare. Il
+    # demone non fa aspettare nessuno — impara dopo aver risposto — quindi
+    # qui si aspetta lui. L'archivio c'era gia' (la procedura «abc123»):
+    # non basta che il file ci sia, si aspetta che dentro ci sia quella
+    # imparata. E lo si rilegge finche' non si legge: su Windows il file che
+    # il demone sta sostituendo non si apre (PermissionError), e un giro
+    # della suite il 9 ottobre e' caduto proprio li'.
     archivio = Path(casa) / "NOVA" / "ricette.json"
+
+    def _imparata(voci) -> bool:
+        return any(r.get("titolo", "").startswith("Procedura per") for r in voci)
+
+    dentro_archivio = None
     scadenza = time.time() + 15
-    while time.time() < scadenza and not archivio.is_file():
+    while time.time() < scadenza:
+        try:
+            dentro_archivio = json.loads(archivio.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            dentro_archivio = None
+        if dentro_archivio is not None and _imparata(dentro_archivio):
+            break
         time.sleep(0.3)
     controlla("ha chiesto al modello di ricostruire i passi", bool(imparate),
               "nessuna richiesta di procedura e' arrivata al cervello")
-    controlla("e ha scritto l'archivio dove lo legge NOVA", archivio.is_file(),
+    controlla("e ha scritto l'archivio dove lo legge NOVA", dentro_archivio is not None,
               str(list((Path(casa) / "NOVA").glob("*"))))
-    if archivio.is_file():
-        dentro_archivio = json.loads(archivio.read_text(encoding="utf-8"))
+    if dentro_archivio is not None:
         # Se la procedura imparata somiglia a una che c'era, le due si
         # fondono — ed e' giusto. Quel che non deve succedere e' che
         # l'identificativo cambi: un'automazione nata da quella procedura la
