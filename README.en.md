@@ -78,10 +78,11 @@ If something doesn't work, the rest of the document explains why.
 ## What it can do
 
 A list of adjectives says nothing. These are the numbers, counted from the
-code: **135 tools** for an agentic brain like Claude Code, and **62** for the
+code: **135 tools** for an agentic brain like Claude Code, and **58** for the
 model running on your PC and for the APIs, always the same ones, because all
 of them together wouldn't fit in its context; **38 file formats** it can open
-and show.
+and show. With the Dots on the model on the PC gets 62; with them off, Claude
+sees 129.
 
 ### It acts on the system, and doesn't take your seat
 
@@ -609,6 +610,13 @@ mail for Nova shows up in the chat. Groups are made by Nova if you ask it to
 (`dot.gruppo`). The daemon also has the methods `dot/crea`, `dot/affida`,
 `dot/stato`, `dot/elenco` and `dot/ferma`; the view in the harness comes
 later.
+
+The Dots are for whoever has a subscription, an API or a graphics card with
+at least 24 GB (D389): by default NOVA turns them on when one of the three
+is there, and off when it isn't. In the panel, under **The Dots**, they are
+turned on and off by hand. When off they don't work, aren't born and don't
+receive tasks, and the model on the PC doesn't receive their tools: it keeps
+more room for the conversation.
 
 ## Installation
 
@@ -1343,9 +1351,10 @@ already authenticated. NOVA:
   | Autonomous | `bypassPermissions` |
 
 - connects it to the daemon as an **MCP server** (`nova mcp`, a bridge between
-  standard input and the daemon's channel): Claude sees all 135 tools, from
-  `mcp__nova-core__kb_cerca` down, with the same guards as the home model,
-  which gets 62 because they don't all fit in its context.
+  standard input and the daemon's channel): Claude sees all 135 tools (129
+  with the Dots off), from `mcp__nova-core__kb_cerca` down, with the same
+  guards as the home model, which gets 58 (62 with the Dots on) because they
+  don't all fit in its context.
   Confirmations go through NOVA's counter (`--permission-prompt-tool`), that is
   the button in the chat.
 - reports cost and tokens for every turn in the action log.

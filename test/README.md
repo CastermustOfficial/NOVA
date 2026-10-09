@@ -165,7 +165,7 @@ Cosa serve: un banco Rust costruito con `cargo`: la prova stampa la riga per cos
 | `test_semina_rust.py` | La prima mappatura del PC scrive in Rust gli stessi nodi del Python. |
 | `test_strumenti_rust.py` | Gli strumenti dichiarati allo stesso modo, in Rust. |
 
-## `prove/demone/`: 36 prove
+## `prove/demone/`: 37 prove
 
 Cosa serve: il binario `novad` costruito.
 
@@ -182,6 +182,7 @@ Cosa serve: il binario `novad` costruito.
 | `test_demone_consiglio.py` | `novad --consiglio`: la scala consigliata per quello che c'e' (il modello sul PC, Claude Code, Antigravity), con i nomi veri dal catalogo, e il file della configurazione che resta com'era (D379). |
 | `test_demone_custode.py` | Il custode dei permessi (D384), con due cervelli finti e un Claude Code finto: un Dot chiede a lui quando Nova chiederebbe all'utente; decide il modello di casa (si', no, «non so»), se no il cervello grande (CONSENTI, NEGA, una risposta illeggibile che e' un no); con l'autonomia piena non si chiede; Nova chiede ancora all'utente; il Claude di un Dot, attraverso il ponte vero col gettone del Dot, passa dal custode per gli strumenti di NOVA e per lo sportello, e un gettone falso non viene servito. |
 | `test_demone_dot.py` | I Dot nel demone (D382), con un cervello finto: un Dot nasce con nome e ruolo, riceve compiti senza far aspettare, li fa uno alla volta senza chiedere il permesso all'utente (un file scritto con «conferma sempre» nel pannello, deciso dal custode), tiene la conversazione su disco, si ferma senza fermare il resto, e dopo un riavvio riprende il compito a meta'. |
+| `test_demone_dot_accesi.py` | I Dot si accendono solo dove conviene (D389), con la memoria video fissata dalla prova (`NOVA_PROVA_VRAM_MIB`, 8 GB): di serie, senza abbonamenti ne' API, sono spenti, il pannello dice perche', un Dot non nasce e non riceve compiti, a Claude e al modello di casa non arriva nessuno dei loro strumenti (58); accesi a mano nascono, lavorano, e gli strumenti tornano (62); spenti, un Dot finisce il compito in corso e non prende il successivo, che fa appena riacceso; un'API nella scala li accende, con «solo sul PC» no; Claude Code nel catalogo li accende, e a mano si spengono lo stesso. |
 | `test_demone_dot_fra_loro.py` | I Dot parlano fra loro (D388), con un cervello finto che riconosce chi gli parla: la piramide (il capo e i suoi sottoposti, i capi che non si possono dare, i nomi presi); i gruppi che fa Nova; la posta che arriva subito e si legge al compito dopo, insieme alla squadra; il capo che affida ai suoi e non agli altri, va in attesa, fa un altro compito, e riprende con gli esiti di tutti; a Nova si consegnano solo i compiti che ha dato lei; un Dot che scrive a Nova finisce in chat, e in un gruppo scrivono solo i membri; far nascere, fermare e fare i gruppi resta di Nova; un capo che a ogni ripresa riaffida si ferma dopo cinque attese. |
 | `test_demone_documenti.py` | Leggere un documento, dal demone. |
 | `test_demone_elevato.py` | Un comando confinato non riceve mai i poteri dell'amministratore, nemmeno da un demone elevato: o parte senza (gruppo non attivo, cartella degli Amministratori non scrivibile, `write_roots` si') o il demone rifiuta e lo dice (D369). Va lanciata da amministratore; da utente normale, e in CI, esce 2: la guardia in CI e' la prova Rust `windows_un_comando_non_riceve_i_poteri_dell_amministratore`. |
@@ -205,7 +206,7 @@ Cosa serve: il binario `novad` costruito.
 | `test_demone_schermo.py` | Lo schermo in un'immagine, dal demone. |
 | `test_demone_semina.py` | La prima mappatura del PC, fatta dal demone quando si accende (D365). |
 | `test_demone_sistema.py` | Gli appunti, il volume, le notifiche, l'ora e com'e' fatto il PC, dal demone. |
-| `test_demone_turno.py` | Il demone fa un turno intero da solo: chiede, esegue, risponde; e lascia la decisione, senza segreti. La conversazione si dimentica anche col nome vuoto, come la dimentica il guscio (D386). A un cervello in HTTP se ne offrono 62, fra cui quattro per i Dot (D387, D388). |
+| `test_demone_turno.py` | Il demone fa un turno intero da solo: chiede, esegue, risponde; e lascia la decisione, senza segreti. La conversazione si dimentica anche col nome vuoto, come la dimentica il guscio (D386). A un cervello in HTTP se ne offrono 58, coi Dot spenti a mano: i quattro dei Dot arrivano solo coi Dot accesi (D387, D388, D389). |
 | `test_demone_web.py` | Il browser di NOVA, guidato dal demone, con un browser vero. |
 
 ## `prove/macchina/`: 16 prove

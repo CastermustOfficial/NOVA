@@ -78,8 +78,11 @@ IN_HTTP = set(re.findall(
     r'\("[a-z_]+", "([a-z_]+\.[a-z_]+)"\)',
     (CORE / "nova-core" / "src" / "strumenti_in_http.rs").read_text(encoding="utf-8")
     .split("#[cfg(test)]")[0]))
-# E le capacita' che il Python non aveva, offerte lo stesso: i Dot (D387).
-IN_HTTP |= set(elenco_rust(CORE / "nova-core" / "src" / "strumenti_in_http.rs", "SOLO_DEL_DEMONE"))
+# E le capacita' che il Python non aveva, offerte lo stesso: i Dot (D387),
+# solo coi Dot accesi (D389).
+SENZA_DOT_SPENTI = set(elenco_rust(CORE / "nova-core" / "src" / "strumenti_in_http.rs",
+                                   "SOLO_DEL_DEMONE"))
+IN_HTTP |= SENZA_DOT_SPENTI
 HARNESS = CORE / "nova-harness" / "src" / "lib.rs"
 CODICE = elenco_rust(HARNESS, "CODICE")
 LEGGIBILI = CODICE + elenco_rust(HARNESS, "A_RIGHE_IN_PIU") + elenco_rust(HARNESS, "DOCUMENTI")
@@ -283,8 +286,9 @@ for testo, lingua, frase in [(README, "italiano", "**{t} strumenti** per un cerv
                                                   "Claude Code, e **{h}**"),
                              (EN, "inglese", "**{t} tools** for an agentic brain like Claude Code, "
                                              "and **{h}**")]:
-    attesa = frase.format(t=len(PER_I_MODELLI), h=len(IN_HTTP))
-    controlla(f"in {lingua} la frase dei conteggi dice {len(PER_I_MODELLI)} e {len(IN_HTTP)}",
+    attesa = frase.format(t=len(PER_I_MODELLI), h=len(IN_HTTP - SENZA_DOT_SPENTI))
+    controlla(f"in {lingua} la frase dei conteggi dice {len(PER_I_MODELLI)} e "
+              f"{len(IN_HTTP - SENZA_DOT_SPENTI)}",
               attesa in " ".join(testo.split()), attesa)
 controlla("nomina lo stesso modello del catalogo", radice_nome in EN)
 controlla("e non ne nomina un'altra versione",

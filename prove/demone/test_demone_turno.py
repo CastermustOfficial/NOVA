@@ -22,10 +22,10 @@ Cinque cose che non si vedono e valgono la prova:
 3. la conversazione **resta** fra un turno e l'altro, e `nuova` la butta;
 4. il prompt di sistema e i cervelli vengono dallo stesso `config.json` che
    legge NOVA, non da una configurazione del demone;
-5. a un cervello in HTTP se ne offrono 62, sempre gli stessi, e la
+5. a un cervello in HTTP se ne offrono 58, sempre gli stessi, e la
    conversazione si taglia sul contesto che resta tolti prompt e schemi:
-   tutti non stavano nel contesto del modello di casa (D361). Sono i 58
-   del Python e quattro per i Dot (D387, D388).
+   tutti non stavano nel contesto del modello di casa (D361). Sono quelli
+   del Python; coi Dot accesi se ne aggiungono quattro (D387, D388, D389).
 
 Esce 2 — «qui non si puo' provare» — se il demone non e' costruito.
 """
@@ -184,6 +184,9 @@ vault.mkdir(parents=True, exist_ok=True)
            # Senza semina: la prova parte da un vault vuoto, e la prima
            # mappatura del PC (D365) ci scriverebbe dentro.
            "auto_seed": False},
+    # I Dot spenti a mano: cosi' i conti degli strumenti non cambiano col PC
+    # su cui gira la prova (D389). Accesi si contano in test_demone_dot_accesi.
+    "dots": {"accesi": "no"},
     "brains": {
         "active": "locale",
         "routing": {
@@ -269,25 +272,23 @@ try:
               r.get("strumenti_offerti") == len(offerti),
               f"{r.get('strumenti_offerti')} vs {len(offerti)}")
 
-    print("\n2b. ma a un cervello in HTTP non tutte: 62, sempre le stesse (D361, D387, D388)")
+    print("\n2b. ma a un cervello in HTTP non tutte: 58, sempre le stesse (D361, D389)")
     with CoreClient(endpoint, timeout=60) as c:
         per_claude = {t["name"] for t in c.request("tools/list")["tools"]}
     # Quanti ne vede Claude li conta il registro; qui conta che siano di piu'
     # e che il pezzo offerto stia tutto dentro. Una casa nuova non ha
-    # automazioni, quindi nessun `auto_*` si aggiunge ai 62.
-    controlla("al modello di casa ne arrivano 62", len(offerti) == 62, str(len(offerti)))
+    # automazioni, quindi nessun `auto_*` si aggiunge ai 58.
+    controlla("al modello di casa ne arrivano 58", len(offerti) == 58, str(len(offerti)))
     controlla("tutti fra quelli che vede Claude, che ne vede di piu'",
               set(offerti) < per_claude, f"{len(offerti)} contro {len(per_claude)}")
     controlla("quelli del Python ci sono, quelli nuovi del browser no",
               {"fs_read", "shell_exec", "rete_cerca", "sys_info"} <= set(offerti)
               and "web_apri" not in offerti and "web_apri" in per_claude,
               str(sorted(offerti)[:8]))
-    controlla("e ci sono i Dot, per affidare, chiedere, scrivere e far nascere; fermare e "
-              "fare i gruppi no (D387, D388)",
-              {"dot_affida", "dot_stato", "dot_crea", "dot_scrivi"} <= set(offerti)
-              and "dot_ferma" not in offerti and "dot_ferma" in per_claude
-              and "dot_gruppo" not in offerti and "dot_gruppo" in per_claude,
-              str(sorted(x for x in offerti if x.startswith("dot"))))
+    controlla("e coi Dot spenti nessuno dei loro, ne' qui ne' a Claude (D389)",
+              not any(x.startswith("dot_") for x in offerti)
+              and not any(x.startswith("dot_") for x in per_claude),
+              str(sorted(x for x in set(offerti) | per_claude if x.startswith("dot"))))
 
     print("\n3. lo strumento l'ha eseguito il demone davvero")
     secondo = ricevute[1]["messages"]

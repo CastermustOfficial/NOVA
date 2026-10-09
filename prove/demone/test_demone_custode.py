@@ -176,6 +176,9 @@ else:
 def configura(autonomia="always_ask", scala=("locale", "esterno")):
     (cartella_nova / "config.json").write_text(json.dumps({
         "kb": {"enabled": False},
+        # I Dot accesi a mano: in una casa senza abbonamenti ne' scheda video
+        # NOVA li spegnerebbe da sola (D389).
+        "dots": {"accesi": "si"},
         "safety": {"autonomy": autonomia},
         "server": {"host": "127.0.0.1", "port": server["casa"].server_address[1]},
         "brains": {

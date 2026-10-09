@@ -11694,3 +11694,11 @@ i gruppi li fa Nova. La prova ha trovato un giro senza fine che il disegno
 non diceva: un capo che a ogni ripresa riaffida. Adesso dopo cinque attese
 il compito si chiude e dice cosa resta aperto.
 
+## 9 ottobre 2026 — Per chi ce la fa
+
+I Dot costano: contesto al modello di casa, fila col modello sul PC, chiamate
+a chi ha un abbonamento. Adesso si accendono solo dove conviene, e il
+pannello dice perche'. Nello stesso giorno ho tolto dai messaggi dei commit
+ogni nome: trentacinque messaggi riscritti, la storia uguale in tutto il
+resto.
+

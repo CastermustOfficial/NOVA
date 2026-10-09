@@ -155,7 +155,7 @@ input:focus{border-color:rgba(232,115,74,.4)}
 
     <div class="fascia">
     <h2 class="titolo-fascia">Chi ragiona
-      <small>Le due scelte che cambiano cosa NOVA sa fare, e quanto le lasci fare da sola.</small></h2>
+      <small>Le scelte che cambiano cosa NOVA sa fare, e quanto le lasci fare da sola.</small></h2>
 
     <!-- CERVELLO -->
     <section class="pannello scheda larga">
@@ -177,6 +177,19 @@ input:focus{border-color:rgba(232,115,74,.4)}
       <p class="spiega" id="spiegaAutonomia"></p>
       <p class="nota">Con il cervello Claude la conferma arriva da una finestra a parte:
         NOVA chiede il permesso passando dal demone, e finche' non rispondi Claude aspetta.</p>
+    </section>
+
+    <!-- I DOT (D389) -->
+    <section class="pannello scheda larga">
+      <div class="titolo-sez"><h3>I Dot</h3><span class="coda" id="codaDot"></span></div>
+      <div class="riga">
+        <div class="info"><b>Accesi</b><span id="perDot"></span></div>
+        <button class="interruttore" id="swDot"></button>
+      </div>
+      <p class="nota">Colleghi che lavorano da soli ai compiti che NOVA affida loro. Servono
+        un abbonamento, un'API o una scheda video da almeno 24 GB: di serie li accende NOVA
+        quando c'è. Spenti, il modello sul PC ha più spazio per la conversazione.</p>
+      <button class="bottone secondo" id="btnDotAuto" style="display:none">Lascia decidere a NOVA</button>
     </section>
 
     </div>
@@ -1192,6 +1205,25 @@ async function disegnaDettaglioLive(){
   };
 }
 
+/* --- i Dot: accesi solo dove conviene (D389) --------------------------
+ * Il demone dice se sono accesi e perche'. L'interruttore scrive «si» o
+ * «no»; «Lascia decidere a NOVA» torna a «auto». */
+async function disegnaDot(){
+  let a = null;
+  try { a = await chiediAlDemone('dot.accesi'); } catch(e){ diag('DOT: ' + e); }
+  const sw = $('swDot');
+  const accesi = !!(a && a.accesi);
+  sw.classList.toggle('si', accesi);
+  $('codaDot').textContent = T(accesi ? 'ACCESI' : 'SPENTI');
+  $('perDot').textContent = a ? a.perche : T('Il demone non risponde.');
+  $('btnDotAuto').style.display = (a && a.scelta !== 'auto') ? '' : 'none';
+  sw.onclick = async () => {
+    await salva({ dots: { accesi: sw.classList.contains('si') ? 'no' : 'si' } });
+    disegnaDot();
+  };
+  $('btnDotAuto').onclick = async () => { await salva({ dots: { accesi: 'auto' } }); disegnaDot(); };
+}
+
 function disegnaAutonomia(){
   const v = prendi('safety.autonomy','ask_risky');
   const ordine = ['always_ask','ask_risky','autonomous'];
@@ -1395,6 +1427,7 @@ function disegnaLegenda(){
   $('codaMemoria').textContent = T(prendi('kb.auto_learn',true) ? 'IMPARA' : 'FERMA');
   disegnaLegenda();
   disegnaLingua();
+  disegnaDot();
   await disegnaComponenti();
   diag('ok · pronto');
   chiediStato();

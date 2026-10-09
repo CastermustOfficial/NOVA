@@ -2265,3 +2265,19 @@ GitHub.
 La regola: un messaggio di commit dice cosa cambia e perche', mai chi l'ha
 chiesto o deciso; e nemmeno un percorso col nome di un utente.
 
+## Una prova su un compito che il demone non avrebbe mai visto
+
+Per provare che un Dot spento non prende compiti e riacceso riparte, la
+prima versione di `test_demone_dot_accesi.py` scriveva a mano un compito in
+`compiti.jsonl` mentre i Dot erano spenti. Riaccesi, il compito restava in
+coda: il ciclo del Dot, finito il lavoro, aspetta che qualcuno lo svegli, e
+un compito scritto a mano non sveglia nessuno. Non era un difetto del
+demone: coi Dot spenti `dot.affida` dice di no, e un compito non arriva in
+coda senza svegliare il Dot. Era la prova che provava un caso impossibile.
+
+Ora la prova affida due compiti, spegne i Dot mentre il primo e' in corso,
+e guarda il secondo restare in coda e partire alla riaccensione.
+
+La regola: una prova mette il demone in uno stato in cui ci arriva da solo,
+non in uno costruito a mano.
+

@@ -449,3 +449,13 @@ prossimo compito; i gruppi li fa Nova se l'utente lo chiede.
 - **Col modello di casa i gruppi non si fanno**: `dot.gruppo` non ci sta nel
   contesto (1.998 token contro una soglia di 2.000).
 
+**Accesi solo dove conviene** (D389). Deciso con Gio il 9 ottobre: i Dot
+sono per chi ha un PC che regge o un abbonamento. Un interruttore nel
+pannello, alla voce «I Dot» (`dots.accesi`): «si» e «no» li decide
+l'utente, «auto» (di serie) NOVA, che li accende se c'e' Claude Code, una
+CLI con i suoi modelli, un'API nella scala con la sua chiave, o una scheda
+video da almeno 24 GB. Spenti, un Dot non nasce, non riceve compiti ne'
+messaggi, finisce quello in corso e non prende il successivo; e i loro
+strumenti non arrivano ai modelli, cosi' il modello di casa si riprende il
+contesto (2.549 token alla conversazione invece di 2.100).
+

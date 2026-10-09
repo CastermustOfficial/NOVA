@@ -568,9 +568,12 @@ pub async fn turno_in(
     }
     let mano = crate::dalla_configurazione::manopole(&cfg);
     // A un cervello in HTTP gli schemi viaggiano dentro ogni richiesta, e
-    // tutti non stanno nel contesto del modello di casa: se ne offrono 62,
-    // sempre gli stessi (D361, D387, D388). Claude e le CLI non li ricevono da qui.
-    let strumenti = crate::strumenti_in_http::schemi(&server.registry);
+    // tutti non stanno nel contesto del modello di casa: se ne offrono 58,
+    // sempre gli stessi, e 62 coi Dot accesi (D361, D387, D388, D389).
+    // Claude e le CLI non li ricevono da qui.
+    let dot_accesi =
+        crate::dot_accesi::decidi(crate::dot_accesi::scelta(&cfg), &crate::dot_accesi::fatti(&cfg)).accesi;
+    let strumenti = crate::strumenti_in_http::schemi(&server.registry, dot_accesi);
 
     // I gradini si rileggono a ogni turno: se l'utente ha appena cambiato
     // cervello nel pannello, deve valere adesso e non alla prossima

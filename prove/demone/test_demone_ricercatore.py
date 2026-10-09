@@ -201,6 +201,9 @@ threading.Thread(target=cervello.serve_forever, daemon=True).start()
 
 (cartella_nova / "config.json").write_text(json.dumps({
     "kb": {"enabled": True, "vault_path": str(vault_nova)},
+    # I Dot accesi a mano: in una casa senza abbonamenti ne' scheda video
+    # NOVA li spegnerebbe da sola (D389).
+    "dots": {"accesi": "si"},
     "safety": {"autonomy": "always_ask"},
     "server": {"host": "127.0.0.1", "port": cervello.server_address[1]},
     "brains": {"routing": {"scala": ["piccolo", "grande"],

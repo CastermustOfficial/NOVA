@@ -39,6 +39,30 @@ pub fn register(reg: &mut Registry) {
     reg.add(Arc::new(FermaCap));
     reg.add(Arc::new(ScriviCap));
     reg.add(Arc::new(GruppoCap));
+    reg.add(Arc::new(AccesiCap));
+}
+
+/// Il pannello: se i Dot sono accesi, come l'ha scelto l'utente, e perche'
+/// (D389). Solo della persona.
+struct AccesiCap;
+
+#[async_trait]
+impl Capability for AccesiCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "dot.accesi".into(),
+            description: "Se i Dot sono accesi, come l'ha scelto l'utente (auto, si, no) e \
+                          perche'. Per il pannello."
+                .into(),
+            risk: Risk::Safe,
+            category: "dot".into(),
+            schema: schema(&[]),
+        }
+    }
+
+    async fn call(&self, _args: Value, _ctx: &Ctx) -> Result<Value> {
+        Ok(serde_json::to_value(crate::dot_accesi::adesso())?)
+    }
 }
 
 fn il_server() -> Result<&'static Arc<crate::server::Server>> {

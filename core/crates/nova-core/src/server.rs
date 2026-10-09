@@ -111,7 +111,14 @@ impl Server {
             "capabilities/list" => Ok(json!({ "capabilities": self.registry.list() })),
 
             // alias MCP: cosi' Claude Code puo' collegarsi senza adattatori
-            "tools/list" => Ok(json!({ "tools": self.registry.as_mcp_tools() })),
+            "tools/list" => {
+                // Coi Dot spenti i loro strumenti non si offrono (D389).
+                let mut tools = self.registry.as_mcp_tools();
+                if !crate::dot_accesi::adesso().accesi {
+                    tools.retain(|t| !t["name"].as_str().is_some_and(|n| n.starts_with("dot_")));
+                }
+                Ok(json!({ "tools": tools }))
+            }
 
             "capabilities/call" => self.chiama(params, false).await,
             "tools/call" => self.chiama(params, true).await,

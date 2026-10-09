@@ -70,10 +70,11 @@ Se qualcosa non funziona, il resto del documento spiega perche'.
 ## Cosa sa fare
 
 Un elenco di aggettivi non dice niente. Questi sono i numeri, contati dal
-codice: **135 strumenti** per un cervello agentico come Claude Code, e **62**
+codice: **135 strumenti** per un cervello agentico come Claude Code, e **58**
 per il modello che gira sul tuo PC e per le API, sempre gli stessi, perche'
 tutti insieme non starebbero nel suo contesto; **38 formati** di file che sa
-aprire e mostrare.
+aprire e mostrare. Coi Dot accesi il modello sul PC ne riceve 62; spenti,
+Claude ne vede 129.
 
 ### Agisce sul sistema, e non ti ruba il posto
 
@@ -595,6 +596,13 @@ loro esiti. Si scrivono (`dot.scrivi`): la posta la leggono al compito dopo,
 e quella per Nova arriva in chat. I gruppi li fa Nova se glielo chiedi
 (`dot.gruppo`). Dal demone ci sono anche i metodi `dot/crea`, `dot/affida`,
 `dot/stato`, `dot/elenco` e `dot/ferma`; la vista nell'harness viene dopo.
+
+I Dot sono per chi ha un abbonamento, un'API o una scheda video da almeno
+24 GB (D389): di serie NOVA li accende quando c'e' uno dei tre, e li spegne
+quando non c'e'. Nel pannello, alla voce **I Dot**, si accendono e si
+spengono a mano. Spenti non lavorano, non nascono e non ricevono compiti, e
+il modello sul PC non riceve i loro strumenti: gli resta piu' spazio per la
+conversazione.
 
 ## Installazione
 
@@ -1334,9 +1342,9 @@ autenticato. NOVA:
 
 - gli collega il demone come **server MCP** (`nova mcp`, un ponte fra lo
   standard input e il canale del demone): Claude vede tutti i 135
-  strumenti, da `mcp__nova-core__kb_cerca` in giu', con le stesse guardie del
-  modello di casa, che ne riceve 62 perche' nel suo contesto tutti non ci
-  stanno. Le conferme passano dallo sportello di NOVA
+  strumenti (129 coi Dot spenti), da `mcp__nova-core__kb_cerca` in giu', con
+  le stesse guardie del modello di casa, che ne riceve 58 (62 coi Dot accesi)
+  perche' nel suo contesto tutti non ci stanno. Le conferme passano dallo sportello di NOVA
   (`--permission-prompt-tool`), cioe' dal bottone nella chat.
 - riporta costo e token di ogni turno nel registro azioni.
 

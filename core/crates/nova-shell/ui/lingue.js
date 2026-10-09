@@ -138,6 +138,15 @@ export const LINGUE = {
     "Scarica dopo un'ora": 'Unload after an hour',
     'Parola di risveglio': 'Wake word',
     'Il microfono resta aperto e si sveglia su «': 'The microphone stays open and wakes on "',
+    /* I Dot (D389) */
+    'I Dot': 'The Dots',
+    'Accesi': 'On',
+    'ACCESI': 'ON',
+    'SPENTI': 'OFF',
+    'Il demone non risponde.': 'The daemon is not answering.',
+    "Colleghi che lavorano da soli ai compiti che NOVA affida loro. Servono un abbonamento, un'API o una scheda video da almeno 24 GB: di serie li accende NOVA quando c'è. Spenti, il modello sul PC ha più spazio per la conversazione.":
+      'Colleagues who work on their own on the tasks NOVA hands them. They need a subscription, an API or a graphics card with at least 24 GB: by default NOVA turns them on when there is one. When off, the model on the PC has more room for the conversation.',
+    'Lascia decidere a NOVA': 'Let NOVA decide',
     /* Gemini Live (D386) */
     'Conversazione': 'Conversation',
     'Classica — whisper e il cervello di NOVA': 'Classic — whisper and NOVA’s brain',

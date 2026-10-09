@@ -130,9 +130,14 @@ pub fn capacita() -> Vec<&'static str> {
 ///
 /// Le automazioni che NOVA si e' scritta (`auto.*`) ci sono sempre: sono
 /// strumenti nati per quel PC, e un cervello che non li vede li rifarebbe a
-/// mano un passo per volta.
-pub fn schemi(reg: &Registry) -> Vec<Value> {
-    let scelte: std::collections::BTreeSet<String> = capacita().into_iter().map(nome_mcp).collect();
+/// mano un passo per volta. Gli strumenti dei Dot solo coi Dot accesi
+/// (D389): spenti, il modello di casa si riprende il loro contesto.
+pub fn schemi(reg: &Registry, dot_accesi: bool) -> Vec<Value> {
+    let scelte: std::collections::BTreeSet<String> = capacita()
+        .into_iter()
+        .filter(|c| dot_accesi || !SOLO_DEL_DEMONE.contains(c))
+        .map(nome_mcp)
+        .collect();
     reg.as_openai_tools()
         .into_iter()
         .filter(|t| {
@@ -189,8 +194,14 @@ mod prove {
     #[test]
     fn gli_schemi_stanno_nel_tetto() {
         let server = registro();
-        let s = schemi(&server.registry);
+        let s = schemi(&server.registry, true);
         assert_eq!(s.len(), 62);
+        // Coi Dot spenti, i quattro dei Dot non ci sono (D389).
+        let spenti = schemi(&server.registry, false);
+        assert_eq!(spenti.len(), 58);
+        assert!(spenti
+            .iter()
+            .all(|t| !t["function"]["name"].as_str().unwrap_or("").starts_with("dot_")));
         let nomi: Vec<&str> = s
             .iter()
             .filter_map(|t| t["function"]["name"].as_str())
@@ -238,9 +249,11 @@ mod prove {
                 Some(&Value::Array(strumenti.to_vec()).to_string()),
             )
         };
-        let resta = spazio(&schemi(&server.registry));
-        println!("alla conversazione restano {resta} token su {contesto}");
+        let resta = spazio(&schemi(&server.registry, true));
+        let senza_dot = spazio(&schemi(&server.registry, false));
+        println!("alla conversazione restano {resta} token su {contesto}, {senza_dot} coi Dot spenti");
         assert!(resta >= MARGINE_CONVERSAZIONE, "restano {resta} token");
+        assert!(senza_dot > resta, "coi Dot spenti il modello di casa si riprende il contesto");
         assert_eq!(spazio(&server.registry.as_openai_tools()), 0);
     }
 }

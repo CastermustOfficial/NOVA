@@ -33,6 +33,8 @@ const CONSENTITE: &[&str] = &[
     // Il pannello della voce: le voci di Gemini Live, e sentirne una (D386).
     "voce.live.voci",
     "voce.live.prova",
+    // Il pannello dei Dot: se sono accesi e perche' (D389).
+    "dot.accesi",
     "azione.ferma",
     "azione.stato",
     "approvazione.attese",

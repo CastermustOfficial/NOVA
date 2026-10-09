@@ -704,6 +704,17 @@ class VoiceConfig:
 
 
 @dataclass
+class DotsConfig:
+    """I Dot, i colleghi che lavorano da soli (D381, D389).
+
+    Sono per chi ha un abbonamento, un'API o una scheda video da almeno 24 GB.
+    «auto» (di serie): li accende il demone quando c'e' uno dei tre. «si» e
+    «no»: li decide l'utente, dal pannello.
+    """
+    accesi: str = "auto"
+
+
+@dataclass
 class ClmConfig:
     """CLM, il giudice veloce per chi non ha le lettere (D378).
 
@@ -729,6 +740,7 @@ class Config:
     kb: KBConfig = field(default_factory=KBConfig)
     brains: BrainsConfig = field(default_factory=BrainsConfig)
     clm: ClmConfig = field(default_factory=ClmConfig)
+    dots: DotsConfig = field(default_factory=DotsConfig)
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
     # Dove NOVA trova i fatti veri sull'utente. Vuoto = Documenti/NOVA/fascicolo.
     fascicolo: str = ""

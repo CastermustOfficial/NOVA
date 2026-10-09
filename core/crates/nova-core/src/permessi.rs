@@ -44,8 +44,10 @@ use crate::capability::{Capability, Ctx};
 /// con il suo strumento e applica con il suo (`harness.*`), che passa dal
 /// suo cancello; un modello che potesse premere «accetta» si accetterebbe da
 /// solo le proposte che fa (D339, D344).
-pub const SOLO_PER_LA_PERSONA: [&str; 8] = [
+pub const SOLO_PER_LA_PERSONA: [&str; 9] = [
     "approvazione.rispondi",
+    // Il pannello dei Dot: se sono accesi e perche' (D389).
+    "dot.accesi",
     "finestra.applica",
     "finestra.proposte",
     "finestra.prova",

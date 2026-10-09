@@ -140,6 +140,9 @@ def configura(voce=False):
     # «Chiedi sempre»: Nova chiede prima di ogni azione che modifica.
     (cartella_nova / "config.json").write_text(json.dumps({
         "kb": {"enabled": False},
+        # I Dot accesi a mano: in una casa senza abbonamenti ne' scheda video
+        # NOVA li spegnerebbe da sola (D389).
+        "dots": {"accesi": "si"},
         "safety": {"autonomy": "always_ask"},
         "server": {"host": "127.0.0.1", "port": cervello.server_address[1]},
         "brains": {"routing": {"scala": ["locale"], "tiers": {"locale": {"brain": "locale"}},

@@ -282,10 +282,11 @@ controlla("e sotto i 760 diventa una colonna sola",
 # in fondo alla pagina senza che nessuno se ne accorga.
 corpo = html[html.index('<div class="corpo">'):html.index('</body>')]
 schede = re.findall(r'<h3>([^<]+)</h3>', corpo)
-controlla("tutte e otto le schede sono dentro una fascia", len(schede) == 8,
+controlla("tutte e nove le schede sono dentro una fascia", len(schede) == 9,
           str(schede))
 DENTRO = {
-    "Chi ragiona": ["Cervello", "Autonomia"],
+    # «I Dot» (D389) sta con le scelte che cambiano cosa NOVA sa fare.
+    "Chi ragiona": ["Cervello", "Autonomia", "I Dot"],
     "Come ti parla": ["Lingua", "L'orb", "Voce"],
     "Com'e' messa": ["Componenti", "Stato", "Memoria"],
 }
@@ -300,7 +301,7 @@ controlla("e ognuna sta dove ci si aspetta", visto == DENTRO, str(visto))
 # ultime: le corte appaiate sopra, senza buchi.
 larghe = re.findall(r'<section class="pannello scheda larga">\s*<div class="titolo-sez"><h3>([^<]+)', corpo)
 controlla("le schede grosse prendono la riga intera",
-          set(larghe) == {"Cervello", "Autonomia", "Voce", "Memoria"}, str(larghe))
+          set(larghe) == {"Cervello", "Autonomia", "I Dot", "Voce", "Memoria"}, str(larghe))
 for fascia, dentro in DENTRO.items():
     corte = [s for s in dentro if s not in larghe]
     lunghe = [s for s in dentro if s in larghe]

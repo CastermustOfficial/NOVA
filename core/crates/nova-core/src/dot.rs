@@ -293,6 +293,7 @@ pub fn crea(
     mestiere: &str,
     capo: &str,
 ) -> Result<Value, String> {
+    crate::dot_accesi::se_spenti()?;
     let c = cartella(nome)?;
     if d::nome_valido(nome)? == nova_dot::custode::NOME_CUSTODE {
         return Err(format!(
@@ -345,6 +346,7 @@ pub fn affida_per(
     da: &str,
     padre: Option<d::Rif>,
 ) -> Result<u64, String> {
+    crate::dot_accesi::se_spenti()?;
     let c = cartella(nome)?;
     if !c.esiste() {
         return Err(format!("non c'e' nessun Dot che si chiama «{}»", nome.trim()));
@@ -441,6 +443,7 @@ pub fn elenco(server: &Arc<Server>) -> Value {
 /// in chat. In un gruppo scrivono Nova e i membri.
 pub fn scrivi(server: &Arc<Server>, da: &str, a: &str, testo: &str) -> Result<Value, String> {
     use nova_dot::gruppi::{self, Destinatario};
+    crate::dot_accesi::se_spenti()?;
     if testo.trim().is_empty() {
         return Err("un messaggio vuoto non dice niente".into());
     }
@@ -510,6 +513,7 @@ pub fn scrivi(server: &Arc<Server>, da: &str, a: &str, testo: &str) -> Result<Va
 /// ci sono e prendono compiti.
 pub fn gruppo(nome: &str, membri: &[String]) -> Result<Value, String> {
     use nova_dot::gruppi;
+    crate::dot_accesi::se_spenti()?;
     for m in membri {
         let c = cartella(m)?;
         if !c.esiste() {
@@ -575,12 +579,21 @@ pub fn ferma(server: &Arc<Server>, nome: &str) -> Result<bool, String> {
     Ok(ce_ne_era)
 }
 
+/// Ogni quanto un Dot spento guarda se l'hanno riacceso.
+const SPENTI_RIGUARDA: std::time::Duration = std::time::Duration::from_secs(5);
+
 /// Il ciclo di un Dot: un compito alla volta, per sempre.
 async fn ciclo(server: Arc<Server>, nome: String, m: Arc<Maniglia>) {
     loop {
         let Ok(c) = cartella(&nome) else {
             return;
         };
+        // Coi Dot spenti (D389) non si prende niente: si riguarda ogni
+        // tanto, e riaccesi si riparte da dove si era.
+        if !crate::dot_accesi::adesso().accesi {
+            tokio::time::sleep(SPENTI_RIGUARDA).await;
+            continue;
+        }
         let coda = c.compiti();
         let Some(compito) = d::prossimo(&coda).cloned() else {
             m.sveglia.notified().await;
