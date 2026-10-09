@@ -33,6 +33,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+pub mod azienda;
 pub mod consegna;
 pub mod custode;
 pub mod gruppi;
@@ -87,6 +88,11 @@ pub struct Dot {
     /// pezzi del suo lavoro. Vuoto: risponde a Nova e all'utente.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub capo: String,
+    /// Un posto fisso dell'azienda (D395, [`azienda`]): l'ha fatto nascere
+    /// NOVA, c'e' sempre e non si licenzia. Un Dot nato prima non ce l'ha
+    /// scritto, e non lo e'.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub fisso: bool,
 }
 
 /// Come lavora un Dot.
@@ -102,6 +108,16 @@ pub enum Mestiere {
     /// Decide i permessi degli altri Dot, sempre e solo quello (D384). Lo fa
     /// nascere NOVA, ed e' uno solo: [`custode::NOME_CUSTODE`].
     Custode,
+    /// L'APM, che guida i progetti (D395, [`azienda`]). Lo fa nascere NOVA,
+    /// ed e' uno solo.
+    Apm,
+    /// AR, le risorse: riprende, assume, licenzia (D395). Uno solo.
+    Ar,
+    /// L'Architetto, che fa il piano di sviluppo (D395). Uno solo.
+    Architetto,
+    /// Il legale: si chiama come il custode, con una domanda che aspetta la
+    /// risposta (D395). Uno solo.
+    Legale,
 }
 
 impl Mestiere {
@@ -116,10 +132,45 @@ impl Mestiere {
                 "il custode dei permessi lo fa nascere NOVA, ed e' uno solo: «{}»",
                 custode::NOME_CUSTODE
             )),
+            m @ ("apm" | "ar" | "architetto" | "legale") => Err(format!(
+                "«{m}» e' un posto fisso dell'azienda dei Dot: lo fa nascere NOVA, ed e' uno solo"
+            )),
             altro => Err(format!(
                 "«{altro}» non e' un mestiere: i mestieri sono «generico» e «ricercatore»"
             )),
         }
+    }
+
+    /// Se un Dot con questo mestiere prende compiti, legge la posta, sta nei
+    /// gruppi e puo' avere sottoposti. Il custode no: decide i permessi. La
+    /// direzione e il legale nemmeno, a mano: il loro lavoro arriva coi
+    /// progetti (D395).
+    pub fn prende_compiti(self) -> bool {
+        matches!(self, Mestiere::Generico | Mestiere::Ricercatore)
+    }
+
+    /// Chi e', e cosa fa invece di prendere compiti: per dire di no a chi
+    /// gli affida o gli scrive. `None` per chi prende compiti.
+    pub fn a_parte(self) -> Option<(&'static str, &'static str)> {
+        match self {
+            Mestiere::Generico | Mestiere::Ricercatore => None,
+            Mestiere::Custode => Some(("il custode dei permessi", "decide cosa possono fare gli altri Dot")),
+            Mestiere::Apm => Some(("l'APM", "guida i progetti che Nova gli passa")),
+            Mestiere::Ar => Some(("AR", "sceglie chi lavora ai progetti, e con che cervello")),
+            Mestiere::Architetto => Some(("l'Architetto", "fa il piano di sviluppo dei progetti")),
+            Mestiere::Legale => Some(("il legale", "risponde quando lo chiamano l'APM o un Dot")),
+        }
+    }
+
+    /// La frase che l'harness mostra al posto della casella per scrivere,
+    /// per chi non prende compiti. La pagina la traduce con le altre
+    /// (`nova-shell/ui/lingue.js`): una frase nuova qui vuole la sua
+    /// traduzione la' (`prove/progetto/test_harness_dot.py`).
+    pub fn detto_a_parte(self) -> Option<String> {
+        let (chi, cosa) = self.a_parte()?;
+        let mut c = chi.chars();
+        let chi: String = c.next().map(|p| p.to_uppercase().chain(c).collect()).unwrap_or_default();
+        Some(format!("{chi} non prende compiti e non legge la posta: {cosa}."))
     }
 }
 
@@ -465,6 +516,10 @@ pub fn prompt(dot: &Dot, base: &str) -> String {
         Mestiere::Generico => generico,
         Mestiere::Ricercatore => format!("{generico}\n{}", ricerca::PROMPT),
         Mestiere::Custode => format!("{generico}\n{}", custode::PROMPT),
+        Mestiere::Apm => format!("{generico}\n{}", azienda::PROMPT_APM),
+        Mestiere::Ar => format!("{generico}\n{}", azienda::PROMPT_AR),
+        Mestiere::Architetto => format!("{generico}\n{}", azienda::PROMPT_ARCHITETTO),
+        Mestiere::Legale => format!("{generico}\n{}", azienda::PROMPT_LEGALE),
     }
 }
 
@@ -958,7 +1013,7 @@ mod prove {
 
     #[test]
     fn il_prompt_dice_chi_e_e_le_domande_dicono_quale_compito() {
-        let d = Dot { nome: "ricercatore".into(), ruolo: "Cerchi e riassumi.".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: String::new() };
+        let d = Dot { nome: "ricercatore".into(), ruolo: "Cerchi e riassumi.".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: String::new(), fisso: false };
         let p = prompt(&d, "BASE");
         assert!(p.starts_with("BASE\n\n"));
         assert!(p.contains("sei ricercatore, un Dot di NOVA") && p.contains("Cerchi e riassumi."));
@@ -989,6 +1044,22 @@ mod prove {
             .contains("non e' un mestiere"));
         // Il custode non si sceglie: lo fa nascere NOVA, ed e' uno solo.
         assert!(Mestiere::da("custode").unwrap_err().contains("uno solo"));
+        // Nemmeno i posti fissi dell'azienda che hanno un mestiere loro (D395).
+        for m in ["apm", "ar", "architetto", "legale"] {
+            let e = Mestiere::da(m).unwrap_err();
+            assert!(e.contains("posto fisso") && e.contains("uno solo"), "{m}: {e}");
+            let letto: Mestiere = serde_json::from_value(serde_json::json!(m)).unwrap();
+            assert!(!letto.prende_compiti() && letto.a_parte().is_some(), "{m}");
+        }
+        assert_eq!(
+            Mestiere::Apm.detto_a_parte().as_deref(),
+            Some("L'APM non prende compiti e non legge la posta: guida i progetti che Nova gli passa.")
+        );
+        assert_eq!(Mestiere::Ricercatore.detto_a_parte(), None);
+        // Chi prende compiti non ha un «a parte», e chi non ne prende si.
+        for m in [Mestiere::Generico, Mestiere::Ricercatore, Mestiere::Custode] {
+            assert_eq!(m.prende_compiti(), m.a_parte().is_none(), "{m:?}");
+        }
         let c: Dot =
             serde_json::from_str(r#"{"nome":"custode","ruolo":"r","nato":"t","mestiere":"custode"}"#)
                 .unwrap();
@@ -1002,6 +1073,11 @@ mod prove {
         })
         .unwrap();
         assert_eq!(nuovo["mestiere"], "ricercatore");
+        // «fisso» si scrive solo quando e' vero: i dot.json di prima restano uguali.
+        assert!(nuovo.get("fisso").is_none(), "{nuovo}");
+        let f: Dot = serde_json::from_str(r#"{"nome":"apm","ruolo":"r","nato":"t","mestiere":"apm","fisso":true}"#).unwrap();
+        assert!(f.fisso && f.mestiere == Mestiere::Apm);
+        assert_eq!(serde_json::to_value(&f).unwrap()["fisso"], true);
     }
 
     #[test]
@@ -1009,7 +1085,7 @@ mod prove {
         let base = std::env::temp_dir().join(format!("nova-dot-fili-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&base);
         let c = Cartella::di(&base, "fili").unwrap();
-        c.crea(&Dot { nome: "fili".into(), ruolo: "r".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: String::new() }).unwrap();
+        c.crea(&Dot { nome: "fili".into(), ruolo: "r".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: String::new(), fisso: false }).unwrap();
         let fili: Vec<_> = (0..8)
             .map(|f| {
                 let c = c.clone();
@@ -1048,7 +1124,7 @@ mod prove {
         let _ = std::fs::remove_dir_all(&base);
         let c = Cartella::di(&base, "ricercatore").unwrap();
         assert!(Cartella::di(&base, "../fuori").is_err());
-        let d = Dot { nome: "ricercatore".into(), ruolo: "r".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: String::new() };
+        let d = Dot { nome: "ricercatore".into(), ruolo: "r".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: String::new(), fisso: false };
         c.crea(&d).unwrap();
         assert_eq!(c.dot().unwrap(), d);
         assert!(c.vault().is_dir() && base.join("ricercatore").join("rapporti").is_dir());
@@ -1190,7 +1266,7 @@ mod prove_squadra {
         let d = std::env::temp_dir().join(format!("nova-posta-{}-{:?}", std::process::id(), std::thread::current().id()));
         let _ = std::fs::remove_dir_all(&d);
         let c = Cartella::di(&d, "uno").unwrap();
-        c.crea(&Dot { nome: "uno".into(), ruolo: "r".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: "capo".into() })
+        c.crea(&Dot { nome: "uno".into(), ruolo: "r".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: "capo".into(), fisso: false })
             .unwrap();
         assert_eq!(c.dot().unwrap().capo, "capo");
         assert!(c.non_letta().is_empty());

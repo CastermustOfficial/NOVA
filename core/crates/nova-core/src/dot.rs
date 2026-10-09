@@ -189,10 +189,50 @@ fn assicura_il_custode() {
         nato: adesso(),
         mestiere: d::Mestiere::Custode,
         capo: String::new(),
+        fisso: false,
     };
     if let Err(e) = c.crea(&custode) {
         tracing::warn!(errore = %e, "il custode dei permessi non nasce");
     }
+}
+
+/// Fa nascere i posti fissi dell'azienda che mancano (D395): la direzione e
+/// i reparti. Torna i nomi di quelli nati.
+///
+/// Un Dot dell'utente che si chiama gia' come un posto resta com'e', e quel
+/// posto resta vuoto: NOVA non tocca un Dot che non ha fatto nascere lei. Se
+/// e' l'APM, non nasce nessuno: tutti gli altri l'avrebbero come capo.
+fn assicura_l_azienda() -> Vec<String> {
+    use nova_dot::azienda;
+    let mut nati = Vec::new();
+    for p in &azienda::POSTI {
+        let Ok(c) = cartella(p.nome) else {
+            continue;
+        };
+        if c.esiste() {
+            if !c.dot().is_ok_and(|x| x.fisso) {
+                tracing::warn!(
+                    dot = p.nome,
+                    "un Dot dell'utente si chiama come un posto fisso dell'azienda: resta com'e', e il posto resta vuoto"
+                );
+                if p.nome == azienda::NOME_APM {
+                    return nati;
+                }
+            }
+            continue;
+        }
+        match c.crea(&azienda::dot_del_posto(p, &adesso())) {
+            Ok(()) => nati.push(p.nome.to_string()),
+            Err(e) => tracing::warn!(dot = p.nome, errore = %e, "un posto dell'azienda non nasce"),
+        }
+    }
+    nati
+}
+
+/// Chi e' e cosa fa un Dot che non prende compiti, se lo e': per dire di no
+/// a chi gli affida, gli scrive o lo mette in un gruppo.
+fn a_parte(c: &d::Cartella) -> Option<(&'static str, &'static str)> {
+    c.dot().ok().and_then(|x| x.mestiere.a_parte())
 }
 
 /// Dove sta il vault di un Dot. Un nome che non e' un nome di Dot non ha un
@@ -238,8 +278,25 @@ pub fn memoria_di(
 
 /// Accende i cicli di tutti i Dot che ci sono. Lo chiama il demone
 /// all'avvio.
+///
+/// La direzione e i reparti nascono coi Dot accesi (D395). Spenti, si
+/// aspetta che li riaccendano, guardando ogni tanto come fa il ciclo.
 pub fn avvia_tutti(server: &Arc<Server>) {
     assicura_il_custode();
+    if crate::dot_accesi::adesso().accesi {
+        assicura_l_azienda();
+    } else {
+        let s = server.clone();
+        tokio::spawn(async move {
+            while !crate::dot_accesi::adesso().accesi {
+                tokio::time::sleep(SPENTI_RIGUARDA).await;
+            }
+            for nome in assicura_l_azienda() {
+                avvia(&s, &nome);
+                s.ctx.bus.emit("dot.creato", json!({ "dot": nome }));
+            }
+        });
+    }
     for nome in d::elenco(&base()) {
         avvia(server, &nome);
     }
@@ -256,8 +313,9 @@ fn avvia(server: &Arc<Server>, nome: &str) {
     if let Err(errore) = c.prepara() {
         tracing::warn!(dot = nome, %errore, "le cartelle del Dot non si creano");
     }
-    // Il custode non ha una coda: risponde quando un Dot gli chiede.
-    if c.dot().is_ok_and(|x| x.mestiere == d::Mestiere::Custode) {
+    // Il custode non ha una coda: risponde quando un Dot gli chiede. Nemmeno
+    // la direzione e il legale: il loro lavoro arriva coi progetti (D395).
+    if a_parte(&c).is_some() {
         return;
     }
     let maniglia = {
@@ -301,6 +359,12 @@ pub fn crea(
             nova_dot::custode::NOME_CUSTODE
         ));
     }
+    if let Some(p) = nova_dot::azienda::posto(nome) {
+        return Err(format!(
+            "«{}» e' un posto fisso dell'azienda dei Dot: lo fa nascere NOVA, ed e' uno solo",
+            p.nome
+        ));
+    }
     if ruolo.trim().is_empty() {
         return Err("un Dot ha bisogno di un ruolo: e' quello che lo fa essere lui".into());
     }
@@ -313,8 +377,8 @@ pub fn crea(
         if !cc.esiste() {
             return Err(format!("il capo «{capo}» non c'e': prima nasce il capo, poi i sottoposti"));
         }
-        if cc.dot().is_ok_and(|x| x.mestiere == d::Mestiere::Custode) {
-            return Err("il custode dei permessi non ha sottoposti: decide e basta".into());
+        if let Some((chi, cosa)) = a_parte(&cc) {
+            return Err(format!("{chi} non ha sottoposti: {cosa}"));
         }
     }
     let dot = d::Dot {
@@ -323,6 +387,7 @@ pub fn crea(
         nato: adesso(),
         mestiere: d::Mestiere::da(mestiere)?,
         capo: capo.to_string(),
+        fisso: false,
     };
     c.crea(&dot)?;
     avvia(server, &dot.nome);
@@ -351,10 +416,8 @@ pub fn affida_per(
     if !c.esiste() {
         return Err(format!("non c'e' nessun Dot che si chiama «{}»", nome.trim()));
     }
-    if c.dot().is_ok_and(|x| x.mestiere == d::Mestiere::Custode) {
-        return Err("il custode dei permessi non prende compiti: decide cosa possono fare \
-                    gli altri Dot"
-            .into());
+    if let Some((chi, cosa)) = a_parte(&c) {
+        return Err(format!("{chi} non prende compiti: {cosa}"));
     }
     if testo.trim().is_empty() {
         return Err("un compito vuoto non e' un compito".into());
@@ -423,7 +486,8 @@ pub fn elenco(server: &Arc<Server>) -> Value {
                 "nome": dot.nome,
                 "ruolo": dot.ruolo,
                 "mestiere": dot.mestiere,
-                "prende_compiti": dot.mestiere != d::Mestiere::Custode,
+                "prende_compiti": dot.mestiere.prende_compiti(),
+                "fisso": dot.fisso,
                 "capo": dot.capo,
                 "in_coda": coda.iter().filter(|c| c.stato == d::Stato::Affidato).count(),
                 "in_corso": if in_corso == 0 { Value::Null } else { json!(in_corso) },
@@ -477,8 +541,8 @@ pub fn scrivi(server: &Arc<Server>, da: &str, a: &str, testo: &str) -> Result<Va
             if !c.esiste() {
                 return Err(format!("non c'e' nessun Dot che si chiama «{nome}»"));
             }
-            if c.dot().is_ok_and(|x| x.mestiere == d::Mestiere::Custode) {
-                return Err("il custode dei permessi non legge la posta: decide e basta".into());
+            if let Some((chi, cosa)) = a_parte(&c) {
+                return Err(format!("{chi} non legge la posta: {cosa}"));
             }
             let n = c.imbuca(da, &nome, testo.trim(), &quando)?;
             evento(&nome);
@@ -524,8 +588,8 @@ pub fn scrivi(server: &Arc<Server>, da: &str, a: &str, testo: &str) -> Result<Va
                 if !c.esiste() {
                     return Err(format!("non c'e' nessun Dot che si chiama «{n}»"));
                 }
-                if c.dot().is_ok_and(|x| x.mestiere == d::Mestiere::Custode) {
-                    return Err("il custode dei permessi non legge la posta: decide e basta".into());
+                if let Some((chi, cosa)) = a_parte(&c) {
+                    return Err(format!("{chi} non legge la posta: {cosa}"));
                 }
             }
             let a = gruppi::piu(&nomi);
@@ -572,8 +636,8 @@ pub fn gruppo(nome: &str, membri: &[String], da: &str) -> Result<Value, String> 
         if !c.esiste() {
             return Err(format!("non c'e' nessun Dot che si chiama «{}»", m.trim()));
         }
-        if c.dot().is_ok_and(|x| x.mestiere == d::Mestiere::Custode) {
-            return Err("il custode dei permessi non sta nei gruppi: decide e basta".into());
+        if let Some((chi, cosa)) = a_parte(&c) {
+            return Err(format!("{chi} non sta nei gruppi: {cosa}"));
         }
     }
     let (nato, chi) = match &prima {
@@ -630,10 +694,13 @@ pub fn annota_file(server: &Arc<Server>, nome: &str, strumento: &str, argomenti:
 }
 
 /// Come sta un Dot, in una parola, per l'organigramma: `custode`,
-/// `lavora`, `aspetta` (i suoi sottoposti), `in_coda` o `libero`.
+/// `su_chiamata` (la direzione e il legale, D395), `lavora`, `aspetta` (i
+/// suoi sottoposti), `in_coda` o `libero`.
 fn come_sta(dot: &d::Dot, coda: &[d::Compito], in_corso: u64) -> &'static str {
     if dot.mestiere == d::Mestiere::Custode {
         "custode"
+    } else if !dot.mestiere.prende_compiti() {
+        "su_chiamata"
     } else if in_corso != 0 {
         "lavora"
     } else if coda.iter().any(|c| c.stato == d::Stato::InAttesa) {
@@ -678,6 +745,9 @@ pub fn vista(server: &Arc<Server>) -> Value {
                 "ruolo": dot.ruolo,
                 "mestiere": dot.mestiere,
                 "capo": dot.capo,
+                "prende_compiti": dot.mestiere.prende_compiti(),
+                "fisso": dot.fisso,
+                "a_parte": dot.mestiere.detto_a_parte(),
                 "sta": come_sta(&dot, &coda, in_corso),
                 "compito": ora.map(|x| json!({ "id": x.id, "testo": in_breve(&x.testo), "stato": x.stato })),
                 "in_coda": coda.iter().filter(|x| x.stato == d::Stato::Affidato).count(),
@@ -730,7 +800,7 @@ fn conversazioni() -> Vec<Value> {
         let Ok(dot) = c.dot() else { continue };
         let posta = c.posta();
         tutta.extend(posta.iter().cloned());
-        if dot.mestiere == d::Mestiere::Custode {
+        if !dot.mestiere.prende_compiti() {
             continue;
         }
         // La chat con Nova: quello che lei (o l'utente) gli ha scritto da

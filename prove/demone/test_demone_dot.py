@@ -198,8 +198,11 @@ try:
     controlla("un Dot che c'e' gia' non si riscrive",
               "c'e' gia'" in errore("dot/crea", nome="ricercatore", ruolo="altro"))
     controlla("senza ruolo non nasce", "ruolo" in errore("dot/crea", nome="vuoto", ruolo=" "))
+    # Accanto ci sono anche i posti fissi dell'azienda (D396), che NOVA fa
+    # nascere coi Dot accesi: quelli li guarda `test_demone_azienda.py`.
     controlla("e compare nell'elenco, accanto al custode che NOVA fa nascere da se' (D384)",
-              [x["nome"] for x in rpc("dot/elenco")["dots"]] == ["custode", "ricercatore"],
+              [x["nome"] for x in rpc("dot/elenco")["dots"] if not x.get("fisso")]
+              == ["custode", "ricercatore"],
               str(rpc("dot/elenco")))
 
     print("\n2. un compito si affida senza aspettare, e si porta a termine")

@@ -47,6 +47,7 @@ const STA = {
   in_coda: ['ha compiti in coda', 'coda'],
   libero: ['libero', 'libero'],
   custode: ['decide i permessi', 'custode'],
+  su_chiamata: ['su chiamata', 'chiamata'],
 };
 const NOME_STATO = {
   affidato: 'in coda', in_corso: 'in corso', in_attesa: 'in attesa', fatto: 'fatto',
@@ -65,6 +66,7 @@ const STILE = `
 .st.coda{background:var(--brace)}
 .st.libero{background:var(--ascolto)}
 .st.custode{background:var(--parola)}
+.st.chiamata{background:var(--mezzo)}
 .st.tu{background:var(--inchiostro)}
 .st.nova{background:var(--brace)}
 .dot-nodo.fisso{cursor:default;color:var(--fioco)}
@@ -200,7 +202,11 @@ export function avviaDot(h) {
   let nuove = 0;              // compiti chiusi da quando non si guarda
 
   const dotDi = nome => (vista?.dots || []).find(d => d.nome === nome) || null;
-  const lavoratori = () => (vista?.dots || []).filter(d => d.mestiere !== 'custode');
+  /* Nella piramide ci sono tutti fuori che il custode; prendono compiti e
+     leggono la posta solo quelli che lo dicono (la direzione e il legale
+     no, D395). */
+  const nellaPiramide = () => (vista?.dots || []).filter(d => d.mestiere !== 'custode');
+  const lavoratori = () => (vista?.dots || []).filter(d => d.prende_compiti);
 
   /* ---------------------------------------------------- la vista a sinistra */
   async function carica() {
@@ -315,11 +321,11 @@ export function avviaDot(h) {
   /* Tu e Nova in cima, poi i Dot senza capo, e sotto ognuno i suoi. Un capo
      che non c'e' piu' non nasconde i suoi: salgono sotto Nova. */
   function radici() {
-    const ds = lavoratori();
+    const ds = nellaPiramide();
     const nomi = new Set(ds.map(d => d.nome));
     return ds.filter(d => !d.capo || !nomi.has(d.capo));
   }
-  const figli = nome => lavoratori().filter(d => d.capo === nome);
+  const figli = nome => nellaPiramide().filter(d => d.capo === nome);
 
   function rigaDot(d, livello) {
     const [parola, classe] = STA[d.sta] || STA.libero;
@@ -529,7 +535,7 @@ export function avviaDot(h) {
     const x = s.dati;
     const d = x.dot;
     const [parola] = STA[x.sta] || STA.libero;
-    const custode = d.mestiere === 'custode';
+    const aParte = dotDi(d.nome)?.a_parte || '';
     const compiti = x.compiti || [];
     const ora = compiti.find(c => c.id === x.in_corso) || compiti.find(c => c.stato === 'in_attesa');
     const et = [
@@ -553,8 +559,8 @@ export function avviaDot(h) {
       </div>
       <div class="dot-sotto">${sotto}</div>
       ${corpo}
-    </div>${custode
-      ? `<div class="dot-scrivi"><div class="fila"><span>${esc(T('Il custode non prende compiti e non legge la posta: decide i permessi degli altri Dot.'))}</span></div></div>`
+    </div>${aParte
+      ? `<div class="dot-scrivi"><div class="fila"><span>${esc(T(aParte))}</span></div></div>`
       : `<div class="dot-scrivi">
         <textarea placeholder="${esc(T('Scrivi a') + ' ' + d.nome + '…')}">${esc(s.bozza || '')}</textarea>
         <div class="fila"><span>${esc(T('Un messaggio lo legge al prossimo compito. Un compito va in coda e lo fa da solo.'))}</span>

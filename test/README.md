@@ -61,7 +61,7 @@ Cosa serve: niente: guardano il repository stesso.
 | `test_dove_stanno_i_dati.py` | La mappa dei dati non deve tacere su niente, ne' inventare niente. |
 | `test_elenchi_gemelli.py` | Ogni elenco dichiarato in Rust ha un gemello in Python, e si confronta. |
 | `test_guardie_predefinite.py` | Le guardie sono un elenco solo, e non ne esiste un secondo. |
-| `test_harness_dot.py` | I Dot nell'harness, guardando la pagina (D391, D392): ogni capacita' che la pagina chiede passa dall'elenco del guscio ed esiste nel demone, la vista e' solo della persona; la vista, il bottone e il posto delle schede ci sono; le schede dei Dot non si ricordano e non vanno con la domanda a NOVA; chi scrive da li' non dice chi e' (lo dice il demone: Nova); come Teams, prima le chat (con te, i gruppi coi loro interni, fra di loro, dove scrivi anche tu), e quello che si e' visto ricordato senza rompersi; ogni frase ha la sua traduzione. |
+| `test_harness_dot.py` | I Dot nell'harness, guardando la pagina (D391, D392): ogni capacita' che la pagina chiede passa dall'elenco del guscio ed esiste nel demone, la vista e' solo della persona; la vista, il bottone e il posto delle schede ci sono; le schede dei Dot non si ricordano e non vanno con la domanda a NOVA; chi scrive da li' non dice chi e' (lo dice il demone: Nova); come Teams, prima le chat (con te, i gruppi coi loro interni, fra di loro, dove scrivi anche tu), e quello che si e' visto ricordato senza rompersi; ogni frase ha la sua traduzione, compresi i mestieri e le frasi di chi non prende compiti, letti dal codice del demone (`nova_dot::Mestiere`, D396). |
 | `test_impostazioni.py` | Il pannello deve saper aggiungere, non solo scegliere; nella scheda Cervello si spuntano i motori e si scelgono tre voci, la consigliata le rimette, e si scrive solo con «Conferma», che il guscio ricontrolla, con le frasi anche in inglese (D379, D390). |
 | `test_installer.py` | L'installer chiede quattro cose, e scrive solo valori che qualcuno legge. |
 | `test_niente_cresce_per_sempre.py` | Nessun diario di NOVA puo' crescere per sempre. |
@@ -76,7 +76,7 @@ Cosa serve: niente: guardano il repository stesso.
 | `test_primi_minuti.py` | «Cosa le chiedo?» e' la prima domanda, e non e' «come funziona». |
 | `test_prove_ordinate.py` | Le prove stanno in una cartella, e ogni cartella dice cosa serve per girarci. |
 | `test_python_minimo.py` | CMP-5. «Python 3.10 o superiore» e' una promessa: che sia vera. |
-| `test_prove_in_casa_loro.py` | Le prove di `prove/nova/` e `prove/gemelli/` girano una per una con tutte le cartelle di casa puntate su una cartella vuota, e la lasciano vuota: nessuna scrive nei dati di chi la lancia. E passano anche cosi', cioe' non dipendono dalla configurazione di chi le lancia (D393). Cargo, rustup e i pacchetti Python dell'utente restano dove sono. Poi guarda nel codice che chi si sposta la casa da solo tenga i pacchetti dove sono. Circa 30 secondi. |
+| `test_prove_in_casa_loro.py` | Le prove di `prove/nova/` e `prove/gemelli/` girano una per una con tutte le cartelle di casa puntate su una cartella vuota, e la lasciano vuota: nessuna scrive nei dati di chi la lancia. E passano anche cosi', cioe' non dipendono dalla configurazione di chi le lancia (D393). Cargo, rustup e i pacchetti Python dell'utente restano dove sono. Poi guarda nel codice che chi si sposta la casa da solo tenga i pacchetti dove sono, e che nessuna prova accenda la finestra vera di NOVA: chi apre un documento sostituisce `apri_se_serve` (con la casa finta, il demone della finestra restava acceso al posto di quello dell'utente). Circa 30 secondi. |
 | `test_readme.py` | Il README dice numeri: che siano quelli veri. |
 | `test_stringhe_senza_buchi.py` | Nessuna stringa con dentro l'indentazione della riga dopo. |
 | `test_una_porta.py` | Di interfacce ce n'e' una, e si sa qual e'. |
@@ -168,7 +168,7 @@ Cosa serve: un banco Rust costruito con `cargo`: la prova stampa la riga per cos
 | `test_semina_rust.py` | La prima mappatura del PC scrive in Rust gli stessi nodi del Python. |
 | `test_strumenti_rust.py` | Gli strumenti dichiarati allo stesso modo, in Rust. |
 
-## `prove/demone/`: 38 prove
+## `prove/demone/`: 39 prove
 
 Cosa serve: il binario `novad` costruito.
 
@@ -177,6 +177,7 @@ Cosa serve: il binario `novad` costruito.
 | `test_approvazione.py` | Il ponte delle approvazioni: chi chiede aspetta, chi risponde sblocca. |
 | `test_demone_app.py` | Applicazioni, finestre e processi, dal demone. |
 | `test_demone_automazioni.py` | Le automazioni del demone contro quelle del Python (D346). |
+| `test_demone_azienda.py` | L'azienda dei Dot (D395, D396), con due demoni e nessun cervello: coi Dot spenti non nasce niente; accesi, senza riavviare, nascono la direzione (APM, AR, Architetto) e i reparti, fissi, con l'APM capo di tutti; la direzione e il legale non prendono compiti, non leggono la posta e non stanno nei gruppi, e la vista dice perche'; i reparti si'; un posto non si rifa' a mano, ne' col nome ne' col mestiere; un Dot dell'utente che si chiama come un posto resta suo e il posto resta vuoto, e se e' l'APM non nasce nessuno; a ogni accensione non si rifanno. |
 | `test_demone_clm.py` | Senza le lettere decide CLM: sopra la soglia la delega sale, sotto si astiene, spento valgono le parole; e il registro dice chi ha deciso. |
 | `test_demone_cervelli.py` | Passare la palla a un cervello piu' capace, dal demone; il giudice di casa e la sua riga nel registro delle decisioni. |
 | `test_demone_claude.py` | Cio' che Claude Code vede del demone: gli strumenti e lo sportello. |

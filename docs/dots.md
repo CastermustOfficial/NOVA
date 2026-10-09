@@ -234,8 +234,8 @@ specialisti. Li assume AR.
 4. ~~**L'harness**: la vista dei Dot, l'organigramma, le chat, i rapporti
    nell'editor. Da qui l'utente vede e scrive~~ (D391). I progetti si
    vedranno quando ci saranno, col sesto passo.
-5. **La direzione e i reparti** (D395): chi sono, i ruoli, l'organigramma
-   che nasce all'avvio.
+5. ~~**La direzione e i reparti** (D395): chi sono, i ruoli, l'organigramma
+   che nasce all'avvio~~ (D396).
 6. **AR**: riprende, assume, licenzia, sceglie il cervello del compito.
    Ogni scelta si registra.
 7. **L'Architetto** e il piano di sviluppo.
@@ -542,8 +542,8 @@ di un Dot ci sono due file in piu', `file.jsonl` e `inviati.jsonl`.
   comando non si indovina.
 - **La scheda di un Dot non va con la domanda a NOVA**: chiedere a Nova
   «cosa sta facendo questo?» guardando un Dot vuol dire nominarlo.
-- **I progetti** non ci sono ancora: la vista li mostrera' col sesto passo,
-  l'APM.
+- **I progetti** non ci sono ancora: la vista li mostrera' col passo
+  dell'APM.
 
 **Come Teams** (D392). Il riferimento, dopo il D391: «tipo un Teams, ma per
 i Dot». Nella vista dell'harness la prima linguetta e' **Chat**: una
@@ -557,3 +557,33 @@ Un capo fa gruppi coi suoi sottoposti, e cambia solo quelli che ha fatto lui.
   messaggio («da nova a due, uno insieme») e risponde a tutti scrivendo i
   nomi: non c'e' un «rispondi a tutti».
 
+**La direzione e i reparti — fatto** (D396). I posti fissi stanno in
+`nova_dot::azienda`: il nome, il ruolo, il mestiere e il capo di ognuno.
+L'APM (`apm`) e' il capo di tutti; sotto di lui `ar`, `architetto`,
+`legale`, `commerciale`, `ricerca`, `revisione`, `scrittura`, `dati`,
+`qualita` e `amministrazione`. Il custode resta fuori dalla piramide.
+
+- **Nascono coi Dot accesi**, all'avvio del demone; spenti, il demone
+  aspetta che li riaccendano e li fa nascere allora, senza riavviare. Chi
+  nasce cosi' ha `fisso` nel suo `dot.json`, e non si rifa' a ogni
+  accensione.
+- **La direzione e il legale hanno un mestiere loro** (`apm`, `ar`,
+  `architetto`, `legale`) e per ora non prendono compiti, non leggono la
+  posta e non stanno nei gruppi: il loro lavoro arriva coi passi dopo. Nella
+  vista sono «su chiamata», e la scheda dice cosa fanno invece. I reparti
+  prendono compiti come gli altri Dot: la ricerca e' un ricercatore, gli
+  altri sono generici col loro ruolo.
+- **Un posto non si rifa' a mano**: `dot.crea` dice di no al nome di un
+  posto e al mestiere della direzione e del legale, e un Dot non puo' avere
+  come capo chi non prende compiti.
+- **Un Dot dell'utente che si chiamava gia' come un posto resta suo**, e
+  quel posto resta vuoto; se e' l'APM non nasce nessuno, perche' tutti gli
+  altri l'avrebbero come capo.
+
+### Cosa resta aperto, dopo la direzione e i reparti
+
+- **Un posto vuoto resta vuoto**: se l'utente aveva un Dot con quel nome,
+  NOVA lo scrive solo nel log. Dirlo nella vista, o proporre di rinominarlo,
+  e' da decidere.
+- **L'amministrazione e' un Dot generico**: il conto della spesa contro il
+  tetto arriva con l'APM e i progetti.

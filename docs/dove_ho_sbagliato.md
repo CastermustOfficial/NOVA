@@ -2492,3 +2492,15 @@ Ho chiuso quella finestra e il suo demone. Adesso `test_harness_prova.py` e
 `test_prove_in_casa_loro.py` (parte 3) guarda che ogni prova che apre un
 documento lo faccia. La regola: una prova non accende mai un programma vero
 dell'utente; quello che accende lo sostituisce, o lo spegne prima di finire.
+
+## La correzione della finestra uscita senza `test/README.md`
+
+Il commit che impedisce alle prove di accendere la finestra vera (`665d1fd`)
+ha cambiato `test_prove_in_casa_loro.py`, con una parte nuova, ma non la
+sua riga in `test/README.md`. L'ho visto scrivendo il commit dopo, quando
+ho aggiunto la riga di `test_demone_azienda.py`, e l'ho corretta li'.
+
+La regola c'era gia', ed e' quella delle cinque cartelle: `test/` si
+aggiorna nello stesso commit della prova. Prima del commit si guarda il
+`git diff --stat`: una prova cambiata senza `test/README.md` accanto e' un
+commit da finire.

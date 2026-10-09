@@ -98,7 +98,20 @@ frasi = {m.group(2) for m in re.finditer(r"""\bT\((['"])(.+?)\1\)""", DOT)}
 sta = DOT.split("const STA = {")[1].split("};")[0]
 stati = DOT.split("const NOME_STATO = {")[1].split("};")[0]
 frasi |= set(re.findall(r"\[\s*'([^']+)'", sta)) | set(re.findall(r":\s*'([^']+)'", stati))
-frasi |= {"generico", "ricercatore", "custode", "GRUPPO", "SCHEMA", "I Dot"}
+frasi |= {"GRUPPO", "SCHEMA", "I Dot"}
+# I mestieri e le frasi di chi non prende compiti li scrive il demone
+# (`nova_dot::Mestiere`, D395): si leggono dal suo codice, cosi' un mestiere
+# nuovo senza traduzione si vede qui.
+DOT_RS = (RADICE / "core" / "crates" / "nova-dot" / "src" / "lib.rs").read_text(encoding="utf-8")
+enum = DOT_RS.split("pub enum Mestiere {")[1].split("\n}")[0]
+mestieri = {v.lower() for v in re.findall(r"^\s{4}([A-Z][a-z]+),", enum, re.M)}
+controlla("i mestieri si leggono dal demone", {"generico", "ricercatore", "custode", "apm"} <= mestieri,
+          str(sorted(mestieri)))
+frasi |= mestieri
+a_parte = re.findall(r'Mestiere::\w+ => Some\(\("([^"]+)", "([^"]+)"\)\)', DOT_RS)
+controlla("e le frasi di chi non prende compiti", len(a_parte) == len(mestieri) - 2, str(a_parte))
+frasi |= {f"{chi[0].upper()}{chi[1:]} non prende compiti e non legge la posta: {cosa}."
+          for chi, cosa in a_parte}
 controlla("ce ne sono", len(frasi) >= 60, str(len(frasi)))
 for f in sorted(frasi):
     chiave = f.replace("\\'", "'")

@@ -235,8 +235,11 @@ try:
     controlla("a un modello non si offre", "dot_vista" not in nomi and "dot_stato" in nomi,
               str([n for n in nomi if str(n).startswith("dot_")]))
     v = capacita("dot.vista")
-    controlla("senza Dot c'e' solo il custode, a parte",
-              [(d["nome"], d["sta"]) for d in v.get("dots", [])] == [("custode", "custode")],
+    # I posti fissi dell'azienda nascono coi Dot accesi (D396): non sono Dot
+    # dell'utente, e li guarda `test_demone_azienda.py`.
+    controlla("senza Dot dell'utente c'e' solo il custode, a parte",
+              [(d["nome"], d["sta"]) for d in v.get("dots", []) if not d.get("fisso")]
+              == [("custode", "custode")],
               json.dumps(v.get("dots"), ensure_ascii=False)[:300])
     controlla("e dice se i Dot sono accesi, e perche'",
               v.get("accesi", {}).get("accesi") is True
