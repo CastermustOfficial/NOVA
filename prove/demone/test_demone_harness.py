@@ -78,7 +78,9 @@ modulo.write_bytes(b"def somma(a, b):\r\n    return a + b\r\n")
 os.environ["APPDATA"] = casa
 os.environ["HOME"] = casa
 # La finestra dell'harness risulta viva (e' questo processo): cosi' il
-# Python non prova ad accenderne una.
+# Python non prova ad accenderne una. E se smettesse di risultarlo, non la
+# accende lo stesso: sarebbe la finestra vera, con la casa finta della prova.
+harness.apri_se_serve = lambda *a, **k: {"viva": True, "accesa_adesso": False, "motivo": ""}
 (nova_dir / "harness").mkdir(parents=True, exist_ok=True)
 (nova_dir / "harness" / "finestra.json").write_text(json.dumps({"pid": os.getpid()}), encoding="utf-8")
 aperta = harness.apri(str(modulo), radice=str(progetto))

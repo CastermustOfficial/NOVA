@@ -2475,3 +2475,20 @@ c'era; ho portato `master` in avanti, l'ho mandato, e la CI e' stata verde.
 
 La regola: dopo un push si controlla che il commit sia davvero sul ramo
 remoto (`git ls-remote origin master`), prima ancora di cercare la CI.
+
+## Una prova ha lasciato acceso NOVA con la sua casa finta
+
+`test_harness_prova.py` apre dei documenti con `harness.apri`, che accende la
+finestra se non c'e'. Le altre prove dell'harness la sostituiscono; questa
+no. Sul PC di sviluppo la finestra vera c'e' (`bin/nova-shell.exe`): la
+prova l'ha accesa con la sua casa finta, e la finestra ha acceso il suo
+demone, che e' rimasto acceso dopo la prova, sul canale di quello vero. Il 9
+ottobre Gio ha scritto «nova» e gli ha risposto quel demone: «server.model_path
+e' vuoto», la configurazione vuota della prova. Me l'ha detto lui; il suo
+`config.json` era intatto.
+
+Ho chiuso quella finestra e il suo demone. Adesso `test_harness_prova.py` e
+`test_demone_harness.py` sostituiscono `apri_se_serve`, e
+`test_prove_in_casa_loro.py` (parte 3) guarda che ogni prova che apre un
+documento lo faccia. La regola: una prova non accende mai un programma vero
+dell'utente; quello che accende lo sostituisce, o lo spegne prima di finire.

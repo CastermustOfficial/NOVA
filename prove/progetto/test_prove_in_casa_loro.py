@@ -29,6 +29,9 @@ processo acceso dalla prova non li troverebbe piu'. Qui non si vedrebbe,
 perche' la sentinella i pacchetti li tiene gia'; sul PC di sviluppo, il 9
 ottobre, `test_avvio_cervello.py` e' caduto cosi' («No module named
 'requests'»). Lo si guarda nel codice, nella parte 2.
+
+E nessuna prova accende la finestra vera di NOVA: con la casa finta, il suo
+demone restava acceso dopo la prova al posto di quello dell'utente (parte 3).
 """
 import os
 import site
@@ -103,6 +106,22 @@ for t in spostano:
     mancano = [r for r in TIENE if r not in prima]
     controlla(f"{t.parent.name}/{t.name} li calcola prima di spostare la casa", not mancano,
               ", ".join(mancano))
+
+print("\n3. nessuna prova accende la finestra vera di NOVA")
+# Aprire un documento (`harness.apri`) accende la finestra, se non c'e': il
+# guscio vero, `bin/nova-shell`, che accende il suo demone. Da una prova, con
+# la casa finta, il 9 ottobre sul PC di sviluppo e' rimasto acceso dopo la
+# prova al posto di quello dell'utente, con la configurazione vuota della
+# prova: «server.model_path e' vuoto». Chi apre un documento sostituisce
+# `apri_se_serve`.
+import re  # noqa: E402
+APRE = re.compile(r"\b(?:harness|H)\.apri\(")
+tutte = sorted((RADICE / "prove").glob("*/test_*.py"))
+aprono = [t for t in tutte if APRE.search(t.read_text(encoding="utf-8"))]
+controlla("ce ne sono", len(aprono) >= 4, str(len(aprono)))
+for t in aprono:
+    controlla(f"{t.parent.name}/{t.name} non accende la finestra",
+              "apri_se_serve = " in t.read_text(encoding="utf-8"))
 
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:

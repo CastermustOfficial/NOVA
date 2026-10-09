@@ -36,7 +36,8 @@ Deciso con Gio il 30 settembre: non ci sono scadenze, conta solo il risultato, e
 
 Quando una voce si chiude la si sposta qui, con la data e il commit.
 
-- 09/10/2026: l'azienda dei Dot, il disegno come un'azienda vera: la direzione, i reparti sempre presenti, prima il piano e poi la squadra, il legale (D395).
+- 09/10/2026: nessuna prova accende piu' la finestra vera di NOVA: `test_harness_prova.py` la lasciava accesa con la sua casa finta, al posto di quella dell'utente; lo controlla `test_prove_in_casa_loro.py`.
+- 09/10/2026: l'azienda dei Dot, il disegno come un'azienda vera: la direzione, i reparti sempre presenti, prima il piano e poi la squadra, il legale (D395, `6155c6e`).
 - 09/10/2026: «il microfono non consegna niente» solo col microfono spento davvero, non con la stanza silenziosa (D394, `eb36b68`).
 - 09/10/2026: `test_demone_ricerca` non cade piu' in CI: verde in tutti i 31 giri su master dal 6 ottobre, eseguita e non saltata; il giro a vuoto del browser, messo quel giorno, era la cura. In CI il tempo del giro a vuoto ora e' anche fra gli avvisi, per continuare a guardarlo (D393, `1a72c8b`).
 - 09/10/2026: le prove stanno in casa loro: nessuna scrive piu' nei dati di chi la lancia (il registro delle azioni, i guasti, il fascicolo), e quelle che leggevano la sua configurazione usano quella di fabbrica; lo controlla `test_prove_in_casa_loro.py` (D393, `1a72c8b`).

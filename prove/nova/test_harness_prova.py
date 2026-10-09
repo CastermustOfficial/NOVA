@@ -52,6 +52,12 @@ def controlla(nome, condizione, dettaglio=""):
 
 from nova import harness, harness_modifica, harness_prova   # noqa: E402
 
+# La finestra non si apre: qui si provano i progetti, non il vetro. Aperta
+# davvero, era la finestra vera di NOVA con la casa finta della prova, e il
+# suo demone restava acceso dopo la prova, al posto di quello dell'utente (9
+# ottobre: «server.model_path e' vuoto»).
+harness.apri_se_serve = lambda *a, **k: {"viva": False, "accesa_adesso": False, "motivo": ""}
+
 print("\n1. come si prova un progetto si riconosce, non si indovina")
 with tempfile.TemporaryDirectory() as tmp:
     r = Path(tmp)
