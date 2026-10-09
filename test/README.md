@@ -60,7 +60,7 @@ Cosa serve: niente: guardano il repository stesso.
 | `test_dove_stanno_i_dati.py` | La mappa dei dati non deve tacere su niente, ne' inventare niente. |
 | `test_elenchi_gemelli.py` | Ogni elenco dichiarato in Rust ha un gemello in Python, e si confronta. |
 | `test_guardie_predefinite.py` | Le guardie sono un elenco solo, e non ne esiste un secondo. |
-| `test_impostazioni.py` | Il pannello deve saper aggiungere, non solo scegliere; la scala consigliata si mostra e si applica solo col bottone, con le frasi anche in inglese (D379). |
+| `test_impostazioni.py` | Il pannello deve saper aggiungere, non solo scegliere; nella scheda Cervello si spuntano i motori e si scelgono tre voci, la consigliata le rimette, e si scrive solo con «Conferma», che il guscio ricontrolla, con le frasi anche in inglese (D379, D390). |
 | `test_installer.py` | L'installer chiede quattro cose, e scrive solo valori che qualcuno legge. |
 | `test_niente_cresce_per_sempre.py` | Nessun diario di NOVA puo' crescere per sempre. |
 | `test_niente_dati_personali.py` | Niente dati personali nel repository: chiavi, percorsi `C:\Users\...` e il nome di chi ha la macchina («PC di» e un nome). |
@@ -179,7 +179,7 @@ Cosa serve: il binario `novad` costruito.
 | `test_demone_claude.py` | Cio' che Claude Code vede del demone: gli strumenti e lo sportello. |
 | `test_demone_cli.py` | Il demone fa un turno con un cervello che e' un **programma**, non un URL. |
 | `test_demone_compiti.py` | Un compito pianificato fa il suo turno senza Python (D345). |
-| `test_demone_consiglio.py` | `novad --consiglio`: la scala consigliata per quello che c'e' (il modello sul PC, Claude Code, Antigravity), con i nomi veri dal catalogo, e il file della configurazione che resta com'era (D379). |
+| `test_demone_consiglio.py` | `novad --consiglio`: la scala consigliata per quello che c'e' (il modello sul PC, Claude Code, Antigravity), con i nomi veri dal catalogo, e il file della configurazione che resta com'era, senza copie accanto (D379, D390). |
 | `test_demone_custode.py` | Il custode dei permessi (D384), con due cervelli finti e un Claude Code finto: un Dot chiede a lui quando Nova chiederebbe all'utente; decide il modello di casa (si', no, «non so»), se no il cervello grande (CONSENTI, NEGA, una risposta illeggibile che e' un no); con l'autonomia piena non si chiede; Nova chiede ancora all'utente; il Claude di un Dot, attraverso il ponte vero col gettone del Dot, passa dal custode per gli strumenti di NOVA e per lo sportello, e un gettone falso non viene servito. |
 | `test_demone_dot.py` | I Dot nel demone (D382), con un cervello finto: un Dot nasce con nome e ruolo, riceve compiti senza far aspettare, li fa uno alla volta senza chiedere il permesso all'utente (un file scritto con «conferma sempre» nel pannello, deciso dal custode), tiene la conversazione su disco, si ferma senza fermare il resto, e dopo un riavvio riprende il compito a meta'. |
 | `test_demone_dot_accesi.py` | I Dot si accendono solo dove conviene (D389), con la memoria video fissata dalla prova (`NOVA_PROVA_VRAM_MIB`, 8 GB): di serie, senza abbonamenti ne' API, sono spenti, il pannello dice perche', un Dot non nasce e non riceve compiti, a Claude e al modello di casa non arriva nessuno dei loro strumenti (58); accesi a mano nascono, lavorano, e gli strumenti tornano (62); spenti, un Dot finisce il compito in corso e non prende il successivo, che fa appena riacceso; un'API nella scala li accende, con «solo sul PC» no; Claude Code nel catalogo li accende, e a mano si spengono lo stesso. |

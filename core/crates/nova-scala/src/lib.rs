@@ -35,6 +35,9 @@ pub mod delega;
 // La scala consigliata per quello che l'utente ha davvero (D379).
 pub mod consiglio;
 
+// La scala scelta dall'utente nella scheda Cervello (D390).
+pub mod scelta;
+
 
 /// Un gradino: quale cervello, con quale modello, e quanto costa.
 #[derive(Debug, Clone, Default, PartialEq)]

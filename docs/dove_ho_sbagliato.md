@@ -2281,3 +2281,19 @@ e guarda il secondo restare in coda e partire alla riaccensione.
 La regola: una prova mette il demone in uno stato in cui ci arriva da solo,
 non in uno costruito a mano.
 
+## Una ricetta presa per una regola
+
+Nella prima bozza della scheda Cervello a voci c'erano due tendine, il
+modello veloce e il modello, e chi orchestra non si sceglieva: se il modello
+sul PC era spuntato orchestrava lui, come nella scala consigliata. Me ne sono
+accorto quando la bozza e' stata letta: un motore si puo' spuntare e non
+usare, e allora la spunta non puo' voler dire «orchestra».
+
+Avevo preso la ricetta del consiglio (D379), che decide per chi non sceglie,
+per una regola della scheda, che e' il posto in cui si sceglie. Corretto prima
+del codice: chi orchestra e' la terza voce, e un motore spuntato che nessuna
+voce usa resta spuntato, scritto in `brains.routing.motori`.
+
+La regola: dove l'utente sceglie, ogni ruolo che la ricetta assegna da sola
+diventa una voce che si vede.
+

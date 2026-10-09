@@ -436,6 +436,8 @@ SENZA_GEMELLO: dict[str, str] = {
     "APPUNTI": "nomi di programmi esterni; il Python passa da nova-appunti",
     "VOLUME": "nomi di programmi esterni; il Python passa da nova-volume",
     "NOTIFICHE": "nomi di programmi esterni; il Python passa da nova-notifica",
+    "FAMIGLIE_CLAUDE": "le famiglie di Claude che la scheda Cervello offre (D390): "
+                       "la scheda sta nel guscio, e il Python non ne ha una",
     # `PERCORSI_PROTETTI_UNIX` stava qui, con scritto «NOVA in Python e' di
     # Windows: questo elenco serve solo al demone». Era vero e costava caro:
     # NOVA in Python girava anche su Linux, e li' `guard_write` scorreva

@@ -312,28 +312,44 @@ for fascia, dentro in DENTRO.items():
                   dentro.index(corte[-1]) < dentro.index(lunghe[0]), str(dentro))
 
 
-print("\n11. la scala consigliata si mostra, e si applica solo col bottone (D379)")
-# Deciso con Gio il 7 ottobre: e' un consiglio. Il pannello lo chiede al
-# guscio e lo mostra; scriverlo e' un comando a parte, che rifa' il consiglio
-# dai file invece di prendere quello che la pagina gli manda.
+print("\n11. la scala si sceglie a voci, e si scrive solo con «Conferma» (D379, D390)")
+# Le scelte sulla bozza della scheda, il 9 ottobre: si spuntano i motori, e
+# dai motori spuntati si riempiono chi orchestra, il modello veloce e il
+# modello. La consigliata (D379) rimette le voci, e va confermata anche lei:
+# il bottone che scrive e' uno solo. La scelta arriva dalla pagina, e il
+# guscio la ricontrolla prima di scriverla.
 MAIN = (RADICE / "core" / "crates" / "nova-shell" / "src" / "main.rs").read_text(encoding="utf-8")
 CONSIGLIO = (RADICE / "core" / "crates" / "nova-shell" / "src" / "consiglio.rs").read_text(encoding="utf-8")
-controlla("la pagina chiede la scala consigliata", "invoke('scala_consiglio')" in html)
-controlla("e la applica solo dal bottone",
-          html.count("invoke('scala_consiglio_usa')") == 1
-          and "b.onclick = async" in html.split("invoke('scala_consiglio_usa')")[0][-400:])
+controlla("la pagina chiede i motori e le voci", "invoke('scala_scelta')" in html)
+controlla("e scrive solo dal bottone «Conferma»",
+          html.count("invoke('scala_scegli'") == 1
+          and "b.onclick = async" in html.split("invoke('scala_scegli'")[0][-400:]
+          and "$('btnConferma')" in html.split("invoke('scala_scegli'")[0][-700:])
+controlla("le tre voci ci sono",
+          all(f"['{v}', " in html for v in ("orchestra", "veloce", "forte")))
+controlla("i motori si spuntano", 'type="checkbox" data-spunta=' in html)
+controlla("la consigliata rimette le voci e non scrive",
+          "bozza = copia(scelta.consigliata);" in html
+          and "invoke" not in html.split("bozza = copia(scelta.consigliata);")[1][:120])
 controlla("i due comandi sono registrati nel guscio",
-          "consiglio::scala_consiglio," in MAIN and "consiglio::scala_consiglio_usa," in MAIN)
-controlla("il comando che scrive non prende niente dalla pagina",
-          "pub async fn scala_consiglio_usa() -> Result<Value, String>" in CONSIGLIO)
+          "consiglio::scala_scelta," in MAIN and "consiglio::scala_scegli," in MAIN)
+controlla("e quelli di prima non ci sono piu'",
+          "scala_consiglio" not in MAIN and "scala_consiglio" not in html)
+controlla("il comando che scrive ricontrolla la scelta",
+          "pub async fn scala_scegli(scelta: Value) -> Result<Value, String>" in CONSIGLIO
+          and "scelta::scala_da(&s, &noti)?" in CONSIGLIO)
 controlla("e tiene una copia del file di prima",
-          "config.json.prima-del-consiglio" in CONSIGLIO)
+          "config.json.prima-della-scala" in CONSIGLIO)
 controlla("la pagina non scrive i gradini con salva()",
           not re.search(r"salva\(\{\s*brains:\s*\{\s*routing", html))
+# `brains.active` il demone non lo guarda: sceglierlo da qui era la
+# contraddizione della scheda di prima.
+controlla("e non sceglie piu' un cervello solo",
+          not re.search(r"brains:\s*\{\s*active", html) and "prendi('brains.active'" not in html)
 LINGUE_JS = (RADICE / "core" / "crates" / "nova-shell" / "ui" / "lingue.js").read_text(encoding="utf-8")
 blocco = html[html.index("function nomeCervello"):html.index("function disegnaDettaglioCervello")]
 frasi = re.findall(r"""T\((['"])(.+?)\1\)""", blocco)
-controlla("le frasi del consiglio ci sono", len(frasi) >= 10, str(len(frasi)))
+controlla("le frasi della scheda ci sono", len(frasi) >= 20, str(len(frasi)))
 for _, frase in frasi:
     chiave = frase.replace("\\'", "'")
     controlla(f"  e in inglese: «{chiave[:40]}»",

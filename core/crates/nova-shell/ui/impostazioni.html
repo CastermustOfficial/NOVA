@@ -98,6 +98,13 @@
   display:block;margin-top:3px;word-break:break-all}
 .riga.scelta{border-color:var(--ascolto)}
 .cervello.scelto .etichetta{color:var(--brace);border-color:rgba(232,115,74,.3)}
+/* — la scheda Cervello a voci (D390) — */
+.passo{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--brace);margin:16px 0 8px}
+.motore input[type=checkbox]{accent-color:var(--brace);width:15px;height:15px;flex-shrink:0;margin:2px 0 0;cursor:pointer}
+.motore>.bottone{flex-shrink:0;align-self:center}
+.etichetta.consigliato{color:var(--brace);border-color:rgba(232,115,74,.3)}
+.voce-errore{color:var(--pericolo)}
 /* — stati dell'orb, la legenda — */
 .legenda{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
 .stato-v{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9.5px;
@@ -160,9 +167,11 @@ input:focus{border-color:rgba(232,115,74,.4)}
     <!-- CERVELLO -->
     <section class="pannello scheda larga">
       <div class="titolo-sez"><h3>Cervello</h3><span class="coda" id="codaCervello"></span></div>
+      <p class="passo">Quali motori</p>
       <div class="cervelli" id="cervelli"></div>
       <div id="dettaglioCervello"></div>
-      <div id="consiglioScala"></div>
+      <p class="passo">Con quali modelli</p>
+      <div id="vociScala"></div>
     </section>
 
     <!-- AUTONOMIA -->
@@ -394,9 +403,9 @@ traduciDocumento(document);
 const orb = creaOrb($('orbMini'));
 
 const CERVELLI = {
-  locale:{n:'Modello locale',d:'Il GGUF sul PC. Gratis, privato, orchestra.',t:['PRIVATO','OFFLINE']},
+  locale:{n:'Il modello sul PC',d:'Il GGUF sul PC. Gratis e privato: niente esce dal PC.',t:['PRIVATO','OFFLINE']},
   claude:{n:'Claude Code',d:'Agentico: agisce con i propri strumenti.',t:['AGENTICO','ABBONAMENTO']},
-  api:{n:'API esterna',d:'Endpoint compatibile OpenAI.',t:['A CONSUMO']},
+  api:{n:"Un'API",d:'Endpoint compatibile OpenAI.',t:['A CONSUMO']},
 };
 const AUTONOMIA = {
   always_ask:'Ogni azione passa dal tuo benestare, anche quelle innocue. Lento, ma non succede niente che tu non abbia visto.',
@@ -444,27 +453,16 @@ function cervelliTutti(){
   return fuori;
 }
 
-function disegnaCervelli(){
-  const attivo = prendi('brains.active','claude');
-  const TUTTI = cervelliTutti();
-  $('cervelli').innerHTML = Object.entries(TUTTI).map(([k,b])=>`
-    <button class="cervello ${k===attivo?'scelto':''}" data-k="${k}">
-      <span class="pallino"></span>
-      <span style="flex:1">
-        <span class="cv-nome">${T(b.n)}</span>
-        <span class="cv-desc">${T(b.d)}</span>
-        <span class="etichette">${b.t.map(t=>`<span class="etichetta">${t}</span>`).join('')}</span>
-      </span>
-    </button>`).join('');
-  $('codaCervello').textContent = T(TUTTI[attivo]?.n || attivo).toUpperCase();
-  disegnaDettaglioCervello();
-  document.querySelectorAll('.cervello').forEach(c => c.onclick = () => {
-    document.querySelectorAll('.cervello').forEach(x => x.classList.toggle('scelto', x===c));
-    $('codaCervello').textContent = T(TUTTI[c.dataset.k]?.n || c.dataset.k).toUpperCase();
-    cfg.brains = { ...(cfg.brains||{}), active: c.dataset.k };
-    disegnaDettaglioCervello();
-    salva({ brains: { active: c.dataset.k } });
-  });
+/* I motori e le loro spunte: li legge il guscio (`scala_scelta`), che sa
+   cosa c'e' davvero, e la pagina li disegna. Le spunte e le voci stanno in
+   `bozza` finche' non si preme «Conferma». */
+async function disegnaCervelli(){
+  if(!invoke){ $('cervelli').innerHTML = `<p class="nota">${T('Il ponte col guscio non c\'e\'.')}</p>`; return; }
+  try { scelta = await invoke('scala_scelta'); }
+  catch(e){ $('cervelli').innerHTML = `<p class="nota">${T('Non riesco a leggere la scala:')} ${esc(e)}</p>`; return; }
+  if(!bozza) bozza = copia(scelta.attuale || scelta.consigliata || VUOTA);
+  disegnaMotori();
+  disegnaVoci();
 }
 /* ------------------------------------------------------------------ *
  * Aggiungere, non solo scegliere.
@@ -560,72 +558,220 @@ function fasciaRiservatezza(attivo, cli){
     A ${esc(chi)} arrivano la domanda, il contesto della conversazione e i nodi
     di memoria pertinenti al messaggio.${mani}
     <b>Mai le credenziali</b>: quelle il modello non le vede in nessun caso.
-    Per il lavoro delicato torna su «Modello locale».</p>`;
+    Per il lavoro delicato fai orchestrare il modello sul PC.</p>`;
 }
 
-/* La scala consigliata (D379).
+/* La scheda Cervello (D390).
  *
- * NOVA consiglia i gradini per quello che c'e' davvero - il modello sul PC,
- * Claude Code con l'accesso fatto, Antigravity - e li mostra anche a chi se
- * li e' scritti da solo. Non li applica mai da sola: li applica il bottone,
- * e il guscio rifa' il consiglio dai file invece di prendere quello che il
- * pannello gli manda. */
+ * Le scelte sulla bozza, il 9 ottobre: si spuntano i motori, e dai motori
+ * spuntati si riempiono tre voci - chi orchestra, il modello veloce e il
+ * modello per i compiti che lo meritano. La scala parte da chi orchestra e
+ * sale. Un motore spuntato che nessuna voce usa resta a disposizione, e la
+ * scala non lo chiama. Niente si scrive finche' non si preme «Conferma»;
+ * «Torna alla consigliata» rimette le voci che NOVA consiglia per quello che
+ * c'e' davvero sul PC (D379), e va confermata anche lei.
+ *
+ * Prima qui si sceglieva un cervello solo, `brains.active`, che il demone
+ * non guarda: il turno parte dal primo gradino della scala. La scheda diceva
+ * una cosa e NOVA ne faceva un'altra.
+ *
+ * Le regole stanno nel guscio (`nova_scala::scelta`): la pagina ne rifa'
+ * qui sotto solo quanto basta per mostrare la scala mentre si sceglie, e il
+ * guscio ricontrolla quello che riceve prima di scriverlo. */
+let scelta = null;   // la risposta di `scala_scelta`
+let bozza = null;    // le spunte e le voci come stanno sullo schermo
+let aperto = null;   // il motore di cui si vedono le impostazioni
+const NESSUNA = { brain: '', model: '' };
+const VUOTA = { motori: [], orchestra: NESSUNA, veloce: NESSUNA, forte: NESSUNA };
+const copia = x => JSON.parse(JSON.stringify(x));
+const chiaveVoce = v => `${v.brain}\n${v.model}`;
+const stessa = (a, b) => a.brain === b.brain && a.model === b.model;
+// Due scelte sono la stessa se hanno gli stessi motori e le stesse voci:
+// l'ordine delle spunte non conta.
+const firma = x => x ? JSON.stringify([[...x.motori].sort(),
+  chiaveVoce(x.orchestra), chiaveVoce(x.veloce), chiaveVoce(x.forte)]) : '';
+const motore = k => (scelta?.motori || []).find(m => m.k === k);
+
 function nomeCervello(brain){
-  return ({ locale: T('il modello sul PC'), claude: 'Claude Code',
-            antigravity: 'Antigravity' })[brain] || brain;
+  const m = motore(brain);
+  return m ? T(m.nome) : brain;
 }
 function righeScala(righe){
   return `<div class="scala-righe">${righe.map(g => `<div class="scala-riga"><b>${esc(g.nome)}</b> · ${esc(nomeCervello(g.brain))} · ${esc(g.scelto || g.model || T('quello che sceglie lei'))}</div>`).join('')}</div>`;
 }
-async function disegnaConsiglio(){
-  const dove = $('consiglioScala');
-  if(!dove || !invoke) return;
-  let c;
-  try { c = await invoke('scala_consiglio'); }
-  catch(e){ dove.innerHTML = `<p class="nota">${T('Non riesco a leggere la scala consigliata:')} ${esc(e)}</p>`; return; }
-  let html = `<div class="dett"><div class="fila"><span class="scala-titolo">${T('Scala consigliata')}</span>`
-    + (c.coincide ? `<span class="chiave-ok">${T('È QUELLA CHE USI')}</span>` : '') + `</div>`;
-  if(!c.conosciuto){
+
+function disegnaMotori(){
+  const tutti = cervelliTutti();
+  $('cervelli').innerHTML = scelta.motori.map(m => {
+    const b = tutti[m.k] || { n: m.nome, d: 'Agentica, dalla riga di comando.', t: ['AGENTICO'] };
+    const si = bozza.motori.includes(m.k);
+    const c_e = m.disponibile === true ? (m.k === 'api' ? 'CONFIGURATA' : 'TROVATO')
+              : m.disponibile === false ? (m.k === 'api' ? 'DA CONFIGURARE' : 'NON TROVATO')
+              : 'DA PROVARE';
+    const etichette = [...(m.consigliato ? [['CONSIGLIATO', 'consigliato']] : []),
+                       [c_e, ''], ...b.t.map(t => [t, ''])];
+    return `<div class="cervello motore${si ? ' scelto' : ''}">
+      <input type="checkbox" data-spunta="${esc(m.k)}"${si ? ' checked' : ''} aria-label="${esc(T(b.n))}">
+      <span style="flex:1">
+        <span class="cv-nome">${esc(T(b.n))}</span>
+        <span class="cv-desc">${esc(T(b.d))}</span>
+        <span class="etichette">${etichette.map(([t, c]) => `<span class="etichetta ${c}">${T(t)}</span>`).join('')}</span>
+      </span>
+      <button class="bottone secondo" data-apri="${esc(m.k)}">${aperto === m.k ? T('Chiudi') : T('Impostazioni')}</button>
+    </div>`;
+  }).join('');
+  $('cervelli').querySelectorAll('[data-spunta]').forEach(c => c.onchange = () => {
+    const k = c.dataset.spunta;
+    const dopo = c.checked ? [...bozza.motori, k] : bozza.motori.filter(x => x !== k);
+    // Nell'ordine dei motori, che e' quello in cui si leggono le voci.
+    bozza.motori = scelta.motori.map(m => m.k).filter(x => dopo.includes(x));
+    disegnaMotori();
+    disegnaVoci();
+  });
+  $('cervelli').querySelectorAll('[data-apri]').forEach(b => b.onclick = () => {
+    aperto = aperto === b.dataset.apri ? null : b.dataset.apri;
+    disegnaMotori();
+    disegnaDettaglioCervello();
+  });
+}
+
+/* I modelli dei motori spuntati, per le tre tendine. */
+function etichettaModello(m, mod){
+  if(m.k === 'locale') return mod.scelto || T('il modello sul PC');
+  if(!mod.model) return T('quello che sceglie lei');
+  const base = mod.recente ? `${mod.nome}, ${T('il più recente')}` : mod.nome;
+  return mod.scelto && mod.scelto !== mod.model && mod.scelto !== mod.nome
+    ? `${base} (${mod.scelto})` : base;
+}
+function opzioni(){
+  return scelta.motori.filter(m => bozza.motori.includes(m.k)).flatMap(m =>
+    m.modelli.map(mod => ({ brain: m.k, model: mod.model,
+                            testo: `${T(m.nome)} · ${etichettaModello(m, mod)}` })));
+}
+
+/* La scala che viene dalle voci, come la scrive il guscio: dall'alto, una
+   voce uguale a quella sopra e' lo stesso gradino. */
+function passi(b){
+  const { orchestra: o, veloce: v, forte: f } = b;
+  if(!o.brain || !v.brain || !f.brain) return [];
+  if(stessa(o, v) && stessa(v, f)) return [[f, T('fa tutto: orchestra e i compiti di ogni peso')]];
+  const fuori = [];
+  if(!stessa(o, v)) fuori.push([o, T('orchestra')]);
+  if(!stessa(v, f)) fuori.push([v, stessa(o, v) ? T('orchestra e fa i compiti di tutti i giorni')
+                                                : T('i compiti di tutti i giorni')]);
+  fuori.push([f, T('quando il compito lo merita')]);
+  return fuori;
+}
+
+const VOCI = [['orchestra', 'Chi orchestra', 'capisce cosa vuoi e chiama gli strumenti'],
+              ['veloce', 'Modello veloce', 'i compiti di tutti i giorni'],
+              ['forte', 'Modello', 'quando il compito lo merita']];
+
+function disegnaVoci(){
+  const dove = $('vociScala');
+  if(!dove || !scelta) return;
+  const ops = opzioni();
+  let html = '';
+  if(!scelta.conosciuto){
     html += `<p class="nota">${T("Non so ancora cosa hai: lo controlla il demone due minuti dopo l'accensione, e poi una volta al giorno.")}</p>`;
-  } else if(!c.consigliata){
+  } else if(!scelta.consigliata){
     html += `<p class="nota">${T("Non ho trovato nessun cervello: né un modello sul PC, né Claude Code con l'accesso fatto, né Antigravity. La scala resta da configurare: quando ne avrai uno, il consiglio comparirà qui.")}</p>`;
-  } else {
-    html += `<p class="scala-sotto">${T('Per quello che hai, dal più leggero al più forte:')}</p>` + righeScala(c.righe);
-    if(!c.coincide){
-      html += `<p class="scala-sotto" style="margin-top:14px">${T('Adesso usi:')}</p>` + righeScala(c.attuale)
-        + `<div class="fila" style="margin-top:12px"><button class="bottone primo" id="btnUsaScala">${T('Usa questa scala')}</button></div>`
-        + `<p class="nota">${T("Sostituisce i gradini che hai adesso. Il file di prima resta accanto, in config.json.prima-del-consiglio.")}</p>`;
-    }
   }
-  dove.innerHTML = html + `</div>`;
-  const b = $('btnUsaScala');
+  for(const [k, nome, cosa] of VOCI){
+    const scelto = ops.find(o => stessa(o, bozza[k])) || ops[0];
+    bozza[k] = scelto ? { brain: scelto.brain, model: scelto.model } : copia(NESSUNA);
+    html += `<div class="campo"><label>${T(nome)} · ${T(cosa)}</label>
+      <select data-voce="${k}">${ops.length
+        ? ops.map(o => `<option value="${esc(chiaveVoce(o))}"${scelto && stessa(o, scelto) ? ' selected' : ''}>${esc(o.testo)}</option>`).join('')
+        : `<option value="">${T('nessun motore spuntato')}</option>`}</select></div>`;
+  }
+  const testo = v => ops.find(o => stessa(o, v))?.testo || `${nomeCervello(v.brain)} · ${v.model}`;
+  const p = passi(bozza);
+  const errore = stessa(bozza.orchestra, bozza.forte) && !stessa(bozza.orchestra, bozza.veloce)
+    ? T('Chi orchestra e il modello sono lo stesso, con il modello veloce in mezzo: la scala salirebbe e tornerebbe giù.')
+    : '';
+  html += `<div class="dett"><div class="fila"><span class="scala-titolo">${T('La scala che ne viene')}</span></div>`;
+  html += p.length
+    ? `<div class="scala-righe">${p.map(([v, r]) => `<div class="scala-riga"><b>${esc(testo(v))}</b> · ${esc(r)}</div>`)
+        .join(`<div class="scala-riga">↓ ${T('sale se serve')}</div>`)}</div>`
+    : `<p class="scala-sotto">${T('Nessun motore spuntato: NOVA non avrebbe con chi ragionare.')}</p>`;
+  const fermi = bozza.motori.filter(k => !p.some(([v]) => v.brain === k));
+  if(p.length && fermi.length)
+    html += `<p class="scala-sotto">${T('Spuntati ma non usati da nessuna voce:')} ${esc(fermi.map(nomeCervello).join(', '))}. ${T('Restano a disposizione: la scala non li chiama.')}</p>`;
+  if(!scelta.attuale && scelta.righe_attuale.length){
+    html += `<p class="scala-sotto" style="margin-top:14px">${T('Adesso usi una scala scritta in un altro modo:')}</p>`
+      + righeScala(scelta.righe_attuale);
+  }
+  const inUso = firma(bozza) === firma(scelta.attuale);
+  const consigliata = !!scelta.consigliata && firma(bozza) === firma(scelta.consigliata);
+  const stato = errore ? errore
+    : inUso ? (consigliata ? T('In uso: la scala consigliata.') : T('In uso: la tua scala.'))
+    : T('Modifiche non ancora confermate.') + (consigliata ? ' ' + T('È la scala consigliata.') : '');
+  html += `<div class="fila" style="margin-top:12px">
+      <button class="bottone primo" id="btnConferma"${inUso || errore || !p.length ? ' disabled' : ''}>${T('Conferma')}</button>
+      ${scelta.consigliata && !consigliata
+        ? `<button class="bottone secondo" id="btnConsigliata">${T('Torna alla consigliata')}</button>` : ''}
+    </div>
+    <p class="scala-sotto${errore ? ' voce-errore' : ''}" id="statoScala">${esc(stato)}</p>
+    <p class="nota">${T('Niente si scrive finché non premi «Conferma». La scala di prima resta accanto, in config.json.prima-della-scala.')}</p></div>`;
+  dove.innerHTML = html;
+  $('codaCervello').textContent = scelta.attuale
+    ? nomeCervello(scelta.attuale.orchestra.brain).toUpperCase() : '';
+
+  dove.querySelectorAll('[data-voce]').forEach(sel => sel.onchange = () => {
+    const o = ops.find(x => chiaveVoce(x) === sel.value);
+    if(o) bozza[sel.dataset.voce] = { brain: o.brain, model: o.model };
+    disegnaVoci();
+  });
+  const c = $('btnConsigliata');
+  if(c) c.onclick = () => {
+    bozza = copia(scelta.consigliata);
+    disegnaMotori();
+    disegnaVoci();
+  };
+  const b = $('btnConferma');
   if(b) b.onclick = async () => {
     b.disabled = true;
     try {
-      await invoke('scala_consiglio_usa');
+      scelta = await invoke('scala_scegli', { scelta: bozza });
       cfg = await invoke('config_leggi');
-      mostraSalvato(); diag('ok · scala consigliata in uso');
-    } catch(e){ diag('SCALA CONSIGLIATA: ' + e); }
-    disegnaConsiglio();
+      if(scelta.attuale) bozza = copia(scelta.attuale);
+      mostraSalvato(); diag('ok · scala confermata');
+    } catch(e){
+      diag('SCALA: ' + e);
+      $('statoScala').textContent = T('Non riesco a scriverla: ') + e;
+      b.disabled = false;
+      return;
+    }
+    disegnaMotori();
+    disegnaVoci();
   };
 }
 
 function disegnaDettaglioCervello(){
   const dove = $('dettaglioCervello');
   if(!dove) return;
-  const attivo = prendi('brains.active','locale');
+  if(!aperto){ dove.innerHTML = formAggiungiCli(); legaAggiungiCli(); return; }
   const cli = prendi('brains.cli', {}) || {};
-  let quale = attivo;
-  if(attivo === 'api')          dove.innerHTML = formApi();
-  else if(attivo === 'claude')  dove.innerHTML = formClaude();
-  else if(cli[attivo])        { dove.innerHTML = formCli(attivo, cli[attivo]); quale = 'cli'; }
-  else                          dove.innerHTML = formLocale();
-  dove.innerHTML = fasciaRiservatezza(attivo, cli[attivo])
+  const nome = aperto;
+  let quale = nome, spec = cli[nome] || null;
+  if(nome === 'api')          dove.innerHTML = formApi();
+  else if(nome === 'claude')  dove.innerHTML = formClaude();
+  else if(nome === 'locale')  dove.innerHTML = formLocale();
+  else if(spec)             { dove.innerHTML = formCli(nome, spec); quale = 'cli'; }
+  else {
+    // Una CLI che NOVA conosce di serie e che il file non riscrive: non c'e'
+    // niente da cambiare, e scriverne un pezzo solo la rifarebbe da capo.
+    dove.innerHTML = `<p class="nota">${T('Usa le impostazioni di serie di NOVA.')}</p>`;
+    quale = 'serie';
+    spec = { etichetta: motore(nome)?.nome || nome };
+  }
+  dove.innerHTML = fasciaRiservatezza(nome, spec)
     + `<div class="statocerv" id="statoCervello">${T('Controllo com\'e\' messo...')}</div>`
     + dove.innerHTML;
   dove.innerHTML += formAggiungiCli();
-  legaDettaglioCervello(quale, attivo);
-  disegnaStatoCervello(attivo);
+  legaDettaglioCervello(quale, nome);
+  disegnaStatoCervello(nome);
   legaAggiungiCli();
 }
 
@@ -744,16 +890,17 @@ function formApi(){
 
 function formClaude(){
   return `<div class="dett">
-    <div class="campo"><label>Modello</label>
+    <div class="campo"><label>Modello di scorta</label>
       <input type="text" id="clModello" list="clModelli"
              value="${esc(prendi('brains.claude_model',''))}">
       <datalist id="clModelli">
         <option value="claude-opus-5"><option value="claude-sonnet-5">
         <option value="claude-haiku-5"><option value="sonnet"><option value="opus">
       </datalist>
-      <p class="aiuto">Per esteso invece che con l'alias: gli alias del CLI
+      <p class="aiuto">Quello che usa quando un gradino della scala non ne
+        dice uno. Per esteso invece che con l'alias: gli alias del CLI
         restano indietro di una generazione.</p></div>
-    <div class="campo"><label>Modello veloce</label>
+    <div class="campo"><label>Modello per la memoria</label>
       <input type="text" id="clVeloce" value="${esc(prendi('brains.claude_model_veloce',''))}">
       <p class="aiuto">Per i lavori piccoli, come estrarre i fatti da ricordare.</p></div>
     <div class="campo"><label>Eseguibile</label>
@@ -861,7 +1008,8 @@ async function disegnaModelli(ovunque, dinuovo){
       if(f) f.value = scelto;
       await salvaModello(scelto);
       aggiornaAttivo();
-      disegnaStatoCervello(prendi('brains.active','locale'));
+      disegnaStatoCervello('locale');
+      disegnaCervelli();
       // La conferma si **scrive**, non si cancella. Qui prima la si
       // svuotava, e l'unica risposta alla domanda «l'ha preso o no?»
       // spariva proprio nell'istante in cui uno se la fa.
@@ -1005,25 +1153,29 @@ function legaDettaglioCervello(quale, nome){
       salva({ brains: { api_base_url: u.value, api_key_env: e.value } });
       disegnaDettaglioCervello();
     };
-    u.onchange = () => salva({ brains: { api_base_url: u.value.trim() } });
-    m.onchange = () => salva({ brains: { api_model: m.value.trim() } });
-    e.onchange = () => salva({ brains: { api_key_env: e.value.trim() } });
+    // L'indirizzo, il modello e la chiave dicono se l'API c'e' e cosa offre
+    // alle tre voci: dopo averli scritti, i motori si rileggono.
+    u.onchange = () => salva({ brains: { api_base_url: u.value.trim() } }).then(disegnaCervelli);
+    m.onchange = () => salva({ brains: { api_model: m.value.trim() } }).then(disegnaCervelli);
+    e.onchange = () => salva({ brains: { api_key_env: e.value.trim() } }).then(disegnaCervelli);
     $('apiSalvaChiave').onclick = async () => {
       const k = $('apiChiave').value.trim();
       if(!k) return;
       await salva({ brains: { api_key: k } });
       $('apiChiave').value = '';
       disegnaDettaglioCervello();
+      disegnaCervelli();
     };
     $('apiScordaChiave').onclick = async () => {
       await salva({ brains: { api_key: '' } });
       disegnaDettaglioCervello();
+      disegnaCervelli();
     };
   } else if(quale === 'cli'){
     const salvaCli = (campo, valore) =>
       salva({ brains: { cli: { [nome]: { [campo]: valore } } } });
-    $('cliEtichetta').onchange = e => salvaCli('etichetta', e.target.value.trim());
-    $('cliBinario').onchange   = e => salvaCli('binary', e.target.value.trim());
+    $('cliEtichetta').onchange = e => salvaCli('etichetta', e.target.value.trim()).then(disegnaCervelli);
+    $('cliBinario').onchange   = e => salvaCli('binary', e.target.value.trim()).then(disegnaCervelli);
     $('cliModello').onchange   = e => salvaCli('model', e.target.value.trim());
     $('cliPrompt').onchange    = e => salvaCli('prompt', e.target.value);
     $('cliTimeout').onchange   = e => {
@@ -1044,9 +1196,11 @@ function legaDettaglioCervello(quale, nome){
       // puo' cancellare da qui. Si mette a nulla, la pagina la salta e
       // Python la ignora - e alla prossima lettura sparisce dal file.
       cfg.brains.cli = { ...(cfg.brains.cli||{}), [nome]: null };
-      await salva({ brains: { active: 'locale', cli: { [nome]: null } } });
-      cfg.brains.active = 'locale';
-      disegnaCervelli();
+      await salva({ brains: { cli: { [nome]: null } } });
+      aperto = null;
+      if(bozza) bozza.motori = bozza.motori.filter(k => k !== nome);
+      await disegnaCervelli();
+      disegnaDettaglioCervello();
     };
   } else if(quale === 'claude'){
     $('clModello').onchange = ev => salva({ brains: { claude_model: ev.target.value.trim() } });
@@ -1056,14 +1210,15 @@ function legaDettaglioCervello(quale, nome){
       const n = parseInt(ev.target.value, 10);
       if(!isNaN(n) && n > 0) salva({ brains: { claude_max_turns: n } });
     };
-  } else {
+  } else if(quale === 'locale'){
     const f = $('loFile');
     if(f) f.onchange = () => {
       const v = f.value.trim();
       salvaModello(v);
       verificaModello(v);
       aggiornaAttivo();
-      disegnaStatoCervello(prendi('brains.active','locale'));
+      disegnaStatoCervello('locale');
+      disegnaCervelli();
       disegnaModelli(false);
     };
     const ov = $('btnModelliOvunque');
@@ -1373,7 +1528,7 @@ function disegnaLegenda(){
   if(invoke){ try { cfg = await invoke('config_leggi'); diag('ok · configurazione letta'); }
               catch(e){ diag('LETTURA CONFIG: ' + e); } }
   disegnaCervelli();
-  disegnaConsiglio();
+  disegnaDettaglioCervello();
   disegnaAutonomia();
   interruttore('swMemoria','kb.auto_learn',true);
   interruttore('swContesto','kb.inject_context',true);

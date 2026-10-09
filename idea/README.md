@@ -2,7 +2,7 @@
 
 Ogni possibile miglioria, anche solo teorica o non ancora decisa. Per ognuna: cosa, perché, cosa costerebbe. Un'idea non è un impegno: quando si decide di farla passa in [`piano/`](../piano/README.md), quando la si scarta resta qui con il perché.
 
-Aggiornato all'8 ottobre 2026. Le idee che c'erano già erano sparse nei documenti: qui sono raccolte, con il rimando a dove sono nate.
+Aggiornato al 9 ottobre 2026. Le idee che c'erano già erano sparse nei documenti: qui sono raccolte, con il rimando a dove sono nate.
 
 ## CANT-12: decisioni tipizzate al posto delle euristiche
 
@@ -31,6 +31,17 @@ quale «difficile» dipende dal fornitore. E prima una verifica che manca
 anche per Antigravity: cosa stampa `agy models` su un PC dove l'accesso non
 e' stato fatto. Oggi un elenco non vuoto vale come accesso fatto, ed e'
 verificato solo sul PC di sviluppo, dove l'accesso c'e'.
+
+## I motori spuntati anche fuori dalla scala
+
+Nata col D390 (9 ottobre). **Cosa.** Un motore spuntato e non usato da
+nessuna voce oggi resta solo spuntato. Potrebbe essere l'elenco da cui
+`cervelli.delega` e `cervelli.secondo_parere` prendono a chi chiedere, e da
+cui un Dot sceglie il suo cervello. **Perche'.** La spunta direbbe «questo lo
+posso usare», e la scala «questo lo uso da solo»: due cose diverse, oggi
+scritte una sola volta. **Cosa costerebbe.** Leggere `brains.routing.motori`
+in quei tre posti, decidere cosa fare quando la lista manca (le scale scritte
+prima del D390 non ce l'hanno), e una prova per ognuno.
 
 ## Una voce che parla davvero: un modello speech-to-speech davanti a NOVA
 

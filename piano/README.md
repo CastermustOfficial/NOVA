@@ -4,7 +4,7 @@ Cosa c'è da fare, in ordine. Quando una cosa è fatta si spunta, con il commit 
 
 Il racconto lungo sta in [`docs/verso_la_beta.md`](../docs/verso_la_beta.md): le tre liste, i cantieri, il piano per il Rust e le cinque frasi del cancello della beta. Qui c'è solo l'elenco di quello che resta aperto, nell'ordine in cui lo si fa.
 
-Aggiornato all'8 ottobre 2026.
+Aggiornato al 9 ottobre 2026.
 
 ## Da fare
 
@@ -37,7 +37,8 @@ Deciso con Gio il 30 settembre: non ci sono scadenze, conta solo il risultato, e
 
 Quando una voce si chiude la si sposta qui, con la data e il commit.
 
-- 09/10/2026: i Dot si accendono solo dove conviene: un interruttore nel pannello, di serie deciso da NOVA (D389).
+- 09/10/2026: la scheda Cervello a voci: si spuntano i motori, si scelgono chi orchestra, il modello veloce e il modello, e si scrive solo con «Conferma» (D390).
+- 09/10/2026: i Dot si accendono solo dove conviene: un interruttore nel pannello, di serie deciso da NOVA (D389, `eb0479a`).
 - 09/10/2026: i Dot parlano fra loro: ogni Dot puo' avere un capo, il capo aspetta e riprende, la posta si legge al compito dopo, i gruppi li fa Nova (D388, `48e72ab`).
 - 08/10/2026: Nova chiama i Dot: affida senza chiedere, fa nascere un Dot solo su richiesta, e la consegna arriva in chat e a voce (D387, `7e9b8f0`).
 - 08/10/2026: Gemini Live: dopo «Nova» la conversazione dal vivo, con le funzioni di NOVA, la chiave e le 30 voci nel pannello, da ascoltare prima di scegliere; e il guscio che dimentica davvero la conversazione del demone (D386, `7bea712`).

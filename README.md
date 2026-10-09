@@ -656,8 +656,8 @@ macchina, e solo dopo propone di scaricare.
 | **Scarico io un modello** | chi parte da zero | Qwen3.8 27B, con la quantizzazione che sta nella tua VRAM - ma puoi sceglierne un'altra, e decidere su quale disco finisce |
 
 Nessuna di queste e' obbligatoria all'installazione: si puo' rispondere
-«decido dopo» e cambiare idea dal menu **Cervello**, o da `brains.active` in
-`config.json`. Le CLI riconosciute le elenca `.\bin\nova cli-predefinite`:
+«decido dopo» e cambiare idea dalla scheda **Cervello** del pannello, che
+scrive la scala in `brains.routing` di `config.json`. Le CLI riconosciute le elenca `.\bin\nova cli-predefinite`:
 aggiungerne una non richiede codice, solo una voce sotto `brains.cli`, o il
 pannello.
 
@@ -666,8 +666,8 @@ un GGUF sono `GGUF`, e uno scaricamento interrotto non li ha. Se accanto al
 file c'e' un proiettore `mmproj`, NOVA lo usa e il modello ci vede; se non
 c'e', l'installer te lo dice invece di lasciartelo scoprire fra un mese.
 
-Cambiare strada dopo non richiede di reinstallare niente: e' il menu
-**Cervello** nell'interfaccia, oppure `brains.active` in `config.json`.
+Cambiare strada dopo non richiede di reinstallare niente: e' la scheda
+**Cervello** del pannello, oppure la scala in `brains.routing` di `config.json`.
 
 > **Avvertenza sugli abbonamenti.** Usare la CLI di un abbonamento consumer
 > come motore di un'applicazione terza e' fuori dai termini di servizio della
@@ -1445,10 +1445,21 @@ pannello, sotto *Cervello*, anche se i gradini te li sei scritti da solo:
 
 Cosa c'e' lo prova il catalogo dei modelli: Claude Code con l'accesso fatto,
 Antigravity con un elenco di modelli non vuoto, il modello sul PC se il file
-esiste. Il consiglio non si applica mai da solo: lo applica il bottone *Usa
-questa scala*, che sostituisce i gradini e lascia il file di prima accanto,
-in `config.json.prima-del-consiglio`. `novad --consiglio` stampa la scala
-consigliata accanto a quella in uso, senza cambiare niente.
+esiste. Il consiglio non si applica mai da solo. `novad --consiglio` stampa la
+scala consigliata accanto a quella in uso, senza cambiare niente.
+
+**La scheda Cervello** (D390). Nel pannello si spuntano i motori (il modello
+sul PC, Claude Code, un'API, le CLI) e, fra i modelli dei motori spuntati, si
+scelgono tre voci: **chi orchestra**, il **modello veloce** e il **modello**
+per i compiti che lo meritano. La scala parte da chi orchestra e sale; due
+voci uguali e vicine fanno un gradino solo. Un motore spuntato che nessuna
+voce usa resta a disposizione, e la scala non lo chiama. Accanto a ogni
+motore c'e' scritto se NOVA l'ha trovato e se e' fra quelli della scala
+consigliata. Niente si scrive finche' non si preme *Conferma*, che
+sostituisce i gradini e lascia il file di prima accanto, in
+`config.json.prima-della-scala`; *Torna alla consigliata* rimette le voci
+della scala consigliata, e va confermata anche lei. La scheda scrive anche
+`brains.active`, il motore di chi orchestra, da cui parte la meta' Python.
 
 ### Come passa la palla
 

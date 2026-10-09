@@ -669,8 +669,8 @@ at what is on the machine, and only then offers to download.
 | **I download a model for you** | those starting from zero | Qwen3.8 27B, with the quantisation that fits your VRAM — but you can pick another, and choose which disk it lands on |
 
 None of these is mandatory at install time: you can answer «I'll decide later»
-and change your mind from the **Brain** menu, or from `brains.active` in
-`config.json`. `.\bin\nova cli-predefinite` lists the recognised CLIs: adding
+and change your mind from the **Brain** card in the settings panel, which
+writes the ladder in `brains.routing` of `config.json`. `.\bin\nova cli-predefinite` lists the recognised CLIs: adding
 one needs no code, just an entry under `brains.cli`, or the settings panel.
 
 A model you point at by hand is actually checked: the first four bytes of a
@@ -680,7 +680,7 @@ there isn't, the installer tells you instead of letting you find out in a
 month.
 
 Changing route later doesn't require reinstalling anything: it's the **Brain**
-menu in the interface, or `brains.active` in `config.json`.
+card in the settings panel, or the ladder in `brains.routing` of `config.json`.
 
 > **A warning about subscriptions.** Using a consumer subscription's CLI as
 > the engine of a third-party application is outside most providers' terms of
@@ -1458,11 +1458,23 @@ the panel, under *Brain*, even if you wrote your tiers yourself:
 
 What there is comes from the model catalogue, which tests it: Claude Code
 signed in, Antigravity with a non-empty model list, the model on the PC if
-the file exists. The recommendation is never applied on its own: the *Use
-this ladder* button applies it, replacing the tiers and leaving the previous
-file next to it, in `config.json.prima-del-consiglio`. `novad --consiglio`
-prints the recommended ladder next to the one in use, without changing
-anything.
+the file exists. The recommendation is never applied on its own.
+`novad --consiglio` prints the recommended ladder next to the one in use,
+without changing anything.
+
+**The Brain card** (D390). In the panel you tick the engines (the model on
+the PC, Claude Code, an API, the CLIs) and, among the models of the ticked
+engines, you pick three choices: **who orchestrates**, the **fast model** and
+the **model** for the tasks that deserve it. The ladder starts from who
+orchestrates and climbs; two equal choices next to each other make a single
+tier. A ticked engine that no choice uses stays available, and the ladder
+does not call it. Next to each engine it says whether NOVA found it and
+whether it is in the recommended ladder. Nothing is written until you press
+*Confirm*, which replaces the tiers and leaves the previous file next to it,
+in `config.json.prima-della-scala`; *Back to the recommended one* puts back
+the choices of the recommended ladder, and has to be confirmed too. The card
+also writes `brains.active`, the engine of who orchestrates, which the Python
+half starts from.
 
 ### How it passes the ball
 

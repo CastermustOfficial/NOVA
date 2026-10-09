@@ -103,8 +103,10 @@ controlla("Haiku e poi Opus, e orchestra il rapido",
 print("\n4. consigliare non cambia niente")
 controlla("il file della configurazione e' quello di prima",
           (cartella / "config.json").read_bytes() == prima)
+# La copia la fa solo il pannello, quando si preme «Conferma» (D390).
 controlla("e accanto non c'e' nessuna copia, perche' non si e' scritto",
-          not (cartella / "config.json.prima-del-consiglio").exists())
+          not (cartella / "config.json.prima-della-scala").exists()
+          and not (cartella / "config.json.prima-del-consiglio").exists())
 
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:

@@ -11702,3 +11702,11 @@ pannello dice perche'. Nello stesso giorno ho tolto dai messaggi dei commit
 ogni nome: trentacinque messaggi riscritti, la storia uguale in tutto il
 resto.
 
+## 9 ottobre 2026 — Tre voci al posto di una
+
+La scheda Cervello faceva scegliere un cervello, e il demone quella scelta non
+la guardava: partiva dal primo gradino della scala. Ora si spuntano i motori
+e si scelgono tre voci, chi orchestra, il modello veloce e il modello, e la
+scala si vede mentre si sceglie. La prima bozza faceva orchestrare il modello
+sul PC solo perche' era spuntato: era la ricetta del consiglio, non una
+scelta. Chi orchestra ora e' una voce come le altre.
