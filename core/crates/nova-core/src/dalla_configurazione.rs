@@ -110,21 +110,46 @@ pub fn recapiti(cfg: &Value, ambiente: &dyn Fn(&str) -> Option<String>) -> Recap
         },
         api_modello: testo(cfg, &["brains", "api_model"]),
         api_chiave: chiave,
-        // Le CLI si leggono **intere**, non solo i nomi: il nome dice che
-        // quel gradino e' un processo, la dichiarazione dice che programma
-        // e', e chi deve lanciarlo ha bisogno di tutte e due.
-        cli: cfg
-            .get("brains")
-            .and_then(|b| b.get("cli"))
-            .and_then(Value::as_object)
-            .map(|o| {
-                o.iter()
-                    .map(|(nome, spec)| nova_cervelli::cli::dichiarata(nome, spec))
-                    .collect()
-            })
-            .unwrap_or_default(),
+        cli: cli_dichiarate(cfg),
         claude: nova_cervelli::claude::dichiarato(cfg),
     }
+}
+
+/// Le CLI che NOVA sa lanciare: quelle scritte in `brains.cli`, e quelle di
+/// fabbrica (`nova_cervelli::cli::predefinite`) che il file non nomina.
+///
+/// Le CLI si leggono **intere**, non solo i nomi: il nome dice che quel
+/// gradino e' un processo, la dichiarazione dice che programma e', e chi deve
+/// lanciarlo ha bisogno di tutte e due.
+///
+/// Quelle di fabbrica valgono anche per chi non le ha nel file: il pannello
+/// fa scegliere Antigravity per un gradino senza scriverne la dichiarazione,
+/// e un gradino con un cervello che non si riconosce diventava il modello di
+/// casa (il 10 ottobre, sul PC di sviluppo: «Il modello locale non risponde»).
+/// Tranne chi le ha tolte apposta, scrivendole `null`: e' la stessa regola
+/// del catalogo dei modelli (`modelli::da_provare`).
+pub fn cli_dichiarate(cfg: &Value) -> Vec<nova_cervelli::cli::Dichiarata> {
+    let scritte = cfg.get("brains").and_then(|b| b.get("cli"));
+    let mut fuori: Vec<nova_cervelli::cli::Dichiarata> = scritte
+        .and_then(Value::as_object)
+        .map(|o| {
+            o.iter()
+                .filter(|(_, spec)| !spec.is_null())
+                .map(|(nome, spec)| nova_cervelli::cli::dichiarata(nome, spec))
+                .collect()
+        })
+        .unwrap_or_default();
+    if let Some(o) = nova_cervelli::cli::predefinite().as_object() {
+        for (nome, spec) in o {
+            let nel_file = scritte
+                .and_then(Value::as_object)
+                .is_some_and(|s| s.keys().any(|k| k.trim().to_lowercase() == nome.to_lowercase()));
+            if !nel_file {
+                fuori.push(nova_cervelli::cli::dichiarata(nome, spec));
+            }
+        }
+    }
+    fuori
 }
 
 /// Le manopole del turno: quanti passi, e quando si sale.
@@ -330,7 +355,41 @@ mod prove {
         let r = recapiti(&configurazione(), &|_| None);
         let mut nomi = r.nomi_cli();
         nomi.sort();
-        assert_eq!(nomi, vec!["codex", "gemini"]);
+        // Le due scritte nel file, e le altre due di fabbrica.
+        assert_eq!(nomi, vec!["antigravity", "codex", "gemini", "qwen"]);
+    }
+
+    #[test]
+    fn una_cli_di_fabbrica_vale_anche_se_il_file_non_la_dichiara() {
+        // Il 10 ottobre, sul PC di sviluppo: il pannello aveva messo Antigravity in
+        // due gradini senza scriverne la dichiarazione, e i due gradini erano
+        // diventati il modello di casa.
+        let cfg = json!({ "brains": {
+            "cli": { "codex": {} },
+            "routing": {
+                "scala": ["orchestra", "difficile"],
+                "tiers": {
+                    "orchestra": { "brain": "antigravity", "model": "gemini-3.8-flash-low" },
+                    "difficile": { "brain": "claude" }
+                }
+            }
+        }});
+        let r = recapiti(&cfg, &|_| None);
+        let a = r.cli_di("antigravity").expect("di fabbrica");
+        assert_eq!(a.binario, "agy");
+        let g = crate::mondo::scala_vera(&scala(&cfg), &r);
+        assert!(
+            matches!(g[0], crate::mondo::Gradino::Cli { .. }),
+            "un gradino Antigravity e' una CLI, non il modello di casa"
+        );
+        // Quella scritta nel file vince su quella di fabbrica.
+        let mut mia = cfg.clone();
+        mia["brains"]["cli"]["antigravity"] = json!({ "binary": "agy-mio" });
+        assert_eq!(recapiti(&mia, &|_| None).cli_di("antigravity").unwrap().binario, "agy-mio");
+        // E chi l'ha tolta apposta, scrivendola null, non la ritrova.
+        let mut tolta = cfg.clone();
+        tolta["brains"]["cli"]["antigravity"] = Value::Null;
+        assert!(recapiti(&tolta, &|_| None).cli_di("antigravity").is_none());
     }
 
     #[test]

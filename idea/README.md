@@ -326,3 +326,27 @@ a 48 kHz quando la scheda non lo e', e una misura prima di accenderla di
 serie: le parole finte con e senza, il «Nova» riconosciuto con e senza, e
 quanto tempo costa ogni pezzo. Da decidere: sempre accesa, o una scelta nel
 pannello della voce.
+
+## Il guscio che accende due demoni insieme
+
+Visto il 10 ottobre, nel registro del demone sul PC di sviluppo. **Cosa.** Alle
+11:58 sono partiti due `novad` nello stesso istante: uno ha preso il canale,
+l'altro e' uscito con «Accesso negato» (in `runtime\novad.err` ce ne sono
+cinque cosi'). Nel mezzo tutti e due hanno fatto nascere i posti
+dell'azienda, e uno dei due ha scritto «un posto dell'azienda non nasce:
+commerciale». **Perche'.** Due pezzi del guscio chiamano
+`demone::assicura_avviato` insieme, e ognuno vede il canale libero. Oggi
+finisce bene per caso: il secondo esce. **Cosa costerebbe.** Un lucchetto
+attorno all'accensione nel guscio (chi arriva secondo aspetta il primo), e
+una prova che apre due richieste insieme a demone spento.
+
+## Un cervello che NOVA non conosce, detto invece di diventare il modello di casa
+
+Nata col D399. **Cosa.** Un gradino con un `brain` che non e' `locale`,
+`api`, `claude` ne' una CLI conosciuta diventa il modello di casa, come nel
+Python. Dirlo nel pannello e in `agente/pronto` («il gradino X usa Y, che
+NOVA non conosce») invece di provare il modello di casa. **Perche'.** Il 10
+ottobre il sintomo era «il modello locale non risponde» su una scala senza
+modello locale. **Cosa costerebbe.** Un controllo in `mondo::scala_vera` o
+in `agente::perche_non_pronto`, e decidere con Gio se un nome sconosciuto
+deve ancora poter voler dire «locale».

@@ -1341,7 +1341,7 @@ Quello che *pensa* sta dietro `nova-cervelli`. Si cambia a caldo dal menu
 |---|---|---|
 | `locale` | il GGUF servito da llama-server sul tuo PC | no |
 | `claude` | Claude Code CLI in headless | si' |
-| una CLI | Codex, Gemini, Qwen, o una dichiarata in `brains.cli` | si' |
+| una CLI | Codex, Antigravity, Gemini, Qwen, o una dichiarata in `brains.cli` | si' |
 | `api` | qualunque endpoint OpenAI-compatibile | no |
 
 **Agentico** e' la differenza che conta. `locale` e `api` *propongono* tool
@@ -1520,7 +1520,9 @@ Tre strade, in ordine di intelligenza:
 ### Aggiungere un modello senza scrivere codice
 
 Le CLI agentiche esterne si dichiarano in `brains.cli`; poi si citano in un
-gradino. `{model}` viene sostituito.
+gradino. `{model}` viene sostituito. Codex, Antigravity, Gemini e Qwen NOVA
+le conosce gia', e un gradino le puo' citare anche se il file non le
+dichiara: scriverle serve a cambiarle, e scriverle `null` le toglie.
 
 ```json
 "cli": {

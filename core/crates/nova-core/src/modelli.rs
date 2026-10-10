@@ -151,20 +151,10 @@ pub fn in_uso(cfg: &Value) -> (Vec<String>, Vec<nova_cervelli::cli::Dichiarata>)
 /// ancora messa in un gradino, se no la scala consigliata non la vedrebbe.
 pub fn da_provare(cfg: &Value) -> (Vec<String>, Vec<nova_cervelli::cli::Dichiarata>) {
     let (famiglie, mut cli) = in_uso(cfg);
+    // Quelle di fabbrica ci sono gia', tranne chi le ha tolte apposta
+    // (`dalla_configurazione::cli_dichiarate`).
     let r = crate::dalla_configurazione::recapiti(cfg, &|n| std::env::var(n).ok());
-    // Quelle di fabbrica valgono anche per chi non le ha nel file, tranne
-    // chi le ha tolte apposta, scrivendole `null`.
-    let scritte = cfg.get("brains").and_then(|b| b.get("cli"));
-    let di_fabbrica: Vec<nova_cervelli::cli::Dichiarata> = nova_cervelli::cli::predefinite()
-        .as_object()
-        .map(|o| {
-            o.iter()
-                .filter(|(n, _)| scritte.and_then(|s| s.get(n.as_str())).is_none())
-                .map(|(n, spec)| nova_cervelli::cli::dichiarata(n, spec))
-                .collect()
-        })
-        .unwrap_or_default();
-    for d in r.cli.iter().chain(di_fabbrica.iter()) {
+    for d in r.cli.iter() {
         if !d.elenco_modelli.is_empty() && !cli.iter().any(|x| x.binario == d.binario) {
             cli.push(d.clone());
         }

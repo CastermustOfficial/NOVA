@@ -1350,7 +1350,7 @@ Whatever *thinks* sits behind `nova-cervelli`. You switch it hot from the
 |---|---|---|
 | `locale` | the GGUF served by llama-server on your PC | no |
 | `claude` | Claude Code CLI in headless mode | yes |
-| a CLI | Codex, Gemini, Qwen, or one declared in `brains.cli` | yes |
+| a CLI | Codex, Antigravity, Gemini, Qwen, or one declared in `brains.cli` | yes |
 | `api` | any OpenAI-compatible endpoint | no |
 
 **Agentic** is the difference that matters. `locale` and `api` *propose* tool
@@ -1535,7 +1535,9 @@ Three roads, in order of intelligence:
 ### Adding a model without writing code
 
 External agentic CLIs are declared in `brains.cli`; then you name them in a
-tier. `{model}` is substituted.
+tier. `{model}` is substituted. NOVA already knows Codex, Antigravity, Gemini
+and Qwen, and a tier can name them even if the file doesn't declare them:
+writing them changes them, and writing them as `null` removes them.
 
 ```json
 "cli": {

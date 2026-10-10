@@ -36,7 +36,8 @@ Deciso con Gio il 30 settembre: non ci sono scadenze, conta solo il risultato, e
 
 Quando una voce si chiude la si sposta qui, con la data e il commit.
 
-- 10/10/2026: AR licenzia gli assunti fermi da trenta giorni, l'utente chi vuole; la cartella va in archivio (D398).
+- 10/10/2026: un gradino Antigravity non diventa piu' il modello di casa: le CLI di fabbrica valgono anche se `brains.cli` non le dichiara (D399).
+- 10/10/2026: AR licenzia gli assunti fermi da trenta giorni, l'utente chi vuole; la cartella va in archivio (D398, `f817715`).
 - 09/10/2026: AR sceglie chi lavora e con che cervello: Nova chiede un Dot ad AR, che riprende o assume, e il cervello vale per tutto il compito (D397, `3512957`).
 - 09/10/2026: la direzione e i reparti dei Dot nascono coi Dot accesi; la direzione e il legale non prendono compiti a mano (D396, `e15c042`).
 - 09/10/2026: nessuna prova accende piu' la finestra vera di NOVA: `test_harness_prova.py` la lasciava accesa con la sua casa finta, al posto di quella dell'utente; lo controlla `test_prove_in_casa_loro.py` (`665d1fd`).

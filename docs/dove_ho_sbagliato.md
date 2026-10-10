@@ -2515,3 +2515,23 @@ inglese. L'ho visto scrivendo il D397, e li ho aggiunti tutti e due li'.
 La regola: un comportamento che l'utente vede va nel README nello stesso
 commit, in tutte e due le lingue; prima del commit si cerca nel README la
 sezione di quello che si e' toccato.
+
+## Leggevo una configurazione che NOVA non legge
+
+Il 10 ottobre, sul PC di sviluppo, Gio scriveva «ciao!» e NOVA rispondeva
+che il modello locale non risponde. Io leggevo il suo `config.json` dal mio
+terminale su quel PC, e la scala era giusta: Antigravity, Antigravity, Claude Code, con
+Antigravity dichiarata in `brains.cli`. Un demone acceso da me rispondeva
+bene; il suo no. Ho pensato a un demone disallineato, come la volta prima.
+
+Non era quello. I miei comandi sul PC di sviluppo girano dentro l'app di
+Claude, che e' un pacchetto: quello che scrive in `%APPDATA%` finisce in una copia sua,
+`%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\NOVA`, e quello
+che legge lo legge prima da li'. Il file che leggevo io era quella copia; NOVA
+legge l'altro, che Antigravity in `brains.cli` non l'aveva. Me ne sono accorto
+facendo leggere la configurazione a un programma acceso fuori dal pacchetto
+(con `Win32_Process.Create`): stesso percorso, due file diversi.
+
+La regola: sul PC di sviluppo, i dati di NOVA in `%APPDATA%` si leggono e si
+scrivono solo da un processo acceso fuori dall'app di Claude, e quando li
+cito dico quale copia ho letto. Un NOVA acceso da qui non e' il NOVA di Gio.
