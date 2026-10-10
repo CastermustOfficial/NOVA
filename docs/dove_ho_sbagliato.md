@@ -2535,3 +2535,27 @@ facendo leggere la configurazione a un programma acceso fuori dal pacchetto
 La regola: sul PC di sviluppo, i dati di NOVA in `%APPDATA%` si leggono e si
 scrivono solo da un processo acceso fuori dall'app di Claude, e quando li
 cito dico quale copia ho letto. Un NOVA acceso da qui non e' il NOVA di Gio.
+
+## Credevo che il Rust di NOVA fosse gia' formattato
+
+Il 10 ottobre, scrivendo il D400, ho lanciato `cargo fmt -p nova-dot` per
+formattare il file nuovo. Ha riformattato anche sei file che non avevo
+toccato, con centinaia di righe cambiate: il codice di NOVA non e'
+formattato da `rustfmt` (in CI il formato e' un passo che puo' fallire).
+Me ne sono accorto da `git diff --stat`, prima di aggiungere niente, e ho
+rimesso quei file com'erano.
+
+La regola: in NOVA `rustfmt` si lancia solo sui file nuovi, uno per uno, e
+prima del commit `git diff --stat` deve elencare solo i file del lavoro.
+
+## Un'attesa che aspettava se stessa
+
+Lo stesso giorno, per aspettare la fine di una compilazione, ho scritto un
+giro che controllava con `pgrep -f "cargo build --release"`. La riga di
+comando del giro conteneva le stesse parole: `pgrep` trovava sempre il giro
+stesso, e il giro e' andato avanti fino al limite di dieci minuti, mentre la
+compilazione era finita in tre.
+
+La regola: non si aspetta un processo cercandolo per nome con un testo che
+compare anche nel comando che lo cerca; si aspetta il processo stesso (si
+lancia in primo piano, o si tiene il suo numero).

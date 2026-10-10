@@ -238,7 +238,7 @@ specialisti. Li assume AR.
    che nasce all'avvio~~ (D396).
 6. ~~**AR**: riprende, assume, licenzia, sceglie il cervello del compito.
    Ogni scelta si registra~~ (D397, D398).
-7. **L'Architetto** e il piano di sviluppo.
+7. ~~**L'Architetto** e il piano di sviluppo~~ (D400).
 8. **L'APM e i progetti**: il via, il tetto, il vault del progetto, i Dot
    disposti, i controlli del legale.
 9. **Nova tramite**: la proposta, il via, i resoconti e gli aggiornamenti,
@@ -648,3 +648,95 @@ stanno in `nova_dot::risorse`, il lavoro in `nova_core::risorse`.
   un Dot non c'e' ancora un bottone.
 - **Riassumere un licenziato**: la cartella e' in archivio, ma AR non la
   guarda quando sceglie.
+
+**L'Architetto e il piano di sviluppo — fatto** (D400). Deciso con Gio il 10
+ottobre, sulla bozza, prima del codice. Il formato e le regole stanno in
+`nova_dot::piano`, il lavoro in `nova_core::architetto`.
+
+| | Deciso |
+|---|---|
+| **Come lavora** | Un Dot che legge e basta: i file del progetto e la sua memoria, e non tocca niente. Il cervello e' quello di AR: il piu' grande che risponde a un indirizzo. |
+| **Prima di pianificare** | Non chiede a Ricerca e Commerciale: se servono lo stato dell'arte o il mercato, li mette nel piano, come compiti di una prima fase. La spesa resta dentro il piano che l'utente approva. |
+| **Quanto dettaglio** | Fasi con i compiti gia' assegnati: per ognuno chi lo fa (un reparto, o un ruolo che AR trovera') e da quali compiti dipende. Un capo puo' ancora dividere un suo compito. |
+| **Quando rivede** | Quando lo chiede l'utente, e da solo quando una fase fallisce o la revisione la boccia: al piu' due volte per fase, poi decide l'utente. Ogni versione resta. |
+| **Il formato** | Markdown, non JSON: costa meno token, e lo legge anche una persona (Gio, durante il lavoro). |
+
+- **Chi chiede il piano**: Nova, con `dot.pianifica` (il progetto, la
+  richiesta, la cartella dei file se c'e', e la fase se e' una revisione per
+  una fase), che non chiede il permesso, come affidare. Finche' l'APM non
+  c'e', e' cosi' che l'Architetto si prova da solo. La vede Claude; il
+  modello di casa no: con lei alla conversazione resterebbero 1.861 token,
+  sotto la soglia di 2.000.
+- **La sua coda la riempie NOVA**: l'Architetto ha un ciclo come i Dot che
+  prendono compiti (`Mestiere::ha_una_coda`), ma a mano non gli si affida
+  niente. La richiesta viaggia nel testo del compito, con la prima riga per
+  chi guarda la coda («Piano di sviluppo di «compressore»»). Il «ferma» lo
+  ferma come ogni Dot, e nella vista, mentre lavora, «lavora».
+- **Legge e basta, con due guardie**: al cervello si offrono solo otto
+  strumenti (`documenti.leggi`, `fs.grep`, `fs.list`, `fs.read`,
+  `fs.search`, `fs.stat`, `kb.cerca`, `sys.ora`), e ogni altro chiesto per
+  nome si rifiuta, anche uno innocuo come `dot.scrivi`: lo rifiuta
+  l'esecutore (`sola_lettura`) e, per mestiere, `permessi::per_un_dot`, che
+  vale anche per gli strumenti di NOVA chiesti da un Claude Code. Il web no:
+  lo stato dell'arte e' della ricerca.
+- **Mai un cervello con mani sue**: il turno usa solo i gradini che
+  rispondono a un indirizzo. Quando gli strumenti falliscono, il turno non
+  sale a Claude Code o a una CLI: sopra il piu' grande con un indirizzo non
+  c'e' nessuno. Senza nessun gradino con un indirizzo, il piano non si fa e
+  lo si dice.
+- **Il formato**, nel prompt di sistema dell'Architetto (che i fornitori
+  tengono in cache), coi nomi dei reparti presi dall'organigramma:
+
+  ```text
+  # Piano: <progetto>
+  Obiettivo: <una riga>
+  ## Fase 1: <nome>
+  Consegna: <cosa produce>
+  Fatta quando: <come si sa che e' finita>
+  - 1.1 [ricerca] <cosa fare>
+  - 1.2 [assumi: <ruolo>] <cosa fare> (dopo 1.1)
+  ## Rischi
+  ## Domande per te
+  ```
+
+  Chi fa un compito e' un reparto che prende compiti, oppure `assumi:
+  <ruolo>` o `assumi ricercatore: <ruolo>`, che AR trovera'. Il legale no:
+  lo chiama l'APM.
+- **I controlli**: il titolo, l'obiettivo, le fasi numerate da 1, la
+  consegna e il «fatta quando» di ogni fase, almeno un compito per fase,
+  gli id `<fase>.<numero>` unici e nella fase giusta, chi fa ogni compito,
+  le dipendenze che esistono e non fanno un giro, al piu' 200 compiti, e
+  dalla seconda versione «## Cosa cambia». Un piano che non si legge torna
+  indietro con **tutti** gli errori insieme, al piu' due volte; poi il
+  compito fallisce e lo dice. Quel che sta fuori dal formato (il testo prima
+  del titolo, una sezione che non e' del piano) si scrive nel diario e non
+  entra.
+- **Ogni versione resta**: `dots/architetto/piani/<progetto>/piano-<n>.md`,
+  in forma pulita (`piano::scrivi`, che `piano::leggi` rilegge identica),
+  mai riscritta. La versione, il progetto e la cartella li scrive NOVA, non
+  il cervello; una revisione senza cartella tiene quella di prima, e la
+  rilegge.
+- **Le revisioni per fase si contano** nella coda dell'Architetto: quelle
+  fatte o ancora in coda, da dopo l'ultima revisione dell'utente andata a
+  buon fine. Alla terza `dot.pianifica` dice di no, e che decide l'utente.
+- **Si registra**: una riga `piano` in `decisioni.jsonl` e nel suo diario,
+  anche quando non va (`illeggibile`, `rotto`, `fermato`), col perche', la
+  fase, il cervello, quanto e' grande il piano, le correzioni, gli strumenti
+  e il tempo.
+- **Arriva in chat**: quante fasi e quanti compiti, quanti per ruoli che
+  mancano, le domande per l'utente e dove sta il file.
+
+### Cosa resta aperto, dopo l'Architetto
+
+- **Il vault del progetto**: i piani stanno nella cartella dell'Architetto.
+  Con l'APM e i progetti vanno nel vault del progetto, o ci si collegano.
+- **Le fasi non girano ancora**: la revisione per una fase la chiede Nova
+  (`fase`); con l'APM la chiedera' lui, quando una fase fallisce o la
+  revisione la boccia.
+- **Il conto segue il numero della fase**: se una revisione rinumera le
+  fasi, le revisioni contate per la fase 2 restano della fase che ora ha il
+  numero 2.
+- **Il piano nell'harness**: si apre dal percorso che arriva in chat. Una
+  vista dei progetti arriva con l'APM.
+- **Il prompt dell'Architetto** e' quello di NOVA piu' il suo: uno su misura
+  costerebbe meno token (in `idea/`).

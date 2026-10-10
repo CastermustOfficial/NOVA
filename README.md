@@ -70,7 +70,7 @@ Se qualcosa non funziona, il resto del documento spiega perche'.
 ## Cosa sa fare
 
 Un elenco di aggettivi non dice niente. Questi sono i numeri, contati dal
-codice: **136 strumenti** per un cervello agentico come Claude Code, e **58**
+codice: **137 strumenti** per un cervello agentico come Claude Code, e **58**
 per il modello che gira sul tuo PC e per le API, sempre gli stessi, perche'
 tutti insieme non starebbero nel suo contesto; **38 formati** di file che sa
 aprire e mostrare. Coi Dot accesi il modello sul PC ne riceve 62; spenti,
@@ -607,7 +607,14 @@ compito; ogni scelta finisce in `decisioni.jsonl` (D397). Far nascere un Dot
 a mano resta tuo, col «+» dell'harness. Un Dot assunto da AR e fermo da
 piu' di trenta giorni AR lo licenzia da solo e te lo dice in chat; tu puoi
 licenziare chi vuoi (`dot.licenzia`), fuori che i posti fissi e un capo coi
-suoi. La cartella non si cancella: va in `dots-licenziati/`, col vault (D398). Dal demone ci sono anche i metodi `dot/crea`, `dot/affida`,
+suoi. La cartella non si cancella: va in `dots-licenziati/`, col vault (D398).
+L'Architetto fa il piano di sviluppo di un progetto quando lo chiedi
+(`dot.pianifica`, D400): legge i file del progetto e basta, col cervello piu'
+grande che risponde a un indirizzo, e scrive in Markdown le fasi, i compiti
+con chi li fa e da cosa dipendono, i rischi e le domande per te. Il piano
+arriva in chat; ogni versione resta, in `dots/architetto/piani/<progetto>/`,
+e dalla seconda dice cosa cambia. Una fase che non va si rivede da sola al
+piu' due volte, poi decidi tu. Dal demone ci sono anche i metodi `dot/crea`, `dot/affida`,
 `dot/stato`, `dot/elenco` e `dot/ferma`.
 
 I Dot sono per chi ha un abbonamento, un'API o una scheda video da almeno
@@ -1372,7 +1379,7 @@ autenticato. NOVA:
   | Autonomo | `bypassPermissions` |
 
 - gli collega il demone come **server MCP** (`nova mcp`, un ponte fra lo
-  standard input e il canale del demone): Claude vede tutti i 136
+  standard input e il canale del demone): Claude vede tutti i 137
   strumenti (129 coi Dot spenti), da `mcp__nova-core__kb_cerca` in giu', con
   le stesse guardie del modello di casa, che ne riceve 58 (62 coi Dot accesi)
   perche' nel suo contesto tutti non ci stanno. Le conferme passano dallo sportello di NOVA

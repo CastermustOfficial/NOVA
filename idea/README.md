@@ -350,3 +350,25 @@ ottobre il sintomo era «il modello locale non risponde» su una scala senza
 modello locale. **Cosa costerebbe.** Un controllo in `mondo::scala_vera` o
 in `agente::perche_non_pronto`, e decidere con Gio se un nome sconosciuto
 deve ancora poter voler dire «locale».
+
+## Un prompt su misura per l'Architetto
+
+Nata col D400. **Cosa.** Il prompt di sistema dell'Architetto e' quello di
+NOVA, con in coda chi e' e il formato del piano, come per ogni Dot. Quello
+di NOVA spiega strumenti e regole che l'Architetto non usa: ne ha otto, e
+legge e basta. Un prompt suo, corto, con il formato e i reparti.
+**Perche'.** Gio ha chiesto il piano in Markdown per consumare meno token;
+il prompt e' la parte piu' grossa di ogni domanda che resta. **Cosa
+costerebbe.** Un ramo in `nova_dot::prompt` per l'Architetto, una misura dei
+token prima e dopo (la prova di `strumenti_in_http` sa gia' contarli), e
+decidere cosa del prompt di NOVA gli serve ancora (la lingua, l'ora).
+
+## Le revisioni contate per fase, non per numero
+
+Nata col D400. **Cosa.** Le revisioni automatiche si contano per il numero
+della fase. Se una revisione rinumera le fasi (ne toglie una prima), il
+conto della «fase 2» passa a un'altra fase. Dare a ogni fase un nome stabile
+nel piano, o contare per nome. **Perche'.** Con l'APM le fasi gireranno
+davvero, e una fase rinumerata potrebbe arrivare all'utente una volta prima
+del dovuto, o una dopo. **Cosa costerebbe.** Una voce in piu' nel formato
+(o il confronto dei nomi fra due versioni) e la prova che rinumera.

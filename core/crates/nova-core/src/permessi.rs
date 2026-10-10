@@ -201,14 +201,37 @@ pub fn dot_chiede_al_custode(cap: &dyn Capability, a: Autonomia) -> Result<bool,
     Ok(si_chiede(cap, a))
 }
 
+/// Il no a uno strumento che un Dot non ha, se e' cosi': l'Architetto legge
+/// e basta (D400), e ha solo gli strumenti di `nova_dot::piano::STRUMENTI_DELL_ARCHITETTO`.
+/// Gli altri Dot hanno tutti gli strumenti dei modelli.
+pub fn fuori_dai_suoi(mestiere: nova_dot::Mestiere, strumento: &str) -> Option<String> {
+    if mestiere != nova_dot::Mestiere::Architetto || nova_dot::piano::STRUMENTI_DELL_ARCHITETTO.contains(&strumento) {
+        return None;
+    }
+    Some(format!(
+        "«{strumento}» non e' fra gli strumenti dell'Architetto: legge e basta ({}). Il piano \
+         lo scrivi nella risposta.",
+        nova_dot::piano::STRUMENTI_DELL_ARCHITETTO.join(", ")
+    ))
+}
+
 /// Il permesso per una chiamata voluta dal Dot `dot`: chiesto al custode
-/// quando Nova lo chiederebbe all'utente, mai all'utente.
+/// quando Nova lo chiederebbe all'utente, mai all'utente. Prima, se lo
+/// strumento e' fra i suoi ([`fuori_dai_suoi`]): vale anche per il Claude
+/// Code di un Dot, che passa di qui col suo collegamento.
 pub async fn per_un_dot(
     server: &std::sync::Arc<crate::server::Server>,
     dot: &str,
     cap: &dyn Capability,
     args: &Value,
 ) -> Result<(), String> {
+    let mestiere = nova_dot::Cartella::di(&crate::dot::base(), dot)
+        .and_then(|c| c.dot())
+        .map(|d| d.mestiere)
+        .unwrap_or_default();
+    if let Some(no) = fuori_dai_suoi(mestiere, &cap.info().name) {
+        return Err(no);
+    }
     if !dot_chiede_al_custode(cap, autonomia(&nova_configurazione::dove::leggi()))? {
         return Ok(());
     }
@@ -270,6 +293,20 @@ pub async fn chiedi_per_un_modello(
 mod prove {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn l_architetto_ha_solo_i_suoi_strumenti_gli_altri_tutti() {
+        use nova_dot::Mestiere;
+        assert!(fuori_dai_suoi(Mestiere::Architetto, "fs.read").is_none());
+        assert!(fuori_dai_suoi(Mestiere::Architetto, "sys.ora").is_none());
+        for altro in ["fs.write", "dot.affida", "voce.parla", "shell.exec", "rete.cerca"] {
+            let no = fuori_dai_suoi(Mestiere::Architetto, altro).unwrap_or_default();
+            assert!(no.starts_with(&format!("«{altro}» non e' fra gli strumenti dell'Architetto")), "{no}");
+        }
+        for m in [Mestiere::Generico, Mestiere::Ricercatore, Mestiere::Custode, Mestiere::Ar] {
+            assert!(fuori_dai_suoi(m, "fs.write").is_none(), "{m:?}");
+        }
+    }
 
     #[test]
     fn il_livello_e_quello_del_pannello() {

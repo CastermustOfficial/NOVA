@@ -7,7 +7,7 @@
 //! quando si chiede chi deve fare un compito — e finora le buttava.
 //!
 //! Qui le tiene, una riga JSON per decisione, in `decisioni.jsonl` nella
-//! cartella di NOVA. Quattro specie di riga:
+//! cartella di NOVA. Le specie di riga:
 //!
 //! - `turno`: la richiesta, gli strumenti usati davvero, il gradino a cui e'
 //!   finito il turno, com'e' finito, quanto e' durato;
@@ -21,7 +21,12 @@
 //!   ottobre);
 //! - `permesso_dot` (D384): un permesso chiesto da un Dot al custode, cosa
 //!   sapeva il custode, chi ha deciso (il modello di casa, il cervello
-//!   grande, nessuno) e cosa.
+//!   grande, nessuno) e cosa;
+//! - `scelta_ar` ed `esito_ar` (D397): chi ha scelto AR per un lavoro, con
+//!   che cervello, e com'e' finito il compito; `licenziato` (D398): chi se
+//!   ne va, deciso da chi;
+//! - `piano` (D400): un piano di sviluppo dell'Architetto, perche' e' stato
+//!   chiesto, con che cervello, quanto e' grande e com'e' andata.
 //!
 //! **I segreti no**, con due mani. Un testo in cui il guardiano della memoria
 //! vede una credenziale ([`nova_guasti::guardiano::perche_non_si_salva`]: una
@@ -272,6 +277,57 @@ pub fn riga_licenziato(quando: &str, dot: &str, da: &str, perche: &str, archivio
     r
 }
 
+/// Un piano di sviluppo dell'Architetto (D400), fatto o no.
+///
+/// `perche` e' `utente` o `fase`; `esito` e' `fatto`, `illeggibile` (non si
+/// e' letto nemmeno dopo le correzioni), `rotto` o `fermato`. Senza un piano
+/// le misure sono a zero e `versione` e' quella che doveva essere.
+#[derive(Debug, Clone, Default)]
+pub struct PianoFatto<'a> {
+    pub progetto: &'a str,
+    pub versione: u32,
+    pub perche: &'a str,
+    /// La fase che non e' andata, se si rivede per quella.
+    pub fase: Option<u32>,
+    /// La richiesta dell'utente, cosa cambiare, o perche' la fase non e'
+    /// andata.
+    pub richiesta: &'a str,
+    pub cervello: &'a str,
+    pub esito: &'a str,
+    pub fasi: usize,
+    pub compiti: usize,
+    pub da_assumere: usize,
+    pub domande: usize,
+    pub correzioni: usize,
+    pub strumenti: &'a [String],
+    pub secondi: f64,
+    pub file: &'a str,
+}
+
+/// La riga di un piano di sviluppo.
+pub fn riga_piano(quando: &str, p: &PianoFatto) -> Value {
+    let mut r = json!({
+        "quando": quando,
+        "tipo": "piano",
+        "progetto": p.progetto,
+        "versione": p.versione,
+        "perche": p.perche,
+        "fase": p.fase,
+        "cervello": p.cervello,
+        "esito": p.esito,
+        "fasi": p.fasi,
+        "compiti": p.compiti,
+        "da_assumere": p.da_assumere,
+        "domande": p.domande,
+        "correzioni": p.correzioni,
+        "strumenti": p.strumenti,
+        "secondi": (p.secondi * 10.0).round() / 10.0,
+        "file": p.file,
+    });
+    campo(&mut r, "richiesta", p.richiesta);
+    r
+}
+
 /// Scrive una riga nel registro, se e' acceso.
 pub fn annota(cfg: &Value, riga: &Value) {
     if attivo(cfg) {
@@ -324,6 +380,37 @@ mod prove {
         assert_eq!((e["tipo"].as_str(), e["compito"].as_u64(), e["stato"].as_str()), (Some("esito_ar"), Some(4), Some("fatto")));
         let l = riga_licenziato("t", "lettore", "ar", "fermo", "C:/x");
         assert_eq!((l["tipo"].as_str(), l["da"].as_str(), l["perche"].as_str()), (Some("licenziato"), Some("ar"), Some("fermo")));
+    }
+
+    #[test]
+    fn la_riga_di_un_piano_dice_quanto_e_grande_e_non_porta_credenziali() {
+        let chiave = finta("sk-ant-");
+        let r = riga_piano(
+            "t",
+            &PianoFatto {
+                progetto: "spazi",
+                versione: 2,
+                perche: "fase",
+                fase: Some(1),
+                richiesta: &format!("bocciata: usa {chiave}"),
+                cervello: "grande",
+                esito: "fatto",
+                fasi: 3,
+                compiti: 9,
+                da_assumere: 2,
+                domande: 1,
+                correzioni: 1,
+                strumenti: &["fs.read".into()],
+                secondi: 12.34,
+                file: "/x/piano-2.md",
+            },
+        );
+        assert_eq!((r["tipo"].as_str(), r["progetto"].as_str(), r["versione"].as_u64()), (Some("piano"), Some("spazi"), Some(2)));
+        assert_eq!((r["perche"].as_str(), r["fase"].as_u64(), r["esito"].as_str()), (Some("fase"), Some(1), Some("fatto")));
+        assert_eq!((r["compiti"].as_u64(), r["da_assumere"].as_u64(), r["secondi"].as_f64()), (Some(9), Some(2), Some(12.3)));
+        assert!(!r.to_string().contains(&chiave), "{r}");
+        let senza = riga_piano("t", &PianoFatto { perche: "utente", esito: "rotto", ..Default::default() });
+        assert!(senza["fase"].is_null() && senza["richiesta"] == "", "{senza}");
     }
 
     #[test]

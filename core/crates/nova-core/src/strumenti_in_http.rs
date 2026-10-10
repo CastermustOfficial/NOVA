@@ -104,7 +104,11 @@ pub const DAL_PYTHON: [(&str, &str); 60] = [
 /// Restano fuori `dot.ferma`, perche' il «fermati» di Nova ferma gia'
 /// tutti, e `dot.gruppo`: con lui alla conversazione restavano 1.998 token,
 /// sotto la soglia di 2.000. I gruppi, col modello di casa, si fanno da
-/// Claude o dalla porta del demone.
+/// Claude o dalla porta del demone. Resta fuori anche `dot.pianifica`
+/// (D400), per la stessa soglia: con lui alla conversazione restavano 1.861
+/// token, senza ne restano 2.078 (misurato il 10 ottobre con la prova qui
+/// sotto). Il piano di sviluppo lo chiedono Claude e, quando ci sara',
+/// l'APM.
 pub const SOLO_DEL_DEMONE: [&str; 4] = ["dot.affida", "dot.assumi", "dot.scrivi", "dot.stato"];
 
 /// Il tetto degli schemi, in caratteri di JSON.

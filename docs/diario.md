@@ -11754,3 +11754,14 @@ normative, un commerciale che chiede se si vende, la ricerca, la revisione
 di livello accademico, chi scrive i documenti; e un Architetto che fa il
 piano prima che si assuma qualcuno. Quelli ci sono sempre, come in ogni
 azienda; per il progetto si assume solo quel che manca.
+
+## 10 ottobre 2026 — La guardia che non si vedeva
+
+L'Architetto legge e basta: gli strumenti per scrivere non gli si offrono, e
+se li chiede per nome gli si dice di no. Per vedere se la prova se ne
+sarebbe accorta ho tolto le guardie e l'ho rifatta girare. Cinque controlli
+rossi, e uno non me l'aspettavo: dopo due letture fallite il turno era
+salito di gradino, alla CLI in cima alla scala, che ha mani sue e ha
+risposto «Ho scritto io». Togliere gli strumenti non bastava: bisognava
+togliere anche i gradini sopra. Con la guardia, sopra il cervello piu'
+grande con un indirizzo non c'e' nessuno, e il turno lo sa.

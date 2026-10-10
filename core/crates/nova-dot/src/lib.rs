@@ -17,10 +17,13 @@
 //!   rapporti/           quello che consegna: il ricercatore, un .md per compito
 //!   file.jsonl          i file che ha toccato, per l'harness (D391, [`vista`])
 //!   inviati.jsonl       i messaggi che ha mandato (D391)
+//!   piani/              solo l'Architetto: i piani di sviluppo, una
+//!                       cartella per progetto, un .md per versione (D400)
 //! ```
 //!
 //! Il ricercatore (D383) ha le sue regole in [`ricerca`]: il piano, i passi,
-//! il revisore, le fonti controllate.
+//! il revisore, le fonti controllate. L'Architetto (D400) le ha in
+//! [`piano`]: il formato del piano di sviluppo, come si legge e si controlla.
 //!
 //! **La coda e' un diario, non una tabella.** Ogni riga di `compiti.jsonl`
 //! dice che un compito e' passato a uno stato. Lo stato di adesso si ottiene
@@ -37,6 +40,7 @@ pub mod azienda;
 pub mod consegna;
 pub mod custode;
 pub mod gruppi;
+pub mod piano;
 pub mod ricerca;
 pub mod risorse;
 pub mod vista;
@@ -152,6 +156,13 @@ impl Mestiere {
     /// progetti (D395).
     pub fn prende_compiti(self) -> bool {
         matches!(self, Mestiere::Generico | Mestiere::Ricercatore)
+    }
+
+    /// Ha una coda sua, e un ciclo che la svuota. Chi prende compiti, e
+    /// l'Architetto (D400): i suoi compiti sono i piani, e glieli mette in
+    /// coda NOVA (`nova_core::architetto`), non chi affida a mano.
+    pub fn ha_una_coda(self) -> bool {
+        self.prende_compiti() || self == Mestiere::Architetto
     }
 
     /// Chi e', e cosa fa invece di prendere compiti: per dire di no a chi
@@ -532,7 +543,7 @@ pub fn prompt(dot: &Dot, base: &str) -> String {
         Mestiere::Custode => format!("{generico}\n{}", custode::PROMPT),
         Mestiere::Apm => format!("{generico}\n{}", azienda::PROMPT_APM),
         Mestiere::Ar => format!("{generico}\n{}", azienda::PROMPT_AR),
-        Mestiere::Architetto => format!("{generico}\n{}", azienda::PROMPT_ARCHITETTO),
+        Mestiere::Architetto => format!("{generico}\n{}", piano::prompt()),
         Mestiere::Legale => format!("{generico}\n{}", azienda::PROMPT_LEGALE),
     }
 }
@@ -1099,6 +1110,19 @@ mod prove {
         // Chi prende compiti non ha un «a parte», e chi non ne prende si.
         for m in [Mestiere::Generico, Mestiere::Ricercatore, Mestiere::Custode] {
             assert_eq!(m.prende_compiti(), m.a_parte().is_none(), "{m:?}");
+        }
+        // Una coda ce l'ha chi prende compiti, e l'Architetto: i suoi piani
+        // glieli mette in coda NOVA (D400). Gli altri posti no.
+        for (m, coda) in [
+            (Mestiere::Generico, true),
+            (Mestiere::Ricercatore, true),
+            (Mestiere::Architetto, true),
+            (Mestiere::Custode, false),
+            (Mestiere::Apm, false),
+            (Mestiere::Ar, false),
+            (Mestiere::Legale, false),
+        ] {
+            assert_eq!(m.ha_una_coda(), coda, "{m:?}");
         }
         let c: Dot =
             serde_json::from_str(r#"{"nome":"custode","ruolo":"r","nato":"t","mestiere":"custode"}"#)

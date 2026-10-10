@@ -21,6 +21,9 @@
 //!   scrivere sono Nova e i Dot;
 //! - **i gruppi li crea Nova** se l'utente lo chiede (`dot.gruppo`).
 //!
+//! Dal D400 Nova chiede all'Architetto il piano di sviluppo di un progetto
+//! (`dot.pianifica`), che arriva in chat quando e' pronto.
+//!
 //! Far nascere un Dot e fermarlo resta di Nova: un Dot che lo chiede si sente
 //! dire di no. I gruppi li fa Nova, e dal D392 anche un capo, coi suoi
 //! sottoposti; un messaggio va anche a piu' Dot insieme.
@@ -39,6 +42,7 @@ pub fn register(reg: &mut Registry) {
     reg.add(Arc::new(CreaCap));
     reg.add(Arc::new(AssumiCap));
     reg.add(Arc::new(LicenziaCap));
+    reg.add(Arc::new(PianificaCap));
     reg.add(Arc::new(AffidaCap));
     reg.add(Arc::new(StatoCap));
     reg.add(Arc::new(FermaCap));
@@ -242,6 +246,52 @@ impl Capability for AssumiCap {
         crate::risorse::assumi(server, &bisogno, &compito, &capo)
             .await
             .map_err(|e| anyhow!(e))
+    }
+}
+
+/// Nova chiede un piano di sviluppo all'Architetto (D400): finche' l'APM non
+/// c'e', e' cosi' che l'Architetto si prova da solo. Non chiede il permesso,
+/// come affidare: e' passare la palla, e l'Architetto legge e basta.
+struct PianificaCap;
+
+#[async_trait]
+impl Capability for PianificaCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "dot.pianifica".into(),
+            description: "Chiede all'Architetto dei Dot il piano di sviluppo di un progetto: le \
+                          fasi, i compiti, chi li fa, i rischi e le domande per l'utente. Il \
+                          piano arriva in chat. Di nuovo sullo stesso progetto lo rivede; con \
+                          fase, rivede da li' una fase che non e' andata."
+                .into(),
+            risk: Risk::Safe,
+            category: "dot".into(),
+            schema: schema(&[
+                ("progetto", "string", "il nome: minuscole, cifre, trattini", true),
+                ("richiesta", "string", "cosa si vuole, cosa cambiare, o perche' la fase non e' andata", true),
+                ("cartella", "string", "dove stanno i file del progetto, o vuoto", false),
+                ("fase", "integer", "la fase che non e' andata, o vuoto", false),
+            ]),
+        }
+    }
+
+    async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
+        let server = per_nova("chiedere un piano all'Architetto")?;
+        let progetto = arg_str(&args, "progetto")?;
+        let richiesta = arg_str(&args, "richiesta")?;
+        let cartella = arg_str_opt(&args, "cartella").unwrap_or_default();
+        let fase = match args.get("fase") {
+            None | Some(Value::Null) => None,
+            Some(Value::String(s)) if s.trim().is_empty() => None,
+            Some(v) => Some(
+                v.as_u64()
+                    .or_else(|| v.as_str().and_then(|s| s.trim().parse().ok()))
+                    .filter(|n| (1..=u64::from(u32::MAX)).contains(n))
+                    .map(|n| n as u32)
+                    .ok_or_else(|| anyhow!("«fase» e' il numero di una fase, da 1 in su, non {v}"))?,
+            ),
+        };
+        crate::architetto::chiedi(server, &progetto, &richiesta, &cartella, fase).map_err(|e| anyhow!(e))
     }
 }
 

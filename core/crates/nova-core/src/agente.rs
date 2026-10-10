@@ -161,12 +161,19 @@ pub struct EsecutoreDemone {
     /// argomenti o nel risultato. Li tiene il ricercatore, per controllare
     /// le fonti del rapporto contro quello che ha letto davvero (D383).
     pub viste: Option<Arc<std::sync::Mutex<Vec<String>>>>,
+    /// Chi legge e basta: l'Architetto (D400). Il turno offre al cervello
+    /// solo gli strumenti per leggere
+    /// (`nova_dot::piano::STRUMENTI_DELL_ARCHITETTO`), e usa solo i cervelli
+    /// che rispondono a un indirizzo: Claude Code e le CLI hanno mani loro, e
+    /// potrebbero scrivere. Gli altri strumenti, chiesti per nome, li rifiuta
+    /// l'esecutore, e per mestiere anche `permessi::per_un_dot`.
+    pub sola_lettura: bool,
 }
 
 impl EsecutoreDemone {
     /// L'esecutore della conversazione con Nova.
     pub fn di_nova(server: Arc<Server>) -> Self {
-        EsecutoreDemone { server, chi: Chi::Nova, viste: None }
+        EsecutoreDemone { server, chi: Chi::Nova, viste: None, sola_lettura: false }
     }
 
     /// Dove vanno gli eventi di uno strumento, e con quali campi in piu'.
@@ -194,6 +201,15 @@ impl Esecutore for EsecutoreDemone {
         let Some(cap) = self.server.registry.get(nome) else {
             return Ok(());
         };
+        // Il nome vero, non quello che ha scritto il modello: dall'HTTP arriva
+        // «fs_read» (`nome_mcp`).
+        let vero = cap.info().name;
+        if self.sola_lettura && !nova_dot::piano::STRUMENTI_DELL_ARCHITETTO.contains(&vero.as_str()) {
+            return Err(format!(
+                "«{vero}» non e' fra gli strumenti di chi legge e basta: {}",
+                nova_dot::piano::STRUMENTI_DELL_ARCHITETTO.join(", ")
+            ));
+        }
         match &self.chi {
             Chi::Nova => {
                 crate::permessi::chiedi_per_un_modello(cap.as_ref(), argomenti, &self.server.ctx)
@@ -561,7 +577,16 @@ pub async fn turno_in(
     }
     let cfg = cfg.clone();
     let recapiti = crate::dalla_configurazione::recapiti(&cfg, &|n| std::env::var(n).ok());
-    let gradini = scala_di(&cfg);
+    let mut gradini = scala_di(&cfg);
+    if esecutore.sola_lettura {
+        gradini.retain(|g| g.indirizzo().is_some());
+        if gradini.is_empty() {
+            return Err(anyhow!(
+                "nella scala non c'e' un cervello che risponde a un indirizzo: chi legge e \
+                 basta non usa Claude Code ne' le CLI, che hanno mani loro"
+            ));
+        }
+    }
     let partenza = gradini
         .iter()
         .position(|g| !parti_da.is_empty() && g.nome() == parti_da)
@@ -580,10 +605,18 @@ pub async fn turno_in(
     // A un cervello in HTTP gli schemi viaggiano dentro ogni richiesta, e
     // tutti non stanno nel contesto del modello di casa: se ne offrono 58,
     // sempre gli stessi, e 62 coi Dot accesi (D361, D387, D388, D389).
-    // Claude e le CLI non li ricevono da qui.
+    // Claude e le CLI non li ricevono da qui. Chi legge e basta riceve i suoi
+    // otto, e nient'altro (D400).
     let dot_accesi =
         crate::dot_accesi::decidi(crate::dot_accesi::scelta(&cfg), &crate::dot_accesi::fatti(&cfg)).accesi;
-    let strumenti = crate::strumenti_in_http::schemi(&server.registry, dot_accesi);
+    let mut strumenti = crate::strumenti_in_http::schemi(&server.registry, dot_accesi);
+    if esecutore.sola_lettura {
+        let suoi: Vec<String> = nova_dot::piano::STRUMENTI_DELL_ARCHITETTO
+            .iter()
+            .map(|n| crate::capability::nome_mcp(n))
+            .collect();
+        strumenti.retain(|t| t["function"]["name"].as_str().is_some_and(|n| suoi.iter().any(|x| x == n)));
+    }
 
     // I gradini si rileggono a ogni turno: se l'utente ha appena cambiato
     // cervello nel pannello, deve valere adesso e non alla prossima

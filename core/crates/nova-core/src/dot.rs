@@ -28,7 +28,8 @@
 //! come la memoria di Nova nelle sue.
 //!
 //! Un Dot col mestiere di ricercatore lavora a modo suo: il piano, i passi,
-//! il revisore, il rapporto (`crate::ricercatore`).
+//! il revisore, il rapporto (`crate::ricercatore`). L'Architetto anche: fa i
+//! piani di sviluppo che gli mette in coda NOVA (`crate::architetto`, D400).
 //!
 //! **I permessi li decide il custode** (D384): un Dot che NOVA fa nascere
 //! all'avvio, se non c'e', e che non prende compiti. Quando Nova chiederebbe
@@ -327,7 +328,8 @@ fn avvia(server: &Arc<Server>, nome: &str) {
     }
     // Il custode non ha una coda: risponde quando un Dot gli chiede. Nemmeno
     // la direzione e il legale: il loro lavoro arriva coi progetti (D395).
-    if a_parte(&c).is_some() {
+    // L'Architetto si': i piani che gli chiede NOVA (D400).
+    if c.dot().is_ok_and(|x| !x.mestiere.ha_una_coda()) {
         return;
     }
     let maniglia = {
@@ -500,6 +502,38 @@ pub fn affida_con(
     if testo.trim().is_empty() {
         return Err("un compito vuoto non e' un compito".into());
     }
+    metti_in_coda(server, &c, nome, testo, da, padre, cervello)
+}
+
+/// Mette in coda all'Architetto un piano da fare (D400). Lui non prende
+/// compiti a mano: glieli da' NOVA, quando Nova (o l'APM) chiede un piano,
+/// col testo di `nova_dot::piano::Richiesta`.
+pub(crate) fn affida_all_architetto(server: &Arc<Server>, testo: &str) -> Result<u64, String> {
+    use nova_dot::azienda::NOME_ARCHITETTO;
+    crate::dot_accesi::se_spenti()?;
+    let c = cartella(NOME_ARCHITETTO)?;
+    if !c.dot().is_ok_and(|x| x.fisso && x.mestiere == d::Mestiere::Architetto) {
+        return Err(
+            "l'Architetto non c'e': nasce coi Dot accesi, insieme al resto dell'azienda".into(),
+        );
+    }
+    if testo.trim().is_empty() {
+        return Err("un piano senza richiesta non e' un piano".into());
+    }
+    metti_in_coda(server, &c, NOME_ARCHITETTO, testo, d::DA_NOVA, None, "")
+}
+
+/// Scrive il compito in coda, lo annota nella squadra del capo se e' un
+/// pezzo del suo, e sveglia il Dot. I controlli li ha fatti chi chiama.
+fn metti_in_coda(
+    server: &Arc<Server>,
+    c: &d::Cartella,
+    nome: &str,
+    testo: &str,
+    da: &str,
+    padre: Option<d::Rif>,
+    cervello: &str,
+) -> Result<u64, String> {
     let da = if da.trim().is_empty() { "utente" } else { da.trim() };
     let id = c.affida_con(testo.trim(), da, &adesso(), padre.clone(), cervello)?;
     if let Some(p) = &padre {
@@ -777,10 +811,11 @@ pub fn annota_file(server: &Arc<Server>, nome: &str, strumento: &str, argomenti:
 fn come_sta(dot: &d::Dot, coda: &[d::Compito], in_corso: u64) -> &'static str {
     if dot.mestiere == d::Mestiere::Custode {
         "custode"
+    } else if in_corso != 0 {
+        // Anche l'Architetto, quando fa un piano (D400).
+        "lavora"
     } else if !dot.mestiere.prende_compiti() {
         "su_chiamata"
-    } else if in_corso != 0 {
-        "lavora"
     } else if coda.iter().any(|c| c.stato == d::Stato::InAttesa) {
         "aspetta"
     } else if coda.iter().any(|c| c.stato == d::Stato::Affidato) {
@@ -1339,6 +1374,11 @@ async fn lavora(
         Ok(x) => x,
         Err(e) => return (d::Stato::Fallito, e),
     };
+    if dot.mestiere == d::Mestiere::Architetto {
+        // L'Architetto fa piani (D400): la richiesta sta nel testo del
+        // compito, e non ha ne' squadra ne' posta.
+        return crate::architetto::lavora(server, c, &dot, compito).await;
+    }
     if dot.mestiere == d::Mestiere::Ricercatore {
         // Il ricercatore fa il piano dal testo del compito: gli esiti dei
         // sottoposti e la posta entrano li'.
@@ -1353,6 +1393,7 @@ async fn lavora(
         server: server.clone(),
         chi: Chi::Dot(nome.to_string()),
         viste: None,
+        sola_lettura: false,
     };
     let sessione = format!("dot:{nome}");
     for giro in 0..d::TURNI_PER_COMPITO {

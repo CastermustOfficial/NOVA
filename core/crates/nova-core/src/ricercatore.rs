@@ -319,6 +319,7 @@ pub async fn lavora(
             server: server.clone(),
             chi: Chi::Dot(dot.nome.clone()),
             viste: Some(viste.clone()),
+            sola_lettura: false,
         },
         sessione: format!("dot:{}", dot.nome),
         scala,
