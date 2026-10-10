@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""AR, le risorse dei Dot: chi lavora, e con che cervello (D397).
+"""AR, le risorse dei Dot: chi lavora, con che cervello, e chi se ne va (D397, D398).
 
 Deciso con Gio il 9 ottobre. Quando serve un Dot, Nova non lo fa nascere da
 se': chiede ad AR (`dot.assumi`). AR chiede al cervello piu' grande, con una
@@ -9,6 +9,12 @@ dal primo all'ultimo passo; il revisore del ricercatore puo' ancora far
 salire un passo scarso. Ogni scelta va in `decisioni.jsonl` (`scelta_ar`),
 e com'e' finito il compito accanto (`esito_ar`). Far nascere un Dot a mano
 resta della persona: un modello vede `dot.assumi`, non `dot.crea`.
+
+AR licenzia da solo un Dot che ha assunto lui, fermo da piu' di trenta
+giorni, che non e' il capo di nessuno (D398): la cartella va in
+`dots-licenziati/`, col vault, esce dai gruppi, e AR lo dice a Nova.
+L'utente puo' licenziare chi vuole (`dot.licenzia`), ma non i posti fissi,
+il custode o un capo coi suoi sottoposti.
 
 I cervelli sono finti: un server compatibile OpenAI con due modelli,
 «piccolo» e «grande». AR riceve le risposte che la prova gli prepara.
@@ -320,6 +326,67 @@ try:
     controlla("e non e' nato nessuno", len(list((cartella_nova / "dots").iterdir())) == quanti)
     e = errore("dot.assumi", bisogno="qualcuno", capo="apm")
     controlla("sotto chi non prende compiti non si assume", "l'APM non ha sottoposti" in e, e)
+
+    print("\n7. AR licenzia gli assunti fermi da trenta giorni, e lo dice a Nova (D398)")
+    processo.kill()
+    processo.wait(timeout=10)
+    oggi = time.strftime("%Y-%m-%dT%H:%M:%S")
+
+    def a_mano(nome, nato, assunto, capo=""):
+        c = cartella_nova / "dots" / nome
+        (c / "vault").mkdir(parents=True, exist_ok=True)
+        (c / "vault" / "nota.md").write_text("# quello che sa\n", encoding="utf-8")
+        d = {"nome": nome, "ruolo": "r", "nato": nato, "mestiere": "generico", "capo": capo}
+        if assunto:
+            d["assunto"] = True
+        (c / "dot.json").write_text(json.dumps(d), encoding="utf-8")
+
+    a_mano("vecchio", "2026-08-01T10:00:00", True)
+    a_mano("mio-vecchio", "2026-08-01T10:00:00", False)
+    a_mano("capo-vecchio", "2026-08-01T10:00:00", True)
+    a_mano("nuovo", oggi, True, capo="capo-vecchio")
+    (cartella_nova / "dots" / "gruppi").mkdir(parents=True, exist_ok=True)
+    (cartella_nova / "dots" / "gruppi" / "lettori.json").write_text(json.dumps(
+        {"nome": "lettori", "membri": ["lettore", "vecchio"], "nato": oggi}), encoding="utf-8")
+    processo = subprocess.Popen([str(DEMONE), "--endpoint", endpoint, "--log", "warn"],
+                                env=ambiente, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    fine = time.time() + 20
+    while time.time() < fine and (cartella_nova / "dots" / "vecchio").exists():
+        time.sleep(0.3)
+    controlla("all'accensione AR ha licenziato l'assunto fermo",
+              not (cartella_nova / "dots" / "vecchio").exists())
+    archivio = cartella_nova / "dots-licenziati"
+    andati = sorted(x.name for x in archivio.iterdir()) if archivio.is_dir() else []
+    controlla("la sua cartella e' in archivio, col vault",
+              len(andati) == 1 and andati[0].startswith("vecchio-")
+              and (archivio / andati[0] / "vault" / "nota.md").is_file(), str(andati))
+    controlla("chi l'utente ha fatto nascere resta", (cartella_nova / "dots" / "mio-vecchio").is_dir())
+    controlla("un capo coi suoi resta", (cartella_nova / "dots" / "capo-vecchio").is_dir())
+    controlla("chi e' nato da poco resta", (cartella_nova / "dots" / "nuovo").is_dir())
+    g = json.loads((cartella_nova / "dots" / "gruppi" / "lettori.json").read_text(encoding="utf-8"))
+    controlla("ed e' uscito dal suo gruppo", g["membri"] == ["lettore"], str(g["membri"]))
+    via = [x for x in registro("licenziato") if x["dot"] == "vecchio"]
+    controlla("nel registro, da AR e col perche'",
+              len(via) == 1 and via[0]["da"] == "ar" and "30 giorni" in (via[0].get("perche") or ""),
+              json.dumps(via))
+    detti = (cartella_nova / "dots" / "ar" / "inviati.jsonl")
+    controlla("e AR l'ha detto a Nova", detti.is_file()
+              and "Ho licenziato «vecchio»" in detti.read_text(encoding="utf-8"))
+
+    print("\n8. l'utente licenzia chi vuole, ma non i posti fissi ne' un capo coi suoi")
+    r = capacita("dot.licenzia", nome="mio-vecchio")
+    controlla("licenziato", r.get("dot") == "mio-vecchio" and r.get("da") == "utente"
+              and not (cartella_nova / "dots" / "mio-vecchio").exists(), json.dumps(r))
+    controlla("e nel registro, dall'utente",
+              any(x["dot"] == "mio-vecchio" and x["da"] == "utente" for x in registro("licenziato")))
+    e = errore("dot.licenzia", nome="apm")
+    controlla("un posto fisso no", "posto fisso" in e, e)
+    e = errore("dot.licenzia", nome="custode")
+    controlla("il custode no", "non si licenzia" in e, e)
+    e = errore("dot.licenzia", nome="capo-vecchio")
+    controlla("un capo coi suoi no", "capo di 1" in e, e)
+    e = errore("dot.licenzia", nome="nessuno")
+    controlla("chi non c'e' no", "non c'e'" in e, e)
 finally:
     processo.kill()
     cervello.shutdown()

@@ -258,6 +258,20 @@ pub fn riga_esito_ar(quando: &str, dot: &str, compito: u64, cervello: &str, stat
     })
 }
 
+/// Un Dot licenziato (D398): da chi (`utente` o `ar`), perche', e dove sta
+/// la sua cartella adesso.
+pub fn riga_licenziato(quando: &str, dot: &str, da: &str, perche: &str, archivio: &str) -> Value {
+    let mut r = json!({
+        "quando": quando,
+        "tipo": "licenziato",
+        "dot": dot,
+        "da": da,
+        "archivio": archivio,
+    });
+    campo(&mut r, "perche", perche);
+    r
+}
+
 /// Scrive una riga nel registro, se e' acceso.
 pub fn annota(cfg: &Value, riga: &Value) {
     if attivo(cfg) {
@@ -308,6 +322,8 @@ mod prove {
         assert!(!r.to_string().contains(&chiave), "{r}");
         let e = riga_esito_ar("t", "lettore", 4, "medio", "fatto");
         assert_eq!((e["tipo"].as_str(), e["compito"].as_u64(), e["stato"].as_str()), (Some("esito_ar"), Some(4), Some("fatto")));
+        let l = riga_licenziato("t", "lettore", "ar", "fermo", "C:/x");
+        assert_eq!((l["tipo"].as_str(), l["da"].as_str(), l["perche"].as_str()), (Some("licenziato"), Some("ar"), Some("fermo")));
     }
 
     #[test]

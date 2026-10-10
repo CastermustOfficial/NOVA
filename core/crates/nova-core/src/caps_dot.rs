@@ -38,6 +38,7 @@ use crate::capability::{arg_str, arg_str_opt, schema, Capability, Ctx, Registry}
 pub fn register(reg: &mut Registry) {
     reg.add(Arc::new(CreaCap));
     reg.add(Arc::new(AssumiCap));
+    reg.add(Arc::new(LicenziaCap));
     reg.add(Arc::new(AffidaCap));
     reg.add(Arc::new(StatoCap));
     reg.add(Arc::new(FermaCap));
@@ -241,6 +242,46 @@ impl Capability for AssumiCap {
         crate::risorse::assumi(server, &bisogno, &compito, &capo)
             .await
             .map_err(|e| anyhow!(e))
+    }
+}
+
+/// Licenziare un Dot (D398): lo chiede l'utente, e lo fa Nova.
+struct LicenziaCap;
+
+#[async_trait]
+impl Capability for LicenziaCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "dot.licenzia".into(),
+            description: "Licenzia un Dot: la sua cartella, col vault, va in archivio. Solo se \
+                          l'utente lo chiede. Non i posti fissi, ne' un capo coi suoi, ne' chi \
+                          ha compiti da finire."
+                .into(),
+            risk: Risk::Moderate,
+            category: "dot".into(),
+            schema: schema(&[
+                ("nome", "string", "il Dot", true),
+                ("perche", "string", "in una riga, o vuoto", false),
+            ]),
+        }
+    }
+
+    async fn anteprima(&self, args: Value, _ctx: &Ctx) -> Option<Result<Value>> {
+        let nome = arg_str_opt(&args, "nome").unwrap_or_default();
+        Some(Ok(json!({
+            "farei": format!("licenzierei il Dot «{}»: la sua cartella, col vault, va in \
+                              dots-licenziati", nome.trim()),
+            "nome": nome,
+            "annullabile": false,
+        })))
+    }
+
+    async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
+        let server = per_nova("licenziare un Dot")?;
+        let nome = arg_str(&args, "nome")?;
+        let perche = arg_str_opt(&args, "perche").unwrap_or_default();
+        let perche = if perche.trim().is_empty() { "l'ha chiesto l'utente".to_string() } else { perche };
+        crate::risorse::licenzia(server, &nome, "utente", &perche).map_err(|e| anyhow!(e))
     }
 }
 

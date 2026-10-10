@@ -188,3 +188,100 @@ pub fn esito(nome: &str, compito: &d::Compito, stato: d::Stato) {
     crate::decisioni::annota(&cfg, &riga);
     diario(&riga);
 }
+
+/// Ogni quanto AR guarda chi e' fermo da troppo.
+pub const RIGUARDA_I_FERMI: std::time::Duration = std::time::Duration::from_secs(6 * 3600);
+
+/// Dove vanno i Dot licenziati: fuori da `dots/`, con il vault e tutto il
+/// resto, sotto un nome che dice quando.
+fn archivio(nome: &str) -> std::path::PathBuf {
+    let quando = crate::decisioni::adesso().replace(':', "-");
+    crate::mondo::cartella_nova()
+        .join("dots-licenziati")
+        .join(format!("{nome}-{quando}"))
+}
+
+/// Licenzia un Dot (D398): `da` e' `utente` o `ar`. La sua cartella, vault
+/// compreso, va in `dots-licenziati/`; esce dai gruppi; il suo ciclo si
+/// spegne. Non si licenziano i posti fissi, chi non prende compiti, un capo
+/// coi suoi sottoposti, ne' chi ha un compito da finire.
+pub fn licenzia(server: &Arc<Server>, nome: &str, da: &str, perche: &str) -> Result<Value, String> {
+    crate::dot_accesi::se_spenti()?;
+    let nome = nome.trim();
+    let c = d::Cartella::di(&crate::dot::base(), nome)?;
+    if !c.esiste() {
+        return Err(format!("non c'e' nessun Dot che si chiama «{nome}»"));
+    }
+    let dot = c.dot()?;
+    let coda = c.compiti();
+    r::si_puo_licenziare(&dot, &coda, crate::dot::sottoposti(nome).len())?;
+    if crate::dot::compito_in_corso(server, nome).is_some() {
+        return Err(format!("«{nome}» sta lavorando: prima si ferma"));
+    }
+    let dove = archivio(nome);
+    if let Some(su) = dove.parent() {
+        std::fs::create_dir_all(su).map_err(|e| format!("{}: {e}", su.display()))?;
+    }
+    crate::dot::spegni(server, nome);
+    std::fs::rename(&c.radice, &dove).map_err(|e| format!("la cartella di «{nome}» non si sposta: {e}"))?;
+    // Esce dai gruppi in cui era: un membro che non c'e' piu' farebbe
+    // cadere ogni messaggio al gruppo.
+    for mut g in d::gruppi::elenco(&crate::dot::base()) {
+        if g.membri.iter().any(|m| m == nome) {
+            g.membri.retain(|m| m != nome);
+            if let Err(e) = d::gruppi::salva(&crate::dot::base(), &g) {
+                tracing::warn!(gruppo = %g.nome, errore = %e, "il gruppo non si aggiorna");
+            }
+        }
+    }
+    let archiviato = dove.display().to_string();
+    let cfg = nova_configurazione::dove::leggi();
+    let riga = crate::decisioni::riga_licenziato(&crate::decisioni::adesso(), nome, da, perche, &archiviato);
+    crate::decisioni::annota(&cfg, &riga);
+    diario(&riga);
+    server
+        .ctx
+        .bus
+        .emit("dot.licenziato", json!({ "dot": nome, "da": da, "archivio": archiviato }));
+    Ok(json!({ "dot": nome, "da": da, "archivio": archiviato }))
+}
+
+/// AR licenzia gli assunti fermi da piu' di [`r::GIORNI_DA_FERMO`] giorni,
+/// che non sono capi di nessuno, e lo dice a Nova: arriva in chat. Torna chi
+/// ha licenziato. Senza AR non licenzia nessuno.
+pub fn licenzia_i_fermi(server: &Arc<Server>) -> Vec<String> {
+    let base = crate::dot::base();
+    let c_ar = d::Cartella::di(&base, d::azienda::NOME_AR);
+    if !c_ar.is_ok_and(|c| c.dot().is_ok_and(|x| x.fisso && x.mestiere == d::Mestiere::Ar)) {
+        return Vec::new();
+    }
+    let ora = nova_platform::orologio::adesso();
+    let prima = ora - r::GIORNI_DA_FERMO * 86_400;
+    let soglia = nova_calendario::da_istante(prima, nova_platform::fuso_secondi(prima)).iso();
+    let mut via = Vec::new();
+    for nome in d::elenco(&base) {
+        let Ok(c) = d::Cartella::di(&base, &nome) else { continue };
+        let Ok(dot) = c.dot() else { continue };
+        if !r::da_licenziare(&dot, &c.compiti(), crate::dot::sottoposti(&nome).len(), &soglia) {
+            continue;
+        }
+        let perche = format!(
+            "fermo da piu' di {} giorni, e non e' il capo di nessuno",
+            r::GIORNI_DA_FERMO
+        );
+        match licenzia(server, &nome, "ar", &perche) {
+            Ok(_) => {
+                let detto = format!(
+                    "Ho licenziato «{nome}»: {perche}. La sua cartella, col vault, e' in \
+                     dots-licenziati."
+                );
+                if let Err(e) = crate::dot::scrivi(server, d::azienda::NOME_AR, d::DA_NOVA, &detto) {
+                    tracing::warn!(dot = %nome, errore = %e, "AR non riesce a dirlo a Nova");
+                }
+                via.push(nome);
+            }
+            Err(e) => tracing::warn!(dot = %nome, errore = %e, "AR non riesce a licenziarlo"),
+        }
+    }
+    via
+}

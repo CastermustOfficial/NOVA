@@ -236,9 +236,8 @@ specialisti. Li assume AR.
    vedranno quando ci saranno, col sesto passo.
 5. ~~**La direzione e i reparti** (D395): chi sono, i ruoli, l'organigramma
    che nasce all'avvio~~ (D396).
-6. **AR**: riprende, assume, licenzia, sceglie il cervello del compito.
-   Ogni scelta si registra. ~~Riprendere, assumere e il cervello del
-   compito~~ (D397); resta licenziare.
+6. ~~**AR**: riprende, assume, licenzia, sceglie il cervello del compito.
+   Ogni scelta si registra~~ (D397, D398).
 7. **L'Architetto** e il piano di sviluppo.
 8. **L'APM e i progetti**: il via, il tetto, il vault del progetto, i Dot
    disposti, i controlli del legale.
@@ -620,10 +619,32 @@ stanno in `nova_dot::risorse`, il lavoro in `nova_core::risorse`.
   `dot.assumi`. Anche col modello di casa gli strumenti dei Dot restano
   quattro.
 
+**Licenziare — fatto** (D398). Le regole stanno in `nova_dot::risorse`
+(`si_puo_licenziare`, `da_licenziare`, `ultima_attivita`), il lavoro in
+`nova_core::risorse`.
+
+- **AR licenzia da solo** un Dot che ha assunto lui (`assunto` nel suo
+  `dot.json`), fermo da piu' di 30 giorni (`GIORNI_DA_FERMO`: l'ultima volta
+  che e' nato, o che un suo compito e' entrato in coda, e' cominciato o e'
+  finito), che non e' il capo di nessuno e non ha compiti da finire. Guarda
+  all'accensione del demone e poi ogni sei ore, coi Dot accesi. Lo dice a
+  Nova, e arriva in chat come un messaggio di AR.
+- **L'utente licenzia chi vuole** (`dot.licenzia`, che chiede la conferma
+  come ogni azione che modifica), ma non i posti fissi, il custode, la
+  direzione, il legale, un capo coi suoi sottoposti o chi ha un compito da
+  finire.
+- **La cartella non si cancella**: va in `dots-licenziati/<nome>-<quando>/`,
+  vault compreso. Il Dot esce dai gruppi, e il suo ciclo si spegne.
+- **Si registra**: `licenziato` in `decisioni.jsonl` e nel diario di AR, con
+  chi l'ha deciso, il perche' e dove sta la cartella.
+
 ### Cosa resta aperto, dopo AR
 
-- **Licenziare**: un assunto fermo da 30 giorni, che non e' capo di nessuno,
-  AR lo licenzia e lo dice in chat; e l'utente lo puo' licenziare quando
-  vuole. E' il prossimo pezzo di AR.
 - **Un compito affidato direttamente** a un Dot che c'e' va come prima: il
   cervello lo sceglie il Dot (deciso con Gio).
+- **Un gruppo che resta vuoto**: se il Dot licenziato era l'unico membro, il
+  gruppo non si puo' salvare vuoto e resta com'era, col suo nome dentro.
+- **Licenziare dall'harness**: per ora lo si chiede a Nova; nella scheda di
+  un Dot non c'e' ancora un bottone.
+- **Riassumere un licenziato**: la cartella e' in archivio, ma AR non la
+  guarda quando sceglie.

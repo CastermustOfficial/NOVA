@@ -16,7 +16,7 @@
 use serde::Serialize;
 
 use crate::ricerca::{nella_scala, oggetto_dentro, tagliato};
-use crate::Mestiere;
+use crate::{Compito, Dot, Mestiere};
 
 /// Quanto del ruolo di ogni Dot entra nella domanda.
 pub const RUOLO_MASSIMO: usize = 200;
@@ -203,6 +203,53 @@ pub fn leggi_scelta(
     }
 }
 
+/// Dopo quanti giorni senza lavoro AR licenzia un Dot che ha assunto lui.
+pub const GIORNI_DA_FERMO: i64 = 30;
+
+/// L'ultima volta che un Dot ha fatto qualcosa: quando e' nato, o quando un
+/// suo compito e' entrato in coda, e' cominciato o e' finito. Le date sono
+/// quelle del demone, ISO locali, e si confrontano come testo.
+pub fn ultima_attivita(dot: &Dot, coda: &[Compito]) -> String {
+    coda.iter()
+        .flat_map(|c| [&c.affidato, &c.iniziato, &c.finito])
+        .chain(std::iter::once(&dot.nato))
+        .filter(|q| !q.trim().is_empty())
+        .max()
+        .cloned()
+        .unwrap_or_default()
+}
+
+/// Se un Dot si puo' licenziare: non un posto fisso, non chi non prende
+/// compiti (il custode, la direzione, il legale), non un capo con dei
+/// sottoposti, e non chi ha ancora un compito da finire.
+pub fn si_puo_licenziare(dot: &Dot, coda: &[Compito], sottoposti: usize) -> Result<(), String> {
+    if dot.fisso {
+        return Err(format!("«{}» e' un posto fisso dell'azienda: non si licenzia", dot.nome));
+    }
+    if let Some((chi, _)) = dot.mestiere.a_parte() {
+        return Err(format!("{chi} non si licenzia"));
+    }
+    if sottoposti > 0 {
+        return Err(format!(
+            "«{}» e' il capo di {sottoposti} Dot: prima si spostano loro",
+            dot.nome
+        ));
+    }
+    let aperti = coda.iter().filter(|c| !c.stato.chiuso()).count();
+    if aperti > 0 {
+        return Err(format!("«{}» ha ancora {aperti} compiti da finire", dot.nome));
+    }
+    Ok(())
+}
+
+/// Se AR licenzia questo Dot da solo: l'ha assunto lui, si puo' licenziare,
+/// e non fa niente da prima di `soglia` (trenta giorni fa).
+pub fn da_licenziare(dot: &Dot, coda: &[Compito], sottoposti: usize, soglia: &str) -> bool {
+    dot.assunto
+        && si_puo_licenziare(dot, coda, sottoposti).is_ok()
+        && ultima_attivita(dot, coda).as_str() < soglia
+}
+
 #[cfg(test)]
 mod prove {
     use super::*;
@@ -307,5 +354,60 @@ mod prove {
         assert!(leggi_scelta("non so", &[], &scala()).unwrap_err().contains("JSON"));
         assert!(leggi_scelta(r#"{"scelta": "boh"}"#, &[], &scala()).unwrap_err().contains("«boh»"));
         assert!(leggi_scelta("{}", &[], &[]).unwrap_err().contains("vuota"));
+    }
+
+    fn assunto(nato: &str) -> Dot {
+        Dot {
+            nome: "lettore".into(),
+            ruolo: "r".into(),
+            nato: nato.into(),
+            mestiere: Mestiere::Generico,
+            capo: String::new(),
+            fisso: false,
+            assunto: true,
+        }
+    }
+
+    fn fatto(affidato: &str, finito: &str) -> Compito {
+        let mut c = crate::compiti(&format!(
+            "{{\"id\":1,\"stato\":\"affidato\",\"quando\":\"{affidato}\",\"testo\":\"t\"}}"
+        ))
+        .remove(0);
+        if !finito.is_empty() {
+            c.stato = crate::Stato::Fatto;
+            c.finito = finito.into();
+        }
+        c
+    }
+
+    #[test]
+    fn l_ultima_attivita_e_la_data_piu_recente() {
+        let d = assunto("2026-08-01T10:00:00");
+        assert_eq!(ultima_attivita(&d, &[]), "2026-08-01T10:00:00");
+        let c = fatto("2026-08-20T09:00:00", "2026-08-21T11:00:00");
+        assert_eq!(ultima_attivita(&d, &[c]), "2026-08-21T11:00:00");
+    }
+
+    #[test]
+    fn ar_licenzia_solo_chi_ha_assunto_fermo_da_prima_della_soglia() {
+        let soglia = "2026-09-09T12:00:00";
+        let vecchio = assunto("2026-08-01T10:00:00");
+        assert!(da_licenziare(&vecchio, &[], 0, soglia));
+        assert!(!da_licenziare(&assunto("2026-09-20T10:00:00"), &[], 0, soglia), "nato da poco");
+        let lavora = fatto("2026-08-02T10:00:00", "2026-09-30T10:00:00");
+        assert!(!da_licenziare(&vecchio, &[lavora], 0, soglia), "ha lavorato da poco");
+        assert!(!da_licenziare(&vecchio, &[], 1, soglia), "e' un capo");
+        let in_coda = fatto("2026-08-02T10:00:00", "");
+        assert!(!da_licenziare(&vecchio, &[in_coda.clone()], 0, soglia), "ha un compito in coda");
+        let dell_utente = Dot { assunto: false, ..vecchio.clone() };
+        assert!(!da_licenziare(&dell_utente, &[], 0, soglia), "AR licenzia solo chi ha assunto lui");
+        // L'utente si', ma non i posti fissi ne' chi non prende compiti.
+        assert!(si_puo_licenziare(&dell_utente, &[], 0).is_ok());
+        let fisso = Dot { fisso: true, ..vecchio.clone() };
+        assert!(si_puo_licenziare(&fisso, &[], 0).unwrap_err().contains("posto fisso"));
+        let custode = Dot { mestiere: Mestiere::Custode, ..dell_utente.clone() };
+        assert!(si_puo_licenziare(&custode, &[], 0).unwrap_err().contains("non si licenzia"));
+        assert!(si_puo_licenziare(&vecchio, &[in_coda], 0).unwrap_err().contains("da finire"));
+        assert!(si_puo_licenziare(&vecchio, &[], 2).unwrap_err().contains("capo di 2"));
     }
 }

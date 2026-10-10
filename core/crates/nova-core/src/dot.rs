@@ -301,6 +301,17 @@ pub fn avvia_tutti(server: &Arc<Server>) {
     for nome in d::elenco(&base()) {
         avvia(server, &nome);
     }
+    // AR guarda chi e' fermo da troppo (D398): all'accensione e poi ogni
+    // tanto, coi Dot accesi.
+    let s = server.clone();
+    tokio::spawn(async move {
+        loop {
+            if crate::dot_accesi::adesso().accesi {
+                crate::risorse::licenzia_i_fermi(&s);
+            }
+            tokio::time::sleep(crate::risorse::RIGUARDA_I_FERMI).await;
+        }
+    });
 }
 
 /// Accende il ciclo di un Dot, se non e' gia' acceso. Prima rimette in coda
@@ -1049,6 +1060,10 @@ async fn ciclo(server: Arc<Server>, nome: String, m: Arc<Maniglia>) {
         let Ok(c) = cartella(&nome) else {
             return;
         };
+        // Licenziato (D398): la cartella e' in archivio, e il ciclo finisce.
+        if !c.esiste() {
+            return;
+        }
         // Coi Dot spenti (D389) non si prende niente: si riguarda ogni
         // tanto, e riaccesi si riparte da dove si era.
         if !crate::dot_accesi::adesso().accesi {
@@ -1171,6 +1186,22 @@ async fn ciclo(server: Arc<Server>, nome: String, m: Arc<Maniglia>) {
         if let Some(p) = &compito.padre {
             consegna_al_capo(&server, p, &nome, compito.id, stato, &esito);
         }
+    }
+}
+
+/// Spegne il ciclo di un Dot che sta per andarsene (D398): lo toglie dai
+/// Dot accesi, dimentica il suo vault e il suo gettone, e lo sveglia perche'
+/// veda che la sua cartella non c'e' piu'.
+pub(crate) fn spegni(server: &Arc<Server>, nome: &str) {
+    let m = server.dots.maniglie.lock().ok().and_then(|mut m| m.remove(nome));
+    if let Ok(mut v) = server.dots.vault.lock() {
+        v.remove(nome);
+    }
+    if let Ok(mut g) = server.dots.gettoni.lock() {
+        g.remove(nome);
+    }
+    if let Some(m) = m {
+        m.sveglia.notify_one();
     }
 }
 
