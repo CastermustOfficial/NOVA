@@ -78,7 +78,7 @@ If something doesn't work, the rest of the document explains why.
 ## What it can do
 
 A list of adjectives says nothing. These are the numbers, counted from the
-code: **137 tools** for an agentic brain like Claude Code, and **58** for the
+code: **141 tools** for an agentic brain like Claude Code, and **58** for the
 model running on your PC and for the APIs, always the same ones, because all
 of them together wouldn't fit in its context; **38 file formats** it can open
 and show. With the Dots on the model on the PC gets 62; with them off, Claude
@@ -626,13 +626,20 @@ development plan when you ask for it (`dot.pianifica`, D400): it only reads
 the project's files, with the biggest brain that answers at an address, and
 writes in Markdown the phases, the tasks with who does them and what they
 depend on, the risks and the questions for you. The plan arrives in the
-chat; every version is kept, in `dots/architetto/piani/<project>/`, and from
+chat; every version is kept, in `progetti/<project>/piani/`, and from
 the second one on it says what changes. A phase that doesn't work out is
 revised on its own at most twice, then you decide. Every delivery of a Dot
 is graded by its boss, or by the APM, with the biggest brain: a mark from 1
 to 10. Below 6 the task is redone one rung higher before it reaches you; and
 AR, looking at the last five deliveries, moves the Dot to a lighter brain if
-it always does well, or to a bigger one if it keeps failing (D401). The daemon also has the methods `dot/crea`, `dot/affida`,
+it always does well, or to a bigger one if it keeps failing (D401). A whole project goes to the
+APM (`dot.progetto`, D402): it asks the Architect for the plan, has legal
+look at it, asks AR for whoever is missing, and writes you in the chat the
+plan, the team, the cap and the questions; with your go-ahead
+(`dot.via`) it assigns the tasks phase by phase, has review and legal look
+at every phase, and at the end sends you the report. One at a time; it
+stops when you stop it (`dot.ferma_progetto`), when legal has doubts or at
+90% of the cap, and only pay-per-use brains count. The daemon also has the methods `dot/crea`, `dot/affida`,
 `dot/stato`, `dot/elenco` and `dot/ferma`.
 
 The Dots are for whoever has a subscription, an API or a graphics card with
@@ -1393,7 +1400,7 @@ already authenticated. NOVA:
   | Autonomous | `bypassPermissions` |
 
 - connects it to the daemon as an **MCP server** (`nova mcp`, a bridge between
-  standard input and the daemon's channel): Claude sees all 137 tools (129
+  standard input and the daemon's channel): Claude sees all 141 tools (129
   with the Dots off), from `mcp__nova-core__kb_cerca` down, with the same
   guards as the home model, which gets 58 (62 with the Dots on) because they
   don't all fit in its context.

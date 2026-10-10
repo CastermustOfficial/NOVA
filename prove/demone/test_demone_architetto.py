@@ -225,7 +225,7 @@ def aspetta(id_, secondi=60):
 
 
 def piani():
-    return cartella_nova / "dots" / "architetto" / "piani" / "compressore"
+    return cartella_nova / "progetti" / "compressore" / "piani"
 
 
 def versione(n):

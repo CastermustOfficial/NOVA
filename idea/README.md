@@ -391,3 +391,25 @@ sposta. **Perche'.** Oggi AR sposta tutti i Dot che prendono compiti, anche
 quelli dell'utente, e l'utente puo' avere un motivo che la pagella non vede
 (un abbonamento, la riservatezza). **Cosa costerebbe.** Un campo nel
 `dot.json` e nel «+» dell'harness, e un ramo in `nova_core::pagella`.
+
+## Il vault del progetto
+
+Nata col D402 (deciso con Gio l'8 ottobre, non ancora fatto). **Cosa.** Una
+memoria del progetto, condivisa dalla squadra: quel che un Dot impara sul
+progetto lo trovano gli altri, accanto al proprio vault. **Perche'.** Oggi
+le consegne passano solo nei testi dei compiti, da chi viene prima a chi
+viene dopo; un Dot che entra a meta' non sa quel che si e' gia' trovato.
+**Cosa costerebbe.** `progetti/<nome>/vault/`, la memoria di un Dot che
+cerca in due vault (il suo e quello del progetto del compito), e decidere
+chi ci scrive: tutti, o solo l'APM con le consegne approvate.
+
+## Piu' progetti insieme
+
+Nata col D402. **Cosa.** Lasciar girare piu' progetti, coi cervelli di
+fuori. **Perche'.** Gio ha scelto uno alla volta per ora: il modello di casa
+ha un posto solo, e la spesa si legge meglio. Con le API o gli abbonamenti
+il limite e' il fornitore, non la scheda video. **Cosa costerebbe.** Il giro
+dell'APM su tutti i progetti aperti invece che sul primo, e il tetto
+gia' per progetto; da misurare quanti Dot lavorano insieme prima che un
+fornitore dica «troppe richieste».
+

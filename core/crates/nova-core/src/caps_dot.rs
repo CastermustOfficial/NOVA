@@ -22,7 +22,9 @@
 //! - **i gruppi li crea Nova** se l'utente lo chiede (`dot.gruppo`).
 //!
 //! Dal D400 Nova chiede all'Architetto il piano di sviluppo di un progetto
-//! (`dot.pianifica`), che arriva in chat quando e' pronto.
+//! (`dot.pianifica`), che arriva in chat quando e' pronto. Dal D402 passa un
+//! progetto intero all'APM (`dot.progetto`), gli da' il via (`dot.via`), lo
+//! ferma (`dot.ferma_progetto`) e chiede com'e' (`dot.progetti`).
 //!
 //! Far nascere un Dot e fermarlo resta di Nova: un Dot che lo chiede si sente
 //! dire di no. I gruppi li fa Nova, e dal D392 anche un capo, coi suoi
@@ -43,6 +45,10 @@ pub fn register(reg: &mut Registry) {
     reg.add(Arc::new(AssumiCap));
     reg.add(Arc::new(LicenziaCap));
     reg.add(Arc::new(PianificaCap));
+    reg.add(Arc::new(ProgettoCap));
+    reg.add(Arc::new(ViaCap));
+    reg.add(Arc::new(FermaProgettoCap));
+    reg.add(Arc::new(ProgettiCap));
     reg.add(Arc::new(AffidaCap));
     reg.add(Arc::new(StatoCap));
     reg.add(Arc::new(FermaCap));
@@ -291,7 +297,139 @@ impl Capability for PianificaCap {
                     .ok_or_else(|| anyhow!("«fase» e' il numero di una fase, da 1 in su, non {v}"))?,
             ),
         };
-        crate::architetto::chiedi(server, &progetto, &richiesta, &cartella, fase).map_err(|e| anyhow!(e))
+        crate::architetto::chiedi(server, nova_dot::DA_NOVA, &progetto, &richiesta, &cartella, fase).map_err(|e| anyhow!(e))
+    }
+}
+
+/// Nova passa un progetto all'APM (D402): lo fa quando l'utente vuole dare
+/// un progetto ai Dot. Come affidare, non chiede il permesso: la spesa
+/// comincia solo col via.
+struct ProgettoCap;
+
+#[async_trait]
+impl Capability for ProgettoCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "dot.progetto".into(),
+            description: "Passa un progetto all'APM dei Dot, se l'utente vuole farlo fare a loro: \
+                          piano, legale e squadra, poi chiede il via in chat. Uno alla volta; un \
+                          altro aspetta in coda."
+                .into(),
+            risk: Risk::Safe,
+            category: "dot".into(),
+            schema: schema(&[
+                ("nome", "string", "minuscole, cifre, trattini", true),
+                ("richiesta", "string", "cosa vuole l'utente, per intero", true),
+                ("cartella", "string", "dove stanno i file del progetto, o vuoto", false),
+            ]),
+        }
+    }
+
+    async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
+        let server = per_nova("dare un progetto all'APM")?;
+        let nome = arg_str(&args, "nome")?;
+        let richiesta = arg_str(&args, "richiesta")?;
+        let cartella = arg_str_opt(&args, "cartella").unwrap_or_default();
+        crate::apm::crea(server, &nome, &richiesta, &cartella).map_err(|e| anyhow!(e))
+    }
+}
+
+/// Il via dell'utente a un progetto, o la ripartenza di uno fermo (D402).
+/// Da' il permesso di spendere: chiede la conferma come ogni azione che
+/// modifica.
+struct ViaCap;
+
+#[async_trait]
+impl Capability for ViaCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "dot.via".into(),
+            description: "Da' il via a un progetto dei Dot che lo aspetta, o fa ripartire uno \
+                          fermo. Solo se l'utente l'ha detto. Il tetto in dollari, se l'utente ne \
+                          vuole un altro."
+                .into(),
+            risk: Risk::Moderate,
+            category: "dot".into(),
+            schema: schema(&[
+                ("nome", "string", "il progetto", true),
+                ("tetto", "number", "dollari, o vuoto per quello proposto", false),
+            ]),
+        }
+    }
+
+    async fn anteprima(&self, args: Value, _ctx: &Ctx) -> Option<Result<Value>> {
+        let nome = arg_str_opt(&args, "nome").unwrap_or_default();
+        let tetto = args.get("tetto").and_then(Value::as_f64);
+        Some(Ok(json!({
+            "farei": format!("darei il via al progetto «{}», o lo farei ripartire", nome.trim()),
+            "tetto": tetto.map_or("quello proposto dall'APM".to_string(), |t| format!("{t:.2} $")),
+            "annullabile": false,
+        })))
+    }
+
+    async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
+        let server = per_nova("dare il via a un progetto")?;
+        let nome = arg_str(&args, "nome")?;
+        let tetto = match args.get("tetto") {
+            None | Some(Value::Null) => None,
+            Some(Value::String(s)) if s.trim().is_empty() => None,
+            Some(v) => Some(
+                v.as_f64()
+                    .or_else(|| v.as_str().and_then(|s| s.trim().replace(',', ".").parse().ok()))
+                    .ok_or_else(|| anyhow!("«tetto» e' un numero di dollari, non {v}"))?,
+            ),
+        };
+        crate::apm::via(server, &nome, tetto).map_err(|e| anyhow!(e))
+    }
+}
+
+/// L'utente ferma un progetto (D402): i Dot che ci lavorano si fermano, e
+/// riparte col via.
+struct FermaProgettoCap;
+
+#[async_trait]
+impl Capability for FermaProgettoCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "dot.ferma_progetto".into(),
+            description: "Ferma un progetto dei Dot; riparte con dot.via.".into(),
+            risk: Risk::Safe,
+            category: "dot".into(),
+            schema: schema(&[
+                ("nome", "string", "il progetto", true),
+                ("perche", "string", "in una riga, o vuoto", false),
+            ]),
+        }
+    }
+
+    async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
+        let server = per_nova("fermare un progetto")?;
+        let nome = arg_str(&args, "nome")?;
+        let perche = arg_str_opt(&args, "perche").unwrap_or_default();
+        crate::apm::ferma(server, &nome, &perche).map_err(|e| anyhow!(e))
+    }
+}
+
+/// Com'e' un progetto dei Dot, o l'elenco (D402).
+struct ProgettiCap;
+
+#[async_trait]
+impl Capability for ProgettiCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "dot.progetti".into(),
+            description: "I progetti dei Dot e come stanno; col nome, il racconto di uno: fasi, \
+                          compiti, squadra, spesa, legale."
+                .into(),
+            risk: Risk::Safe,
+            category: "dot".into(),
+            schema: schema(&[("nome", "string", "vuoto = tutti", false)]),
+        }
+    }
+
+    async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
+        let nome = arg_str_opt(&args, "nome").unwrap_or_default();
+        crate::apm::stato(&nome).map_err(|e| anyhow!(e))
     }
 }
 

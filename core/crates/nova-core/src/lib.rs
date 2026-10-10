@@ -23,6 +23,7 @@ pub mod caps_documenti;
 pub mod caps_dot;
 pub mod permessi;
 pub mod agente;
+pub mod apm;
 pub mod architetto;
 pub mod caps_file;
 pub mod caps_harness;

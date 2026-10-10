@@ -113,6 +113,10 @@ pub enum Decisione {
     /// Com'e' venuta questa consegna di un Dot? (D401) La giudica il suo
     /// capo, col cervello piu' grande, con un voto da 1 a 10.
     GiudizioDelCapo,
+    /// Un progetto rispetta le normative, una sua fase e' fatta, e com'e'
+    /// andato? (D402) Lo chiede l'APM al cervello piu' grande: il legale,
+    /// la revisione di fase, il resoconto.
+    ControlloDelProgetto,
 }
 
 impl Decisione {
@@ -129,6 +133,7 @@ impl Decisione {
             Decisione::PermessoDiUnDot => Materia::Chiamata,
             Decisione::SceltaDiAr => Materia::Compito,
             Decisione::GiudizioDelCapo => Materia::Compito,
+            Decisione::ControlloDelProgetto => Materia::Compito,
         }
     }
 
@@ -137,7 +142,7 @@ impl Decisione {
     /// Scritto a mano e non derivato: aggiungerne una qui e' una riga, e
     /// dimenticarsene fa diventare rossa una prova. Una lista che si genera
     /// da sola non avrebbe fatto la stessa cosa.
-    pub const TUTTE: [Decisione; 10] = [
+    pub const TUTTE: [Decisione; 11] = [
         Decisione::QualeCervello,
         Decisione::ValeLaPenaRicordare,
         Decisione::QuantoCentra,
@@ -148,6 +153,7 @@ impl Decisione {
         Decisione::PermessoDiUnDot,
         Decisione::SceltaDiAr,
         Decisione::GiudizioDelCapo,
+        Decisione::ControlloDelProgetto,
     ];
 }
 
@@ -249,7 +255,7 @@ mod prove {
     fn ogni_decisione_dichiara_la_sua_materia() {
         // Una decisione nuova senza materia non compila; una decisione nuova
         // che si dimentica di entrare in TUTTE la fa diventare rossa.
-        assert_eq!(Decisione::TUTTE.len(), 10, "aggiungine una e aggiorna il conto");
+        assert_eq!(Decisione::TUTTE.len(), 11, "aggiungine una e aggiorna il conto");
         let mut viste: Vec<&str> = Decisione::TUTTE.iter().map(|d| d.materia().nome()).collect();
         viste.sort_unstable();
         viste.dedup();

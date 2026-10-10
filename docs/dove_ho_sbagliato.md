@@ -2586,3 +2586,16 @@ non sono serviti.
 
 La regola: un'opzione che propongo a Gio si verifica sul codice prima di
 proporla, come ogni altra affermazione.
+
+## Due progetti nati nello stesso secondo
+
+Scrivendo il D402 ho messo in coda i progetti per ora di nascita, e a
+parita' per nome: l'ora che scrive NOVA e' al secondo. La prova ne crea due
+uno dopo l'altro, «terzo» e «quarto», nello stesso secondo: e' partito
+«quarto», che viene prima in ordine alfabetico, e «terzo» e' finito in coda.
+L'ha visto la prova, prima del commit. Adesso ogni progetto nasce col suo
+numero d'ordine, e la coda segue quello.
+
+La regola: un ordine che conta non si ricava da un'ora scritta al secondo;
+si scrive un numero quando la cosa nasce.
+

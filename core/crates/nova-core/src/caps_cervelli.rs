@@ -165,25 +165,8 @@ impl Cervelli for Veri {
         scelta.filter(|id| id != NESSUNA)
     }
 
-    /// `a_consumo` del cervello, come lo dice il Python: Claude Code a
-    /// consumo se non c'e' un abbonamento, una CLI se l'ha dichiarato, gli
-    /// altri se il gradino dice di essere a pagamento.
     fn a_consumo(&self, g: &GradinoScala) -> bool {
-        match nova_scala::specie_di(&g.brain, &self.recapiti.nomi_cli()) {
-            Specie::Claude => {
-                let cred = nova_cervelli::cerca::credenziali();
-                let (tipo, _) = nova_cervelli::accesso::tipo_accesso(
-                    &std::env::var("ANTHROPIC_API_KEY").unwrap_or_default(),
-                    cred.as_ref(),
-                );
-                nova_cervelli::claude::a_consumo(&tipo)
-            }
-            Specie::Cli => self
-                .recapiti
-                .cli_di(&g.brain)
-                .map_or(g.a_pagamento, |c| c.a_consumo),
-            _ => g.a_pagamento,
-        }
+        a_consumo(g, &self.recapiti)
     }
 
     fn chiedi(&mut self, g: &GradinoScala, prompt: &str) -> Result<Detto, Guasto> {
@@ -232,6 +215,27 @@ impl Cervelli for Veri {
     fn annota(&mut self, riga: &str) {
         tracing::info!("{riga}");
         self.righe.push(riga.to_string());
+    }
+}
+
+/// Se un gradino e' a consumo, come lo dice il Python: Claude Code se non
+/// c'e' un abbonamento, una CLI se l'ha dichiarato, gli altri se il gradino
+/// dice di essere a pagamento. Lo usano la delega, per il tetto della
+/// sessione, e l'APM, per il tetto del progetto (D402).
+pub fn a_consumo(g: &GradinoScala, recapiti: &Recapiti) -> bool {
+    match nova_scala::specie_di(&g.brain, &recapiti.nomi_cli()) {
+        Specie::Claude => {
+            let cred = nova_cervelli::cerca::credenziali();
+            let (tipo, _) = nova_cervelli::accesso::tipo_accesso(
+                &std::env::var("ANTHROPIC_API_KEY").unwrap_or_default(),
+                cred.as_ref(),
+            );
+            nova_cervelli::claude::a_consumo(&tipo)
+        }
+        Specie::Cli => recapiti
+            .cli_di(&g.brain)
+            .map_or(g.a_pagamento, |c| c.a_consumo),
+        _ => g.a_pagamento,
     }
 }
 

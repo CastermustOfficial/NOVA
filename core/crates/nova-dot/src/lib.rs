@@ -44,6 +44,7 @@ pub mod custode;
 pub mod gruppi;
 pub mod pagella;
 pub mod piano;
+pub mod progetto;
 pub mod ricerca;
 pub mod risorse;
 pub mod vista;

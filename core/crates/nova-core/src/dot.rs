@@ -71,6 +71,9 @@ pub struct Dots {
     /// Il gettone di ogni Dot, per legare a lui il collegamento MCP del suo
     /// Claude Code (D384). Nuovo a ogni accensione del demone.
     gettoni: std::sync::Mutex<HashMap<String, String>>,
+    /// Sveglia l'APM (D402): un compito di un progetto si e' chiuso, o
+    /// l'utente ha dato il via.
+    pub(crate) apm: Notify,
 }
 
 /// Come si parla al ciclo di un Dot.
@@ -308,6 +311,8 @@ pub fn avvia_tutti(server: &Arc<Server>) {
     for nome in d::elenco(&base()) {
         avvia(server, &nome);
     }
+    // L'APM porta avanti i progetti (D402).
+    crate::apm::avvia(server);
     // AR guarda chi e' fermo da troppo (D398): all'accensione e poi ogni
     // tanto, coi Dot accesi.
     let s = server.clone();
@@ -534,9 +539,13 @@ pub fn affida_con(
 }
 
 /// Mette in coda all'Architetto un piano da fare (D400). Lui non prende
-/// compiti a mano: glieli da' NOVA, quando Nova (o l'APM) chiede un piano,
-/// col testo di `nova_dot::piano::Richiesta`.
-pub(crate) fn affida_all_architetto(server: &Arc<Server>, testo: &str) -> Result<u64, String> {
+/// compiti a mano: glieli da' NOVA, quando Nova (`da` e' `nova`) o l'APM
+/// (D402) chiede un piano, col testo di `nova_dot::piano::Richiesta`.
+pub(crate) fn affida_all_architetto(
+    server: &Arc<Server>,
+    testo: &str,
+    da: &str,
+) -> Result<u64, String> {
     use nova_dot::azienda::NOME_ARCHITETTO;
     crate::dot_accesi::se_spenti()?;
     let c = cartella(NOME_ARCHITETTO)?;
@@ -548,7 +557,7 @@ pub(crate) fn affida_all_architetto(server: &Arc<Server>, testo: &str) -> Result
     if testo.trim().is_empty() {
         return Err("un piano senza richiesta non e' un piano".into());
     }
-    metti_in_coda(server, &c, NOME_ARCHITETTO, testo, d::DA_NOVA, None, "")
+    metti_in_coda(server, &c, NOME_ARCHITETTO, testo, da, None, "")
 }
 
 /// Scrive il compito in coda, lo annota nella squadra del capo se e' un
@@ -1247,6 +1256,11 @@ async fn ciclo(server: Arc<Server>, nome: String, m: Arc<Maniglia>) {
         }
         if nova_dot::consegna::di_nova(&compito) {
             consegna(&server, &nome, &compito, stato, &esito);
+        }
+        // Un compito di un progetto: l'APM guarda subito cosa viene dopo
+        // (D402).
+        if compito.da == nova_dot::azienda::NOME_APM {
+            crate::apm::sveglia(&server);
         }
         if let Some(p) = &compito.padre {
             consegna_al_capo(&server, p, &nome, compito.id, stato, &esito);

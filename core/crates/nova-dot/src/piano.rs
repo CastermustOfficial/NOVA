@@ -24,9 +24,9 @@
 //! pulita ([`scrivi`]): quello che va su disco e' sempre la forma pulita, e
 //! si rilegge identico.
 //!
-//! I piani stanno nella cartella dell'Architetto, uno per progetto:
-//! `dots/architetto/piani/<progetto>/piano-<versione>.md`. Il vault del
-//! progetto arriva con l'APM e i progetti (il passo dopo).
+//! I piani stanno nella cartella del progetto (D402,
+//! [`crate::progetto`]): `progetti/<progetto>/piani/piano-<versione>.md`.
+//! Col D400 stavano nella cartella dell'Architetto.
 
 use std::path::{Path, PathBuf};
 
@@ -70,7 +70,7 @@ pub const PROGETTO_MASSIMO: usize = 48;
 /// Il segno in testa a ogni domanda all'Architetto.
 pub const SEGNO: &str = "[piano di sviluppo]";
 
-/// La cartella dei piani, dentro quella dell'Architetto.
+/// La cartella dei piani, dentro quella del progetto.
 pub const CARTELLA: &str = "piani";
 
 /// Chi fa un compito del piano.
@@ -878,9 +878,9 @@ pub fn esito(p: &Piano, file: &str) -> String {
 
 // ------------------------------------------------------------- su disco
 
-/// La cartella dei piani di un progetto, dentro quella dell'Architetto.
-pub fn cartella_del_progetto(radice: &Path, progetto: &str) -> PathBuf {
-    radice.join(CARTELLA).join(progetto)
+/// La cartella dei piani di un progetto: `nova` e' la cartella di NOVA.
+pub fn cartella_del_progetto(nova: &Path, progetto: &str) -> PathBuf {
+    crate::progetto::cartella(nova, progetto).join(CARTELLA)
 }
 
 /// Il file di una versione.

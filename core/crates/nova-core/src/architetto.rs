@@ -14,8 +14,8 @@
 //! 3. **Risponde col piano in Markdown**, nel formato di `nova_dot::piano`.
 //!    Un piano che non si legge torna indietro con tutti gli errori, al piu'
 //!    [`p::CORREZIONI`] volte.
-//! 4. **Ogni versione resta**: `piani/<progetto>/piano-<n>.md` nella sua
-//!    cartella, in forma pulita, e una riga `piano` in `decisioni.jsonl` e
+//! 4. **Ogni versione resta**: `progetti/<progetto>/piani/piano-<n>.md`
+//!    (D402), in forma pulita, e una riga `piano` in `decisioni.jsonl` e
 //!    nel suo diario.
 //! 5. **Si consegna a Nova**: in chat arrivano quanto e' grande il piano, le
 //!    domande per l'utente e dove sta il file.
@@ -36,10 +36,9 @@ use serde_json::{json, Value};
 use crate::agente::{Chi, EsecutoreDemone};
 use crate::server::Server;
 
-/// La cartella dei piani di un progetto.
-fn cartella_del_progetto(progetto: &str) -> Result<std::path::PathBuf, String> {
-    let c = d::Cartella::di(&crate::dot::base(), d::azienda::NOME_ARCHITETTO)?;
-    Ok(p::cartella_del_progetto(&c.radice, progetto))
+/// La cartella dei piani di un progetto, in quella del progetto (D402).
+fn cartella_del_progetto(progetto: &str) -> std::path::PathBuf {
+    p::cartella_del_progetto(&crate::mondo::cartella_nova(), progetto)
 }
 
 /// Chiede un piano all'Architetto: lo mette in coda, e torna subito. Il
@@ -48,8 +47,11 @@ fn cartella_del_progetto(progetto: &str) -> Result<std::path::PathBuf, String> {
 /// `fase`, se c'e', vuol dire che quella fase non e' andata e `testo` dice
 /// perche': si rivede da sola, al piu' [`p::REVISIONI_PER_FASE`] volte.
 /// `cartella`, se c'e', e' dove stanno i file del progetto: deve esistere.
+/// `da` e' chi lo chiede: Nova (il piano arriva in chat) o l'APM (D402, il
+/// piano lo mostra lui col via).
 pub fn chiedi(
     server: &Arc<Server>,
+    da: &str,
     progetto: &str,
     testo: &str,
     cartella: &str,
@@ -69,7 +71,7 @@ pub fn chiedi(
             "«{cartella}» non e' una cartella: i file del progetto devono esserci"
         ));
     }
-    let dir = cartella_del_progetto(&progetto)?;
+    let dir = cartella_del_progetto(&progetto);
     let fatte = p::versioni(&dir);
     let perche = match fase {
         None => p::Perche::Utente,
@@ -110,7 +112,7 @@ pub fn chiedi(
         perche,
         testo: testo.trim().to_string(),
     };
-    let id = crate::dot::affida_all_architetto(server, &r.nel_compito())?;
+    let id = crate::dot::affida_all_architetto(server, &r.nel_compito(), da)?;
     Ok(json!({
         "architetto": d::azienda::NOME_ARCHITETTO,
         "compito": id,
@@ -246,7 +248,7 @@ pub async fn lavora(
         Ok(r) => r,
         Err(e) => return (d::Stato::Fallito, format!("la richiesta non si legge: {e}")),
     };
-    let dir = p::cartella_del_progetto(&c.radice, &r.progetto);
+    let dir = cartella_del_progetto(&r.progetto);
     let ultima = p::versioni(&dir).last().copied().unwrap_or(0);
     let precedente = if ultima == 0 {
         None

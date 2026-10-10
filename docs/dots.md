@@ -241,8 +241,8 @@ specialisti. Li assume AR.
    ogni consegna, AR sposta il Dot su un cervello piu' leggero o piu'
    grande~~ (D401).
 7. ~~**L'Architetto** e il piano di sviluppo~~ (D400).
-8. **L'APM e i progetti**: il via, il tetto, il vault del progetto, i Dot
-   disposti, i controlli del legale.
+8. ~~**L'APM e i progetti**: il via, il tetto, i Dot disposti, i controlli
+   del legale~~ (D402). Il vault del progetto resta da fare.
 9. **Nova tramite**: la proposta, il via, i resoconti e gli aggiornamenti,
    e le modifiche chieste dall'utente.
 10. **CLM addestrato** sulle scelte di AR, dell'APM e del custode.
@@ -714,7 +714,7 @@ ottobre, sulla bozza, prima del codice. Il formato e le regole stanno in
   compito fallisce e lo dice. Quel che sta fuori dal formato (il testo prima
   del titolo, una sezione che non e' del piano) si scrive nel diario e non
   entra.
-- **Ogni versione resta**: `dots/architetto/piani/<progetto>/piano-<n>.md`,
+- **Ogni versione resta**: `progetti/<progetto>/piani/piano-<n>.md` (dal D402; col D400 stavano in `dots/architetto/piani/<progetto>/`),
   in forma pulita (`piano::scrivi`, che `piano::leggi` rilegge identica),
   mai riscritta. La versione, il progetto e la cartella li scrive NOVA, non
   il cervello; una revisione senza cartella tiene quella di prima, e la
@@ -791,3 +791,70 @@ davvero. Le regole stanno in `nova_dot::pagella`, il lavoro in
   tenere il cervello che gli ha dato, oggi non c'e' modo di dirlo.
 - **La decisione di AR e' una regola**: quando CLM avra' abbastanza voti e
   decisioni, potra' decidere lui.
+
+**L'APM e i progetti — fatto** (D402). Deciso con Gio il 10 ottobre, sulla
+bozza, prima del codice. Le regole e le parole stanno in
+`nova_dot::progetto`, il giro in `nova_core::apm`.
+
+| | Deciso |
+|---|---|
+| **Come lavora l'APM** | A regole fisse: le fasi in ordine, un compito affidato appena quelli da cui dipende sono fatti. Il cervello grande serve ai controlli (il legale, la revisione di fase) e al resoconto. |
+| **Il via** | In chat, a Nova (`dot.via`), dopo aver visto piano, squadra, tetto e le domande dell'Architetto. |
+| **Il legale** | All'inizio, sul piano; **dopo ogni fase**; prima del rilascio. |
+| **Quanti progetti** | Uno alla volta: un altro aspetta in coda. |
+
+- **Come va**: Nova passa il progetto (`dot.progetto`: il nome, la
+  richiesta, la cartella dei file se c'e'). L'APM chiede il piano
+  all'Architetto (il compito e' suo, e il piano non arriva in chat: lo
+  mostra lui), lo fa guardare al legale, chiede ad AR chi fa ogni ruolo
+  `assumi` del piano (uno per ruolo), e scrive a Nova: il piano e dove sta,
+  la squadra, il tetto, i dubbi del legale, le domande dell'Architetto.
+- **Il lavoro**: col via affida i compiti della fase di adesso, col
+  progetto, la fase, la cartella e le consegne dei compiti da cui
+  dipendono; il capo giudica ogni consegna (D401). Chiusa una fase, la
+  revisione la guarda contro il suo «fatta quando», poi il legale. Una fase
+  con un compito andato male, o bocciata, la rivede l'Architetto (al piu'
+  due volte, D400) e i compiti da quella fase in poi si rifanno col piano
+  nuovo. Un piano che l'utente rivede con Nova (`dot.pianifica`) l'APM lo
+  prende quando riparte.
+- **Il rilascio**: il legale guarda tutte le consegne, il cervello grande
+  scrive il resoconto (senza, si scrivono le fasi e le consegne come sono),
+  e arriva a Nova in chat.
+- **Si ferma, e lo dice a Nova**: quando lo ferma l'utente
+  (`dot.ferma_progetto`, che ferma anche i Dot che ci lavorano: i loro
+  compiti si rifaranno), quando il legale ha dei dubbi dopo una fase o
+  prima del rilascio, quando una fase non va per la terza volta, quando un
+  controllo non si e' potuto fare (nessun cervello con un indirizzo, una
+  risposta che non si legge, «solo sul PC» acceso), e al 90% del tetto.
+  Riparte con `dot.via`, col tetto nuovo se l'utente lo dice: ripartire
+  dopo i dubbi del legale vuol dire che l'utente ha deciso di andare
+  avanti. Fermato prima del via, si riprepara e si ripropone.
+- **Il tetto**: contano solo i cervelli a consumo, con la regola del tetto
+  della sessione (`caps_cervelli::a_consumo`): ogni turno a consumo dei Dot
+  sul progetto (l'Architetto compreso), ogni voto del capo e ogni controllo dell'APM costano la
+  stima di una delega (`costo_stimato_delega`, di serie 0,10 $). L'APM
+  propone 0,30 $ per compito, almeno 1 $; zero se nella scala non c'e'
+  niente a consumo. Il via puo' cambiarlo.
+- **Su disco**: `progetti/<nome>/progetto.jsonl`, un passo per riga, da cui
+  si rilegge com'e' il progetto (`Progetto::da`): il demone che si
+  riaccende riprende da li'. Accanto `progetto.md`, riscritto a ogni passo,
+  e `piani/`, le versioni del piano: dal D402 i piani stanno qui, anche
+  quelli chiesti da Nova all'Architetto.
+- **I controlli** chiedono al cervello piu' grande che risponde a un
+  indirizzo, come il custode, AR e il capo; se dovrebbero uscire dal PC si
+  chiede prima a `nova_decisioni` (`ControlloDelProgetto`).
+- **Gli strumenti**: `dot.progetto`, `dot.via` (che chiede la conferma: da'
+  il permesso di spendere), `dot.ferma_progetto`, `dot.progetti`. Solo di
+  Nova; li vede Claude (141 strumenti, 129 coi Dot spenti), non il modello
+  di casa.
+
+### Cosa resta aperto, dopo l'APM
+
+- **Il vault del progetto**: la memoria condivisa dalla squadra non c'e'
+  ancora; ogni Dot ha la sua, e le consegne passano nei testi dei compiti.
+- **Nova tramite** (il passo dopo): proporre di dare un progetto ai Dot,
+  i resoconti a meta', le modifiche chieste in corsa.
+- **La vista dei progetti nell'harness**: oggi c'e' `progetto.md`, e
+  `dot.progetti`.
+- **Il legale ferma, ma non spiega a chi deve cambiare cosa**: i suoi dubbi
+  vanno all'utente, non all'Architetto.
