@@ -2559,3 +2559,30 @@ compilazione era finita in tre.
 La regola: non si aspetta un processo cercandolo per nome con un testo che
 compare anche nel comando che lo cerca; si aspetta il processo stesso (si
 lancia in primo piano, o si tiene il suo numero).
+
+## Il D400 mandato su GitHub dal ramo sbagliato, di nuovo
+
+Il 10 ottobre ho portato il D400 sul PC di sviluppo e ho fatto `git push
+origin master`. Il commit era finito su `ottimizzazione`, il ramo su cui sta
+quella copia: `master` non si era mosso, e il push ha detto «Everything
+up-to-date». Me ne sono accorto guardando `origin/master` dopo il push, ho
+portato avanti `master` (`git fetch . ottimizzazione:master`, solo in
+avanti) e ho rifatto il push. E' lo stesso errore del D394: la regola
+c'era, ma non l'ho applicata prima di scrivere il comando.
+
+La regola: prima di un push dal PC di sviluppo si guarda `git branch
+--show-current`, e si pusha il ramo su cui sta il commit
+(`git push origin <ramo>:master`) solo se `master` ne e' un antenato.
+
+## Ho proposto dei «generi» che non avevo guardato
+
+Lo stesso giorno, proponendo a Gio il profilo dei cervelli, ho scritto che
+i generi di lavoro potevano essere «le categorie che il giudice di
+QualeCervello gia' usa». Gio l'ha scelto. Scrivendo la bozza le ho
+guardate: sono tre, e sono categorie che fanno salire di gradino (review su
+piu' file, perdita di dati, architettura), non un elenco di generi. L'ho
+detto nella bozza prima del codice, e poi Gio ha semplificato e i generi
+non sono serviti.
+
+La regola: un'opzione che propongo a Gio si verifica sul codice prima di
+proporla, come ogni altra affermazione.

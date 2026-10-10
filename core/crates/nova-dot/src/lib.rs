@@ -17,6 +17,8 @@
 //!   rapporti/           quello che consegna: il ricercatore, un .md per compito
 //!   file.jsonl          i file che ha toccato, per l'harness (D391, [`vista`])
 //!   inviati.jsonl       i messaggi che ha mandato (D391)
+//!   pagella.jsonl       i voti del suo capo, e i cervelli che gli da' AR
+//!                       (D401, [`pagella`])
 //!   piani/              solo l'Architetto: i piani di sviluppo, una
 //!                       cartella per progetto, un .md per versione (D400)
 //! ```
@@ -40,6 +42,7 @@ pub mod azienda;
 pub mod consegna;
 pub mod custode;
 pub mod gruppi;
+pub mod pagella;
 pub mod piano;
 pub mod ricerca;
 pub mod risorse;
@@ -102,6 +105,12 @@ pub struct Dot {
     /// quando resta fermo troppo. Un Dot fatto nascere dall'utente no.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub assunto: bool,
+    /// Il suo cervello (D401): quello che gli ha dato AR quando l'ha assunto o
+    /// ripreso, o a cui l'ha spostato guardando la sua pagella ([`pagella`]).
+    /// Ogni suo compito parte da li', se AR non ne ha scelto un altro per
+    /// quel compito. Vuoto: decide il Dot, come prima.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub cervello: String,
 }
 
 /// Come lavora un Dot.
@@ -1064,7 +1073,7 @@ mod prove {
 
     #[test]
     fn il_prompt_dice_chi_e_e_le_domande_dicono_quale_compito() {
-        let d = Dot { nome: "ricercatore".into(), ruolo: "Cerchi e riassumi.".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: String::new(), fisso: false, assunto: false };
+        let d = Dot { nome: "ricercatore".into(), ruolo: "Cerchi e riassumi.".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: String::new(), fisso: false, assunto: false, cervello: String::new() };
         let p = prompt(&d, "BASE");
         assert!(p.starts_with("BASE\n\n"));
         assert!(p.contains("sei ricercatore, un Dot di NOVA") && p.contains("Cerchi e riassumi."));
@@ -1149,7 +1158,7 @@ mod prove {
         let base = std::env::temp_dir().join(format!("nova-dot-ar-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&base);
         let c = Cartella::di(&base, "uno").unwrap();
-        c.crea(&Dot { nome: "uno".into(), ruolo: "r".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: String::new(), fisso: false, assunto: true }).unwrap();
+        c.crea(&Dot { nome: "uno".into(), ruolo: "r".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: String::new(), fisso: false, assunto: true, cervello: String::new() }).unwrap();
         assert!(c.dot().unwrap().assunto, "assunto da AR si scrive e si rilegge");
         c.affida_con("fai", "nova", "t", None, " medio ").unwrap();
         c.affida("altro", "nova", "t").unwrap();
@@ -1172,7 +1181,7 @@ mod prove {
         let base = std::env::temp_dir().join(format!("nova-dot-fili-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&base);
         let c = Cartella::di(&base, "fili").unwrap();
-        c.crea(&Dot { nome: "fili".into(), ruolo: "r".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: String::new(), fisso: false, assunto: false }).unwrap();
+        c.crea(&Dot { nome: "fili".into(), ruolo: "r".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: String::new(), fisso: false, assunto: false, cervello: String::new() }).unwrap();
         let fili: Vec<_> = (0..8)
             .map(|f| {
                 let c = c.clone();
@@ -1212,7 +1221,7 @@ mod prove {
         let _ = std::fs::remove_dir_all(&base);
         let c = Cartella::di(&base, "ricercatore").unwrap();
         assert!(Cartella::di(&base, "../fuori").is_err());
-        let d = Dot { nome: "ricercatore".into(), ruolo: "r".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: String::new(), fisso: false, assunto: false };
+        let d = Dot { nome: "ricercatore".into(), ruolo: "r".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: String::new(), fisso: false, assunto: false, cervello: String::new() };
         c.crea(&d).unwrap();
         assert_eq!(c.dot().unwrap(), d);
         assert!(c.vault().is_dir() && base.join("ricercatore").join("rapporti").is_dir());
@@ -1355,7 +1364,7 @@ mod prove_squadra {
         let d = std::env::temp_dir().join(format!("nova-posta-{}-{:?}", std::process::id(), std::thread::current().id()));
         let _ = std::fs::remove_dir_all(&d);
         let c = Cartella::di(&d, "uno").unwrap();
-        c.crea(&Dot { nome: "uno".into(), ruolo: "r".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: "capo".into(), fisso: false, assunto: false })
+        c.crea(&Dot { nome: "uno".into(), ruolo: "r".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: "capo".into(), fisso: false, assunto: false, cervello: String::new() })
             .unwrap();
         assert_eq!(c.dot().unwrap().capo, "capo");
         assert!(c.non_letta().is_empty());

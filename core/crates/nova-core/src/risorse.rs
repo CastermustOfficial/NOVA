@@ -130,6 +130,12 @@ pub async fn assumi(
             "assumi"
         }
     };
+    // Il cervello scelto diventa il suo (D401): i suoi compiti partono da
+    // li', e la pagella conta da qui.
+    let perche = format!("scelto da AR per: {}", bisogno.trim());
+    if let Err(e) = crate::dot::cambia_cervello(&nome, scelta.cervello(), &perche) {
+        note.push(format!("il cervello non si scrive nella sua scheda: {e}"));
+    }
     let id = if compito.trim().is_empty() {
         None
     } else {

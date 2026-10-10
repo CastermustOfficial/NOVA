@@ -88,7 +88,8 @@ FINTA.write_text(
 per_architetto: list[tuple] = []
 #: Le domande dell'Architetto: (modello, strumenti offerti, messaggi).
 dall_architetto: list[tuple[str, list[str], list[dict]]] = []
-#: Chi ha chiesto cosa, a parte l'Architetto.
+#: Le domande che non sono dell'Architetto: non ce ne devono essere, nemmeno
+#: del capo che giudica le consegne, perche' l'Architetto non si giudica.
 altri: list[str] = []
 
 
@@ -144,7 +145,7 @@ class Cervello(BaseHTTPRequestHandler):
             return
         messaggi = corpo["messages"]
         if "Sei l'Architetto dell'azienda dei Dot" not in (messaggi[0].get("content") or ""):
-            altri.append(corpo.get("model", ""))
+            altri.append(messaggi[-1].get("content") or "")
             testo(self, "Va bene.")
             return
         offerti = [t["function"]["name"] for t in corpo.get("tools") or []]
@@ -454,6 +455,8 @@ try:
               c.get("stato") == "fallito" and "risponde a un indirizzo" in c.get("esito", ""),
               c.get("esito", ""))
     controlla("e la CLI non l'ha chiamata nessuno", not MANI.exists())
+    controlla("i suoi piani non li giudica nessuno: e' la direzione, non un reparto",
+              not any(x.startswith("[giudizio del capo]") for x in altri), str(altri)[:300])
 
     print("\n9. gli strumenti falliscono: non sale alla CLI, che ha mani sue")
     configura("si")

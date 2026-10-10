@@ -26,7 +26,9 @@
 //!   che cervello, e com'e' finito il compito; `licenziato` (D398): chi se
 //!   ne va, deciso da chi;
 //! - `piano` (D400): un piano di sviluppo dell'Architetto, perche' e' stato
-//!   chiesto, con che cervello, quanto e' grande e com'e' andata.
+//!   chiesto, con che cervello, quanto e' grande e com'e' andata;
+//! - `voto` (D401): il voto del capo a una consegna di un Dot, col cervello
+//!   che l'ha fatta; `cervello_ar`: cosa ha deciso AR guardando la pagella.
 //!
 //! **I segreti no**, con due mani. Un testo in cui il guardiano della memoria
 //! vede una credenziale ([`nova_guasti::guardiano::perche_non_si_salva`]: una
@@ -328,6 +330,56 @@ pub fn riga_piano(quando: &str, p: &PianoFatto) -> Value {
     r
 }
 
+/// Il voto del capo a una consegna di un Dot (D401): il cervello che l'ha
+/// fatta, il voto da 1 a 10, perche', chi ha giudicato, e se era gia' un
+/// rifacimento dopo una bocciatura.
+#[allow(clippy::too_many_arguments)]
+pub fn riga_voto(
+    quando: &str,
+    dot: &str,
+    compito: u64,
+    cervello: &str,
+    voto: u8,
+    perche: &str,
+    giudice: &str,
+    rifatto: bool,
+) -> Value {
+    let mut r = json!({
+        "quando": quando,
+        "tipo": "voto",
+        "dot": dot,
+        "compito": compito,
+        "cervello": cervello,
+        "voto": voto,
+        "giudice": giudice,
+        "rifatto": rifatto,
+    });
+    campo(&mut r, "perche", perche);
+    r
+}
+
+/// Cosa ha deciso AR guardando la pagella di un Dot (D401): `scendi`,
+/// `sali` (con il cervello nuovo in `a`) o `segnala`.
+pub fn riga_cervello_ar(
+    quando: &str,
+    dot: &str,
+    da: &str,
+    decisione: &str,
+    a: &str,
+    perche: &str,
+) -> Value {
+    let mut r = json!({
+        "quando": quando,
+        "tipo": "cervello_ar",
+        "dot": dot,
+        "da": da,
+        "decisione": decisione,
+        "a": a,
+    });
+    campo(&mut r, "perche", perche);
+    r
+}
+
 /// Scrive una riga nel registro, se e' acceso.
 pub fn annota(cfg: &Value, riga: &Value) {
     if attivo(cfg) {
@@ -411,6 +463,17 @@ mod prove {
         assert!(!r.to_string().contains(&chiave), "{r}");
         let senza = riga_piano("t", &PianoFatto { perche: "utente", esito: "rotto", ..Default::default() });
         assert!(senza["fase"].is_null() && senza["richiesta"] == "", "{senza}");
+    }
+
+    #[test]
+    fn le_righe_della_pagella_dicono_chi_e_cosa() {
+        let chiave = finta("sk-ant-");
+        let v = riga_voto("t", "lettore", 3, "piccolo", 4, &format!("ha incollato {chiave}"), "ricerca", true);
+        assert_eq!((v["tipo"].as_str(), v["voto"].as_u64(), v["giudice"].as_str()), (Some("voto"), Some(4), Some("ricerca")));
+        assert_eq!((v["cervello"].as_str(), v["rifatto"].as_bool(), v["compito"].as_u64()), (Some("piccolo"), Some(true), Some(3)));
+        assert!(!v.to_string().contains(&chiave), "{v}");
+        let a = riga_cervello_ar("t", "lettore", "piccolo", "sali", "medio", "2 bocciate");
+        assert_eq!((a["tipo"].as_str(), a["decisione"].as_str(), a["da"].as_str(), a["a"].as_str()), (Some("cervello_ar"), Some("sali"), Some("piccolo"), Some("medio")));
     }
 
     #[test]

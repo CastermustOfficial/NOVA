@@ -293,12 +293,14 @@ impl Lavoro<'_> {
 }
 
 /// Fa un compito da ricercatore. Torna lo stato con cui si chiude e la frase
-/// che lo dice.
+/// che lo dice. In `usato` lascia il cervello dell'ultimo passo fatto: quello
+/// che ha scritto il rapporto, che il capo giudica (D401).
 pub async fn lavora(
     server: &Arc<Server>,
     c: &d::Cartella,
     dot: &d::Dot,
     compito: &d::Compito,
+    usato: &mut String,
 ) -> (d::Stato, String) {
     let cfg = nova_configurazione::dove::leggi();
     let gradini = crate::agente::scala_di(&cfg);
@@ -457,6 +459,7 @@ pub async fn lavora(
             l.evento(
                 json!({ "passo": numero, "di": quanti, "cervello": arrivato, "stato": "fatto" }),
             );
+            usato.clone_from(&arrivato);
             fatti.push(r::Fatto {
                 numero,
                 genere: passo.genere,

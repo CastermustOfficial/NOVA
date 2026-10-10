@@ -59,6 +59,8 @@ cartella_nova.mkdir(parents=True, exist_ok=True)
 scritto = Path(casa) / "appunti.txt"
 LENTO_S = 6.0
 domande: list[str] = []
+#: Le domande del capo che giudica le consegne (D401).
+giudizi: list[str] = []
 #: Le domande del custode al modello di casa (D384).
 permessi: list[str] = []
 
@@ -103,6 +105,13 @@ class Cervello(BaseHTTPRequestHandler):
             manda(self, 404, {"error": "non ci sono"})
             return
         ultimo = corpo["messages"][-1]
+        # Il capo giudica ogni consegna (D401): qui promuove sempre. La
+        # pagella si prova in `test_demone_pagella.py`.
+        if (ultimo.get("content") or "").startswith("[giudizio del capo]"):
+            giudizi.append(ultimo["content"])
+            manda(self, 200, {"choices": [{"message": {"role": "assistant",
+                                                        "content": "VOTO: 9\nPERCHE: fatto"}}]})
+            return
         domande.append(json.dumps(corpo["messages"], ensure_ascii=False))
         if ultimo.get("role") == "tool":
             manda(self, 200, {"choices": [{"message": {"role": "assistant",
@@ -219,8 +228,8 @@ try:
     controlla("e la domanda dice quale compito",
               any("Compito n. 1" in str(m.get("content")) for m in conv["messaggi"]))
     diario = [json.loads(x) for x in (DOT / "diario.jsonl").read_text(encoding="utf-8").splitlines()]
-    controlla("il diario dice cosa ha fatto",
-              [x["tipo"] for x in diario] == ["comincia", "turno", "finisce"], str(diario))
+    controlla("il diario dice cosa ha fatto, e il voto del capo",
+              [x["tipo"] for x in diario] == ["comincia", "turno", "voto", "finisce"], str(diario))
     controlla("e la conversazione di Nova non e' quella del Dot",
               not any(s.startswith("dot:") for s in rpc("agente/sessioni")["aperte"]))
     controlla("un compito vuoto non entra", "vuoto" in errore("dot/affida", nome="ricercatore", testo=" "))

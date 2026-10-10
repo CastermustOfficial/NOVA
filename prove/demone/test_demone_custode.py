@@ -118,6 +118,11 @@ def cervello(chi):
             ultimo = messaggi[-1]
             if chi == "fuori":
                 domanda = ultimo.get("content") or ""
+                # Il capo giudica ogni consegna col cervello grande (D401):
+                # qui promuove sempre, e non conta fra le domande del custode.
+                if domanda.startswith("[giudizio del capo]"):
+                    testo(self, "VOTO: 9\nPERCHE: fatto")
+                    return
                 a_fuori.append(domanda)
                 if "nega-fuori" in domanda:
                     testo(self, "NEGA: non serve al compito")

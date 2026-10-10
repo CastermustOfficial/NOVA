@@ -237,7 +237,9 @@ specialisti. Li assume AR.
 5. ~~**La direzione e i reparti** (D395): chi sono, i ruoli, l'organigramma
    che nasce all'avvio~~ (D396).
 6. ~~**AR**: riprende, assume, licenzia, sceglie il cervello del compito.
-   Ogni scelta si registra~~ (D397, D398).
+   Ogni scelta si registra~~ (D397, D398). ~~**La pagella**: il capo giudica
+   ogni consegna, AR sposta il Dot su un cervello piu' leggero o piu'
+   grande~~ (D401).
 7. ~~**L'Architetto** e il piano di sviluppo~~ (D400).
 8. **L'APM e i progetti**: il via, il tetto, il vault del progetto, i Dot
    disposti, i controlli del legale.
@@ -641,7 +643,8 @@ stanno in `nova_dot::risorse`, il lavoro in `nova_core::risorse`.
 ### Cosa resta aperto, dopo AR
 
 - **Un compito affidato direttamente** a un Dot che c'e' va come prima: il
-  cervello lo sceglie il Dot (deciso con Gio).
+  cervello lo sceglie il Dot (deciso con Gio). Dal D401 parte dal cervello
+  del Dot, se AR gliene ha dato uno.
 - **Un gruppo che resta vuoto**: se il Dot licenziato era l'unico membro, il
   gruppo non si puo' salvare vuoto e resta com'era, col suo nome dentro.
 - **Licenziare dall'harness**: per ora lo si chiede a Nova; nella scheda di
@@ -740,3 +743,51 @@ ottobre, sulla bozza, prima del codice. Il formato e le regole stanno in
   vista dei progetti arriva con l'APM.
 - **Il prompt dell'Architetto** e' quello di NOVA piu' il suo: uno su misura
   costerebbe meno token (in `idea/`).
+
+**La pagella: il capo giudica, AR decide — fatto** (D401). Deciso con Gio
+il 10 ottobre, dopo l'Architetto. La prima bozza era un profilo di talento
+per cervello e per genere di lavoro, con campioni e regole per provare i
+cervelli economici; Gio l'ha semplificata: un Dot nasce per il lavoro da
+fare, col suo cervello, e si giudica da quello che porta. Cosi' ogni
+cervello finisce dove e' portato, e il piu' grande resta per dove serve
+davvero. Le regole stanno in `nova_dot::pagella`, il lavoro in
+`nova_core::pagella` e nel ciclo dei Dot.
+
+| | Deciso |
+|---|---|
+| **Il cervello del Dot** | Quello che gli da' AR quando lo assume o lo riprende: resta scritto nel suo `dot.json` (`cervello`), e ogni suo compito parte da li', anche uno affidato direttamente. |
+| **Chi giudica** | Il suo capo, o l'APM se non ne ha uno, col cervello piu' grande che risponde a un indirizzo. **Ogni consegna**: un voto da 1 a 10 e una riga di perche'. |
+| **Un voto basso** | Sotto 6 il compito si rifa' subito un gradino piu' su, e a chi l'ha chiesto arriva il lavoro rifatto. In cima non si sale: il compito resta, e il voto pure. |
+| **Cosa decide AR** | Dopo ogni voto, le ultime 5 consegne col cervello di adesso: tutte da 8 in su, il Dot scende di un gradino; 2 o piu' bocciate, sale; gia' in cima e bocciato ancora, AR lo dice a Nova. Dopo un cambio si conta da capo. Una regola fissa, che non costa niente; ogni decisione si registra, per CLM. |
+
+- **Si giudica chi prende compiti**: i reparti e gli assunti. La direzione
+  no: i piani dell'Architetto li guarda l'utente. Un compito che aspetta i
+  suoi sottoposti si giudica quando finisce davvero.
+- **La domanda al capo** (`[giudizio del capo]`) porta chi e' il Dot, il
+  compito e la consegna, col rapporto se c'e', tagliati a 6.000 caratteri;
+  la risposta sono due righe, `VOTO:` e `PERCHE:`. Se dovrebbe uscire dal PC
+  si chiede prima a `nova_decisioni` (`GiudizioDelCapo`), e una credenziale
+  non esce. Un capo che non risponde, o un voto che non si legge, non
+  giudica: il compito resta com'e', e il diario del Dot dice perche'.
+- **Il rifacimento** riceve il compito col voto e il perche' della
+  bocciatura, e nella sua conversazione il Dot ha ancora il tentativo di
+  prima. Il capo giudica anche quello, segnato come rifatto.
+- **La pagella** sta nella cartella del Dot (`pagella.jsonl`): una riga per
+  voto, col cervello che ha fatto la consegna, e una per ogni cervello che
+  gli da' AR, col perche'. Se ne va con lui in archivio. Nel registro:
+  `voto` e `cervello_ar`, e nel diario di AR le sue decisioni.
+- **Un rifacimento piu' su non conta per il cervello del Dot**: AR guarda
+  solo le consegne fatte col cervello che il Dot ha adesso.
+
+### Cosa resta aperto, dopo la pagella
+
+- **Nell'harness i voti non si vedono ancora**: il cervello del Dot c'e',
+  nella vista e nella sua scheda; i voti stanno su disco, e una vista coi
+  voti e' da fare.
+- **Il costo vero** NOVA lo legge solo da Claude Code: «piu' leggero» vuol
+  dire un gradino piu' in basso nella scala, che l'utente ordina dal piu'
+  piccolo al piu' grande.
+- **Un Dot dell'utente** lo sposta AR come gli altri: se l'utente vuole
+  tenere il cervello che gli ha dato, oggi non c'e' modo di dirlo.
+- **La decisione di AR e' una regola**: quando CLM avra' abbastanza voti e
+  decisioni, potra' decidere lui.

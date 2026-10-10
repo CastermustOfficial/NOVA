@@ -614,7 +614,11 @@ grande che risponde a un indirizzo, e scrive in Markdown le fasi, i compiti
 con chi li fa e da cosa dipendono, i rischi e le domande per te. Il piano
 arriva in chat; ogni versione resta, in `dots/architetto/piani/<progetto>/`,
 e dalla seconda dice cosa cambia. Una fase che non va si rivede da sola al
-piu' due volte, poi decidi tu. Dal demone ci sono anche i metodi `dot/crea`, `dot/affida`,
+piu' due volte, poi decidi tu. Ogni consegna di un Dot la giudica il suo
+capo, o l'APM, col cervello piu' grande: un voto da 1 a 10. Sotto 6 il
+compito si rifa' un gradino piu' su prima di arrivarti; e AR, guardando le
+ultime cinque consegne, sposta il Dot su un cervello piu' leggero se va
+sempre bene, o piu' grande se lo bocciano (D401). Dal demone ci sono anche i metodi `dot/crea`, `dot/affida`,
 `dot/stato`, `dot/elenco` e `dot/ferma`.
 
 I Dot sono per chi ha un abbonamento, un'API o una scheda video da almeno

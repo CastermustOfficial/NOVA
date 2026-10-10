@@ -57,6 +57,7 @@ pub mod giudizio_casa;
 pub mod live;
 pub mod interruzione;
 pub mod osserva;
+pub mod pagella;
 pub mod policy;
 pub mod memoria;
 pub mod imparare;

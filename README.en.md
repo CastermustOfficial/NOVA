@@ -628,7 +628,11 @@ writes in Markdown the phases, the tasks with who does them and what they
 depend on, the risks and the questions for you. The plan arrives in the
 chat; every version is kept, in `dots/architetto/piani/<project>/`, and from
 the second one on it says what changes. A phase that doesn't work out is
-revised on its own at most twice, then you decide. The daemon also has the methods `dot/crea`, `dot/affida`,
+revised on its own at most twice, then you decide. Every delivery of a Dot
+is graded by its boss, or by the APM, with the biggest brain: a mark from 1
+to 10. Below 6 the task is redone one rung higher before it reaches you; and
+AR, looking at the last five deliveries, moves the Dot to a lighter brain if
+it always does well, or to a bigger one if it keeps failing (D401). The daemon also has the methods `dot/crea`, `dot/affida`,
 `dot/stato`, `dot/elenco` and `dot/ferma`.
 
 The Dots are for whoever has a subscription, an API or a graphics card with

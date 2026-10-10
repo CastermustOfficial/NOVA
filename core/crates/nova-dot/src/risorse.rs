@@ -365,6 +365,7 @@ mod prove {
             capo: String::new(),
             fisso: false,
             assunto: true,
+            cervello: String::new(),
         }
     }
 

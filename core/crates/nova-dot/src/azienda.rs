@@ -157,6 +157,7 @@ pub fn dot_del_posto(p: &Posto, nato: &str) -> Dot {
         capo: p.capo.to_string(),
         fisso: true,
         assunto: false,
+        cervello: String::new(),
     }
 }
 

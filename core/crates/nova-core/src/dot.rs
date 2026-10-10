@@ -31,6 +31,11 @@
 //! il revisore, il rapporto (`crate::ricercatore`). L'Architetto anche: fa i
 //! piani di sviluppo che gli mette in coda NOVA (`crate::architetto`, D400).
 //!
+//! **Ogni consegna la giudica il capo** (D401, `crate::pagella`): un voto
+//! basso fa rifare il compito un gradino piu' su prima che arrivi a chi
+//! l'ha chiesto, e AR, guardando la pagella, sposta il Dot su un cervello
+//! piu' leggero o piu' grande.
+//!
 //! **I permessi li decide il custode** (D384): un Dot che NOVA fa nascere
 //! all'avvio, se non c'e', e che non prende compiti. Quando Nova chiederebbe
 //! all'utente, un Dot chiede a lui (`crate::custode`). Il Claude Code di un
@@ -192,6 +197,7 @@ fn assicura_il_custode() {
         capo: String::new(),
         fisso: false,
         assunto: false,
+        cervello: String::new(),
     };
     if let Err(e) = c.crea(&custode) {
         tracing::warn!(errore = %e, "il custode dei permessi non nasce");
@@ -405,6 +411,7 @@ pub fn nasce(
         capo: capo.to_string(),
         fisso: false,
         assunto,
+        cervello: String::new(),
     };
     c.crea(&dot)?;
     avvia(server, &dot.nome);
@@ -460,6 +467,27 @@ pub fn cambia_capo(nome: &str, capo: &str) -> Result<(), String> {
     capo_valido(&dot.nome, capo)?;
     dot.capo = capo.trim().to_string();
     c.riscrivi(&dot)
+}
+
+/// Da' a un Dot il suo cervello (D401): lo fa AR quando lo assume o lo
+/// riprende, e quando la pagella dice di spostarlo. Nella pagella resta il
+/// cambio, col perche': da li' si contano i voti da capo. Lo stesso cervello
+/// di prima non cambia niente.
+pub fn cambia_cervello(nome: &str, cervello: &str, perche: &str) -> Result<(), String> {
+    let c = cartella(nome)?;
+    let mut dot = c.dot()?;
+    let cervello = cervello.trim();
+    if dot.cervello == cervello {
+        return Ok(());
+    }
+    let da = std::mem::replace(&mut dot.cervello, cervello.to_string());
+    c.riscrivi(&dot)?;
+    c.annota_pagella(&d::pagella::Riga::Cervello {
+        quando: adesso(),
+        da,
+        a: cervello.to_string(),
+        perche: perche.trim().to_string(),
+    })
 }
 
 /// Mette un compito in coda e sveglia il Dot. Torna subito, col numero del
@@ -860,6 +888,7 @@ pub fn vista(server: &Arc<Server>) -> Value {
                 "capo": dot.capo,
                 "prende_compiti": dot.mestiere.prende_compiti(),
                 "fisso": dot.fisso,
+                "cervello": dot.cervello,
                 "a_parte": dot.mestiere.detto_a_parte(),
                 "sta": come_sta(&dot, &coda, in_corso),
                 "compito": ora.map(|x| json!({ "id": x.id, "testo": in_breve(&x.testo), "stato": x.stato })),
@@ -1146,8 +1175,9 @@ async fn ciclo(server: Arc<Server>, nome: String, m: Arc<Maniglia>) {
         // non verrebbe guardato finche' la risposta non arriva. Da fuori lo
         // si abbandona subito, e si annulla al primo punto in cui si ferma.
         let (s2, c2, n2, comp2) = (server.clone(), c.clone(), nome.clone(), compito.clone());
-        let mut lavoro =
-            tokio::spawn(async move { lavora(&s2, &c2, &n2, &comp2, riprende, &aggiunta).await });
+        let mut lavoro = tokio::spawn(async move {
+            lavora_e_giudica(&s2, &c2, &n2, &comp2, riprende, &aggiunta).await
+        });
         let (stato, esito) = tokio::select! {
             r = &mut lavoro => r.unwrap_or_else(|e| (d::Stato::Fallito, format!("il lavoro si e' rotto: {e}"))),
             _ = &mut fermato => {
@@ -1356,8 +1386,70 @@ pub(crate) fn salva(c: &d::Cartella, nome: &str, s: &Sessione) {
     }
 }
 
+/// Fa un compito e, se finisce bene, lo fa giudicare dal capo (D401). Una
+/// consegna bocciata si rifa' un gradino piu' su, finche' passa o si arriva
+/// in cima. Il compito parte dal cervello del Dot, se AR gliene ha dato uno
+/// e per questo compito non ne ha scelto un altro. Chi non prende compiti
+/// (l'Architetto) non si giudica, e un compito che aspetta i sottoposti si
+/// giudica quando finisce davvero.
+async fn lavora_e_giudica(
+    server: &Arc<Server>,
+    c: &d::Cartella,
+    nome: &str,
+    compito: &d::Compito,
+    riprende: bool,
+    aggiunta: &str,
+) -> (d::Stato, String) {
+    let dot = c.dot().ok();
+    let mut per_lui = compito.clone();
+    if per_lui.cervello.is_empty() {
+        if let Some(x) = &dot {
+            per_lui.cervello.clone_from(&x.cervello);
+        }
+    }
+    let mut usato = String::new();
+    let (mut stato, mut esito) =
+        lavora(server, c, nome, &per_lui, riprende, aggiunta, &mut usato).await;
+    let Some(dot) = dot.filter(|x| x.mestiere.prende_compiti()) else {
+        return (stato, esito);
+    };
+    let mut rifatto = false;
+    while stato == d::Stato::Fatto {
+        if c.compiti().iter().find(|x| x.id == compito.id).is_some_and(d::da_aspettare) {
+            break;
+        }
+        let Some(g) =
+            crate::pagella::giudica(server, c, &dot, compito, &esito, &usato, rifatto).await
+        else {
+            break;
+        };
+        if !g.bocciato() {
+            break;
+        }
+        let scala = crate::pagella::scala(&nova_configurazione::dove::leggi());
+        let Some(su) = d::pagella::sopra(&usato, &scala) else {
+            break;
+        };
+        let _ = c.diario(&json!({
+            "quando": adesso(), "compito": compito.id, "tipo": "rifatto", "da": usato, "a": su,
+        }));
+        server.ctx.bus.emit(
+            "dot.rifatto",
+            json!({ "dot": nome, "id": compito.id, "da": usato, "a": su, "voto": g.voto }),
+        );
+        per_lui.cervello.clone_from(&su);
+        per_lui.testo = d::pagella::rifai(&compito.testo, &g);
+        rifatto = true;
+        let mut nuovo = String::new();
+        (stato, esito) = lavora(server, c, nome, &per_lui, false, "", &mut nuovo).await;
+        usato = if nuovo.is_empty() { su } else { nuovo };
+    }
+    (stato, esito)
+}
+
 /// Fa un compito: i turni nella conversazione del Dot, finche' il modello
-/// risponde o finiscono i turni concessi.
+/// risponde o finiscono i turni concessi. In `usato` lascia il cervello che
+/// ha risposto per ultimo: quello che il capo giudica (D401).
 ///
 /// `riprende`: e' un compito in attesa i cui sottoposti hanno consegnato, e
 /// comincia con i loro esiti. `aggiunta` va in coda alla prima domanda: la
@@ -1369,6 +1461,7 @@ async fn lavora(
     compito: &d::Compito,
     riprende: bool,
     aggiunta: &str,
+    usato: &mut String,
 ) -> (d::Stato, String) {
     let dot = match c.dot() {
         Ok(x) => x,
@@ -1385,7 +1478,7 @@ async fn lavora(
         let mut per_lui = compito.clone();
         let base = if riprende { d::ripresa(compito) } else { compito.testo.clone() };
         per_lui.testo = format!("{base}{aggiunta}");
-        return crate::ricercatore::lavora(server, c, &dot, &per_lui).await;
+        return crate::ricercatore::lavora(server, c, &dot, &per_lui, usato).await;
     }
     let cfg = nova_configurazione::dove::leggi();
     let mut s = conversazione_di(c, &dot, &cfg);
@@ -1425,6 +1518,9 @@ async fn lavora(
             Ok(x) => x,
             Err(e) => return (d::Stato::Fallito, e.to_string()),
         };
+        if !svolto.cervello.is_empty() {
+            usato.clone_from(&svolto.cervello);
+        }
         let _ = c.diario(&json!({
             "quando": adesso(),
             "compito": compito.id,

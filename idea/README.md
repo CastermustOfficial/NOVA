@@ -372,3 +372,22 @@ nel piano, o contare per nome. **Perche'.** Con l'APM le fasi gireranno
 davvero, e una fase rinumerata potrebbe arrivare all'utente una volta prima
 del dovuto, o una dopo. **Cosa costerebbe.** Una voce in piu' nel formato
 (o il confronto dei nomi fra due versioni) e la prova che rinumera.
+
+## I voti dei Dot nell'harness
+
+Nata col D401. **Cosa.** Nella scheda di un Dot, accanto ai compiti, i voti
+del capo col perche' e i cervelli che gli ha dato AR; nell'organigramma, il
+cervello di ognuno. **Perche'.** Oggi la pagella sta su disco
+(`pagella.jsonl`): chi vuole sapere come va un Dot deve aprirla a mano.
+**Cosa costerebbe.** La pagella nella risposta di `dot.vista` per un Dot
+(la vista ha gia' il suo cervello), e una sezione in `nova-shell/ui/dot.js`
+con le sue traduzioni.
+
+## Un Dot dell'utente col cervello fermo
+
+Nata col D401. **Cosa.** Poter dire che un Dot nato a mano tiene il
+cervello che gli ha dato l'utente: AR lo giudica lo stesso, ma non lo
+sposta. **Perche'.** Oggi AR sposta tutti i Dot che prendono compiti, anche
+quelli dell'utente, e l'utente puo' avere un motivo che la pagella non vede
+(un abbonamento, la riservatezza). **Cosa costerebbe.** Un campo nel
+`dot.json` e nel «+» dell'harness, e un ramo in `nova_core::pagella`.
