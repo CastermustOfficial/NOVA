@@ -107,8 +107,11 @@ pub const DAL_PYTHON: [(&str, &str); 60] = [
 /// Claude o dalla porta del demone. Resta fuori anche `dot.pianifica`
 /// (D400), per la stessa soglia: con lui alla conversazione restavano 1.861
 /// token, senza ne restano 2.078 (misurato il 10 ottobre con la prova qui
-/// sotto). Il piano di sviluppo lo chiedono Claude e, quando ci sara',
-/// l'APM.
+/// sotto). Il piano di sviluppo lo chiedono Claude e l'APM. Fuori anche
+/// gli strumenti dei progetti (D402, D403): col modello di casa un progetto
+/// ai Dot lo da' Claude, con `cervelli.delega` e `dot: true`. Le righe che
+/// lo dicono a Nova e quel campo costano 67 token: alla conversazione ne
+/// restano 2.011 (misurato il 10 ottobre con la prova qui sotto).
 pub const SOLO_DEL_DEMONE: [&str; 4] = ["dot.affida", "dot.assumi", "dot.scrivi", "dot.stato"];
 
 /// Il tetto degli schemi, in caratteri di JSON.
@@ -246,19 +249,24 @@ mod prove {
         let server = registro();
         let contesto =
             crate::dalla_configurazione::modello_di_casa(&serde_json::json!({})).contesto as u32;
+        // Coi Dot accesi il prompt di Nova ha in coda le righe dei progetti
+        // (D403): si conta la piu' lunga delle due.
         let sistema = crate::agente::sistema(&serde_json::json!({}));
-        let spazio = |strumenti: &[Value]| {
+        let righe = nova_dot::progetto::per_nova(true);
+        assert!(righe.len() > nova_dot::progetto::per_nova(false).len());
+        let coi_dot = format!("{sistema}\n\n{righe}");
+        let spazio = |prompt: &str, strumenti: &[Value]| {
             nova_contesto::spazio_per_la_conversazione(
                 contesto,
-                &sistema,
+                prompt,
                 Some(&Value::Array(strumenti.to_vec()).to_string()),
             )
         };
-        let resta = spazio(&schemi(&server.registry, true));
-        let senza_dot = spazio(&schemi(&server.registry, false));
+        let resta = spazio(&coi_dot, &schemi(&server.registry, true));
+        let senza_dot = spazio(&sistema, &schemi(&server.registry, false));
         println!("alla conversazione restano {resta} token su {contesto}, {senza_dot} coi Dot spenti");
         assert!(resta >= MARGINE_CONVERSAZIONE, "restano {resta} token");
         assert!(senza_dot > resta, "coi Dot spenti il modello di casa si riprende il contesto");
-        assert_eq!(spazio(&server.registry.as_openai_tools()), 0);
+        assert_eq!(spazio(&sistema, &server.registry.as_openai_tools()), 0);
     }
 }

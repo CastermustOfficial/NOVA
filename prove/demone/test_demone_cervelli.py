@@ -327,6 +327,79 @@ try:
                   and d.get("scelta") == "__nessuna__" and d.get("come") == "risposto"
                   and len(d.get("quando", "")) == 19, str(d))
 
+    print("\n5c. un progetto ai Dot: a Claude, con gli strumenti di NOVA (D403)")
+    CONFIG = Path(casa) / "NOVA" / "config.json"
+    di_prima = CONFIG.read_text(encoding="utf-8")
+
+    def con(**cambi):
+        c = json.loads(di_prima)
+        c.update(cambi)
+        CONFIG.write_text(json.dumps(c, ensure_ascii=False), encoding="utf-8")
+
+    con(dots={"accesi": "no"})
+    with CoreClient(endpoint, timeout=60) as c:
+        spenti, err_spenti = testo_mcp(c, "cervelli_delega", {"a": "locale", "compito": "x",
+                                                             "dot": True})
+    controlla("coi Dot spenti, no", err_spenti and "i Dot sono spenti" in spenti, spenti[:200])
+    # «claude_t» e' in pausa per la quota della sezione 5: ne serve un altro,
+    # e il primo Claude della scala e' lui.
+    coi_dot = json.loads(di_prima)
+    coi_dot["dots"] = {"accesi": "si"}
+    coi_dot["brains"]["routing"]["tiers"]["claude_dot"] = {"brain": "claude", "model": "modello-finto"}
+    coi_dot["brains"]["routing"]["scala"] = ["locale", "esterno", "claude_dot", "claude_t"]
+    CONFIG.write_text(json.dumps(coi_dot, ensure_ascii=False), encoding="utf-8")
+    senza_claude = json.loads(di_prima)
+    senza_claude["dots"] = {"accesi": "si"}
+    del senza_claude["brains"]["routing"]["tiers"]["claude_t"]
+    senza_claude["brains"]["routing"]["scala"] = ["locale", "esterno"]
+    with CoreClient(endpoint, timeout=60) as c:
+        anteprima = c.call("cervelli.delega", {"a": "locale", "compito": "x", "dot": True,
+                                               "prova": True})
+        lanciati = len(TRACCIA.read_text(encoding="utf-8").splitlines()) if TRACCIA.is_file() else 0
+        detto, err = testo_mcp(c, "cervelli_delega", {
+            "a": "locale", "compito": "Dai ai Dot il progetto «spazi»: cercare spazi compressi.",
+            "dot": True})
+        CONFIG.write_text(json.dumps(senza_claude, ensure_ascii=False), encoding="utf-8")
+        niente, err_niente = testo_mcp(c, "cervelli_delega", {"a": "locale", "compito": "x",
+                                                             "dot": True})
+        CONFIG.write_text(json.dumps(coi_dot, ensure_ascii=False), encoding="utf-8")
+        dopo_dot, err_dopo = testo_mcp(c, "cervelli_delega", {"a": "claude_dot", "compito": "dopo"})
+    CONFIG.write_text(di_prima, encoding="utf-8")
+    controlla("l'anteprima dice che va a Claude con gli strumenti, e le conferme",
+              "con gli strumenti di NOVA" in anteprima.get("nota", "")
+              and "conferma" in anteprima.get("nota", ""), str(anteprima))
+    controlla("senza Claude nella scala, no, e dice perche'",
+              err_niente and "nella scala non c'e' Claude Code" in niente, niente[:200])
+    lanci = [json.loads(r) for r in TRACCIA.read_text(encoding="utf-8").splitlines()][lanciati:] \
+        if TRACCIA.is_file() else []
+    ponte = (DEMONE.parent / ("nova.exe" if os.name == "nt" else "nova")).is_file()
+    if ponte:
+        argv = lanci[0]["argv"] if lanci else []
+        dopo = (lambda k: argv[argv.index(k) + 1] if k in argv else "")
+        mcp = dopo("--mcp-config")
+        server_mcp = (json.loads(Path(mcp).read_text(encoding="utf-8")).get("mcpServers", {})
+                      if mcp and Path(mcp).is_file() else {})
+        controlla("chiede al primo Claude, anche se si era detto «locale»",
+                  not err and detto.startswith("[risposta da «claude_dot»") and len(lanci) == 2,
+                  repr(detto)[:200])
+        controlla("Claude riceve gli strumenti di NOVA, quelli di Nova, col suo sportello",
+                  Path(mcp).name == "mcp_demone.json" and "nova-core" in server_mcp
+                  and dopo("--permission-prompt-tool") == "mcp__nova-core__approvazione_claude",
+                  repr(argv)[:400])
+        controlla("e il compito gli dice per cosa sono",
+                  lanci and lanci[0]["domanda"].startswith("[progetto dei Dot] Hai gli strumenti di NOVA")
+                  and lanci[0]["domanda"].endswith("Dai ai Dot il progetto «spazi»: cercare spazi compressi."),
+                  repr(lanci[0]["domanda"] if lanci else "")[:300])
+    else:
+        controlla("senza il ponte accanto al demone, Claude non avrebbe gli strumenti: no",
+                  err and "Claude non riceve gli strumenti di NOVA" in detto and not lanci,
+                  repr(detto)[:200])
+    controlla("finita la delega coi Dot, si delega come prima, senza strumenti",
+              not err_dopo and dopo_dot.endswith("Claude dice ok")
+              and "--mcp-config" not in json.loads(
+                  TRACCIA.read_text(encoding="utf-8").splitlines()[-1])["argv"],
+              repr(dopo_dot)[:200])
+
     print("\n6. un server che non risponde non e' pronto")
     server["casa"].shutdown()
     server["casa"].server_close()

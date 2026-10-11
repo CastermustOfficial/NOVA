@@ -2599,3 +2599,43 @@ numero d'ordine, e la coda segue quello.
 La regola: un ordine che conta non si ricava da un'ora scritta al secondo;
 si scrive un numero quando la cosa nasce.
 
+
+## I compiti uguali tenuti anche dove andavano rifatti
+
+Scrivendo il D403 ho fatto si' che, col piano nuovo, i compiti fatti e
+rimasti uguali non si rifacessero, e l'ho messo in ogni piano nuovo: anche
+in quello che l'Architetto scrive quando una fase non e' andata. Credevo che
+un compito uguale fosse un compito da tenere sempre. Non e' cosi': una fase
+bocciata dalla revisione ha i compiti fatti, e l'Architetto la puo' lasciare
+uguale proprio perche' va rifatta. Tenendoli, la fase non si rifaceva, e la
+revisione avrebbe riguardato le stesse consegne. L'ha visto la prova della
+fase bocciata del D402 («la fase 1 si e' rifatta»: un compito invece di
+due), prima del commit. Adesso i compiti si tengono solo quando il piano
+l'ha cambiato l'utente.
+
+La regola: un comportamento nuovo messo in una funzione che ha piu' di un
+chiamante si decide per ogni chiamante, non per quello a cui si stava
+pensando.
+
+## Un a capo vero dentro le stringhe
+
+Nello stesso lavoro alcune stringhe di `nova_dot::progetto` avevano un a
+capo vero invece di `\n`: lo strumento con cui le avevo scritte aveva
+trasformato l'escape. Il risultato era lo stesso, e le prove passavano; me
+ne sono accorto rileggendo il diff. Le ho riscritte con `\n`.
+
+La regola: un file scritto da uno script si rilegge nel diff, non solo
+nelle prove: le prove guardano cosa fa, il diff anche com'e' scritto.
+
+## Un gradino tolto dalla scala, ma non dai gradini
+
+Scrivendo la prova della delega coi Dot ho tolto Claude dalla `scala` della
+configurazione, per vedere il no «senza Claude». Il gradino restava in
+`tiers`, e la scala che NOVA usa comprende anche quelli: Claude c'era
+ancora, e la delega e' andata avanti. Nella stessa prova, il Claude finto
+era in pausa per la quota provata nella sezione prima, e la delega ripiegava
+in casa. L'hanno visto le prove; la prova ora toglie il gradino da tutti e
+due i posti, e usa un secondo Claude.
+
+La regola: prima di scrivere una configurazione di prova si guarda come il
+codice la legge, e cosa hanno lasciato le sezioni prima.

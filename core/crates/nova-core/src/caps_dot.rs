@@ -24,7 +24,8 @@
 //! Dal D400 Nova chiede all'Architetto il piano di sviluppo di un progetto
 //! (`dot.pianifica`), che arriva in chat quando e' pronto. Dal D402 passa un
 //! progetto intero all'APM (`dot.progetto`), gli da' il via (`dot.via`), lo
-//! ferma (`dot.ferma_progetto`) e chiede com'e' (`dot.progetti`).
+//! ferma (`dot.ferma_progetto`) e chiede com'e' (`dot.progetti`). Dal D403
+//! lo cambia in corsa (`dot.cambia_progetto`).
 //!
 //! Far nascere un Dot e fermarlo resta di Nova: un Dot che lo chiede si sente
 //! dire di no. I gruppi li fa Nova, e dal D392 anche un capo, coi suoi
@@ -48,6 +49,7 @@ pub fn register(reg: &mut Registry) {
     reg.add(Arc::new(ProgettoCap));
     reg.add(Arc::new(ViaCap));
     reg.add(Arc::new(FermaProgettoCap));
+    reg.add(Arc::new(CambiaProgettoCap));
     reg.add(Arc::new(ProgettiCap));
     reg.add(Arc::new(AffidaCap));
     reg.add(Arc::new(StatoCap));
@@ -407,6 +409,36 @@ impl Capability for FermaProgettoCap {
         let nome = arg_str(&args, "nome")?;
         let perche = arg_str_opt(&args, "perche").unwrap_or_default();
         crate::apm::ferma(server, &nome, &perche).map_err(|e| anyhow!(e))
+    }
+}
+
+/// L'utente vuole cambiare qualcosa in un progetto (D403): l'Architetto
+/// rivede il piano dalla fase di adesso, e l'APM riparte da solo se il
+/// tetto basta. Non spende piu' del tetto gia' dato: e' sicura.
+struct CambiaProgettoCap;
+
+#[async_trait]
+impl Capability for CambiaProgettoCap {
+    fn info(&self) -> CapabilityInfo {
+        CapabilityInfo {
+            name: "dot.cambia_progetto".into(),
+            description: "Cambia un progetto dei Dot come chiede l'utente: l'Architetto rivede \
+                          il piano da dove si e' arrivati, le fasi fatte restano."
+                .into(),
+            risk: Risk::Safe,
+            category: "dot".into(),
+            schema: schema(&[
+                ("nome", "string", "il progetto", true),
+                ("cosa", "string", "cosa cambiare, con le parole dell'utente", true),
+            ]),
+        }
+    }
+
+    async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
+        let server = per_nova("cambiare un progetto")?;
+        let nome = arg_str(&args, "nome")?;
+        let cosa = arg_str(&args, "cosa")?;
+        crate::apm::cambia(server, &nome, &cosa).map_err(|e| anyhow!(e))
     }
 }
 

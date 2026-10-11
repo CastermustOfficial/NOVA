@@ -85,21 +85,34 @@ pub enum Evento {
         cartella: String,
     },
     /// Il piano e' chiesto all'Architetto: il suo compito, e la fase se e'
-    /// una revisione per una fase che non e' andata.
+    /// una revisione per una fase che non e' andata. `da_fase` e' da dove si
+    /// rifa' col piano nuovo (vuoto: dalla `fase`); `cambio`, se lo chiede
+    /// l'utente in corsa (D403).
     PianoChiesto {
         quando: String,
         compito: u64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         fase: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        da_fase: Option<u32>,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        cambio: bool,
     },
-    /// Il piano e' pronto, in quella versione. Se era una revisione per una
-    /// fase, i compiti da quella fase in poi si rifanno col piano nuovo.
+    /// Il piano e' pronto, in quella versione. Se era una revisione, i
+    /// compiti da quella fase in poi si rifanno col piano nuovo, fuori che
+    /// quelli fatti che il piano nuovo lascia uguali (`tenuti`).
     PianoPronto {
         quando: String,
         versione: u32,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         da_fase: Option<u32>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        tenuti: Vec<String>,
     },
+    /// L'utente vuole cambiare qualcosa (D403, `dot.cambia_progetto`).
+    /// L'APM lascia finire i compiti in corso, non ne affida di nuovi, e
+    /// chiede all'Architetto di rivedere il piano dalla fase di adesso.
+    Cambio { quando: String, cosa: String },
     /// Il legale ha guardato: all'inizio (`fase` vuota e non `rilascio`),
     /// dopo una fase, o prima del rilascio.
     Legale {
@@ -194,8 +207,13 @@ pub struct Progetto {
     pub dove: DoveSta,
     /// La versione del piano su cui si lavora, o zero.
     pub versione: u32,
-    /// Il compito dell'Architetto che si aspetta, se c'e'.
+    /// Il compito dell'Architetto che si aspetta, se c'e', e da che fase si
+    /// rifa' col piano nuovo.
     pub piano_chiesto: Option<(u64, Option<u32>)>,
+    /// Il piano che si aspetta l'ha chiesto l'utente in corsa (D403).
+    pub piano_per_cambio: bool,
+    /// Il cambio chiesto dall'utente e non ancora passato all'Architetto.
+    pub cambio: Option<String>,
     /// I ruoli del piano, e chi li fa.
     pub squadra: BTreeMap<String, String>,
     pub tetto: f64,
@@ -227,6 +245,8 @@ impl Progetto {
             dove: DoveSta::Prepara,
             versione: 0,
             piano_chiesto: None,
+            piano_per_cambio: false,
+            cambio: None,
             squadra: BTreeMap::new(),
             tetto: 0.0,
             speso: 0.0,
@@ -257,21 +277,37 @@ impl Progetto {
                     p.richiesta.clone_from(richiesta);
                     p.cartella.clone_from(cartella);
                 }
-                Evento::PianoChiesto { compito, fase, .. } => {
-                    p.piano_chiesto = Some((*compito, *fase))
+                Evento::PianoChiesto {
+                    compito,
+                    fase,
+                    da_fase,
+                    cambio,
+                    ..
+                } => {
+                    p.piano_chiesto = Some((*compito, da_fase.or(*fase)));
+                    p.piano_per_cambio = *cambio;
+                    if *cambio {
+                        p.cambio = None;
+                    }
                 }
                 Evento::PianoPronto {
-                    versione, da_fase, ..
+                    versione,
+                    da_fase,
+                    tenuti,
+                    ..
                 } => {
                     p.piano_chiesto = None;
                     p.versione = *versione;
                     if let Some(n) = da_fase {
                         // La revisione rifa' la fase e quelle dopo: i loro
-                        // compiti e i loro esiti non valgono piu'.
+                        // compiti e i loro esiti non valgono piu', fuori che
+                        // quelli fatti che il piano nuovo lascia uguali.
                         let prefisso =
                             |id: &str| id.split('.').next().and_then(|x| x.parse::<u32>().ok());
-                        p.lavori
-                            .retain(|id, _| prefisso(id).is_some_and(|f| f < *n));
+                        p.lavori.retain(|id, l| {
+                            prefisso(id).is_some_and(|f| f < *n)
+                                || (tenuti.contains(id) && l.stato == Some(Stato::Fatto))
+                        });
                         p.fasi.retain(|f, _| f < n);
                         p.legale_fasi.retain(|f, _| f < n);
                     }
@@ -291,6 +327,23 @@ impl Progetto {
                         p.legale_inizio = Some(*ok);
                     }
                     p.note_legali.clone_from(note);
+                }
+                Evento::Cambio { cosa, .. } => {
+                    // Due cambi prima che l'Architetto ne veda uno: li vede
+                    // tutti e due.
+                    p.cambio = Some(match p.cambio.take() {
+                        Some(prima) => format!("{prima}\n{cosa}"),
+                        None => cosa.clone(),
+                    });
+                    // Prima del via si riprepara: il legale riguarda il
+                    // piano nuovo, e la proposta si rifa'.
+                    if !col_via {
+                        p.legale_inizio = None;
+                        p.proposto = false;
+                        if p.dove == DoveSta::AspettaIlVia {
+                            p.dove = DoveSta::Prepara;
+                        }
+                    }
                 }
                 Evento::Squadra { ruolo, dot, .. } => {
                     p.squadra.insert(ruolo.clone(), dot.clone());
@@ -621,6 +674,100 @@ pub fn proposta(p: &Progetto, piano: &Piano, file_piano: &str, tetto: f64) -> St
     t
 }
 
+/// I compiti fatti che un piano nuovo lascia uguali, da `da_fase` in poi:
+/// stesso id, stessa cosa, stesso chi. Non si rifanno (D403).
+pub fn tenuti(p: &Progetto, vecchio: &Piano, nuovo: &Piano, da_fase: u32) -> Vec<String> {
+    let fase_di = |id: &str| id.split('.').next().and_then(|x| x.parse::<u32>().ok());
+    p.lavori
+        .iter()
+        .filter(|(id, l)| fase_di(id).is_some_and(|f| f >= da_fase) && l.stato == Some(Stato::Fatto))
+        .filter(|(id, _)| {
+            let prima = vecchio.incarichi().find(|i| i.id == **id);
+            let dopo = nuovo.incarichi().find(|i| i.id == **id);
+            matches!((prima, dopo), (Some(a), Some(b)) if a.cosa == b.cosa && a.chi == b.chi)
+        })
+        .map(|(id, _)| id.clone())
+        .collect()
+}
+
+/// Quanto costerebbe, alla stima del tetto, quel che resta da fare col
+/// piano nuovo: i compiti da `da_fase` in poi, meno quelli tenuti.
+pub fn costo_del_resto(nuovo: &Piano, da_fase: u32, tenuti: &[String]) -> f64 {
+    let quanti = nuovo
+        .fasi
+        .iter()
+        .filter(|f| f.n >= da_fase)
+        .flat_map(|f| f.incarichi.iter())
+        .filter(|i| !tenuti.contains(&i.id))
+        .count();
+    ((quanti as f64 * TETTO_PER_COMPITO) * 100.0).round() / 100.0
+}
+
+/// Il testo per l'Architetto quando l'utente chiede un cambio: cosa
+/// cambiare e, a lavoro iniziato, da che fase (quelle prima restano).
+pub fn testo_del_cambio(cosa: &str, da_fase: Option<u32>) -> String {
+    match da_fase {
+        Some(n) if n > 1 => format!(
+            "{}\nIl lavoro e' alla fase {n}: le fasi prima restano come sono, si cambia da li'.",
+            cosa.trim()
+        ),
+        _ => cosa.trim().to_string(),
+    }
+}
+
+/// Se il resto del lavoro, col piano nuovo, passa il tetto: allora si
+/// chiede il via con un tetto nuovo. Senza tetto non si chiede.
+pub fn serve_un_tetto_nuovo(p: &Progetto, serve: f64) -> bool {
+    p.tetto > 0.0 && p.speso + serve > p.tetto
+}
+
+/// Cosa dire quando il piano cambia in corsa: cosa cambia, e se si riparte
+/// o serve un tetto nuovo.
+pub fn dopo_il_cambio(p: &Progetto, nuovo: &Piano, file: &str, serve: f64) -> String {
+    let mut t = format!(
+        "Il piano di «{}» e' cambiato, versione {}. E' in {file}.",
+        p.nome, nuovo.versione
+    );
+    if !nuovo.cambia.is_empty() {
+        t.push_str("\nCosa cambia:");
+        for c in &nuovo.cambia {
+            t.push_str(&format!("\n- {c}"));
+        }
+    }
+    if serve_un_tetto_nuovo(p, serve) {
+        t.push_str(&format!(
+            "\nPer finire servono circa {serve:.2} $, e col gia' speso ({:.2} $) si passa il tetto di {:.2} $: mi fermo, e aspetto il via con un tetto nuovo.",
+            p.speso, p.tetto
+        ));
+    } else {
+        t.push_str("\nRiparto.");
+    }
+    t
+}
+
+/// La frase detta a voce quando un progetto finisce (D403): corta, senza
+/// percorsi. Il resoconto e' in chat.
+pub fn frase_di_fine(nome: &str) -> String {
+    format!("Il progetto {nome} e' finito: il resoconto e' in chat.")
+}
+
+/// Le righe che Nova ha nel prompt coi Dot accesi (D403): davanti a un
+/// lavoro grosso propone di darlo ai Dot. Corte, perche' le legge anche il
+/// modello di casa, che ha il contesto contato: col modello di casa al
+/// posto di `dot.progetto` c'e' la delega a Claude con gli strumenti di
+/// NOVA, se nella scala c'e' Claude.
+pub fn per_nova(con_claude: bool) -> String {
+    let senza = if con_claude {
+        "cervelli_delega con dot: true"
+    } else {
+        "di' che serve Claude"
+    };
+    format!(
+        "## Progetti dei Dot\nUn lavoro grosso (molti passi, ricerca, codice) proponi di darlo \
+         ai Dot; al si', dot_progetto, o se non c'e' {senza}."
+    )
+}
+
 /// Il segno della domanda al legale.
 pub const SEGNO_LEGALE: &str = "[legale]";
 
@@ -843,11 +990,14 @@ mod prove {
                 quando: t(),
                 compito: 1,
                 fase: None,
+                da_fase: None,
+                cambio: false,
             },
             Evento::PianoPronto {
                 quando: t(),
                 versione: 1,
                 da_fase: None,
+                tenuti: Vec::new(),
             },
         ]
     }
@@ -1030,18 +1180,65 @@ mod prove {
                 quando: t(),
                 compito: 7,
                 fase: Some(2),
+                da_fase: None,
+                cambio: false,
             },
             Evento::PianoPronto {
                 quando: t(),
                 versione: 2,
                 da_fase: Some(2),
+                tenuti: vec!["2.1".into()],
             },
         ]);
         let p = Progetto::da("p", &e).unwrap();
         assert_eq!(p.versione, 2);
-        assert_eq!(p.lavori.keys().collect::<Vec<_>>(), ["1.1", "1.2"]);
+        assert_eq!(p.piano_chiesto, None);
+        assert_eq!(
+            p.lavori.keys().collect::<Vec<_>>(),
+            ["1.1", "1.2"],
+            "2.1 era tenuto, ma non era fatto: si rifa'"
+        );
         assert_eq!(p.fasi.get(&1), Some(&true));
         assert_eq!(p.fasi.get(&2), None);
+    }
+
+    #[test]
+    fn un_cambio_in_corso_tiene_i_compiti_uguali_e_prima_del_via_riprepara() {
+        let mut e = base();
+        e.extend([
+            Evento::Via { quando: t(), tetto: 0.0 },
+            affidato("1.1", "ricerca", 4),
+            chiuso("1.1", Stato::Fatto),
+            affidato("1.2", "revisione", 5),
+            Evento::Cambio { quando: t(), cosa: "niente prototipo".into() },
+        ]);
+        let p = Progetto::da("p", &e).unwrap();
+        assert_eq!((p.dove, p.cambio.as_deref()), (DoveSta::InCorso, Some("niente prototipo")));
+        let mut due = e.clone();
+        due.push(Evento::Cambio { quando: t(), cosa: "e niente Huffman".into() });
+        assert_eq!(
+            Progetto::da("p", &due).unwrap().cambio.as_deref(),
+            Some("niente prototipo\ne niente Huffman"),
+            "due cambi insieme: l'Architetto li vede tutti e due"
+        );
+        e.extend([
+            chiuso("1.2", Stato::Fatto),
+            Evento::PianoChiesto { quando: t(), compito: 8, fase: None, da_fase: Some(1), cambio: true },
+        ]);
+        let p = Progetto::da("p", &e).unwrap();
+        assert_eq!((p.cambio.as_deref(), p.piano_chiesto, p.piano_per_cambio), (None, Some((8, Some(1))), true));
+        e.push(Evento::PianoPronto { quando: t(), versione: 2, da_fase: Some(1), tenuti: vec!["1.1".into()] });
+        let p = Progetto::da("p", &e).unwrap();
+        assert_eq!(p.lavori.keys().collect::<Vec<_>>(), ["1.1"], "1.1 e' uguale e fatto: resta");
+
+        let mut prima = base();
+        prima.extend([
+            Evento::Legale { quando: t(), fase: None, rilascio: false, ok: true, note: vec![] },
+            Evento::Proposto { quando: t(), tetto: 1.0 },
+            Evento::Cambio { quando: t(), cosa: "piu' corto".into() },
+        ]);
+        let p = Progetto::da("p", &prima).unwrap();
+        assert_eq!((p.dove, p.proposto, p.legale_inizio), (DoveSta::Prepara, false, None));
     }
 
     #[test]
@@ -1091,6 +1288,49 @@ mod prove {
             resoconto: "fatto".into(),
         });
         assert!(!Progetto::da("p", &e).unwrap().aperto());
+    }
+
+    #[test]
+    fn un_piano_nuovo_tiene_i_fatti_uguali_e_dice_quanto_costa_il_resto() {
+        let mut e = base();
+        e.extend([
+            Evento::Via { quando: t(), tetto: 2.0 },
+            affidato("1.1", "ricerca", 4),
+            chiuso("1.1", Stato::Fatto),
+            affidato("1.2", "revisione", 5),
+            chiuso("1.2", Stato::Fatto),
+            Evento::Spesa { quando: t(), usd: 1.5, per: "x".into() },
+        ]);
+        let p = Progetto::da("p", &e).unwrap();
+        let nuovo_testo = PIANO.replace("- 1.2 [revisione] rivedere (dopo 1.1)", "- 1.2 [revisione] rivedere bene (dopo 1.1)")
+            .replace("Obiettivo: o\n", "Obiettivo: o\n## Cosa cambia\n- 1.2 piu' severa\n");
+        let nuovo = piano::leggi(&nuovo_testo, 2).unwrap().0;
+        let t = tenuti(&p, &piano(), &nuovo, 1);
+        assert_eq!(t, ["1.1"], "1.2 e' cambiato: si rifa'");
+        assert_eq!(costo_del_resto(&nuovo, 1, &t), 1.2, "quattro compiti da rifare");
+        let m = dopo_il_cambio(&p, &nuovo, "/x/piano-2.md", 1.2);
+        assert!(m.starts_with("Il piano di «p» e' cambiato, versione 2. E' in /x/piano-2.md.\nCosa cambia:\n- 1.2 piu' severa"), "{m}");
+        assert!(m.ends_with("si passa il tetto di 2.00 $: mi fermo, e aspetto il via con un tetto nuovo."), "{m}");
+        assert!(dopo_il_cambio(&p, &nuovo, "f", 0.3).ends_with("\nRiparto."));
+        assert!(serve_un_tetto_nuovo(&p, 0.51) && !serve_un_tetto_nuovo(&p, 0.5), "1.5 gia' spesi, tetto 2");
+        let senza = Progetto { tetto: 0.0, ..p.clone() };
+        assert!(!serve_un_tetto_nuovo(&senza, 100.0), "senza tetto non si chiede");
+        assert!(dopo_il_cambio(&senza, &nuovo, "f", 100.0).ends_with("\nRiparto."));
+        assert_eq!(testo_del_cambio(" niente Huffman ", Some(1)), "niente Huffman");
+        assert_eq!(testo_del_cambio("niente Huffman", None), "niente Huffman");
+        assert_eq!(
+            testo_del_cambio("niente Huffman", Some(2)),
+            "niente Huffman\nIl lavoro e' alla fase 2: le fasi prima restano come sono, si cambia da li'."
+        );
+        assert_eq!(frase_di_fine("spazi"), "Il progetto spazi e' finito: il resoconto e' in chat.");
+    }
+
+    #[test]
+    fn le_righe_per_nova_sono_corte_e_dicono_cosa_fare() {
+        let con = per_nova(true);
+        assert!(con.starts_with("## Progetti dei Dot\n") && con.contains("cervelli_delega con dot: true"), "{con}");
+        assert!(per_nova(false).contains("di' che serve Claude"));
+        assert!(con.chars().count() < 220, "{} caratteri: le legge anche il modello di casa", con.chars().count());
     }
 
     #[test]

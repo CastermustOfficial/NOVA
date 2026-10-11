@@ -349,6 +349,28 @@ pub(crate) fn sistema(cfg: &Value) -> String {
     nova_contesto::sistema::per_il_demone(&intero)
 }
 
+/// Il prompt dei turni di Nova: quello di sistema e, coi Dot accesi, le
+/// righe sui progetti dei Dot (D403): davanti a un lavoro grosso Nova
+/// propone di darlo ai Dot. Ai Dot no: il loro prompt e' un altro.
+pub(crate) fn sistema_di_nova(cfg: &Value) -> String {
+    let accesi =
+        crate::dot_accesi::decidi(crate::dot_accesi::scelta(cfg), &crate::dot_accesi::fatti(cfg))
+            .accesi;
+    let con_claude = scala_di(cfg)
+        .iter()
+        .any(|g| matches!(g, crate::mondo::Gradino::Claude { .. }));
+    con_le_righe_dei_dot(sistema(cfg), accesi, con_claude)
+}
+
+/// Le righe sui progetti dei Dot in coda al prompt, se i Dot sono accesi.
+fn con_le_righe_dei_dot(sistema: String, accesi: bool, con_claude: bool) -> String {
+    if accesi {
+        format!("{sistema}\n\n{}", nova_dot::progetto::per_nova(con_claude))
+    } else {
+        sistema
+    }
+}
+
 /// `datetime.now().strftime("%A %d/%m/%Y %H:%M")`, cioe' cio' che mette
 /// `agent.py` al posto di `{now}`: il giorno in inglese, come lo scrive
 /// Python con la locale di base. Lo stesso prompt deve dire la stessa ora
@@ -441,7 +463,7 @@ pub fn perche_non_pronto(g: &crate::mondo::Gradino) -> Option<String> {
 /// spenta, come nel Python, dove il cervello riceveva `vault_path` vuoto e il
 /// prompt non parlava di memoria (D366). Gli strumenti del demone via MCP
 /// restano: la memoria spenta non spegne il resto.
-fn vault_per_claude(cfg: &Value, vault: &std::path::Path) -> String {
+pub(crate) fn vault_per_claude(cfg: &Value, vault: &std::path::Path) -> String {
     if crate::memoria::accesa(cfg) {
         vault.to_string_lossy().to_string()
     } else {
@@ -449,7 +471,7 @@ fn vault_per_claude(cfg: &Value, vault: &std::path::Path) -> String {
     }
 }
 
-fn collegamento_claude(
+pub(crate) fn collegamento_claude(
     server: &Arc<Server>,
     d: &nova_cervelli::claude::Dichiarato,
     vault: &std::path::Path,
@@ -516,7 +538,7 @@ pub async fn fai_un_turno(
         return Err(anyhow!("un turno senza domanda non ha niente da fare"));
     }
     let cfg = nova_configurazione::dove::leggi();
-    let prompt = sistema(&cfg);
+    let prompt = sistema_di_nova(&cfg);
     let nome = nome_della_sessione(nome_sessione);
     let sessione = server
         .agente
@@ -961,6 +983,26 @@ mod prove {
         assert!(p.starts_with("Sei NOVA"));
         assert!(p.contains(nova_contesto::testi::INIZIO_REGOLE));
         assert!(!p.contains("{user}") && !p.contains("{now}") && !p.contains("{home}"));
+    }
+
+    /// Coi Dot accesi Nova sa che un lavoro grosso si propone ai Dot (D403):
+    /// con Claude nella scala, col modello di casa lo passa a lui; senza,
+    /// dice che serve Claude. Spenti, il prompt resta quello.
+    #[test]
+    fn coi_dot_accesi_nova_sa_dei_progetti() {
+        let base = "Sei NOVA.".to_string();
+        assert_eq!(con_le_righe_dei_dot(base.clone(), false, true), base);
+        let con = con_le_righe_dei_dot(base.clone(), true, true);
+        assert_eq!(con, format!("Sei NOVA.\n\n{}", nova_dot::progetto::per_nova(true)));
+        assert!(con.contains("dot_progetto") && con.contains("cervelli_delega con dot: true"));
+        assert!(con_le_righe_dei_dot(base, true, false).contains("di' che serve Claude"));
+        // Gli strumenti che le righe nominano ci sono, e la delega ha `dot`.
+        let server = crate::build(crate::config::Config::default()).unwrap();
+        let t = server.registry.as_openai_tools();
+        let di = |n: &str| t.iter().find(|x| x["function"]["name"] == n).cloned();
+        assert!(di("dot_progetto").is_some());
+        let delega = di("cervelli_delega").expect("cervelli_delega");
+        assert_eq!(delega["function"]["parameters"]["properties"]["dot"]["type"], "boolean");
     }
 
     /// Ogni strumento che il prompt nomina tra apici inversi il demone lo

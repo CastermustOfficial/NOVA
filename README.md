@@ -70,7 +70,7 @@ Se qualcosa non funziona, il resto del documento spiega perche'.
 ## Cosa sa fare
 
 Un elenco di aggettivi non dice niente. Questi sono i numeri, contati dal
-codice: **141 strumenti** per un cervello agentico come Claude Code, e **58**
+codice: **142 strumenti** per un cervello agentico come Claude Code, e **58**
 per il modello che gira sul tuo PC e per le API, sempre gli stessi, perche'
 tutti insieme non starebbero nel suo contesto; **38 formati** di file che sa
 aprire e mostrare. Coi Dot accesi il modello sul PC ne riceve 62; spenti,
@@ -625,7 +625,14 @@ domande; col tuo via (`dot.via`) affida i compiti fase dopo fase, fa
 guardare ogni fase alla revisione e al legale, e alla fine ti manda il
 resoconto. Uno alla volta; si ferma quando lo fermi tu
 (`dot.ferma_progetto`), quando il legale ha dei dubbi o al 90% del tetto, e
-contano solo i cervelli a consumo. Dal demone ci sono anche i metodi `dot/crea`, `dot/affida`,
+contano solo i cervelli a consumo. Davanti a un lavoro grosso Nova ti
+propone di darlo ai Dot, e col modello sul PC lo passa a Claude, che per
+questo solo riceve gli strumenti di NOVA (`cervelli.delega` con `dot`,
+D403). Mentre lavorano l'APM non ti scrive a ogni fase: chiedi tu
+(`dot.progetti`). Se cambi idea in corsa (`dot.cambia_progetto`) lascia
+finire i compiti in corso, l'Architetto rivede il piano da li', i compiti
+fatti e rimasti uguali non si rifanno, e riparte da solo se il tetto basta;
+se no te lo chiede. Alla fine, con la voce accesa, te lo dice. Dal demone ci sono anche i metodi `dot/crea`, `dot/affida`,
 `dot/stato`, `dot/elenco` e `dot/ferma`.
 
 I Dot sono per chi ha un abbonamento, un'API o una scheda video da almeno
@@ -1390,7 +1397,7 @@ autenticato. NOVA:
   | Autonomo | `bypassPermissions` |
 
 - gli collega il demone come **server MCP** (`nova mcp`, un ponte fra lo
-  standard input e il canale del demone): Claude vede tutti i 141
+  standard input e il canale del demone): Claude vede tutti i 142
   strumenti (129 coi Dot spenti), da `mcp__nova-core__kb_cerca` in giu', con
   le stesse guardie del modello di casa, che ne riceve 58 (62 coi Dot accesi)
   perche' nel suo contesto tutti non ci stanno. Le conferme passano dallo sportello di NOVA

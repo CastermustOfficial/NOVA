@@ -16,6 +16,16 @@ Deciso con Gio il 10 ottobre, sulla bozza. Nova passa un progetto all'APM
 - un progetto alla volta: un secondo aspetta in coda;
 - il tetto: contano i cervelli a consumo; al 90% si ferma.
 
+E Nova tramite (D403), deciso con Gio lo stesso giorno:
+
+- un cambio chiesto in corsa (`dot.cambia_progetto`): l'APM lascia finire i
+  compiti in corso e non ne affida altri, l'Architetto rivede il piano dalla
+  fase di adesso, i compiti fatti che restano uguali non si rifanno; se il
+  tetto basta riparte da solo, se no si ferma e chiede il via;
+- un cambio prima del via: piano nuovo, il legale lo riguarda, si ripropone;
+- in chat l'APM scrive solo quando c'e' da decidere o ha finito; a fine
+  progetto, con la voce accesa, una frase detta.
+
 I cervelli sono finti: un server compatibile OpenAI con «piccolo» e
 «grande», e «grande» e' a consumo.
 
@@ -73,6 +83,9 @@ per_legale: list[str] = []
 per_revisione: list[str] = []
 #: Le domande arrivate: (genere, modello, domanda).
 arrivate: list[tuple[str, str, str]] = []
+#: I compiti che il Dot finto tiene in mano finche' l'evento non si alza:
+#: (progetto, dot) -> evento.
+trattieni: dict[tuple[str, str], threading.Event] = {}
 
 
 def piano(progetto, versione):
@@ -139,6 +152,10 @@ class Cervello(BaseHTTPRequestHandler):
             return
         if "un Dot di NOVA" in sistema:
             chi = re.search(r"sei ([a-z0-9-]+), un Dot di NOVA", sistema)
+            for (progetto, dot), lascia in list(trattieni.items()):
+                if chi and chi.group(1) == dot and f"Progetto «{progetto}»" in domanda:
+                    arrivate.append(("trattenuto", progetto, domanda))
+                    lascia.wait(120)
             arrivate.append(("dot:" + (chi.group(1) if chi else "?"), modello, domanda))
             testo(self, f"Consegna di {chi.group(1) if chi else '?'}.")
             return
@@ -149,9 +166,10 @@ cervello = ThreadingHTTPServer(("127.0.0.1", 0), Cervello)
 threading.Thread(target=cervello.serve_forever, daemon=True).start()
 
 
-def configura(accesi):
+def configura(accesi, voce=False):
     (cartella_nova / "config.json").write_text(json.dumps({
         "kb": {"enabled": False},
+        "voice": {"enabled": voce},
         "dots": {"accesi": accesi},
         "server": {"host": "127.0.0.1", "port": cervello.server_address[1]},
         "brains": {"routing": {
@@ -224,6 +242,26 @@ def di(genere):
     return [x for x in arrivate if x[0] == genere]
 
 
+#: Gli eventi del demone, come li vede il guscio.
+bus: list[dict] = []
+
+
+def finiti():
+    return [e["data"] for e in list(bus) if e.get("topic") == "dot.progetto_finito"]
+
+
+def del_progetto(nome):
+    """Cio' che l'APM ha scritto a Nova su un progetto."""
+    return [t for t in detti_a_nova() if f"«{nome}»" in t.split("\n", 1)[0]]
+
+
+def aspetta_che(condizione, secondi=60):
+    fine = time.time() + secondi
+    while time.time() < fine and not condizione():
+        time.sleep(0.2)
+    return condizione()
+
+
 try:
     scadenza = time.time() + 20
     while time.time() < scadenza and processo.poll() is None:
@@ -235,6 +273,10 @@ try:
               (processo.stderr.read() or b"").decode("utf-8", "replace")[-400:])
         processo.kill()
         sys.exit(2)
+    ascolto = CoreClient(endpoint, timeout=None)
+    ascolto.connect()
+    ascolto.watch_async(bus.append)
+    time.sleep(0.3)
 
     print("\n1. coi Dot spenti l'APM non c'e'")
     e = errore("dot.progetto", nome="compressore", richiesta="un compressore")
@@ -246,8 +288,9 @@ try:
     while time.time() < fine and not (cartella_nova / "dots" / "apm" / "dot.json").is_file():
         time.sleep(0.3)
     nomi = {t["name"] for t in rpc("tools/list")["tools"]}
-    controlla("Claude vede i quattro strumenti dei progetti",
-              {"dot_progetto", "dot_via", "dot_ferma_progetto", "dot_progetti"} <= nomi)
+    controlla("Claude vede i cinque strumenti dei progetti",
+              {"dot_progetto", "dot_via", "dot_ferma_progetto", "dot_progetti",
+               "dot_cambia_progetto"} <= nomi)
     controlla("un nome di progetto e' un nome di cartella",
               "minuscole" in errore("dot.progetto", nome="Com Pressore", richiesta="x"))
     controlla("senza dire cosa si vuole, no",
@@ -391,6 +434,111 @@ try:
     controlla("l'elenco dice come sta ognuno",
               elenco == {"compressore": "finito", "secondo": "finito", "terzo": "finito", "quarto": "fermo"},
               json.dumps(elenco))
+    controlla("a fine progetto l'evento con la frase da dire, e con la voce spenta non si dice",
+              [(f["progetto"], f["voce"], f["a_voce"]) for f in finiti()][:1]
+              == [("compressore", "Il progetto compressore e' finito: il resoconto e' in chat.", False)],
+              str(finiti())[:300])
+    capacita("dot.via", nome="quarto", tetto=10)
+    controlla("col tetto nuovo il quarto finisce", aspetta("quarto", {"finito", "fermo"}) == "finito")
+
+    print("\n7. un cambio in corsa: l'APM aspetta i compiti in corso, l'Architetto rivede il piano")
+    rustico = threading.Event()
+    trattieni[("quinto", "rustico")] = rustico
+    per_ar.append('{"scelta": "riprendi", "dot": "rustico", "cervello": "piccolo", "perche": "c\'e\' gia\'"}')
+    capacita("dot.progetto", nome="quinto", richiesta="Un quinto compressore.")
+    aspetta("quinto", {"aspetta_il_via", "fermo"})
+    capacita("dot.via", nome="quinto", tetto=10)
+    controlla("la fase 2 e' in mano a rustico",
+              aspetta_che(lambda: any(p == "quinto" for g, p, _ in arrivate if g == "trattenuto")))
+    controlla("un cambio a un progetto che non c'e', no",
+              "nessun progetto" in errore("dot.cambia_progetto", nome="altro", cosa="x"))
+    controlla("senza dire cosa cambiare, no",
+              "cosa cambiare" in errore("dot.cambia_progetto", nome="quinto", cosa=" "))
+    r = capacita("dot.cambia_progetto", nome="quinto", cosa="niente Huffman: solo trasformate")
+    controlla("il cambio e' preso, e dice cosa succede",
+              r.get("sta") == "in_corso" and "lascia finire i compiti in corso" in r.get("nota", ""),
+              json.dumps(r, ensure_ascii=False))
+    time.sleep(1.5)
+    arch = [q for _, _, q in di("architetto") if "Progetto «quinto»" in q]
+    controlla("finche' rustico lavora, l'Architetto non e' chiamato",
+              len(arch) == 1 and tipi("quinto").count("piano_chiesto") == 1
+              and tipi("quinto").count("affidato") == 3, str(tipi("quinto")))
+    rustico.set()
+    s = aspetta("quinto", {"finito", "fermo"})
+    controlla("poi riparte da solo, e finisce", s == "finito",
+              json.dumps(capacita("dot.progetti", nome="quinto"), ensure_ascii=False)[:600])
+    arch = [q for _, _, q in di("architetto") if "Progetto «quinto»" in q]
+    controlla("l'Architetto ha rivisto il piano col cambio, dalla fase 2",
+              len(arch) == 2 and arch[1].startswith("[piano di sviluppo] Progetto «quinto», versione 2.")
+              and "Cosa cambiare, lo chiede l'utente:\nniente Huffman: solo trasformate\n"
+                  "Il lavoro e' alla fase 2: le fasi prima restano come sono, si cambia da li'." in arch[1],
+              str(arch[1:])[:500])
+    pronto = [e for e in eventi("quinto") if e["tipo"] == "piano_pronto"]
+    controlla("il compito fatto e uguale nel piano nuovo resta, e non si rifa'",
+              len(pronto) == 2 and pronto[1].get("da_fase") == 2 and pronto[1].get("tenuti") == ["2.1"]
+              and len([1 for g, _, q in arrivate if g == "dot:rustico" and "Progetto «quinto»" in q]) == 1,
+              json.dumps(pronto, ensure_ascii=False))
+    detti = del_progetto("quinto")
+    controlla("a Nova solo la proposta, il cambio e la fine: niente a ogni fase",
+              len(detti) == 3 and detti[0].startswith("Il progetto «quinto» e' pronto a partire.")
+              and detti[2].startswith("Il progetto «quinto» e' finito."), str([d[:60] for d in detti]))
+    controlla("il cambio dice la versione, il file, cosa cambia, e che riparte",
+              len(detti) == 3 and re.fullmatch(
+                  r"Il piano di «quinto» e' cambiato, versione 2\. E' in .+piano-2\.md\.\n"
+                  r"Cosa cambia:\n- rifatta la fase 1\nRiparto\.", detti[1], re.S) is not None,
+              detti[1] if len(detti) > 1 else "")
+
+    print("\n8. un cambio che passa il tetto: si ferma, e col tetto nuovo riparte")
+    configura("si", voce=True)
+    dati = threading.Event()
+    trattieni[("sesto", "dati")] = dati
+    per_ar.append('{"scelta": "riprendi", "dot": "rustico", "cervello": "piccolo", "perche": "c\'e\' gia\'"}')
+    capacita("dot.progetto", nome="sesto", richiesta="Un sesto compressore.")
+    aspetta("sesto", {"aspetta_il_via", "fermo"})
+    gia = next(x["speso"] for x in capacita("dot.progetti")["progetti"] if x["progetto"] == "sesto")
+    tetto = round(gia + 0.55, 2)
+    capacita("dot.via", nome="sesto", tetto=tetto)
+    aspetta_che(lambda: any(p == "sesto" for g, p, _ in arrivate if g == "trattenuto"))
+    capacita("dot.cambia_progetto", nome="sesto", cosa="piu' veloce")
+    dati.set()
+    s = aspetta("sesto", {"fermo", "finito"})
+    p = capacita("dot.progetti", nome="sesto")
+    controlla("il resto costa piu' del tetto: si ferma, e dice perche'",
+              s == "fermo" and "serve il via con un tetto nuovo" in (p.get("perche_fermo") or ""),
+              json.dumps(p, ensure_ascii=False)[:500])
+    detti = del_progetto("sesto")
+    controlla("e a Nova lo dice una volta, col cambio",
+              detti and detti[-1].startswith("Il piano di «sesto» e' cambiato, versione 2.")
+              and detti[-1].endswith(f"si passa il tetto di {tetto:.2f} $: mi fermo, e aspetto il via "
+                                     "con un tetto nuovo."), detti[-1] if detti else "")
+    capacita("dot.via", nome="sesto", tetto=10)
+    controlla("col tetto nuovo riparte e finisce", aspetta("sesto", {"finito", "fermo"}) == "finito")
+    controlla("il compito 1.1 fatto prima del cambio non si rifa'",
+              len([1 for g, _, q in arrivate if g == "dot:dati" and "Progetto «sesto»" in q]) == 1)
+    controlla("con la voce accesa la fine si dice",
+              aspetta_che(lambda: any(f["progetto"] == "sesto" and f["a_voce"] is True for f in finiti()), 10),
+              str(finiti())[-300:])
+    configura("si")
+
+    print("\n9. un cambio prima del via: piano nuovo, il legale lo riguarda, si ripropone")
+    per_ar.append('{"scelta": "riprendi", "dot": "rustico", "cervello": "piccolo", "perche": "c\'e\' gia\'"}')
+    capacita("dot.progetto", nome="settimo", richiesta="Un settimo compressore.")
+    aspetta("settimo", {"aspetta_il_via", "fermo"})
+    r = capacita("dot.cambia_progetto", nome="settimo", cosa="piu' corto")
+    controlla("torna a prepararsi, e lo dice", r.get("sta") == "prepara"
+              and "richiede il via" in r.get("nota", ""), json.dumps(r, ensure_ascii=False))
+    controlla("e si ripropone", aspetta("settimo", {"aspetta_il_via", "fermo"}) == "aspetta_il_via"
+              and tipi("settimo").count("proposto") == 2, str(tipi("settimo")))
+    arch = [q for _, _, q in di("architetto") if "Progetto «settimo»" in q]
+    controlla("l'Architetto ha rivisto il piano col cambio",
+              len(arch) == 2 and "Cosa cambiare, lo chiede l'utente:\npiu' corto\n\nIl piano di adesso" in arch[1],
+              str(arch[1:])[:400])
+    leg = [q for _, _, q in di("legale") if "«settimo»" in q]
+    controlla("il legale ha guardato il piano nuovo",
+              len(leg) == 2 and "Il piano:\n# Piano: settimo" in leg[1] and "## Cosa cambia" in leg[1],
+              str([q[:80] for q in leg]))
+    controlla("un cambio a un progetto finito, no",
+              "e' finito" in errore("dot.cambia_progetto", nome="quinto", cosa="ancora"))
 finally:
     processo.kill()
     cervello.shutdown()

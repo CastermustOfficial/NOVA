@@ -413,3 +413,30 @@ dell'APM su tutti i progetti aperti invece che sul primo, e il tetto
 gia' per progetto; da misurare quanti Dot lavorano insieme prima che un
 fornitore dica «troppe richieste».
 
+## Spazio per il modello di casa
+
+Nata col D403. **Cosa.** Ridare contesto al modello di casa: alla
+conversazione gli restano 2.011 token, 11 sopra la soglia di 2.000.
+**Perche'.** Il prossimo strumento o la prossima riga per lui non ci sta
+senza togliere qualcos'altro. **Cosa costerebbe.** Misurare quali
+descrizioni degli strumenti che riceve si possono accorciare senza che
+sbagli a usarli (le prove col modello vero), o alzare il contesto di serie
+dove la scheda video lo regge.
+
+## Il costo vero del resto, dopo un cambio
+
+Nata col D403. **Cosa.** Stimare quel che resta di un progetto cambiato con
+quel che sono costati davvero i compiti simili, invece di 0,30 $ a compito.
+**Perche'.** La stima decide se l'APM riparte da solo o chiede il via: una
+stima larga ferma per niente, una stretta fa sforare il tetto fino al 90%.
+**Cosa costerebbe.** La spesa per compito c'e' gia' nel diario del progetto;
+servono una media per ruolo e una prova che la confronti.
+
+## La delega coi Dot provata con un Claude vero
+
+Nata col D403. **Cosa.** Una prova, sul PC di sviluppo, in cui Claude Code
+vero riceve la delega coi Dot e da' il progetto all'APM. **Perche'.** Le
+prove usano un Claude finto: dicono cosa riceve (gli argomenti, il
+collegamento, il compito), non se lo usa bene. **Cosa costerebbe.** Una
+prova che spende, quindi fuori dalla CI, a mano, con un tetto piccolo.
+

@@ -18,7 +18,14 @@
 //! sessione di Claude della conversazione — e la riscriveva — mentre la
 //! descrizione dello strumento dice al modello che chi riceve il compito
 //! «non vede la vostra conversazione». Qui e' vero.
+//!
+//! **Con gli strumenti, per i progetti dei Dot (D403).** Col modello di casa
+//! come cervello di Nova gli strumenti dei progetti non ci stanno nel suo
+//! contesto: un progetto dei Dot lo da' Claude, con `dot: true`. Solo allora
+//! il Claude della delega riceve gli strumenti di NOVA, quelli di Nova, con
+//! le conferme dello sportello come nei turni.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
 use anyhow::{anyhow, Result};
@@ -30,6 +37,7 @@ use serde_json::{json, Value};
 
 use crate::agente::{ReteNelDemone, ATTESA_COLLEGAMENTO, ATTESA_RISPOSTA};
 use crate::capability::{arg_str, arg_str_opt, arg_vec_str, schema, Capability, Ctx, Registry};
+use crate::agente::Chi;
 use crate::mondo::{Esecutore, Gradino, MondoVero, Recapiti, Ultima};
 use crate::sessione::Sessione;
 use nova_ciclo::Mondo;
@@ -50,6 +58,60 @@ const FILE_PROMPT: &str = "prompt_delega.txt";
 fn registro() -> &'static Mutex<Registro> {
     static R: OnceLock<Mutex<Registro>> = OnceLock::new();
     R.get_or_init(|| Mutex::new(Registro::default()))
+}
+
+/// Una delega coi Dot in corso (D403). Il suo Claude chiama gli strumenti di
+/// NOVA come Nova: se chiamasse anche `cervelli.delega`, aspetterebbe il
+/// registro che la delega di fuori tiene, e nessuna delle due finirebbe. Da
+/// Nova, intanto, una delega si rifiuta; un Dot aspetta il suo turno.
+static DELEGA_COI_DOT: AtomicBool = AtomicBool::new(false);
+
+/// Tiene alzato [`DELEGA_COI_DOT`] finche' c'e', anche se la delega cade.
+struct CoiDot;
+
+impl CoiDot {
+    fn prendi() -> Result<CoiDot> {
+        DELEGA_COI_DOT
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .map(|_| CoiDot)
+            .map_err(|_| anyhow!("c'e' gia' una delega coi Dot in corso: aspetta che finisca"))
+    }
+}
+
+impl Drop for CoiDot {
+    fn drop(&mut self) {
+        DELEGA_COI_DOT.store(false, Ordering::SeqCst);
+    }
+}
+
+/// Le righe davanti al compito di una delega coi Dot: a Claude dicono per
+/// cosa sono gli strumenti che riceve.
+pub const PER_I_DOT: &str = "[progetto dei Dot] Hai gli strumenti di NOVA, con le conferme \
+dell'utente: usali per dare questo progetto ai Dot (dot_progetto) o per seguirlo (dot_progetti, \
+dot_via, dot_cambia_progetto, dot_ferma_progetto), e per nient'altro.";
+
+/// Quando nella scala non c'e' Claude Code.
+const NIENTE_CLAUDE: &str = "nella scala non c'e' Claude Code: un progetto ai Dot lo da' lui, \
+perche' gli strumenti dei progetti al modello di casa non ci stanno";
+
+/// Perche' una delega coi Dot non si fa, se non si fa: la chiede un Dot, i
+/// Dot sono spenti, o nella scala non c'e' Claude.
+fn perche_no_coi_dot(chi: &Chi, accesi: Result<(), String>, con_claude: bool) -> Option<String> {
+    if let Chi::Dot(n) = chi {
+        return Some(format!("{n} e' un Dot: un progetto ai Dot lo da' solo Nova"));
+    }
+    if let Err(e) = accesi {
+        return Some(e);
+    }
+    (!con_claude).then(|| NIENTE_CLAUDE.to_string())
+}
+
+/// Il primo gradino con Claude Code: e' lui che da' un progetto ai Dot.
+fn primo_claude(gradini: &[Gradino]) -> Option<String> {
+    gradini
+        .iter()
+        .find(|g| matches!(g, Gradino::Claude { .. }))
+        .map(|g| g.nome().to_string())
 }
 
 /// A chi delega Claude Code non si danno strumenti: il compito e' chiuso.
@@ -347,15 +409,22 @@ impl Capability for CervelliDelega {
                      ricopiarli a mano",
                     false,
                 ),
+                ("dot", "boolean", "un progetto dei Dot, a Claude", false),
             ]),
         }
     }
 
     async fn anteprima(&self, args: Value, _ctx: &Ctx) -> Option<Result<Value>> {
+        let coi_dot = args.get("dot").and_then(Value::as_bool).unwrap_or(false);
         Some(Ok(json!({
             "farei": nova_strumenti::anteprima("delega", &nova_strumenti::ArgomentiJson(&args)),
             "annullabile": false,
-            "nota": "il compito esce dal PC se il gradino non e' in casa",
+            "nota": if coi_dot {
+                "va a Claude, con gli strumenti di NOVA per il progetto dei Dot: ogni azione che \
+                 modifica chiede la conferma"
+            } else {
+                "il compito esce dal PC se il gradino non e' in casa"
+            },
         })))
     }
 
@@ -365,7 +434,51 @@ impl Capability for CervelliDelega {
         let motivo = arg_str_opt(&args, "motivo").unwrap_or_default();
         let (contesto, quanti) =
             allegati(&args, &arg_str_opt(&args, "contesto").unwrap_or_default());
+        let coi_dot = args.get("dot").and_then(Value::as_bool).unwrap_or(false);
+        let chi = crate::agente::per_conto_di();
+        if !coi_dot && matches!(chi, Chi::Nova) && DELEGA_COI_DOT.load(Ordering::SeqCst) {
+            return Err(anyhow!(
+                "c'e' in corso la delega di un progetto ai Dot: da li' non si delega ancora, \
+                 riprova quando e' finita"
+            ));
+        }
+        let (collegamento, _coi_dot) = if coi_dot {
+            let cfg = nova_configurazione::dove::leggi();
+            let con_claude = primo_claude(&crate::agente::scala_di(&cfg)).is_some();
+            if let Some(no) = perche_no_coi_dot(&chi, crate::dot_accesi::se_spenti(), con_claude) {
+                return Err(anyhow!(no));
+            }
+            let server = crate::caps_memoria::il_server()
+                .ok_or_else(|| anyhow!("il demone non e' ancora pronto"))?;
+            let recapiti = crate::dalla_configurazione::recapiti(&cfg, &|n| std::env::var(n).ok());
+            let vault = crate::memoria::percorso(&cfg, &crate::memoria::radice_progetto());
+            let (mcp, sportello) =
+                crate::agente::collegamento_claude(server, &recapiti.claude, &vault, &Chi::Nova);
+            if mcp.is_empty() {
+                return Err(anyhow!(
+                    "Claude non riceve gli strumenti di NOVA (il collegamento MCP e' spento nel \
+                     pannello, o non si e' potuto scrivere): senza, un progetto ai Dot non lo da'"
+                ));
+            }
+            let guardia = CoiDot::prendi()?;
+            (
+                Some((crate::agente::vault_per_claude(&cfg, &vault), mcp, sportello)),
+                Some(guardia),
+            )
+        } else {
+            (None, None)
+        };
         let (esito, _righe) = con_i_cervelli(move |conf, _r, reg, veri| {
+            let (a, compito) = match &collegamento {
+                None => (a, compito),
+                Some((vault, mcp, sportello)) => {
+                    let Some(claude) = primo_claude(&veri.gradini) else {
+                        return Err(NIENTE_CLAUDE.to_string());
+                    };
+                    crate::mondo::collega_claude(&mut veri.gradini, vault, mcp, sportello);
+                    (claude, format!("{PER_I_DOT}\n\n{compito}"))
+                }
+            };
             d::strumento_delega(conf, reg, veri, &a, &compito, &motivo, &contesto, quanti)
         })
         .await?;
@@ -456,5 +569,63 @@ impl Capability for CervelliParere {
         })
         .await?;
         Ok(Value::String(detto))
+    }
+}
+
+#[cfg(test)]
+mod prove {
+    use super::*;
+
+    fn indirizzo(nome: &str) -> Gradino {
+        Gradino::Indirizzo {
+            nome: nome.into(),
+            base_url: "http://127.0.0.1:1".into(),
+            modello: "m".into(),
+            intestazioni: Vec::new(),
+            in_casa: true,
+        }
+    }
+
+    fn claude(nome: &str) -> Gradino {
+        Gradino::Claude {
+            nome: nome.into(),
+            come: Box::default(),
+        }
+    }
+
+    /// Un progetto ai Dot lo da' il primo Claude della scala; senza Claude,
+    /// nessuno (D403).
+    #[test]
+    fn la_delega_coi_dot_va_al_primo_claude() {
+        let scala = [indirizzo("casa"), claude("standard"), claude("difficile")];
+        assert_eq!(primo_claude(&scala).as_deref(), Some("standard"));
+        assert_eq!(primo_claude(&[indirizzo("casa")]), None);
+        assert!(PER_I_DOT.contains("dot_progetto") && PER_I_DOT.contains("dot_cambia_progetto"));
+    }
+
+    /// Una delega coi Dot la chiede solo Nova, coi Dot accesi e Claude
+    /// nella scala.
+    #[test]
+    fn la_delega_coi_dot_si_rifiuta_quando_non_si_puo() {
+        let ok = || Ok(());
+        assert_eq!(perche_no_coi_dot(&Chi::Nova, ok(), true), None);
+        let dot = perche_no_coi_dot(&Chi::Dot("ricerca".into()), ok(), true).unwrap_or_default();
+        assert!(dot.starts_with("ricerca e' un Dot"), "{dot}");
+        let spenti = perche_no_coi_dot(&Chi::Nova, Err("i Dot sono spenti".into()), true);
+        assert_eq!(spenti.as_deref(), Some("i Dot sono spenti"));
+        assert_eq!(perche_no_coi_dot(&Chi::Nova, ok(), false).as_deref(), Some(NIENTE_CLAUDE));
+    }
+
+    /// Una delega coi Dot alla volta, e finita lei si delega di nuovo: il
+    /// segno si toglie anche se la delega cade.
+    #[test]
+    fn una_delega_coi_dot_alla_volta() {
+        let prima = CoiDot::prendi().expect("libero");
+        assert!(DELEGA_COI_DOT.load(Ordering::SeqCst));
+        let e = CoiDot::prendi().err().map(|e| e.to_string()).unwrap_or_default();
+        assert!(e.contains("gia' una delega coi Dot"), "{e}");
+        drop(prima);
+        assert!(!DELEGA_COI_DOT.load(Ordering::SeqCst));
+        drop(CoiDot::prendi().expect("di nuovo libero"));
     }
 }

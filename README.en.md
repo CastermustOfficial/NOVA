@@ -78,7 +78,7 @@ If something doesn't work, the rest of the document explains why.
 ## What it can do
 
 A list of adjectives says nothing. These are the numbers, counted from the
-code: **141 tools** for an agentic brain like Claude Code, and **58** for the
+code: **142 tools** for an agentic brain like Claude Code, and **58** for the
 model running on your PC and for the APIs, always the same ones, because all
 of them together wouldn't fit in its context; **38 file formats** it can open
 and show. With the Dots on the model on the PC gets 62; with them off, Claude
@@ -639,7 +639,15 @@ plan, the team, the cap and the questions; with your go-ahead
 (`dot.via`) it assigns the tasks phase by phase, has review and legal look
 at every phase, and at the end sends you the report. One at a time; it
 stops when you stop it (`dot.ferma_progetto`), when legal has doubts or at
-90% of the cap, and only pay-per-use brains count. The daemon also has the methods `dot/crea`, `dot/affida`,
+90% of the cap, and only pay-per-use brains count. In front of a big job
+Nova offers to give it to the Dots, and with the model on the PC it hands it
+to Claude, which only for this gets NOVA's tools (`cervelli.delega` with
+`dot`, D403). While they work the APM doesn't write to you at every phase:
+you ask (`dot.progetti`). If you change your mind along the way
+(`dot.cambia_progetto`) it lets the running tasks finish, the Architect
+revises the plan from there, the done tasks that stayed the same aren't
+redone, and it restarts on its own if the cap is enough; if not, it asks
+you. At the end, with the voice on, it tells you. The daemon also has the methods `dot/crea`, `dot/affida`,
 `dot/stato`, `dot/elenco` and `dot/ferma`.
 
 The Dots are for whoever has a subscription, an API or a graphics card with
@@ -1400,7 +1408,7 @@ already authenticated. NOVA:
   | Autonomous | `bypassPermissions` |
 
 - connects it to the daemon as an **MCP server** (`nova mcp`, a bridge between
-  standard input and the daemon's channel): Claude sees all 141 tools (129
+  standard input and the daemon's channel): Claude sees all 142 tools (129
   with the Dots off), from `mcp__nova-core__kb_cerca` down, with the same
   guards as the home model, which gets 58 (62 with the Dots on) because they
   don't all fit in its context.

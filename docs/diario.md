@@ -11765,3 +11765,15 @@ salito di gradino, alla CLI in cima alla scala, che ha mani sue e ha
 risposto «Ho scritto io». Togliere gli strumenti non bastava: bisognava
 togliere anche i gradini sopra. Con la guardia, sopra il cervello piu'
 grande con un indirizzo non c'e' nessuno, e il turno lo sa.
+
+## 11 ottobre 2026 — Uguale non vuol dire fatto
+
+Con un cambio chiesto in corsa, i compiti che il piano nuovo lascia uguali
+non si rifanno: e' il punto del D403. L'avevo messo dappertutto, e la prova
+della fase bocciata si e' messa a contare un compito invece di due. Una fase
+che non va l'Architetto la puo' lasciare identica: non perche' sia giusta,
+ma perche' va rifatta. La stessa riga del piano dice due cose diverse a
+seconda di chi ha chiesto il piano nuovo. E il modello di casa: le due
+righe che dicono a Nova di proporre i progetti ai Dot e il campo `dot` della
+delega costano 67 token, e alla sua conversazione ne restano 2.011. Undici
+sopra la soglia.

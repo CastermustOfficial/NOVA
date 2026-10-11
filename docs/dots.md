@@ -243,8 +243,8 @@ specialisti. Li assume AR.
 7. ~~**L'Architetto** e il piano di sviluppo~~ (D400).
 8. ~~**L'APM e i progetti**: il via, il tetto, i Dot disposti, i controlli
    del legale~~ (D402). Il vault del progetto resta da fare.
-9. **Nova tramite**: la proposta, il via, i resoconti e gli aggiornamenti,
-   e le modifiche chieste dall'utente.
+9. ~~**Nova tramite**: la proposta, il via, i resoconti e gli aggiornamenti,
+   e le modifiche chieste dall'utente~~ (D403).
 10. **CLM addestrato** sulle scelte di AR, dell'APM e del custode.
 11. Il progetto di prova di Gio, dall'inizio alla fine.
 
@@ -852,9 +852,67 @@ bozza, prima del codice. Le regole e le parole stanno in
 
 - **Il vault del progetto**: la memoria condivisa dalla squadra non c'e'
   ancora; ogni Dot ha la sua, e le consegne passano nei testi dei compiti.
-- **Nova tramite** (il passo dopo): proporre di dare un progetto ai Dot,
-  i resoconti a meta', le modifiche chieste in corsa.
 - **La vista dei progetti nell'harness**: oggi c'e' `progetto.md`, e
   `dot.progetti`.
 - **Il legale ferma, ma non spiega a chi deve cambiare cosa**: i suoi dubbi
   vanno all'utente, non all'Architetto.
+
+**Nova tramite — fatto** (D403). Deciso con Gio il 10 ottobre, sulla bozza,
+prima del codice. Le parole stanno in `nova_dot::progetto`, il giro in
+`nova_core::apm`, la delega in `nova_core::caps_cervelli`.
+
+| | Deciso |
+|---|---|
+| **Col modello di casa** | Gli strumenti dei progetti non gli stanno nel contesto: il progetto lo passa a Claude, con `cervelli.delega` e `dot: true`. Solo per i progetti dei Dot quel Claude riceve gli strumenti di NOVA, con le conferme dello sportello. |
+| **Gli aggiornamenti** | Solo se l'utente chiede (`dot.progetti`): l'APM scrive in chat quando c'e' da decidere (il via, un fermo, un cambio) e quando ha finito, non a ogni fase. |
+| **Una modifica in corsa** | `dot.cambia_progetto`: l'APM riparte da solo se il tetto basta; se il piano nuovo costa di piu', si ferma e chiede il via. |
+| **La voce** | A fine progetto, con la voce accesa, una frase detta. |
+
+- **La proposta**: coi Dot accesi il prompt dei turni di Nova ha in coda
+  due righe (`progetto::per_nova`, in `agente::sistema_di_nova`): un lavoro
+  grosso (molti passi, ricerca, codice) si propone ai Dot, e col si'
+  `dot.progetto`; dove `dot.progetto` non c'e' (il modello di casa),
+  `cervelli_delega` con `dot: true`, o, senza Claude nella scala, Nova dice
+  che serve Claude. Ai Dot le righe non arrivano.
+- **La delega coi Dot**: va al primo gradino Claude Code della scala,
+  qualunque gradino si sia chiesto; Claude riceve il collegamento MCP di
+  Nova (`mcp_demone.json`) e lo sportello dei permessi del demone, e il
+  compito comincia con una riga che dice per cosa sono gli strumenti
+  (`caps_cervelli::PER_I_DOT`). Si rifiuta se la chiede un Dot, coi Dot
+  spenti, senza Claude nella scala, o se Claude non puo' avere gli
+  strumenti di NOVA. Una alla volta; mentre e' in corso una delega da Nova
+  si rifiuta, perche' il Claude della delega che delegasse a sua volta
+  aspetterebbe un registro che non si libera.
+- **Il cambio** (`dot.cambia_progetto`: il nome e cosa cambiare, con le
+  parole dell'utente; sicuro, perche' non spende piu' del tetto gia'
+  dato). In corso, l'APM non affida altri compiti e lascia finire quelli
+  in corso; poi chiede all'Architetto di rivedere il piano dalla fase di
+  adesso (le fasi prima restano: lo dice il compito). Col piano nuovo, i
+  compiti fatti che restano uguali (stesso numero, stessa cosa, stesso
+  ruolo) non si rifanno; gli altri, da quella fase in poi, si'. A Nova
+  scrive la versione, il file, «Cosa cambia», e «Riparto»; oppure, se quel
+  che resta (0,30 $ a compito) piu' il gia' speso passa il tetto, che si
+  ferma e aspetta il via con un tetto nuovo. Prima del via, il piano nuovo
+  si riguarda col legale e si ripropone. Fermo, il cambio va
+  all'Architetto quando riparte. Due cambi prima che l'Architetto ne veda
+  uno li vede tutti e due. Una fase che non va, invece, si rifa' tutta:
+  i compiti uguali si tengono solo quando il piano l'ha cambiato l'utente.
+- **La fine**: il resoconto in chat come prima, e l'evento
+  `dot.progetto_finito` con la frase «Il progetto X e' finito: il
+  resoconto e' in chat.», detta con la voce accesa e mai durante una
+  conversazione dal vivo, come la consegna di un compito.
+- **Gli strumenti**: Claude ne vede 142 (129 coi Dot spenti); il modello di
+  casa sempre 62. Le righe nel prompt e il campo `dot` della delega
+  costano al modello di casa 67 token: alla conversazione ne restano
+  2.011, sopra la soglia di 2.000.
+
+### Cosa resta aperto, dopo Nova tramite
+
+- **Il margine del modello di casa** e' di 11 token sopra la soglia: il
+  prossimo strumento o la prossima riga per lui deve prendere spazio da
+  un'altra parte.
+- **La delega coi Dot non si prova con un Claude vero** nelle prove: il
+  Claude finto dice cosa riceve (gli argomenti, il collegamento, il
+  compito), non cosa ne fa.
+- **Il costo del resto** e' la stima del tetto (0,30 $ a compito), non
+  quanto costeranno davvero i compiti.

@@ -28,6 +28,13 @@
 //! dei dubbi, un controllo non si e' potuto fare, una fase non va. Riparte
 //! con `dot.via`. Ogni passo sta in `progetti/<nome>/progetto.jsonl`, e il
 //! demone che si riaccende riprende da li'.
+//!
+//! **Il cambio** (D403, `dot.cambia_progetto`): l'APM non affida altro,
+//! lascia finire i compiti in corso, e chiede all'Architetto il piano nuovo
+//! dalla fase di adesso; i compiti fatti e uguali restano. Riparte da solo
+//! se il tetto basta, se no si ferma e chiede il via. In chat scrive solo
+//! quando c'e' da decidere e quando ha finito; a fine progetto, con la voce
+//! accesa, lo dice.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -67,13 +74,30 @@ pub fn leggi(nome: &str) -> Option<Progetto> {
 
 /// Il piano su cui lavora un progetto, e il suo file.
 fn piano_di(p: &Progetto) -> Option<(piano::Piano, String)> {
-    if p.versione == 0 {
+    piano_versione(&p.nome, p.versione)
+}
+
+/// Una versione del piano di un progetto, e il suo file.
+fn piano_versione(nome: &str, versione: u32) -> Option<(piano::Piano, String)> {
+    if versione == 0 {
         return None;
     }
-    let f = piano::file(&piano::cartella_del_progetto(&nova(), &p.nome), p.versione);
+    let f = piano::file(&piano::cartella_del_progetto(&nova(), nome), versione);
     let t = std::fs::read_to_string(&f).ok()?;
-    let (pi, _) = piano::leggi(&t, p.versione).ok()?;
+    let (pi, _) = piano::leggi(&t, versione).ok()?;
     Some((pi, f.display().to_string()))
+}
+
+/// Il piano nuovo, cambiato dall'utente, e' pronto: i compiti fatti che
+/// lascia uguali, da `da_fase` in poi, non si rifanno (D403).
+fn tenuti(p: &Progetto, versione: u32, da_fase: Option<u32>) -> Vec<String> {
+    let Some(n) = da_fase else {
+        return Vec::new();
+    };
+    match (piano_di(p), piano_versione(&p.nome, versione)) {
+        (Some((vecchio, _)), Some((nuovo, _))) => pr::tenuti(p, &vecchio, &nuovo, n),
+        _ => Vec::new(),
+    }
 }
 
 /// Un passo nel diario del progetto, e il racconto riscritto.
@@ -267,6 +291,44 @@ pub fn ferma(server: &Arc<Server>, nome: &str, perche: &str) -> Result<Value, St
     Ok(json!({ "progetto": p.nome, "fermo": true, "dot_fermati": fermati }))
 }
 
+/// L'utente vuole cambiare qualcosa (`dot.cambia_progetto`, D403). L'APM
+/// lascia finire i compiti in corso, non ne affida di nuovi, e chiede
+/// all'Architetto di rivedere il piano dalla fase di adesso: le fasi fatte
+/// restano. Poi riparte da solo, se il tetto basta; se no chiede il via.
+pub fn cambia(server: &Arc<Server>, nome: &str, cosa: &str) -> Result<Value, String> {
+    crate::dot_accesi::se_spenti()?;
+    let p =
+        leggi(nome.trim()).ok_or_else(|| format!("non c'e' nessun progetto «{}»", nome.trim()))?;
+    if p.dove == DoveSta::Finito {
+        return Err(format!(
+            "il progetto «{}» e' finito: per altro lavoro serve un progetto nuovo",
+            p.nome
+        ));
+    }
+    if cosa.trim().is_empty() {
+        return Err("all'APM serve sapere cosa cambiare".into());
+    }
+    annota(
+        &p.nome,
+        Evento::Cambio {
+            quando: adesso(),
+            cosa: cosa.trim().to_string(),
+        },
+    );
+    sveglia(server);
+    let p = leggi(&p.nome).unwrap_or(p);
+    let nota = match p.dove {
+        DoveSta::InCorso => {
+            "l'APM lascia finire i compiti in corso, poi l'Architetto rivede il piano dalla fase \
+             di adesso: le fasi fatte restano. Se il tetto basta riparte da solo, se no chiede \
+             il via"
+        }
+        DoveSta::Fermo => "il cambio va all'Architetto quando il progetto riparte, col via",
+        _ => "l'Architetto rivede il piano, e poi l'APM ti richiede il via",
+    };
+    Ok(json!({ "progetto": p.nome, "sta": come_sta(&p, attivo().as_ref()), "nota": nota }))
+}
+
 /// I progetti, o uno solo col suo racconto (`dot.progetti`).
 pub fn stato(nome: &str) -> Result<Value, String> {
     let attivo = attivo();
@@ -338,11 +400,16 @@ async fn passo(server: &Arc<Server>, p: &Progetto) -> bool {
 /// Piano, legale dell'inizio, squadra, proposta.
 async fn prepara(server: &Arc<Server>, p: &Progetto) -> bool {
     if p.versione == 0 && p.piano_chiesto.is_none() {
+        // Un cambio arrivato prima del primo piano va con la richiesta.
+        let richiesta = match &p.cambio {
+            Some(c) => format!("{}\nIn piu', l'utente ha chiesto:\n{c}", p.richiesta),
+            None => p.richiesta.clone(),
+        };
         match crate::architetto::chiedi(
             server,
             d::azienda::NOME_APM,
             &p.nome,
-            &p.richiesta,
+            &richiesta,
             &p.cartella,
             None,
         ) {
@@ -354,6 +421,8 @@ async fn prepara(server: &Arc<Server>, p: &Progetto) -> bool {
                         quando: adesso(),
                         compito: id,
                         fase: None,
+                        da_fase: None,
+                        cambio: p.cambio.is_some(),
                     },
                 );
             }
@@ -367,6 +436,9 @@ async fn prepara(server: &Arc<Server>, p: &Progetto) -> bool {
     }
     if p.piano_chiesto.is_some() {
         return piano_pronto(server, p);
+    }
+    if let Some(cosa) = &p.cambio {
+        return chiedi_il_cambio(server, p, cosa, 1);
     }
     let Some((pi, file)) = piano_di(p) else {
         ferma_e_di(
@@ -422,14 +494,27 @@ fn piano_pronto(server: &Arc<Server>, p: &Progetto) -> bool {
                 .last()
                 .copied()
                 .unwrap_or(0);
+            // I compiti fatti e uguali restano solo se il piano l'ha cambiato
+            // l'utente: una fase che non e' andata si rifa' tutta, anche dove
+            // l'Architetto la lascia uguale, se no si giudicherebbero di
+            // nuovo le stesse consegne.
+            let tenuti = if p.piano_per_cambio {
+                tenuti(p, versione, fase)
+            } else {
+                Vec::new()
+            };
             annota(
                 &p.nome,
                 Evento::PianoPronto {
                     quando: adesso(),
                     versione,
                     da_fase: fase,
+                    tenuti: tenuti.clone(),
                 },
             );
+            if p.piano_per_cambio && p.dove == DoveSta::InCorso {
+                dopo_il_cambio(server, &p.nome, fase.unwrap_or(1), &tenuti);
+            }
             true
         }
         s if s.chiuso() => {
@@ -486,7 +571,8 @@ async fn lavora(server: &Arc<Server>, p: &Progetto) -> bool {
         return piano_pronto(server, p);
     }
     // Un piano piu' nuovo su disco: l'ha rivisto l'utente, con Nova. Si
-    // lavora su quello, dalla fase di adesso.
+    // lavora su quello, dalla fase di adesso; come per un cambio, i compiti
+    // fatti che lascia uguali non si rifanno.
     let ultima = piano::versioni(&piano::cartella_del_progetto(&nova(), &p.nome))
         .last()
         .copied()
@@ -499,6 +585,7 @@ async fn lavora(server: &Arc<Server>, p: &Progetto) -> bool {
                 quando: adesso(),
                 versione: ultima,
                 da_fase,
+                tenuti: tenuti(p, ultima, da_fase),
             },
         );
         return true;
@@ -552,6 +639,19 @@ async fn lavora(server: &Arc<Server>, p: &Progetto) -> bool {
     }
     if fatto {
         return true;
+    }
+    // Un cambio chiesto dall'utente (D403): non si affida altro, si lasciano
+    // finire i compiti in corso, e poi l'Architetto rivede il piano dalla
+    // fase di adesso.
+    if let Some(cosa) = &p.cambio {
+        if p.lavori.values().any(|l| l.stato.is_none()) {
+            return false;
+        }
+        let da = p
+            .fase_di_adesso(&pi)
+            .map(|f| f.n)
+            .unwrap_or_else(|| pi.fasi.iter().map(|f| f.n).max().unwrap_or(0) + 1);
+        return chiedi_il_cambio(server, p, cosa, da);
     }
     // Il legale dopo ogni fase fatta (Gio, 10 ottobre).
     if let Some(f) = pi
@@ -686,6 +786,8 @@ async fn rivedi_la_fase(server: &Arc<Server>, p: &Progetto, n: u32, perche: &str
                     quando: adesso(),
                     compito: id,
                     fase: Some(n),
+                    da_fase: None,
+                    cambio: false,
                 },
             );
         }
@@ -696,6 +798,65 @@ async fn rivedi_la_fase(server: &Arc<Server>, p: &Progetto, n: u32, perche: &str
         ),
     }
     true
+}
+
+/// Il cambio chiesto dall'utente va all'Architetto, che rivede il piano da
+/// `da_fase` in poi.
+fn chiedi_il_cambio(server: &Arc<Server>, p: &Progetto, cosa: &str, da_fase: u32) -> bool {
+    let testo = pr::testo_del_cambio(cosa, Some(da_fase));
+    match crate::architetto::chiedi(
+        server,
+        d::azienda::NOME_APM,
+        &p.nome,
+        &testo,
+        &p.cartella,
+        None,
+    ) {
+        Ok(v) => {
+            let id = v.get("compito").and_then(Value::as_u64).unwrap_or(0);
+            annota(
+                &p.nome,
+                Evento::PianoChiesto {
+                    quando: adesso(),
+                    compito: id,
+                    fase: None,
+                    da_fase: Some(da_fase),
+                    cambio: true,
+                },
+            );
+        }
+        Err(e) => ferma_e_di(
+            server,
+            &p.nome,
+            &format!("il cambio non si e' potuto chiedere all'Architetto: {e}"),
+        ),
+    }
+    true
+}
+
+/// Il piano cambiato in corsa e' pronto: l'APM scrive a Nova cosa cambia, e
+/// riparte da solo se il tetto basta; se no si ferma e aspetta il via con
+/// un tetto nuovo (Gio, 10 ottobre).
+fn dopo_il_cambio(server: &Arc<Server>, nome: &str, da_fase: u32, tenuti: &[String]) {
+    let Some(p) = leggi(nome) else { return };
+    let Some((nuovo, file)) = piano_di(&p) else {
+        return;
+    };
+    let serve = pr::costo_del_resto(&nuovo, da_fase, tenuti);
+    a_nova(server, &pr::dopo_il_cambio(&p, &nuovo, &file, serve));
+    if pr::serve_un_tetto_nuovo(&p, serve) {
+        annota(
+            nome,
+            Evento::Fermo {
+                quando: adesso(),
+                perche: format!(
+                    "il piano nuovo costa circa {serve:.2} $ in piu', e col gia' speso ({:.2} $) \
+                     passa il tetto di {:.2} $: serve il via con un tetto nuovo",
+                    p.speso, p.tetto
+                ),
+            },
+        );
+    }
 }
 
 /// Tutte le fasi fatte: il legale, il resoconto, la fine.
@@ -738,8 +899,26 @@ async fn rilascio(server: &Arc<Server>, p: &Progetto, pi: &piano::Piano) -> bool
         server,
         &format!("Il progetto «{}» e' finito.\n\n{resoconto}", p.nome),
     );
+    di_la_fine(server, &p.nome);
     sveglia(server);
     true
+}
+
+/// A fine progetto, con la voce accesa, una frase detta (D403), come per
+/// la consegna di un compito: mai mentre e' aperta una conversazione dal
+/// vivo. L'evento `dot.progetto_finito` dice se si e' detta.
+fn di_la_fine(server: &Arc<Server>, nome: &str) {
+    let cfg = crate::caps_voce::configurazione_utente().unwrap_or_else(|| json!({}));
+    let a_voce = crate::dot::si_dice_a_voce(&cfg, crate::live::in_corso());
+    let frase = pr::frase_di_fine(nome);
+    server.ctx.bus.emit(
+        "dot.progetto_finito",
+        json!({ "progetto": nome, "voce": frase, "a_voce": a_voce }),
+    );
+    if a_voce {
+        let bus = server.ctx.bus.clone();
+        tokio::spawn(async move { crate::caps_voce::annuncia(bus, &frase).await });
+    }
 }
 
 /// Il legale guarda. Con dei dubbi all'inizio si va avanti, e li vede
