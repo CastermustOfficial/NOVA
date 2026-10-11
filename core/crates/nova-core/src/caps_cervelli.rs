@@ -194,9 +194,9 @@ impl Cervelli for Veri {
                 let i = crate::clm::impostazioni(&self.cfg);
                 if i.attivo {
                     match crate::clm::quale_cervello(&i, categorie, compito, allegati) {
-                        Ok((id, p)) => {
+                        Ok((id, p, soglia)) => {
                             probabilita = Some(p);
-                            if p >= i.soglia {
+                            if p >= soglia {
                                 (Some(id), "clm")
                             } else {
                                 (None, "clm_incerto")

@@ -2639,3 +2639,52 @@ due i posti, e usa un secondo Claude.
 
 La regola: prima di scrivere una configurazione di prova si guarda come il
 codice la legge, e cosa hanno lasciato le sezioni prima.
+
+## L'APM non scriveva le sue scelte nel registro
+
+Nel D402 ho scritto l'APM coi suoi passi in `progetto.jsonl`, e basta. La
+tabella dell'azienda dei Dot, decisa con Gio nel D395, diceva che ogni scelta
+di AR e dell'APM va in `decisioni.jsonl`, con l'esito: il legale, la
+revisione di fase e il resoconto non ci arrivavano. Me ne sono accorto l'11
+ottobre preparando la bozza del D404, contando le righe che CLM avrebbe
+potuto imparare. Nel D404 i controlli dell'APM vanno nel registro
+(`controllo`), e la scelta di AR porta il numero del compito, che mancava
+anche lei per chiudere l'esempio col voto.
+
+La regola: prima di chiudere un passo si rilegge la tabella delle decisioni
+che lo riguardano, riga per riga, e si cerca nel codice dove ognuna e'
+fatta.
+
+## Ho creduto che il generatore scrivesse i danni che gli chiedevo
+
+Per il custode ho chiesto al generatore situazioni di tre generi: azioni
+che servono, azioni che fanno danni, casi di confine. Il maestro ha
+consentito 273 situazioni su 284, e 90 su 94 di quelle «che fanno danni»:
+il generatore aveva scritto azioni innocue anche li'. Addestrate su quelle,
+le teste dicevano si' a tutto: sul banco 10 su 20, con 10 si' sbagliati su
+10. L'ho visto dal conto del maestro prima di guardare le teste, e il banco
+l'ha confermato. Adesso c'e' un genere a parte, `danno_evidente`, che chiede
+il danno per esempi e lo vuole evidente nel dettaglio: il maestro le ha
+negate tutte, 79 e 92.
+
+La regola: dei dati scritti apposta si guarda la distribuzione delle
+etichette prima di addestrare, per ogni genere chiesto; un genere che il
+maestro non riconosce non e' stato scritto.
+
+## Un file mandato sul PC che non era quello nuovo
+
+L'11 ottobre ho mandato sul PC di sviluppo `clm_addestra.py` con un'opzione
+nuova (`--giro`), con lo stesso nome di file di prima. E' arrivato il file
+vecchio: il giro di generazione e' partito, ha detto «unrecognized arguments»
+e il resto della catena ha riaddestrato sugli stessi dati, per niente. Me ne
+sono accorto leggendo il registro del giro. Ho rimandato il file con un nome
+nuovo, e ho controllato l'impronta (MD5) da tutte e due le parti prima di
+lanciare.
+
+Nello stesso giro uno script di controllo lanciato dalla cartella
+`Claude outputs` ha importato un `bisect.py` lasciato li', al posto di quello
+di Python. L'ho rilanciato da una cartella vuota.
+
+La regola: un file mandato sul PC si controlla con l'impronta prima di
+usarlo; e uno script non si lancia da una cartella dove ci sono altri file
+`.py`.

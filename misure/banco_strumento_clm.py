@@ -119,6 +119,20 @@ def capacita_offerte() -> list[str]:
 
 def strumenti() -> dict[str, str]:
     """capacita' -> descrizione, chieste al demone acceso."""
+    elenco = dal_demone("tools/list")["tools"]
+    per_nome = {t["name"]: t.get("description", "") for t in elenco}
+    fuori = {}
+    for cap in capacita_offerte():
+        d = per_nome.get(cap.replace(".", "_"))
+        if d is None:
+            print(f"il demone non offre {cap}")
+            sys.exit(1)
+        fuori[cap] = d.strip()
+    return fuori
+
+
+def dal_demone(metodo: str) -> dict:
+    """La risposta di un metodo del demone, acceso apposta in una casa vuota."""
     from nova.core_client import CoreClient
     nome = "novad.exe" if os.name == "nt" else "novad"
     demone = RADICE / "core" / "target" / "release" / nome
@@ -140,22 +154,13 @@ def strumenti() -> dict[str, str]:
         while time.time() < fine and not CoreClient.disponibile(endpoint):
             time.sleep(0.3)
         with CoreClient(endpoint, timeout=60) as c:
-            elenco = c.request("tools/list")["tools"]
+            return c.request(metodo)
     finally:
         p.terminate()
         try:
             p.wait(timeout=10)
         except subprocess.TimeoutExpired:
             p.kill()
-    per_nome = {t["name"]: t.get("description", "") for t in elenco}
-    fuori = {}
-    for cap in capacita_offerte():
-        d = per_nome.get(cap.replace(".", "_"))
-        if d is None:
-            print(f"il demone non offre {cap}")
-            sys.exit(1)
-        fuori[cap] = d.strip()
-    return fuori
 
 
 def parole(t: str) -> list[str]:

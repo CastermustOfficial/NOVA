@@ -53,6 +53,8 @@ struct Descrizione {
     cfg: Forma,
     scala: f32,
     tensori: BTreeMap<String, Posto>,
+    #[serde(default)]
+    soglie: BTreeMap<String, f32>,
 }
 
 /// Uno strato lineare: `y = W x + b`, con `W` di `uscite` righe.
@@ -161,6 +163,11 @@ pub struct Teste {
     pub stato: Testa,
     pub azione: Testa,
     pub scala: f32,
+    /// Le scelte su cui queste teste sono addestrate, con la soglia misurata
+    /// per ognuna (D404): `misure/clm_addestra.py esporta` le scrive da
+    /// `soglia`. Una scelta che qui non c'e' le teste non l'hanno imparata, e
+    /// CLM non la fa. Le teste di prima del D404 non ne hanno nessuna.
+    pub soglie: BTreeMap<String, f32>,
 }
 
 /// Il vettore diviso per la sua norma.
@@ -286,10 +293,14 @@ pub fn da_parti(descrizione: &str, numeri: &[f32]) -> Result<Teste, String> {
     if stato.uscita.uscite != azione.uscita.uscite {
         return Err("le due teste non escono della stessa misura".into());
     }
+    if let Some((k, v)) = d.soglie.iter().find(|(_, v)| !(**v > 0.0 && **v <= 1.0)) {
+        return Err(format!("la soglia di «{k}» e' {v}: va da 0 a 1"));
+    }
     Ok(Teste {
         stato,
         azione,
         scala: d.scala,
+        soglie: d.soglie,
     })
 }
 
@@ -370,6 +381,24 @@ mod prove {
         let p = t.distribuzione(&[1.0, 0.1], &[vec![0.1, 1.0], vec![1.0, 0.1]]);
         assert!(p[1] > 0.99, "{p:?}");
         assert!((p.iter().sum::<f32>() - 1.0).abs() < 1e-6);
+    }
+
+    /// Le teste dicono quali scelte hanno imparato, con la soglia di
+    /// ognuna; quelle di prima del D404 nessuna, e una soglia fuori da 0-1
+    /// non si accetta.
+    #[test]
+    fn le_soglie_dicono_cosa_le_teste_hanno_imparato() {
+        let (d, n) = piccola();
+        assert!(da_parti(&d, &n).unwrap().soglie.is_empty());
+        let mut v: serde_json::Value = serde_json::from_str(&d).unwrap();
+        v["soglie"] = serde_json::json!({"custode": 0.9, "ar_chi": 0.75});
+        let t = da_parti(&v.to_string(), &n).unwrap();
+        assert_eq!(t.soglie.get("custode"), Some(&0.9));
+        assert_eq!(t.soglie.len(), 2);
+        v["soglie"] = serde_json::json!({"custode": 1.5});
+        assert!(da_parti(&v.to_string(), &n)
+            .unwrap_err()
+            .contains("va da 0 a 1"));
     }
 
     #[test]

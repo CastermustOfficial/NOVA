@@ -440,3 +440,31 @@ prove usano un Claude finto: dicono cosa riceve (gli argomenti, il
 collegamento, il compito), non se lo usa bene. **Cosa costerebbe.** Una
 prova che spende, quindi fuori dalla CI, a mano, con un tetto piccolo.
 
+
+## AR con le scelte vere
+
+Nata col D404. **Cosa.** Riaddestrare CLM su chi lavora e sul cervello con le
+righe vere di `scelta_ar`, coi voti dei compiti, quando ce ne saranno.
+**Perche'.** Sui dati scritti apposta le teste arrivano al 77-85%
+d'accordo su chi lavora e al 75-80% sul cervello: sotto il 95%, e CLM non
+le fa. Le scelte vere sono il caso giusto, non un caso simile.
+**Cosa costerebbe.** `clm_addestra.py veri` c'e' gia'; serve il progetto di
+prova e qualche settimana di lavoro dei Dot, poi un giro di addestramento e
+di soglie.
+
+## Una soglia per verso, nel custode
+
+Nata col D404. **Cosa.** Due soglie per il custode: una per consentire e una
+per negare. **Perche'.** Con la soglia scelta (0,5) CLM consente 11 azioni
+su 101 che il maestro nega; un si' sbagliato costa piu' di un no
+sbagliato, e una soglia alta solo per il si' (a 0,99 nessun si' sbagliato)
+terrebbe i no di CLM. **Cosa costerebbe.** Due chiavi in `soglie`, un ramo in
+`nova_core::clm`, la misura per verso in `soglia_da`; e la decisione di Gio.
+
+## Un secondo maestro per le scelte dei Dot
+
+Nata col D404. **Cosa.** Far rietichettare le situazioni a Claude, come per
+«quale cervello», e tenere solo quelle dove i due maestri vanno d'accordo.
+**Perche'.** Le soglie misurano l'accordo con un maestro solo, Qwen3.8 27B:
+dove sbaglia lui, CLM impara a sbagliare. **Cosa costerebbe.** Un comando
+come `rietichetta` per il custode e per AR, e la spesa di Claude.

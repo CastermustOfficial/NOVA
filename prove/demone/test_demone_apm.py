@@ -369,6 +369,18 @@ try:
     controlla("e a Nova e' arrivato il resoconto",
               detti_a_nova()[-1].startswith("Il progetto «compressore» e' finito.\n\n# Fatto"),
               detti_a_nova()[-1][:200])
+    registro = cartella_nova / "decisioni.jsonl"
+    controlli_ = [json.loads(x) for x in registro.read_text(encoding="utf-8").splitlines()
+                  if '"controllo"' in x] if registro.is_file() else []
+    del_progetto_ = [(c["controllo"], c["momento"], c["esito"]) for c in controlli_
+                     if c.get("progetto") == "compressore"]
+    controlla("ogni controllo e' nel registro delle decisioni, col cervello e l'esito (D404)",
+              del_progetto_ == [("legale", "all'inizio", "ok"), ("revisione", "dopo la fase 1", "fatta"),
+                                ("legale", "dopo la fase 1", "ok"), ("revisione", "dopo la fase 2", "fatta"),
+                                ("legale", "dopo la fase 2", "ok"), ("legale", "prima del rilascio", "ok"),
+                                ("resoconto", "prima del rilascio", "scritto")]
+              and all(c["cervello"] == "grande" for c in controlli_ if c.get("progetto") == "compressore"),
+              str(del_progetto_))
     spese = [e for e in eventi("compressore") if e["tipo"] == "spesa"]
     totale = round(sum(e["usd"] for e in spese), 4)
     controlla("la spesa conta i cervelli a consumo",
@@ -410,6 +422,10 @@ try:
               s == "fermo" and "il legale ha dei dubbi dopo la fase 1: la licenza dei dati" in p["perche_fermo"],
               json.dumps(p, ensure_ascii=False)[:500])
     controlla("e l'ha detto a Nova", "Il progetto «terzo» e' fermo: il legale ha dei dubbi" in detti_a_nova()[-1])
+    dubbi = [json.loads(x) for x in (cartella_nova / "decisioni.jsonl").read_text(encoding="utf-8").splitlines()
+             if '"controllo"' in x and '"terzo"' in x and '"problemi"' in x]
+    controlla("e il registro ha i problemi del legale",
+              len(dubbi) == 1 and "la licenza dei dati" in dubbi[0].get("perche", ""), str(dubbi))
     controlla("intanto il quarto aspetta", sta("quarto") == "in_coda")
     r = capacita("dot.via", nome="terzo")
     controlla("col via riparte", r.get("ripreso") is True, json.dumps(r))

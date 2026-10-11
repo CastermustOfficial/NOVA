@@ -732,11 +732,32 @@ async fn lavora(server: &Arc<Server>, p: &Progetto) -> bool {
         return rivedi_la_fase(server, p, f.n, &perche).await;
     }
     let domanda = pr::domanda_revisione(p, f);
-    let Some(detto) =
+    let Some((detto, cervello)) =
         chiedi_al_grande(server, &p.nome, "la revisione", &domanda, GETTONI_CONTROLLO).await
     else {
         return true;
     };
+    let momento = format!("dopo la fase {}", f.n);
+    match pr::leggi_revisione(&detto) {
+        Some((fatta, perche)) => registra(
+            p,
+            "revisione",
+            &momento,
+            Some(f.n),
+            &cervello,
+            if fatta { "fatta" } else { "non_fatta" },
+            &perche,
+        ),
+        None => registra(
+            p,
+            "revisione",
+            &momento,
+            Some(f.n),
+            &cervello,
+            "illeggibile",
+            &pr::in_breve(&detto),
+        ),
+    }
     match pr::leggi_revisione(&detto) {
         Some((true, perche)) => {
             annota(
@@ -883,7 +904,18 @@ async fn rilascio(server: &Arc<Server>, p: &Progetto, pi: &piano::Piano) -> bool
     )
     .await
     {
-        Some(t) if !t.trim().is_empty() => t.trim().to_string(),
+        Some((t, cervello)) if !t.trim().is_empty() => {
+            registra(
+                p,
+                "resoconto",
+                "prima del rilascio",
+                None,
+                &cervello,
+                "scritto",
+                "",
+            );
+            t.trim().to_string()
+        }
         // Un resoconto si scrive anche senza cervello: le fasi e le
         // consegne, cosi' come sono.
         _ => pr::resoconto_semplice(p, pi),
@@ -932,12 +964,33 @@ async fn legale(
     rilascio: bool,
 ) -> bool {
     let domanda = pr::domanda_legale(p, quando, materia);
-    let Some(detto) =
+    let Some((detto, cervello)) =
         chiedi_al_grande(server, &p.nome, "il legale", &domanda, GETTONI_CONTROLLO).await
     else {
         return true;
     };
-    let Some((ok, note)) = pr::leggi_legale(&detto) else {
+    let letto = pr::leggi_legale(&detto);
+    match &letto {
+        Some((ok, note)) => registra(
+            p,
+            "legale",
+            quando,
+            fase,
+            &cervello,
+            if *ok { "ok" } else { "problemi" },
+            &note.join("; "),
+        ),
+        None => registra(
+            p,
+            "legale",
+            quando,
+            fase,
+            &cervello,
+            "illeggibile",
+            &pr::in_breve(&detto),
+        ),
+    }
+    let Some((ok, note)) = letto else {
         ferma_e_di(
             server,
             &p.nome,
@@ -978,7 +1031,7 @@ async fn chiedi_al_grande(
     chi: &str,
     domanda: &str,
     gettoni: u32,
-) -> Option<String> {
+) -> Option<(String, String)> {
     let cfg = nova_configurazione::dove::leggi();
     let Some(grande) = crate::agente::scala_di(&cfg)
         .into_iter()
@@ -1024,7 +1077,31 @@ async fn chiedi_al_grande(
             },
         );
     }
-    Some(detto)
+    Some((detto, grande.nome().to_string()))
+}
+
+/// Un controllo nel registro delle decisioni (D404).
+fn registra(
+    p: &Progetto,
+    controllo: &str,
+    momento: &str,
+    fase: Option<u32>,
+    cervello: &str,
+    esito: &str,
+    perche: &str,
+) {
+    let cfg = nova_configurazione::dove::leggi();
+    let riga = crate::decisioni::riga_controllo(
+        &adesso(),
+        &p.nome,
+        controllo,
+        momento,
+        fase,
+        cervello,
+        esito,
+        perche,
+    );
+    crate::decisioni::annota(&cfg, &riga);
 }
 
 // ------------------------------------------------------------- la spesa

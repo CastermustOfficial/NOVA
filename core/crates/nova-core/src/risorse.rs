@@ -7,6 +7,12 @@
 //! nuovo, segnato come `assunto`. Se c'e' un compito, glielo affida col
 //! cervello scelto per tutto il compito.
 //!
+//! **CLM prima**, se le sue teste hanno imparato le scelte di AR (D404):
+//! chi lavora e il cervello, ognuna sopra la sua soglia. Se ha deciso tutte e
+//! due, e chi lavora e' un Dot che c'e', il cervello grande non serve; se no
+//! il cervello grande sceglie il resto, sapendo cosa ha gia' deciso CLM, e il
+//! Dot nuovo lo scrive sempre lui.
+//!
 //! **Il cervello piu' grande che risponde a un indirizzo**, come il custode
 //! quando il modello di casa non sa (D384): Claude Code e le CLI no, perche'
 //! chi legge testo scritto da altri — i ruoli dei Dot, il bisogno — non deve
@@ -16,8 +22,8 @@
 //! **Se AR non sa scegliere, non sceglie nessuno**: niente cervello a cui
 //! chiedere, una risposta che non si legge, un Dot che non c'e' — Nova riceve
 //! il perche', e lo dice all'utente. Ogni scelta va nel diario di AR e in
-//! `decisioni.jsonl` (`scelta_ar`), e com'e' finito il compito accanto
-//! (`esito_ar`).
+//! `decisioni.jsonl` (`scelta_ar`, con la situazione e chi ha deciso ogni
+//! parte), e com'e' finito il compito accanto (`esito_ar`).
 
 use std::sync::Arc;
 
@@ -93,23 +99,59 @@ pub async fn assumi(
     let cfg = nova_configurazione::dove::leggi();
     let gradini = crate::agente::scala_di(&cfg);
     let scala: Vec<String> = gradini.iter().map(|g| g.nome().to_string()).collect();
-    let grande = gradini
-        .iter()
-        .rev()
-        .find(|g| g.indirizzo().is_some())
-        .cloned()
-        .ok_or("AR non ha un cervello senza mani a cui chiedere: nella scala non c'e' un \
-                cervello che risponde a un indirizzo")?;
     let tutti = candidati(server, capo);
     let domanda = r::richiesta(bisogno, compito, &tutti, &scala);
-    let in_casa = grande.indirizzo().is_some_and(|(_, _, _, casa)| casa);
-    let solo_locale = crate::dalla_configurazione::scala(&cfg).solo_locale;
-    crate::custode::si_puo_chiedere_per(Decisione::SceltaDiAr, "AR", in_casa, &domanda, solo_locale)
-        .map_err(|e| format!("AR non ha potuto scegliere: {e}"))?;
-    let detto = crate::agente::chiedi_con(std::slice::from_ref(&grande), &domanda, GETTONI)
-        .await
-        .ok_or_else(|| format!("AR non ha potuto scegliere: «{}» non ha risposto", grande.nome()))?;
-    let (scelta, mut note) = r::leggi_scelta(&detto, &tutti, &scala)?;
+
+    // CLM, per le parti che le teste hanno imparato (D404): ognuna sopra la
+    // sua soglia. Se ha deciso chi (un Dot che c'e') e il cervello, il
+    // cervello grande non serve.
+    let clm = scelte_di_clm(&cfg, bisogno, compito, &tutti, &scala).await;
+    let chi_clm = clm.chi.as_ref().filter(|s| s.decide()).map(|s| s.id.clone());
+    let cervello_clm = clm.cervello.as_ref().filter(|s| s.decide()).map(|s| s.id.clone());
+    let (scelta, mut note, deciso_da) = match (&chi_clm, &cervello_clm) {
+        (Some(dot), Some(g)) if dot != nova_dot::clm::ASSUMI_ID => (
+            r::Scelta::Riprendi {
+                dot: dot.clone(),
+                cervello: g.clone(),
+                perche: "deciso da CLM".into(),
+            },
+            clm.note.clone(),
+            "clm".to_string(),
+        ),
+        _ => {
+            let grande = gradini
+                .iter()
+                .rev()
+                .find(|g| g.indirizzo().is_some())
+                .cloned()
+                .ok_or("AR non ha un cervello senza mani a cui chiedere: nella scala non c'e' un \
+                        cervello che risponde a un indirizzo")?;
+            let in_casa = grande.indirizzo().is_some_and(|(_, _, _, casa)| casa);
+            let solo_locale = crate::dalla_configurazione::scala(&cfg).solo_locale;
+            let domanda = format!(
+                "{domanda}{}",
+                nova_dot::clm::gia_deciso(chi_clm.as_deref(), cervello_clm.as_deref())
+            );
+            crate::custode::si_puo_chiedere_per(Decisione::SceltaDiAr, "AR", in_casa, &domanda, solo_locale)
+                .map_err(|e| format!("AR non ha potuto scegliere: {e}"))?;
+            let detto = crate::agente::chiedi_con(std::slice::from_ref(&grande), &domanda, GETTONI)
+                .await
+                .ok_or_else(|| format!("AR non ha potuto scegliere: «{}» non ha risposto", grande.nome()))?;
+            let (suo, mut note) = r::leggi_scelta(&detto, &tutti, &scala)?;
+            let (scelta, cambi) =
+                nova_dot::clm::con_clm(suo, chi_clm.as_deref(), cervello_clm.as_deref());
+            note.extend(clm.note.iter().cloned());
+            note.extend(cambi);
+            (scelta, note, grande.nome().to_string())
+        }
+    };
+    // Chi ha deciso ogni parte: CLM solo dove la sua scelta e' rimasta.
+    let chi_da = match (&chi_clm, &scelta) {
+        (Some(d), r::Scelta::Riprendi { dot, .. }) if d == dot => "clm".to_string(),
+        (Some(d), r::Scelta::Assumi { .. }) if d == nova_dot::clm::ASSUMI_ID => "clm".to_string(),
+        _ => deciso_da.clone(),
+    };
+    let cervello_da = if cervello_clm.is_some() { "clm".to_string() } else { deciso_da.clone() };
 
     // Quello che ha scelto, fatto.
     let nome = scelta.dot().to_string();
@@ -154,14 +196,24 @@ pub async fn assumi(
     };
     let riga = crate::decisioni::riga_scelta_ar(
         &crate::decisioni::adesso(),
-        &domanda,
-        come,
-        &nome,
-        scelta.cervello(),
-        &perche,
-        &note,
-        tutti.len(),
-        grande.nome(),
+        &crate::decisioni::SceltaAr {
+            richiesta: &domanda,
+            bisogno,
+            testo_compito: compito,
+            candidati: &tutti,
+            scala: &scala,
+            scelta: come,
+            dot: &nome,
+            cervello: scelta.cervello(),
+            perche: &perche,
+            note: &note,
+            compito: id,
+            deciso_da: &deciso_da,
+            chi_da: &chi_da,
+            cervello_da: &cervello_da,
+            clm_chi: clm.chi.as_ref().map(|s| s.probabilita),
+            clm_cervello: clm.cervello.as_ref().map(|s| s.probabilita),
+        },
     );
     crate::decisioni::annota(&cfg, &riga);
     diario(&riga);
@@ -176,8 +228,63 @@ pub async fn assumi(
         "perche": perche,
         "note": note,
         "compito": id,
-        "deciso_da": grande.nome(),
+        "deciso_da": deciso_da,
+        "chi_da": chi_da,
+        "cervello_da": cervello_da,
     }))
+}
+
+/// Cosa dice CLM su chi lavora e sul cervello, se e' acceso: le sue scelte
+/// (anche sotto la soglia, per il registro) e le note su cosa non ha potuto.
+struct DettoDaClm {
+    chi: Option<crate::clm::Scelta>,
+    cervello: Option<crate::clm::Scelta>,
+    note: Vec<String>,
+}
+
+async fn scelte_di_clm(
+    cfg: &Value,
+    bisogno: &str,
+    compito: &str,
+    tutti: &[r::Candidato],
+    scala: &[String],
+) -> DettoDaClm {
+    let i = crate::clm::impostazioni(cfg);
+    if !i.attivo {
+        return DettoDaClm { chi: None, cervello: None, note: Vec::new() };
+    }
+    let chi = nova_dot::clm::ar_chi(bisogno, compito, tutti);
+    let cervello = nova_dot::clm::ar_cervello(bisogno, compito, scala);
+    let fatto = tokio::task::spawn_blocking(move || {
+        (
+            crate::clm::scegli(&i, nova_dot::clm::AR_CHI, &chi),
+            crate::clm::scegli(&i, nova_dot::clm::AR_CERVELLO, &cervello),
+        )
+    })
+    .await;
+    let mut note = Vec::new();
+    let Ok((chi, cervello)) = fatto else {
+        note.push("CLM non ha scelto: il suo lavoro si e' interrotto".into());
+        return DettoDaClm { chi: None, cervello: None, note };
+    };
+    let mut tieni = |cosa: &str, r: Result<crate::clm::Scelta, String>| match r {
+        Ok(s) => {
+            if !s.decide() {
+                note.push(format!(
+                    "CLM incerto su {cosa} ({:.2}, sotto la soglia di {:.2})",
+                    s.probabilita, s.soglia
+                ));
+            }
+            Some(s)
+        }
+        Err(e) => {
+            note.push(format!("CLM non ha scelto {cosa}: {e}"));
+            None
+        }
+    };
+    let chi = tieni("chi lavora", chi);
+    let cervello = tieni("il cervello", cervello);
+    DettoDaClm { chi, cervello, note }
 }
 
 /// Com'e' finito un compito col cervello scelto da AR: nel registro e nel

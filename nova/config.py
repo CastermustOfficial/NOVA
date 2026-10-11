@@ -728,6 +728,10 @@ class ClmConfig:
     porta: int = 8423
     strati: int = 999       # quanti strati sulla scheda: 999 = tutti
     soglia: float = 0.8     # sotto, CLM si astiene e valgono le parole
+    # Le soglie delle scelte dei Dot (D404: custode, ar_chi, ar_cervello):
+    # cambiano quelle misurate per le teste, e una scelta che le teste non
+    # hanno imparato non la fanno lo stesso.
+    soglie: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass

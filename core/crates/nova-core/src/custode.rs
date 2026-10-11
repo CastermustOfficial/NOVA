@@ -15,8 +15,10 @@
 //!
 //! **Chi decide.** Prima il modello di casa, con una domanda si'/no letta
 //! dalle lettere (`giudizio_casa`): privato e gratis. Se il modello di casa
-//! non c'e', non si accende o non sa decidere, il cervello piu' grande della
-//! scala che risponde a un indirizzo, con una domanda sola e senza strumenti.
+//! non c'e', non si accende o non sa decidere, CLM, se le sue teste hanno
+//! imparato il custode (D404): sopra la soglia decide lui, nei due versi.
+//! Se no, o se e' incerto, il cervello piu' grande della scala che risponde a
+//! un indirizzo, con una domanda sola e senza strumenti.
 //! Claude Code e le CLI no: un giudice che legge testo scritto da altri — gli
 //! argomenti di un Dot, una pagina letta — non deve avere mani. Se la domanda
 //! dovrebbe uscire dal PC si chiede prima a `nova_decisioni` se puo', e una
@@ -40,7 +42,7 @@ use crate::server::Server;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Decisa {
     pub consentito: bool,
-    /// `casa`, `grande` o `nessuno`.
+    /// `casa`, `clm` (D404), `grande` o `nessuno`.
     pub chi: &'static str,
     /// Com'e' andata la domanda, per il registro.
     pub come: String,
@@ -132,7 +134,8 @@ pub async fn decidi(
     }
 }
 
-/// Il giudizio: il modello di casa, poi il cervello grande, poi no.
+/// Il giudizio: il modello di casa, poi CLM (D404), poi il cervello grande,
+/// poi no.
 async fn giudica(server: &Arc<Server>, cfg: &Value, stato: &str) -> Decisa {
     let gradini = crate::agente::scala_di(cfg);
     let recapiti = crate::dalla_configurazione::recapiti(cfg, &|n| std::env::var(n).ok());
@@ -181,6 +184,28 @@ async fn giudica(server: &Arc<Server>, cfg: &Value, stato: &str) -> Decisa {
                     Err(e) => note.push(format!("il modello di casa non ha giudicato: {e}")),
                 }
             }
+        }
+    }
+
+    // CLM, se le teste hanno imparato il custode (D404): sopra la soglia
+    // decide lui, nei due versi (Gio, 11 ottobre); sotto si astiene, e
+    // decide il cervello grande.
+    let i = crate::clm::impostazioni(cfg);
+    if i.attivo {
+        let domanda = nova_dot::clm::custode(stato);
+        let scelta = tokio::task::spawn_blocking(move || {
+            crate::clm::scegli(&i, nova_dot::clm::CUSTODE, &domanda)
+        })
+        .await
+        .map_err(|e| e.to_string())
+        .and_then(|r| r);
+        match scelta {
+            Ok(s) if s.decide() => return da_clm(&s, note),
+            Ok(s) => note.push(format!(
+                "CLM incerto ({:.2}, sotto la soglia di {:.2})",
+                s.probabilita, s.soglia
+            )),
+            Err(e) => note.push(format!("CLM non ha giudicato: {e}")),
         }
     }
 
@@ -242,9 +267,39 @@ async fn giudica(server: &Arc<Server>, cfg: &Value, stato: &str) -> Decisa {
     }
 }
 
+/// La decisione di CLM sopra la soglia: nel registro, `chi: clm` e la
+/// probabilita' del si'.
+fn da_clm(s: &crate::clm::Scelta, mut note: Vec<String>) -> Decisa {
+    note.push(format!("clm ({:.2}, soglia {:.2})", s.probabilita, s.soglia));
+    let consentito = s.id == "si";
+    Decisa {
+        consentito,
+        chi: "clm",
+        come: note.join("; "),
+        motivo: if consentito {
+            String::new()
+        } else {
+            "secondo CLM non serve al compito, o fa danni che l'utente non ha chiesto".into()
+        },
+        probabilita_vero: s.tutte.first().map(|p| f64::from(*p)),
+    }
+}
+
 #[cfg(test)]
 mod prove {
     use super::*;
+
+    #[test]
+    fn clm_sopra_la_soglia_decide_nei_due_versi() {
+        let s = crate::clm::Scelta { id: "si".into(), probabilita: 0.93, soglia: 0.9, tutte: vec![0.93, 0.07] };
+        let d = da_clm(&s, vec!["il modello di casa non c'e'".into()]);
+        assert_eq!((d.consentito, d.chi, d.motivo.as_str()), (true, "clm", ""));
+        assert_eq!(d.come, "il modello di casa non c'e'; clm (0.93, soglia 0.90)");
+        assert!((d.probabilita_vero.unwrap() - 0.93).abs() < 1e-6);
+        let n = da_clm(&crate::clm::Scelta { id: "no".into(), probabilita: 0.95, soglia: 0.9, tutte: vec![0.05, 0.95] }, vec![]);
+        assert_eq!((n.consentito, n.come.as_str()), (false, "clm (0.95, soglia 0.90)"));
+        assert!(n.motivo.starts_with("secondo CLM non serve"), "{}", n.motivo);
+    }
 
     #[test]
     fn sul_pc_si_chiede_sempre_fuori_solo_se_si_puo() {

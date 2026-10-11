@@ -28,7 +28,11 @@
 //! - `piano` (D400): un piano di sviluppo dell'Architetto, perche' e' stato
 //!   chiesto, con che cervello, quanto e' grande e com'e' andata;
 //! - `voto` (D401): il voto del capo a una consegna di un Dot, col cervello
-//!   che l'ha fatta; `cervello_ar`: cosa ha deciso AR guardando la pagella.
+//!   che l'ha fatta; `cervello_ar`: cosa ha deciso AR guardando la pagella;
+//! - `controllo` (D404): un controllo dell'APM su un progetto (il legale, la
+//!   revisione di una fase, il resoconto) e com'e' andato. Dal D404
+//!   `scelta_ar` porta anche la situazione, il numero del compito e chi ha
+//!   deciso ogni parte, e `permesso_dot` puo' avere `chi: clm`.
 //!
 //! **I segreti no**, con due mani. Un testo in cui il guardiano della memoria
 //! vede una credenziale ([`nova_guasti::guardiano::perche_non_si_salva`]: una
@@ -223,32 +227,82 @@ pub fn riga_permesso_dot(
 
 /// Una scelta di AR (D397): chi lavora e con che cervello.
 ///
-/// `richiesta` e' la domanda che AR ha fatto al cervello grande, col
-/// bisogno, il compito e i candidati; `scelta` e' `riprendi` o `assumi`.
-#[allow(clippy::too_many_arguments)]
-pub fn riga_scelta_ar(
-    quando: &str,
-    richiesta: &str,
-    scelta: &str,
-    dot: &str,
-    cervello: &str,
-    perche: &str,
-    note: &[String],
-    candidati: usize,
-    deciso_da: &str,
-) -> Value {
+/// `richiesta` e' la domanda per il cervello grande, col bisogno, il compito
+/// e i candidati; `scelta` e' `riprendi` o `assumi`. Dal D404 la riga porta
+/// anche la situazione com'era (`situazione`: il bisogno, il compito, i Dot
+/// candidati e la scala), per rifare le domande di CLM con gli stessi testi;
+/// il numero del compito affidato, per ritrovarne il voto; e chi ha deciso
+/// ogni parte: CLM o il cervello grande.
+pub struct SceltaAr<'a> {
+    pub richiesta: &'a str,
+    pub bisogno: &'a str,
+    pub testo_compito: &'a str,
+    pub candidati: &'a [nova_dot::risorse::Candidato],
+    pub scala: &'a [String],
+    pub scelta: &'a str,
+    pub dot: &'a str,
+    pub cervello: &'a str,
+    pub perche: &'a str,
+    pub note: &'a [String],
+    /// Il compito affidato col cervello scelto, se c'era.
+    pub compito: Option<u64>,
+    /// Chi ha deciso tutto: il cervello grande, o `clm` se non e' servito.
+    pub deciso_da: &'a str,
+    /// Chi ha deciso chi lavora, e il cervello: `clm` o il cervello grande.
+    pub chi_da: &'a str,
+    pub cervello_da: &'a str,
+    /// Le probabilita' di CLM, quando ha guardato.
+    pub clm_chi: Option<f32>,
+    pub clm_cervello: Option<f32>,
+}
+
+/// La riga di una scelta di AR.
+pub fn riga_scelta_ar(quando: &str, a: &SceltaAr) -> Value {
     let mut r = json!({
         "quando": quando,
         "tipo": "scelta_ar",
-        "scelta": scelta,
-        "dot": dot,
-        "cervello": cervello,
-        "note": note,
-        "candidati": candidati,
-        "deciso_da": deciso_da,
+        "scelta": a.scelta,
+        "dot": a.dot,
+        "cervello": a.cervello,
+        "note": a.note,
+        "candidati": a.candidati.len(),
+        "compito": a.compito,
+        "deciso_da": a.deciso_da,
+        "chi_da": a.chi_da,
+        "cervello_da": a.cervello_da,
     });
-    campo(&mut r, "richiesta", richiesta);
-    campo(&mut r, "perche", perche);
+    for (k, p) in [("clm_chi", a.clm_chi), ("clm_cervello", a.clm_cervello)] {
+        if let Some(p) = p {
+            r[k] = json!((f64::from(p) * 10000.0).round() / 10000.0);
+        }
+    }
+    campo(&mut r, "richiesta", a.richiesta);
+    campo(&mut r, "perche", a.perche);
+    // La situazione intera, o niente: se un testo ha una credenziale non si
+    // scrive la situazione, e resta il perche'.
+    let testi = std::iter::once(a.bisogno)
+        .chain(std::iter::once(a.testo_compito))
+        .chain(a.candidati.iter().map(|c| c.ruolo.as_str()));
+    match testi.map(pulito).collect::<Result<Vec<_>, _>>() {
+        Ok(t) => {
+            let candidati: Vec<Value> = a
+                .candidati
+                .iter()
+                .zip(&t[2..])
+                .map(|(c, ruolo)| {
+                    json!({"nome": c.nome, "ruolo": ruolo, "mestiere": c.mestiere,
+                           "libero": c.libero, "fatti": c.fatti, "falliti": c.falliti})
+                })
+                .collect();
+            r["situazione"] = json!({
+                "bisogno": t[0], "compito": t[1], "candidati": candidati, "scala": a.scala,
+            });
+        }
+        Err(motivo) => {
+            r["situazione"] = Value::Null;
+            r["taciuto"] = json!(motivo);
+        }
+    }
     r
 }
 
@@ -327,6 +381,38 @@ pub fn riga_piano(quando: &str, p: &PianoFatto) -> Value {
         "file": p.file,
     });
     campo(&mut r, "richiesta", p.richiesta);
+    r
+}
+
+/// Un controllo dell'APM su un progetto (D404): il legale (`legale`), la
+/// revisione di una fase (`revisione`) o il resoconto (`resoconto`); quando
+/// (`all'inizio`, `dopo la fase 2`, `prima del rilascio`), su che fase, col
+/// cervello che ha risposto, e com'e' andato: `ok` o `problemi` per il
+/// legale, `fatta` o `non_fatta` per la revisione, `scritto` per il
+/// resoconto, `illeggibile` se la risposta non si legge. La tabella del D395
+/// voleva in questo registro ogni scelta dell'APM: fino al D404 non c'era.
+#[allow(clippy::too_many_arguments)]
+pub fn riga_controllo(
+    quando: &str,
+    progetto: &str,
+    controllo: &str,
+    momento: &str,
+    fase: Option<u32>,
+    cervello: &str,
+    esito: &str,
+    perche: &str,
+) -> Value {
+    let mut r = json!({
+        "quando": quando,
+        "tipo": "controllo",
+        "progetto": progetto,
+        "controllo": controllo,
+        "momento": momento,
+        "fase": fase,
+        "cervello": cervello,
+        "esito": esito,
+    });
+    campo(&mut r, "perche", perche);
     r
 }
 
@@ -413,25 +499,66 @@ mod prove {
     #[test]
     fn la_riga_di_ar_dice_cosa_ha_scelto_e_non_porta_credenziali() {
         let chiave = finta("sk-ant-");
-        let r = riga_scelta_ar(
-            "t",
-            &format!("Cosa serve: uno che usi {chiave}"),
-            "assumi",
-            "lettore",
-            "medio",
-            "manca",
-            &["una nota".into()],
-            3,
-            "grande",
-        );
+        let candidati = [nova_dot::risorse::Candidato {
+            nome: "scrivano".into(),
+            ruolo: "Scrive rapporti.".into(),
+            mestiere: nova_dot::Mestiere::Generico,
+            libero: true,
+            fatti: 2,
+            falliti: 0,
+        }];
+        let scala = ["piccolo".to_string(), "medio".to_string()];
+        let mut a = SceltaAr {
+            richiesta: &format!("Cosa serve: uno che usi {chiave}"),
+            bisogno: "un lettore",
+            testo_compito: "leggi il libro",
+            candidati: &candidati,
+            scala: &scala,
+            scelta: "assumi",
+            dot: "lettore",
+            cervello: "medio",
+            perche: "manca",
+            note: &["una nota".into()],
+            compito: Some(4),
+            deciso_da: "grande",
+            chi_da: "grande",
+            cervello_da: "clm",
+            clm_chi: Some(0.41),
+            clm_cervello: Some(0.912_34),
+        };
+        let r = riga_scelta_ar("t", &a);
         assert_eq!(r["tipo"], "scelta_ar");
         assert_eq!((r["scelta"].as_str(), r["dot"].as_str(), r["cervello"].as_str()), (Some("assumi"), Some("lettore"), Some("medio")));
-        assert_eq!(r["candidati"], 3);
+        assert_eq!(r["candidati"], 1);
+        assert!(!r.to_string().contains(&chiave), "{r}");
+        assert_eq!((r["compito"].as_u64(), r["chi_da"].as_str(), r["cervello_da"].as_str()), (Some(4), Some("grande"), Some("clm")));
+        assert_eq!((r["clm_chi"].as_f64(), r["clm_cervello"].as_f64()), (Some(0.41), Some(0.9123)));
+        assert_eq!(r["situazione"]["candidati"][0]["ruolo"], "Scrive rapporti.");
+        assert_eq!(r["situazione"]["scala"], json!(["piccolo", "medio"]));
+        assert_eq!(r["situazione"]["compito"], "leggi il libro");
+        // Una credenziale in un testo della situazione: la situazione non si
+        // scrive, e resta il perche'.
+        let con_chiave = format!("usa {chiave}");
+        a.bisogno = &con_chiave;
+        let r = riga_scelta_ar("t", &a);
+        assert!(r["situazione"].is_null() && r["taciuto"].is_string(), "{r}");
         assert!(!r.to_string().contains(&chiave), "{r}");
         let e = riga_esito_ar("t", "lettore", 4, "medio", "fatto");
         assert_eq!((e["tipo"].as_str(), e["compito"].as_u64(), e["stato"].as_str()), (Some("esito_ar"), Some(4), Some("fatto")));
         let l = riga_licenziato("t", "lettore", "ar", "fermo", "C:/x");
         assert_eq!((l["tipo"].as_str(), l["da"].as_str(), l["perche"].as_str()), (Some("licenziato"), Some("ar"), Some("fermo")));
+    }
+
+    #[test]
+    fn la_riga_di_un_controllo_dell_apm_dice_cosa_e_com_e_andato() {
+        let chiave = finta("sk-ant-");
+        let r = riga_controllo("t", "spazi", "legale", "dopo la fase 2", Some(2), "grande", "problemi",
+                               &format!("la licenza; e {chiave}"));
+        assert_eq!(r["tipo"], "controllo");
+        assert_eq!((r["controllo"].as_str(), r["momento"].as_str(), r["fase"].as_u64(), r["esito"].as_str()),
+                   (Some("legale"), Some("dopo la fase 2"), Some(2), Some("problemi")));
+        assert!(!r.to_string().contains(&chiave), "{r}");
+        assert!(riga_controllo("t", "p", "resoconto", "prima del rilascio", None, "g", "scritto", "")["fase"].is_null());
     }
 
     #[test]

@@ -9,9 +9,9 @@
 //!
 //! Il custode decide col modello di casa, leggendo le lettere di una domanda
 //! sì/no (CANT-12): privato, gratis, e ogni decisione si registra per CLM. Se
-//! il modello di casa non c'e', o non sa decidere, chiede al cervello piu'
-//! grande che risponde a un indirizzo, con una domanda sola e senza
-//! strumenti. Un giudice che legge testo scritto da altri non deve avere
+//! il modello di casa non c'e', o non sa decidere, decide CLM, se l'ha
+//! imparato (D404, `crate::clm`); se no chiede al cervello piu' grande che
+//! risponde a un indirizzo, con una domanda sola e senza strumenti. Un giudice che legge testo scritto da altri non deve avere
 //! mani: per questo non chiede a Claude Code ne' a una CLI.
 //!
 //! **Un custode che non sa decidere nega.** Un guasto non diventa mai un

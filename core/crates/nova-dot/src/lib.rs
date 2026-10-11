@@ -39,6 +39,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub mod azienda;
+pub mod clm;
 pub mod consegna;
 pub mod custode;
 pub mod gruppi;

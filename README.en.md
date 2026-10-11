@@ -931,6 +931,15 @@ decide which brain is needed above a threshold chosen on new cases. On the
 same questions Claude Code with
 Opus 5 and Gemini 3.1 Pro through Antigravity get 34 out of 34 and 40 out of
 40, in seconds rather than milliseconds (`misure/banco_cervelli_fuori.py`).
+Since D404 the heads also learn the Dots' custodian: a permission asked by a
+Dot is granted or denied. On the hand-written bench they get 20 out of 20,
+and they decide when the home model's letters aren't there, before the big
+brain; on new cases they agree with the teacher 312 times out of 324, and
+grant 11 actions out of 101 that the teacher denies. AR's choices (who
+works, with which brain) the heads try but don't reach 95%: CLM doesn't make
+them, and the log keeps the real choices to try again
+(`misure/banco_scelte_dot.py`). Every check of the APM and every choice of
+AR, with the situation and who decided it, is in the decisions log.
 
 ## Autonomy levels
 
@@ -1126,6 +1135,7 @@ python misure/banco_clm.py confronta      # CLM from a GGUF against bf16 (CANT-1
 python misure/banco_quale_cervello.py     # which brain: today's words against the letters, or CLM with --clm (CANT-12)
 python misure/banco_giudizio_slot.py      # does a judgement on the same llama-server cost the conversation's cache?
 python misure/banco_strumento_clm.py      # does CLM pick the tool among the home model's 58? Against BM25
+python misure/banco_scelte_dot.py --teste <folder>   # CLM on the Dots' choices: the custodian, and AR (D404)
 python misure/clm_addestra.py compiti     # CLM's heads trained on the big model's choices (CANT-12; the steps are at the top of the file)
 python misure/banco_cervelli_fuori.py chiedi --braccio claude   # the same questions to Claude Code and Antigravity, and the cascade with CLM
 python misure/banco_clm_accanto.py        # CLM next to the home model: video memory and milliseconds

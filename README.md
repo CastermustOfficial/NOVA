@@ -918,6 +918,15 @@ tiene un modello sul PC: si accendono con `clm.attivo`, e decidono quale
 cervello serve sopra una soglia scelta su casi nuovi. Sulle stesse domande Claude Code con Opus 5 e Gemini 3.1
 Pro da Antigravity fanno 34 su 34 e 40 su 40, in secondi invece che in
 millisecondi (`misure/banco_cervelli_fuori.py`).
+Dal D404 le teste imparano anche il custode dei Dot: un permesso chiesto da
+un Dot si consente o si nega. Sul banco scritto a mano fanno 20 su 20, e
+decidono quando le lettere del modello di casa non ci sono, prima del
+cervello grande; sui casi nuovi vanno d'accordo col maestro 312 volte su
+324, e consentono 11 azioni su 101 che il maestro nega. Le scelte di AR
+(chi lavora, con che cervello) le teste le provano ma non arrivano al 95%:
+CLM non le fa, e il registro tiene le scelte vere per riprovare
+(`misure/banco_scelte_dot.py`). Ogni controllo dell'APM e ogni scelta di AR,
+con la situazione e chi l'ha decisa, e' nel registro delle decisioni.
 
 ## Livelli di autonomia
 
@@ -1113,6 +1122,7 @@ python misure/banco_clm.py confronta      # CLM da un GGUF contro il bf16 (CANT-
 python misure/banco_quale_cervello.py     # quale cervello: le parole di oggi contro le lettere, o CLM con --clm (CANT-12)
 python misure/banco_giudizio_slot.py      # un giudizio sullo stesso llama-server costa la cache della conversazione?
 python misure/banco_strumento_clm.py      # CLM sceglie lo strumento fra i 58 del modello di casa? Contro BM25
+python misure/banco_scelte_dot.py --teste <cartella>   # CLM sulle scelte dei Dot: il custode, e AR (D404)
 python misure/clm_addestra.py compiti     # le teste di CLM addestrate sulle scelte del modello grande (CANT-12; i passi in testa al file)
 python misure/banco_cervelli_fuori.py chiedi --braccio claude   # le stesse domande a Claude Code e ad Antigravity, e la cascata con CLM
 python misure/banco_clm_accanto.py        # CLM accanto al modello di casa: memoria video e millisecondi

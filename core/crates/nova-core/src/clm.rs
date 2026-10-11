@@ -16,6 +16,13 @@
 //!
 //! Spento di serie: vuole un modello da 6-9 GB di memoria video in piu', e
 //! non tutti lo possono tenere acceso.
+//!
+//! **Le scelte dei Dot** (D404): il custode, e AR per chi lavora e per il
+//! cervello ([`scegli`], coi testi di `nova_dot::clm`). CLM le fa solo se le
+//! teste le hanno imparate: `teste.json` le elenca in `soglie`, con la soglia
+//! misurata sui casi nuovi, e `clm.soglie.<scelta>` puo' cambiarne il valore.
+//! Sopra la soglia decide lui; sotto si astiene, e decide chi decide senza
+//! di lui.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -40,8 +47,14 @@ pub struct Impostazioni {
     pub porta: u16,
     /// Quanti strati sulla scheda: 999 vuol dire tutti.
     pub strati: i64,
-    /// Sotto questa probabilita' CLM si astiene.
+    /// Sotto questa probabilita' CLM si astiene, in «quale cervello».
     pub soglia: f32,
+    /// Se `clm.soglia` l'ha scritta l'utente: se no, e le teste ne hanno
+    /// una misurata per «quale cervello» (D404), vale quella.
+    pub soglia_scritta: bool,
+    /// Le soglie delle scelte dei Dot scritte nella configurazione
+    /// (`clm.soglie`): cambiano quelle delle teste, non insegnano niente.
+    pub soglie: std::collections::BTreeMap<String, f32>,
 }
 
 /// La soglia, se la configurazione non ne dice una. Scelta sui casi nuovi,
@@ -66,11 +79,22 @@ pub fn impostazioni(cfg: &Value) -> Impostazioni {
             .filter(|p| *p > 0)
             .unwrap_or(PORTA_PREDEFINITA),
         strati: c.get("strati").and_then(Value::as_i64).unwrap_or(999),
+        soglia_scritta: c.get("soglia").and_then(Value::as_f64).is_some(),
         soglia: c
             .get("soglia")
             .and_then(Value::as_f64)
             .map(|x| x as f32)
             .unwrap_or(SOGLIA_PREDEFINITA),
+        soglie: c
+            .get("soglie")
+            .and_then(Value::as_object)
+            .map(|o| {
+                o.iter()
+                    .filter_map(|(k, v)| v.as_f64().map(|x| (k.clone(), x as f32)))
+                    .filter(|(_, x)| *x > 0.0 && *x <= 1.0)
+                    .collect()
+            })
+            .unwrap_or_default(),
     }
 }
 
@@ -241,13 +265,26 @@ pub fn stato_quale_cervello(compito: &str, allegati: i64) -> String {
     )
 }
 
-/// La scelta di CLM fra le categorie (e «nessuna»), con la sua probabilita'.
+/// La soglia di «quale cervello»: quella scritta nella configurazione; se
+/// non c'e', quella misurata per le teste, se l'hanno; se no 0,8 (D378).
+pub fn soglia_quale_cervello(i: &Impostazioni, imparate: &std::collections::BTreeMap<String, f32>) -> f32 {
+    if i.soglia_scritta {
+        return i.soglia;
+    }
+    imparate
+        .get(nova_dot::clm::QUALE_CERVELLO)
+        .copied()
+        .unwrap_or(i.soglia)
+}
+
+/// La scelta di CLM fra le categorie (e «nessuna»), con la sua probabilita'
+/// e la soglia sopra cui decide.
 pub fn quale_cervello(
     i: &Impostazioni,
     categorie: &[(String, String)],
     compito: &str,
     allegati: i64,
-) -> Result<(String, f32), String> {
+) -> Result<(String, f32, f32), String> {
     if let Some(m) = i.cosa_manca(&|p| std::path::Path::new(p).exists()) {
         return Err(m);
     }
@@ -268,12 +305,108 @@ pub fn quale_cervello(
         .enumerate()
         .max_by(|a, b| a.1.total_cmp(b.1))
         .ok_or("nessun candidato")?;
-    Ok((ids[j].to_string(), *migliore))
+    Ok((ids[j].to_string(), *migliore, soglia_quale_cervello(i, &t.soglie)))
+}
+
+/// Cosa ha scelto CLM su una domanda dei Dot.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Scelta {
+    /// L'id del candidato primo (`nova_dot::clm::Domanda::ids`).
+    pub id: String,
+    pub probabilita: f32,
+    /// La soglia di quella scelta.
+    pub soglia: f32,
+    /// Tutte le probabilita', nell'ordine dei candidati.
+    pub tutte: Vec<f32>,
+}
+
+impl Scelta {
+    /// Se decide lui: la sua prima scelta arriva alla soglia.
+    pub fn decide(&self) -> bool {
+        self.probabilita >= self.soglia
+    }
+}
+
+/// La soglia di una scelta dei Dot: quella delle teste, cambiata dalla
+/// configurazione se lo dice. `None` se le teste quella scelta non l'hanno
+/// imparata: allora la configurazione da sola non basta.
+pub fn soglia_per(i: &Impostazioni, imparate: &std::collections::BTreeMap<String, f32>, scelta: &str) -> Option<f32> {
+    imparate
+        .get(scelta)
+        .map(|s| i.soglie.get(scelta).copied().unwrap_or(*s))
+}
+
+/// La scelta di CLM su una domanda dei Dot (D404): il custode, AR chi
+/// lavora, AR il cervello. `Err` col perche' quando CLM non puo' scegliere:
+/// spento, senza modello o teste, una scelta che le teste non hanno
+/// imparato, il server dei vettori che non risponde.
+pub fn scegli(i: &Impostazioni, scelta: &str, d: &nova_dot::clm::Domanda) -> Result<Scelta, String> {
+    if let Some(m) = i.cosa_manca(&|p| std::path::Path::new(p).exists()) {
+        return Err(m);
+    }
+    if d.candidati.is_empty() || d.candidati.len() != d.ids.len() {
+        return Err("una domanda per CLM senza candidati".into());
+    }
+    let t = teste(&i.teste)?;
+    let soglia = soglia_per(i, &t.soglie, scelta)
+        .ok_or_else(|| format!("le teste di CLM non hanno imparato «{scelta}»"))?;
+    let url = i.url();
+    let za = d
+        .candidati
+        .iter()
+        .map(|c| uscita_candidato(&url, &t, c))
+        .collect::<Result<Vec<_>, _>>()?;
+    let zs = t.uscita_stato(&vettore(&url, &d.stato)?);
+    let p = t.da_uscite(&zs, &za);
+    let (j, migliore) = p
+        .iter()
+        .enumerate()
+        .max_by(|a, b| a.1.total_cmp(b.1))
+        .ok_or("nessun candidato")?;
+    Ok(Scelta {
+        id: d.ids[j].clone(),
+        probabilita: *migliore,
+        soglia,
+        tutte: p.clone(),
+    })
 }
 
 #[cfg(test)]
 mod prove {
     use super::*;
+
+    /// Una scelta dei Dot si fa solo se le teste l'hanno imparata; la
+    /// configurazione ne cambia la soglia, ma non la insegna.
+    #[test]
+    fn la_soglia_di_una_scelta_viene_dalle_teste() {
+        let i = impostazioni(&json!({"clm": {"soglie": {"custode": 0.95, "ar_chi": 7, "x": "a"}}}));
+        assert_eq!(i.soglie.len(), 1, "fuori da 0-1, o non un numero, non vale: {:?}", i.soglie);
+        let mut imparate = std::collections::BTreeMap::new();
+        assert_eq!(soglia_per(&i, &imparate, "custode"), None, "non imparata: niente");
+        imparate.insert("custode".to_string(), 0.8);
+        imparate.insert("ar_cervello".to_string(), 0.7);
+        assert_eq!(soglia_per(&i, &imparate, "custode"), Some(0.95), "la configurazione la cambia");
+        assert_eq!(soglia_per(&i, &imparate, "ar_cervello"), Some(0.7));
+        // «Quale cervello»: la soglia scritta vince, poi quella delle teste.
+        let qc = |cfg: Value, m: &std::collections::BTreeMap<String, f32>| {
+            soglia_quale_cervello(&impostazioni(&cfg), m)
+        };
+        let mut con_qc = std::collections::BTreeMap::new();
+        assert_eq!(qc(json!({}), &con_qc), SOGLIA_PREDEFINITA);
+        con_qc.insert("quale_cervello".to_string(), 0.85);
+        assert_eq!(qc(json!({}), &con_qc), 0.85);
+        assert_eq!(qc(json!({"clm": {"soglia": 0.9}}), &con_qc), 0.9);
+        let s = Scelta { id: "si".into(), probabilita: 0.7, soglia: 0.7, tutte: vec![0.7, 0.3] };
+        assert!(s.decide());
+        assert!(!Scelta { probabilita: 0.69, ..s }.decide());
+    }
+
+    #[test]
+    fn spento_non_sceglie_e_lo_dice() {
+        let d = nova_dot::clm::custode("x");
+        let e = scegli(&impostazioni(&json!({})), "custode", &d).unwrap_err();
+        assert!(e.contains("spento"), "{e}");
+    }
 
     #[test]
     fn spento_e_coi_valori_di_serie() {

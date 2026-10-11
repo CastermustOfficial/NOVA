@@ -245,7 +245,8 @@ specialisti. Li assume AR.
    del legale~~ (D402). Il vault del progetto resta da fare.
 9. ~~**Nova tramite**: la proposta, il via, i resoconti e gli aggiornamenti,
    e le modifiche chieste dall'utente~~ (D403).
-10. **CLM addestrato** sulle scelte di AR, dell'APM e del custode.
+10. ~~**CLM addestrato** sulle scelte di AR, dell'APM e del custode~~ (D404):
+    il custode si'; le scelte di AR non arrivano al 95%, e per ora no.
 11. Il progetto di prova di Gio, dall'inizio alla fine.
 
 ## Com'e' andata
@@ -916,3 +917,61 @@ prima del codice. Le parole stanno in `nova_dot::progetto`, il giro in
   compito), non cosa ne fa.
 - **Il costo del resto** e' la stima del tetto (0,30 $ a compito), non
   quanto costeranno davvero i compiti.
+
+**CLM addestrato — fatto** (D404). Deciso con Gio l'11 ottobre, sulla bozza,
+prima del codice; e dopo le misure, sulle soglie. I testi stanno in
+`nova_dot::clm`, la scelta in `nova_core::clm::scegli`, l'addestramento in
+`misure/clm_addestra.py`, il banco in `misure/banco_scelte_dot.py`.
+
+| | Deciso |
+|---|---|
+| **Quali scelte** | Il custode, e per AR chi lavora e il cervello. Il voto del capo e i controlli dell'APM restano al cervello grande: vanno lette consegne lunghe. |
+| **Su che dati** | Situazioni scritte apposta (il modello di casa le scrive, Qwen3.8 27B fa da maestro, a parole, con la domanda del demone), e le scelte vere del registro man mano. |
+| **Il custode** | CLM dice si' e no, con la soglia. |
+| **La soglia** | La piu' bassa con il 95% d'accordo col maestro sui casi nuovi, come per «quale cervello», anche per il custode. |
+| **AR** | Nessuna soglia arriva al 95%: per ora CLM non decide, e si riaddestra con le scelte vere. |
+| **Il registro** | I controlli dell'APM e il numero del compito di AR in questo passo. |
+
+- **Dove decide.** Il custode: prima le lettere del modello di casa, poi
+  CLM, poi il cervello grande, poi no. AR: prima CLM, per le parti che sa,
+  poi il cervello grande per il resto, sapendo cosa ha gia' deciso CLM; il
+  Dot nuovo lo scrive sempre il cervello grande. CLM fa una scelta solo se
+  le teste dicono di averla imparata (`soglie` in `teste.json`, scritte da
+  `clm_addestra.py esporta`); `clm.soglie.<scelta>` puo' cambiarne il
+  valore, non insegnarla. «Quale cervello» usa la soglia misurata per le
+  teste se `clm.soglia` non e' scritta (il pannello Python, quando salva,
+  la scrive sempre: 0,8).
+- **Gli stessi testi.** Lo stato e i candidati di CLM, la domanda al
+  maestro e come si legge la risposta li da' `banco-testi-clm`, con le
+  funzioni del demone: cio' che si impara e' cio' che si chiede.
+- **I dati.** Per l'addestramento 363 situazioni del custode (273 si', 90
+  no) e 628 di AR (286 assumi); per le soglie, in altri ambiti, 324 del
+  custode (223 si', 101 no) e 208 di AR. Al primo giro il generatore aveva
+  scritto azioni innocue anche dove gli si chiedeva il danno (90 su 94
+  consentite dal maestro): un genere a parte, `danno_evidente`, lo chiede
+  per esempi. Le scelte vere entrano solo se non le ha fatte CLM; un
+  cervello col voto sotto 6 insegna il gradino sopra.
+- **I numeri** (tre semi, sul banco scritto a mano: 20 permessi, 12 chi
+  lavora, 10 cervelli). Il maestro fa 20, 12 e 7; le teste di prima 10, 4
+  e 2. Addestrate: il custode 20 su 20 con tutti e tre i semi; chi lavora
+  9, 8, 10; il cervello 5, 5, 5. «Quale cervello» resta dov'era (27, 25,
+  28 su 34) e gli strumenti anche (27, 27, 29 su 40). Le teste scelte
+  (`teste-dot3-s9`): soglia 0,8 per «quale cervello» e 0,5 per il custode,
+  dove decide tutti i 324 casi nuovi, d'accordo col maestro 312 volte, e
+  consente 11 delle 101 azioni che il maestro nega; alla soglia 0,99 ne
+  decide 53, senza nessun si' sbagliato. Per AR il meglio e' 85,4% su chi
+  lavora (0,99, 89 casi su 208); il cervello arriva al 95% con un seme
+  solo. Il Rust e numpy danno le stesse scelte (differenza massima
+  6,5e-6).
+
+### Cosa resta aperto, dopo CLM addestrato
+
+- **AR**: le teste ci sono, le soglie no. Si riaddestra quando il registro
+  avra' le scelte vere di AR, coi voti dei compiti.
+- **Il custode consente 11 azioni su 101 che il maestro nega**, con la
+  soglia scelta: per lo piu' dati mandati a un altro modello, ma anche un
+  log di pagamenti cambiato. CLM decide solo dove le lettere non ci sono.
+- **Le teste nuove non sono accese**: la configurazione del PC di
+  sviluppo usa ancora `teste-s8`; cambiarle e' una scelta di Gio.
+- **Il maestro e' un modello solo**, e i casi nuovi li etichetta lui: la
+  soglia misura l'accordo col maestro, non la verita'.

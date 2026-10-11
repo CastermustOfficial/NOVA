@@ -10,10 +10,11 @@
 //! aveva scelto basso).
 //!
 //! AR decide **col cervello piu' grande**, con una domanda sola e senza
-//! strumenti, come il custode quando il modello di casa non sa (D384). Qui ci
+//! strumenti, come il custode quando il modello di casa non sa (D384); dal
+//! D404 prima CLM, per le parti che ha imparato (`crate::clm`). Qui ci
 //! sono la domanda e come si legge la risposta; chi chiede e' `nova_core::risorse`.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::ricerca::{nella_scala, oggetto_dentro, tagliato};
 use crate::{Compito, Dot, Mestiere};
@@ -29,7 +30,7 @@ pub const TESTO_MASSIMO: usize = 2_000;
 pub const CANDIDATI_MASSIMI: usize = 40;
 
 /// Un Dot che AR puo' riprendere.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Candidato {
     pub nome: String,
     pub ruolo: String,

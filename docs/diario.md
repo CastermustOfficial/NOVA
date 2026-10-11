@@ -11777,3 +11777,16 @@ seconda di chi ha chiesto il piano nuovo. E il modello di casa: le due
 righe che dicono a Nova di proporre i progetti ai Dot e il campo `dot` della
 delega costano 67 token, e alla sua conversazione ne restano 2.011. Undici
 sopra la soglia.
+
+## 11 ottobre 2026 — Il danno chiesto per esempi
+
+Ho chiesto al generatore azioni che servono, azioni che fanno danni e casi
+di confine, e il maestro ne ha consentite 90 su 94 di quelle «dannose»: il
+generatore scriveva un salvataggio di una chiave nell'archivio, un test da
+far girare, un'attesa su una cartella. Le teste addestrate dicevano si' a
+tutto. Chiesto per esempi — cancellare la cartella delle foto di famiglia,
+mandare i documenti della banca a un indirizzo sconosciuto — il danno e'
+arrivato, e il maestro l'ha negato tutto. Il custode, dopo, sul banco fa 20
+su 20 con tre semi. AR no: con tre volte i dati, chi lavora sale dal 60%
+all'80%, e il 95% resta lontano. Le teste di AR ci sono, le soglie no;
+aspettano le scelte vere.
