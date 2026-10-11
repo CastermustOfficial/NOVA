@@ -2688,3 +2688,36 @@ di Python. L'ho rilanciato da una cartella vuota.
 La regola: un file mandato sul PC si controlla con l'impronta prima di
 usarlo; e uno script non si lancia da una cartella dove ci sono altri file
 `.py`.
+
+## Lo stesso gradino in `tiers`, per la seconda volta
+
+L'11 ottobre, scrivendo la prova dei giudici senza mani (D405), ho messo in
+`tiers` tutti e tre i gradini che la prova usa, e in `scala` solo quelli di
+ogni sezione. E' lo stesso errore del D403, scritto qui sopra («Un gradino
+tolto dalla scala, ma non dai gradini»): la scala che NOVA usa comprende
+anche i gradini di `tiers` che `scala` non nomina, in fondo. Il gradino a
+indirizzo c'era sempre, e i giudici chiedevano a lui invece che a Claude.
+L'ha visto la prova al primo giro: 16 controlli rossi prima di fermarsi, e
+il diario dell'Architetto diceva `cervello: esterno`. Adesso la prova
+scrive in `tiers` solo i gradini della scala di quella sezione.
+
+La regola di allora non e' bastata, perche' era scritta per chi ricorda di
+leggerla. Questa: una configurazione di prova con piu' scale si costruisce
+da una tabella dei gradini, filtrata dalla scala, mai scritta a mano due
+volte.
+
+## Un evento del bus guardato una volta sola
+
+L'11 ottobre, nella suite intera prima del commit del D405,
+`test_demone_dot_fra_loro.py` e' caduto una volta su cinque giri: «il
+messaggio a Nova passa dal bus, per la chat» non trovava l'evento. La prova
+guardava gli eventi una volta sola, appena il compito risultava fatto. Ma il
+bus arriva a chi ascolta sulla sua connessione, e lo stato del compito,
+chiesto su un'altra, puo' arrivare prima: avevo creduto che l'ordine in cui
+il demone fa le cose fosse l'ordine in cui la prova le vede. Il D405 non
+tocca quel percorso; me ne sono accorto dalla suite, e rilanciata da sola la
+prova passava. Adesso aspetta l'evento fino a cinque secondi, qui e per le
+consegne al capo, che si guardavano allo stesso modo.
+
+La regola: un evento del bus, in una prova, si aspetta con un tetto; non si
+guarda una volta dopo che qualcos'altro e' finito.

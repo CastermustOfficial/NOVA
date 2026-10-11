@@ -12,7 +12,8 @@
 //! il modello di casa non c'e', o non sa decidere, decide CLM, se l'ha
 //! imparato (D404, `crate::clm`); se no chiede al cervello piu' grande che
 //! risponde a un indirizzo, con una domanda sola e senza strumenti. Un giudice che legge testo scritto da altri non deve avere
-//! mani: per questo non chiede a Claude Code ne' a una CLI.
+//! mani: per questo non chiede a una CLI, e a Claude Code solo senza
+//! strumenti, se la scala non ha un cervello a indirizzo (D405).
 //!
 //! **Un custode che non sa decidere nega.** Un guasto non diventa mai un
 //! permesso: niente cervello a cui chiedere, una risposta che non si legge,

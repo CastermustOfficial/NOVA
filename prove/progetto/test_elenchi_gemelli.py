@@ -409,6 +409,12 @@ SENZA_GEMELLO: dict[str, str] = {
     # capacita' del demone, e un Dot che in Python non c'e'.
     "STRUMENTI_DELL_ARCHITETTO": "gli strumenti per leggere dell'Architetto dei "
                                  "Dot; in Python i Dot non ci sono",
+    # Gli strumenti di Claude Code quando fa l'Architetto senza mani (D405):
+    # nomi di Claude Code, non di NOVA, per un Dot che in Python non c'e'. La
+    # riga di comando la prova `nova_cervelli::claude`, e la prova del
+    # demone guarda che arrivino a Claude (`test_demone_giudici.py`).
+    "STRUMENTI_DA_LETTORE": "gli strumenti di Claude Code dell'Architetto senza "
+                            "mani; in Python i Dot non ci sono",
     # I dispositivi che restano scrivibili dentro il recinto del kernel. In
     # Python non c'e' niente da confrontare: il recinto e' una cosa che fa il
     # sistema operativo, e dalla parte Python non esiste affatto. Non sono

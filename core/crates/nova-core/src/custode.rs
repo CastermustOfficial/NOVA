@@ -210,16 +210,13 @@ async fn giudica(server: &Arc<Server>, cfg: &Value, stato: &str) -> Decisa {
     }
 
     // Il cervello piu' grande che risponde a un indirizzo e non e' il modello
-    // di casa: quello ha gia' detto quello che sapeva.
-    let grande = gradini
-        .iter()
-        .rev()
-        .find(|g| {
-            g.indirizzo().is_some() && !crate::modello_locale::e_il_modello_di_casa(g, &recapiti)
-        })
-        .cloned();
+    // di casa: quello ha gia' detto quello che sapeva. Se non ce n'e' uno,
+    // Claude Code senza mani (D405).
+    let grande = crate::giudice::Giudice::dalla_scala(&gradini, |g| {
+        crate::modello_locale::e_il_modello_di_casa(g, &recapiti)
+    });
     let Some(grande) = grande else {
-        note.push("non c'e' un cervello senza mani a cui chiedere".into());
+        note.push(crate::giudice::SENZA_GIUDICE.into());
         let come = note.join("; ");
         return no(
             "nessuno",
@@ -227,7 +224,7 @@ async fn giudica(server: &Arc<Server>, cfg: &Value, stato: &str) -> Decisa {
             format!("il custode non ha potuto decidere: {come}"),
         );
     };
-    let in_casa = grande.indirizzo().is_some_and(|(_, _, _, casa)| casa);
+    let in_casa = grande.in_casa();
     let solo_locale = crate::dalla_configurazione::scala(cfg).solo_locale;
     if let Err(perche) = si_puo_chiedere(in_casa, stato, solo_locale) {
         note.push(perche);
@@ -238,14 +235,10 @@ async fn giudica(server: &Arc<Server>, cfg: &Value, stato: &str) -> Decisa {
             format!("il custode non ha potuto decidere: {come}"),
         );
     }
-    let detto = crate::agente::chiedi_con(
-        std::slice::from_ref(&grande),
-        &c::richiesta_al_grande(stato),
-        400,
-    )
-    .await;
+    let detto = grande.chiedi(&c::richiesta_al_grande(stato), 400).await;
     note.push(format!("ha deciso «{}»", grande.nome()));
-    match detto.as_deref().map(c::leggi_verdetto) {
+    let perche_muto = detto.as_ref().err().cloned().unwrap_or_default();
+    match detto.ok().as_deref().map(c::leggi_verdetto) {
         Some(Some(c::Verdetto::Consenti)) => Decisa {
             consentito: true,
             chi: "grande",
@@ -261,8 +254,8 @@ async fn giudica(server: &Arc<Server>, cfg: &Value, stato: &str) -> Decisa {
         ),
         None => no(
             "grande",
-            format!("{}; nessuna risposta", note.join("; ")),
-            format!("«{}» non ha risposto, e nel dubbio no", grande.nome()),
+            format!("{}; nessuna risposta: {perche_muto}", note.join("; ")),
+            format!("{perche_muto}, e nel dubbio no"),
         ),
     }
 }

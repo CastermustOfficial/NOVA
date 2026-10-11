@@ -3,7 +3,8 @@
 //! Deciso con Gio il 10 ottobre. Quando un Dot che prende compiti consegna,
 //! il suo capo (o l'APM, se non ne ha uno) giudica la consegna col cervello
 //! piu' grande che risponde a un indirizzo, come il custode e AR: chi legge
-//! il lavoro di un altro non deve avere mani. Un voto basso fa rifare il
+//! il lavoro di un altro non deve avere mani. Se la scala non ne ha uno,
+//! Claude Code senza mani (D405, `crate::giudice`). Un voto basso fa rifare il
 //! compito un gradino piu' su (`nova_core::dot`), e dopo ogni voto AR guarda
 //! la pagella e decide se il Dot scende, sale o va detto a Nova.
 //!
@@ -66,12 +67,10 @@ pub async fn giudica(
             json!({ "tipo": "non_giudicato", "giudice": giudice, "perche": perche }),
         );
     };
-    let Some(grande) = crate::agente::scala_di(&cfg)
-        .into_iter()
-        .rev()
-        .find(|g| g.indirizzo().is_some())
+    // Un cervello a indirizzo, o Claude Code senza mani (D405).
+    let Some(grande) = crate::giudice::Giudice::dalla_scala(&crate::agente::scala_di(&cfg), |_| false)
     else {
-        non_giudicato("nella scala non c'e' un cervello che risponde a un indirizzo".into());
+        non_giudicato(crate::giudice::SENZA_GIUDICE.into());
         return None;
     };
     let mut consegna = esito.trim().to_string();
@@ -79,7 +78,7 @@ pub async fn giudica(
         consegna = format!("{consegna}\n\nIl rapporto:\n{}", r.trim());
     }
     let domanda = p::domanda(giudice, dot, &compito.testo, &consegna);
-    let in_casa = grande.indirizzo().is_some_and(|(_, _, _, casa)| casa);
+    let in_casa = grande.in_casa();
     let solo_locale = crate::dalla_configurazione::scala(&cfg).solo_locale;
     if let Err(e) = crate::custode::si_puo_chiedere_per(
         Decisione::GiudizioDelCapo,
@@ -91,11 +90,12 @@ pub async fn giudica(
         non_giudicato(e);
         return None;
     }
-    let Some(detto) =
-        crate::agente::chiedi_con(std::slice::from_ref(&grande), &domanda, p::GETTONI).await
-    else {
-        non_giudicato(format!("«{}» non ha risposto", grande.nome()));
-        return None;
+    let detto = match grande.chiedi(&domanda, p::GETTONI).await {
+        Ok(d) => d,
+        Err(e) => {
+            non_giudicato(e);
+            return None;
+        }
     };
     let Some(g) = p::leggi(&detto) else {
         let corto: String = detto.chars().take(300).collect();

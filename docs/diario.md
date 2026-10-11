@@ -11790,3 +11790,18 @@ arrivato, e il maestro l'ha negato tutto. Il custode, dopo, sul banco fa 20
 su 20 con tre semi. AR no: con tre volte i dati, chi lavora sale dal 60%
 all'80%, e il 95% resta lontano. Le teste di AR ci sono, le soglie no;
 aspettano le scelte vere.
+
+## 11 ottobre 2026 — Un giudice senza mani si guarda, non si crede
+
+Prima del progetto di prova ho guardato la scala di Gio: Antigravity e
+Claude Code, nessun cervello a indirizzo. I giudici dei Dot si sarebbero
+fermati al primo passo. Claude Code ha le opzioni per partire senza niente
+in mano, e le ho provate sul PC di sviluppo: zero strumenti, zero server, e
+alla domanda di leggere un file ha scritto la chiamata come testo, che non
+esegue nessuno. Ma un'opzione puo' cambiare nome in una versione nuova, e
+allora il giudice avrebbe le mani senza che nessuno lo sappia: per questo la
+prima riga di Claude, quella che dice con cosa e' partito, si guarda a ogni
+giudizio, e se non e' vuota la risposta si butta. Antigravity, provato in
+tre modi, ha scritto il file ogni volta: non giudica. E la prova del demone
+l'ho sbagliata come nel D403: un gradino in `tiers` che non sta in `scala`
+finisce in fondo alla scala lo stesso, e il giudice era diventato quello.

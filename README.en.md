@@ -647,7 +647,7 @@ you ask (`dot.progetti`). If you change your mind along the way
 (`dot.cambia_progetto`) it lets the running tasks finish, the Architect
 revises the plan from there, the done tasks that stayed the same aren't
 redone, and it restarts on its own if the cap is enough; if not, it asks
-you. At the end, with the voice on, it tells you. The daemon also has the methods `dot/crea`, `dot/affida`,
+you. At the end, with the voice on, it tells you. Whoever judges (AR, the Architect, the APM's checks, the boss's mark, the custodian) reads text written by others, and has no hands: it asks the biggest brain that answers at an address, and if the ladder has none, Claude Code without tools, with the model of its rung; if Claude says it started with some tools, the answer doesn't count. With Claude the Architect only reads the project's files, and the other CLIs don't judge (D405). The daemon also has the methods `dot/crea`, `dot/affida`,
 `dot/stato`, `dot/elenco` and `dot/ferma`.
 
 The Dots are for whoever has a subscription, an API or a graphics card with

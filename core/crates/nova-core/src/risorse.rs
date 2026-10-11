@@ -14,9 +14,10 @@
 //! Dot nuovo lo scrive sempre lui.
 //!
 //! **Il cervello piu' grande che risponde a un indirizzo**, come il custode
-//! quando il modello di casa non sa (D384): Claude Code e le CLI no, perche'
-//! chi legge testo scritto da altri — i ruoli dei Dot, il bisogno — non deve
-//! avere mani. Se la domanda dovrebbe uscire dal PC si chiede prima a
+//! quando il modello di casa non sa (D384): le CLI no, perche' chi legge
+//! testo scritto da altri — i ruoli dei Dot, il bisogno — non deve avere
+//! mani. Se la scala non ne ha uno, Claude Code senza mani (D405,
+//! `crate::giudice`). Se la domanda dovrebbe uscire dal PC si chiede prima a
 //! `nova_decisioni` se puo', e una credenziale dentro la domanda non esce mai.
 //!
 //! **Se AR non sa scegliere, non sceglie nessuno**: niente cervello a cui
@@ -119,14 +120,10 @@ pub async fn assumi(
             "clm".to_string(),
         ),
         _ => {
-            let grande = gradini
-                .iter()
-                .rev()
-                .find(|g| g.indirizzo().is_some())
-                .cloned()
-                .ok_or("AR non ha un cervello senza mani a cui chiedere: nella scala non c'e' un \
-                        cervello che risponde a un indirizzo")?;
-            let in_casa = grande.indirizzo().is_some_and(|(_, _, _, casa)| casa);
+            // Un cervello a indirizzo, o Claude Code senza mani (D405).
+            let grande = crate::giudice::Giudice::dalla_scala(&gradini, |_| false)
+                .ok_or_else(|| format!("AR non ha a chi chiedere: {}", crate::giudice::SENZA_GIUDICE))?;
+            let in_casa = grande.in_casa();
             let solo_locale = crate::dalla_configurazione::scala(&cfg).solo_locale;
             let domanda = format!(
                 "{domanda}{}",
@@ -134,9 +131,10 @@ pub async fn assumi(
             );
             crate::custode::si_puo_chiedere_per(Decisione::SceltaDiAr, "AR", in_casa, &domanda, solo_locale)
                 .map_err(|e| format!("AR non ha potuto scegliere: {e}"))?;
-            let detto = crate::agente::chiedi_con(std::slice::from_ref(&grande), &domanda, GETTONI)
+            let detto = grande
+                .chiedi(&domanda, GETTONI)
                 .await
-                .ok_or_else(|| format!("AR non ha potuto scegliere: «{}» non ha risposto", grande.nome()))?;
+                .map_err(|e| format!("AR non ha potuto scegliere: {e}"))?;
             let (suo, mut note) = r::leggi_scelta(&detto, &tutti, &scala)?;
             let (scelta, cambi) =
                 nova_dot::clm::con_clm(suo, chi_clm.as_deref(), cervello_clm.as_deref());

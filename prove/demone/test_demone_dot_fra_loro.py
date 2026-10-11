@@ -237,6 +237,19 @@ def di(topic):
     return [e["data"] for e in list(eventi) if e.get("topic") == topic]
 
 
+def aspetta_di(topic, basta, secondi=5):
+    """Gli eventi di un topic, aspettando che `basta` dica che ci sono.
+
+    Il bus arriva a chi ascolta sulla sua connessione, e lo stato del
+    compito, chiesto su un'altra, puo' arrivare prima: guardare una volta
+    sola, appena il compito e' fatto, ogni tanto non trovava l'evento.
+    """
+    fine = time.time() + secondi
+    while time.time() < fine and not basta(di(topic)):
+        time.sleep(0.1)
+    return di(topic)
+
+
 def domande_di(chi):
     return [t for c, t in list(domande) if c == chi]
 
@@ -334,7 +347,7 @@ try:
               and "- due, compito n. 1 (fatto): B fatto" in ripresa[0], str(ripresa)[:400])
     controlla("e il compito veloce era finito prima", c2.get("finito", "") <= c1.get("finito", ""),
               f"{c2.get('finito')} {c1.get('finito')}")
-    squadra = di("dot.squadra")
+    squadra = aspetta_di("dot.squadra", lambda es: len(es) >= 2)
     controlla("le due consegne al capo sono passate dal bus",
               sorted((e["dot"], e["compito_del_capo"]) for e in squadra) == [("due", 1), ("uno", 1)],
               str(squadra))
@@ -359,7 +372,8 @@ try:
     print("\n7. un Dot scrive: a Nova arriva in chat, al gruppo solo se ne fa parte")
     capacita("dot.affida", nome="uno", compito="scrivi a nova")
     aspetta("uno", 2)
-    a_nova = [e for e in di("dot.messaggio") if e.get("a") == "nova"]
+    a_nova = [e for e in aspetta_di("dot.messaggio", lambda es: any(e.get("a") == "nova" for e in es))
+              if e.get("a") == "nova"]
     controlla("il messaggio a Nova passa dal bus, per la chat",
               a_nova == [{"da": "uno", "a": "nova", "testo": "Ciao Nova, ho una domanda."}], str(a_nova))
     capacita("dot.affida", nome="estraneo", compito="scrivi al gruppo")

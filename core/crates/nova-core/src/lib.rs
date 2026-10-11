@@ -54,6 +54,7 @@ pub mod caps_voce;
 pub mod config;
 pub mod custode;
 pub mod giornale;
+pub mod giudice;
 pub mod giudizio_casa;
 pub mod live;
 pub mod interruzione;

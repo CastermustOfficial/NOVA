@@ -7,7 +7,8 @@
 //!   la sua memoria con gli strumenti di [`STRUMENTI_DELL_ARCHITETTO`], e non
 //!   tocca niente. Il cervello e' quello di AR: il piu' grande che risponde a
 //!   un indirizzo, perche' chi ha mani sue (Claude Code, le CLI) potrebbe
-//!   scrivere;
+//!   scrivere. Dal D405, se la scala non ne ha uno, Claude Code con i soli
+//!   `Read`, `Glob` e `Grep`, dalla cartella del progetto (`nova_core::giudice`);
 //! - **non chiede prima a Ricerca e Commerciale**: se servono lo stato
 //!   dell'arte o il mercato, li mette nel piano, come compiti di una prima
 //!   fase. Cosi' la spesa resta dentro il piano che l'utente approva;

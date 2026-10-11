@@ -247,7 +247,9 @@ specialisti. Li assume AR.
    e le modifiche chieste dall'utente~~ (D403).
 10. ~~**CLM addestrato** sulle scelte di AR, dell'APM e del custode~~ (D404):
     il custode si'; le scelte di AR non arrivano al 95%, e per ora no.
-11. Il progetto di prova di Gio, dall'inizio alla fine.
+11. ~~**I giudici senza mani**: chi ha in scala solo Claude Code e CLI giudica
+    con Claude Code senza strumenti~~ (D405).
+12. Il progetto di prova di Gio, dall'inizio alla fine.
 
 ## Com'e' andata
 
@@ -416,7 +418,8 @@ continua a chiedere all'utente.
   verificare (`idea/`, «Vedere cosa leggono Claude Code e le CLI»).
 - **Chi ha in scala solo Claude Code o CLI** e un'autonomia che chiede: il
   custode non ha un cervello senza mani a cui chiedere, e nega. Si potrebbe
-  chiedere a Claude Code senza strumenti (`idea/`).
+  chiedere a Claude Code senza strumenti (`idea/`). Fatto con D405, per
+  tutti i giudici.
 - **Le CLI agentiche** si lanciano senza permessi (Antigravity con
   `--dangerously-skip-permissions`, Gemini CLI con `--approval-mode yolo`,
   in `nova_cervelli::cli`): con le loro mani non passano né dall'utente né
@@ -975,3 +978,61 @@ prima del codice; e dopo le misure, sulle soglie. I testi stanno in
   sviluppo usa ancora `teste-s8`; cambiarle e' una scelta di Gio.
 - **Il maestro e' un modello solo**, e i casi nuovi li etichetta lui: la
   soglia misura l'accordo col maestro, non la verita'.
+
+**I giudici senza mani — fatto** (D405). Il problema l'ha fatto vedere la
+scala di Gio, prima del progetto di prova: Antigravity per orchestrare e per
+i compiti rapidi, Claude Code per quelli difficili, e nessun cervello che
+risponde a un indirizzo. AR, l'Architetto, i controlli dell'APM, il voto del
+capo e il custode chiedevano solo a quello, e il progetto si sarebbe fermato
+al primo passo. Deciso con Gio l'11 ottobre, sulla bozza, prima del codice.
+Il codice sta in `nova_core::giudice`, la riga di comando in
+`nova_cervelli::claude::argomenti_senza_mani`.
+
+| | Deciso |
+|---|---|
+| **Chi giudica** | Prima un cervello a indirizzo, se la scala ne ha uno: il piu' grande, come prima. Se no, Claude Code senza mani. |
+| **Antigravity** | «Anche Antigravity, dopo una prova»: la prova e' andata male, e non giudica (sotto). Le altre CLI nemmeno. |
+| **Il modello** | Quello del gradino Claude, com'e'. |
+| **L'Architetto** | Con Claude legge: `Read`, `Glob` e `Grep`, partendo dalla cartella del progetto. |
+
+- **Senza mani, e controllato.** `claude -p --output-format stream-json
+  --verbose --model <quello del gradino> --tools "" --disallowedTools "*"
+  --strict-mcp-config --permission-mode dontAsk --safe-mode
+  --no-session-persistence --max-turns 1`, la domanda su stdin, da una
+  cartella vuota di NOVA (`giudice/`). La prima riga che Claude scrive dice
+  con quali strumenti e quali server MCP e' partito: se non sono zero, la
+  risposta non vale e il giudizio non si fa, anche se la risposta e' giusta.
+- **L'Architetto** ha `--tools "Read,Glob,Grep"` e i turni di
+  `claude_max_turns`, e parte dalla cartella del progetto; senza cartella,
+  niente strumenti. La conversazione la tiene NOVA, come per una CLI:
+  Claude riceve il prompt del Dot e gli ultimi scambi.
+- **Provato sul PC di sviluppo**, con Claude Code 2.1.292: la riga
+  d'apertura dice zero strumenti e zero server MCP, e alla domanda di
+  leggere un file Claude scrive la chiamata come testo, che non esegue
+  nessuno. Con i tre strumenti, dalla cartella del progetto, legge il file
+  che c'e' dentro, e quello in una cartella accanto lo nega `dontAsk`, senza
+  chiedere.
+- **Antigravity** (`agy` 1.3.3) un'opzione per togliere gli strumenti non ce
+  l'ha. Provato sul PC di sviluppo senza `--dangerously-skip-permissions`,
+  con `--mode plan` e con `--mode plan --sandbox`: ogni volta ha scritto il
+  file che gli si chiedeva.
+- **Chi ha deciso** resta nel registro col nome del gradino: un controllo
+  dell'APM o una scelta di AR fatti da Claude hanno come cervello
+  «difficile», se il gradino si chiama cosi'; un permesso ha `chi: grande`,
+  e nel campo `come` la riga `ha deciso «difficile»`.
+- **Le teste di CLM del D404** sono accese sul PC di sviluppo dall'11
+  ottobre, dopo il commit: sopra la soglia il custode lo decide CLM.
+
+### Cosa resta aperto, dopo i giudici senza mani
+
+- **Ogni giudizio costa una domanda a Claude**: qualche secondo, e la quota
+  dell'abbonamento. Il voto del capo arriva a ogni consegna, ed e' il
+  giudice piu' frequente. Un modello piu' leggero per giudice si decide coi
+  voti (`idea/`).
+- **L'Architetto con Claude non ha la sua memoria**: col cervello a
+  indirizzo ha otto strumenti, fra cui quelli della memoria; con Claude
+  legge solo i file. E quali file ha letto il registro non lo dice.
+- **La memoria di NOVA** (`imparare`) chiede ancora solo a un cervello a
+  indirizzo: non e' un giudice, e a ogni turno costerebbe una domanda.
+- **Antigravity** giudichera' se un giorno `agy` avra' un modo di partire
+  senza strumenti.

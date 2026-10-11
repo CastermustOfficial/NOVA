@@ -632,7 +632,7 @@ D403). Mentre lavorano l'APM non ti scrive a ogni fase: chiedi tu
 (`dot.progetti`). Se cambi idea in corsa (`dot.cambia_progetto`) lascia
 finire i compiti in corso, l'Architetto rivede il piano da li', i compiti
 fatti e rimasti uguali non si rifanno, e riparte da solo se il tetto basta;
-se no te lo chiede. Alla fine, con la voce accesa, te lo dice. Dal demone ci sono anche i metodi `dot/crea`, `dot/affida`,
+se no te lo chiede. Alla fine, con la voce accesa, te lo dice. Chi giudica (AR, l'Architetto, i controlli dell'APM, il voto del capo, il custode) legge testo scritto da altri, e non ha mani: chiede al cervello piu' grande che risponde a un indirizzo, e se la scala non ne ha uno a Claude Code senza strumenti, col modello del suo gradino; se Claude dice di essere partito con degli strumenti, la risposta non vale. Con Claude l'Architetto legge solo i file del progetto, e le altre CLI non giudicano (D405). Dal demone ci sono anche i metodi `dot/crea`, `dot/affida`,
 `dot/stato`, `dot/elenco` e `dot/ferma`.
 
 I Dot sono per chi ha un abbonamento, un'API o una scheda video da almeno

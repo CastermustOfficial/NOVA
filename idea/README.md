@@ -2,7 +2,7 @@
 
 Ogni possibile miglioria, anche solo teorica o non ancora decisa. Per ognuna: cosa, perché, cosa costerebbe. Un'idea non è un impegno: quando si decide di farla passa in [`piano/`](../piano/README.md), quando la si scarta resta qui con il perché.
 
-Aggiornato al 9 ottobre 2026. Le idee che c'erano già erano sparse nei documenti: qui sono raccolte, con il rimando a dove sono nate.
+Aggiornato all'11 ottobre 2026. Le idee che c'erano già erano sparse nei documenti: qui sono raccolte, con il rimando a dove sono nate.
 
 ## CANT-12: decisioni tipizzate al posto delle euristiche
 
@@ -267,6 +267,8 @@ L'ordine che ne viene: registrare le decisioni e le correzioni; un giudice per `
 
 ## Il custode che chiede a Claude Code senza mani
 
+**Fatta col D405** (11 ottobre), per tutti i giudici e non solo per il custode: `nova_core::giudice`. Resta qui com'era nata.
+
 **Cosa.** Quando nella scala non c'e' nessun cervello che risponde a un indirizzo oltre al modello di casa — solo Claude Code o CLI — il custode dei Dot (D384) non ha a chi chiedere e nega. Potrebbe chiedere a Claude Code lanciato senza strumenti: nessun collegamento MCP, nessuno strumento permesso, una domanda sola.
 
 **Perché.** Chi usa NOVA solo con Claude, e un'autonomia che chiede, oggi si vede negare dal custode tutto quello che Nova gli chiederebbe. Il custode non chiede a Claude Code perche' un giudice che legge testo scritto da altri non deve avere mani.
@@ -468,3 +470,33 @@ Nata col D404. **Cosa.** Far rietichettare le situazioni a Claude, come per
 **Perche'.** Le soglie misurano l'accordo con un maestro solo, Qwen3.8 27B:
 dove sbaglia lui, CLM impara a sbagliare. **Cosa costerebbe.** Un comando
 come `rietichetta` per il custode e per AR, e la spesa di Claude.
+
+## Un modello per giudice
+
+Nata col D405. **Cosa.** Un modello per ogni giudice che chiede a Claude
+Code: per esempio Haiku o Sonnet per il voto del capo e per il custode, il
+modello del gradino per l'Architetto. **Perche'.** Con Claude senza mani
+ogni giudizio e' una domanda sull'abbonamento, e il voto del capo arriva a
+ogni consegna: e' il giudice piu' frequente. Gio ha scelto il gradino com'e',
+e il resto coi voti. **Cosa costerebbe.** Una chiave per giudice in
+configurazione, e un confronto dei giudizi fra i due modelli sulle stesse
+consegne prima di sceglierne uno.
+
+## L'Architetto con Claude, con la sua memoria e coi file letti nel registro
+
+Nata col D405. **Cosa.** Dare all'Architetto che lavora con Claude anche la
+sua memoria (oggi legge solo i file del progetto), e scrivere nel registro
+quali file ha letto, dalle chiamate a `Read` del flusso `stream-json`.
+**Perche'.** Col cervello a indirizzo ha otto strumenti, memoria compresa, e
+il registro dice quali ha usato; con Claude no. **Cosa costerebbe.** Per la
+memoria, un server MCP di sola lettura legato al Dot, e una riga d'apertura
+che lo ammetta (oggi qualunque server MCP fa scartare la risposta); per i
+file, leggere gli eventi `tool_use` che `leggi_flusso` oggi salta.
+
+## Antigravity come giudice
+
+Nata col D405. **Cosa.** Far giudicare Antigravity quando `agy` avra' un
+modo di partire senza strumenti. **Perche'.** Per chi ha solo l'abbonamento
+Google. **Cosa costerebbe.** Ripetere la prova dell'11 ottobre (un file
+chiesto, e guardare se lo scrive) a ogni versione di `agy`, e un modo di
+sapere, come la riga d'apertura di Claude, con che strumenti e' partito.

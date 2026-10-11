@@ -10,7 +10,9 @@
 //! 2. **L'Architetto legge e basta**: un turno nella sua conversazione col
 //!    cervello di AR, il piu' grande che risponde a un indirizzo, e solo gli
 //!    strumenti per leggere (`EsecutoreDemone::sola_lettura`). Legge i file
-//!    del progetto, se ha una cartella, e la sua memoria.
+//!    del progetto, se ha una cartella, e la sua memoria. Se la scala non ha
+//!    un cervello a indirizzo, Claude Code con `Read`, `Glob` e `Grep`,
+//!    dalla cartella del progetto, e senza la memoria (D405).
 //! 3. **Risponde col piano in Markdown**, nel formato di `nova_dot::piano`.
 //!    Un piano che non si legge torna indietro con tutti gli errori, al piu'
 //!    [`p::CORREZIONI`] volte.
@@ -135,6 +137,9 @@ struct Lavoro<'a> {
     sessione: String,
     /// Il cervello da cui parte ogni turno: quello di AR.
     cima: String,
+    /// Claude Code che legge e basta, se la scala non ha un cervello a
+    /// indirizzo (D405): allora ogni turno e' suo.
+    claude: Option<Box<crate::mondo::Claude>>,
     /// Chi ha risposto all'ultimo turno.
     cervello: String,
     strumenti: Vec<String>,
@@ -160,6 +165,9 @@ impl Lavoro<'_> {
     /// Un turno, e il testo con cui ha risposto: `None` se ha finito i passi
     /// senza rispondere.
     async fn turno(&mut self, testo: &str) -> Result<Option<String>, Chiuso> {
+        if let Some(c) = self.claude.clone() {
+            return self.turno_con_claude(&c, testo).await.map(Some);
+        }
         let svolto = crate::agente::turno_in(
             self.server,
             &self.cfg,
@@ -197,6 +205,51 @@ impl Lavoro<'_> {
             )),
             Fine::Rotto(e) => Err((d::Stato::Fallito, "rotto", e)),
         }
+    }
+
+    /// Un turno con Claude Code che legge e basta (D405): `Read`, `Glob` e
+    /// `Grep`, partendo dalla cartella del progetto; senza cartella, niente
+    /// strumenti. La conversazione la tiene NOVA, come per una CLI: Claude
+    /// riceve il prompt del Dot e gli ultimi scambi, e la sua sessione non
+    /// si salva.
+    async fn turno_con_claude(
+        &mut self,
+        c: &crate::mondo::Claude,
+        testo: &str,
+    ) -> Result<String, Chiuso> {
+        self.s.chiede(testo);
+        let righe: Vec<nova_contesto::Messaggio> = self
+            .s
+            .messaggi
+            .iter()
+            .map(|m| nova_contesto::Messaggio {
+                ruolo: m.get("role").and_then(Value::as_str).unwrap_or("").to_string(),
+                contenuto: m.get("content").and_then(Value::as_str).unwrap_or("").to_string(),
+            })
+            .collect();
+        let prompt = nova_cervelli::cli::prompt_completo(&righe, "");
+        let cartella = self.r.cartella.trim().to_string();
+        let lettore = !cartella.is_empty();
+        let da = if lettore { cartella } else { crate::giudice::cartella_del_giudice() };
+        let inizio = std::time::Instant::now();
+        let detto = crate::giudice::claude_senza_mani(c, &prompt, &da, lettore).await;
+        let secondi = inizio.elapsed().as_secs_f64();
+        self.secondi += secondi;
+        self.cervello = self.cima.clone();
+        if let Ok(t) = &detto {
+            self.s
+                .messaggi
+                .push(json!({ "role": "assistant", "content": t }));
+        }
+        crate::dot::salva(self.c, &self.dot.nome, &self.s);
+        self.diario(json!({
+            "tipo": "turno",
+            "esito": if detto.is_ok() { "risposto" } else { "rotto" },
+            "cervello": self.cima,
+            "senza_mani": if lettore { "legge" } else { "niente" },
+            "secondi": (secondi * 10.0).round() / 10.0,
+        }));
+        detto.map_err(|e| (d::Stato::Fallito, "rotto", e))
     }
 
     /// La riga `piano` in `decisioni.jsonl`, e nel diario.
@@ -280,19 +333,17 @@ pub async fn lavora(
     }
     let cfg = nova_configurazione::dove::leggi();
     // Il cervello di AR (D397): il piu' grande che risponde a un indirizzo.
-    // Il turno di chi legge e basta non usa gli altri.
-    let Some(cima) = crate::agente::scala_di(&cfg)
-        .iter()
-        .rev()
-        .find(|g| g.indirizzo().is_some())
-        .map(|g| g.nome().to_string())
-    else {
-        return (
-            d::Stato::Fallito,
-            "nella scala non c'e' un cervello che risponde a un indirizzo: l'Architetto non usa \
-             Claude Code ne' le CLI, che hanno mani loro"
-                .into(),
-        );
+    // Il turno di chi legge e basta non usa gli altri. Se non ce n'e' uno,
+    // Claude Code che legge e basta (D405); le altre CLI mai.
+    let (cima, claude) = match crate::giudice::Giudice::dalla_scala(&crate::agente::scala_di(&cfg), |_| false) {
+        Some(crate::giudice::Giudice::Indirizzo(g)) => (g.nome().to_string(), None),
+        Some(crate::giudice::Giudice::Claude { nome, come }) => (nome, Some(come)),
+        None => {
+            return (
+                d::Stato::Fallito,
+                format!("l'Architetto non ha con chi leggere: {}", crate::giudice::SENZA_GIUDICE),
+            )
+        }
     };
     let mut l = Lavoro {
         server,
@@ -309,6 +360,7 @@ pub async fn lavora(
         },
         sessione: format!("dot:{}", dot.nome),
         cima,
+        claude,
         cervello: String::new(),
         strumenti: Vec::new(),
         secondi: 0.0,

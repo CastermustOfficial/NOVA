@@ -391,6 +391,146 @@ pub fn legato_a_un_dot(collegamento: &mut serde_json::Value, gettone: &str) {
     }
 }
 
+// ------------------------------------------------------- senza mani (D405)
+
+/// Gli strumenti di chi legge i file di un progetto e basta: l'Architetto
+/// (D405). Leggono soltanto, e con `dontAsk` solo dentro la cartella da cui
+/// Claude parte: un file fuori si nega senza chiedere a nessuno.
+pub const STRUMENTI_DA_LETTORE: [&str; 3] = ["Read", "Glob", "Grep"];
+
+/// La riga di comando di un Claude Code **senza mani** (D405): un giudice
+/// che legge testo scritto da altri, e per D384 non deve poter agire.
+///
+/// Niente strumenti suoi (`--tools ""`, e `--disallowedTools "*"` per quelli
+/// che arrivassero da altrove), nessun server MCP (`--strict-mcp-config`
+/// senza collegamento), niente CLAUDE.md, skill, plugin o hook
+/// (`--safe-mode`), e quel che chiederebbe un permesso negato (`dontAsk`).
+/// Con `lettore` gli strumenti sono [`STRUMENTI_DA_LETTORE`] e nient'altro.
+///
+/// L'uscita e' `stream-json`: la sua prima riga dice quali strumenti e quali
+/// server Claude ha davvero, e [`senza_mani_davvero`] la controlla: le
+/// opzioni da sole non bastano.
+pub fn argomenti_senza_mani(eseguibile: &str, model: &str, lettore: bool, turni: i64) -> Vec<String> {
+    let mut a: Vec<String> = vec![
+        eseguibile.into(),
+        "-p".into(),
+        "--output-format".into(),
+        "stream-json".into(),
+        "--verbose".into(),
+    ];
+    if !model.is_empty() {
+        a.push("--model".into());
+        a.push(model.into());
+    }
+    a.push("--tools".into());
+    if lettore {
+        a.push(STRUMENTI_DA_LETTORE.join(","));
+    } else {
+        a.push(String::new());
+        a.push("--disallowedTools".into());
+        a.push("*".into());
+    }
+    a.extend(
+        [
+            "--strict-mcp-config",
+            "--permission-mode",
+            "dontAsk",
+            "--safe-mode",
+            "--no-session-persistence",
+            "--max-turns",
+        ]
+        .map(String::from),
+    );
+    a.push(turni.max(1).to_string());
+    a
+}
+
+/// Quello che un Claude Code lanciato con `stream-json` ha stampato.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Flusso {
+    /// Se la riga d'apertura (`system`/`init`) c'era.
+    pub aperto: bool,
+    /// Gli strumenti che la riga d'apertura dice che ha.
+    pub strumenti: Vec<String>,
+    /// I server MCP che la riga d'apertura dice che ha.
+    pub server_mcp: Vec<String>,
+    /// La riga `result`, com'e': la stessa che stampa `--output-format json`.
+    pub risultato: serde_json::Value,
+}
+
+/// Legge l'uscita di `--output-format stream-json`, una riga JSON per evento.
+/// Le righe che non sono JSON (un avviso dell'ambiente) si saltano. Senza la
+/// riga `result` non c'e' una risposta.
+pub fn leggi_flusso(uscita: &str) -> Result<Flusso, String> {
+    use serde_json::Value;
+    let mut f = Flusso::default();
+    let nomi = |v: Option<&Value>| -> Vec<String> {
+        v.and_then(Value::as_array)
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| {
+                        x.as_str()
+                            .or_else(|| x.get("name").and_then(Value::as_str))
+                            .map(str::to_string)
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    for riga in uscita.lines() {
+        let Ok(v) = serde_json::from_str::<Value>(riga.trim()) else {
+            continue;
+        };
+        match v.get("type").and_then(Value::as_str) {
+            Some("system") if v.get("subtype").and_then(Value::as_str) == Some("init") => {
+                f.aperto = true;
+                f.strumenti = nomi(v.get("tools"));
+                f.server_mcp = nomi(v.get("mcp_servers"));
+            }
+            Some("result") => f.risultato = v,
+            _ => {}
+        }
+    }
+    if !f.risultato.is_object() {
+        return Err(format!(
+            "Risposta di Claude Code non interpretabile: {}",
+            nova_pitone::senza_bianchi(uscita).chars().take(400).collect::<String>()
+        ));
+    }
+    Ok(f)
+}
+
+/// Se Claude Code era davvero senza mani: nessun server MCP, e nessuno
+/// strumento (o, per chi legge, solo [`STRUMENTI_DA_LETTORE`]). Una risposta
+/// data con le mani **non vale**, anche se e' giusta: il giudice ha letto
+/// testo scritto da altri, e quel testo poteva farlo agire.
+pub fn senza_mani_davvero(f: &Flusso, lettore: bool) -> Result<(), String> {
+    if !f.aperto {
+        return Err(
+            "Claude Code non ha detto con quali strumenti e' partito: la risposta non vale".into(),
+        );
+    }
+    if !f.server_mcp.is_empty() {
+        return Err(format!(
+            "Claude Code e' partito con dei server MCP ({}): la risposta non vale",
+            f.server_mcp.join(", ")
+        ));
+    }
+    let in_piu: Vec<&str> = f
+        .strumenti
+        .iter()
+        .map(String::as_str)
+        .filter(|s| !lettore || !STRUMENTI_DA_LETTORE.contains(s))
+        .collect();
+    if !in_piu.is_empty() {
+        return Err(format!(
+            "Claude Code e' partito con degli strumenti ({}): la risposta non vale",
+            in_piu.join(", ")
+        ));
+    }
+    Ok(())
+}
+
 // ------------------------------------------------------- cosa ha risposto
 
 /// Il JSON che Claude Code stampa, anche se ha qualcosa intorno.
@@ -642,6 +782,83 @@ mod prove {
             (d.extra_args, d.autonomia.as_str()),
             (vec!["--x".to_string()], "autonomous")
         );
+    }
+
+    /// Le opzioni provate l'11 ottobre su Claude Code 2.1.292, sul PC di
+    /// sviluppo: con queste la riga d'apertura dice zero strumenti e zero
+    /// server.
+    #[test]
+    fn senza_mani_la_riga_e_quella_provata() {
+        let a = argomenti_senza_mani("claude.cmd", "opus", false, 1);
+        assert_eq!(
+            a,
+            [
+                "claude.cmd", "-p", "--output-format", "stream-json", "--verbose", "--model",
+                "opus", "--tools", "", "--disallowedTools", "*", "--strict-mcp-config",
+                "--permission-mode", "dontAsk", "--safe-mode", "--no-session-persistence",
+                "--max-turns", "1"
+            ]
+        );
+        // Niente che dia strumenti, ricordi o un modo di permessi diverso.
+        for vietato in ["--mcp-config", "--allowedTools", "--resume", "--permission-prompt-tool",
+                        "--dangerously-skip-permissions", "bypassPermissions", "acceptEdits"] {
+            assert!(!a.iter().any(|x| x == vietato), "{vietato} in {a:?}");
+        }
+    }
+
+    #[test]
+    fn chi_legge_ha_solo_i_tre_strumenti_per_leggere() {
+        let a = argomenti_senza_mani("claude", "", true, 48);
+        let k = a.iter().position(|x| x == "--tools").unwrap();
+        assert_eq!(a[k + 1], "Read,Glob,Grep");
+        assert!(!a.iter().any(|x| x == "--disallowedTools"), "toglierebbe anche Read: {a:?}");
+        assert!(!a.iter().any(|x| x == "--model"), "senza modello sceglie Claude: {a:?}");
+        assert_eq!(a.last().unwrap(), "48");
+        assert_eq!(argomenti_senza_mani("c", "m", false, 0).last().unwrap(), "1", "zero turni non e' un tetto");
+    }
+
+    fn flusso(init: &str) -> String {
+        format!(
+            "un avviso dell'ambiente\n{init}\n{{\"type\":\"assistant\",\"message\":{{}}}}\n\
+             {{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,\"result\":\"ok\"}}\n"
+        )
+    }
+
+    #[test]
+    fn il_flusso_si_legge_e_dice_con_che_mani_e_partito() {
+        let f = leggi_flusso(&flusso(
+            r#"{"type":"system","subtype":"init","tools":[],"mcp_servers":[]}"#,
+        ))
+        .unwrap();
+        assert!(f.aperto && f.strumenti.is_empty() && f.server_mcp.is_empty());
+        assert_eq!(f.risultato["result"], "ok");
+        assert_eq!(senza_mani_davvero(&f, false), Ok(()));
+
+        let f = leggi_flusso(&flusso(
+            r#"{"type":"system","subtype":"init","tools":["Bash","Read"],"mcp_servers":[{"name":"nova-core","status":"connected"}]}"#,
+        ))
+        .unwrap();
+        assert_eq!(f.strumenti, ["Bash", "Read"]);
+        assert_eq!(f.server_mcp, ["nova-core"]);
+        let e = senza_mani_davvero(&f, true).unwrap_err();
+        assert!(e.contains("server MCP (nova-core)") && e.contains("non vale"), "{e}");
+        let mut f2 = f.clone();
+        f2.server_mcp.clear();
+        let e = senza_mani_davvero(&f2, true).unwrap_err();
+        assert!(e.contains("strumenti (Bash)"), "Read al lettore si', Bash no: {e}");
+        assert!(senza_mani_davvero(&f2, false).unwrap_err().contains("(Bash, Read)"));
+        f2.strumenti = vec!["Glob".into(), "Grep".into(), "Read".into()];
+        assert_eq!(senza_mani_davvero(&f2, true), Ok(()));
+        assert!(senza_mani_davvero(&f2, false).is_err(), "al giudice nemmeno quelli");
+    }
+
+    #[test]
+    fn senza_la_riga_d_apertura_o_senza_il_risultato_non_vale() {
+        let f = leggi_flusso(&flusso("")).unwrap();
+        assert!(!f.aperto);
+        assert!(senza_mani_davvero(&f, false).unwrap_err().contains("non ha detto"));
+        let e = leggi_flusso("{\"type\":\"system\",\"subtype\":\"init\",\"tools\":[]}\n").unwrap_err();
+        assert!(e.contains("non interpretabile"), "{e}");
     }
 
     #[test]

@@ -1022,9 +1022,9 @@ async fn legale(
     true
 }
 
-/// Una domanda al cervello piu' grande che risponde a un indirizzo. Se non
-/// si puo', il progetto si ferma e lo dice: un controllo che non c'e' non e'
-/// un si'.
+/// Una domanda al cervello piu' grande che risponde a un indirizzo, o a
+/// Claude Code senza mani se la scala non ne ha uno (D405). Se non si puo',
+/// il progetto si ferma e lo dice: un controllo che non c'e' non e' un si'.
 async fn chiedi_al_grande(
     server: &Arc<Server>,
     nome: &str,
@@ -1033,19 +1033,17 @@ async fn chiedi_al_grande(
     gettoni: u32,
 ) -> Option<(String, String)> {
     let cfg = nova_configurazione::dove::leggi();
-    let Some(grande) = crate::agente::scala_di(&cfg)
-        .into_iter()
-        .rev()
-        .find(|g| g.indirizzo().is_some())
+    // Un cervello a indirizzo, o Claude Code senza mani (D405).
+    let Some(grande) = crate::giudice::Giudice::dalla_scala(&crate::agente::scala_di(&cfg), |_| false)
     else {
         ferma_e_di(
             server,
             nome,
-            &format!("{chi} non ha un cervello a cui chiedere: nella scala non ce n'e' uno che risponde a un indirizzo"),
+            &format!("{chi} non ha a chi chiedere: {}", crate::giudice::SENZA_GIUDICE),
         );
         return None;
     };
-    let in_casa = grande.indirizzo().is_some_and(|(_, _, _, casa)| casa);
+    let in_casa = grande.in_casa();
     let solo_locale = crate::dalla_configurazione::scala(&cfg).solo_locale;
     if let Err(e) = crate::custode::si_puo_chiedere_per(
         Decisione::ControlloDelProgetto,
@@ -1057,15 +1055,12 @@ async fn chiedi_al_grande(
         ferma_e_di(server, nome, &format!("{chi} non ha potuto guardare: {e}"));
         return None;
     }
-    let Some(detto) =
-        crate::agente::chiedi_con(std::slice::from_ref(&grande), domanda, gettoni).await
-    else {
-        ferma_e_di(
-            server,
-            nome,
-            &format!("{chi} non ha risposto: «{}» non risponde", grande.nome()),
-        );
-        return None;
+    let detto = match grande.chiedi(domanda, gettoni).await {
+        Ok(d) => d,
+        Err(e) => {
+            ferma_e_di(server, nome, &format!("{chi} non ha risposto: {e}"));
+            return None;
+        }
     };
     if a_consumo(&cfg, grande.nome()) {
         annota(
