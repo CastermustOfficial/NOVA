@@ -2721,3 +2721,17 @@ consegne al capo, che si guardavano allo stesso modo.
 
 La regola: un evento del bus, in una prova, si aspetta con un tetto; non si
 guarda una volta dopo che qualcos'altro e' finito.
+
+## Un push sul ramo sbagliato
+
+L'11 ottobre, per il D405, il push dal cloud non e' passato (il proxy non ha
+le credenziali per il repository) e l'ho fatto dal PC di sviluppo con
+`git push origin HEAD`. Il ramo locale li' si chiama `ottimizzazione`, non
+`master`: il push ha creato un ramo nuovo su GitHub, e `master` e' rimasto
+indietro. L'ho visto dalla risposta di GitHub, che proponeva una pull
+request. Ho spinto lo stesso commit su `master` (un avanzamento semplice da
+`fc76775`) e ho tolto il ramo che avevo creato io; il commit e' lo stesso,
+portato dal cloud al PC con un bundle.
+
+La regola: dal PC di sviluppo si spinge sempre nominando il ramo,
+`git push origin HEAD:master`, e prima si guarda `git ls-remote --heads`.
