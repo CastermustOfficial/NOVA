@@ -75,13 +75,30 @@ _PONTI = frozenset({
     "del", "della", "dello", "dei", "di", "d'", "mia", "mio", "un", "una",
 })
 
+#: Cosa si toglie ai bordi di un token prima di guardarlo: la punteggiatura,
+#: e da D408 le parentesi, le virgolette e le caporali. Senza, «token appresi
+#: o «gist»» e «token prima e dopo (legenda» sembravano valori, e un piano
+#: che parla di token non usciva dal PC. Un valore vero fra parentesi o
+#: virgolette resta un valore, tolti i bordi. Gemello di `BORDI` in
+#: `nova_guasti::guardiano`.
+_BORDI = "\"'`.,;:)=([]{}<>«»“”‘’"
+
 #: Quanti token dopo la chiave si guardano. Quattro: e' la stessa distanza
 #: che ammetteva la vecchia espressione (fino a tre parole di mezzo, poi il
 #: valore). Piu' in la' e' un'altra frase, e prenderla darebbe falsi allarmi.
 _QUANTI_TOKEN = 4
 
 
-def _sembra_un_valore(valore: str) -> bool:
+#: Le chiavi il cui valore puo' essere un numero e basta (D408): un PIN, un
+#: codice usa e getta, una password di sole cifre. Dopo le altre — token,
+#: secret, api key — un numero da solo e' una misura. Gemello di
+#: `CHIAVI_A_NUMERO` in `nova_guasti::guardiano`.
+_CHIAVI_A_NUMERO = re.compile(r"password|passwd|pwd|pin|otp|parola\s+d[i']?\s*ordine", re.IGNORECASE)
+
+_NUMERO = re.compile(r"[0-9.,'_]*[0-9][0-9.,'_]*")
+
+
+def _sembra_un_valore(valore: str, chiave_numerica: bool = True) -> bool:
     """Se questa stringa e' un segreto invece che una parola.
 
     «la password e' cambiata», «il token e' scaduto» non sono segreti: sono
@@ -90,6 +107,10 @@ def _sembra_un_valore(valore: str) -> bool:
     raggiunge. Meglio lasciar passare «segretissima» che rifiutare mezza
     conversazione.
     """
+    # Un numero da solo (anche coi separatori) e' un segreto solo dopo le
+    # chiavi che si scrivono a cifre (D408); lunghissimo, resta sospetto.
+    if not chiave_numerica and _NUMERO.fullmatch(valore):
+        return len(valore) >= 16
     # Un PIN e' corto per costruzione: quattro cifre sono gia' il segreto
     # intero, e la regola generale sulla lunghezza lo lascerebbe passare.
     if valore.isdigit() and 4 <= len(valore) <= 19:
@@ -131,12 +152,13 @@ def perche_non_si_salva(testo: str) -> str | None:
     if _COPPIA_A_PAROLE.search(testo):
         return "una credenziale in chiaro"
     for m in _CHIAVE_SOLA.finditer(testo):
+        numerica = _CHIAVI_A_NUMERO.fullmatch(m.group(0)) is not None
         visti = 0
         for grezzo in testo[m.end():].split():
-            valore = grezzo.strip("\"'`.,;:)=")
+            valore = grezzo.strip(_BORDI)
             if not valore or valore.lower() in _PONTI:
                 continue
-            if _sembra_un_valore(valore):
+            if _sembra_un_valore(valore, numerica):
                 return "una credenziale in chiaro"
             visti += 1
             if visti >= _QUANTI_TOKEN:

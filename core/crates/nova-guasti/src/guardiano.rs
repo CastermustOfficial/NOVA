@@ -57,6 +57,21 @@ const PONTI: &[&str] = &[
     "del", "della", "dello", "dei", "di", "d'", "mia", "mio", "un", "una",
 ];
 
+/// Cosa si toglie ai bordi di un token prima di guardarlo: la punteggiatura,
+/// e da D408 le parentesi, le virgolette e le caporali. Senza, «token
+/// appresi o «gist»» e «token prima e dopo (legenda» sembravano valori — un
+/// simbolo e sei caratteri — e un piano che parla di token non usciva dal PC.
+/// Un valore vero fra parentesi o virgolette resta un valore, tolti i bordi.
+pub const BORDI: &str = "\"'`.,;:)=([]{}<>«»“”‘’";
+
+/// Le chiavi il cui valore puo' essere un numero e basta: un PIN, un codice
+/// usa e getta, una password di sole cifre (D408). Dopo le altre — token,
+/// secret, api key — un numero da solo e' una misura.
+pub const CHIAVI_A_NUMERO: &[&str] = &[
+    "password", "passwd", "pwd", "pin", "otp",
+    "parola d'ordine", "parola di ordine", "parola d ordine",
+];
+
 /// Quanti token dopo la chiave si guardano.
 ///
 /// Quattro: fra la parola e il valore ci sta spesso una precisazione — «la
@@ -71,8 +86,15 @@ const QUANTI_TOKEN: usize = 4;
 /// simbolo — oppure una lunghezza che nessuna parola italiana normale
 /// raggiunge. Meglio lasciar passare «segretissima» che rifiutare mezza
 /// conversazione.
-fn sembra_un_valore(valore: &str) -> bool {
+fn sembra_un_valore(valore: &str, chiave_numerica: bool) -> bool {
     let quanti = valore.chars().count();
+    // Un numero da solo (anche coi separatori: «1.532», «0,85») e' un
+    // segreto solo dopo le chiavi che si scrivono a cifre (D408): «i token
+    // passano da 1532 a 980» e' una misura, non un PIN. Lunghissimo, resta
+    // sospetto comunque.
+    if !chiave_numerica && e_un_numero(valore) {
+        return quanti >= 16;
+    }
     // Un PIN e' corto per costruzione: quattro cifre sono gia' il segreto
     // intero, e la regola generale sulla lunghezza lo lascerebbe passare.
     if !valore.is_empty() && valore.chars().all(|c| c.is_ascii_digit()) && (4..=19).contains(&quanti)
@@ -83,6 +105,13 @@ fn sembra_un_valore(valore: &str) -> bool {
         return true;
     }
     quanti >= 16
+}
+
+/// Cifre, con al piu' i separatori di un numero scritto: punto, virgola,
+/// apostrofo, trattino basso.
+fn e_un_numero(valore: &str) -> bool {
+    valore.chars().any(|c| c.is_ascii_digit())
+        && valore.chars().all(|c| c.is_ascii_digit() || ".,'_".contains(c))
 }
 
 /// Come si chiama il segreto che c'e' qui dentro, se ce n'e' uno.
@@ -190,14 +219,16 @@ fn chiave_poi_valore(testo: &str, minuscolo: &[char]) -> bool {
         let Some(fine) = chiave_qui(minuscolo, i, CHIAVI_A_VOCE) else {
             continue;
         };
+        let chiave: String = minuscolo[i..fine].iter().collect();
+        let numerica = CHIAVI_A_NUMERO.contains(&chiave.as_str());
         let coda: String = originale[fine.min(originale.len())..].iter().collect();
         let mut visti = 0usize;
         for grezzo in coda.split_whitespace() {
-            let valore = grezzo.trim_matches(|c| "\"'`.,;:)=".contains(c));
+            let valore = grezzo.trim_matches(|c| BORDI.contains(c));
             if valore.is_empty() || PONTI.contains(&valore.to_lowercase().as_str()) {
                 continue;
             }
-            if sembra_un_valore(valore) {
+            if sembra_un_valore(valore, numerica) {
                 return true;
             }
             visti += 1;
@@ -399,5 +430,65 @@ mod prove_etichette {
                 "«{t}» non annuncia nessun segreto"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod prove_bordi {
+    use super::*;
+
+    /// Il piano di S0ex1 (12 ottobre): parla di token, e il legale non poteva
+    /// guardarlo perche' «(legenda» e ««gist»» sembravano valori (D408).
+    #[test]
+    fn una_parola_fra_parentesi_o_caporali_non_e_un_valore() {
+        for t in [
+            "potatura dei token e riassunto), token appresi o «gist», codifiche adatte",
+            "token prima e dopo (legenda inclusa) con ogni tokenizer",
+            "i token [stimati] del corpus",
+            "il token “scaduto” ieri",
+        ] {
+            assert_eq!(perche_non_si_salva(t), None, "{t}");
+        }
+    }
+
+    #[test]
+    fn un_valore_fra_parentesi_o_caporali_resta_un_valore() {
+        for t in [
+            "la password (Tramonto2026) e' sul foglio",
+            "il token e' «9f8e7d6c5b4a3210»",
+            "secret: “Girasole99!”",
+            "pin [4829]",
+        ] {
+            assert_eq!(perche_non_si_salva(t), Some("una credenziale in chiaro"), "{t}");
+        }
+    }
+}
+
+#[cfg(test)]
+mod prove_numeri {
+    use super::*;
+
+    /// Dopo «token» un numero e' una misura; dopo pin, otp e password resta
+    /// un segreto (D408).
+    #[test]
+    fn un_numero_e_un_segreto_solo_dopo_le_chiavi_a_cifre() {
+        for t in [
+            "i token passano da 1532 a 980",
+            "la finestra e' di 128.000 token, e i token in ingresso 1.532,5",
+            "il secret ha 2048 bit",
+        ] {
+            assert_eq!(perche_non_si_salva(t), None, "{t}");
+        }
+        for t in [
+            "la password e' 12345678",
+            "otp 482913",
+            "il pin del bancomat e' 4829",
+            "la parola d'ordine e' 2026",
+        ] {
+            assert_eq!(perche_non_si_salva(t), Some("una credenziale in chiaro"), "{t}");
+        }
+        // Lunghissimo resta sospetto: qui lo prende gia' la forma della carta.
+        assert!(perche_non_si_salva("token 1234567890123456").is_some());
+        assert!(e_un_numero("1.532,5") && e_un_numero("128_000") && !e_un_numero("9f8e") && !e_un_numero(".,"));
     }
 }

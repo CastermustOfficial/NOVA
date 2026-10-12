@@ -153,7 +153,7 @@ Cosa serve: un banco Rust costruito con `cargo`: la prova stampa la riga per cos
 | `test_clm_rust.py` | Le teste di CLM in Rust danno le stesse probabilita' di quelle del banco, su teste e vettori qualunque e nel formato che legge il demone. |
 | `test_clm_scelte_dot.py` | Le scelte dei Dot per CLM (D404), senza modelli: le domande del banco vengono da `banco-testi-clm`, cioe' dal demone; dal registro entrano solo le scelte che non ha fatto CLM, e un voto sotto 6 insegna il gradino sopra; una situazione simile al banco resta fuori; le soglie misurate finiscono in `teste.json`, il Rust le legge e ne rifiuta una fuori da 0-1. |
 | `test_giudizio_solo_testo.py` | La domanda del giudice ai cervelli di fuori e' quella del modello di casa, carattere per carattere; le risposte si leggono. |
-| `test_guasti_rust.py` | I guasti in Rust devono dire le stesse parole, e coprire le stesse chiavi. |
+| `test_guasti_rust.py` | I guasti in Rust devono dire le stesse parole, e coprire le stesse chiavi. Il guardiano delle credenziali, in Rust e in Python: cosa va rifiutato e cosa va ricordato, dal D408 anche un valore fra parentesi o virgolette (rifiutato), una parola fra parentesi o caporali dopo «token» e un numero dopo «token» (ricordati). |
 | `test_harness_rust.py` | L'harness deve tagliare e cercare uguale in Rust. |
 | `test_imparare_rust.py` | Da uno scambio, il demone deve imparare le stesse cose di `memory.py`. |
 | `test_mcp_rust.py` | Il protocollo MCP in Rust deve rispondere la stessa busta del Python. |

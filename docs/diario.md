@@ -11821,3 +11821,14 @@ rifiuta il piano. Scrivendo la prova mi sono accorto che due progetti
 potevano finire nella stessa cartella, e scriversi sopra la cronologia: ora
 si rifiuta, all'APM e all'Architetto.
 
+## 12 ottobre 2026 — Il primo progetto si ferma su una parola
+
+S0ex1 e' partito, e l'Architetto, con Claude che leggeva la cartella, ha
+scritto un piano in quattro fasi che ripete ogni misura. Poi si e' fermato:
+per il guardiano delle credenziali il piano conteneva una password. Era
+«(legenda»: dopo la parola «token», una parentesi attaccata e sei
+caratteri. Un progetto che parla di token avrebbe trovato quel muro a ogni
+controllo, e piu' ancora con le misure, perche' un numero dopo «token» era
+un PIN. Il guardiano adesso guarda la parola senza i bordi, e un numero da
+solo e' un segreto solo dove un segreto si scrive a cifre.
+

@@ -273,6 +273,14 @@ DA_RIFIUTARE = [
      "la api key del fornitore e' abcd1234efgh5678"),
     ("token con il valore due parole dopo",
      "il token di accesso e' 9f8e7d6c5b4a3210"),
+    # D408: tolti i bordi, un valore fra parentesi o virgolette resta un valore
+    ("password fra parentesi", "la password (Tramonto2026) e' sul foglio"),
+    ("token fra caporali", "il token e' «9f8e7d6c5b4a3210»"),
+    ("secret fra virgolette inglesi", "secret: “Girasole99!”"),
+    # D408: un numero da solo e' un segreto dopo pin, otp e password
+    ("password di sole cifre", "la password e' 12345678"),
+    ("otp", "otp 482913"),
+    ("un numero lunghissimo dopo token resta sospetto", "token 1234567890123456"),
 ]
 
 DA_RICORDARE = [
@@ -288,6 +296,16 @@ DA_RICORDARE = [
     ("una parola che comincia come un prefisso", "ask-me di nuovo"),
     ("un nodo tecnico sul PC", "RTX 4060 Ti da 16 GB, 32 GB di RAM"),
     ("niente", ""),
+    # D408: il piano di S0ex1, che parla di token e si fermava al legale
+    ("token seguito da una parola fra caporali",
+     "potatura dei token e riassunto), token appresi o «gist», codifiche adatte"),
+    ("token seguito da una parentesi aperta",
+     "token prima e dopo (legenda inclusa) con ogni tokenizer"),
+    ("token seguito da una parola fra quadre", "i token [stimati] del corpus"),
+    # D408: dopo token, un numero e' una misura
+    ("una misura in token", "i token passano da 1532 a 980"),
+    ("una finestra di contesto", "la finestra e' di 128.000 token, e i token in ingresso 1.532,5"),
+    ("una misura dopo secret", "il secret ha 2048 bit"),
 ]
 
 TUTTI = [t for _, t in DA_RIFIUTARE] + [t for _, t in DA_RICORDARE]
