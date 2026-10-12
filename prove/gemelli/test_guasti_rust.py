@@ -281,6 +281,11 @@ DA_RIFIUTARE = [
     ("password di sole cifre", "la password e' 12345678"),
     ("otp", "otp 482913"),
     ("un numero lunghissimo dopo token resta sospetto", "token 1234567890123456"),
+    # D409: una parola lunga con le maiuscole in mezzo resta sospetta
+    ("parole attaccate con le maiuscole", "il token e' CorrectHorseBatteryStaple"),
+    ("un valore col punto di domanda", "password: Tramonto2026?"),
+    ("un nome con una cifra in un pezzo", "token: abc_def123"),
+    ("lettere a caso unite da trattini", "il token e' AbCdEf-GhIjKl-MnOpQr"),
 ]
 
 DA_RICORDARE = [
@@ -306,6 +311,14 @@ DA_RICORDARE = [
     ("una misura in token", "i token passano da 1532 a 980"),
     ("una finestra di contesto", "la finestra e' di 128.000 token, e i token in ingresso 1.532,5"),
     ("una misura dopo secret", "il secret ha 2048 bit"),
+    # D409: il piano 3 di S0ex1
+    ("una parola con l'elisione", "bit per token, il costo della legenda e l'argomento"),
+    ("una parola lunga minuscola", "token, quanto la preelaborazione del modello (ridimensionamento, ricampionamento)"),
+    ("una domanda", "per token, invece di contarle con un sostituto?"),
+    ("il grassetto", "le credenziali **verrà** chiesta"),
+    ("un nome di codice", "token stabili che llama.cpp ricorda"),
+    ("un percorso", "credenziali e configurazione vivono in `%APPDATA%\\NOVA`."),
+    ("un modulo con le sue costanti", "token. Adesso `strumenti_in_http::DAL_PYTHON`"),
 ]
 
 TUTTI = [t for _, t in DA_RIFIUTARE] + [t for _, t in DA_RICORDARE]

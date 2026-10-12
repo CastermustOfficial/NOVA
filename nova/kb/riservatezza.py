@@ -76,12 +76,13 @@ _PONTI = frozenset({
 })
 
 #: Cosa si toglie ai bordi di un token prima di guardarlo: la punteggiatura,
-#: e da D408 le parentesi, le virgolette e le caporali. Senza, «token appresi
+#: da D408 le parentesi, le virgolette e le caporali, da D409 il punto di
+#: domanda, quello esclamativo e l'asterisco del grassetto. Senza, «token appresi
 #: o «gist»» e «token prima e dopo (legenda» sembravano valori, e un piano
 #: che parla di token non usciva dal PC. Un valore vero fra parentesi o
 #: virgolette resta un valore, tolti i bordi. Gemello di `BORDI` in
 #: `nova_guasti::guardiano`.
-_BORDI = "\"'`.,;:)=([]{}<>«»“”‘’"
+_BORDI = "\"'`.,;:)=([]{}<>«»“”‘’?!*"
 
 #: Quanti token dopo la chiave si guardano. Quattro: e' la stessa distanza
 #: che ammetteva la vecchia espressione (fino a tre parole di mezzo, poi il
@@ -115,9 +116,48 @@ def _sembra_un_valore(valore: str, chiave_numerica: bool = True) -> bool:
     # intero, e la regola generale sulla lunghezza lo lascerebbe passare.
     if valore.isdigit() and 4 <= len(valore) <= 19:
         return True
-    if len(valore) >= 6 and not valore.isalpha():
+    # Un nome di codice fatto di parole («llama.cpp», «api_key») non e' un
+    # valore; con una cifra in un pezzo («abc_def123») si' (D409). Dopo una
+    # password no: «Correct-Horse-Battery» e' una password fatta di parole.
+    if not chiave_numerica and _e_un_nome(valore):
+        return False
+    # Una parola, anche con l'apostrofo dell'elisione («l'argomento»), non e'
+    # un valore per i simboli che ha (D409).
+    parola = _e_una_parola(valore)
+    if len(valore) >= 6 and not parola:
         return True
-    return len(valore) >= 16
+    # Lunga e' sospetta; ma non una parola scritta come una parola
+    # («ridimensionamento»): lo e' con le maiuscole in mezzo (D409).
+    return len(valore) >= 16 and not (parola and not any(c.isupper() for c in valore[1:]))
+
+
+#: I separatori dei nomi di codice. Gemello di `SEPARATORI_DI_NOME`.
+_SEPARATORI_DI_NOME = "_.:/\\-%"
+_SEPARA_NOME = re.compile("[" + re.escape(_SEPARATORI_DI_NOME) + "]")
+
+
+def _e_un_nome(valore: str) -> bool:
+    """Parole unite dai separatori, ognuna scritta come una parola: un nome
+    di codice o un percorso, non un segreto (D409)."""
+    if not any(c in _SEPARATORI_DI_NOME for c in valore):
+        return False
+    parti = [p for p in _SEPARA_NOME.split(valore) if p]
+    return bool(parti) and all(
+        _e_una_parola(p) and (not any(c.isupper() for c in p[1:]) or not any(c.islower() for c in p))
+        for p in parti)
+
+
+def _e_una_parola(valore: str) -> bool:
+    """Lettere, con al piu' l'apostrofo dell'elisione fra due lettere."""
+    if not valore:
+        return False
+    for i, c in enumerate(valore):
+        if c.isalpha():
+            continue
+        if c in "'’" and 0 < i < len(valore) - 1 and valore[i - 1].isalpha() and valore[i + 1].isalpha():
+            continue
+        return False
+    return True
 
 
 # Le chiavi «a parole» con un separatore esplicito e almeno due parole dietro.

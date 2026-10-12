@@ -2785,3 +2785,34 @@ la sezione 4, sul progetto «secondo», con la cartella dall'indice.
 La regola: in una prova non si scrive un segnaposto; un controllo che non
 so ancora scrivere non si scrive, e lo si annota.
 
+## Un filtro corretto sui casi visti, e non sulla sua forma
+
+Il 12 ottobre, nel D408, ho corretto il guardiano delle credenziali sui due
+casi che avevano fermato il piano 1 di S0ex1: le parentesi e le caporali
+attaccate a una parola, e i numeri dopo «token». Ho controllato il piano 1
+e ho detto che il problema era risolto. Il piano 3 si e' fermato su tre
+casi della stessa forma, che non avevo guardato: l'apostrofo
+dell'elisione, una parola lunga, un punto di domanda. Avevo creduto che il
+difetto fossero i due simboli che avevo visto, mentre era la regola: «un
+simbolo e sei caratteri e' un valore» non regge su un testo italiano
+qualunque. Me ne sono accorto dal progetto fermo. Corretto nel D409.
+
+La regola: quando una regola sbaglia su un testo vero, la si prova su altri
+testi veri della stessa specie prima di dire che e' corretta, non solo su
+quello che l'ha fatta sbagliare.
+
+
+## Un nome di codice che era una password
+
+Sempre il 12 ottobre, nel D409, ho stabilito che parole unite da trattini,
+punti o trattini bassi sono un nome di codice («llama.cpp», «api_key») e non
+un valore, dopo qualunque chiave. La suite intera ha fatto rosso
+`prove/nova/test_segreti.py`: «password = Correct-Horse-Battery-Stapl»
+passava. Avevo pensato ai nomi che seguono «token», e non a una password
+fatta di parole, che e' proprio il modo consigliato di farne una. Adesso un
+nome vale come nome solo dopo le chiavi che non sono una password; dopo
+password, pin, otp e parola d'ordine resta un valore.
+
+La regola: una regola che allenta un filtro di sicurezza si prova contro
+tutte le chiavi del filtro, non solo contro quella che ha dato il falso
+allarme.

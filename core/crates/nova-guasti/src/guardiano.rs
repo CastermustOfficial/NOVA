@@ -58,11 +58,12 @@ const PONTI: &[&str] = &[
 ];
 
 /// Cosa si toglie ai bordi di un token prima di guardarlo: la punteggiatura,
-/// e da D408 le parentesi, le virgolette e le caporali. Senza, «token
+/// da D408 le parentesi, le virgolette e le caporali, da D409 il punto di
+/// domanda, quello esclamativo e l'asterisco del grassetto. Senza, «token
 /// appresi o «gist»» e «token prima e dopo (legenda» sembravano valori — un
 /// simbolo e sei caratteri — e un piano che parla di token non usciva dal PC.
 /// Un valore vero fra parentesi o virgolette resta un valore, tolti i bordi.
-pub const BORDI: &str = "\"'`.,;:)=([]{}<>«»“”‘’";
+pub const BORDI: &str = "\"'`.,;:)=([]{}<>«»“”‘’?!*";
 
 /// Le chiavi il cui valore puo' essere un numero e basta: un PIN, un codice
 /// usa e getta, una password di sole cifre (D408). Dopo le altre — token,
@@ -101,10 +102,58 @@ fn sembra_un_valore(valore: &str, chiave_numerica: bool) -> bool {
     {
         return true;
     }
-    if quanti >= 6 && !valore.chars().all(|c| c.is_alphabetic()) {
+    // Un nome di codice fatto di parole («llama.cpp», «api_key») non e' un
+    // valore; con una cifra in un pezzo («abc_def123») si' (D409). Dopo una
+    // password no: «Correct-Horse-Battery» e' una password fatta di parole.
+    if !chiave_numerica && e_un_nome(valore) {
+        return false;
+    }
+    // Una parola, anche con l'apostrofo dell'elisione («l'argomento»), non
+    // e' un valore per i simboli che ha (D409).
+    let parola = e_una_parola(valore);
+    if quanti >= 6 && !parola {
         return true;
     }
-    quanti >= 16
+    // Lunga, e' sospetta; ma una parola lunga scritta come una parola
+    // («ridimensionamento», «Contemporaneamente») no: lo e' se ha maiuscole
+    // in mezzo, come una password fatta di parole attaccate (D409).
+    quanti >= 16 && !(parola && valore.chars().skip(1).all(|c| !c.is_uppercase()))
+}
+
+/// I separatori dei nomi di codice: «llama.cpp», «api_key», «a::b», percorsi.
+pub const SEPARATORI_DI_NOME: &str = "_.:/\\-%";
+
+/// Parole unite da [`SEPARATORI_DI_NOME`], ognuna scritta come una parola
+/// (minuscola, con la maiuscola iniziale, o tutta maiuscola): un nome di
+/// codice o un percorso, non un segreto. Un pezzo con una cifra, o con le
+/// maiuscole sparse come una chiave a caso, non e' una parola.
+fn e_un_nome(valore: &str) -> bool {
+    if !valore.chars().any(|c| SEPARATORI_DI_NOME.contains(c)) {
+        return false;
+    }
+    let parti: Vec<&str> = valore
+        .split(|c| SEPARATORI_DI_NOME.contains(c))
+        .filter(|p| !p.is_empty())
+        .collect();
+    !parti.is_empty()
+        && parti.iter().all(|p| {
+            e_una_parola(p)
+                && (p.chars().skip(1).all(|c| !c.is_uppercase()) || p.chars().all(|c| !c.is_lowercase()))
+        })
+}
+
+/// Lettere, con al piu' l'apostrofo dell'elisione fra due lettere.
+fn e_una_parola(valore: &str) -> bool {
+    let c: Vec<char> = valore.chars().collect();
+    !c.is_empty()
+        && c.iter().enumerate().all(|(i, x)| {
+            x.is_alphabetic()
+                || ((*x == '\'' || *x == '’')
+                    && i > 0
+                    && i + 1 < c.len()
+                    && c[i - 1].is_alphabetic()
+                    && c[i + 1].is_alphabetic())
+        })
 }
 
 /// Cifre, con al piu' i separatori di un numero scritto: punto, virgola,
@@ -490,5 +539,50 @@ mod prove_numeri {
         // Lunghissimo resta sospetto: qui lo prende gia' la forma della carta.
         assert!(perche_non_si_salva("token 1234567890123456").is_some());
         assert!(e_un_numero("1.532,5") && e_un_numero("128_000") && !e_un_numero("9f8e") && !e_un_numero(".,"));
+    }
+}
+
+#[cfg(test)]
+mod prove_parole {
+    use super::*;
+
+    /// Il piano 3 di S0ex1 (D409): l'elisione, una parola lunga, una domanda.
+    #[test]
+    fn le_parole_restano_parole() {
+        for t in [
+            "bit per token, il costo della legenda e l'argomento",
+            "token, quanto la preelaborazione del modello (ridimensionamento, ricampionamento)",
+            "per token, invece di contarle con un sostituto?",
+            "il token dell'utente e' Contemporaneamente scaduto",
+        ] {
+            assert_eq!(perche_non_si_salva(t), None, "{t}");
+        }
+        for t in [
+            "il token e' CorrectHorseBatteryStaple",
+            "password: Tramonto2026?",
+            "token: abc'12def",
+        ] {
+            assert_eq!(perche_non_si_salva(t), Some("una credenziale in chiaro"), "{t}");
+        }
+        assert!(e_una_parola("l'argomento") && e_una_parola("dell’utente"));
+        for t in [
+            "token stabili che llama.cpp",
+            "token. Adesso `strumenti_in_http::DAL_PYTHON`",
+            "credenziali e configurazione vivono in `%APPDATA%\\NOVA`.",
+            "le credenziali **verrà** chiesta",
+        ] {
+            assert_eq!(perche_non_si_salva(t), None, "{t}");
+        }
+        for t in [
+            "token: abc_def123",
+            "il token e' AbCdEf-GhIjKl-MnOpQr",
+            "secret: alfa/beta9",
+            "password = Correct-Horse-Battery-Stapl",
+        ] {
+            assert!(perche_non_si_salva(t).is_some(), "{t}");
+        }
+        assert!(e_un_nome("llama.cpp") && e_un_nome("api_key") && e_un_nome("DAL_PYTHON"));
+        assert!(!e_un_nome("abc_def123") && !e_un_nome("AbCdEf-Gh") && !e_un_nome("parola"));
+        assert!(!e_una_parola("'argomento") && !e_una_parola("l''a") && !e_una_parola("a1"));
     }
 }
