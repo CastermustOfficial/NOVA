@@ -2816,3 +2816,21 @@ password, pin, otp e parola d'ordine resta un valore.
 La regola: una regola che allenta un filtro di sicurezza si prova contro
 tutte le chiavi del filtro, non solo contro quella che ha dato il falso
 allarme.
+
+## Uno script appena scritto che non si lancia
+
+Il 12 ottobre la CI del D409 e' caduta su Ubuntu, nel giro «altrove», in
+una prova che col D409 non c'entra:
+`caps_tempo::prove::un_novaw_che_non_conosce_il_comando_non_si_registra`.
+La prova scrive un `novaw` finto e lo lancia subito. Su Linux lanciarlo puo'
+fallire con «Text file busy»: un'altra prova dello stesso processo, che in
+quell'istante lancia un programma, si porta dietro il file ancora aperto in
+scrittura fino al suo `exec`. Chi ha scritto la prova credeva che uno
+script appena scritto si potesse sempre lanciare. Il registro del giro non
+si legge senza accesso, e l'annotazione dice solo dove e' caduta: la causa
+e' quella che conosco per questo sintomo, non l'ho vista scritta. Su
+Windows e su macOS la stessa prova era verde, e su Ubuntu nei giri di
+prima. La prova adesso riprova per un secondo al piu', solo su quell'errore.
+
+La regola: una prova che lancia un file che ha appena scritto ripete il
+lancio se il sistema dice che il file e' ancora occupato.

@@ -530,3 +530,15 @@ NOVA. **Perche'.** Oggi lo dicono le regole del compito, e basta.
 conosce il compito in corso; per Claude Code e le CLI, che hanno mani loro,
 non basta.
 
+## La vista «File» con quello che fanno Claude Code e le CLI
+
+Nata con S0ex1, il 12 ottobre. **Cosa.** Mostrare nella vista «File»
+dell'harness anche i file che un Dot tocca con le mani sue (Claude Code,
+le CLI), e quelli che scrive l'APM nella cartella del progetto. **Perche'.**
+Oggi la vista mostra solo gli strumenti di NOVA: un progetto fatto con
+Claude, come S0ex1 sul PC di sviluppo, li' sembra fermo anche quando
+lavora. **Cosa costerebbe.** Per Claude Code, le chiamate a `Write` e
+`Edit` del flusso `stream-json` (come per «Vedere cosa leggono Claude Code
+e le CLI»); per le CLI, guardare la cartella del compito prima e dopo; per
+l'APM, un evento a ogni file che scrive.
+

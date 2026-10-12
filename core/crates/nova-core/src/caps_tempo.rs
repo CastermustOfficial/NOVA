@@ -408,24 +408,44 @@ mod prove {
         f
     }
 
+    /// `sa_fare` su uno script appena scritto. Su Linux lanciarlo puo'
+    /// fallire con «Text file busy» (ETXTBSY): un'altra prova dello stesso
+    /// processo che lancia un programma in quell'istante si porta dietro,
+    /// fino al suo `exec`, il file ancora aperto in scrittura. Non e' il
+    /// comportamento che si prova: si riprova, per un secondo al piu'. La CI
+    /// su Ubuntu l'ha fatto vedere il 12 ottobre.
+    fn sa_fare_appena_scritto(f: &std::path::Path, comando: &str) -> std::result::Result<(), String> {
+        let mut r = sa_fare(f, comando);
+        for _ in 0..50 {
+            match &r {
+                Err(e) if e.contains("Text file busy") || e.contains("os error 26") => {
+                    std::thread::sleep(std::time::Duration::from_millis(20));
+                    r = sa_fare(f, comando);
+                }
+                _ => break,
+            }
+        }
+        r
+    }
+
     #[test]
     fn un_novaw_che_non_conosce_il_comando_non_si_registra() {
         // E' il caso del 2 ottobre: un binario di agosto, che `pianificate`
         // non lo conosceva, registrato lo stesso e fallito per tre giorni.
         let vecchio = finto_novaw("vecchio", 2, "error: unrecognized subcommand 'pianificate'");
-        let e = sa_fare(&vecchio, "pianificate").unwrap_err();
+        let e = sa_fare_appena_scritto(&vecchio, "pianificate").unwrap_err();
         assert!(e.contains("non sa fare «pianificate»"), "{e}");
         assert!(e.contains("unrecognized subcommand"), "{e}");
         assert!(e.contains("versione vecchia"), "{e}");
 
         // Un altro guasto non si spaccia per una versione vecchia.
         let rotto = finto_novaw("rotto", 1, "novaw: non riesco a lanciare nova");
-        let e = sa_fare(&rotto, "pianificate").unwrap_err();
+        let e = sa_fare_appena_scritto(&rotto, "pianificate").unwrap_err();
         assert!(e.contains("non risponde come dovrebbe"), "{e}");
         assert!(!e.contains("versione vecchia"), "{e}");
 
         let buono = finto_novaw("buono", 0, "x");
-        assert_eq!(sa_fare(&buono, "pianificate"), Ok(()));
+        assert_eq!(sa_fare_appena_scritto(&buono, "pianificate"), Ok(()));
         for f in [vecchio, rotto, buono] {
             let _ = std::fs::remove_dir_all(f.parent().unwrap());
         }
