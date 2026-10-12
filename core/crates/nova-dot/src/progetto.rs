@@ -16,12 +16,11 @@
 //! rileggendole in ordine ([`Progetto::da`]). Un demone che si spegne a meta'
 //! riprende da dove era. Accanto, `progetto.md` lo racconta a chi lo apre.
 //!
-//! ```text
-//! <cartella di NOVA>/progetti/<nome>/
-//!   progetto.jsonl   i passi dell'APM
-//!   progetto.md      com'e' adesso, da leggere
-//!   piani/           le versioni del piano dell'Architetto (D400)
-//! ```
+//! Dal D407 stanno nella cartella del progetto, `Documenti\Dots_Project\
+//! <nome>\` o quella indicata, con il resto della sua struttura
+//! ([`crate::struttura`]); nella cartella di NOVA resta l'indice. Prima del
+//! D407 stavano in `<cartella di NOVA>/progetti/<nome>/` ([`cartella_vecchia`]),
+//! coi piani in `piani/`: il demone li sposta alla prima accensione.
 //!
 //! Qui ci sono le regole e le parole; chi le fa girare e' `nova_core::apm`.
 
@@ -33,8 +32,10 @@ use serde::{Deserialize, Serialize};
 use crate::piano::{self, Chi, Piano};
 use crate::{Mestiere, Stato};
 
-/// La cartella dei progetti, dentro quella di NOVA.
+/// Dove stavano i progetti prima del D407, dentro la cartella di NOVA.
 pub const CARTELLA: &str = "progetti";
+/// Dove stavano i piani prima del D407, dentro la cartella del progetto.
+pub const CARTELLA_PIANI_VECCHIA: &str = "piani";
 
 /// Quanto di una consegna entra in un testo per un altro (il compito dopo,
 /// il legale, la revisione, il resoconto).
@@ -51,13 +52,13 @@ pub const TETTO_PER_COMPITO: f64 = 0.3;
 /// Il tetto piu' piccolo che si propone.
 pub const TETTO_MINIMO: f64 = 1.0;
 
-/// La cartella di un progetto.
-pub fn cartella(nova: &Path, nome: &str) -> PathBuf {
+/// La cartella di un progetto prima del D407, dentro quella di NOVA.
+pub fn cartella_vecchia(nova: &Path, nome: &str) -> PathBuf {
     nova.join(CARTELLA).join(nome)
 }
 
-/// I progetti che ci sono, in ordine di nome.
-pub fn elenco(nova: &Path) -> Vec<String> {
+/// I progetti rimasti dove stavano prima del D407: da spostare.
+pub fn vecchi(nova: &Path) -> Vec<String> {
     let mut v: Vec<String> = std::fs::read_dir(nova.join(CARTELLA))
         .map(|it| {
             it.filter_map(|e| e.ok())
@@ -68,6 +69,16 @@ pub fn elenco(nova: &Path) -> Vec<String> {
         .unwrap_or_default();
     v.sort();
     v
+}
+
+/// I progetti che ci sono, in ordine di nome: quelli dell'indice la cui
+/// cartella ha ancora la cronologia.
+pub fn elenco(nova: &Path) -> Vec<String> {
+    crate::struttura::progetti(nova)
+        .into_iter()
+        .filter(|(_, r)| Path::new(r).join("progetto.jsonl").is_file())
+        .map(|(n, _)| n)
+        .collect()
 }
 
 /// Un passo di un progetto: una riga di `progetto.jsonl`.
@@ -408,6 +419,13 @@ impl Progetto {
                     // Ripreso prima del via: si riprepara, e si ripropone.
                     if !col_via {
                         p.proposto = false;
+                    }
+                    // Un paper non fatto si riaffida (D407): era per lui che
+                    // il progetto si era fermato.
+                    if p.lavori.get(crate::struttura::INCARICO_PAPER).is_some_and(|l| {
+                        l.stato.is_some_and(|s| s != Stato::Fatto)
+                    }) {
+                        p.lavori.remove(crate::struttura::INCARICO_PAPER);
                     }
                 }
                 Evento::Finito { resoconto, .. } => {
@@ -1458,16 +1476,42 @@ mod prove {
     }
 
     #[test]
-    fn i_progetti_si_elencano_dalla_cartella() {
+    fn un_paper_non_fatto_si_riaffida_quando_il_progetto_riparte() {
+        let q = String::from("2026-10-12T10:00:00");
+        let paper = crate::struttura::INCARICO_PAPER.to_string();
+        let mut e = vec![
+            Evento::Creato { quando: q.clone(), numero: 1, richiesta: "x".into(), cartella: String::new() },
+            Evento::Via { quando: q.clone(), tetto: 0.0 },
+            Evento::Affidato { quando: q.clone(), incarico: paper.clone(), dot: "scrittura".into(), compito: 9 },
+            Evento::Chiuso { quando: q.clone(), incarico: paper.clone(), stato: Stato::Fallito, esito: "no".into() },
+            Evento::Fermo { quando: q.clone(), perche: "il paper non si e' fatto".into() },
+        ];
+        assert!(Progetto::da("p", &e).unwrap().lavori.contains_key(&paper));
+        e.push(Evento::Ripreso { quando: q.clone(), tetto: 0.0 });
+        assert!(!Progetto::da("p", &e).unwrap().lavori.contains_key(&paper), "si riaffida");
+        // Fatto, resta.
+        e[3] = Evento::Chiuso { quando: q, incarico: paper.clone(), stato: Stato::Fatto, esito: "ok".into() };
+        assert!(Progetto::da("p", &e).unwrap().lavori.contains_key(&paper));
+    }
+
+    #[test]
+    fn i_progetti_si_elencano_dall_indice_e_i_vecchi_dalla_cartella() {
         let d = std::env::temp_dir().join(format!("nova-progetti-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
-        assert!(elenco(&d).is_empty());
-        for n in ["b", "a"] {
-            std::fs::create_dir_all(cartella(&d, n)).unwrap();
-            std::fs::write(cartella(&d, n).join("progetto.jsonl"), "").unwrap();
+        assert!(elenco(&d).is_empty() && vecchi(&d).is_empty());
+        for n in ["b", "a", "vuoto"] {
+            let r = d.join("Dots_Project").join(n);
+            std::fs::create_dir_all(&r).unwrap();
+            if n != "vuoto" {
+                std::fs::write(r.join("progetto.jsonl"), "").unwrap();
+            }
+            crate::struttura::registra(&d, n, &r).unwrap();
         }
-        std::fs::create_dir_all(cartella(&d, "vuoto")).unwrap();
-        assert_eq!(elenco(&d), ["a", "b"]);
+        assert_eq!(elenco(&d), ["a", "b"], "senza cronologia non e' un progetto");
+        std::fs::create_dir_all(cartella_vecchia(&d, "vecchio")).unwrap();
+        std::fs::write(cartella_vecchia(&d, "vecchio").join("progetto.jsonl"), "").unwrap();
+        std::fs::create_dir_all(cartella_vecchia(&d, "niente")).unwrap();
+        assert_eq!(vecchi(&d), ["vecchio"]);
         let _ = std::fs::remove_dir_all(&d);
     }
 }

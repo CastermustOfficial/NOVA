@@ -38,9 +38,10 @@ use serde_json::{json, Value};
 use crate::agente::{Chi, EsecutoreDemone};
 use crate::server::Server;
 
-/// La cartella dei piani di un progetto, in quella del progetto (D402).
+/// La cartella dei piani di un progetto: `piano/`, nella cartella del
+/// progetto (D402, D407).
 fn cartella_del_progetto(progetto: &str) -> std::path::PathBuf {
-    p::cartella_del_progetto(&crate::mondo::cartella_nova(), progetto)
+    p::cartella_del_progetto(&crate::progetti::radice(progetto))
 }
 
 /// Chiede un piano all'Architetto: lo mette in coda, e torna subito. Il
@@ -108,6 +109,10 @@ pub fn chiedi(
             p::Perche::Fase(n)
         }
     };
+    // Il progetto ha la sua cartella anche quando il piano lo chiede Nova
+    // senza l'APM: li' vanno i piani (D407). Si crea solo adesso, a
+    // richiesta accettata.
+    crate::progetti::assicura(&progetto, cartella)?;
     let r = p::Richiesta {
         progetto: progetto.clone(),
         cartella: cartella.to_string(),

@@ -225,7 +225,10 @@ def aspetta(id_, secondi=60):
 
 
 def piani():
-    return cartella_nova / "progetti" / "compressore" / "piani"
+    """I piani di «compressore», nella sua cartella (D407): quella dell'indice di NOVA."""
+    indice = cartella_nova / "progetti.json"
+    tutti = json.loads(indice.read_text(encoding="utf-8")) if indice.is_file() else {}
+    return Path(tutti.get("compressore", casa / "non-c-e")) / "piano"
 
 
 def versione(n):

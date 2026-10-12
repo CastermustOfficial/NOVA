@@ -48,6 +48,7 @@ pub mod piano;
 pub mod progetto;
 pub mod ricerca;
 pub mod risorse;
+pub mod struttura;
 pub mod vista;
 
 /// I nomi che un Dot non puo' avere: la cartella dei gruppi e Nova.

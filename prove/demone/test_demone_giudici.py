@@ -384,9 +384,9 @@ try:
               arch and "Sei l'Architetto dell'azienda dei Dot" in arch[0]["domanda"]
               and "Voglio un compressore senza perdita." in arch[0]["domanda"],
               arch[0]["domanda"][:300] if arch else "")
-    piano_1 = cartella_nova / "progetti" / "compressore" / "piani" / "piano-1.md"
+    piano_1 = cartella_progetto / "piano" / "piano-1.md"
     testo_piano = piano_1.read_text(encoding="utf-8") if piano_1.is_file() else ""
-    controlla("il piano dice cosa ha letto nella cartella", "letti: LEGGIMI.md" in testo_piano,
+    controlla("il piano dice cosa ha letto nella cartella", "LEGGIMI.md" in testo_piano.split("letti: ")[-1],
               testo_piano[:300])
     diario_arch = righe(cartella_nova / "dots" / "architetto" / "diario.jsonl")
     turni = [x for x in diario_arch if x.get("tipo") == "turno"]
@@ -418,13 +418,15 @@ try:
               "AR non ha potuto scegliere" in e and "partito con degli strumenti (Bash)" in e
               and "non vale" in e, e)
     controlla("e non nasce nessuno", not (cartella_nova / "dots" / "lettore").exists())
-    r = capacita("dot.pianifica", progetto="altro", richiesta="un piano", cartella=str(cartella_progetto))
+    cartella_altro = casa / "altro progetto"
+    cartella_altro.mkdir()
+    r = capacita("dot.pianifica", progetto="altro", richiesta="un piano", cartella=str(cartella_altro))
     c = aspetta_compito("architetto", r["compito"])
     controlla("l'Architetto non fa il piano, e dice perche'",
               c.get("stato") == "fallito" and "partito con degli strumenti (Bash)" in c.get("esito", "")
               and "non vale" in c.get("esito", ""), c.get("esito", ""))
     controlla("e il piano non si scrive",
-              not (cartella_nova / "progetti" / "altro" / "piani" / "piano-1.md").exists())
+              not (cartella_altro / "piano" / "piano-1.md").exists())
     controlla("Claude e' stato chiesto davvero, due volte", len(giudici()) == prima + 2,
               str(len(giudici()) - prima))
     CON_LE_MANI.unlink()
@@ -438,7 +440,7 @@ try:
               and ultimo["argv"] == SENZA_MANI
               and stessa(ultimo["cwd"], cartella_nova / "giudice"),
               json.dumps([c.get("esito", ""), ultimo["argv"]], ensure_ascii=False)[:400])
-    testo_piano = (cartella_nova / "progetti" / "senza" / "piani" / "piano-1.md")
+    testo_piano = (casa / "Documents" / "Dots_Project" / "senza" / "piano" / "piano-1.md")
     controlla("e non ha letto niente",
               testo_piano.is_file() and "letti: niente" in testo_piano.read_text(encoding="utf-8"))
 

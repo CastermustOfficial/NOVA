@@ -500,3 +500,33 @@ modo di partire senza strumenti. **Perche'.** Per chi ha solo l'abbonamento
 Google. **Cosa costerebbe.** Ripetere la prova dell'11 ottobre (un file
 chiesto, e guardare se lo scrive) a ogni versione di `agy`, e un modo di
 sapere, come la riga d'apertura di Claude, con che strumenti e' partito.
+
+## Il metodo controllato, non solo chiesto
+
+Nata col D407. **Cosa.** Un piano in cui un compito di ricerca o di dati
+non ha dopo di se' un compito di qualita' che lo ripete torna
+all'Architetto, come un piano che non si legge; e una consegna di chi
+misura senza `esperimento.md` compilato torna al Dot. **Perche'.** Oggi il
+metodo sta nella domanda e nelle regole del compito: un modello che non lo
+segue non viene fermato. **Cosa costerebbe.** Un controllo in
+`nova_dot::piano::leggi` (con l'errore detto all'Architetto) e uno alla
+chiusura del compito; e un caso per decidere cosa fare di un esperimento
+che non si puo' rifare.
+
+## Documenti dove lo dice Windows
+
+Nata col D407. **Cosa.** Chiedere la cartella Documenti a Windows
+(`SHGetKnownFolderPath`, `FOLDERID_Documents`) invece di cercarla per nome.
+**Perche'.** Chi l'ha spostata in OneDrive o su un altro disco oggi avrebbe
+i progetti in una `Documents` nuova accanto alla sua. **Cosa costerebbe.**
+Una funzione in `nova-platform`, con il ripiego di oggi fuori da Windows.
+
+## I Dot che restano nella cartella del compito
+
+Nata col D407. **Cosa.** Controllare che un Dot scriva solo nella cartella
+del suo compito e in `prodotto/` del suo progetto, con gli strumenti di
+NOVA. **Perche'.** Oggi lo dicono le regole del compito, e basta.
+**Cosa costerebbe.** Una guardia in `nova_core::permessi::per_un_dot` che
+conosce il compito in corso; per Claude Code e le CLI, che hanno mani loro,
+non basta.
+

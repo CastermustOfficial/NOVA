@@ -2771,3 +2771,17 @@ a parte, prima di riaprire NOVA.
 La regola: `--bin` vale per il pacchetto che si nomina; per costruire due
 cose si scrive `-p novad -p nova-shell`, e il codice d'uscita di ogni passo
 del giro si legge prima di guardare le prove.
+
+## Una prova che passava sempre
+
+Il 12 ottobre, scrivendo la sezione del D407 in `test_demone_apm.py`, ho
+scritto un controllo per «un progetto senza cartella va in
+Documenti\Dots_Project» con in fondo `if False else True`: un segnaposto,
+per scriverlo dopo, che lasciato cosi' passava sempre. Me ne sono accorto
+rileggendo la prova prima di farla girare, cercando i controlli che
+nessun errore poteva far fallire. L'ho tolto, e quel percorso lo controlla
+la sezione 4, sul progetto «secondo», con la cartella dall'indice.
+
+La regola: in una prova non si scrive un segnaposto; un controllo che non
+so ancora scrivere non si scrive, e lo si annota.
+

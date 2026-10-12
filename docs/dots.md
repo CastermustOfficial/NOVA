@@ -249,7 +249,13 @@ specialisti. Li assume AR.
     il custode si'; le scelte di AR non arrivano al 95%, e per ora no.
 11. ~~**I giudici senza mani**: chi ha in scala solo Claude Code e CLI giudica
     con Claude Code senza strumenti~~ (D405).
-12. Il progetto di prova di Gio, dall'inizio alla fine.
+12. ~~**La cartella di ogni progetto**, `Documenti\Dots_Project\<nome>`: una
+    cartella per reparto, una per compito, le cinque del metodo, l'indice e il
+    paper~~ (D407).
+13. Il progetto di prova di Gio, dall'inizio alla fine: «Space Zero ex1»
+    (S0ex1), spazi compressi senza perdita in un linguaggio nativo per i
+    modelli, per allargare la finestra di contesto senza peggiorare costi e
+    qualita'.
 
 ## Com'e' andata
 
@@ -1036,3 +1042,60 @@ Il codice sta in `nova_core::giudice`, la riga di comando in
   indirizzo: non e' un giudice, e a ogni turno costerebbe una domanda.
 - **Antigravity** giudichera' se un giorno `agy` avra' un modo di partire
   senza strumenti.
+
+**La cartella di ogni progetto — fatto** (D407). Deciso con Gio il 12
+ottobre, su due bozze. Il codice sta in `nova_dot::struttura` (i nomi, i
+testi, le regole) e `nova_core::progetti` (dov'e' Documenti, l'indice, lo
+spostamento); chi crea e scrive e' l'APM.
+
+| | Deciso |
+|---|---|
+| **Dove** | `Documenti\Dots_Project\<nome>\`, creata se manca. Una cartella indicata vince, con la stessa struttura; i file che c'erano restano. |
+| **Chi decide le cartelle** | L'APM: una per reparto, una per compito. |
+| **Il metodo** | Le cinque cartelle di NOVA nel progetto: `piano/` (il ToDo e le versioni del piano), `errori/`, `idea/`, `test/`, `analisi/`. Piu' rigore e metodo scientifico. |
+| **Piani e cronologia** | Spostati nel progetto, per non avere doppioni. In NOVA resta `progetti.json`: nome e cartella di ognuno. |
+| **Separati e chiari** | Ognuno coi suoi documenti; solo il paper, alla fine, mette insieme le parti. |
+| **L'indice** | `INDICE.md` dice a tutti dove sta cosa e cosa fa; ognuno lo aggiorna con le sue consegne. |
+| **I progetti di prima** | Si spostano da soli alla prima accensione. |
+
+```text
+<progetto>\
+  INDICE.md  progetto.md  progetto.jsonl  paper.md  resoconto.md
+  piano\ToDo.md  piano\piano-<n>.md
+  errori\errori.md  idea\idee.md  test\test.md  analisi\fase-<n>.md
+  prodotto\
+  reparti\<reparto>\<id>-<cosa>\  compito.md  esperimento.md  consegna.md  materiale\
+```
+
+- **Il compito.** Quando lo affida, l'APM crea la sua cartella e scrive
+  `compito.md` (cosa, fase, reparto, chi, da cosa dipende). Per ricerca,
+  dati e qualita' c'e' anche `esperimento.md`, da compilare: ipotesi,
+  metodo, misure, risultato, conclusione. Al Dot dice dove lavora (la
+  cartella del compito, `materiale/` per rifarlo, `prodotto/` per quello
+  che si costruisce) e come consegna: sezioni fisse, «Cosa ho fatto»,
+  «Prove e numeri», «Cosa non so», «Idee», «Errori», «Test», «Indice». Un
+  numero senza misura si scrive «(non verificato)».
+- **La consegna.** Quando il compito si chiude, l'APM scrive `consegna.md`
+  nella sua cartella e porta le voci di «Idee», «Errori» e «Test» nelle
+  cartelle del metodo, con il compito e il Dot da cui vengono, e quelle di
+  «Indice» nell'indice. Un compito andato male, una fase bocciata dalla
+  revisione e i dubbi del legale vanno fra gli errori da soli.
+- **La fase.** Confermata dalla revisione, ha la sua analisi in
+  `analisi/fase-<n>.md`: i compiti, le consegne, gli esperimenti.
+- **Il paper.** Dopo l'ultima fase l'APM lo affida alla scrittura; poi il
+  legale guarda tutto, paper compreso, e il resoconto chiude. Un paper non
+  fatto ferma il progetto, e alla ripartenza si riaffida.
+- **Il piano.** All'Architetto si chiede il metodo: chi misura ha dopo di
+  se' un compito di qualita' che ripete, e il paper non e' un compito del
+  piano.
+
+### Cosa resta aperto, dopo la cartella dei progetti
+
+- **Il metodo e' chiesto, non controllato**: che ogni risultato abbia la
+  sua ripetizione lo chiede la domanda all'Architetto, ma il piano non si
+  rifiuta se manca; «(non verificato)» lo scrive il Dot, se lo fa.
+- **Documenti si cerca per nome** (`Documents`, poi `Documenti`): una
+  cartella Documenti spostata altrove, per esempio in OneDrive, non si
+  trova. La cartella vera la dice Windows (`SHGetKnownFolderPath`).
+- **Dove scrive un Dot lo dicono le regole del compito**: niente controlla
+  che resti nella cartella del compito e in `prodotto/`.

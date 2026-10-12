@@ -36,13 +36,14 @@
 //! quando c'e' da decidere e quando ha finito; a fine progetto, con la voce
 //! accesa, lo dice.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use nova_decisioni::Decisione;
 use nova_dot as d;
 use nova_dot::piano;
 use nova_dot::progetto::{self as pr, DoveSta, Evento, Progetto};
+use nova_dot::struttura as st;
 use serde_json::{json, Value};
 
 use crate::server::Server;
@@ -59,12 +60,10 @@ fn adesso() -> String {
     crate::decisioni::adesso()
 }
 
-fn nova() -> PathBuf {
-    crate::mondo::cartella_nova()
-}
-
+/// La cartella di un progetto (D407): `Documenti\Dots_Project\<nome>`, o
+/// quella indicata da chi l'ha chiesto.
 fn cartella(nome: &str) -> PathBuf {
-    pr::cartella(&nova(), nome)
+    crate::progetti::radice(nome)
 }
 
 /// Il progetto com'e' adesso, se c'e'.
@@ -82,7 +81,7 @@ fn piano_versione(nome: &str, versione: u32) -> Option<(piano::Piano, String)> {
     if versione == 0 {
         return None;
     }
-    let f = piano::file(&piano::cartella_del_progetto(&nova(), nome), versione);
+    let f = piano::file(&piano::cartella_del_progetto(&cartella(nome)), versione);
     let t = std::fs::read_to_string(&f).ok()?;
     let (pi, _) = piano::leggi(&t, versione).ok()?;
     Some((pi, f.display().to_string()))
@@ -100,7 +99,7 @@ fn tenuti(p: &Progetto, versione: u32, da_fase: Option<u32>) -> Vec<String> {
     }
 }
 
-/// Un passo nel diario del progetto, e il racconto riscritto.
+/// Un passo nel diario del progetto, e il racconto e il ToDo riscritti.
 fn annota(nome: &str, e: Evento) {
     let dir = cartella(nome);
     if let Err(x) = pr::annota(&dir, &e) {
@@ -112,6 +111,98 @@ fn annota(nome: &str, e: Evento) {
         if let Err(x) = pr::scrivi_racconto(&dir, &pr::racconto(&p, piano.as_ref())) {
             tracing::warn!(progetto = nome, errore = %x, "il racconto del progetto non si scrive");
         }
+        if let Some(pi) = &piano {
+            scrivi(&dir.join(st::PIANO).join(st::TODO), &st::todo(&p, pi));
+        }
+    }
+}
+
+// ------------------------------------------- la cartella del progetto (D407)
+
+/// Scrive un file del progetto; se non si scrive, lo dice nel log e si va
+/// avanti: il lavoro vale piu' del file.
+fn scrivi(f: &Path, testo: &str) {
+    if let Some(su) = f.parent() {
+        let _ = std::fs::create_dir_all(su);
+    }
+    if let Err(e) = std::fs::write(f, testo) {
+        tracing::warn!(file = %f.display(), errore = %e, "un file del progetto non si scrive");
+    }
+}
+
+/// Aggiunge delle voci in fondo a un file delle cartelle del metodo.
+fn aggiungi(f: &Path, voci: &[String]) {
+    if voci.is_empty() {
+        return;
+    }
+    use std::io::Write;
+    let fatto = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(f)
+        .and_then(|mut x| x.write_all(format!("{}\n", voci.join("\n")).as_bytes()));
+    if let Err(e) = fatto {
+        tracing::warn!(file = %f.display(), errore = %e, "le voci non si scrivono");
+    }
+}
+
+/// Un errore del progetto, in `errori/errori.md`.
+fn errore_nel_progetto(nome: &str, da: &str, testo: &str) {
+    let f = cartella(nome).join(st::ERRORI).join(st::FILE_ERRORI);
+    aggiungi(&f, &[st::voce(&adesso(), da, testo)]);
+}
+
+/// L'indice con le voci nuove.
+fn nell_indice(radice: &Path, voci: &[(String, String)], chi: &str) {
+    if voci.is_empty() {
+        return;
+    }
+    let f = radice.join(st::INDICE);
+    let ora = std::fs::read_to_string(&f).unwrap_or_default();
+    scrivi(&f, &st::indice_aggiornato(&ora, voci, chi));
+}
+
+/// Le sezioni di una consegna nelle cartelle del metodo e nell'indice.
+fn porta_le_sezioni(radice: &Path, da: &str, chi: &str, consegna: &str) {
+    let s = st::sezioni(consegna);
+    let q = adesso();
+    let voci = |v: &[String]| v.iter().map(|x| st::voce(&q, da, x)).collect::<Vec<_>>();
+    aggiungi(&radice.join(st::ERRORI).join(st::FILE_ERRORI), &voci(&s.errori));
+    aggiungi(&radice.join(st::IDEA).join(st::FILE_IDEE), &voci(&s.idee));
+    aggiungi(&radice.join(st::TEST).join(st::FILE_TEST), &voci(&s.test));
+    nell_indice(radice, &s.indice, chi);
+}
+
+/// Un compito del piano si e' chiuso: la consegna nella sua cartella, le
+/// sue sezioni dove vanno, e un compito andato male fra gli errori.
+fn consegna_nel_progetto(p: &Progetto, pi: &piano::Piano, id: &str, l: &pr::Lavoro, x: &d::Compito) {
+    let radice = cartella(&p.nome);
+    if id == st::INCARICO_PAPER {
+        if x.stato == d::Stato::Fatto {
+            scrivi(&radice.join(st::PAPER), &format!("{}\n", x.esito.trim()));
+        }
+        return;
+    }
+    let Some(i) = pi.incarichi().find(|i| i.id == id) else {
+        return;
+    };
+    let rel = st::cartella_del_compito(i);
+    scrivi(
+        &radice.join(&rel).join("consegna.md"),
+        &st::consegna_md(i, &l.dot, l.compito, x.stato, &x.esito),
+    );
+    let da = format!("compito {} ({})", i.id, l.dot);
+    porta_le_sezioni(&radice, &da, &l.dot, &x.esito);
+    if x.stato != d::Stato::Fatto {
+        errore_nel_progetto(
+            &p.nome,
+            &da,
+            &format!(
+                "e' finito {}: {}",
+                d::nome_stato(x.stato),
+                pr::in_breve(&x.esito).replace('\n', " ")
+            ),
+        );
     }
 }
 
@@ -157,7 +248,7 @@ fn apm_c_e() -> Result<(), String> {
 /// Il progetto su cui si lavora: il primo nato fra quelli aperti. Gli
 /// altri aperti aspettano in coda.
 fn attivo() -> Option<Progetto> {
-    pr::elenco(&nova())
+    crate::progetti::elenco()
         .iter()
         .filter_map(|n| leggi(n))
         .filter(Progetto::aperto)
@@ -195,13 +286,21 @@ pub fn crea(
     if leggi(&nome).is_some() {
         return Err(format!("il progetto «{nome}» c'e' gia'"));
     }
-    let numero = pr::elenco(&nova())
+    if !cartella_file.is_empty() && std::path::Path::new(cartella_file).join("progetto.jsonl").exists() {
+        return Err(format!(
+            "in «{cartella_file}» c'e' gia' un altro progetto: ognuno ha la sua cartella"
+        ));
+    }
+    let numero = crate::progetti::elenco()
         .iter()
         .filter_map(|n| leggi(n))
         .map(|p| p.numero)
         .max()
         .unwrap_or(0)
         + 1;
+    // La cartella la decide l'APM (D407): quella indicata, o
+    // Documenti\Dots_Project\<nome>, con la sua struttura.
+    let radice = crate::progetti::assicura(&nome, cartella_file)?;
     annota(
         &nome,
         Evento::Creato {
@@ -216,6 +315,7 @@ pub fn crea(
     let in_coda = attivo.as_ref().is_some_and(|a| a.nome != nome);
     Ok(json!({
         "progetto": nome,
+        "cartella": radice.display().to_string(),
         "in_coda": in_coda,
         "nota": if in_coda {
             "c'e' gia' un progetto in corso: questo aspetta che finisca"
@@ -333,7 +433,7 @@ pub fn cambia(server: &Arc<Server>, nome: &str, cosa: &str) -> Result<Value, Str
 pub fn stato(nome: &str) -> Result<Value, String> {
     let attivo = attivo();
     if nome.trim().is_empty() {
-        let tutti: Vec<Value> = pr::elenco(&nova())
+        let tutti: Vec<Value> = crate::progetti::elenco()
             .iter()
             .filter_map(|n| leggi(n))
             .map(|p| {
@@ -354,6 +454,7 @@ pub fn stato(nome: &str) -> Result<Value, String> {
     let pi = piano_di(&p);
     Ok(json!({
         "progetto": p.nome,
+        "cartella": cartella(&p.nome).display().to_string(),
         "sta": come_sta(&p, attivo.as_ref()),
         "perche_fermo": p.perche_fermo,
         "piano": pi.as_ref().map(|(_, f)| f.clone()),
@@ -368,6 +469,8 @@ pub fn stato(nome: &str) -> Result<Value, String> {
 pub fn avvia(server: &Arc<Server>) {
     let s = server.clone();
     tokio::spawn(async move {
+        // I progetti di prima del D407 vanno nella loro cartella, una volta.
+        let _ = tokio::task::spawn_blocking(crate::progetti::sposta_i_vecchi).await;
         loop {
             tokio::select! {
                 _ = s.dots.apm.notified() => {}
@@ -405,12 +508,13 @@ async fn prepara(server: &Arc<Server>, p: &Progetto) -> bool {
             Some(c) => format!("{}\nIn piu', l'utente ha chiesto:\n{c}", p.richiesta),
             None => p.richiesta.clone(),
         };
+        // L'Architetto legge la cartella del progetto (D407).
         match crate::architetto::chiedi(
             server,
             d::azienda::NOME_APM,
             &p.nome,
             &richiesta,
-            &p.cartella,
+            &cartella(&p.nome).display().to_string(),
             None,
         ) {
             Ok(v) => {
@@ -490,7 +594,7 @@ fn piano_pronto(server: &Arc<Server>, p: &Progetto) -> bool {
     match compito.stato {
         d::Stato::Fatto => {
             spesa(&p.nome, &c, id, "il piano");
-            let versione = piano::versioni(&piano::cartella_del_progetto(&nova(), &p.nome))
+            let versione = piano::versioni(&piano::cartella_del_progetto(&cartella(&p.nome)))
                 .last()
                 .copied()
                 .unwrap_or(0);
@@ -573,7 +677,7 @@ async fn lavora(server: &Arc<Server>, p: &Progetto) -> bool {
     // Un piano piu' nuovo su disco: l'ha rivisto l'utente, con Nova. Si
     // lavora su quello, dalla fase di adesso; come per un cambio, i compiti
     // fatti che lascia uguali non si rifanno.
-    let ultima = piano::versioni(&piano::cartella_del_progetto(&nova(), &p.nome))
+    let ultima = piano::versioni(&piano::cartella_del_progetto(&cartella(&p.nome)))
         .last()
         .copied()
         .unwrap_or(0);
@@ -625,6 +729,10 @@ async fn lavora(server: &Arc<Server>, p: &Progetto) -> bool {
         };
         if x.stato.chiuso() {
             spesa(&p.nome, &c, l.compito, &format!("il compito {id}"));
+            // Fermato o interrotto si rifa': non e' una consegna.
+            if !matches!(x.stato, d::Stato::Fermato | d::Stato::Interrotto) {
+                consegna_nel_progetto(p, &pi, id, l, &x);
+            }
             annota(
                 &p.nome,
                 Evento::Chiuso {
@@ -686,21 +794,42 @@ async fn lavora(server: &Arc<Server>, p: &Progetto) -> bool {
     // I compiti pronti.
     let pronti = p.pronti_in(f);
     if !pronti.is_empty() {
+        let radice = cartella(&p.nome);
         for i in pronti {
             let Some(dot) = p.chi_fa(&i.chi) else {
                 continue;
             };
-            let testo = pr::testo_del_compito(p, &pi, f, i);
+            // Un compito, una cartella, nel suo reparto (D407).
+            let rel = st::cartella_del_compito(i);
+            let dentro = radice.join(&rel);
+            let _ = std::fs::create_dir_all(dentro.join(st::MATERIALE));
+            let esperimento = st::con_esperimento(&i.chi);
+            if esperimento && !dentro.join("esperimento.md").exists() {
+                scrivi(&dentro.join("esperimento.md"), st::ESPERIMENTO_MD);
+            }
+            let testo = format!(
+                "{}{}",
+                pr::testo_del_compito(p, &pi, f, i),
+                st::regole(&radice, &rel, esperimento)
+            );
             match crate::dot::affida_con(server, &dot, &testo, d::azienda::NOME_APM, None, "") {
-                Ok(compito) => annota(
-                    &p.nome,
-                    Evento::Affidato {
-                        quando: adesso(),
-                        incarico: i.id.clone(),
-                        dot,
-                        compito,
-                    },
-                ),
+                Ok(compito) => {
+                    scrivi(&dentro.join("compito.md"), &st::compito_md(&p.nome, f, i, &dot, compito));
+                    nell_indice(
+                        &radice,
+                        &[(format!("{}/", st::relativo(&rel)), format!("compito {}: {}", i.id, i.cosa))],
+                        &dot,
+                    );
+                    annota(
+                        &p.nome,
+                        Evento::Affidato {
+                            quando: adesso(),
+                            incarico: i.id.clone(),
+                            dot,
+                            compito,
+                        },
+                    )
+                }
                 Err(e) => {
                     ferma_e_di(
                         server,
@@ -720,6 +849,11 @@ async fn lavora(server: &Arc<Server>, p: &Progetto) -> bool {
     let male = p.andati_male(f);
     if !male.is_empty() {
         let perche = format!("compiti non andati: {}", male.join("; "));
+        errore_nel_progetto(
+            &p.nome,
+            &format!("fase {}", f.n),
+            &format!("la fase «{}» non e' andata: {perche}", f.nome),
+        );
         annota(
             &p.nome,
             Evento::Fase {
@@ -760,6 +894,11 @@ async fn lavora(server: &Arc<Server>, p: &Progetto) -> bool {
     }
     match pr::leggi_revisione(&detto) {
         Some((true, perche)) => {
+            // Una fase confermata dalla revisione va in analisi/ (D407).
+            scrivi(
+                &cartella(&p.nome).join(st::ANALISI).join(format!("fase-{}.md", f.n)),
+                &st::analisi_fase(p, f, &adesso(), &perche),
+            );
             annota(
                 &p.nome,
                 Evento::Fase {
@@ -771,6 +910,11 @@ async fn lavora(server: &Arc<Server>, p: &Progetto) -> bool {
             );
         }
         Some((false, perche)) => {
+            errore_nel_progetto(
+                &p.nome,
+                &format!("fase {}", f.n),
+                &format!("la revisione ha bocciato la fase «{}»: {perche}", f.nome),
+            );
             annota(
                 &p.nome,
                 Evento::Fase {
@@ -830,7 +974,7 @@ fn chiedi_il_cambio(server: &Arc<Server>, p: &Progetto, cosa: &str, da_fase: u32
         d::azienda::NOME_APM,
         &p.nome,
         &testo,
-        &p.cartella,
+        &cartella(&p.nome).display().to_string(),
         None,
     ) {
         Ok(v) => {
@@ -880,17 +1024,34 @@ fn dopo_il_cambio(server: &Arc<Server>, nome: &str, da_fase: u32, tenuti: &[Stri
     }
 }
 
-/// Tutte le fasi fatte: il legale, il resoconto, la fine.
+/// Tutte le fasi fatte: il paper, il legale, il resoconto, la fine.
 async fn rilascio(server: &Arc<Server>, p: &Progetto, pi: &piano::Piano) -> bool {
     if p.legale_rilascio.is_none() {
+        // Il paper mette insieme le parti (Gio, 12 ottobre): lo scrive la
+        // scrittura, prima che il legale guardi tutto.
+        match p.lavori.get(st::INCARICO_PAPER) {
+            None => return affida_il_paper(server, p),
+            Some(l) if l.stato.is_none() => return false,
+            Some(l) if l.stato != Some(d::Stato::Fatto) => {
+                ferma_e_di(
+                    server,
+                    &p.nome,
+                    &format!("il paper non si e' fatto: {}", pr::in_breve(&l.esito)),
+                );
+                return true;
+            }
+            Some(_) => {}
+        }
         let tutte: Vec<String> = pi
             .fasi
             .iter()
             .map(|f| format!("Fase {} «{}»:\n{}", f.n, f.nome, p.consegne(f)))
             .collect();
+        let paper = std::fs::read_to_string(cartella(&p.nome).join(st::PAPER)).unwrap_or_default();
         let materia = format!(
-            "Tutto quello che il progetto consegna:\n{}",
-            tutte.join("\n\n")
+            "Tutto quello che il progetto consegna:\n{}\n\nIl paper:\n{}",
+            tutte.join("\n\n"),
+            pr::in_breve(&paper)
         );
         return legale(server, p, "prima del rilascio", &materia, None, true).await;
     }
@@ -920,6 +1081,7 @@ async fn rilascio(server: &Arc<Server>, p: &Progetto, pi: &piano::Piano) -> bool
         // consegne, cosi' come sono.
         _ => pr::resoconto_semplice(p, pi),
     };
+    scrivi(&cartella(&p.nome).join(st::RESOCONTO), &format!("{resoconto}\n"));
     annota(
         &p.nome,
         Evento::Finito {
@@ -933,6 +1095,40 @@ async fn rilascio(server: &Arc<Server>, p: &Progetto, pi: &piano::Piano) -> bool
     );
     di_la_fine(server, &p.nome);
     sveglia(server);
+    true
+}
+
+/// Il paper alla scrittura (D407): un compito con la sua cartella.
+fn affida_il_paper(server: &Arc<Server>, p: &Progetto) -> bool {
+    let radice = cartella(&p.nome);
+    let rel = st::cartella_del_paper();
+    let testo = st::testo_del_paper(&p.nome, &radice);
+    match crate::dot::affida_con(server, st::REPARTO_PAPER, &testo, d::azienda::NOME_APM, None, "") {
+        Ok(compito) => {
+            scrivi(
+                &radice.join(&rel).join("compito.md"),
+                &format!(
+                    "# Compito: il paper\n\n- Progetto: {}\n- Chi: {}, compito n. {compito}\n\n{testo}\n",
+                    p.nome,
+                    st::REPARTO_PAPER
+                ),
+            );
+            annota(
+                &p.nome,
+                Evento::Affidato {
+                    quando: adesso(),
+                    incarico: st::INCARICO_PAPER.to_string(),
+                    dot: st::REPARTO_PAPER.to_string(),
+                    compito,
+                },
+            );
+        }
+        Err(e) => ferma_e_di(
+            server,
+            &p.nome,
+            &format!("il paper non si affida alla scrittura: {e}"),
+        ),
+    }
     true
 }
 
@@ -1011,6 +1207,13 @@ async fn legale(
             note: note.clone(),
         },
     );
+    if !ok {
+        errore_nel_progetto(
+            &p.nome,
+            "legale",
+            &format!("dubbi {quando}: {}", note.join("; ")),
+        );
+    }
     let inizio = fase.is_none() && !rilascio;
     if !ok && !inizio {
         ferma_e_di(

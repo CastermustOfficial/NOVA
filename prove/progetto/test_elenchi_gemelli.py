@@ -415,6 +415,12 @@ SENZA_GEMELLO: dict[str, str] = {
     # demone guarda che arrivino a Claude (`test_demone_giudici.py`).
     "STRUMENTI_DA_LETTORE": "gli strumenti di Claude Code dell'Architetto senza "
                             "mani; in Python i Dot non ci sono",
+    # La cartella di un progetto dei Dot (D407): i reparti che compilano
+    # l'esperimento e le sezioni fisse di una consegna. Li provano
+    # `nova_dot::struttura` e `test_demone_apm.py`, sezione 3b.
+    "CON_ESPERIMENTO": "i reparti dei Dot che compilano l'esperimento; in Python i "
+                       "Dot non ci sono",
+    "SEZIONI": "le sezioni fisse della consegna di un Dot; in Python i Dot non ci sono",
     # I dispositivi che restano scrivibili dentro il recinto del kernel. In
     # Python non c'e' niente da confrontare: il recinto e' una cosa che fa il
     # sistema operativo, e dalla parte Python non esiste affatto. Non sono

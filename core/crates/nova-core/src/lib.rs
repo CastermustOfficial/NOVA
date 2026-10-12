@@ -60,6 +60,7 @@ pub mod live;
 pub mod interruzione;
 pub mod osserva;
 pub mod pagella;
+pub mod progetti;
 pub mod policy;
 pub mod memoria;
 pub mod imparare;

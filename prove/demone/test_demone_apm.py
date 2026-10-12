@@ -157,7 +157,14 @@ class Cervello(BaseHTTPRequestHandler):
                     arrivate.append(("trattenuto", progetto, domanda))
                     lascia.wait(120)
             arrivate.append(("dot:" + (chi.group(1) if chi else "?"), modello, domanda))
-            testo(self, f"Consegna di {chi.group(1) if chi else '?'}.")
+            consegna = f"Consegna di {chi.group(1) if chi else '?'}."
+            # Le sezioni che l'APM porta nelle cartelle del metodo (D407).
+            if chi and chi.group(1) == "dati" and "Progetto «compressore»" in domanda:
+                consegna += ("\n\n## Idee\n- comprimere a blocchi — piu' veloce — una prova in piu'"
+                             "\n## Errori\n- ho contato due volte un file — dal totale — tolto — contare una volta"
+                             "\n## Test\n- `test_dati.py` — conta le righe — python test_dati.py — niente"
+                             "\n## Indice\n- `prodotto/dati.csv` — i dati raccolti")
+            testo(self, consegna)
             return
         testo(self, "Va bene.")
 
@@ -181,6 +188,17 @@ def configura(accesi, voce=False):
 
 
 configura("no")
+# Un progetto di prima del D407, nella cartella di NOVA: alla prima
+# accensione va nella sua cartella, in Documenti\Dots_Project.
+vecchio = cartella_nova / "progetti" / "vecchio"
+(vecchio / "piani").mkdir(parents=True)
+(vecchio / "progetto.jsonl").write_text(
+    json.dumps({"tipo": "creato", "quando": "2026-10-01T10:00:00", "numero": 0,
+                "richiesta": "un progetto vecchio"}) + "\n"
+    + json.dumps({"tipo": "finito", "quando": "2026-10-02T10:00:00", "resoconto": "fatto"}) + "\n",
+    encoding="utf-8")
+(vecchio / "progetto.md").write_text("# Progetto: vecchio\n", encoding="utf-8")
+(vecchio / "piani" / "piano-1.md").write_text("# Piano: vecchio\n", encoding="utf-8")
 endpoint = ("\\\\.\\pipe\\" + f"nova-apm-{os.getpid()}" if os.name == "nt"
             else str(casa / "nova.sock"))
 ambiente = dict(os.environ)
@@ -224,8 +242,15 @@ def aspetta(nome, stati, secondi=90):
     return sta(nome)
 
 
+def radice(nome):
+    """La cartella di un progetto, dall'indice di NOVA (D407)."""
+    indice = cartella_nova / "progetti.json"
+    tutti = json.loads(indice.read_text(encoding="utf-8")) if indice.is_file() else {}
+    return Path(tutti[nome]) if nome in tutti else casa / "Documents" / "Dots_Project" / nome
+
+
 def eventi(nome):
-    f = cartella_nova / "progetti" / nome / "progetto.jsonl"
+    f = radice(nome) / "progetto.jsonl"
     return [json.loads(x) for x in f.read_text(encoding="utf-8").splitlines()] if f.is_file() else []
 
 
@@ -313,7 +338,9 @@ try:
               arch and arch[0][2].startswith("[piano di sviluppo] Progetto «compressore», versione 1.")
               and str(cartella_progetto) in arch[0][2], str(arch)[:300])
     controlla("il piano sta nella cartella del progetto",
-              (cartella_nova / "progetti" / "compressore" / "piani" / "piano-1.md").is_file())
+              (cartella_progetto / "piano" / "piano-1.md").is_file()
+              and radice("compressore") == cartella_progetto
+              and not (cartella_nova / "progetti").exists())
     compiti_arch = capacita("dot.stato", nome="architetto")["compiti"]
     controlla("il compito dell'Architetto e' dell'APM, non di Nova",
               compiti_arch and compiti_arch[-1]["da"] == "apm", json.dumps(compiti_arch)[:300])
@@ -335,7 +362,7 @@ try:
               and "Le domande dell'Architetto:\n- quanto puoi spendere?" in via, via)
     controlla("e finche' non c'e' il via non affida niente",
               "affidato" not in tipi("compressore") and not di("dot:dati"))
-    md = (cartella_nova / "progetti" / "compressore" / "progetto.md").read_text(encoding="utf-8")
+    md = (cartella_progetto / "progetto.md").read_text(encoding="utf-8")
     controlla("progetto.md racconta com'e'", "Stato: aspetta il via dell'utente" in md, md[:300])
 
     print("\n3. il via, e il lavoro fase dopo fase")
@@ -387,6 +414,71 @@ try:
               totale > 0 and any(e["per"] == "il legale" for e in spese)
               and any(e["per"].startswith("il compito ") for e in spese), json.dumps(spese)[:400])
 
+    print("\n3b. la cartella del progetto (D407): reparti, compiti, metodo, paper")
+    r = cartella_progetto
+    controlla("le cartelle fisse ci sono",
+              all((r / c).is_dir() for c in ("piano", "errori", "idea", "test", "analisi", "prodotto", "reparti")))
+    c11 = r / "reparti" / "dati" / "1.1-cercare-i-dati"
+    controlla("un compito, una cartella nel suo reparto, con compito, esperimento, consegna e materiale",
+              (c11 / "compito.md").is_file() and (c11 / "esperimento.md").is_file()
+              and (c11 / "consegna.md").is_file() and (c11 / "materiale").is_dir(),
+              str(sorted(x.name for x in c11.iterdir())) if c11.is_dir() else str(c11))
+    c12 = r / "reparti" / "scrittura" / "1.2-scrivere-il-rapporto"
+    controlla("la scrittura non ha l'esperimento", (c12 / "consegna.md").is_file()
+              and not (c12 / "esperimento.md").exists())
+    controlla("il ruolo assunto ha un reparto col suo nome",
+              (r / "reparti" / "programmatore-rust" / "2.1-scrivere-il-codice" / "consegna.md").is_file())
+    compito_md = (c11 / "compito.md").read_text(encoding="utf-8") if (c11 / "compito.md").is_file() else ""
+    controlla("compito.md dice cosa, fase, reparto, chi e da cosa dipende",
+              compito_md.startswith("# Compito 1.1: cercare i dati") and "- Reparto: dati" in compito_md
+              and "- Chi: dati, compito n. " in compito_md and "- Dipende da: niente" in compito_md, compito_md)
+    consegna_md = (c11 / "consegna.md").read_text(encoding="utf-8") if (c11 / "consegna.md").is_file() else ""
+    controlla("consegna.md ha chi, lo stato e la consegna intera",
+              "- Stato: fatto" in consegna_md and "## Indice" in consegna_md, consegna_md[:300])
+    dati_q = di("dot:dati")[0][2] if di("dot:dati") else ""
+    controlla("il Dot sa dove lavorare e come consegnare",
+              f"Dove lavori: «{c11}»" in dati_q and "compila `esperimento.md`" in dati_q
+              and "«## Indice»" in dati_q, dati_q[-600:])
+    idee = (r / "idea" / "idee.md").read_text(encoding="utf-8")
+    errori_ = (r / "errori" / "errori.md").read_text(encoding="utf-8")
+    test_ = (r / "test" / "test.md").read_text(encoding="utf-8")
+    controlla("le sezioni della consegna vanno in idea, errori e test, con chi e da dove",
+              "· compito 1.1 (dati) · comprimere a blocchi" in idee
+              and "· compito 1.1 (dati) · ho contato due volte un file" in errori_
+              and "· compito 1.1 (dati) · `test_dati.py`" in test_, idee[-200:] + errori_[-200:])
+    indice = (r / "INDICE.md").read_text(encoding="utf-8")
+    controlla("l'indice ha le cartelle fisse, i compiti e i file dei Dot",
+              "## Le cartelle" in indice and "- `prodotto/dati.csv` — i dati raccolti (dati)" in indice
+              and "- `reparti/dati/1.1-cercare-i-dati/` — compito 1.1: cercare i dati (dati)" in indice,
+              indice[indice.find("## I file"):][:600])
+    todo = (r / "piano" / "ToDo.md").read_text(encoding="utf-8")
+    controlla("il ToDo e' tutto spuntato, col compito che ha chiuso ognuno",
+              "- [ ]" not in todo and "- [x] 1.1 [dati] cercare i dati" in todo
+              and "fatto da dati, compito n. " in todo and "- [x] il paper (scrittura)" in todo, todo)
+    an = r / "analisi" / "fase-1.md"
+    controlla("ogni fase confermata ha la sua analisi, con l'esperimento",
+              an.is_file() and (r / "analisi" / "fase-2.md").is_file()
+              and "`reparti/dati/1.1-cercare-i-dati/esperimento.md`" in an.read_text(encoding="utf-8"))
+    paper_q = [q for g, _, q in arrivate if g == "dot:scrittura" and "Scrivi il paper" in q]
+    controlla("il paper l'ha scritto la scrittura, alla fine, ed e' nel progetto",
+              len(paper_q) == 1 and (r / "paper.md").read_text(encoding="utf-8").strip() == "Consegna di scrittura."
+              and arrivate.index(next(x for x in arrivate if x[0] == "dot:scrittura" and "Scrivi il paper" in x[2]))
+              < arrivate.index([x for x in arrivate if x[0] == "legale"][3]),
+              str([q[:80] for q in paper_q]))
+    controlla("e il resoconto pure", (r / "resoconto.md").read_text(encoding="utf-8").startswith("# Fatto"))
+    sp = casa / "Documents" / "Dots_Project" / "vecchio"
+    controlla("il progetto di prima del D407 e' stato spostato, coi piani in piano/",
+              (sp / "progetto.jsonl").is_file() and (sp / "piano" / "piano-1.md").is_file()
+              and (sp / "progetto.md").is_file() and not vecchio.exists() and radice("vecchio") == sp,
+              str(sorted(x.name for x in sp.iterdir())) if sp.is_dir() else "")
+    controlla("e si vede fra i progetti",
+              "vecchio" in {x["progetto"] for x in capacita("dot.progetti")["progetti"]})
+    controlla("una cartella, un progetto: all'APM e all'Architetto",
+              "ognuno ha la sua cartella" in errore("dot.progetto", nome="doppio", richiesta="x",
+                                                    cartella=str(cartella_progetto))
+              and "ognuno ha la sua cartella" in errore("dot.pianifica", progetto="doppio", richiesta="x",
+                                                        cartella=str(cartella_progetto)))
+
     print("\n4. una fase che la revisione boccia: l'Architetto la rivede, e si rifa'")
     per_revisione.append("ESITO: non fatta\nPERCHE: manca il rapporto")
     prima = len(di("dot:dati"))
@@ -402,7 +494,8 @@ try:
               len(arch) == 2 and "La fase 1 non e' andata" in arch[1] and "manca il rapporto" in arch[1],
               str(arch)[:400])
     controlla("e c'e' la versione 2 del piano",
-              (cartella_nova / "progetti" / "secondo" / "piani" / "piano-2.md").is_file())
+              (casa / "Documents" / "Dots_Project" / "secondo" / "piano" / "piano-2.md").is_file()
+              and radice("secondo") == casa / "Documents" / "Dots_Project" / "secondo")
     controlla("la fase 1 si e' rifatta", len(di("dot:dati")) - prima == 2, str(len(di("dot:dati")) - prima))
 
     print("\n5. il legale ha dei dubbi dopo una fase: si ferma, e col via riparte")
@@ -448,7 +541,8 @@ try:
               json.dumps(p, ensure_ascii=False)[:500])
     elenco = {x["progetto"]: x["sta"] for x in capacita("dot.progetti")["progetti"]}
     controlla("l'elenco dice come sta ognuno",
-              elenco == {"compressore": "finito", "secondo": "finito", "terzo": "finito", "quarto": "fermo"},
+              elenco == {"compressore": "finito", "secondo": "finito", "terzo": "finito", "quarto": "fermo",
+                         "vecchio": "finito"},
               json.dumps(elenco))
     controlla("a fine progetto l'evento con la frase da dire, e con la voce spenta non si dice",
               [(f["progetto"], f["voce"], f["a_voce"]) for f in finiti()][:1]

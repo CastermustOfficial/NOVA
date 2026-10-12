@@ -68,11 +68,19 @@ pub const COMPITI_MASSIMI: usize = 200;
 /// Quanto puo' essere lungo il nome di un progetto.
 pub const PROGETTO_MASSIMO: usize = 48;
 
+/// Il metodo che il piano deve seguire (D407).
+pub const METODO: &str = "Il metodo: ogni compito di ricerca o di dati che produce un risultato \
+ha dopo di se' un compito [qualita] che lo ripete, e un risultato non ripetuto non e' un risultato. \
+Il paper finale non metterlo nel piano: lo scrive la scrittura alla fine, quando tutte le fasi sono \
+fatte.";
+
 /// Il segno in testa a ogni domanda all'Architetto.
 pub const SEGNO: &str = "[piano di sviluppo]";
 
-/// La cartella dei piani, dentro quella del progetto.
-pub const CARTELLA: &str = "piani";
+/// La cartella dei piani, dentro quella del progetto: dal D407 e' `piano`,
+/// la stessa del ToDo (`crate::struttura`). Prima era `piani`, nella
+/// cartella di NOVA.
+pub const CARTELLA: &str = crate::struttura::PIANO;
 
 /// Chi fa un compito del piano.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -369,6 +377,10 @@ pub fn domanda(r: &Richiesta, versione: u32, precedente: Option<&str>) -> String
             p.trim()
         ));
     }
+    // Le due regole del metodo che stanno nel piano (D407): chi misura ha
+    // dopo di se' la qualita' che ripete, e il paper non e' un compito del
+    // piano, perche' lo affida l'APM alla fine.
+    t.push_str(&format!("\n\n{METODO}"));
     t.push_str("\n\nRispondi solo col piano, nel formato del tuo ruolo.");
     if versione > 1 {
         t.push_str(&format!(
@@ -879,9 +891,9 @@ pub fn esito(p: &Piano, file: &str) -> String {
 
 // ------------------------------------------------------------- su disco
 
-/// La cartella dei piani di un progetto: `nova` e' la cartella di NOVA.
-pub fn cartella_del_progetto(nova: &Path, progetto: &str) -> PathBuf {
-    crate::progetto::cartella(nova, progetto).join(CARTELLA)
+/// La cartella dei piani di un progetto, data la sua cartella (D407).
+pub fn cartella_del_progetto(radice: &Path) -> PathBuf {
+    radice.join(CARTELLA)
 }
 
 /// Il file di una versione.
@@ -1192,6 +1204,9 @@ mod prove {
             !d.contains("[piano]"),
             "il segno del piano del ricercatore e' un altro: {d}"
         );
+        // Il metodo del D407: la qualita' ripete, il paper non e' nel piano.
+        assert!(d.contains(METODO) && METODO.contains("[qualita] che lo ripete"), "{d}");
+        assert!(d.find(METODO) < d.find("Rispondi solo col piano"), "{d}");
         let d = domanda(
             &Richiesta {
                 perche: Perche::Fase(2),

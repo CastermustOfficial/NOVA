@@ -11805,3 +11805,19 @@ giudizio, e se non e' vuota la risposta si butta. Antigravity, provato in
 tre modi, ha scritto il file ogni volta: non giudica. E la prova del demone
 l'ho sbagliata come nel D403: un gradino in `tiers` che non sta in `scala`
 finisce in fondo alla scala lo stesso, e il giudice era diventato quello.
+
+## 12 ottobre 2026 — Una cartella che si legge da sola
+
+Gio ha chiesto la disposizione migliore per le persone e per i modelli, e
+le due cose vanno insieme piu' di quanto sembri: un modello trova le cose
+senza cercarle quando ogni livello ha un nome fisso e ogni file
+intestazioni fisse, e una persona le trova per lo stesso motivo. La scelta
+che conta e' chi scrive cosa. Le cinque cartelle del metodo le tiene l'APM,
+dalle sezioni delle consegne: se i Dot le scrivessero da soli, due compiti
+in parallelo si scriverebbero sopra, e una voce non direbbe da dove viene.
+Il rigore, invece, si chiede e non si controlla ancora: la ripetizione di
+ogni risultato sta nella domanda all'Architetto, non in una regola che
+rifiuta il piano. Scrivendo la prova mi sono accorto che due progetti
+potevano finire nella stessa cartella, e scriversi sopra la cronologia: ora
+si rifiuta, all'APM e all'Architetto.
+
