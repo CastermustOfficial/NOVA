@@ -24,9 +24,12 @@ fn catalogo() -> Value {
         .unwrap_or_else(|| Value::Object(Default::default()))
 }
 
-/// Le CLI fra i motori: quelle che NOVA conosce di serie e quelle scritte in
-/// `brains.cli`, che vincono. Una voce messa a nulla e' una CLI tolta.
-fn le_cli(cfg: &Value) -> Vec<Cli> {
+/// Le CLI che NOVA conosce, con la loro specifica: quelle di serie e quelle
+/// scritte in `brains.cli`, che vincono. Una voce messa a nulla e' una CLI
+/// tolta. La usano i motori della scheda e lo stato di ogni cervello
+/// (`crate::cervelli`): due elenchi diversi vorrebbero dire una scheda che
+/// mostra Antigravity e uno stato che non lo conosce (D406).
+pub(crate) fn specifiche_cli(cfg: &Value) -> std::collections::BTreeMap<String, Value> {
     let mut specs: std::collections::BTreeMap<String, Value> = std::collections::BTreeMap::new();
     if let Value::Object(p) = nova_cervelli::cli::predefinite() {
         specs.extend(p);
@@ -41,6 +44,11 @@ fn le_cli(cfg: &Value) -> Vec<Cli> {
         }
     }
     specs
+}
+
+/// Le CLI fra i motori.
+fn le_cli(cfg: &Value) -> Vec<Cli> {
+    specifiche_cli(cfg)
         .iter()
         .map(|(k, v)| {
             let d = nova_cervelli::cli::dichiarata(k, v);

@@ -15,7 +15,7 @@
 //! quelle funzioni. Il confine e' quello di sempre: la logica sta nel crate e
 //! si prova senza una macchina vera, l'occhiata al disco sta qui.
 
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 
 use nova_cervelli::{accesso, claude, cli, openai};
 
@@ -155,6 +155,34 @@ fn un_locale(cfg: &Value) -> Value {
     })
 }
 
+/// Un nome che non e' ne' un cervello di casa ne' una CLI che NOVA conosce.
+///
+/// Prima diventava il modello sul PC: la scheda di Antigravity, quando nel
+/// file Antigravity non era scritto, diceva «Modello locale e' pronto» col
+/// percorso del GGUF, e il bottone per collegarsi apriva un terminale su
+/// quel file (D406). Un cervello che non c'e' si dice che non c'e'.
+fn uno_sconosciuto(nome: &str) -> Value {
+    json!({
+        "nome": nome,
+        "etichetta": nome,
+        "pronto": false,
+        "motivo": format!(
+            "NOVA non conosce un cervello che si chiama «{nome}»: non e' fra le CLI di serie \
+             ne' in `brains.cli`"
+        ),
+        "descrizione": "",
+        "a_consumo": false,
+        "eseguibile": "",
+    })
+}
+
+/// La specifica di una CLI: quella scritta in `brains.cli`, o quella di
+/// serie se il file non la nomina (D406). Una voce messa a nulla e' una CLI
+/// tolta, e non ce l'ha.
+fn spec_cli(cfg: &Value, nome: &str) -> Option<Value> {
+    crate::consiglio::specifiche_cli(cfg).remove(nome)
+}
+
 fn scheda(nome: &str, cfg: &Value) -> Value {
     let attivo = {
         let a = testo(cfg, &["brains", "active"]);
@@ -162,18 +190,14 @@ fn scheda(nome: &str, cfg: &Value) -> Value {
     };
     // Una CLI dichiarata in configurazione vince sul nome nativo: e' l'ordine
     // che usa `crea_brain`, e due ordini diversi vorrebbero dire un pannello
-    // che descrive un cervello e NOVA che ne avvia un altro.
-    let spec = cfg
-        .get("brains")
-        .and_then(|b| b.get("cli"))
-        .and_then(|c| c.get(nome))
-        .filter(|v| !v.is_null())
-        .cloned();
-    let mut s = match spec {
+    // che descrive un cervello e NOVA che ne avvia un altro. Le CLI di serie
+    // contano anche se il file non le scrive, come per il demone.
+    let mut s = match spec_cli(cfg, nome) {
         Some(spec) => una_cli(nome, &spec),
         None if nome == "claude" => un_claude(cfg),
         None if nome == "api" => un_api(cfg),
-        None => un_locale(cfg),
+        None if nome == "locale" => un_locale(cfg),
+        None => uno_sconosciuto(nome),
     };
     if let Some(o) = s.as_object_mut() {
         o.insert("attivo".into(), Value::Bool(attivo == nome));
@@ -197,14 +221,9 @@ pub async fn cervelli_stato(nome: Option<String>) -> Result<Value, String> {
                     .iter()
                     .map(|n| scheda(n, &cfg))
                     .collect();
-                let vuoto = Map::new();
-                let cli = cfg
-                    .get("brains")
-                    .and_then(|b| b.get("cli"))
-                    .and_then(|c| c.as_object())
-                    .unwrap_or(&vuoto);
-                for (n, spec) in cli {
-                    if !spec.is_null() && !["locale", "claude", "api"].contains(&n.as_str()) {
+                // Anche le CLI di serie che il file non scrive (D406).
+                for n in crate::consiglio::specifiche_cli(&cfg).keys() {
+                    if !["locale", "claude", "api"].contains(&n.as_str()) {
                         tutti.push(scheda(n, &cfg));
                     }
                 }
@@ -342,7 +361,7 @@ pub async fn cervello_prova(nome: String) -> Result<Value, String> {
             }));
         }
         let cfg = config::leggi().map_err(|e| e.to_string())?;
-        let spec = cfg.get("brains").and_then(|b| b.get("cli")).and_then(|c| c.get(&nome)).cloned();
+        let spec = spec_cli(&cfg, &nome);
 
         let (args, per_stdin) = match (&spec, nome.as_str()) {
             (Some(s), _) if !s.is_null() => {
@@ -405,4 +424,48 @@ pub async fn cervello_prova(nome: String) -> Result<Value, String> {
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+#[cfg(test)]
+mod prove {
+    use super::*;
+
+    /// La scheda di Gio, l'11 ottobre: Antigravity aperto, e sotto «Modello
+    /// locale e' pronto» col GGUF, perche' nel file Antigravity non c'era.
+    #[test]
+    fn una_cli_di_serie_che_il_file_non_scrive_e_lei_non_il_modello_locale() {
+        let cfg = json!({ "server": { "model_path": "C:\\modelli\\gemma.gguf" } });
+        let s = scheda("antigravity", &cfg);
+        assert_eq!(s["nome"], "antigravity");
+        assert_eq!(s["etichetta"], "Antigravity (Google)");
+        assert_ne!(s["etichetta"], "Modello locale");
+        assert!(!s["eseguibile"].as_str().unwrap_or("").contains("gguf"), "{s}");
+        // Scritta nel file, vince quella del file.
+        let cfg = json!({ "brains": { "cli": { "antigravity": { "binary": "agy", "etichetta": "Mia" } } } });
+        assert_eq!(scheda("antigravity", &cfg)["etichetta"], "Mia");
+    }
+
+    #[test]
+    fn una_cli_tolta_o_un_nome_che_non_c_e_non_diventano_il_modello_locale() {
+        let tolta = json!({
+            "server": { "model_path": "C:\\modelli\\gemma.gguf" },
+            "brains": { "cli": { "antigravity": null } }
+        });
+        for (nome, cfg) in [("antigravity", &tolta), ("pippo", &tolta)] {
+            let s = scheda(nome, cfg);
+            assert_eq!(s["pronto"], false, "{s}");
+            assert_eq!(s["eseguibile"], "", "il bottone per collegarsi non deve aprire niente: {s}");
+            assert!(s["motivo"].as_str().unwrap().contains(&format!("«{nome}»")), "{s}");
+        }
+        assert_eq!(scheda("locale", &tolta)["etichetta"], "Modello locale");
+    }
+
+    #[test]
+    fn la_specifica_di_una_cli_e_quella_dei_motori_della_scheda() {
+        let cfg = json!({ "brains": { "cli": { "gemini": null, "mia": { "binary": "mia" } } } });
+        let tutte = crate::consiglio::specifiche_cli(&cfg);
+        assert!(tutte.contains_key("antigravity") && tutte.contains_key("mia"));
+        assert!(!tutte.contains_key("gemini"), "tolta");
+        assert!(spec_cli(&cfg, "antigravity").is_some() && spec_cli(&cfg, "gemini").is_none());
+    }
 }

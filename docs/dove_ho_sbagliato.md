@@ -2735,3 +2735,39 @@ portato dal cloud al PC con un bundle.
 
 La regola: dal PC di sviluppo si spinge sempre nominando il ramo,
 `git push origin HEAD:master`, e prima si guarda `git ls-remote --heads`.
+
+## Antigravity che nel pannello diventava il modello sul PC
+
+L'11 ottobre Gio ha chiesto perche' nella scheda di Antigravity c'era
+«Modello locale e' pronto» col percorso di Gemma. Ho guardato il codice e ho
+trovato il ramo giusto: lo stato di un cervello (`cervelli::scheda`, nel
+guscio) guardava solo `brains.cli`, e ogni nome che non ci trovava diventava
+il modello sul PC. Poi ho letto la configurazione di Gio, ho visto
+Antigravity scritto in `brains.cli`, e ho concluso che quella strada li' non
+passava: gli ho detto che non capivo come ci finisse, e gli ho chiesto una
+schermata. La schermata aveva sotto la riga «Usa le impostazioni di serie di
+NOVA», che la pagina scrive solo quando il file non nomina la CLI: quando
+l'ha fatta, Antigravity nel file non c'era. Avevo preso il file di adesso
+per il file di allora. Il difetto era quello che avevo trovato per primo, e
+non era solo suo: valeva per ogni CLI di serie non scritta nel file, e il
+bottone per collegarsi apriva un terminale sul GGUF. Corretto nel D406.
+
+La regola: una configurazione letta dopo non dimostra com'era quando
+l'utente ha visto il problema; si guarda prima la prova che ha portato lui.
+E un ramo di ripiego che trasforma un nome sconosciuto in un'altra cosa si
+toglie, anche se oggi nessuno ci passa.
+
+## Un comando di build che chiedeva un binario al pacchetto sbagliato
+
+Il 12 ottobre, nel giro su Windows del D406, lo script che preparo per il
+PC di sviluppo costruiva `cargo build --release --bin novad -p nova-shell`:
+Cargo cerca il binario `novad` dentro `nova-shell`, non lo trova e si ferma
+(«no bin target named `novad` in `nova-shell` package»). Me ne sono accorto
+dal registro del giro, che diceva 101. Le prove non ne hanno risentito,
+perche' `novad` l'aveva gia' costruito il passo prima (`-p novad` fra i
+pacchetti chiesti dalle prove), ma il guscio nuovo non c'era: l'ho costruito
+a parte, prima di riaprire NOVA.
+
+La regola: `--bin` vale per il pacchetto che si nomina; per costruire due
+cose si scrive `-p novad -p nova-shell`, e il codice d'uscita di ogni passo
+del giro si legge prima di guardare le prove.
