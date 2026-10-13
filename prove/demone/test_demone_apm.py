@@ -185,6 +185,13 @@ def configura(accesi, voce=False):
                       "grande": {"brain": "locale", "model": "grande", "a_pagamento": True}},
             "tetto_usd_sessione": 0, "costo_stimato_delega": 0.1}},
     }, ensure_ascii=False), encoding="utf-8")
+    # Come lo scrive il pannello, con la copia buona accanto (D410): se no,
+    # con un Dot al lavoro, il demone lo prenderebbe per la mano del Dot e
+    # lo rimetterebbe com'era. Il demone riguarda dopo 300 ms, e la copia
+    # scritta subito dopo il file arriva in tempo.
+    _scritto = (cartella_nova / "config.json")
+    (_scritto.parent / "copie-buone").mkdir(parents=True, exist_ok=True)
+    (_scritto.parent / "copie-buone" / "config.json").write_bytes(_scritto.read_bytes())
 
 
 configura("no")
@@ -592,10 +599,12 @@ try:
     controlla("a Nova solo la proposta, il cambio e la fine: niente a ogni fase",
               len(detti) == 3 and detti[0].startswith("Il progetto «quinto» e' pronto a partire.")
               and detti[2].startswith("Il progetto «quinto» e' finito."), str([d[:60] for d in detti]))
-    controlla("il cambio dice la versione, il file, cosa cambia, e che riparte",
+    # Le domande del piano nuovo ci sono dal D410: prima si perdevano.
+    controlla("il cambio dice la versione, il file, cosa cambia, le domande, e che riparte",
               len(detti) == 3 and re.fullmatch(
                   r"Il piano di «quinto» e' cambiato, versione 2\. E' in .+piano-2\.md\.\n"
-                  r"Cosa cambia:\n- rifatta la fase 1\nRiparto\.", detti[1], re.S) is not None,
+                  r"Cosa cambia:\n- rifatta la fase 1\n"
+                  r"Le domande dell'Architetto:\n- quanto puoi spendere\?\nRiparto\.", detti[1], re.S) is not None,
               detti[1] if len(detti) > 1 else "")
 
     print("\n8. un cambio che passa il tetto: si ferma, e col tetto nuovo riparte")

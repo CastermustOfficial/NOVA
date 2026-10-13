@@ -11,6 +11,9 @@ from .scrittura import scrivi
 APP_DIR = Path(os.environ.get("APPDATA", Path.home())) / "NOVA"
 CONFIG_PATH = APP_DIR / "config.json"
 LOG_DIR = APP_DIR / "logs"
+# Dove NOVA tiene la copia buona dei file che solo lei scrive (D410): la
+# stessa cartella di `nova_configurazione::intoccabili::COPIE`.
+COPIE_BUONE = "copie-buone"
 
 # --- livelli di autonomia -------------------------------------------------
 
@@ -712,6 +715,9 @@ class DotsConfig:
     «no»: li decide l'utente, dal pannello.
     """
     accesi: str = "auto"
+    # Quanto tempo ha almeno una CLI, o Claude Code, per un compito di un Dot
+    # (D410): la chat ha il tempo della CLI, un compito di solito di piu'.
+    secondi_per_compito: int = 1800
 
 
 @dataclass
@@ -783,8 +789,13 @@ class Config:
         # Di fianco e poi rinomina: qui dentro puo' esserci una chiave API, e
         # una configurazione troncata vuol dire NOVA che riparte come appena
         # installata — con la chiave persa e nessun errore da nessuna parte.
-        scrivi(path, json.dumps(dati, indent=2, ensure_ascii=False) + "\n",
-               newline="\n")
+        testo = json.dumps(dati, indent=2, ensure_ascii=False) + "\n"
+        # La copia buona prima del file (D410): e' NOVA che scrive, e il
+        # demone, che confronta i due mentre lavorano i Dot, non la deve
+        # prendere per la mano di un estraneo. Stessa regola del Rust
+        # (`nova_configurazione::intoccabili`).
+        scrivi(path.parent / COPIE_BUONE / path.name, testo, newline="\n")
+        scrivi(path, testo, newline="\n")
         _traccia_config("scritto", path, self.brains.claude_max_turns)
         return path
 

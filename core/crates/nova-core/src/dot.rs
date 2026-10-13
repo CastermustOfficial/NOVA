@@ -74,6 +74,9 @@ pub struct Dots {
     /// Sveglia l'APM (D402): un compito di un progetto si e' chiuso, o
     /// l'utente ha dato il via.
     pub(crate) apm: Notify,
+    /// I compiti che hanno toccato i file di NOVA (D410): per Dot, il
+    /// compito e il motivo, finche' il compito non si chiude.
+    colpe: std::sync::Mutex<HashMap<String, (u64, String)>>,
 }
 
 /// Come si parla al ciclo di un Dot.
@@ -308,6 +311,9 @@ pub fn avvia_tutti(server: &Arc<Server>) {
             }
         });
     }
+    // I file che solo NOVA scrive (D410): prima che un Dot cominci, quello
+    // che c'e' si adotta; poi li si guarda mentre i Dot lavorano.
+    crate::intoccabili::avvia(server);
     for nome in d::elenco(&base()) {
         avvia(server, &nome);
     }
@@ -1169,6 +1175,9 @@ async fn ciclo(server: Arc<Server>, nome: String, m: Arc<Maniglia>) {
             padre: None,
             cervello: String::new(),
         });
+        // Prima di cominciare (D410): senza altri al lavoro i file di NOVA
+        // si adottano, con altri al lavoro si guardano.
+        crate::intoccabili::guarda(&server);
         m.in_corso.store(compito.id, Ordering::SeqCst);
         server
             .ctx
@@ -1187,13 +1196,24 @@ async fn ciclo(server: Arc<Server>, nome: String, m: Arc<Maniglia>) {
         let mut lavoro = tokio::spawn(async move {
             lavora_e_giudica(&s2, &c2, &n2, &comp2, riprende, &aggiunta).await
         });
-        let (stato, esito) = tokio::select! {
+        let (mut stato, mut esito) = tokio::select! {
             r = &mut lavoro => r.unwrap_or_else(|e| (d::Stato::Fallito, format!("il lavoro si e' rotto: {e}"))),
             _ = &mut fermato => {
                 lavoro.abort();
                 (d::Stato::Fermato, "fermato da chi lo supervisiona".to_string())
             }
         };
+        // Il lavoro e' finito, e il Dot conta ancora come al lavoro: se ha
+        // toccato i file di NOVA, tornano com'erano e il compito non e'
+        // andato (D410).
+        crate::intoccabili::guarda(&server);
+        if let Some(motivo) = crate::intoccabili::colpa_di(&server, &nome, compito.id) {
+            let _ = c.diario(&json!({
+                "quando": adesso(), "compito": compito.id, "tipo": "ha_toccato_nova",
+            }));
+            stato = d::Stato::Fallito;
+            esito = format!("{motivo}\n\n{esito}");
+        }
         m.in_corso.store(0, Ordering::SeqCst);
         // Finito bene, ma con pezzi affidati di cui non ha ancora l'esito:
         // il compito aspetta, e il Dot passa al prossimo (D388).
@@ -1290,6 +1310,40 @@ pub fn compito_in_corso(server: &Arc<Server>, nome: &str) -> Option<u64> {
     (id != 0).then_some(id)
 }
 
+/// Chi sta lavorando adesso, e a quale compito, in ordine di nome.
+pub(crate) fn al_lavoro(server: &Arc<Server>) -> Vec<(String, u64)> {
+    let mut chi: Vec<(String, u64)> = server
+        .dots
+        .maniglie
+        .lock()
+        .map(|m| {
+            m.iter()
+                .map(|(n, x)| (n.clone(), x.in_corso.load(Ordering::SeqCst)))
+                .filter(|(_, id)| *id != 0)
+                .collect()
+        })
+        .unwrap_or_default();
+    chi.sort();
+    chi
+}
+
+/// Il compito `id` di `nome` ha toccato i file di NOVA (D410).
+pub(crate) fn segna_colpa(server: &Arc<Server>, nome: &str, id: u64, motivo: &str) {
+    if let Ok(mut c) = server.dots.colpe.lock() {
+        c.insert(nome.to_string(), (id, motivo.to_string()));
+    }
+}
+
+/// Il motivo, se il compito `id` di `nome` ha toccato i file di NOVA. Si
+/// toglie: vale per un compito solo.
+pub(crate) fn prendi_colpa(server: &Arc<Server>, nome: &str, id: u64) -> Option<String> {
+    let mut c = server.dots.colpe.lock().ok()?;
+    match c.get(nome) {
+        Some((x, _)) if *x == id => c.remove(nome).map(|(_, m)| m),
+        _ => None,
+    }
+}
+
 /// I sottoposti di un Dot: quelli che lo hanno come capo, in ordine.
 pub fn sottoposti(nome: &str) -> Vec<String> {
     d::elenco(&base())
@@ -1379,6 +1433,61 @@ pub fn si_dice_a_voce(cfg: &Value, live_in_corso: bool) -> bool {
 
 /// La conversazione di un Dot: quella salvata, se c'e' e si legge; se no
 /// una nuova, col prompt che dice chi e'.
+/// Quanto tempo ha almeno una CLI, o Claude Code, per un compito di un Dot
+/// (D410): mezz'ora. La chat ha il tempo della CLI (`timeout`, di serie
+/// 600 s); un compito che scarica pagine e scrive relazioni ne vuole di
+/// piu'. Si cambia con `dots.secondi_per_compito`.
+pub const SECONDI_PER_COMPITO: u64 = 1800;
+
+/// La configurazione per un compito dei Dot: ogni CLI e Claude Code hanno
+/// almeno `dots.secondi_per_compito`. Un tempo piu' lungo dell'utente resta
+/// il suo. Le CLI di fabbrica che il file non nomina si scrivono intere: una
+/// voce col solo tempo sostituirebbe la dichiarazione di fabbrica.
+pub fn con_piu_tempo(cfg: &Value) -> Value {
+    let secondi = cfg
+        .pointer("/dots/secondi_per_compito")
+        .and_then(Value::as_u64)
+        .filter(|s| *s > 0)
+        .unwrap_or(SECONDI_PER_COMPITO);
+    let mut c = cfg.clone();
+    if !c.is_object() {
+        c = json!({});
+    }
+    let alza = |v: &mut Value| {
+        if v.as_u64().filter(|t| *t > 0).unwrap_or(0) < secondi {
+            *v = json!(secondi);
+        }
+    };
+    if !c.get("brains").is_some_and(Value::is_object) {
+        c["brains"] = json!({});
+    }
+    if !c["brains"].get("cli").is_some_and(Value::is_object) {
+        c["brains"]["cli"] = json!({});
+    }
+    let nel_file: Vec<String> = c["brains"]["cli"]
+        .as_object()
+        .map(|o| o.keys().map(|k| k.trim().to_lowercase()).collect())
+        .unwrap_or_default();
+    if let Some(o) = nova_cervelli::cli::predefinite().as_object() {
+        for (nome, spec) in o {
+            if !nel_file.contains(&nome.to_lowercase()) {
+                c["brains"]["cli"][nome] = spec.clone();
+            }
+        }
+    }
+    if let Some(o) = c["brains"]["cli"].as_object_mut() {
+        for spec in o.values_mut() {
+            if let Some(x) = spec.as_object_mut() {
+                alza(x.entry("timeout").or_insert(Value::Null));
+            }
+        }
+    }
+    if let Some(b) = c["brains"].as_object_mut() {
+        alza(b.entry("claude_timeout").or_insert(Value::Null));
+    }
+    c
+}
+
 pub(crate) fn conversazione_di(c: &d::Cartella, dot: &d::Dot, cfg: &Value) -> Sessione {
     c.conversazione()
         .and_then(|v| Sessione::ripresa(v.messaggi, &v.claude, v.deleghe))
@@ -1424,6 +1533,21 @@ async fn lavora_e_giudica(
     let mut usato = String::new();
     let (mut stato, mut esito) =
         lavora(server, c, nome, &per_lui, riprende, aggiunta, &mut usato).await;
+    // La CLI e' andata oltre il suo tempo (D410): il lavoro fatto e' sul
+    // disco, e il compito si riprova una volta, dicendogli di riprendere.
+    if stato == d::Stato::Fallito && nova_cervelli::cli::e_tempo_scaduto(&esito) {
+        let _ = c.diario(&json!({
+            "quando": adesso(), "compito": compito.id, "tipo": "riprova", "perche": esito,
+        }));
+        server
+            .ctx
+            .bus
+            .emit("dot.riprova", json!({ "dot": nome, "id": compito.id, "perche": esito }));
+        let mut ancora = per_lui.clone();
+        ancora.testo.push_str(d::DOPO_IL_TEMPO);
+        usato.clear();
+        (stato, esito) = lavora(server, c, nome, &ancora, riprende, aggiunta, &mut usato).await;
+    }
     let Some(dot) = dot.filter(|x| x.mestiere.prende_compiti()) else {
         return (stato, esito);
     };
@@ -1494,7 +1618,7 @@ async fn lavora(
         per_lui.testo = format!("{base}{aggiunta}");
         return crate::ricercatore::lavora(server, c, &dot, &per_lui, usato).await;
     }
-    let cfg = nova_configurazione::dove::leggi();
+    let cfg = con_piu_tempo(&nova_configurazione::dove::leggi());
     let mut s = conversazione_di(c, &dot, &cfg);
     let esecutore = EsecutoreDemone {
         server: server.clone(),
@@ -1562,6 +1686,40 @@ async fn lavora(
 #[cfg(test)]
 mod prove {
     use super::*;
+
+    /// Un compito dei Dot ha almeno mezz'ora per CLI e Claude Code (D410),
+    /// e un tempo piu' lungo dell'utente resta il suo.
+    #[test]
+    fn un_compito_ha_piu_tempo_della_chat() {
+        let cfg = json!({
+            "brains": {
+                "claude_timeout": 900,
+                "cli": {
+                    "antigravity": { "binary": "agy", "timeout": 600 },
+                    "lunga": { "binary": "l", "timeout": 7200 },
+                    "codex": null
+                }
+            }
+        });
+        let c = con_piu_tempo(&cfg);
+        assert_eq!(c["brains"]["claude_timeout"], 1800);
+        assert_eq!(c["brains"]["cli"]["antigravity"], json!({ "binary": "agy", "timeout": 1800 }));
+        assert_eq!(c["brains"]["cli"]["lunga"]["timeout"], 7200, "il tempo dell'utente, se e' di piu'");
+        assert!(c["brains"]["cli"]["codex"].is_null(), "tolta apposta: resta tolta");
+        // Le CLI di fabbrica che il file non nomina arrivano intere, col tempo.
+        let fabbrica = nova_cervelli::cli::predefinite();
+        for (nome, spec) in fabbrica.as_object().unwrap() {
+            if nome == "antigravity" || nome == "codex" {
+                continue;
+            }
+            assert_eq!(c["brains"]["cli"][nome]["binary"], spec["binary"], "{nome}");
+            assert_eq!(c["brains"]["cli"][nome]["timeout"], 1800, "{nome}");
+        }
+        let mia = con_piu_tempo(&json!({ "dots": { "secondi_per_compito": 3 } }));
+        assert_eq!(mia["brains"]["claude_timeout"], 3, "dots.secondi_per_compito comanda");
+        assert_eq!(con_piu_tempo(&json!(null))["brains"]["claude_timeout"], SECONDI_PER_COMPITO);
+        assert_eq!(cfg["brains"]["claude_timeout"], 900, "la configurazione di NOVA non cambia");
+    }
 
     /// La consegna si dice a voce solo con la voce accesa, con un motore, e
     /// senza una conversazione dal vivo in corso (D387).

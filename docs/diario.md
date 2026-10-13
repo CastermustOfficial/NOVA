@@ -11832,3 +11832,20 @@ controllo, e piu' ancora con le misure, perche' un numero dopo «token» era
 un PIN. Il guardiano adesso guarda la parola senza i bordi, e un numero da
 solo e' un segreto solo dove un segreto si scrive a cifre.
 
+## 13 ottobre 2026 — Il Dot che ha cambiato NOVA
+
+Gio aveva chiesto che Nova prendesse le decisioni in anticipo e lo
+avvisasse, dicendo cosa e perche'. Io l'ho passato all'APM, e l'Architetto
+ne ha fatto un compito: «far applicare subito da Nova le misure prudenti». Il Dot dell'amministrazione l'ha preso alla lettera. Gira su
+Antigravity, che lavora con le mani sue, e Nova non c'entrava: ha aperto
+`config.json`, ne ha salvato una copia, e l'ha riscritto. Ha tolto Claude,
+che secondo il compito 1.14 non passava la verifica dei fornitori, e con
+Claude se n'e' andato l'unico giudice senza mani della scala. Il piano non
+si poteva piu' rifare, e il progetto si e' fermato. La cosa piu' istruttiva
+e' che il Dot aveva ragione su tutto tranne che sul posto: la misura era
+sensata, ed era scritta nel piano. Mancava solo una regola che dicesse che
+NOVA non e' un file del progetto. Adesso c'e', nel testo e nel demone: chi
+scrive per NOVA lascia una copia buona, e quello che un Dot cambia torna
+com'era. Nello stesso giro si e' visto il prezzo dei 600 secondi: quattro
+compiti scaduti col lavoro gia' fatto, e tre volte la fase da rifare.
+

@@ -285,9 +285,23 @@ pub fn cosa_ha_detto(etichetta: &str, stdout: &str, stderr: &str) -> Result<Stri
     Err(format!("{etichetta} non ha prodotto output. {e}"))
 }
 
-/// Quando la CLI non risponde entro il suo tempo.
+/// Quando la CLI non risponde entro il suo tempo. Claude Code lo dice con
+/// la stessa frase, e [`e_tempo_scaduto`] la riconosce.
 pub fn non_ha_risposto(etichetta: &str, secondi: u64) -> String {
-    format!("{etichetta} non ha risposto entro {secondi}s")
+    format!("{etichetta}{SCADUTO}{secondi}s")
+}
+
+/// Il pezzo fisso della frase di [`non_ha_risposto`].
+const SCADUTO: &str = " non ha risposto entro ";
+
+/// Se un esito dice che una CLI, o Claude Code, e' andata oltre il suo
+/// tempo: la frase di [`non_ha_risposto`], anche in mezzo ad altro testo.
+/// Un compito dei Dot scaduto cosi' si riprova una volta (D410).
+pub fn e_tempo_scaduto(testo: &str) -> bool {
+    testo.split(SCADUTO).skip(1).any(|dopo| {
+        let cifre = dopo.chars().take_while(char::is_ascii_digit).count();
+        cifre > 0 && dopo[cifre..].starts_with('s')
+    })
 }
 
 /// Come si racconta lo stato di questa CLI.
@@ -301,6 +315,17 @@ pub fn descrizione_stato(etichetta: &str, model: &str) -> String {
 #[cfg(test)]
 mod prove {
     use super::*;
+
+    #[test]
+    fn il_tempo_scaduto_si_riconosce_e_niente_altro() {
+        assert!(e_tempo_scaduto(&non_ha_risposto("Antigravity (Google)", 600)));
+        assert!(e_tempo_scaduto(&non_ha_risposto("Claude Code", 900)));
+        assert!(e_tempo_scaduto(&format!("primo: {}; secondo: rotto", non_ha_risposto("X", 3))));
+        assert!(!e_tempo_scaduto("il modello locale non ha risposto entro l'attesa"));
+        assert!(!e_tempo_scaduto("Finta non ha risposto entro s"));
+        assert!(!e_tempo_scaduto("Finta non ha prodotto output."));
+        assert!(!e_tempo_scaduto(""));
+    }
 
     fn m(r: &str, c: &str) -> Messaggio {
         Messaggio { ruolo: r.into(), contenuto: c.into() }

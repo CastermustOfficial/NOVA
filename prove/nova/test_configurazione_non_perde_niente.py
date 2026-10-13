@@ -221,6 +221,21 @@ controlla("una chiave che la sezione non conosce non ci entra",
           not hasattr(c7.brains, "inventata_di_sana_pianta"),
           "scriverla dentro vorrebbe dire che un file puo' aggiungere campi a NOVA")
 
+# -- la copia buona (D410) ------------------------------------------------
+print("\n=== e chi salva lascia la copia buona, che il demone confronta ===")
+import re                                                         # noqa: E402
+from nova.config import COPIE_BUONE                               # noqa: E402
+p8 = cartella / "con-copia" / "config.json"
+Config().save(p8)
+copia = p8.parent / COPIE_BUONE / "config.json"
+controlla("salvare scrive anche la copia buona, accanto, nella stessa forma",
+          copia.is_file() and copia.read_bytes() == p8.read_bytes(),
+          f"{copia} c'e': {copia.is_file()}")
+rust = (RADICE / "core" / "crates" / "nova-configurazione" / "src" / "intoccabili.rs").read_text(encoding="utf-8")
+m = re.search(r'pub const COPIE: &str = "([^"]+)";', rust)
+controlla("e la cartella e' quella che guarda il demone",
+          m is not None and m.group(1) == COPIE_BUONE, f"Rust {m and m.group(1)!r}, Python {COPIE_BUONE!r}")
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for f in falliti:
     print(f"  - {f}")

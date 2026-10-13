@@ -111,8 +111,15 @@ pub fn scrivi_trasformando_in(
     }
     let temporaneo = p.with_extension("json.nuovo");
     let testo = serde_json::to_string_pretty(&attuale).map_err(|e| e.to_string())? + "\n";
-    std::fs::write(&temporaneo, testo).map_err(|e| e.to_string())?;
-    std::fs::rename(&temporaneo, p).map_err(|e| e.to_string())?;
+    let scrivi = || -> Result<(), String> {
+        std::fs::write(&temporaneo, &testo).map_err(|e| e.to_string())?;
+        std::fs::rename(&temporaneo, p).map_err(|e| e.to_string())
+    };
+    // La copia buona prima del file (D410): e' NOVA che scrive.
+    match p.parent() {
+        Some(nova) => crate::intoccabili::scrivi_da_nova(nova, p, testo.as_bytes(), scrivi)?,
+        None => scrivi()?,
+    }
     Ok(attuale)
 }
 
@@ -177,6 +184,21 @@ mod prove {
         std::fs::write(&f, "{ rotto").unwrap();
         assert!(scrivi_trasformando_in(&f, |c| c["t"] = serde_json::json!(1)).is_err());
         assert_eq!(std::fs::read_to_string(&f).unwrap(), "{ rotto", "un file storto non si butta");
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn quel_che_scrive_nova_ha_la_sua_copia_buona() {
+        // D410: senza la copia, il controllo dei file intoccabili prenderebbe
+        // per estranea una modifica fatta dal pannello mentre un Dot lavora.
+        let d = cartella("copia");
+        let f = d.join("config.json");
+        std::fs::write(&f, "{\"a\": 1}").unwrap();
+        let v = scrivi_fondendo_in(&f, &serde_json::json!({"b": 2})).unwrap();
+        let copia = crate::intoccabili::copia_di(&d, &f).unwrap();
+        assert_eq!(std::fs::read(&copia).unwrap(), std::fs::read(&f).unwrap());
+        assert!(crate::intoccabili::controlla(&d, "t").is_empty());
+        assert_eq!(leggi_da(&f).0, v);
         let _ = std::fs::remove_dir_all(&d);
     }
 

@@ -335,6 +335,14 @@ pub fn licenzia(server: &Arc<Server>, nome: &str, da: &str, perche: &str) -> Res
     }
     crate::dot::spegni(server, nome);
     std::fs::rename(&c.radice, &dove).map_err(|e| format!("la cartella di «{nome}» non si sposta: {e}"))?;
+    // Se n'e' andato per mano di NOVA (D410): via anche la copia buona di
+    // chi era, se no il controllo lo farebbe tornare.
+    if let Err(e) = nova_configurazione::intoccabili::tolto_da_nova(
+        &crate::mondo::cartella_nova(),
+        &c.radice.join(nova_configurazione::intoccabili::FILE_DOT),
+    ) {
+        tracing::warn!(dot = nome, errore = %e, "la copia buona del licenziato non si toglie");
+    }
     // Esce dai gruppi in cui era: un membro che non c'e' piu' farebbe
     // cadere ogni messaggio al gruppo.
     for mut g in d::gruppi::elenco(&crate::dot::base()) {

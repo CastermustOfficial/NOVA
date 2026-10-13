@@ -13,6 +13,9 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 # Il custode fa al modello di casa una domanda si'/no (D384).
 nova-giudizio = { path = "../nova-giudizio" }
+# Chi e' un Dot e l'indice dei progetti li scrive solo NOVA (D410): prima
+# del file, la copia buona.
+nova-configurazione = { path = "../nova-configurazione" }
 
 [features]
 # Il banco dei testi di CLM (D404): le domande e le risposte lette come le

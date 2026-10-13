@@ -79,6 +79,13 @@ class Demone:
     def configura(self, accesi: str):
         cfg = {"kb": {"enabled": False}, "dots": {"accesi": accesi}}
         (self.nova / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+        # Come lo scrive il pannello, con la copia buona accanto (D410): se no,
+        # con un Dot al lavoro, il demone lo prenderebbe per la mano del Dot e
+        # lo rimetterebbe com'era. Il demone riguarda dopo 300 ms, e la copia
+        # scritta subito dopo il file arriva in tempo.
+        _scritto = (self.nova / "config.json")
+        (_scritto.parent / "copie-buone").mkdir(parents=True, exist_ok=True)
+        (_scritto.parent / "copie-buone" / "config.json").write_bytes(_scritto.read_bytes())
 
     def accendi(self):
         ambiente = dict(os.environ)

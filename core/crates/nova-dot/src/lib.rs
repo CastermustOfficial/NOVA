@@ -545,7 +545,8 @@ pub fn prompt(dot: &Dot, base: &str) -> String {
          Lavori mentre l'utente fa altro: non chiedere conferme e non fermarti a \
          meta' per chiedere come procedere, decidi tu. L'utente ti puo' scrivere \
          come un collega o come un direttore, e ti puo' fermare. Quando hai \
-         finito, rispondi con il risultato del compito.",
+         finito, rispondi con il risultato del compito. {regola}",
+        regola = NOVA_NON_SI_TOCCA,
         nome = dot.nome,
         ruolo = dot.ruolo.trim(),
     );
@@ -570,6 +571,17 @@ pub fn domanda(c: &Compito) -> String {
 /// riavvio: chi lo riprende deve saperlo.
 pub const RIPRESO: &str =
     "\n\n(Ripreso dopo un riavvio: se l'avevi gia' cominciato, continua da dove eri.)";
+
+/// Quello che si aggiunge a un compito che si riprova perche' la CLI e'
+/// andata oltre il suo tempo (D410): il lavoro fatto e' sul disco, e
+/// rifarlo da capo vorrebbe dire scadere di nuovo.
+pub const DOPO_IL_TEMPO: &str = "\n\n(La volta prima il tempo e' finito prima della consegna: \
+quello che avevi fatto e' sul disco. Riprendi da li', non rifare da capo, e consegna.)";
+
+/// La regola di ogni Dot sui file di NOVA (D410).
+pub const NOVA_NON_SI_TOCCA: &str = "La cartella di NOVA, la sua configurazione e le \
+impostazioni dei programmi dell'utente non si toccano: se pensi che vadano cambiate, scrivilo \
+nella consegna come proposta, e lo decide l'utente.";
 
 /// Come si chiama uno stato, come lo scrive la coda.
 pub fn nome_stato(s: Stato) -> &'static str {
@@ -764,7 +776,22 @@ impl Cartella {
         std::fs::create_dir_all(&self.radice).map_err(|e| format!("{}: {e}", self.radice.display()))?;
         self.prepara()?;
         let testo = serde_json::to_string_pretty(dot).map_err(|e| e.to_string())? + "\n";
-        scrivi_intero(&self.radice.join("dot.json"), &testo)
+        self.scrivi_chi_e(&testo)
+    }
+
+    /// Scrive `dot.json`, con la sua copia buona prima (D410): chi e' un Dot
+    /// lo scrive solo NOVA.
+    fn scrivi_chi_e(&self, testo: &str) -> Result<(), String> {
+        use nova_configurazione::intoccabili as i;
+        let f = self.radice.join(i::FILE_DOT);
+        // Solo i Dot di NOVA, quelli in `dots/` accanto a `config.json`.
+        let base = self.radice.parent();
+        if base.and_then(Path::file_name).is_some_and(|n| n == i::CARTELLA_DOT) {
+            if let Some(nova) = base.and_then(Path::parent) {
+                return i::scrivi_da_nova(nova, &f, testo.as_bytes(), || scrivi_intero(&f, testo));
+            }
+        }
+        scrivi_intero(&f, testo)
     }
 
     /// Le cartelle che un Dot si porta dietro: il vault e i rapporti. Si
@@ -813,7 +840,7 @@ impl Cartella {
             return Err(format!("il Dot «{}» non cambia nome", prima.nome));
         }
         let testo = serde_json::to_string_pretty(dot).map_err(|e| e.to_string())? + "\n";
-        scrivi_intero(&self.radice.join("dot.json"), &testo)
+        self.scrivi_chi_e(&testo)
     }
 
     /// La coda di adesso.
@@ -1080,6 +1107,8 @@ mod prove {
         let p = prompt(&d, "BASE");
         assert!(p.starts_with("BASE\n\n"));
         assert!(p.contains("sei ricercatore, un Dot di NOVA") && p.contains("Cerchi e riassumi."));
+        // D410: un Dot sa che NOVA non e' sua da cambiare.
+        assert!(p.contains(NOVA_NON_SI_TOCCA), "{p}");
         let c = &compiti(&ev(7, Stato::Affidato, "t"))[0];
         assert_eq!(domanda(c), "Compito n. 7 (affidato da utente):\ncompito 7");
         assert!(continua(c).contains("n. 7"));
@@ -1154,6 +1183,29 @@ mod prove {
         let f: Dot = serde_json::from_str(r#"{"nome":"apm","ruolo":"r","nato":"t","mestiere":"apm","fisso":true}"#).unwrap();
         assert!(f.fisso && f.mestiere == Mestiere::Apm);
         assert_eq!(serde_json::to_value(&f).unwrap()["fisso"], true);
+    }
+
+    #[test]
+    fn chi_e_un_dot_lo_scrive_nova_con_la_copia_buona() {
+        // D410: il controllo degli intoccabili confronta `dot.json` con la
+        // copia; senza, prenderebbe ogni Dot nato da NOVA per un estraneo.
+        use nova_configurazione::intoccabili as i;
+        let nova = std::env::temp_dir().join(format!("nova-dot-copia-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&nova);
+        let c = Cartella::di(&nova.join("dots"), "uno").unwrap();
+        let mut d = Dot { nome: "uno".into(), ruolo: "r".into(), nato: "t".into(), mestiere: Mestiere::Generico, capo: String::new(), fisso: false, assunto: false, cervello: String::new() };
+        c.crea(&d).unwrap();
+        let copia = nova.join(i::COPIE).join("dots").join("uno").join("dot.json");
+        assert_eq!(std::fs::read(&copia).unwrap(), std::fs::read(c.radice.join("dot.json")).unwrap());
+        d.capo = "capo".into();
+        c.riscrivi(&d).unwrap();
+        assert_eq!(std::fs::read(&copia).unwrap(), std::fs::read(c.radice.join("dot.json")).unwrap());
+        assert!(i::controlla(&nova, "t").is_empty());
+        // Fuori da `dots/` non e' un Dot di NOVA: niente copia.
+        let fuori = Cartella::di(&nova.join("altro"), "due").unwrap();
+        fuori.crea(&Dot { nome: "due".into(), ..d }).unwrap();
+        assert!(!nova.join(i::COPIE).join("altro").exists());
+        let _ = std::fs::remove_dir_all(&nova);
     }
 
     #[test]

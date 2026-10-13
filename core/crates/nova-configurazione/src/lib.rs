@@ -32,6 +32,7 @@
 //! raccontare a NOVA di aver avuto un errore che non ha avuto.
 
 pub mod dove;
+pub mod intoccabili;
 pub use dove::{leggi_da, percorso};
 
 use serde_json::{Map, Value};

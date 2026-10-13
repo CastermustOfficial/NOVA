@@ -123,7 +123,13 @@ def configura(accesi=None, api=False, solo_locale=False):
     }
     if accesi is not None:
         cfg["dots"] = {"accesi": accesi}
-    (cartella_nova / "config.json").write_text(json.dumps(cfg, ensure_ascii=False), encoding="utf-8")
+    # Come il pannello: prima la copia buona, poi il file (D410). Scritto
+    # senza la copia mentre un Dot lavora, il demone lo prenderebbe per la
+    # mano del Dot e lo rimetterebbe com'era.
+    testo = json.dumps(cfg, ensure_ascii=False)
+    (cartella_nova / "copie-buone").mkdir(parents=True, exist_ok=True)
+    (cartella_nova / "copie-buone" / "config.json").write_text(testo, encoding="utf-8")
+    (cartella_nova / "config.json").write_text(testo, encoding="utf-8")
 
 
 configura()

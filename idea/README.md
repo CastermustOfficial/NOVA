@@ -542,3 +542,48 @@ lavora. **Cosa costerebbe.** Per Claude Code, le chiamate a `Write` e
 e le CLI»); per le CLI, guardare la cartella del compito prima e dopo; per
 l'APM, un evento a ogni file che scrive.
 
+## Le CLI dei Dot dentro un recinto
+
+Nata col D410. **Cosa.** Lanciare la CLI di un Dot (Antigravity, Claude
+Code) dentro il recinto di Windows (D367), con scrivibili solo la cartella
+del progetto e quella del Dot. **Perche'.** Le copie buone rimettono a posto
+i file di NOVA dopo; un recinto impedirebbe prima, e per tutti i file
+dell'utente, non solo per quelli di NOVA. **Cosa costerebbe.** Provare che
+Antigravity e Claude Code partano e si autentichino dentro il contenitore,
+con le credenziali che tengono nel profilo dell'utente; poi la scelta, per
+Dot, delle cartelle aperte.
+
+## Piu' file sorvegliati
+
+Nata col D410. **Cosa.** Aggiungere ai file con la copia buona `core.json`
+del demone, le impostazioni di Gemini e di Antigravity (`.gemini/`), e i
+gruppi dei Dot. **Perche'.** Il compito 1.18 chiedeva anche di spegnere
+l'attivita' delle app Gemini; questa volta il Dot ha solo letto
+`.gemini/settings.json`. **Cosa costerebbe.** Per ogni file, trovare chi lo
+scrive per conto di NOVA e fargli scrivere la copia; per i file di altri
+programmi la copia non si puo' scrivere, e servirebbe un controllo diverso:
+avvisare, non rimettere.
+
+## Sapere quale Dot ha toccato un file
+
+Nata col D410. **Cosa.** Con piu' Dot al lavoro, dire quale ha cambiato un
+file di NOVA. **Perche'.** Oggi non si accusa nessuno, e il compito di chi
+l'ha fatto risulta andato. **Cosa costerebbe.** Su Windows, il registro di
+controllo degli accessi ai file (SACL) col processo che scrive, e il
+processo ricondotto alla CLI del Dot; oppure un Dot alla volta mentre
+qualcuno lavora con le mani sue.
+
+## Nova, pensaci tu
+
+Chiesta da Gio il 12 ottobre, bozza mandata il 12. **Cosa.** Una modalita'
+che Gio accende («Nova, pensaci tu») e spegne («sono tornato»): Nova
+risponde alle «Domande per te» dei piani e accetta le note del legale,
+dice cosa ha deciso e perche', e Gio le cambia quando torna. Mai i soldi,
+mai le decisioni segnate «solo tu», mai il sistema. **Perche'.** Un
+progetto non si ferma ogni due minuti per una domanda che ha una risposta
+ovvia. **Cosa costerebbe.** Un interruttore nella configurazione e nel
+pannello, una domanda al giudice senza mani per ogni domanda del piano,
+un evento `deciso` nel diario del progetto, `decisioni.md` nella sua
+cartella, e il segno `[solo tu]` nel formato del piano. Aspetta le risposte
+di Gio alle cinque domande della bozza.
+

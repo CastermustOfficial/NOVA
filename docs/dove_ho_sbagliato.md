@@ -2834,3 +2834,60 @@ prima. La prova adesso riprova per un secondo al piu', solo su quell'errore.
 
 La regola: una prova che lancia un file che ha appena scritto ripete il
 lancio se il sistema dice che il file e' ancora occupato.
+
+## Una regola passata ai Dot senza i suoi confini
+
+Il 12 ottobre ho passato all'APM di S0ex1 la regola di Gio: per non fermare
+il lavoro, Nova prende le decisioni in anticipo e lo avvisa. L'ho scritta
+senza dire su cosa vale: le scelte del piano, non il sistema. L'Architetto
+ne ha fatto il compito 1.18, «far applicare subito da Nova le misure
+prudenti», e il Dot dell'amministrazione, su Antigravity, ha riscritto
+`config.json` di NOVA: Claude tolto dalla scala, voce locale, tetto a zero.
+Senza Claude non c'era un giudice, e il progetto si e' fermato. Il compito
+l'avevo davanti alle 22:41, diciassette minuti prima, nell'elenco che avevo
+stampato per stimare i tempi: tagliato a 70 caratteri, «Far applicare
+subito da Nova, senza aspettare». Non l'ho aperto. Me ne sono accorto il
+giorno dopo, quando Gio ha chiesto di continuare e il progetto era fermo
+con «l'Architetto non ha con chi leggere»: confrontando `config.json` con
+la copia che il Dot stesso aveva salvato ho visto la scala cambiata.
+Corretto: ho rimesso la configurazione di prima, tenendo da parte quella
+del Dot, e con Gio il D410 (le copie buone dei file di NOVA, la regola nel
+testo dei Dot e dell'Architetto).
+
+La regola: una regola che lascia decidere un agente si scrive coi suoi
+confini, cosa puo' cambiare e cosa no; e un compito del piano che parla di
+NOVA, della configurazione o dei programmi dell'utente si legge per intero
+prima di andare avanti.
+
+## Una scrittura a meta' presa per la mano di un Dot
+
+Scrivendo le copie buone del D410 ho deciso che la copia si scrive prima
+del file, e ho scritto nel commento che se il controllo cade fra le due
+scritture «rimette il contenuto che NOVA stava per scrivere: lo stesso
+risultato». Il file si', il resto no: il controllo lo dice a Nova e accusa
+il Dot che lavora. Me ne sono accorto al terzo giro della suite, prima del
+commit: in `test_demone_apm.py` l'APM ha scritto l'indice dei progetti
+mentre lavorava l'Architetto, il controllo e' caduto in mezzo, e il piano
+dell'Architetto e' risultato «non andato» per aver cambiato `progetti.json`.
+Corretto: nello stesso processo chi scrive e chi controlla si danno il
+turno, e da un altro processo una differenza si riguarda dopo 300 ms.
+
+La regola: un controllo che agisce su quello che vede si scrive pensando a
+chi sta scrivendo in quel momento, e ogni suo effetto, non solo il primo,
+vale «lo stesso risultato» solo se lo e' davvero.
+
+## Le prove che scrivono la configurazione alle spalle di NOVA
+
+Con le copie buone del D410, una configurazione scritta a mano mentre un
+Dot lavora torna com'era. Lo sapevo, e l'ho scritto nei documenti, ma non
+ho cercato quali prove del demone lo fanno: quattordici riscrivono
+`config.json` con una funzione `configura`, e la chiamano anche dopo aver
+acceso il demone. Due sono
+cadute: `test_demone_dot_accesi.py` su Linux, che spegne i Dot mentre uno
+lavora, e `test_demone_giudici.py` su Windows, dove il Dot appena assunto
+lavorava ancora quando la prova ha tolto dalla scala il cervello a
+indirizzo. Corretto: ogni `configura` delle prove scrive anche la copia,
+come il pannello.
+
+La regola: quando cambia cosa conta come una scrittura di NOVA, si cercano
+tutti quelli che scrivono quei file, prove comprese.

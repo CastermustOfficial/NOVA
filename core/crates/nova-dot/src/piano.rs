@@ -72,7 +72,8 @@ pub const PROGETTO_MASSIMO: usize = 48;
 pub const METODO: &str = "Il metodo: ogni compito di ricerca o di dati che produce un risultato \
 ha dopo di se' un compito [qualita] che lo ripete, e un risultato non ripetuto non e' un risultato. \
 Il paper finale non metterlo nel piano: lo scrive la scrittura alla fine, quando tutte le fasi sono \
-fatte.";
+fatte. Nessun compito cambia NOVA, la sua configurazione o le impostazioni dei programmi \
+dell'utente: un cambio che ti sembra utile scrivilo in «Domande per te», e lo decide l'utente.";
 
 /// Il segno in testa a ogni domanda all'Architetto.
 pub const SEGNO: &str = "[piano di sviluppo]";
@@ -1207,6 +1208,8 @@ mod prove {
         // Il metodo del D407: la qualita' ripete, il paper non e' nel piano.
         assert!(d.contains(METODO) && METODO.contains("[qualita] che lo ripete"), "{d}");
         assert!(d.find(METODO) < d.find("Rispondi solo col piano"), "{d}");
+        // D410: nessun compito cambia NOVA; un cambio utile e' una domanda.
+        assert!(METODO.contains("Nessun compito cambia NOVA") && METODO.contains("«Domande per te»"));
         let d = domanda(
             &Richiesta {
                 perche: Perche::Fase(2),

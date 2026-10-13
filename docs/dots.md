@@ -50,6 +50,12 @@ L'autonomia toglie le domande, non le guardie. Un Dot:
 
 Un giudizio può solo stringere una guardia, mai allentarla (D313).
 
+Con un cervello che e' una CLI agentica il primo punto non vale per
+intero: Antigravity parte coi permessi saltati e lavora anche con le mani
+sue, che NOVA non vede. Il 12 ottobre un Dot cosi' ha riscritto
+`config.json`. Da allora i file che solo NOVA scrive hanno una copia buona,
+e il demone rimette com'era quello che un Dot cambia (D410, in fondo).
+
 ## Cosa c'è già, e cosa manca
 
 | Serve | Oggi | Manca |
@@ -1098,4 +1104,47 @@ spostamento); chi crea e scrive e' l'APM.
   cartella Documenti spostata altrove, per esempio in OneDrive, non si
   trova. La cartella vera la dice Windows (`SHGetKnownFolderPath`).
 - **Dove scrive un Dot lo dicono le regole del compito**: niente controlla
-  che resti nella cartella del compito e in `prodotto/`.
+  che resti nella cartella del compito e in `prodotto/`. Dal D410 si
+  controllano i file di NOVA, e solo quelli.
+
+**I file che solo NOVA scrive, il tempo, le domande — fatto** (D410).
+Deciso con Gio il 13 ottobre, sulla bozza, dopo il compito 1.18 di S0ex1:
+il Dot dell'amministrazione, su Antigravity, ha riscritto `config.json` per
+«far applicare da Nova le misure prudenti», ha tolto Claude dalla scala, e
+senza un giudice il progetto si e' fermato. Gio: si usa la configurazione
+dell'utente, salvo una sua richiesta esplicita.
+
+| | Deciso |
+|---|---|
+| **Cosa si sorveglia** | `config.json`, `progetti.json` e il `dot.json` di ogni Dot: chi e' NOVA, dove stanno i progetti, chi e' ogni Dot. Il resto della cartella (diari, code, conversazioni) lo scrive NOVA di continuo. |
+| **Come** | Chi scrive per conto di NOVA lascia prima una copia buona in `copie-buone/`. Il demone confronta i file con le copie ogni 10 secondi mentre un Dot lavora, e quando un compito finisce; una differenza la riguarda dopo 300 ms, perche' puo' essere una scrittura di NOVA a meta'. |
+| **Chi l'ha fatto** | Un Dot solo al lavoro: il suo compito risulta non andato. Piu' Dot: non si sa chi, e non si accusa nessuno. In tutti e due i casi il file torna com'era, la versione estranea va da parte, e il custode lo dice a Nova. |
+| **Il tempo** | Un compito dei Dot ha almeno mezz'ora (`dots.secondi_per_compito`), la chat resta col tempo della CLI. Un compito oltre il tempo si riprova una volta, con la nota di riprendere dal disco. |
+| **Le domande** | Dopo un cambio a lavoro iniziato le «Domande per te» del piano nuovo arrivano in chat, come con la proposta. |
+
+- **Quello che cambia l'utente resta suo.** Con nessun Dot al lavoro il
+  demone adotta i file come sono: all'accensione e quando un compito
+  comincia da solo. Un cambio a mano mentre un Dot lavora invece torna
+  indietro, e se lavorava un Dot solo la colpa e' sua: dal pannello, che
+  scrive la copia, non succede.
+- **Le regole.** Il prompt di ogni Dot e ogni compito di un progetto lo
+  dicono: la cartella di NOVA, la sua configurazione e le impostazioni dei
+  programmi dell'utente non si toccano; un cambio utile si scrive nella
+  consegna come proposta. All'Architetto: nessun compito cambia NOVA, si
+  scrive in «Domande per te». Il prompt nuovo lo vede un Dot che comincia
+  una conversazione; quelli che l'hanno gia' lo leggono nei compiti dei
+  progetti.
+
+### Cosa resta aperto, dopo i file di NOVA
+
+- **Non e' una serratura.** Un programma che conosce `copie-buone/` puo'
+  riscrivere anche la copia. E' la rete sotto chi sbaglia in buona fede,
+  come il Dot di 1.18.
+- **Fra un controllo e l'altro** passano fino a 10 secondi: un Dot che
+  cambia la configurazione e la usa subito, nel frattempo, la usa cambiata.
+- **Il resto del PC** non si sorveglia: le impostazioni di Gemini o di
+  Antigravity, `core.json` del demone, i file dell'utente. Lo chiede la
+  regola nel testo, non un controllo.
+- **Un recinto vero per le CLI** (che scrivano solo nella cartella del
+  progetto) non c'e': Antigravity gira coi permessi saltati, e Claude Code
+  chiede al custode solo quello che chiederebbe all'utente (D384).

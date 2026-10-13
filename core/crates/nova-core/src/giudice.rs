@@ -130,7 +130,7 @@ pub async fn claude_senza_mani(
         .await
         .map_err(|g| match g {
             crate::processo::Guaio::Troppo => {
-                format!("Claude Code non ha risposto entro {}s", c.d.secondi)
+                nova_cervelli::cli::non_ha_risposto("Claude Code", c.d.secondi)
             }
             crate::processo::Guaio::Muto(e) => format!("Claude Code non e' partito: {e}"),
         })?;

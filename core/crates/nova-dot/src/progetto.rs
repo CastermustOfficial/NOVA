@@ -752,6 +752,14 @@ pub fn dopo_il_cambio(p: &Progetto, nuovo: &Piano, file: &str, serve: f64) -> St
             t.push_str(&format!("\n- {c}"));
         }
     }
+    // Le domande del piano nuovo (D410): prima si perdevano, e quelle di un
+    // piano cambiato in corsa non le leggeva nessuno.
+    if !nuovo.domande.is_empty() {
+        t.push_str("\nLe domande dell'Architetto:");
+        for d in &nuovo.domande {
+            t.push_str(&format!("\n- {d}"));
+        }
+    }
     if serve_un_tetto_nuovo(p, serve) {
         t.push_str(&format!(
             "\nPer finire servono circa {serve:.2} $, e col gia' speso ({:.2} $) si passa il tetto di {:.2} $: mi fermo, e aspetto il via con un tetto nuovo.",
@@ -1330,6 +1338,17 @@ mod prove {
         assert!(m.starts_with("Il piano di «p» e' cambiato, versione 2. E' in /x/piano-2.md.\nCosa cambia:\n- 1.2 piu' severa"), "{m}");
         assert!(m.ends_with("si passa il tetto di 2.00 $: mi fermo, e aspetto il via con un tetto nuovo."), "{m}");
         assert!(dopo_il_cambio(&p, &nuovo, "f", 0.3).ends_with("\nRiparto."));
+        assert!(!m.contains("domande"), "senza domande non se ne parla: {m}");
+        // D410: le domande del piano nuovo arrivano in chat anche dopo un
+        // cambio, non solo con la proposta.
+        let con_domande = piano::leggi(&format!("{nuovo_testo}## Domande per te\n- chi paga il piano business?\n"), 2)
+            .unwrap()
+            .0;
+        let m = dopo_il_cambio(&p, &con_domande, "f", 0.3);
+        assert!(
+            m.contains("\n- 1.2 piu' severa\nLe domande dell'Architetto:\n- chi paga il piano business?\nRiparto."),
+            "{m}"
+        );
         assert!(serve_un_tetto_nuovo(&p, 0.51) && !serve_un_tetto_nuovo(&p, 0.5), "1.5 gia' spesi, tetto 2");
         let senza = Progetto { tetto: 0.0, ..p.clone() };
         assert!(!serve_un_tetto_nuovo(&senza, 100.0), "senza tetto non si chiede");

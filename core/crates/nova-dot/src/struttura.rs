@@ -266,10 +266,11 @@ pub fn regole(radice: &Path, cartella: &Path, esperimento: bool) -> String {
     let mut t = format!(
         "\n\nDove lavori: «{}». Li' c'e' `compito.md`; quello che ti serve a rifare il lavoro (fonti, \
          dati grezzi, script) va in `{MATERIALE}/`. Quello che costruisci per il progetto va in «{}». \
-         L'indice di tutto e' «{}».",
+         L'indice di tutto e' «{}». {}",
         dentro.display(),
         radice.join(PRODOTTO).display(),
         radice.join(INDICE).display(),
+        crate::NOVA_NON_SI_TOCCA,
     );
     if esperimento {
         t.push_str(
@@ -517,7 +518,11 @@ pub fn registra(nova: &Path, nome: &str, radice: &Path) -> Result<(), String> {
     tutti.insert(nome.to_string(), radice.display().to_string());
     std::fs::create_dir_all(nova).map_err(|e| format!("{}: {e}", nova.display()))?;
     let t = serde_json::to_string_pretty(&tutti).map_err(|e| e.to_string())?;
-    crate::scrivi_intero(&nova.join(INDICE_PROGETTI), &t)
+    // L'indice lo scrive solo NOVA (D410): prima la copia buona.
+    let f = nova.join(INDICE_PROGETTI);
+    nova_configurazione::intoccabili::scrivi_da_nova(nova, &f, t.as_bytes(), || {
+        crate::scrivi_intero(&f, &t)
+    })
 }
 
 /// Chi scrive l'indice dei progetti, uno alla volta.
@@ -598,6 +603,8 @@ mod prove {
     fn le_regole_dicono_dove_e_come() {
         let r = regole(Path::new("/p"), &PathBuf::from("reparti/dati/1.1-x"), true);
         assert!(r.contains("esperimento.md") && r.contains("«## Indice»") && r.contains("(non verificato)"));
+        // D410: ogni compito di un progetto lo ripete, anche ai Dot nati prima.
+        assert!(r.contains(crate::NOVA_NON_SI_TOCCA), "{r}");
         assert!(!regole(Path::new("/p"), &PathBuf::from("reparti/scrittura/1.1-x"), false).contains("esperimento.md"));
     }
 
@@ -649,6 +656,11 @@ mod prove {
         let p = progetti(&d);
         assert_eq!(p.get("s0ex1").map(String::as_str), Some("/docs/Dots_Project/s0ex1"));
         assert_eq!(p.len(), 2);
+        // D410: l'indice ha la sua copia buona, e il controllo non lo tocca.
+        use nova_configurazione::intoccabili as i;
+        let copia = i::copia_di(&d, &d.join(INDICE_PROGETTI)).unwrap();
+        assert_eq!(std::fs::read(copia).unwrap(), std::fs::read(d.join(INDICE_PROGETTI)).unwrap());
+        assert!(i::controlla(&d, "t").is_empty());
         let _ = std::fs::remove_dir_all(&d);
     }
 }

@@ -336,7 +336,8 @@ pub async fn lavora(
             .map(|(x, _)| x.cartella)
             .unwrap_or_default();
     }
-    let cfg = nova_configurazione::dove::leggi();
+    // Un compito dei Dot: almeno mezz'ora per CLI e Claude Code (D410).
+    let cfg = crate::dot::con_piu_tempo(&nova_configurazione::dove::leggi());
     // Il cervello di AR (D397): il piu' grande che risponde a un indirizzo.
     // Il turno di chi legge e basta non usa gli altri. Se non ce n'e' uno,
     // Claude Code che legge e basta (D405); le altre CLI mai.

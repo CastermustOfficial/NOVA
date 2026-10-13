@@ -421,6 +421,12 @@ SENZA_GEMELLO: dict[str, str] = {
     "CON_ESPERIMENTO": "i reparti dei Dot che compilano l'esperimento; in Python i "
                        "Dot non ci sono",
     "SEZIONI": "le sezioni fisse della consegna di un Dot; in Python i Dot non ci sono",
+    # I file che solo NOVA scrive e che il demone sorveglia mentre lavorano i
+    # Dot (D410). Il Python ne scrive uno, `config.json`, e la sua copia
+    # buona la prova `test_configurazione_non_perde_niente.py`; il resto lo
+    # provano `nova_configurazione::intoccabili` e `test_demone_intoccabili.py`.
+    "FILE_DI_NOVA": "i file che il demone sorveglia mentre lavorano i Dot; in Python "
+                    "i Dot non ci sono",
     # I dispositivi che restano scrivibili dentro il recinto del kernel. In
     # Python non c'e' niente da confrontare: il recinto e' una cosa che fa il
     # sistema operativo, e dalla parte Python non esiste affatto. Non sono

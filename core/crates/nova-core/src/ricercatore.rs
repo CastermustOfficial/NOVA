@@ -302,7 +302,8 @@ pub async fn lavora(
     compito: &d::Compito,
     usato: &mut String,
 ) -> (d::Stato, String) {
-    let cfg = nova_configurazione::dove::leggi();
+    // Un compito dei Dot: almeno mezz'ora per CLI e Claude Code (D410).
+    let cfg = crate::dot::con_piu_tempo(&nova_configurazione::dove::leggi());
     let gradini = crate::agente::scala_di(&cfg);
     let scala: Vec<String> = gradini.iter().map(|g| g.nome().to_string()).collect();
     let ciechi: Vec<String> = gradini

@@ -64,6 +64,7 @@ pub mod progetti;
 pub mod policy;
 pub mod memoria;
 pub mod imparare;
+pub mod intoccabili;
 pub mod semina;
 pub mod recinto_comando;
 pub mod recinto_controllo;
