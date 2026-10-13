@@ -51,7 +51,8 @@ pub const COPIE: &str = "copie-buone";
 pub const ESTRANEI: &str = "estranei";
 
 /// I file sorvegliati che stanno direttamente nella cartella di NOVA.
-pub const FILE_DI_NOVA: [&str; 2] = ["config.json", "progetti.json"];
+/// Dal D417 anche le decisioni di Gio sui pezzi coperti dal guardiano.
+pub const FILE_DI_NOVA: [&str; 3] = ["config.json", "progetti.json", "non-segreti.json"];
 
 /// I registri sorvegliati: NOVA ci scrive solo in coda, una riga alla volta.
 pub const REGISTRI_DI_NOVA: [&str; 1] = ["decisioni.jsonl"];

@@ -80,16 +80,30 @@ pub async fn giudica(
     let domanda = p::domanda(giudice, dot, &compito.testo, &consegna);
     let in_casa = grande.in_casa();
     let solo_locale = crate::dalla_configurazione::scala(&cfg).solo_locale;
-    if let Err(e) = crate::custode::si_puo_chiedere_per(
+    // Il pezzo che sembra un segreto si copre, e il resto si giudica (D417).
+    let domanda = match crate::custode::da_chiedere(
         Decisione::GiudizioDelCapo,
         giudice,
         in_casa,
         &domanda,
         solo_locale,
     ) {
-        non_giudicato(e);
-        return None;
-    }
+        Ok(d) => {
+            if !d.coperti.is_empty() {
+                crate::custode::annota_coperti(
+                    giudice,
+                    &format!("il giudizio del compito {} di {}", compito.id, dot.nome),
+                    &d.coperti,
+                );
+                diario(c, compito.id, json!({ "tipo": "coperti", "quanti": d.coperti.len() }));
+            }
+            d.domanda
+        }
+        Err(e) => {
+            non_giudicato(e);
+            return None;
+        }
+    };
     let detto = match grande.chiedi(&domanda, p::GETTONI).await {
         Ok(d) => d,
         Err(e) => {

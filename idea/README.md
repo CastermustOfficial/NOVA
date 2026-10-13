@@ -584,6 +584,15 @@ compito lungo non la vede. **Cosa costerebbe.** Uno strumento di sola
 lettura nel collegamento MCP dei Dot, e la regola su quando guardarla, per
 non farla leggere a ogni passo.
 
+## I non segreti per tutto il guardiano
+
+Nata col D417. **Cosa.** Far valere l'elenco dei non segreti anche per la
+memoria, il registro delle decisioni e il gemello Python. **Perche'.** Un
+pezzo che Gio ha detto non segreto oggi resta in chiaro solo nelle domande ai
+giudici; altrove il guardiano lo rifiuta ancora. **Cosa costerebbe.** Passare
+l'elenco a ogni chiamata del guardiano, nelle due meta' di NOVA, con le prove
+gemelle.
+
 ## Sapere quale Dot ha toccato un file
 
 Nata col D410. **Cosa.** Con piu' Dot al lavoro, dire quale ha cambiato un

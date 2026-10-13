@@ -169,7 +169,7 @@ Cosa serve: un banco Rust costruito con `cargo`: la prova stampa la riga per cos
 | `test_semina_rust.py` | La prima mappatura del PC scrive in Rust gli stessi nodi del Python. |
 | `test_strumenti_rust.py` | Gli strumenti dichiarati allo stesso modo, in Rust. |
 
-## `prove/demone/`: 49 prove
+## `prove/demone/`: 50 prove
 
 Cosa serve: il binario `novad` costruito.
 
@@ -190,6 +190,7 @@ Cosa serve: il binario `novad` costruito.
 | `test_demone_clm_dot.py` | CLM nelle scelte dei Dot (D404), con vettori e teste finti: il custode decide con CLM nei due versi sopra la soglia, e sotto decide il cervello grande; AR riprende un Dot col cervello scelto da CLM senza chiedere al cervello grande, e quando CLM decide di assumere il Dot nuovo lo scrive il cervello grande, sapendolo; il registro dice chi ha deciso ogni parte, con le probabilita', il compito e la situazione; teste di prima del D404 non fanno queste scelte, e i vettori non si chiedono. |
 | `test_demone_compiti.py` | Un compito pianificato fa il suo turno senza Python (D345). |
 | `test_demone_consiglio.py` | `novad --consiglio`: la scala consigliata per quello che c'e' (il modello sul PC, Claude Code, Antigravity), con i nomi veri dal catalogo, e il file della configurazione che resta com'era, senza copie accanto (D379, D390). |
+| `test_demone_coperti.py` | Una consegna si giudica anche con un pezzo che sembra un segreto (D417), con un capo a 127.0.0.2, che per NOVA non e' in casa: il voto arriva, al capo arriva tutto tranne il pezzo, coperto, con la nota; il pezzo resta in `coperti.jsonl` e il diario dice quanti; una frase segreta fatta di parole non parte; un pezzo che Gio dice non segreto da li' arriva in chiaro, e la decisione ha la sua copia buona. |
 | `test_demone_custode.py` | Il custode dei permessi (D384), con due cervelli finti e un Claude Code finto: un Dot chiede a lui quando Nova chiederebbe all'utente; decide il modello di casa (si', no, «non so»), se no il cervello grande (CONSENTI, NEGA, una risposta illeggibile che e' un no); con l'autonomia piena non si chiede; Nova chiede ancora all'utente; il Claude di un Dot, attraverso il ponte vero col gettone del Dot, passa dal custode per gli strumenti di NOVA e per lo sportello, e un gettone falso non viene servito. |
 | `test_demone_documenti.py` | Leggere un documento, dal demone. |
 | `test_demone_dot.py` | I Dot nel demone (D382), con un cervello finto: un Dot nasce con nome e ruolo, riceve compiti senza far aspettare, li fa uno alla volta senza chiedere il permesso all'utente (un file scritto con «conferma sempre» nel pannello, deciso dal custode), tiene la conversazione su disco, si ferma senza fermare il resto, e dopo un riavvio riprende il compito a meta'. Il capo giudica la consegna, e il diario lo dice (D401). |

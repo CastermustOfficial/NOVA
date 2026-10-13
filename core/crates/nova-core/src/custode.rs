@@ -91,6 +91,71 @@ pub fn si_puo_chiedere_per(
     Ok(())
 }
 
+/// Una domanda a un giudice, pronta per uscire dal PC (D417): la domanda
+/// con coperto dal guardiano quello che sembra una credenziale, e i pezzi
+/// coperti. Un giudice sul PC la riceve com'e'.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DaChiedere {
+    pub domanda: String,
+    pub coperti: Vec<String>,
+}
+
+/// Come [`si_puo_chiedere_per`], per un giudizio su una consegna o un
+/// controllo di un progetto (D417): invece di non chiedere, si copre il
+/// pezzo che sembra un segreto e si chiede il resto. Le consegne si guardano
+/// tutte; quello che sembra un segreto non esce lo stesso. Non si chiede
+/// solo se resta qualcosa che non si sa coprire, o con «solo sul PC».
+pub fn da_chiedere(
+    decisione: Decisione,
+    chi: &str,
+    in_casa: bool,
+    domanda: &str,
+    solo_locale: bool,
+) -> Result<DaChiedere, String> {
+    if in_casa {
+        return Ok(DaChiedere { domanda: domanda.to_string(), coperti: Vec::new() });
+    }
+    let non_segreti = crate::non_segreti::non_segreti();
+    let Some((coperta, coperti)) = nova_guasti::guardiano::copri_con(domanda, &non_segreti) else {
+        let cosa = nova_guasti::guardiano::perche_non_si_salva(domanda).unwrap_or("una credenziale");
+        return Err(format!("nella domanda c'e' {cosa}, e una credenziale non esce dal PC"));
+    };
+    if Fuori::prepara(decisione, &coperta, solo_locale).is_none() {
+        return Err(format!("con «solo sul PC» acceso {chi} non chiede fuori"));
+    }
+    let domanda = if coperti.is_empty() && coperta == domanda {
+        coperta
+    } else {
+        format!("{coperta}{}", NOTA_COPERTI)
+    };
+    Ok(DaChiedere { domanda, coperti })
+}
+
+/// Dove si tengono i pezzi coperti (D417), nella cartella di NOVA: li rivede
+/// Gio, e non escono dal PC. Il file non va mai a un cervello di fuori.
+pub const COPERTI: &str = "coperti.jsonl";
+
+/// Scrive i pezzi coperti di una domanda, se ce ne sono: chi chiedeva e per
+/// cosa. Non fallisce: un registro che non si scrive non ferma un giudizio.
+pub fn annota_coperti(chi: &str, per: &str, coperti: &[String]) {
+    if coperti.is_empty() {
+        return;
+    }
+    let riga = json!({
+        "quando": crate::decisioni::adesso(), "chi": chi, "per": per, "pezzi": coperti,
+    });
+    let _ = crate::righe::aggiungi(
+        &crate::mondo::cartella_nova().join(COPERTI),
+        &riga.to_string(),
+        true,
+    );
+}
+
+/// Cosa si dice al giudice quando qualcosa e' coperto.
+pub const NOTA_COPERTI: &str = "\n\n(Alcuni pezzi li ha coperti il guardiano delle credenziali di \
+NOVA: si leggono «[nascosto dal guardiano]» o «[chiave]». Non giudicare quei pezzi: sul PC \
+ci sono, e sono come li ha scritti chi ha consegnato.)";
+
 /// Chiede al custode se il Dot `dot` puo' fare un'azione. `Ok` vuol dire
 /// «vai»; `Err` porta il testo che il Dot legge al posto del risultato.
 pub async fn decidi(
@@ -292,6 +357,32 @@ mod prove {
         let n = da_clm(&crate::clm::Scelta { id: "no".into(), probabilita: 0.95, soglia: 0.9, tutte: vec![0.05, 0.95] }, vec![]);
         assert_eq!((n.consentito, n.come.as_str()), (false, "clm (0.95, soglia 0.90)"));
         assert!(n.motivo.starts_with("secondo CLM non serve"), "{}", n.motivo);
+    }
+
+    #[test]
+    fn un_giudizio_si_chiede_col_segreto_coperto() {
+        // D417: «token RAG: 98,77%» lasciava una consegna senza voto.
+        let d = da_chiedere(
+            Decisione::GiudizioDelCapo,
+            "il capo",
+            false,
+            "Consegna: token RAG: 98,77% di input.",
+            false,
+        )
+        .unwrap();
+        assert!(!d.domanda.contains("98,77%") && d.domanda.contains("[nascosto dal guardiano]"));
+        assert!(d.domanda.ends_with(NOTA_COPERTI), "{}", d.domanda);
+        assert_eq!(d.coperti, ["98,77%"]);
+        // Sul PC parte com'e', e un testo pulito parte senza nota.
+        let casa = da_chiedere(Decisione::GiudizioDelCapo, "il capo", true, "token: 98,77%", false).unwrap();
+        assert_eq!(casa.domanda, "token: 98,77%");
+        let pulito = da_chiedere(Decisione::GiudizioDelCapo, "il capo", false, "tutto bene", false).unwrap();
+        assert_eq!(pulito, DaChiedere { domanda: "tutto bene".into(), coperti: vec![] });
+        // Quello che non si sa coprire non parte, e con «solo sul PC» niente.
+        assert!(da_chiedere(Decisione::GiudizioDelCapo, "c", false, "la seed phrase e' gatto albero fiume", false).is_err());
+        assert!(da_chiedere(Decisione::GiudizioDelCapo, "il capo", false, "tutto bene", true)
+            .unwrap_err()
+            .contains("solo sul PC"));
     }
 
     #[test]

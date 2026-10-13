@@ -44,7 +44,7 @@ use crate::capability::{Capability, Ctx};
 /// con il suo strumento e applica con il suo (`harness.*`), che passa dal
 /// suo cancello; un modello che potesse premere «accetta» si accetterebbe da
 /// solo le proposte che fa (D339, D344).
-pub const SOLO_PER_LA_PERSONA: [&str; 11] = [
+pub const SOLO_PER_LA_PERSONA: [&str; 13] = [
     "approvazione.rispondi",
     // Il pannello dei Dot: se sono accesi e perche' (D389).
     "dot.accesi",
@@ -58,6 +58,11 @@ pub const SOLO_PER_LA_PERSONA: [&str; 11] = [
     "finestra.proposte",
     "finestra.prova",
     "finestra.scarta",
+    // I pezzi coperti dal guardiano e la decisione su ognuno (D417): chi li
+    // guarda vede quello che poteva essere un segreto, e chi decide lo fa
+    // uscire dal PC.
+    "guardiano.coperti",
+    "guardiano.decidi",
     // Il giro del calendario: lo fa partire l'attivita' di sistema, non un
     // modello (D346).
     "pianificazione.dovute",

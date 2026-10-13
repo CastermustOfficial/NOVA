@@ -263,6 +263,12 @@ fn coppia_a_parole(minuscolo: &[char]) -> bool {
 /// caso: «Authorization: Bearer eyJhb...» legava «authorization» a «Bearer»,
 /// che e' innocuo, e il token restava fuori.
 fn chiave_poi_valore(testo: &str, minuscolo: &[char]) -> bool {
+    valore_dopo_la_chiave(testo, minuscolo).is_some()
+}
+
+/// Come [`chiave_poi_valore`], ma dice **quale** valore: serve a coprirlo
+/// ([`copri`]).
+fn valore_dopo_la_chiave(testo: &str, minuscolo: &[char]) -> Option<String> {
     let originale: Vec<char> = testo.chars().collect();
     for i in 0..minuscolo.len() {
         let Some(fine) = chiave_qui(minuscolo, i, CHIAVI_A_VOCE) else {
@@ -278,7 +284,7 @@ fn chiave_poi_valore(testo: &str, minuscolo: &[char]) -> bool {
                 continue;
             }
             if sembra_un_valore(valore, numerica) {
-                return true;
+                return Some(valore.to_string());
             }
             visti += 1;
             if visti >= QUANTI_TOKEN {
@@ -286,7 +292,90 @@ fn chiave_poi_valore(testo: &str, minuscolo: &[char]) -> bool {
             }
         }
     }
-    false
+    None
+}
+
+/// Cosa resta al posto di un pezzo coperto da [`copri`].
+pub const COPERTO: &str = "[nascosto dal guardiano]";
+
+/// Quanti pezzi [`copri`] copre al massimo, prima di arrendersi.
+const PEZZI_MASSIMI: usize = 200;
+
+/// Il testo con coperto quello che sembra una credenziale, e i pezzi
+/// coperti; `None` se resta qualcosa che non si sa coprire (D417).
+///
+/// Il guardiano non si allenta: una consegna di S0ex1 che scriveva «token
+/// RAG: 98,77%» non partiva per il giudice, e il 13 ottobre meta' delle
+/// consegne e' rimasta senza voto. Gio: «meglio un falso positivo», ma le
+/// consegne vanno viste tutte. Quindi si copre il pezzo e si manda il resto:
+/// il giudice vede tutto tranne quello, e quello non esce dal PC.
+///
+/// Prima le forme note (`chiavi::senza_chiavi`, la mano larga: prefissi,
+/// chiavi private, token, carte), poi uno alla volta i valori dopo una
+/// chiave. Una frase segreta fatta di parole («seed phrase» e poi parole)
+/// non si sa coprire con sicurezza: allora `None`, e il testo non parte.
+pub fn copri(testo: &str) -> Option<(String, Vec<String>)> {
+    copri_con(testo, &[])
+}
+
+/// Come [`copri`], lasciando in chiaro i pezzi che l'utente ha detto non
+/// segreti (D417): la prima volta il guardiano li copre, Gio li guarda, e da
+/// li' in poi il giudice li vede.
+///
+/// Un non segreto si mette da parte con un segnaposto fatto di sole lettere
+/// minuscole, che il guardiano non prende per un valore; dopo, torna al suo
+/// posto. Una chiave dalla forma nota resta coperta anche se e' nell'elenco.
+pub fn copri_con(testo: &str, non_segreti: &[String]) -> Option<(String, Vec<String>)> {
+    let mut messi: Vec<(String, &str)> = Vec::new();
+    let mut t = testo.to_string();
+    let senza_forma = |p: &&String| {
+        !p.trim().is_empty() && che_forma(p).is_none() && crate::chiavi::senza_chiavi(p) == **p
+    };
+    for (i, pezzo) in non_segreti.iter().filter(senza_forma).enumerate() {
+        if t.contains(pezzo.as_str()) {
+            let segnaposto = format!("nonsegreto{}", lettere(i));
+            t = t.replace(pezzo.as_str(), &segnaposto);
+            messi.push((segnaposto, pezzo.as_str()));
+        }
+    }
+    let (mut coperto, pezzi) = copri_tutto(&t)?;
+    for (segnaposto, pezzo) in messi.iter().rev() {
+        coperto = coperto.replace(segnaposto.as_str(), pezzo);
+    }
+    Some((coperto, pezzi))
+}
+
+/// Un numero scritto in lettere minuscole: 0 «a», 25 «z», 26 «ba».
+fn lettere(mut n: usize) -> String {
+    let mut t = Vec::new();
+    loop {
+        t.push((b'a' + (n % 26) as u8) as char);
+        n /= 26;
+        if n == 0 {
+            break;
+        }
+    }
+    t.iter().rev().collect()
+}
+
+fn copri_tutto(testo: &str) -> Option<(String, Vec<String>)> {
+    // Le forme note si coprono e basta: sono chiavi vere, non pezzi da far
+    // rivedere a nessuno. Fra i pezzi vanno i valori dopo una chiave.
+    let mut t = crate::chiavi::senza_chiavi(testo);
+    let mut pezzi = Vec::new();
+    for _ in 0..PEZZI_MASSIMI {
+        if perche_non_si_salva(&t).is_none() {
+            return Some((t, pezzi));
+        }
+        if che_forma(&t).is_some() {
+            return None;
+        }
+        let minuscolo: Vec<char> = t.to_lowercase().chars().collect();
+        let valore = valore_dopo_la_chiave(&t, &minuscolo)?;
+        t = t.replace(&valore, COPERTO);
+        pezzi.push(valore);
+    }
+    None
 }
 
 /// Il motivo per cui questo testo non va in memoria, o `None` se puo'
@@ -479,6 +568,63 @@ mod prove_etichette {
                 "«{t}» non annuncia nessun segreto"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod prove_copri {
+    use super::*;
+
+    #[test]
+    fn si_copre_il_pezzo_e_il_resto_si_legge() {
+        // D417: le consegne di S0ex1 rimaste senza voto il 13 ottobre.
+        let t = "- *Asimmetria token RAG*: 98,77% di input per prompt da 4.000 token.";
+        assert!(perche_non_si_salva(t).is_some(), "il guardiano non si e' allentato");
+        let (coperto, pezzi) = copri(t).unwrap();
+        assert!(perche_non_si_salva(&coperto).is_none(), "{coperto}");
+        assert!(coperto.contains(COPERTO) && coperto.contains("Asimmetria token RAG"), "{coperto}");
+        assert!(!coperto.contains("98,77%"), "{coperto}");
+        assert_eq!(pezzi, ["98,77%"]);
+    }
+
+    #[test]
+    fn un_segreto_vero_non_esce_mai() {
+        for (t, segreto) in [
+            ("la password del wifi e' Tramonto2026, non dirla", "Tramonto2026"),
+            ("Authorization: Bearer abcDEF123456ghiJKL789", "abcDEF123456ghiJKL789"),
+            ("il pin del bancomat e' 4821", "4821"),
+        ] {
+            // Che lo copra la mano larga delle chiavi o il valore dopo la
+            // chiave, il segreto non c'e' piu'.
+            let (coperto, _) = copri(t).unwrap();
+            assert!(!coperto.contains(segreto), "{t} -> {coperto}");
+            assert!(perche_non_si_salva(&coperto).is_none(), "{coperto}");
+        }
+        // Una chiave dalla forma nota si copre senza finire fra i pezzi.
+        let chiave = format!("la chiave e' {}", ["sk-ant-", "api03-", "AbCdEfGhIjKlMnOpQrSt0123456789"].concat());
+        let (coperto, _) = copri(&chiave).unwrap();
+        assert!(!coperto.contains("AbCdEfGhIjKlMnOpQrSt0123456789"), "{coperto}");
+        assert!(perche_non_si_salva(&coperto).is_none(), "{coperto}");
+        // Una frase segreta fatta di parole non si sa coprire: non parte.
+        assert!(copri("la seed phrase e' gatto albero fiume").is_none());
+        // Un testo pulito resta com'e'.
+        assert_eq!(copri("niente di segreto qui"), Some(("niente di segreto qui".into(), vec![])));
+    }
+
+    #[test]
+    fn un_non_segreto_detto_dall_utente_resta_in_chiaro() {
+        let t = "token RAG: 98,77% e 99,69% di input; la password e' Tramonto2026";
+        let lista = vec!["98,77%".to_string()];
+        let (coperto, pezzi) = copri_con(t, &lista).unwrap();
+        assert!(coperto.contains("98,77%"), "{coperto}");
+        assert!(!coperto.contains("99,69%") && !coperto.contains("Tramonto2026"), "{coperto}");
+        assert!(!pezzi.contains(&"98,77%".to_string()), "{pezzi:?}");
+        // Una chiave dalla forma nota resta coperta anche nell'elenco.
+        let chiave = ["sk-ant-", "api03-", "AbCdEfGhIjKlMnOpQrSt0123456789"].concat();
+        let (coperto, _) = copri_con(&format!("la chiave e' {chiave}"), &[chiave.clone()]).unwrap();
+        assert!(!coperto.contains("AbCdEfGhIjKlMnOpQrSt0123456789"), "{coperto}");
+        assert_eq!(lettere(0), "a");
+        assert_eq!(lettere(27), "bb");
     }
 }
 

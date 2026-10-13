@@ -11871,3 +11871,10 @@ Aveva ragione, ed era scritto nel codice: a ognuno si diceva il capo e i
 sottoposti, e nei reparti non ce ne sono. Un'azienda in cui ognuno conosce
 solo il direttore non e' un'azienda, e' una fila allo sportello (D416).
 
+E sul guardiano Gio ha deciso al contrario di come avevo proposto io: non si
+allenta, si copre. Avevo in mente la regola giusta per i numeri dopo
+«token»; lui ha visto che la regola giusta non esiste, perche' un PIN e' un
+numero anche lui, e che il punto era un altro: le consegne vanno guardate
+tutte, e quello che non si sa se e' un segreto lo decide una persona, una
+volta (D417).
+

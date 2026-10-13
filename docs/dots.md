@@ -1204,6 +1204,13 @@ trasparenza».
 
 Resta aperto: la chat si legge al compito dopo, non mentre si lavora.
 
+**Ogni consegna si giudica — fatto** (D417). Il guardiano delle credenziali
+non si allenta: a un giudice di fuori la consegna parte con coperto il pezzo
+che sembra un segreto, e il resto si giudica. I pezzi coperti restano sul PC
+(`coperti.jsonl`); Gio dice se sono segreti (`guardiano.coperti`,
+`guardiano.decidi`, solo sue), e un pezzo non segreto da li' il giudice lo
+vede. Resta da fare: rivederli dall'harness invece che a comando.
+
 **Il via dopo un piano non fatto — fatto** (D411). Rimesso Claude, il via a
 S0ex1 lo fermava di nuovo nello stesso secondo: l'APM aspettava ancora il
 compito dell'Architetto andato male la sera prima. Adesso il via di un

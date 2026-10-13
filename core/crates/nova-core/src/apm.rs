@@ -1290,17 +1290,24 @@ async fn chiedi_al_grande(
     };
     let in_casa = grande.in_casa();
     let solo_locale = crate::dalla_configurazione::scala(&cfg).solo_locale;
-    if let Err(e) = crate::custode::si_puo_chiedere_per(
+    // Il pezzo che sembra un segreto si copre, e il resto si guarda (D417).
+    let domanda = match crate::custode::da_chiedere(
         Decisione::ControlloDelProgetto,
         chi,
         in_casa,
         domanda,
         solo_locale,
     ) {
-        ferma_e_di(server, nome, &format!("{chi} non ha potuto guardare: {e}"));
-        return None;
-    }
-    let detto = match grande.chiedi(domanda, gettoni).await {
+        Ok(d) => {
+            crate::custode::annota_coperti(chi, &format!("il progetto «{nome}»"), &d.coperti);
+            d.domanda
+        }
+        Err(e) => {
+            ferma_e_di(server, nome, &format!("{chi} non ha potuto guardare: {e}"));
+            return None;
+        }
+    };
+    let detto = match grande.chiedi(&domanda, gettoni).await {
         Ok(d) => d,
         Err(e) => {
             ferma_e_di(server, nome, &format!("{chi} non ha risposto: {e}"));
