@@ -512,6 +512,32 @@ try:
     controlla("AR lo dice, e dice che le CLI non giudicano",
               "ne' un cervello che risponde a un indirizzo, ne' Claude Code" in e
               and "Le altre CLI hanno mani loro" in e, e)
+
+    print("\n7. un piano non fatto per un giudice che mancava: col via si richiede (D411)")
+    # E' S0ex1 il 13 ottobre: senza Claude nella scala l'Architetto non ha
+    # potuto fare il piano, e il progetto si e' fermato. Rimesso Claude, col
+    # via si fermava di nuovo per lo stesso motivo, senza richiederlo.
+    seconda = casa / "progetto-ripreso"
+    seconda.mkdir(exist_ok=True)
+    capacita("dot.progetto", nome="ripreso", richiesta="Voglio un indice dei file.", cartella=str(seconda))
+    s = aspetta("ripreso", {"aspetta_il_via", "fermo"})
+    perche = capacita("dot.progetti", nome="ripreso").get("perche_fermo", "")
+    controlla("senza giudice il piano non si fa, e si ferma", s == "fermo" and "non ha con chi leggere" in perche,
+              f"{s}: {perche[:200]}")
+    configura()
+    prima = len([x for x in giudici() if genere(x) == "architetto"])
+    capacita("dot.via", nome="ripreso")
+    s = aspetta("ripreso", {"aspetta_il_via", "fermo"})
+    controlla("rimesso Claude, col via il piano si richiede e si arriva al via",
+              s == "aspetta_il_via",
+              json.dumps(capacita("dot.progetti", nome="ripreso"), ensure_ascii=False)[:600])
+    controlla("e l'ha fatto l'Architetto con Claude, una volta",
+              len([x for x in giudici() if genere(x) == "architetto"]) - prima == 1)
+    eventi = [t for t in (json.loads(r)["tipo"] for r in (seconda / "progetto.jsonl").read_text(encoding="utf-8").splitlines() if r)
+              if t != "spesa"]
+    controlla("nella cronologia: chiesto, fermo, ripreso, chiesto di nuovo, pronto",
+              eventi[:6] == ["creato", "piano_chiesto", "fermo", "ripreso", "piano_chiesto", "piano_pronto"],
+              str(eventi))
 finally:
     processo.kill()
     esterno.shutdown()

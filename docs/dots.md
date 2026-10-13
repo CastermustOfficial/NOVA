@@ -1148,3 +1148,10 @@ dell'utente, salvo una sua richiesta esplicita.
 - **Un recinto vero per le CLI** (che scrivano solo nella cartella del
   progetto) non c'e': Antigravity gira coi permessi saltati, e Claude Code
   chiede al custode solo quello che chiederebbe all'utente (D384).
+
+**Il via dopo un piano non fatto — fatto** (D411). Rimesso Claude, il via a
+S0ex1 lo fermava di nuovo nello stesso secondo: l'APM aspettava ancora il
+compito dell'Architetto andato male la sera prima. Adesso il via di un
+progetto che aspettava un piano richiede all'Architetto la stessa domanda,
+una volta; se va male di nuovo, ci si ferma come prima. Un cambio arrivato
+intanto resta da chiedere.

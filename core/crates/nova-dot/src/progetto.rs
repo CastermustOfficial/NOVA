@@ -108,6 +108,11 @@ pub enum Evento {
         da_fase: Option<u32>,
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         cambio: bool,
+        /// La stessa domanda di prima, rifatta perche' l'utente ha fatto
+        /// ripartire il progetto (D411): un cambio arrivato nel frattempo
+        /// non c'e' dentro, e resta da chiedere.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        di_nuovo: bool,
     },
     /// Il piano e' pronto, in quella versione. Se era una revisione, i
     /// compiti da quella fase in poi si rifanno col piano nuovo, fuori che
@@ -223,6 +228,10 @@ pub struct Progetto {
     pub piano_chiesto: Option<(u64, Option<u32>)>,
     /// Il piano che si aspetta l'ha chiesto l'utente in corsa (D403).
     pub piano_per_cambio: bool,
+    /// L'utente ha fatto ripartire il progetto mentre si aspettava un piano
+    /// (D411): se il compito dell'Architetto e' andato male, si richiede,
+    /// invece di fermarsi di nuovo per lo stesso motivo.
+    pub piano_da_richiedere: bool,
     /// Il cambio chiesto dall'utente e non ancora passato all'Architetto.
     pub cambio: Option<String>,
     /// I ruoli del piano, e chi li fa.
@@ -257,6 +266,7 @@ impl Progetto {
             versione: 0,
             piano_chiesto: None,
             piano_per_cambio: false,
+            piano_da_richiedere: false,
             cambio: None,
             squadra: BTreeMap::new(),
             tetto: 0.0,
@@ -293,11 +303,13 @@ impl Progetto {
                     fase,
                     da_fase,
                     cambio,
+                    di_nuovo,
                     ..
                 } => {
                     p.piano_chiesto = Some((*compito, da_fase.or(*fase)));
                     p.piano_per_cambio = *cambio;
-                    if *cambio {
+                    p.piano_da_richiedere = false;
+                    if *cambio && !*di_nuovo {
                         p.cambio = None;
                     }
                 }
@@ -308,6 +320,7 @@ impl Progetto {
                     ..
                 } => {
                     p.piano_chiesto = None;
+                    p.piano_da_richiedere = false;
                     p.versione = *versione;
                     if let Some(n) = da_fase {
                         // La revisione rifa' la fase e quelle dopo: i loro
@@ -411,6 +424,9 @@ impl Progetto {
                 Evento::Ripreso { tetto, .. } => {
                     p.tetto = *tetto;
                     p.perche_fermo.clear();
+                    // Un piano chiesto e non arrivato (D411): se il compito
+                    // dell'Architetto e' andato male, l'APM lo richiede.
+                    p.piano_da_richiedere = p.piano_chiesto.is_some();
                     p.dove = if col_via {
                         DoveSta::InCorso
                     } else {
@@ -1018,6 +1034,7 @@ mod prove {
                 fase: None,
                 da_fase: None,
                 cambio: false,
+                di_nuovo: false,
             },
             Evento::PianoPronto {
                 quando: t(),
@@ -1208,6 +1225,7 @@ mod prove {
                 fase: Some(2),
                 da_fase: None,
                 cambio: false,
+                di_nuovo: false,
             },
             Evento::PianoPronto {
                 quando: t(),
@@ -1249,7 +1267,7 @@ mod prove {
         );
         e.extend([
             chiuso("1.2", Stato::Fatto),
-            Evento::PianoChiesto { quando: t(), compito: 8, fase: None, da_fase: Some(1), cambio: true },
+            Evento::PianoChiesto { quando: t(), compito: 8, fase: None, da_fase: Some(1), cambio: true, di_nuovo: false },
         ]);
         let p = Progetto::da("p", &e).unwrap();
         assert_eq!((p.cambio.as_deref(), p.piano_chiesto, p.piano_per_cambio), (None, Some((8, Some(1))), true));
@@ -1492,6 +1510,39 @@ mod prove {
             ),
             "{r}"
         );
+    }
+
+    #[test]
+    fn un_piano_non_arrivato_si_richiede_quando_il_progetto_riparte() {
+        // D411: S0ex1 si e' fermato perche' il piano di revisione non si e'
+        // fatto (mancava il giudice); rimesso il giudice, col via si
+        // fermava di nuovo per lo stesso motivo.
+        let q = String::from("2026-10-13T10:00:00");
+        let mut e = vec![
+            Evento::Creato { quando: q.clone(), numero: 1, richiesta: "x".into(), cartella: String::new() },
+            Evento::Via { quando: q.clone(), tetto: 0.0 },
+            Evento::PianoChiesto { quando: q.clone(), compito: 15, fase: Some(1), da_fase: None, cambio: false, di_nuovo: false },
+            Evento::Fermo { quando: q.clone(), perche: "il piano non si e' fatto".into() },
+        ];
+        assert!(!Progetto::da("p", &e).unwrap().piano_da_richiedere, "fermo: si aspetta il via");
+        e.push(Evento::Ripreso { quando: q.clone(), tetto: 0.0 });
+        let p = Progetto::da("p", &e).unwrap();
+        assert!(p.piano_da_richiedere && p.piano_chiesto == Some((15, Some(1))), "{p:?}");
+        e.push(Evento::PianoChiesto { quando: q.clone(), compito: 16, fase: Some(1), da_fase: None, cambio: false, di_nuovo: false });
+        let p = Progetto::da("p", &e).unwrap();
+        assert!(!p.piano_da_richiedere && p.piano_chiesto == Some((16, Some(1))), "richiesto: una volta sola");
+        // Rifatta per un cambio, la domanda di prima non porta via un cambio
+        // arrivato nel frattempo: quello e' ancora da chiedere.
+        let mut col_cambio = e.clone();
+        col_cambio.push(Evento::Cambio { quando: q.clone(), cosa: "Claude resta".into() });
+        col_cambio.push(Evento::PianoChiesto { quando: q.clone(), compito: 17, fase: None, da_fase: Some(1), cambio: true, di_nuovo: true });
+        assert_eq!(Progetto::da("p", &col_cambio).unwrap().cambio.as_deref(), Some("Claude resta"));
+        e.push(Evento::PianoPronto { quando: q.clone(), versione: 2, da_fase: Some(1), tenuti: vec![] });
+        assert!(!Progetto::da("p", &e).unwrap().piano_da_richiedere);
+        // Ripartito senza un piano in attesa: niente da richiedere.
+        e.push(Evento::Fermo { quando: q.clone(), perche: "fermato dall'utente".into() });
+        e.push(Evento::Ripreso { quando: q, tetto: 0.0 });
+        assert!(!Progetto::da("p", &e).unwrap().piano_da_richiedere);
     }
 
     #[test]

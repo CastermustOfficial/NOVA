@@ -527,6 +527,7 @@ async fn prepara(server: &Arc<Server>, p: &Progetto) -> bool {
                         fase: None,
                         da_fase: None,
                         cambio: p.cambio.is_some(),
+                        di_nuovo: false,
                     },
                 );
             }
@@ -618,6 +619,30 @@ fn piano_pronto(server: &Arc<Server>, p: &Progetto) -> bool {
             );
             if p.piano_per_cambio && p.dove == DoveSta::InCorso {
                 dopo_il_cambio(server, &p.nome, fase.unwrap_or(1), &tenuti);
+            }
+            true
+        }
+        // L'utente l'ha fatto ripartire mentre si aspettava questo piano
+        // (D411): la stessa domanda all'Architetto, una volta. Se va male
+        // di nuovo, ci si ferma come prima.
+        s if s.chiuso() && p.piano_da_richiedere => {
+            match crate::dot::affida_all_architetto(server, &compito.testo, d::azienda::NOME_APM) {
+                Ok(nuovo) => annota(
+                    &p.nome,
+                    Evento::PianoChiesto {
+                        quando: adesso(),
+                        compito: nuovo,
+                        fase: if p.piano_per_cambio { None } else { fase },
+                        da_fase: if p.piano_per_cambio { fase } else { None },
+                        cambio: p.piano_per_cambio,
+                        di_nuovo: true,
+                    },
+                ),
+                Err(e) => ferma_e_di(
+                    server,
+                    &p.nome,
+                    &format!("il piano non si e' potuto richiedere: {e}"),
+                ),
             }
             true
         }
@@ -953,6 +978,7 @@ async fn rivedi_la_fase(server: &Arc<Server>, p: &Progetto, n: u32, perche: &str
                     fase: Some(n),
                     da_fase: None,
                     cambio: false,
+                    di_nuovo: false,
                 },
             );
         }
@@ -987,6 +1013,7 @@ fn chiedi_il_cambio(server: &Arc<Server>, p: &Progetto, cosa: &str, da_fase: u32
                     fase: None,
                     da_fase: Some(da_fase),
                     cambio: true,
+                    di_nuovo: false,
                 },
             );
         }
