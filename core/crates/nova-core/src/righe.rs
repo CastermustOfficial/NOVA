@@ -22,11 +22,24 @@ static TURNO: Mutex<()> = Mutex::new(());
 /// Aggiunge una riga in coda a `f`, creando la cartella se serve. Con
 /// `pota`, prima la potatura di `nova_potatura` (due megabyte, un
 /// precedente).
+///
+/// Un registro che i Dot non possono toccare (`decisioni.jsonl`, D410) ha la
+/// sua copia buona: la riga va prima li', poi nel file
+/// ([`nova_configurazione::intoccabili::in_coda_da_nova`]).
 pub fn aggiungi(f: &Path, riga: &str, pota: bool) -> std::io::Result<()> {
     let _turno = TURNO.lock().unwrap_or_else(|e| e.into_inner());
-    if let Some(dir) = f.parent() {
-        std::fs::create_dir_all(dir)?;
-    }
+    let Some(dir) = f.parent() else {
+        return in_coda(f, riga, pota);
+    };
+    std::fs::create_dir_all(dir)?;
+    nova_configurazione::intoccabili::in_coda_da_nova(dir, f, |p| {
+        in_coda(p, riga, pota).map_err(|e| e.to_string())
+    })
+    .map_err(std::io::Error::other)
+}
+
+/// La riga intera, a capo compreso, in una scrittura sola.
+fn in_coda(f: &Path, riga: &str, pota: bool) -> std::io::Result<()> {
     if pota {
         nova_potatura::ruota_se_serve(f);
     }
@@ -40,6 +53,26 @@ pub fn aggiungi(f: &Path, riga: &str, pota: bool) -> std::io::Result<()> {
 #[cfg(test)]
 mod prove {
     use super::*;
+
+    #[test]
+    fn il_registro_delle_decisioni_ha_la_sua_copia_buona() {
+        // D410: senza la copia, il demone prenderebbe per estranea ogni riga
+        // scritta da NOVA mentre un Dot lavora.
+        let dir = std::env::temp_dir().join(format!("nova-righe-copia-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let f = dir.join("decisioni.jsonl");
+        aggiungi(&f, "{\"tipo\": \"turno\"}", true).unwrap();
+        aggiungi(&f, "{\"tipo\": \"voto\"}", true).unwrap();
+        let copia = dir.join(nova_configurazione::intoccabili::COPIE).join("decisioni.jsonl");
+        assert_eq!(std::fs::read(&copia).unwrap(), std::fs::read(&f).unwrap());
+        assert!(nova_configurazione::intoccabili::controlla(&dir, "t").is_empty());
+        aggiungi(&dir.join("azioni.jsonl"), "{}", true).unwrap();
+        assert!(
+            !dir.join(nova_configurazione::intoccabili::COPIE).join("azioni.jsonl").exists(),
+            "le azioni non sono un registro sorvegliato"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn otto_fili_insieme_non_mescolano_le_righe() {

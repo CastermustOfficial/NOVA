@@ -427,6 +427,11 @@ SENZA_GEMELLO: dict[str, str] = {
     # provano `nova_configurazione::intoccabili` e `test_demone_intoccabili.py`.
     "FILE_DI_NOVA": "i file che il demone sorveglia mentre lavorano i Dot; in Python "
                     "i Dot non ci sono",
+    # I registri sorvegliati allo stesso modo, riga per riga (D412). Li
+    # scrive solo il demone, in Rust; li provano `nova_configurazione::
+    # intoccabili`, `nova_core::righe` e `test_demone_intoccabili.py`.
+    "REGISTRI_DI_NOVA": "i registri che il demone sorveglia mentre lavorano i Dot; "
+                        "li scrive solo il demone",
     # I dispositivi che restano scrivibili dentro il recinto del kernel. In
     # Python non c'e' niente da confrontare: il recinto e' una cosa che fa il
     # sistema operativo, e dalla parte Python non esiste affatto. Non sono

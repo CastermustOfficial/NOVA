@@ -556,8 +556,10 @@ Dot, delle cartelle aperte.
 ## Piu' file sorvegliati
 
 Nata col D410. **Cosa.** Aggiungere ai file con la copia buona `core.json`
-del demone, le impostazioni di Gemini e di Antigravity (`.gemini/`), e i
-gruppi dei Dot. **Perche'.** Il compito 1.18 chiedeva anche di spegnere
+del demone, le impostazioni di Gemini e di Antigravity (`.gemini/`), i
+gruppi dei Dot, il registro delle azioni (`azioni.jsonl`, che scrive anche
+il Python) e il precedente potato del registro delle decisioni. Il registro
+delle decisioni e' fatto (D412). **Perche'.** Il compito 1.18 chiedeva anche di spegnere
 l'attivita' delle app Gemini; questa volta il Dot ha solo letto
 `.gemini/settings.json`. **Cosa costerebbe.** Per ogni file, trovare chi lo
 scrive per conto di NOVA e fargli scrivere la copia; per i file di altri

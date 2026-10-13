@@ -11849,3 +11849,11 @@ scrive per NOVA lascia una copia buona, e quello che un Dot cambia torna
 com'era. Nello stesso giro si e' visto il prezzo dei 600 secondi: quattro
 compiti scaduti col lavoro gia' fatto, e tre volte la fase da rifare.
 
+Nel pomeriggio un altro Dot ha riletto quel compito, solo leggendo, e ha trovato
+quello che io non avevo cercato: oltre alla configurazione, il Dot del 12
+aveva scritto una riga nel registro delle decisioni di NOVA, per dare le
+sue misure «in vigore». Io avevo rimesso il file che sapevo cambiato e mi
+ero fermato li'. L'ha trovato l'azienda che si controlla da sola, con un
+compito scritto apposta dall'Architetto: e' il caso in cui il metodo dei
+Dot ha fatto il lavoro di revisione che toccava a me (D412).
+

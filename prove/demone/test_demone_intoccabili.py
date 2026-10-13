@@ -20,7 +20,9 @@ Si guarda che:
    nota di riprendere dal disco, e ha piu' tempo della chat
    (`dots.secondi_per_compito`);
 5. un cambio fatto dall'utente mentre i Dot sono fermi resta suo;
-6. un Dot licenziato da NOVA non torna.
+6. un Dot licenziato da NOVA non torna;
+7. una riga scritta da un Dot nel registro delle decisioni se ne va, e
+   quelle di NOVA restano.
 
 Esce 2 — «qui non si puo' provare» — se il demone non e' costruito.
 """
@@ -96,6 +98,10 @@ FINTA.write_text(
     "    open(os.path.join(d, 'dot.json'), 'w', encoding='utf-8').write(\n"
     "        json.dumps({'nome': 'abusivo', 'ruolo': 'r', 'nato': 't'}))\n"
     "    print('Fatto: e\\' nato un collega.')\n"
+    "elif 'scrivi nelle decisioni' in ultimo:\n"
+    "    with open(r'" + str(cartella_nova / "decisioni.jsonl") + "', 'a', encoding='utf-8') as f:\n"
+    "        f.write(json.dumps({'tipo': 'misura_prudente', 'decisione': 'in vigore'}) + '\\n')\n"
+    "    print('Fatto: misure registrate.')\n"
     "elif 'compito lungo' in ultimo:\n"
     "    if 'La volta prima il tempo' in ultimo:\n"
     "        print('Ripreso dal disco e consegnato.')\n"
@@ -269,6 +275,33 @@ try:
     c = aspetta("secondo", id5, {"fatto", "fallito"})
     controlla("un altro compito si fa", c.get("stato") == "fatto", str(c))
     controlla("e il licenziato non e' tornato", not (cartella_nova / "dots" / "operaio").exists())
+
+    print("\n7. una riga di un Dot nel registro delle decisioni se ne va")
+    REGISTRO = cartella_nova / "decisioni.jsonl"
+
+    def righe_registro() -> list[str]:
+        return REGISTRO.read_text(encoding="utf-8").splitlines() if REGISTRO.is_file() else []
+
+    di_nova = righe_registro()
+    id6 = rpc("dot/affida", nome="secondo", testo="scrivi nelle decisioni le misure", da="utente")["id"]
+    c = aspetta("secondo", id6, {"fatto", "fallito"})
+    controlla("la CLI l'ha scritta davvero",
+              any("scrivi nelle decisioni" in x["ultimo"] for x in chiamate()))
+    controlla("il compito risulta non andato, e l'esito dice perche'",
+              c.get("stato") == "fallito"
+              and c.get("esito", "").startswith("Ha cambiato `decisioni.jsonl` di NOVA"), str(c))
+    dopo = righe_registro()
+    controlla("la riga del Dot non c'e' piu'", not any("misura_prudente" in r for r in dopo), str(dopo)[-300:])
+    controlla("quelle di NOVA di prima si'", bool(di_nova) and set(di_nova) <= set(dopo),
+              f"{len(di_nova)} -> {len(dopo)}")
+    controlla("e il registro e' uguale alla sua copia buona",
+              sorted(dopo) == sorted((COPIE / "decisioni.jsonl").read_text(encoding="utf-8").splitlines()))
+    da_parte = estranei("decisioni.jsonl")
+    controlla("la versione del Dot e' da parte",
+              len(da_parte) == 1 and "misura_prudente" in da_parte[0].read_text(encoding="utf-8"), str(da_parte))
+    controlla("e il custode l'ha detto a Nova",
+              f"Il Dot «secondo», col compito n. {id6}, ha cambiato `decisioni.jsonl` di NOVA"
+              in detto_dal_custode(), detto_dal_custode()[-300:])
 finally:
     if processo.poll() is None:
         processo.kill()

@@ -29,6 +29,15 @@
 //! con un altro programma, ed e' suo. Il demone adotta all'accensione e ogni
 //! volta che un compito comincia senza altri Dot al lavoro.
 //!
+//! **I registri si confrontano riga per riga** ([`REGISTRI_DI_NOVA`]). Il 12
+//! ottobre lo stesso Dot aveva scritto anche una riga in `decisioni.jsonl`,
+//! che dava per «in vigore» le sue misure: il ripristino della
+//! configurazione non l'aveva tolta, e l'ha trovata il 13 un altro Dot
+//! leggendo. Un registro NOVA lo scrive in coda ([`in_coda_da_nova`]): la
+//! riga va prima nella copia, poi nel file. Ci scrivono piu' processi, e due
+//! righe possono finire nella copia in un ordine e nel file nell'altro: per
+//! questo conta **quali** righe ci sono, non in che ordine.
+//!
 //! Non e' una serratura: un programma che sa di questa cartella puo'
 //! riscrivere anche la copia. E' la rete sotto chi sbaglia in buona fede,
 //! come quel Dot, che eseguiva un compito scritto male.
@@ -43,6 +52,9 @@ pub const ESTRANEI: &str = "estranei";
 
 /// I file sorvegliati che stanno direttamente nella cartella di NOVA.
 pub const FILE_DI_NOVA: [&str; 2] = ["config.json", "progetti.json"];
+
+/// I registri sorvegliati: NOVA ci scrive solo in coda, una riga alla volta.
+pub const REGISTRI_DI_NOVA: [&str; 1] = ["decisioni.jsonl"];
 
 /// La cartella dei Dot, e il file che dice chi e' ciascuno.
 pub const CARTELLA_DOT: &str = "dots";
@@ -125,6 +137,38 @@ pub fn scrivi_da_nova(
     scrivi()
 }
 
+/// NOVA scrive in coda a `f` con `scrivi`: se `f` e' un registro
+/// sorvegliato, prima nella copia buona e poi nel file, senza che il
+/// controllo passi in mezzo; se no, solo nel file.
+///
+/// `scrivi` riceve il percorso su cui scrivere, e fa la potatura se serve:
+/// copia e file hanno le stesse righe, quindi la stessa misura, e si potano
+/// insieme. Una copia che non c'e' ancora nasce dal file com'e', come nel
+/// controllo: se nascesse vuota, la prima riga di NOVA farebbe sembrare
+/// estraneo tutto il resto. Se la copia non si scrive, non si scrive nemmeno
+/// il file: una riga solo nel file sembrerebbe estranea.
+pub fn in_coda_da_nova(
+    nova: &Path,
+    f: &Path,
+    mut scrivi: impl FnMut(&Path) -> Result<(), String>,
+) -> Result<(), String> {
+    let registro = relativo(nova, f).is_some_and(|r| REGISTRI_DI_NOVA.contains(&r.as_str()));
+    let Some(c) = copia_di(nova, f).filter(|_| registro) else {
+        return scrivi(f);
+    };
+    let _turno = TURNO.lock().unwrap_or_else(|e| e.into_inner());
+    if !c.exists() {
+        if let Some(b) = leggi(f) {
+            scrivi_intero(&c, &b)?;
+        }
+    }
+    if let Some(dir) = c.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    }
+    scrivi(&c)?;
+    scrivi(f)
+}
+
 /// NOVA ha tolto `f` (un Dot licenziato): via anche la copia, se no il
 /// controllo lo rimetterebbe.
 pub fn tolto_da_nova(nova: &Path, f: &Path) -> Result<(), String> {
@@ -142,7 +186,11 @@ pub fn tolto_da_nova(nova: &Path, f: &Path) -> Result<(), String> {
 /// `dot.json` che c'e' senza copia e' un Dot nato fuori da NOVA; una copia
 /// senza file e' un Dot sparito: si guardano tutti e due.
 pub fn sorvegliati(nova: &Path) -> Vec<PathBuf> {
-    let mut tutti: Vec<PathBuf> = FILE_DI_NOVA.iter().map(|n| nova.join(n)).collect();
+    let mut tutti: Vec<PathBuf> = FILE_DI_NOVA
+        .iter()
+        .chain(REGISTRI_DI_NOVA.iter())
+        .map(|n| nova.join(n))
+        .collect();
     for base in [nova.join(CARTELLA_DOT), nova.join(COPIE).join(CARTELLA_DOT)] {
         let Ok(voci) = std::fs::read_dir(&base) else {
             continue;
@@ -162,6 +210,29 @@ fn leggi(p: &Path) -> Option<Vec<u8>> {
     std::fs::read(p).ok()
 }
 
+/// Il file `r` com'e' sul disco. Un registro che non c'e' e' un registro
+/// vuoto: non c'era ancora niente da scrivere, e a toglierlo non si perde
+/// niente. Cosi' un Dot che lo crea da zero non trova il posto libero.
+fn file_di(r: &str, f: &Path) -> Option<Vec<u8>> {
+    leggi(f).or_else(|| REGISTRI_DI_NOVA.contains(&r).then(Vec::new))
+}
+
+/// Se il file `r` e la sua copia dicono la stessa cosa: byte per byte, e per
+/// un registro le stesse righe in qualunque ordine.
+fn uguali(r: &str, a: &Option<Vec<u8>>, b: &Option<Vec<u8>>) -> bool {
+    match (a, b) {
+        (Some(a), Some(b)) if REGISTRI_DI_NOVA.contains(&r) => {
+            let righe = |t: &[u8]| {
+                let mut v: Vec<Vec<u8>> = t.split(|&c| c == b'\n').map(<[u8]>::to_vec).collect();
+                v.sort();
+                v
+            };
+            a.len() == b.len() && righe(a) == righe(b)
+        }
+        _ => a == b,
+    }
+}
+
 /// Rende le copie uguali ai file: quello che c'e' e' buono. Torna i file la
 /// cui copia e' cambiata.
 pub fn adotta(nova: &Path) -> Vec<String> {
@@ -171,8 +242,8 @@ pub fn adotta(nova: &Path) -> Vec<String> {
         let (Some(c), Some(r)) = (copia_di(nova, &f), relativo(nova, &f)) else {
             continue;
         };
-        let (attuale, copia) = (leggi(&f), leggi(&c));
-        if attuale == copia {
+        let (attuale, copia) = (file_di(&r, &f), leggi(&c));
+        if uguali(&r, &attuale, &copia) {
             continue;
         }
         let fatto = match &attuale {
@@ -202,7 +273,8 @@ fn per_nome(quando: &str) -> String {
 ///   torna al suo posto;
 /// - un `dot.json` che c'e' senza copia: va da parte, e il posto resta
 ///   vuoto;
-/// - `config.json` o `progetti.json` senza copia: si adotta, mai si toglie;
+/// - `config.json`, `progetti.json` o un registro senza copia: si adotta, mai
+///   si toglie;
 /// - una copia senza file: il file torna.
 pub fn controlla(nova: &Path, quando: &str) -> Vec<Toccato> {
     controlla_con(nova, quando, RIGUARDA)
@@ -215,7 +287,10 @@ pub fn controlla_con(nova: &Path, quando: &str, riguarda: std::time::Duration) -
     let diversi = |tutti: Vec<PathBuf>| -> Vec<PathBuf> {
         tutti
             .into_iter()
-            .filter(|f| copia_di(nova, f).is_some_and(|c| leggi(f) != leggi(&c)))
+            .filter(|f| match (copia_di(nova, f), relativo(nova, f)) {
+                (Some(c), Some(r)) => !uguali(&r, &file_di(&r, f), &leggi(&c)),
+                _ => false,
+            })
             .collect()
     };
     let mut sospetti = diversi(sorvegliati(nova));
@@ -230,15 +305,20 @@ pub fn controlla_con(nova: &Path, quando: &str, riguarda: std::time::Duration) -
         let (Some(c), Some(r)) = (copia_di(nova, &f), relativo(nova, &f)) else {
             continue;
         };
-        let (attuale, copia) = (leggi(&f), leggi(&c));
+        // `vero` e' il file che c'e', `attuale` quello che conta: per un
+        // registro che non c'e', vuoto.
+        let vero = leggi(&f);
+        let (attuale, copia) = (file_di(&r, &f), leggi(&c));
         // Ne' file ne' copia: un `progetti.json` che non c'e' ancora.
-        if attuale == copia {
+        if uguali(&r, &attuale, &copia) {
             continue;
         }
-        // La configurazione senza copia non si toglie mai: la copia manca
-        // perche' qualcuno ha svuotato `copie-buone/`, non perche' il file
-        // sia estraneo. Si adotta.
-        if copia.is_none() && FILE_DI_NOVA.contains(&r.as_str()) {
+        // La configurazione o un registro senza copia non si toglie mai: la
+        // copia manca perche' qualcuno ha svuotato `copie-buone/`, non perche'
+        // il file sia estraneo. Si adotta.
+        if copia.is_none()
+            && (FILE_DI_NOVA.contains(&r.as_str()) || REGISTRI_DI_NOVA.contains(&r.as_str()))
+        {
             if let Some(b) = &attuale {
                 if let Err(e) = scrivi_intero(&c, b) {
                     eprintln!("[intoccabili] la copia di {r} non si scrive: {e}");
@@ -252,7 +332,7 @@ pub fn controlla_con(nova: &Path, quando: &str, riguarda: std::time::Duration) -
             rimesso: false,
             errore: String::new(),
         };
-        if let Some(b) = &attuale {
+        if let Some(b) = &vero {
             let mut dove = nova.join(COPIE).join(ESTRANEI);
             for parte in r.split('/') {
                 dove.push(parte);
@@ -374,7 +454,8 @@ mod prove {
         scrivi_da_nova(&n, &cfg, "{\"a\": 1}");
         std::fs::write(&cfg, "{\"a\": 2}").unwrap();
         std::fs::write(n.join("progetti.json"), "{}").unwrap();
-        assert_eq!(adotta(&n), ["config.json", "progetti.json"]);
+        // Il registro che non c'e' ha la sua copia vuota.
+        assert_eq!(adotta(&n), ["config.json", "decisioni.jsonl", "progetti.json"]);
         assert!(controlla(&n, "t").is_empty(), "adottato, non e' piu' estraneo");
         assert_eq!(std::fs::read_to_string(&cfg).unwrap(), "{\"a\": 2}", "e resta com'e'");
         assert!(adotta(&n).is_empty(), "la seconda volta non c'e' niente da adottare");
@@ -420,6 +501,81 @@ mod prove {
         prima_di_scrivere(&n, &cfg, b"{\"a\": 3}").unwrap();
         assert_eq!(controlla_con(&n, "t", std::time::Duration::ZERO).len(), 1);
         let _ = std::fs::remove_dir_all(&n);
+    }
+
+    /// Come scrive `nova_core::righe`: la riga in coda, a capo compreso.
+    fn in_coda(n: &Path, f: &Path, riga: &str) {
+        in_coda_da_nova(n, f, |p| {
+            use std::io::Write;
+            std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(p)
+                .and_then(|mut h| h.write_all(format!("{riga}\n").as_bytes()))
+                .map_err(|e| e.to_string())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn un_registro_si_confronta_riga_per_riga() {
+        // Il 12 ottobre il Dot del compito 1.18 aveva scritto anche una riga
+        // in `decisioni.jsonl`, e nessuno l'aveva tolta.
+        let n = nova("registro");
+        let reg = n.join("decisioni.jsonl");
+        assert_eq!(adotta(&n), ["decisioni.jsonl"], "un registro che non c'e' ha la copia vuota");
+        assert!(controlla(&n, "t").is_empty(), "e non si crea per questo");
+        assert!(!reg.exists());
+        in_coda(&n, &reg, "{\"tipo\": \"turno\"}");
+        in_coda(&n, &reg, "{\"tipo\": \"voto\"}");
+        assert_eq!(std::fs::read(copia_di(&n, &reg).unwrap()).unwrap(), std::fs::read(&reg).unwrap());
+        assert!(controlla(&n, "t").is_empty());
+        // Due processi possono scrivere le stesse righe in un altro ordine.
+        std::fs::write(&reg, "{\"tipo\": \"voto\"}\n{\"tipo\": \"turno\"}\n").unwrap();
+        assert!(controlla_con(&n, "t", std::time::Duration::ZERO).is_empty(), "l'ordine non conta");
+        let mie = std::fs::read(copia_di(&n, &reg).unwrap()).unwrap();
+        let mut h = std::fs::OpenOptions::new().append(true).open(&reg).unwrap();
+        std::io::Write::write_all(&mut h, b"{\"tipo\": \"misura_prudente\"}\n").unwrap();
+        drop(h);
+        let t = controlla_con(&n, "2026-10-12T22:58:00", std::time::Duration::ZERO);
+        assert_eq!(t.len(), 1, "{t:?}");
+        assert!(t[0].file == "decisioni.jsonl" && t[0].rimesso, "{t:?}");
+        assert_eq!(
+            std::fs::read(&reg).unwrap(),
+            mie,
+            "la riga del Dot non c'e' piu', le altre si', nell'ordine della copia"
+        );
+        let estraneo = std::fs::read_to_string(t[0].estraneo.clone().unwrap()).unwrap();
+        assert!(estraneo.contains("misura_prudente"), "ma non si butta: {estraneo}");
+        let _ = std::fs::remove_dir_all(&n);
+    }
+
+    #[test]
+    fn un_registro_creato_da_un_dot_si_toglie_e_uno_vecchio_si_adotta() {
+        let n = nova("registro-nuovo");
+        let reg = n.join("decisioni.jsonl");
+        adotta(&n);
+        std::fs::write(&reg, "{\"tipo\": \"misura_prudente\"}\n").unwrap();
+        let t = controlla_con(&n, "t", std::time::Duration::ZERO);
+        assert!(t.len() == 1 && t[0].rimesso && t[0].estraneo.is_some(), "{t:?}");
+        assert_eq!(std::fs::read(&reg).unwrap(), b"", "il posto non era libero");
+        // Un registro scritto prima che ci fosse la copia: la prima riga di
+        // NOVA non fa sembrare estraneo il resto.
+        let m = nova("registro-vecchio");
+        let vecchio = m.join("decisioni.jsonl");
+        std::fs::write(&vecchio, "{\"tipo\": \"di prima\"}\n").unwrap();
+        in_coda(&m, &vecchio, "{\"tipo\": \"dopo\"}");
+        assert!(controlla_con(&m, "t", std::time::Duration::ZERO).is_empty());
+        assert_eq!(
+            std::fs::read_to_string(&vecchio).unwrap(),
+            "{\"tipo\": \"di prima\"}\n{\"tipo\": \"dopo\"}\n"
+        );
+        // Un file che non e' un registro si scrive e basta, senza copia.
+        let azioni = m.join("azioni.jsonl");
+        in_coda(&m, &azioni, "{}");
+        assert!(azioni.is_file() && copia_di(&m, &azioni).is_some_and(|c| !c.exists()));
+        let _ = std::fs::remove_dir_all(&n);
+        let _ = std::fs::remove_dir_all(&m);
     }
 
     fn estranei_vuoti(n: &Path) -> bool {

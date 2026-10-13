@@ -1116,7 +1116,7 @@ dell'utente, salvo una sua richiesta esplicita.
 
 | | Deciso |
 |---|---|
-| **Cosa si sorveglia** | `config.json`, `progetti.json` e il `dot.json` di ogni Dot: chi e' NOVA, dove stanno i progetti, chi e' ogni Dot. Il resto della cartella (diari, code, conversazioni) lo scrive NOVA di continuo. |
+| **Cosa si sorveglia** | `config.json`, `progetti.json` e il `dot.json` di ogni Dot: chi e' NOVA, dove stanno i progetti, chi e' ogni Dot. Dal D412 anche il registro delle decisioni, `decisioni.jsonl`. Il resto della cartella (diari, code, conversazioni) lo scrive NOVA di continuo. |
 | **Come** | Chi scrive per conto di NOVA lascia prima una copia buona in `copie-buone/`. Il demone confronta i file con le copie ogni 10 secondi mentre un Dot lavora, e quando un compito finisce; una differenza la riguarda dopo 300 ms, perche' puo' essere una scrittura di NOVA a meta'. |
 | **Chi l'ha fatto** | Un Dot solo al lavoro: il suo compito risulta non andato. Piu' Dot: non si sa chi, e non si accusa nessuno. In tutti e due i casi il file torna com'era, la versione estranea va da parte, e il custode lo dice a Nova. |
 | **Il tempo** | Un compito dei Dot ha almeno mezz'ora (`dots.secondi_per_compito`), la chat resta col tempo della CLI. Un compito oltre il tempo si riprova una volta, con la nota di riprendere dal disco. |
@@ -1148,6 +1148,21 @@ dell'utente, salvo una sua richiesta esplicita.
 - **Un recinto vero per le CLI** (che scrivano solo nella cartella del
   progetto) non c'e': Antigravity gira coi permessi saltati, e Claude Code
   chiede al custode solo quello che chiederebbe all'utente (D384).
+
+**Il registro delle decisioni — fatto** (D412). Il compito 1.19 di S0ex1
+ha trovato che il Dot di 1.18 aveva scritto anche una riga in
+`decisioni.jsonl`, che dava per «in vigore» le misure annullate da Gio: il
+ripristino della configurazione non l'aveva tolta. Adesso anche il registro
+ha la sua copia buona. NOVA ci scrive solo in coda, e ogni riga va prima
+nella copia, poi nel file. Il confronto guarda quali righe ci sono, non in
+che ordine, perche' ci scrivono piu' processi. Un registro che non c'e'
+conta come vuoto, e un Dot che lo crea non trova il posto libero.
+
+- **Il registro di prima no.** Il precedente della potatura
+  (`decisioni.1.jsonl`) non si sorveglia: una riga estranea che ci finisce
+  dentro, potando, resta.
+- **Il registro delle azioni no.** `azioni.jsonl` lo scrive anche il
+  Python, che la copia non la scrive.
 
 **Il via dopo un piano non fatto — fatto** (D411). Rimesso Claude, il via a
 S0ex1 lo fermava di nuovo nello stesso secondo: l'APM aspettava ancora il

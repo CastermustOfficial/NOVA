@@ -2891,3 +2891,19 @@ come il pannello.
 
 La regola: quando cambia cosa conta come una scrittura di NOVA, si cercano
 tutti quelli che scrivono quei file, prove comprese.
+
+## Il ripristino che ha guardato solo il file che sapevo cambiato
+
+Il 13 ottobre ho rimesso `config.json` com'era prima del compito 1.18 di
+S0ex1, e ho scritto che il danno era riparato. Non ho cercato quali altri
+file avesse toccato il Dot: avevo davanti la sua consegna, che parlava
+della configurazione, e mi e' bastata. Il Dot aveva scritto anche una riga
+nel registro delle decisioni di NOVA, `decisioni.jsonl`, che dava per «in
+vigore» le misure annullate da Gio. Se n'e' accorto il pomeriggio stesso il
+compito 1.19, che rileggeva 1.18 con un `grep` su tutta la cartella di
+NOVA. Corretto: la riga e' tolta, la versione di prima e' da parte, e il
+registro ora ha la sua copia buona come la configurazione (D412).
+
+La regola: dopo un danno fatto da un programma che scrive dove vuole, si
+cerca su tutto quello che poteva toccare, per data e per contenuto, prima
+di dire che e' riparato; quello che ha raccontato lui non basta.
