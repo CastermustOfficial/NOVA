@@ -99,6 +99,10 @@ pub async fn lancia_con(
     // fermata. (Su Windows cade il processo lanciato, non i suoi nipoti:
     // e' il limite scritto in architettura, «Nipoti orfani».)
     c.kill_on_drop(true);
+    // E i nipoti con lui (D415): su Linux e macOS il figlio e' capo di un
+    // gruppo suo, che alla fine cade tutto insieme.
+    #[cfg(unix)]
+    c.process_group(0);
     if let Some(dove) = da_dove(cartella) {
         c.current_dir(dove);
     }
@@ -121,6 +125,17 @@ pub async fn lancia_con(
         c.creation_flags(SENZA_FINESTRA);
     }
     let mut figlio = c.spawn().map_err(|e| Guaio::Muto(e.to_string()))?;
+    // Finche' questa funzione aspetta, l'albero vive; quando smette — finito,
+    // scaduto o fermato da chi la chiamava — cade tutto (D415). Senza, un
+    // «ferma» lasciava accesi i `claude.exe` partiti dal `claude.cmd`.
+    #[cfg(windows)]
+    let _albero = figlio.raw_handle().and_then(|h| {
+        nova_platform::albero::Albero::lega(h)
+            .map_err(|e| tracing::warn!(errore = %e, "l'albero del processo non si lega"))
+            .ok()
+    });
+    #[cfg(unix)]
+    let _albero = figlio.id().map(nova_platform::albero::Albero::lega);
     if let Some(testo) = su_stdin {
         if let Some(mut dentro) = figlio.stdin.take() {
             // Un tubo chiuso dall'altra parte non e' un guasto di NOVA: vuol

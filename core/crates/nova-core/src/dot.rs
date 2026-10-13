@@ -77,6 +77,9 @@ pub struct Dots {
     /// I compiti che hanno toccato i file di NOVA (D410): per Dot, il
     /// compito e il motivo, finche' il compito non si chiude.
     colpe: std::sync::Mutex<HashMap<String, (u64, String)>>,
+    /// I motori che hanno finito la quota (D414): fino a quando, in secondi
+    /// dall'epoca. Serve a dirlo a Nova una volta, non una per Dot.
+    quote: std::sync::Mutex<HashMap<String, i64>>,
 }
 
 /// Come si parla al ciclo di un Dot.
@@ -806,6 +809,41 @@ pub fn gruppo(nome: &str, membri: &[String], da: &str) -> Result<Value, String> 
     serde_json::to_value(&g).map_err(|e| e.to_string())
 }
 
+/// Mette un Dot nella chat del suo progetto (D416), e la fa nascere se non
+/// c'e': un gruppo col nome del progetto, fatto dall'APM. Torna il nome del
+/// gruppo, o `None` se il Dot non puo' starci o il gruppo non si scrive.
+///
+/// Il 13 ottobre Gio non ha visto nessun messaggio fra i Dot di S0ex1: a un
+/// Dot si diceva solo chi era il suo capo e chi i suoi sottoposti, e quelli
+/// dei reparti non ne hanno. Lavoravano da soli, e parlavano solo con l'APM.
+pub fn nel_gruppo_del_progetto(progetto: &str, dot: &str) -> Option<String> {
+    use nova_dot::gruppi;
+    let nome = gruppi::nome_valido_gruppo(progetto).ok()?;
+    let c = cartella(dot).ok().filter(d::Cartella::esiste)?;
+    if a_parte(&c).is_some() {
+        return None;
+    }
+    let prima = gruppi::leggi(&base(), &nome).ok();
+    let mut membri = prima.as_ref().map(|g| g.membri.clone()).unwrap_or_default();
+    if membri.iter().any(|m| m == dot) {
+        return Some(nome);
+    }
+    membri.push(dot.to_string());
+    let g = gruppi::Gruppo {
+        nome: nome.clone(),
+        membri,
+        nato: prima.as_ref().map_or_else(adesso, |g| g.nato.clone()),
+        da: prima.map_or_else(|| d::azienda::NOME_APM.to_string(), |g| g.da),
+    };
+    match gruppi::salva(&base(), &g) {
+        Ok(_) => Some(nome),
+        Err(e) => {
+            tracing::warn!(progetto, dot, errore = %e, "la chat del progetto non si scrive");
+            None
+        }
+    }
+}
+
 /// Un gruppo, con gli ultimi messaggi della chat.
 pub fn stato_gruppo(nome: &str) -> Result<Value, String> {
     use nova_dot::gruppi;
@@ -1128,6 +1166,40 @@ pub fn ferma(server: &Arc<Server>, nome: &str) -> Result<bool, String> {
     let ce_ne_era = m.in_corso.load(Ordering::SeqCst) != 0;
     m.ferma.notify_waiters();
     Ok(ce_ne_era)
+}
+
+/// Toglie dalla coda di un Dot un compito che non e' ancora cominciato
+/// (D415): lo si chiude «fermato», e chi l'ha affidato lo rifa' quando
+/// riparte. Uno gia' cominciato o chiuso non si tocca: `false`.
+pub fn ferma_in_coda(server: &Arc<Server>, nome: &str, id: u64, perche: &str) -> bool {
+    let Ok(c) = cartella(nome) else {
+        return false;
+    };
+    let Some(x) = c.compiti().into_iter().find(|x| x.id == id) else {
+        return false;
+    };
+    if x.stato != d::Stato::Affidato || compito_in_corso(server, nome) == Some(id) {
+        return false;
+    }
+    let fatto = c
+        .annota(&d::Evento {
+            id,
+            stato: d::Stato::Fermato,
+            quando: adesso(),
+            testo: String::new(),
+            da: String::new(),
+            esito: perche.to_string(),
+            padre: None,
+            cervello: String::new(),
+        })
+        .is_ok();
+    if fatto {
+        server.ctx.bus.emit(
+            "dot.compito",
+            json!({ "dot": nome, "id": id, "stato": d::Stato::Fermato, "esito": perche }),
+        );
+    }
+    fatto
 }
 
 /// Ogni quanto un Dot spento guarda se l'hanno riacceso.
@@ -1533,6 +1605,10 @@ async fn lavora_e_giudica(
     let mut usato = String::new();
     let (mut stato, mut esito) =
         lavora(server, c, nome, &per_lui, riprende, aggiunta, &mut usato).await;
+    (stato, esito) = finche_torna_la_quota(
+        server, c, nome, &per_lui, riprende, aggiunta, &mut usato, stato, esito,
+    )
+    .await;
     // La CLI e' andata oltre il suo tempo (D410): il lavoro fatto e' sul
     // disco, e il compito si riprova una volta, dicendogli di riprendere.
     if stato == d::Stato::Fallito && nova_cervelli::cli::e_tempo_scaduto(&esito) {
@@ -1547,6 +1623,10 @@ async fn lavora_e_giudica(
         ancora.testo.push_str(d::DOPO_IL_TEMPO);
         usato.clear();
         (stato, esito) = lavora(server, c, nome, &ancora, riprende, aggiunta, &mut usato).await;
+        (stato, esito) = finche_torna_la_quota(
+            server, c, nome, &ancora, riprende, aggiunta, &mut usato, stato, esito,
+        )
+        .await;
     }
     let Some(dot) = dot.filter(|x| x.mestiere.prende_compiti()) else {
         return (stato, esito);
@@ -1583,6 +1663,94 @@ async fn lavora_e_giudica(
         usato = if nuovo.is_empty() { su } else { nuovo };
     }
     (stato, esito)
+}
+
+/// Oltre quanto una quota finita non si aspetta (D414): un fornitore che
+/// dice «fra sei giorni» non e' un'attesa, e il compito va com'e' andato.
+pub const ATTESA_MASSIMA_S: i64 = 6 * 3600;
+
+/// Quanto si aspetta in piu' dell'ora detta dal fornitore: il suo orologio
+/// non e' il nostro.
+pub const MARGINE_QUOTA_S: i64 = 15;
+
+/// Quante volte un compito aspetta la quota prima di andare com'e' andato.
+pub const ATTESE_DELLA_QUOTA: usize = 3;
+
+/// Un compito che ha trovato la quota finita (D414) aspetta che torni e si
+/// rifa', invece di risultare fallito.
+///
+/// Il 13 ottobre la quota di Antigravity e' finita alle 18:28: i compiti dei
+/// Dot che lo usano sono falliti tutti nello stesso minuto, la fase e'
+/// risultata non fatta, e l'Architetto ha rifatto il piano su Claude per
+/// riaffidare compiti che sarebbero falliti di nuovo. Adesso il compito
+/// resta in corso: l'APM non vede niente di fallito e non chiede un piano,
+/// e a Nova lo si dice una volta per motore.
+#[allow(clippy::too_many_arguments)]
+async fn finche_torna_la_quota(
+    server: &Arc<Server>,
+    c: &d::Cartella,
+    nome: &str,
+    compito: &d::Compito,
+    riprende: bool,
+    aggiunta: &str,
+    usato: &mut String,
+    mut stato: d::Stato,
+    mut esito: String,
+) -> (d::Stato, String) {
+    let mut volte = 0;
+    while stato == d::Stato::Fallito && volte < ATTESE_DELLA_QUOTA {
+        let Some((chi, secondi)) =
+            nova_cervelli::cli::attesa_quota(&esito, crate::mondo::QUOTA_CLAUDE_S)
+        else {
+            break;
+        };
+        if secondi > ATTESA_MASSIMA_S {
+            break;
+        }
+        volte += 1;
+        let attesa = secondi.max(0) + MARGINE_QUOTA_S;
+        let fino = nova_platform::orologio::adesso() + attesa;
+        let ora = ora_di(fino);
+        let _ = c.diario(&json!({
+            "quando": adesso(), "compito": compito.id, "tipo": "aspetta_quota",
+            "motore": chi, "fino_a": ora, "secondi": attesa,
+        }));
+        server.ctx.bus.emit(
+            "dot.aspetta_quota",
+            json!({ "dot": nome, "id": compito.id, "motore": chi, "fino_a": ora }),
+        );
+        avvisa_della_quota(server, &chi, fino, &ora);
+        tokio::time::sleep(std::time::Duration::from_secs(attesa as u64)).await;
+        usato.clear();
+        (stato, esito) = lavora(server, c, nome, compito, riprende, aggiunta, usato).await;
+    }
+    (stato, esito)
+}
+
+/// L'ora, `HH:MM`, di un istante in secondi dall'epoca, nel fuso del PC.
+fn ora_di(istante: i64) -> String {
+    let iso = nova_calendario::da_istante(istante, nova_platform::fuso_secondi(istante)).iso();
+    iso.get(11..16).unwrap_or(&iso).to_string()
+}
+
+/// Lo dice a Nova, a nome del custode, la prima volta che quel motore finisce
+/// la quota fino a quell'ora: i Dot che lo trovano dopo non lo ripetono.
+fn avvisa_della_quota(server: &Arc<Server>, chi: &str, fino: i64, ora: &str) {
+    {
+        let mut q = server.dots.quote.lock().unwrap_or_else(|e| e.into_inner());
+        if q.get(chi).is_some_and(|&gia| gia > nova_platform::orologio::adesso()) {
+            return;
+        }
+        q.insert(chi.to_string(), fino);
+    }
+    if let Err(e) = scrivi(
+        server,
+        nova_dot::custode::NOME_CUSTODE,
+        d::DA_NOVA,
+        &d::quota_finita_a_nova(chi, ora),
+    ) {
+        tracing::warn!(errore = %e, "l'avviso della quota non arriva in chat");
+    }
 }
 
 /// Fa un compito: i turni nella conversazione del Dot, finche' il modello

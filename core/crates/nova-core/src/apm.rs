@@ -380,15 +380,27 @@ pub fn ferma(server: &Arc<Server>, nome: &str, perche: &str) -> Result<Value, St
             perche,
         },
     );
+    // Si ferma il compito in corso e si tolgono dalla coda quelli che
+    // aspettano (D415): prima un Dot fermato passava al compito dopo dello
+    // stesso progetto, e il 13 ottobre l'amministrazione ha aperto un altro
+    // Claude Code un minuto dopo lo stop.
     let mut fermati = Vec::new();
-    for l in p.lavori.values().filter(|l| l.stato.is_none()) {
-        if crate::dot::compito_in_corso(server, &l.dot) == Some(l.compito)
-            && crate::dot::ferma(server, &l.dot).is_ok()
-        {
-            fermati.push(l.dot.clone());
+    let mut tolti = Vec::new();
+    for (incarico, l) in p.lavori.iter().filter(|(_, l)| l.stato.is_none()) {
+        if crate::dot::compito_in_corso(server, &l.dot) == Some(l.compito) {
+            if crate::dot::ferma(server, &l.dot).is_ok() {
+                fermati.push(l.dot.clone());
+            }
+        } else if crate::dot::ferma_in_coda(
+            server,
+            &l.dot,
+            l.compito,
+            &format!("fermato col progetto «{}»", p.nome),
+        ) {
+            tolti.push(incarico.clone());
         }
     }
-    Ok(json!({ "progetto": p.nome, "fermo": true, "dot_fermati": fermati }))
+    Ok(json!({ "progetto": p.nome, "fermo": true, "dot_fermati": fermati, "tolti_dalla_coda": tolti }))
 }
 
 /// L'utente vuole cambiare qualcosa (`dot.cambia_progetto`, D403). L'APM
@@ -832,9 +844,12 @@ async fn lavora(server: &Arc<Server>, p: &Progetto) -> bool {
             if esperimento && !dentro.join("esperimento.md").exists() {
                 scrivi(&dentro.join("esperimento.md"), st::ESPERIMENTO_MD);
             }
+            // La squadra e la chat del progetto (D416).
+            let gruppo = crate::dot::nel_gruppo_del_progetto(&p.nome, &dot);
             let testo = format!(
-                "{}{}",
+                "{}{}{}",
                 pr::testo_del_compito(p, &pi, f, i),
+                pr::squadra_e_chat(p, &dot, gruppo.as_deref()),
                 st::regole(&radice, &rel, esperimento)
             );
             match crate::dot::affida_con(server, &dot, &testo, d::azienda::NOME_APM, None, "") {

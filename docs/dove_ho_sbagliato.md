@@ -2907,3 +2907,17 @@ registro ora ha la sua copia buona come la configurazione (D412).
 La regola: dopo un danno fatto da un programma che scrive dove vuole, si
 cerca su tutto quello che poteva toccare, per data e per contenuto, prima
 di dire che e' riparato; quello che ha raccontato lui non basta.
+
+## L'ora che si sarebbe sistemata da sola
+
+Il 13 ottobre ho scritto a Gio che le ore a +10 nel registro di S0ex1 si
+sarebbero sistemate al prossimo riavvio di NOVA, come se il demone avesse
+letto il fuso una volta sola all'accensione. Non l'avevo guardato nel
+codice: `registro::adesso` chiede il fuso a ogni riga. Me ne sono accorto
+poco dopo, quando il registro ha ripreso l'ora italiana senza nessun
+riavvio, e l'ho corretto con Gio. Da dove venissero quelle ore resta da
+capire: forse da un secondo demone acceso quando il fuso era sbagliato
+(D413), ma non e' verificato.
+
+La regola: come si comporta NOVA lo dice il codice; prima di dire «si
+sistema da solo» si guarda dove lo farebbe.

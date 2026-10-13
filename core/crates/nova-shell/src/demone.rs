@@ -76,7 +76,15 @@ async fn connetti(endpoint: &str) -> std::io::Result<tokio::net::UnixStream> {
 ///
 /// Se il demone e' gia' vivo non fa niente: due demoni sulla stessa pipe
 /// sarebbero un guaio peggiore di nessun demone.
+///
+/// **Uno alla volta** (D413). All'avvio la chiamano insieme l'avvio del
+/// guscio e la prima pagina che chiede qualcosa: tutte e due trovavano il
+/// demone spento e lo accendevano, e il 13 ottobre ne sono partiti due. Chi
+/// arriva secondo aspetta il primo, e poi lo trova acceso. Se succedesse lo
+/// stesso, il secondo demone se ne va da solo (`nova_core::server::prendi`).
 pub async fn assicura_avviato() -> Result<bool> {
+    static AVVIO: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+    let _turno = AVVIO.lock().await;
     let endpoint = nova_proto::endpoint_default();
     if connetti(&endpoint).await.is_ok() {
         return Ok(false);

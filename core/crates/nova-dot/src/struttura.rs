@@ -260,6 +260,15 @@ pub const ESPERIMENTO_MD: &str = "# Esperimento\n\n\
 ## Risultato\nCosa dicono le misure, senza interpretarle.\n\n\
 ## Conclusione\nL'ipotesi regge o no, e con che limiti. Un numero senza misura si scrive «(non verificato)».\n";
 
+/// La cartella in cui lavora un compito di un progetto, dal suo testo: quella
+/// che [`regole`] scrive dopo «Dove lavori:». `None` per un compito che non
+/// e' di un progetto.
+pub fn cartella_dal_testo(testo: &str) -> Option<PathBuf> {
+    let (_, dopo) = testo.split_once("Dove lavori: «")?;
+    let (dove, _) = dopo.split_once('»')?;
+    (!dove.trim().is_empty()).then(|| PathBuf::from(dove.trim()))
+}
+
 /// Le regole per il Dot che fa un compito: dove lavora e come consegna.
 pub fn regole(radice: &Path, cartella: &Path, esperimento: bool) -> String {
     let dentro = radice.join(cartella);
@@ -644,6 +653,21 @@ mod prove {
         assert!(a.contains("- 1.1 (dati, compito n. 7): cercare i dati — `reparti/dati/1.1-cercare-i-dati/consegna.md`"), "{a}");
         assert!(a.contains("## Gli esperimenti\n- `reparti/dati/1.1-cercare-i-dati/esperimento.md`"), "{a}");
         assert!(!a.contains("scrittura/1.2-scrivere-il-rapporto/esperimento.md"), "{a}");
+    }
+
+    #[test]
+    fn la_cartella_del_compito_si_ritrova_nel_testo() {
+        // D416: il ricercatore ci salva le fonti e il rapporto.
+        let testo = format!(
+            "Progetto «p», fase 1 «r». Compito 1.1 del piano:\ncerca{}",
+            regole(Path::new("/progetti/p"), Path::new("reparti/ricerca/1.1-cerca"), false)
+        );
+        assert_eq!(
+            cartella_dal_testo(&testo),
+            Some(Path::new("/progetti/p").join("reparti/ricerca/1.1-cerca"))
+        );
+        assert_eq!(cartella_dal_testo("un compito qualunque"), None);
+        assert_eq!(cartella_dal_testo("Dove lavori: «»."), None);
     }
 
     #[test]

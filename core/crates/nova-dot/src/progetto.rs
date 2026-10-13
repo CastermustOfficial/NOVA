@@ -654,6 +654,37 @@ pub fn testo_del_compito(
     t
 }
 
+/// La squadra del progetto e la sua chat, in coda al testo di un compito
+/// (D416): chi c'e', chi lavora adesso e a cosa, e dove ci si parla.
+pub fn squadra_e_chat(p: &Progetto, chi: &str, gruppo: Option<&str>) -> String {
+    let mut squadra: Vec<&str> = p.lavori.values().map(|l| l.dot.as_str()).collect();
+    squadra.push(chi);
+    squadra.sort_unstable();
+    squadra.dedup();
+    let adesso: Vec<String> = p
+        .lavori
+        .iter()
+        .filter(|(_, l)| l.stato.is_none() && l.dot != chi)
+        .map(|(incarico, l)| format!("{} ({incarico})", l.dot))
+        .collect();
+    let mut t = format!("\n\nLa squadra del progetto: {}.", squadra.join(", "));
+    t.push_str(&if adesso.is_empty() {
+        " Adesso non lavora nessun altro.".to_string()
+    } else {
+        format!(" Adesso lavorano: {}.", adesso.join(", "))
+    });
+    if let Some(g) = gruppo {
+        t.push_str(&format!(
+            " La chat del progetto e' il gruppo «{g}»: se ti serve qualcosa da un altro Dot, o \
+             hai trovato qualcosa che serve agli altri, scrivilo li' (dot.scrivi a «gruppo:{g}»). \
+             Gli altri lo leggono al loro prossimo compito, e lo legge Gio. Le consegne degli \
+             altri sono nella cartella del progetto, e l'indice le elenca: leggi quelle che ti \
+             servono."
+        ));
+    }
+    t
+}
+
 /// Il messaggio con cui l'APM chiede il via: il piano, la squadra, il
 /// tetto, il legale e le domande dell'Architetto.
 pub fn proposta(p: &Progetto, piano: &Piano, file_piano: &str, tetto: f64) -> String {
@@ -1061,6 +1092,30 @@ mod prove {
             dot: dot.into(),
             compito: n,
         }
+    }
+
+    #[test]
+    fn un_compito_dice_la_squadra_chi_lavora_e_dove_ci_si_parla() {
+        // D416: i Dot di S0ex1 non sapevano degli altri.
+        let mut p = Progetto::da("s0ex1", &base()).unwrap();
+        p.lavori.clear();
+        for (incarico, dot, stato) in [
+            ("1.1", "ricerca", None),
+            ("1.4", "dati", Some(Stato::Fatto)),
+            ("1.6", "dati", None),
+        ] {
+            p.lavori.insert(
+                incarico.into(),
+                Lavoro { dot: dot.into(), compito: 1, stato, esito: String::new() },
+            );
+        }
+        let t = squadra_e_chat(&p, "qualita", Some("s0ex1"));
+        assert!(t.contains("La squadra del progetto: dati, qualita, ricerca."), "{t}");
+        assert!(t.contains("Adesso lavorano: ricerca (1.1), dati (1.6)."), "{t}");
+        assert!(t.contains("dot.scrivi a «gruppo:s0ex1»") && t.contains("lo legge Gio"), "{t}");
+        p.lavori.clear();
+        let solo = squadra_e_chat(&p, "dati", None);
+        assert!(solo.contains("Adesso non lavora nessun altro.") && !solo.contains("gruppo"), "{solo}");
     }
 
     #[test]

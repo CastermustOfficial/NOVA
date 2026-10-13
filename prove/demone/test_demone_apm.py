@@ -14,7 +14,11 @@ Deciso con Gio il 10 ottobre, sulla bozza. Nova passa un progetto all'APM
 - prima del rilascio il legale guarda tutto, e Nova riceve il resoconto;
 - il legale con dei dubbi dopo una fase lo ferma, e col via riparte;
 - un progetto alla volta: un secondo aspetta in coda;
-- il tetto: contano i cervelli a consumo; al 90% si ferma.
+- il tetto: contano i cervelli a consumo; al 90% si ferma;
+- fermato il progetto, i suoi compiti ancora in coda escono dalla coda, e
+  col via si rifanno (D415);
+- ogni compito dice la squadra del progetto e la sua chat, un gruppo col
+  nome del progetto fatto dall'APM (D416).
 
 E Nova tramite (D403), deciso con Gio lo stesso giorno:
 
@@ -86,6 +90,8 @@ arrivate: list[tuple[str, str, str]] = []
 #: I compiti che il Dot finto tiene in mano finche' l'evento non si alza:
 #: (progetto, dot) -> evento.
 trattieni: dict[tuple[str, str], threading.Event] = {}
+#: I piani diversi da quello di serie, per progetto.
+piani: dict[str, str] = {}
 
 
 def piano(progetto, versione):
@@ -146,7 +152,7 @@ class Cervello(BaseHTTPRequestHandler):
             arrivate.append(("architetto", modello, domanda))
             m = re.search(r"Progetto «([^»]+)», versione (\d+)\.", domanda)
             if m:
-                testo(self, piano(m.group(1), int(m.group(2))))
+                testo(self, piani.get(m.group(1)) or piano(m.group(1), int(m.group(2))))
             else:
                 testo(self, "non so")
             return
@@ -658,6 +664,47 @@ try:
               str([q[:80] for q in leg]))
     controlla("un cambio a un progetto finito, no",
               "e' finito" in errore("dot.cambia_progetto", nome="quinto", cosa="ancora"))
+
+    print("\n10. fermato il progetto, il Dot non passa al compito dopo (D415)")
+    # Un progetto alla volta: prima finisce il settimo.
+    capacita("dot.via", nome="settimo", tetto=10)
+    controlla("il settimo finisce", aspetta("settimo", {"finito", "fermo"}) == "finito")
+    # Il 13 ottobre, fermato S0ex1, l'amministrazione ha aperto un altro
+    # Claude Code un minuto dopo: aveva in coda il compito seguente.
+    piani["ottavo"] = ("# Piano: ottavo\nObiettivo: due lavori\n"
+                       "## Fase 1: Lavoro\nConsegna: due cose\nFatta quando: fatte\n"
+                       "- 1.1 [dati] il primo lavoro\n- 1.2 [dati] il secondo lavoro\n"
+                       "## Domande per te\n- niente\n")
+    trattieni[("ottavo", "dati")] = threading.Event()
+    capacita("dot.progetto", nome="ottavo", richiesta="Due lavori allo stesso Dot.")
+    aspetta("ottavo", {"aspetta_il_via", "fermo"})
+    capacita("dot.via", nome="ottavo", tetto=10)
+    controlla("il primo e' in mano al Dot", aspetta_che(
+        lambda: any(g == "trattenuto" and p == "ottavo" for g, p, _ in arrivate)))
+    domanda_dati = next((q for g, p, q in arrivate if g == "trattenuto" and p == "ottavo"), "")
+    controlla("il compito dice la squadra e la chat del progetto (D416)",
+              "La squadra del progetto: dati." in domanda_dati
+              and "La chat del progetto e' il gruppo «ottavo»" in domanda_dati, domanda_dati[-600:])
+    gruppo = cartella_nova / "dots" / "gruppi" / "ottavo.json"
+    controlla("e la chat c'e', fatta dall'APM, col Dot dentro",
+              gruppo.is_file() and json.loads(gruppo.read_text(encoding="utf-8")).get("membri") == ["dati"]
+              and json.loads(gruppo.read_text(encoding="utf-8")).get("da") == "apm",
+              gruppo.read_text(encoding="utf-8") if gruppo.is_file() else "manca")
+    r = capacita("dot.ferma_progetto", nome="ottavo", perche="prova")
+    controlla("lo stop ferma il primo e toglie dalla coda il secondo",
+              r.get("dot_fermati") == ["dati"] and r.get("tolti_dalla_coda") == ["1.2"],
+              json.dumps(r, ensure_ascii=False))
+    trattieni.pop(("ottavo", "dati")).set()
+    secondo = [c for c in rpc("dot/stato", nome="dati")["compiti"] if "il secondo lavoro" in c["testo"]]
+    controlla("il secondo risulta fermato", [c["stato"] for c in secondo] == ["fermato"], str(secondo))
+    time.sleep(3)
+    controlla("e nessuno ci ha lavorato",
+              not any(g == "dot:dati" and "il secondo lavoro" in q for g, _, q in arrivate))
+    capacita("dot.via", nome="ottavo")
+    controlla("col via si rifanno tutti e due, e il progetto finisce",
+              aspetta("ottavo", {"finito", "fermo"}) == "finito"
+              and any(g == "dot:dati" and "il secondo lavoro" in q for g, _, q in arrivate),
+              str(tipi("ottavo")))
 finally:
     processo.kill()
     cervello.shutdown()

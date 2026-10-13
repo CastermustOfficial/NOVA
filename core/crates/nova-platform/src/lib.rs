@@ -103,6 +103,9 @@ pub use finestre::{schermi, schermo_di, schermo_di_lavoro, sposta, Posa, Schermo
 pub mod orologio;
 pub use orologio::fuso_secondi;
 
+// L'albero di un processo (D415): fermato il figlio, cadono anche i nipoti.
+pub mod albero;
+
 // Il recinto: cosa un processo figlio puo' toccare, deciso dal kernel invece
 // che da una nostra stringa. E' l'unica guardia che vale anche **dopo** che
 // il comando e' partito.

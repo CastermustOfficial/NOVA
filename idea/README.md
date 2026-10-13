@@ -566,6 +566,24 @@ scrive per conto di NOVA e fargli scrivere la copia; per i file di altri
 programmi la copia non si puo' scrivere, e servirebbe un controllo diverso:
 avvisare, non rimettere.
 
+## La quota finita fuori dai compiti dei Dot
+
+Nata col D414. **Cosa.** Aspettare la quota anche dentro un passo del
+ricercatore, e per l'Architetto, l'APM e i giudici, che oggi vanno com'e'
+andata. **Perche'.** Un piano che non si fa per la quota ferma il progetto
+come un piano sbagliato. **Cosa costerebbe.** Per ognuno, capire cosa vuol
+dire aspettare: un passo puo' aspettare dentro il compito, l'Architetto
+lascerebbe il progetto in attesa invece che fermo; e una prova per ognuno.
+
+## La chat del progetto mentre si lavora
+
+Nata col D416. **Cosa.** Uno strumento con cui un Dot legge la chat del
+progetto mentre lavora, non solo all'inizio del compito dopo. **Perche'.**
+Una domanda a un altro reparto oggi trova risposta al compito seguente, e un
+compito lungo non la vede. **Cosa costerebbe.** Uno strumento di sola
+lettura nel collegamento MCP dei Dot, e la regola su quando guardarla, per
+non farla leggere a ogni passo.
+
 ## Sapere quale Dot ha toccato un file
 
 Nata col D410. **Cosa.** Con piu' Dot al lavoro, dire quale ha cambiato un

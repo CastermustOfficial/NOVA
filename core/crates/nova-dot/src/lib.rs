@@ -596,6 +596,15 @@ pub fn nome_stato(s: Stato) -> &'static str {
     }
 }
 
+/// Cosa si dice a Nova quando un motore finisce la quota (D414).
+pub fn quota_finita_a_nova(chi: &str, ora: &str) -> String {
+    format!(
+        "{chi} ha finito la quota. I compiti dei Dot che lo usano aspettano fino alle {ora} \
+         circa, e poi riprendono da soli: nessuno risulta fallito per questo, e il piano non \
+         si rifa'."
+    )
+}
+
 /// La squadra di un Dot, in coda alla domanda di ogni compito (D388): a chi
 /// risponde e a chi puo' affidare. Vuota se non ha ne' capo ne' sottoposti.
 pub fn squadra(capo: &str, sottoposti: &[String]) -> String {

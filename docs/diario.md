@@ -11857,3 +11857,17 @@ ero fermato li'. L'ha trovato l'azienda che si controlla da sola, con un
 compito scritto apposta dall'Architetto: e' il caso in cui il metodo dei
 Dot ha fatto il lavoro di revisione che toccava a me (D412).
 
+In serata la quota di Antigravity e' finita, e si e' visto quanto NOVA era
+fragile ai bordi: un limite del fornitore diventava un compito fallito, il
+compito fallito una fase da rifare, la fase un piano nuovo, e il piano nuovo
+altri compiti destinati a fallire nello stesso minuto, su Claude, che ha la
+quota piu' preziosa. L'ho fermato io, e fermandolo ho visto il resto: lo
+stop lasciava accese le CLI, e riaprendo NOVA il guscio ha acceso due
+demoni. Tre difetti diversi con la stessa radice: NOVA trattava un'attesa
+come un errore e un errore come una fine (D413, D414, D415).
+
+Poi Gio ha detto la cosa piu' utile della giornata: i Dot non si parlano.
+Aveva ragione, ed era scritto nel codice: a ognuno si diceva il capo e i
+sottoposti, e nei reparti non ce ne sono. Un'azienda in cui ognuno conosce
+solo il direttore non e' un'azienda, e' una fila allo sportello (D416).
+

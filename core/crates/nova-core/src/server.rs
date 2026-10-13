@@ -539,14 +539,18 @@ impl Server {
 
     // ------------------------------------------------------------- ascolto
 
-    #[cfg(windows)]
+    /// Prende l'indirizzo e ascolta: [`prendi`], poi [`Server::ascolta`].
     pub async fn listen(self: Arc<Self>) -> Result<()> {
+        let presa = prendi(&self.config.endpoint)?;
+        self.ascolta(presa).await
+    }
+
+    #[cfg(windows)]
+    pub async fn ascolta(self: Arc<Self>, presa: Presa) -> Result<()> {
         use tokio::net::windows::named_pipe::ServerOptions;
 
-        let nome = self.config.endpoint.clone();
-        let mut server = ServerOptions::new()
-            .first_pipe_instance(true)
-            .create(&nome)?;
+        let nome = presa.endpoint;
+        let mut server = presa.pipe;
         tracing::info!(endpoint = %nome, "in ascolto");
 
         loop {
@@ -577,15 +581,9 @@ impl Server {
     }
 
     #[cfg(not(windows))]
-    pub async fn listen(self: Arc<Self>) -> Result<()> {
-        use tokio::net::UnixListener;
-
-        let percorso = self.config.endpoint.clone();
-        let _ = std::fs::remove_file(&percorso);
-        if let Some(dir) = std::path::Path::new(&percorso).parent() {
-            std::fs::create_dir_all(dir).ok();
-        }
-        let listener = UnixListener::bind(&percorso)?;
+    pub async fn ascolta(self: Arc<Self>, presa: Presa) -> Result<()> {
+        let percorso = presa.endpoint;
+        let listener = presa.socket;
         tracing::info!(endpoint = %percorso, "in ascolto");
 
         loop {
@@ -607,6 +605,74 @@ impl Server {
         let _ = std::fs::remove_file(&percorso);
         Ok(())
     }
+}
+
+/// L'indirizzo del demone, preso: finche' c'e', un secondo demone non lo
+/// prende (D413).
+///
+/// Il 13 ottobre il guscio ha acceso due demoni insieme, e il secondo e'
+/// rimasto vivo: prima di provare ad ascoltare aveva gia' acceso i Dot, che
+/// avrebbero fatto due volte gli stessi compiti. Per questo l'indirizzo si
+/// prende **per primo**, prima di costruire il demone e di accendere
+/// qualunque cosa: chi non lo prende se ne va subito.
+pub struct Presa {
+    endpoint: String,
+    #[cfg(windows)]
+    pipe: tokio::net::windows::named_pipe::NamedPipeServer,
+    #[cfg(not(windows))]
+    socket: tokio::net::UnixListener,
+    /// La serratura accanto al socket: chi la tiene e' il demone. La toglie
+    /// il sistema quando il processo finisce, anche se muore male.
+    #[cfg(not(windows))]
+    _serratura: std::fs::File,
+}
+
+/// Cosa dice un demone che trova l'indirizzo gia' preso.
+pub fn gia_preso(endpoint: &str) -> String {
+    format!("un altro demone di NOVA e' gia' in ascolto su {endpoint}: questo si ferma")
+}
+
+/// Prende l'indirizzo, o dice che e' gia' di un altro demone.
+///
+/// Su Windows la pipe si crea come **prima istanza**: se c'e' gia', Windows
+/// nega l'accesso. Su Linux e macOS prima il demone nuovo toglieva comunque il
+/// socket, e quello vecchio restava acceso e sordo.
+#[cfg(windows)]
+pub fn prendi(endpoint: &str) -> Result<Presa> {
+    use tokio::net::windows::named_pipe::ServerOptions;
+    match ServerOptions::new().first_pipe_instance(true).create(endpoint) {
+        Ok(pipe) => Ok(Presa { endpoint: endpoint.to_string(), pipe }),
+        Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+            Err(anyhow::anyhow!(gia_preso(endpoint)))
+        }
+        Err(e) => Err(e.into()),
+    }
+}
+
+/// Vedi la versione di Windows. Qui il socket da solo non basta: due
+/// demoni accesi nello stesso istante vedrebbero tutti e due un socket morto,
+/// e il secondo toglierebbe quello appena fatto dal primo. Decide una
+/// serratura (`flock`) su `<indirizzo>.lock`, che il sistema toglie quando il
+/// processo finisce.
+#[cfg(not(windows))]
+pub fn prendi(endpoint: &str) -> Result<Presa> {
+    use std::os::unix::io::AsRawFd;
+    if let Some(dir) = std::path::Path::new(endpoint).parent() {
+        std::fs::create_dir_all(dir).ok();
+    }
+    let serratura = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(format!("{endpoint}.lock"))?;
+    // SAFETY: un descrittore valido, di un file aperto qui e tenuto in vita
+    // dalla Presa.
+    if unsafe { libc::flock(serratura.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
+        return Err(anyhow::anyhow!(gia_preso(endpoint)));
+    }
+    let _ = std::fs::remove_file(endpoint);
+    let socket = tokio::net::UnixListener::bind(endpoint)?;
+    Ok(Presa { endpoint: endpoint.to_string(), socket, _serratura: serratura })
 }
 
 /// Il risultato di una capacita' come lo legge un cervello via MCP.
@@ -633,6 +699,40 @@ pub fn testo_per_mcp(v: &Value) -> String {
 
 #[cfg(test)]
 mod prove {
+
+    #[cfg(not(windows))]
+    #[tokio::test]
+    async fn l_indirizzo_preso_non_lo_prende_un_secondo_demone() {
+        // D413: il secondo demone toglieva il socket del primo e ci si
+        // metteva lui; il primo restava acceso e sordo.
+        let dir = std::env::temp_dir().join(format!("nova-presa-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let ep = dir.join("nova.sock").to_string_lossy().into_owned();
+        let primo = super::prendi(&ep).unwrap();
+        let secondo = super::prendi(&ep);
+        assert!(secondo.is_err(), "il secondo l'ha preso");
+        assert!(secondo.err().unwrap().to_string().contains("e' gia' in ascolto"));
+        assert!(std::os::unix::net::UnixStream::connect(&ep).is_ok(), "il primo risponde ancora");
+        drop(primo);
+        // Il socket di un demone finito resta sul disco: il prossimo lo riprende.
+        assert!(std::path::Path::new(&ep).exists());
+        assert!(super::prendi(&ep).is_ok(), "un demone finito non tiene l'indirizzo");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(windows)]
+    #[tokio::test]
+    async fn l_indirizzo_preso_non_lo_prende_un_secondo_demone() {
+        // D413: su Windows il secondo demone se ne accorgeva solo dopo aver
+        // acceso i Dot; adesso prendere la pipe e' la prima cosa.
+        let ep = format!(r"\\.\pipe\nova-presa-{}", std::process::id());
+        let primo = super::prendi(&ep).unwrap();
+        let secondo = super::prendi(&ep);
+        assert!(secondo.is_err(), "il secondo l'ha presa");
+        assert!(secondo.err().unwrap().to_string().contains("e' gia' in ascolto"));
+        drop(primo);
+        assert!(super::prendi(&ep).is_ok(), "una pipe lasciata si riprende");
+    }
 
     #[test]
     fn un_testo_arriva_a_claude_come_testo_non_come_json() {

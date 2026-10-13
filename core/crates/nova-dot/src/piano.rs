@@ -73,7 +73,10 @@ pub const METODO: &str = "Il metodo: ogni compito di ricerca o di dati che produ
 ha dopo di se' un compito [qualita] che lo ripete, e un risultato non ripetuto non e' un risultato. \
 Il paper finale non metterlo nel piano: lo scrive la scrittura alla fine, quando tutte le fasi sono \
 fatte. Nessun compito cambia NOVA, la sua configurazione o le impostazioni dei programmi \
-dell'utente: un cambio che ti sembra utile scrivilo in «Domande per te», e lo decide l'utente.";
+dell'utente: un cambio che ti sembra utile scrivilo in «Domande per te», e lo decide l'utente. \
+Un controllo gia' fatto non si rifa' senza un'evidenza nuova: se ti sembra da rifare, scrivi \
+nel compito quale evidenza nuova lo chiede. I vincoli restano paletti da rispettare, non compiti \
+da ripetere.";
 
 /// Il segno in testa a ogni domanda all'Architetto.
 pub const SEGNO: &str = "[piano di sviluppo]";
@@ -1210,6 +1213,8 @@ mod prove {
         assert!(d.find(METODO) < d.find("Rispondi solo col piano"), "{d}");
         // D410: nessun compito cambia NOVA; un cambio utile e' una domanda.
         assert!(METODO.contains("Nessun compito cambia NOVA") && METODO.contains("«Domande per te»"));
+        // D416: un controllo gia' fatto non si rifa' senza un'evidenza nuova.
+        assert!(METODO.contains("Un controllo gia' fatto non si rifa' senza un'evidenza nuova"));
         let d = domanda(
             &Richiesta {
                 perche: Perche::Fase(2),

@@ -304,6 +304,75 @@ pub fn e_tempo_scaduto(testo: &str) -> bool {
     })
 }
 
+/// Il pezzo fisso della frase di [`quota_finita`].
+const QUOTA: &str = " ha finito la quota, e riprende fra ";
+
+/// La frase di una CLI che ha finito la quota (D414): chi, fra quanti
+/// secondi riprende, e quello che ha detto lei. Non e' un compito andato
+/// male: un compito dei Dot che la trova aspetta e si rifa'.
+pub fn quota_finita(etichetta: &str, secondi: i64, dettaglio: &str) -> String {
+    format!("{etichetta}{QUOTA}{secondi}s. {dettaglio}")
+}
+
+/// Chi ha finito la quota e fra quanti secondi torna, se l'esito e' la
+/// frase di [`quota_finita`] (anche in mezzo ad altro testo, come «il piano
+/// non si e' fatto: …»), o quella di Claude Code, che quando torna non lo
+/// dice: allora `se_non_lo_dice`.
+pub fn attesa_quota(testo: &str, se_non_lo_dice: i64) -> Option<(String, i64)> {
+    // Il nome e' quel che sta prima della frase, dopo l'ultimo «: » o a capo.
+    let chi = |prima: &str| {
+        prima
+            .rsplit([':', '\n'])
+            .next()
+            .unwrap_or(prima)
+            .trim()
+            .to_string()
+    };
+    let mut pezzi = testo.split(QUOTA);
+    let mut prima = pezzi.next().unwrap_or("");
+    for dopo in pezzi {
+        let cifre = dopo.chars().take_while(char::is_ascii_digit).count();
+        if cifre > 0 && dopo[cifre..].starts_with('s') {
+            if let Ok(n) = dopo[..cifre].parse::<i64>() {
+                return Some((chi(prima), n));
+            }
+        }
+        prima = dopo;
+    }
+    let (prima, _) = testo.split_once(ESAURITA)?;
+    Some((chi(prima), se_non_lo_dice))
+}
+
+/// Come lo dice Claude Code (`nova_core::mondo`, `nova/brains/claude_cli.py`).
+const ESAURITA: &str = " ha esaurito la quota";
+
+/// Quanto manca al ritorno della quota, come lo scrive la CLI: Antigravity
+/// dice «Resets in 2h4m26s». `None` se non lo dice.
+pub fn secondi_dichiarati(testo: &str) -> Option<i64> {
+    let basso = testo.to_lowercase();
+    let da = basso.find("resets in ")? + "resets in ".len();
+    let mut totale = 0i64;
+    let mut numero = String::new();
+    let mut visto = false;
+    for c in basso[da..].chars() {
+        match c {
+            '0'..='9' => numero.push(c),
+            'h' | 'm' | 's' if !numero.is_empty() => {
+                let n: i64 = numero.parse().ok()?;
+                totale += n * match c {
+                    'h' => 3600,
+                    'm' => 60,
+                    _ => 1,
+                };
+                numero.clear();
+                visto = true;
+            }
+            _ => break,
+        }
+    }
+    visto.then_some(totale)
+}
+
 /// Come si racconta lo stato di questa CLI.
 pub fn descrizione_stato(etichetta: &str, model: &str) -> String {
     format!(
@@ -315,6 +384,29 @@ pub fn descrizione_stato(etichetta: &str, model: &str) -> String {
 #[cfg(test)]
 mod prove {
     use super::*;
+
+    #[test]
+    fn la_quota_finita_si_riconosce_con_quando_torna() {
+        // D414: Antigravity, il 13 ottobre alle 18:28.
+        let detto = "Antigravity (Google) non ha prodotto output. error: Individual quota reached. \
+                     Please upgrade your subscription to increase your limits. Resets in 2h4m26s.";
+        assert_eq!(secondi_dichiarati(detto), Some(2 * 3600 + 4 * 60 + 26));
+        assert_eq!(secondi_dichiarati("Resets in 45m."), Some(2700));
+        assert_eq!(secondi_dichiarati("resets in 30s"), Some(30));
+        assert_eq!(secondi_dichiarati("Individual quota reached."), None);
+        assert_eq!(secondi_dichiarati("Resets in a while"), None);
+        let f = quota_finita("Antigravity (Google)", 7466, detto);
+        assert!(f.starts_with("Antigravity (Google) ha finito la quota, e riprende fra 7466s."), "{f}");
+        let ag = Some(("Antigravity (Google)".to_string(), 7466));
+        assert_eq!(attesa_quota(&f, 900), ag);
+        assert_eq!(attesa_quota(&format!("il piano non si e' fatto: {f}"), 900), ag);
+        assert_eq!(
+            attesa_quota("Claude Code ha esaurito la quota: limite", 900),
+            Some(("Claude Code".to_string(), 900))
+        );
+        assert_eq!(attesa_quota("Antigravity (Google) non ha prodotto output. boh", 900), None);
+        assert_eq!(attesa_quota(&non_ha_risposto("Finta", 600), 900), None);
+    }
 
     #[test]
     fn il_tempo_scaduto_si_riconosce_e_niente_altro() {

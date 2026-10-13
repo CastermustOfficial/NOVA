@@ -290,6 +290,16 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
+    // L'indirizzo per primo (D413): un secondo demone acceso insieme a un
+    // altro se ne va qui, prima di accendere i Dot e il resto.
+    let presa = match nova_core::server::prendi(&config.endpoint) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("{e}");
+            tracing::warn!("{e}");
+            std::process::exit(3);
+        }
+    };
     let server = build(config)?;
     tracing::info!(
         versione = env!("CARGO_PKG_VERSION"),
@@ -328,7 +338,7 @@ async fn main() -> Result<()> {
     });
 
     let ascolto = server.clone();
-    let esito = ascolto.listen().await;
+    let esito = ascolto.ascolta(presa).await;
 
     // Il controllo delle cartelle di terzi gira in un filo bloccante, e il
     // runtime aspetta i fili bloccanti: senza questo il demone non si spegne

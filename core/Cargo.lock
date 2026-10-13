@@ -3022,6 +3022,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "futures-util",
+ "libc",
  "nova-browser",
  "nova-calendario",
  "nova-cdp",

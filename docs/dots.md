@@ -1164,6 +1164,46 @@ conta come vuoto, e un Dot che lo crea non trova il posto libero.
 - **Il registro delle azioni no.** `azioni.jsonl` lo scrive anche il
   Python, che la copia non la scrive.
 
+**Tre difetti del 13 ottobre — fatto** (D413, D414, D415). Tutti e tre
+visti su S0ex1 la stessa sera.
+
+- **Un demone solo** (D413). Il guscio ne aveva accesi due, e il secondo
+  aveva gia' acceso i Dot: avrebbero fatto due volte gli stessi compiti.
+  Adesso il demone prende l'indirizzo per primo, e chi non lo prende se ne
+  va prima di accendere qualunque cosa.
+- **La quota finita si aspetta** (D414). Finita la quota di Antigravity, i
+  compiti fallivano tutti insieme e l'Architetto rifaceva il piano a vuoto.
+  Adesso un compito che trova la quota finita resta in corso, aspetta l'ora
+  detta dal fornitore e si rifa'; a Nova lo si dice una volta per motore.
+  Una quota che torna fra piu' di sei ore non si aspetta.
+- **Fermare ferma davvero** (D415). Fermato il progetto, due `claude.exe`
+  sono rimasti accesi: lo stop fermava il figlio diretto e non i nipoti, e
+  il Dot passava al compito dopo dello stesso progetto. Adesso cade tutto
+  l'albero della CLI, e i compiti del progetto ancora in coda escono dalla
+  coda; col via si rifanno.
+
+Restano aperti: la quota finita durante un passo del ricercatore o un
+compito dell'Architetto, dell'APM o dei giudici, che va com'e' andato; e,
+su Windows, un nipote nato prima che il figlio sia legato al job.
+
+**La squadra, la chat, le fonti — fatto** (D416). Deciso con Gio la sera
+del 13 ottobre, guardando S0ex1: «sembra ci sia mancanza di comunicazione e
+trasparenza».
+
+- **La squadra e la chat.** Ogni compito di un progetto dice chi e' nella
+  squadra, chi lavora adesso e a cosa, e che la chat del progetto e' il
+  gruppo col nome del progetto, che l'APM fa nascere e in cui mette ogni Dot
+  a cui affida un compito. I Dot ci scrivono con `dot.scrivi` a
+  `gruppo:<progetto>`; Gio la legge nell'harness.
+- **Le fonti.** In un progetto il ricercatore salva ogni pagina che legge in
+  `materiale/fonti/`, una per file con l'indirizzo in testa, e il rapporto
+  sta nella cartella del compito. Una fonte salvata e' «salvata nel
+  progetto»: non l'ha vista NOVA, ma chiunque la puo' rileggere.
+- **I controlli.** L'Architetto non rifa' un controllo senza un'evidenza
+  nuova: i vincoli restano paletti, non compiti da ripetere.
+
+Resta aperto: la chat si legge al compito dopo, non mentre si lavora.
+
 **Il via dopo un piano non fatto — fatto** (D411). Rimesso Claude, il via a
 S0ex1 lo fermava di nuovo nello stesso secondo: l'APM aspettava ancora il
 compito dell'Architetto andato male la sera prima. Adesso il via di un

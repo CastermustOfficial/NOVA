@@ -97,6 +97,11 @@ tracing.workspace = true
 # DPAPI per l'archivio delle credenziali, e il generatore di numeri casuali
 # del sistema. Solo su Windows: altrove l'archivio andra' scritto sopra il
 # portachiavi locale, e per ora lo dice invece di far finta.
+# La serratura dell'indirizzo del demone (D413): `flock`, la stessa versione
+# di `nova-platform`.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.62"
 features = [

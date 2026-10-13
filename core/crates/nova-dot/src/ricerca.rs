@@ -23,6 +23,7 @@
 //! contiene, invece di contare su una memoria che un cervello su due non ha.
 
 use std::collections::BTreeSet;
+use std::path::Path;
 
 use serde::Serialize;
 use serde_json::Value;
@@ -488,6 +489,9 @@ pub enum Controllo {
     /// fatta un cervello che legge con strumenti suoi (Claude Code, una CLI):
     /// NOVA non vede cosa ha letto, e non puo' dire ne' si' ne' no.
     DaVerificare,
+    /// Non l'ha vista NOVA, ma nella cartella del compito c'e' la pagina
+    /// salvata, con l'indirizzo in testa (D416): chiunque la puo' rileggere.
+    Salvata,
 }
 
 /// Una fonte citata nel rapporto, e se il Dot l'aveva letta davvero.
@@ -506,7 +510,20 @@ pub struct Fonte {
 /// «non visto»: e' da verificare. Dire «non vista» di una pagina che Claude
 /// Code ha letto davvero sarebbe un'accusa falsa.
 pub fn controlla_fonti(rapporto: &str, viste: &[String], tutto_visto: bool) -> Vec<Fonte> {
+    controlla_fonti_con(rapporto, viste, &[], tutto_visto)
+}
+
+/// Come [`controlla_fonti`], con le pagine salvate nella cartella del
+/// compito (D416): una fonte che NOVA non ha visto ma che e' salvata li' e'
+/// «salvata», non «da verificare».
+pub fn controlla_fonti_con(
+    rapporto: &str,
+    viste: &[String],
+    salvate: &[String],
+    tutto_visto: bool,
+) -> Vec<Fonte> {
     let viste: BTreeSet<String> = viste.iter().map(|u| normale(u)).collect();
+    let salvate: BTreeSet<String> = salvate.iter().map(|u| normale(u)).collect();
     let mut gia: BTreeSet<String> = BTreeSet::new();
     indirizzi(rapporto)
         .into_iter()
@@ -514,6 +531,8 @@ pub fn controlla_fonti(rapporto: &str, viste: &[String], tutto_visto: bool) -> V
         .map(|u| Fonte {
             controllo: if viste.contains(&normale(&u)) {
                 Controllo::Vista
+            } else if salvate.contains(&normale(&u)) {
+                Controllo::Salvata
             } else if tutto_visto {
                 Controllo::NonVista
             } else {
@@ -559,6 +578,7 @@ pub fn rapporto_su_disco(corpo: &str, fonti: &[Fonte]) -> String {
             Controllo::Vista => "vista",
             Controllo::NonVista => "**non vista**",
             Controllo::DaVerificare => "da verificare",
+            Controllo::Salvata => "salvata nel progetto",
         };
         t.push_str(&format!("- {come}: {}\n", f.indirizzo));
     }
@@ -583,12 +603,60 @@ pub fn esito(percorso: &str, fonti: &[Fonte]) -> String {
             quante(non, "non vista", "non viste")
         ));
     }
+    let salvate = conta(fonti, Controllo::Salvata);
+    if salvate > 0 {
+        t.push_str(&format!(", {} nel progetto", quante(salvate, "salvata", "salvate")));
+    }
     let dubbie = conta(fonti, Controllo::DaVerificare);
     if dubbie > 0 {
         t.push_str(&format!(", {dubbie} da verificare"));
     }
     t.push('.');
     t
+}
+
+/// Dove si salvano le pagine lette, dentro la cartella del compito (D416).
+pub const FONTI: &str = "fonti";
+
+/// Il rapporto, nella cartella del compito di un progetto (D416).
+pub const RAPPORTO: &str = "rapporto.md";
+
+/// La regola delle fonti, per un passo di un compito di un progetto (D416).
+///
+/// Il 13 ottobre il rapporto dello stato dell'arte di S0ex1 citava 80 fonti,
+/// e NOVA non ne aveva vista nessuna: i passi li facevano Antigravity e
+/// Claude Code, che leggono con strumenti loro. Non si poteva dire se le
+/// avessero aperte. Una pagina salvata nel progetto si', e la rilegge
+/// chiunque.
+pub fn regola_delle_fonti(cartella: &Path) -> String {
+    format!(
+        "\nOgni pagina che leggi la salvi in «{}», un file per pagina: nella prima riga \
+         l'indirizzo, poi il testo che hai letto. E' la prova che l'hai letta. Nel rapporto \
+         citi solo pagine salvate.",
+        cartella.join(crate::struttura::MATERIALE).join(FONTI).display()
+    )
+}
+
+/// Gli indirizzi delle pagine salvate in una cartella delle fonti: quello
+/// nella prima riga non vuota di ogni file. Un elenco di indirizzi in un
+/// file solo non conta: conta una pagina per file.
+pub fn salvate(cartella_fonti: &Path) -> Vec<String> {
+    let Ok(voci) = std::fs::read_dir(cartella_fonti) else {
+        return Vec::new();
+    };
+    let mut tutte: Vec<String> = voci
+        .flatten()
+        .filter(|v| v.path().is_file())
+        .filter_map(|v| {
+            let testo = std::fs::read(v.path()).ok()?;
+            let testo = String::from_utf8_lossy(&testo);
+            let prima = testo.lines().map(str::trim).find(|r| !r.is_empty())?;
+            indirizzi(prima).into_iter().next()
+        })
+        .collect();
+    tutte.sort();
+    tutte.dedup();
+    tutte
 }
 
 /// Il titolo del rapporto: la prima riga «# ...», se c'e'.
@@ -611,6 +679,36 @@ mod prove {
             "medio".to_string(),
             "grande".to_string(),
         ]
+    }
+
+    #[test]
+    fn una_fonte_salvata_nel_progetto_non_e_da_verificare() {
+        // D416: lo stato dell'arte di S0ex1 citava 80 fonti, tutte «da
+        // verificare»: le leggevano Antigravity e Claude Code.
+        let dir = std::env::temp_dir().join(format!("nova-fonti-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let fonti = dir.join(crate::struttura::MATERIALE).join(FONTI);
+        std::fs::create_dir_all(&fonti).unwrap();
+        std::fs::write(fonti.join("a.md"), "\nhttps://esempio.org/a\nIl testo letto.").unwrap();
+        // Un elenco in un file solo conta per la prima riga, non per tutte.
+        std::fs::write(fonti.join("elenco.md"), "https://esempio.org/b\nhttps://esempio.org/c").unwrap();
+        std::fs::write(fonti.join("vuoto.md"), "solo testo, nessun indirizzo").unwrap();
+        let salvate = salvate(&fonti);
+        assert_eq!(salvate, ["https://esempio.org/a", "https://esempio.org/b"]);
+        let rapporto = "# R\n## Fonti\nhttps://esempio.org/a\nhttps://esempio.org/c\nhttps://esempio.org/d";
+        let f = controlla_fonti_con(rapporto, &["https://esempio.org/d".into()], &salvate, false);
+        let come: Vec<Controllo> = f.iter().map(|x| x.controllo).collect();
+        assert_eq!(come, [Controllo::Salvata, Controllo::DaVerificare, Controllo::Vista]);
+        assert!(esito("r.md", &f).contains("1 salvata nel progetto"), "{}", esito("r.md", &f));
+        assert!(rapporto_su_disco(rapporto, &f).contains("- salvata nel progetto: https://esempio.org/a"));
+        let regola = regola_delle_fonti(&dir);
+        assert!(regola.contains(&fonti.display().to_string()) && regola.contains("nella prima riga"));
+        assert!(salvate_vuote(&dir.join("non-c-e")));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn salvate_vuote(p: &Path) -> bool {
+        salvate(p).is_empty()
     }
 
     #[test]

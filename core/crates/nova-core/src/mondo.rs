@@ -597,7 +597,18 @@ impl<'a> MondoVero<'a> {
             }
             crate::processo::Guaio::Muto(e) => format!("{} non e' partita: {e}", d.etichetta),
         })?;
-        let testo = nova_cervelli::cli::cosa_ha_detto(&d.etichetta, &u.stdout, &u.stderr)?;
+        let testo = match nova_cervelli::cli::cosa_ha_detto(&d.etichetta, &u.stdout, &u.stderr) {
+            Ok(t) => t,
+            // La quota finita non e' un guasto (D414): si dice fra quanto
+            // torna, e chi aspetta sa cosa fare.
+            Err(e) if nova_guasti::cervelli::e_limite_uso(&e) => {
+                let secondi =
+                    nova_cervelli::cli::secondi_dichiarati(&e).unwrap_or(QUOTA_CLAUDE_S);
+                self.ultima.quota = Some(secondi);
+                return Err(nova_cervelli::cli::quota_finita(&d.etichetta, secondi, &e));
+            }
+            Err(e) => return Err(e),
+        };
         self.sessione
             .messaggi
             .push(json!({ "role": "assistant", "content": testo }));

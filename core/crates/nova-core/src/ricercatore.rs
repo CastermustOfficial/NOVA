@@ -61,6 +61,9 @@ struct Lavoro<'a> {
     /// Se una parte del lavoro l'ha fatta uno di loro: allora un indirizzo
     /// che NOVA non ha visto non e' «non visto», e' da verificare.
     cieco: bool,
+    /// La cartella del compito, se e' un compito di un progetto (D416): li'
+    /// vanno le pagine lette e il rapporto.
+    cartella: Option<std::path::PathBuf>,
 }
 
 /// Com'e' finito un passo.
@@ -159,6 +162,9 @@ impl Lavoro<'_> {
         rifatto: Option<(&str, &str)>,
     ) -> Uscita {
         let mut testo = r::richiesta_del_passo(numero, quanti, passo, fatti, rifatto);
+        if let Some(dove) = &self.cartella {
+            testo.push_str(&r::regola_delle_fonti(dove));
+        }
         let mut dove = cervello.to_string();
         let mut secondi = 0.0;
         let mut strumenti: Vec<String> = Vec::new();
@@ -328,6 +334,7 @@ pub async fn lavora(
         scala,
         ciechi,
         cieco: false,
+        cartella: d::struttura::cartella_dal_testo(&compito.testo),
         cfg,
     };
     let cima = l.cima();
@@ -479,11 +486,26 @@ pub async fn lavora(
         );
     }
     let lette = viste.lock().unwrap_or_else(|e| e.into_inner()).clone();
-    let fonti = r::controlla_fonti(&corpo, &lette, !l.cieco);
-    let percorso = match c.salva_rapporto(compito.id, &r::rapporto_su_disco(&corpo, &fonti)) {
+    let salvate = l
+        .cartella
+        .as_ref()
+        .map(|d| r::salvate(&d.join(d::struttura::MATERIALE).join(r::FONTI)))
+        .unwrap_or_default();
+    let fonti = r::controlla_fonti_con(&corpo, &lette, &salvate, !l.cieco);
+    let su_disco = r::rapporto_su_disco(&corpo, &fonti);
+    let mut percorso = match c.salva_rapporto(compito.id, &su_disco) {
         Ok(p) => p,
         Err(e) => return (d::Stato::Fallito, format!("il rapporto non si scrive: {e}")),
     };
+    // In un progetto il rapporto sta anche nella cartella del compito, e la
+    // consegna dice quello (D416): li' lo vedono Gio e gli altri Dot.
+    if let Some(dove) = &l.cartella {
+        let nel_progetto = dove.join(r::RAPPORTO);
+        match std::fs::create_dir_all(dove).and_then(|()| std::fs::write(&nel_progetto, &su_disco)) {
+            Ok(()) => percorso = nel_progetto,
+            Err(e) => l.diario(json!({ "tipo": "rapporto_fuori", "perche": e.to_string() })),
+        }
+    }
     let dove = percorso.display().to_string();
     l.diario(json!({ "tipo": "rapporto", "file": dove, "fonti": fonti, "lette": lette.len() }));
     nel_vault(&l, &corpo, &dove).await;
@@ -496,6 +518,7 @@ pub async fn lavora(
             "fonti": fonti.len(),
             "viste": fonti.iter().filter(|f| f.controllo == r::Controllo::Vista).count(),
             "da_verificare": fonti.iter().filter(|f| f.controllo == r::Controllo::DaVerificare).count(),
+            "salvate": fonti.iter().filter(|f| f.controllo == r::Controllo::Salvata).count(),
         }),
     );
     (d::Stato::Fatto, r::esito(&dove, &fonti))

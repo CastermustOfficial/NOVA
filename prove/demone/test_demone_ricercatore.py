@@ -12,7 +12,10 @@ Il secondo passo di `docs/dots.md`. Un Dot col mestiere di ricercatore:
 - registra ogni scelta del cervello, con com'e' andata, nel diario e in
   `decisioni.jsonl`;
 - ha il vault suo: quello che mette via non finisce nella memoria di Nova, e
-  quello che c'e' entra nelle sue domande e non in quelle di Nova.
+  quello che c'e' entra nelle sue domande e non in quelle di Nova;
+- in un compito di un progetto (D416) salva le pagine lette nella cartella
+  del compito, e ci scrive il rapporto: una fonte salvata li' e' «salvata»,
+  non «da verificare».
 
 I cervelli sono finti: un server compatibile OpenAI con due modelli,
 «piccolo» e «grande», che risponde secondo il modello e la domanda, e si
@@ -294,7 +297,17 @@ SCRIPT_CLAUDE.write_text(
     "    sistema = argv[argv.index('--append-system-prompt') + 1]\n"
     "with open(r'" + str(TRACCIA_CLAUDE) + "', 'a', encoding='utf-8') as f:\n"
     "    f.write(json.dumps({'domanda': domanda, 'sistema': sistema}, ensure_ascii=False) + '\\n')\n"
-    "if '[piano]' in domanda:\n"
+    "if domanda.lstrip().startswith('[passo 2 di 2: scrivi]') and 'la salvi in' in domanda:\n"
+    "    r = ('# Rapporto di Claude\\n\\n## Fonti\\n- https://letta-da-claude.example/pagina\\n'\n"
+    "         '- https://non-salvata.example/x\\n')\n"
+    "elif domanda.lstrip().startswith('[passo 1 di 2') and 'la salvi in' in domanda:\n"
+    "    import os\n"
+    "    dove = domanda.split('la salvi in «', 1)[1].split('»', 1)[0]\n"
+    "    os.makedirs(dove, exist_ok=True)\n"
+    "    with open(os.path.join(dove, 'pagina.md'), 'w', encoding='utf-8') as f:\n"
+    "        f.write('https://letta-da-claude.example/pagina\\nIl testo della pagina.\\n')\n"
+    "    r = 'Ho cercato e salvato la pagina.'\n"
+    "elif '[piano]' in domanda:\n"
     "    r = json.dumps({'passi': [\n"
     "        {'tipo': 'cerca', 'cosa': 'cerca per conto tuo', 'cervello': 'claude'},\n"
     "        {'tipo': 'scrivi', 'cosa': 'scrivi il rapporto di Claude', 'cervello': 'claude'}]})\n"
@@ -487,6 +500,28 @@ try:
     controlla("a Claude si nomina il vault del Dot, non quello di Nova",
               sistema != [] and str(DOT / "vault") in sistema[0] and str(vault_nova) not in sistema[0],
               str([s[-300:] for s in sistema]))
+
+    print("\n9. in un progetto le pagine lette si salvano, e il rapporto sta nel progetto (D416)")
+    # Il 13 ottobre lo stato dell'arte di S0ex1 citava 80 fonti, tutte «da
+    # verificare», e il rapporto stava nella cartella del Dot.
+    dove = Path(casa) / "progetto" / "reparti" / "ricerca" / "1.1-cerca"
+    id5 = rpc("dot/affida", nome="ricercatore",
+              testo=f"Progetto «p», compito 1.1: cerca.\n\nDove lavori: «{dove}». Li' c'e' `compito.md`.")["id"]
+    c = aspetta(id5)
+    controlla("il compito e' fatto", c.get("stato") == "fatto", str(c))
+    passi = [r["domanda"] for r in ricevuti_da_claude() if "[passo 1 di 2" in r["domanda"]]
+    controlla("al passo si chiede di salvare le pagine nel progetto",
+              bool(passi) and f"la salvi in «{dove / 'materiale' / 'fonti'}»" in passi[-1],
+              (passi[-1][-300:] if passi else ""))
+    rapporto = dove / "rapporto.md"
+    testo_p = rapporto.read_text(encoding="utf-8") if rapporto.is_file() else ""
+    controlla("il rapporto sta nella cartella del compito", rapporto.is_file(), str(rapporto))
+    controlla("la pagina salvata conta, quella no resta da verificare",
+              "- salvata nel progetto: https://letta-da-claude.example/pagina\n" in testo_p
+              and "- da verificare: https://non-salvata.example/x\n" in testo_p, testo_p[-400:])
+    controlla("e l'esito dice dove e quante",
+              f"Rapporto in {rapporto}." in c.get("esito", "")
+              and "1 salvata nel progetto" in c.get("esito", ""), c.get("esito", ""))
 finally:
     if processo.poll() is None:
         processo.kill()
