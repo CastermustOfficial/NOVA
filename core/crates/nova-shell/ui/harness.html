@@ -186,6 +186,17 @@ svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6;stroke
 .nodo .ic{width:14px;flex:none;text-align:center;color:var(--fioco);font-size:10px}
 .nodo .n{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .nodo .seg{margin-left:auto;font-size:10px;color:var(--brace)}
+/* L'albero dal vivo (D418): nato da poco, cambiato da poco, qualcosa dentro,
+   e chi ci lavora. */
+.nodo .vivo{font-size:8px;flex:none}
+.nodo .vivo.nuovo{color:var(--ascolto)}
+.nodo .vivo.cambiato{color:var(--brace)}
+.nodo .vivo.dentro{color:var(--fioco)}
+.nodo .chi-lavora{margin-left:auto;display:flex;align-items:center;gap:4px;font-size:10.5px;color:var(--pensiero);
+  overflow:hidden;text-overflow:ellipsis}
+.nodo .chi-lavora i{width:6px;height:6px;border-radius:50%;background:var(--pensiero);flex:none;animation:pulsa 1.4s ease-in-out infinite}
+@keyframes pulsa{50%{opacity:.25}}
+.sez button.si{color:var(--brace);background:var(--vetro-2)}
 .albero .vuoto{color:var(--fioco);padding:8px 10px;line-height:1.6}
 
 /* --- il centro --- */
@@ -409,6 +420,9 @@ body.lavora #btnFerma{display:flex}
       <div class="vista" id="vEsplora">
         <div class="sez">
           <span id="nomeCartella">Esplora</span>
+          <button id="btnSegui" title="Segui: apre da solo l’ultimo file scritto">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+          </button>
           <button id="btnAggiorna" title="Rileggi la cartella">
             <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg>
           </button>
@@ -567,6 +581,7 @@ import { rendi, pulisci } from './markdown.js';
 import { T, avviaLingua, traduciDocumento, linguaCorrente } from './lingue.js';
 import { sportello } from './permessi.js';
 import { avviaDot } from './dot.js';
+import { nuovaMemoria, rileggi, segno, cartelleConDentro, chiLavora, ultimoScritto, OGNI_MS } from './vivo.js';
 
 const tauri = window.__TAURI__;
 const invoke = tauri?.core?.invoke;
@@ -610,7 +625,14 @@ const stato = {
   espanse: new Set(),
   contenuti: new Map(),     // cartella -> voci
   chat: true,
+  vivo: nuovaMemoria(),     // l'albero dal vivo (D418): cosa e' nato e cambiato
+  segui: false,             // apre da solo l'ultimo file scritto, spento di serie
+  seguiDopo: 0,
 };
+const adessoS = () => Date.now() / 1000;
+/* I Dot, per l'albero dal vivo: ci sono solo da quando dot.js e' avviato,
+   piu' giu'; prima l'albero si disegna senza chi ci lavora. */
+let dotPronto = null;
 const attiva = () => stato.schede.find(s => s.percorso === stato.attiva) || null;
 
 /* Chiusa e riaperta, la finestra ritrova com'era (harness.md, «Riaprire e
@@ -1812,6 +1834,7 @@ async function contenuto(cartella) {
   try {
     const v = await invoke('harness_cartella', { percorso: cartella });
     stato.contenuti.set(chiave(cartella), v);
+    rileggi(stato.vivo, cartella, v, adessoS());
     return v;
   } catch (e) {
     messaggio(String(e), 8000);
@@ -1822,6 +1845,7 @@ async function contenuto(cartella) {
 async function apriCartella(cartella, { schede = null } = {}) {
   stato.cartella = cartella;
   stato.contenuti.clear();
+  stato.vivo = nuovaMemoria();
   stato.espanse = new Set();
   recenti(cartella);
   $('nomeCartella').textContent = nomeDi(cartella);
@@ -1856,6 +1880,9 @@ function disegnaAlbero() {
     return;
   }
   const sporchi = new Set(stato.schede.filter(s => s.sporco).map(s => chiave(s.percorso)));
+  const ora = adessoS();
+  const conDentro = cartelleConDentro(stato.vivo, ora);
+  const lavorano = chiLavora(dotPronto?.dots());
   const giu = (cartella, livello) => {
     for (const v of stato.contenuti.get(chiave(cartella)) || []) {
       const n = document.createElement('div');
@@ -1870,6 +1897,22 @@ function disegnaAlbero() {
       nome.className = 'n';
       nome.textContent = v.nome;
       n.append(ic, nome);
+      const s = segno(stato.vivo, v, ora, conDentro);
+      if (s) {
+        const p = document.createElement('span');
+        p.className = 'vivo ' + s;
+        p.textContent = '●';
+        p.title = T({ nuovo: 'nuovo', cambiato: 'cambiato', dentro: 'qualcosa dentro è cambiato' }[s]);
+        n.appendChild(p);
+      }
+      const chi = v.cartella ? lavorano.get(chiave(v.percorso)) : null;
+      if (chi) {
+        const c = document.createElement('span');
+        c.className = 'chi-lavora';
+        c.title = T('ci lavora adesso');
+        c.append(document.createElement('i'), document.createTextNode(chi.join(', ')));
+        n.appendChild(c);
+      }
       if (sporchi.has(chiave(v.percorso))) {
         const seg = document.createElement('span');
         seg.className = 'seg';
@@ -1917,6 +1960,35 @@ function trovaPercorso(k) {
     if (v) return v.percorso;
   }
   return null;
+}
+
+/* L'albero dal vivo (D418): ogni OGNI_MS si rileggono le cartelle aperte
+   nell'albero, e si ridisegna se qualcosa e' cambiato, o ogni mezzo minuto
+   perche' i segni scadono. Solo quello che e' aperto: una cartella grande
+   non pesa. «Segui» apre l'ultimo file scritto. */
+let _vivoInCorso = false;
+let _vivoDisegnato = 0;
+async function alberoDalVivo() {
+  if (_vivoInCorso || !invoke || !stato.cartella || document.visibilityState !== 'visible') return;
+  _vivoInCorso = true;
+  try {
+    const ora = adessoS();
+    let cambiato = false;
+    const letture = [];
+    const daRileggere = [stato.cartella, ...[...stato.espanse].map(trovaPercorso).filter(Boolean)];
+    for (const c of daRileggere) {
+      let v;
+      try { v = await invoke('harness_cartella', { percorso: c }); } catch (_) { continue; }
+      letture.push(v);
+      stato.contenuti.set(chiave(c), v);
+      if (rileggi(stato.vivo, c, v, ora)) cambiato = true;
+    }
+    if (stato.segui) {
+      const u = ultimoScritto(letture, stato.seguiDopo);
+      if (u) { stato.seguiDopo = u.modificato; await apriFile(u.percorso); }
+    }
+    if (cambiato || ora - _vivoDisegnato > 30) { _vivoDisegnato = ora; disegnaAlbero(); }
+  } finally { _vivoInCorso = false; }
 }
 
 async function scegli(cartella) {
@@ -2335,6 +2407,8 @@ const chiama = (capacita, args = {}) => invoke('demone_chiama', { capacita, args
    dot.js; qui gli si da' quello che gli serve della finestra. */
 const dot = avviaDot({
   $, chiama, apriFile, messaggio,
+  // La cartella di un progetto, in Esplora (D418).
+  apriCartella: async c => { await apriCartella(c); mostraVista('esplora'); },
   attiva,
   schede: () => stato.schede,
   aggiungiScheda: s => stato.schede.push(s),
@@ -2342,6 +2416,7 @@ const dot = avviaDot({
   vistaAttiva: () => stato.vista,
   pallino: n => { const p = $('pallinoDot'); p.hidden = !n; p.textContent = n > 9 ? '9+' : String(n || ''); },
 });
+dotPronto = dot;
 
 async function caricaProposte() {
   if (!invoke) return;
@@ -3216,6 +3291,12 @@ $('btnApriFile').onclick = () => scegli(false);
 $('bvCartella').onclick = () => scegli(true);
 $('bvFile').onclick = () => scegli(false);
 $('btnAggiorna').onclick = aggiornaAlbero;
+$('btnSegui').onclick = () => {
+  stato.segui = !stato.segui;
+  stato.seguiDopo = adessoS();
+  $('btnSegui').classList.toggle('si', stato.segui);
+  messaggio(T(stato.segui ? 'Segui: si apre da solo l’ultimo file scritto.' : 'Segui spento.'), 3000);
+};
 $('btnChat').onclick = () => mostraChat(!stato.chat);
 $('btnAnteprima').onclick = () => {
   const s = attiva();
@@ -3295,6 +3376,7 @@ ascolta?.('nova://battuta', ev => {
 });
 
 setInterval(guardaSulDisco, 2500);
+setInterval(alberoDalVivo, OGNI_MS);
 /* La selezione dentro un PDF o un Word va con la domanda: il pezzetto sopra
    al campo deve comparire mentre si seleziona. */
 let _selTimer = 0;

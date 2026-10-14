@@ -2921,3 +2921,22 @@ capire: forse da un secondo demone acceso quando il fuso era sbagliato
 
 La regola: come si comporta NOVA lo dice il codice; prima di dire «si
 sistema da solo» si guarda dove lo farebbe.
+
+## La cartella chiusa che non diceva niente
+
+Il 14 ottobre, scrivendo la cartella dal vivo (D418), ho creduto che il segno
+«qualcosa dentro e' cambiato» arrivasse a ogni cartella chiusa in cui
+nasceva un file. Non era cosi': i segni si calcolavano dalle cartelle lette,
+e una cartella chiusa non si legge, quindi il file nato dentro non lo vedeva
+nessuno. Nello stesso pezzo l'albero chiedeva a `dot.js` chi lavora dove
+prima che `dot.js` fosse avviato, e una pagina che ridisegnava l'albero in
+quel momento si sarebbe fermata con un errore. Me ne sono accorto rileggendo
+il codice prima delle prove. Corretto: una cartella la cui data e' recente
+ha il segno anche chiusa, perche' la data di una cartella cambia quando ci
+nasce o ci sparisce qualcosa; l'albero chiede i Dot solo quando ci sono. La
+prova del primo caso fallisce se si toglie la correzione.
+
+La regola: un segno che deve vedersi su una cosa che non si legge si prova
+proprio su quella, chiusa; e quello che una funzione usa deve esistere in
+ogni momento in cui la si puo' chiamare, non solo in quello in cui la si
+chiama di solito.

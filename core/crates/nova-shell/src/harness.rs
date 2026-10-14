@@ -270,6 +270,10 @@ pub struct Voce {
     percorso: String,
     cartella: bool,
     byte: u64,
+    /// Quando e' cambiato l'ultima volta, in secondi dal 1970: l'albero dal
+    /// vivo segna quello che cambia mentre i Dot lavorano (D418). Di una
+    /// cartella e' l'ultima volta che ci e' nato o sparito qualcosa.
+    modificato: Option<f64>,
 }
 
 /// Il contenuto di una cartella, per l'albero: prima le cartelle, poi i
@@ -289,6 +293,11 @@ pub fn elenca(cartella: &Path) -> Result<Vec<Voce>, String> {
             if e_cartella && nova_harness::NON_GUARDARE.contains(&nome.as_str()) {
                 return None;
             }
+            let modificato = md
+                .as_ref()
+                .and_then(|m| m.modified().ok())
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_secs_f64());
             Some(Voce {
                 percorso: d.path().to_string_lossy().to_string(),
                 byte: if e_cartella {
@@ -296,6 +305,7 @@ pub fn elenca(cartella: &Path) -> Result<Vec<Voce>, String> {
                 } else {
                     md.map_or(0, |m| m.len())
                 },
+                modificato,
                 cartella: e_cartella,
                 nome,
             })
@@ -611,6 +621,12 @@ mod prove {
         assert_eq!(nomi, ["Docs", "src", "A.md", "b.rs", "dist", "target.txt"]);
         assert!(v[0].cartella && !v[2].cartella);
         assert_eq!(v[2].byte, 1);
+        // D418: quando e' cambiato, per l'albero dal vivo.
+        let adesso = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs_f64();
+        assert!(v.iter().all(|x| x.modificato.is_some_and(|q| (adesso - q).abs() < 120.0)));
         let _ = std::fs::remove_dir_all(&d);
     }
 

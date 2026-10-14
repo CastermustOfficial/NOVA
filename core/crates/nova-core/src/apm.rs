@@ -451,6 +451,7 @@ pub fn stato(nome: &str) -> Result<Value, String> {
             .map(|p| {
                 json!({
                     "progetto": p.nome,
+                    "cartella": cartella(&p.nome).display().to_string(),
                     "sta": come_sta(&p, attivo.as_ref()),
                     "versione": p.versione,
                     "tetto": p.tetto,

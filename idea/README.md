@@ -584,6 +584,15 @@ compito lungo non la vede. **Cosa costerebbe.** Uno strumento di sola
 lettura nel collegamento MCP dei Dot, e la regola su quando guardarla, per
 non farla leggere a ogni passo.
 
+## La cartella dal vivo senza rileggere
+
+Nata col D418. **Cosa.** Un osservatore del disco nel guscio che dice alla
+pagina cosa e' cambiato, invece di rileggere ogni 2,5 secondi le cartelle
+aperte. **Perche'.** Con molte cartelle espanse la rilettura cresce, e un
+file nato in una cartella chiusa si vede solo come segno sulla cartella.
+**Cosa costerebbe.** Una dipendenza nuova nel guscio (`notify`), un evento
+Tauri verso la pagina, e una prova col guscio acceso.
+
 ## I non segreti per tutto il guardiano
 
 Nata col D417. **Cosa.** Far valere l'elenco dei non segreti anche per la

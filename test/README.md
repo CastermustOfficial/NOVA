@@ -45,9 +45,9 @@ Le prove del recinto di Windows (`nova-platform` e `nova-core`, solo `cfg(window
 - `misure/`: i banchi di prestazione, lanciati a mano sul PC con la scheda video.
 - `attrezzi/`: gli script lanciati a mano, compresi i giri di mutazione con cui si verifica che un banco gemello guardi davvero.
 
-## `prove/progetto/`: 30 prove
+## `prove/progetto/`: 31 prove
 
-Cosa serve: niente: guardano il repository stesso.
+Cosa serve: niente: guardano il repository stesso. Solo `test_harness_vivo.py` vuole anche node, e senza esce 2.
 
 | prova | cosa controlla |
 |---|---|
@@ -62,6 +62,7 @@ Cosa serve: niente: guardano il repository stesso.
 | `test_elenchi_gemelli.py` | Ogni elenco dichiarato in Rust ha un gemello in Python, e si confronta. |
 | `test_guardie_predefinite.py` | Le guardie sono un elenco solo, e non ne esiste un secondo. |
 | `test_harness_dot.py` | I Dot nell'harness, guardando la pagina (D391, D392): ogni capacita' che la pagina chiede passa dall'elenco del guscio ed esiste nel demone, la vista e' solo della persona; la vista, il bottone e il posto delle schede ci sono; le schede dei Dot non si ricordano e non vanno con la domanda a NOVA; chi scrive da li' non dice chi e' (lo dice il demone: Nova); come Teams, prima le chat (con te, i gruppi coi loro interni, fra di loro, dove scrivi anche tu), e quello che si e' visto ricordato senza rompersi; ogni frase ha la sua traduzione, compresi i mestieri e le frasi di chi non prende compiti, letti dal codice del demone (`nova_dot::Mestiere`, D396). |
+| `test_harness_vivo.py` | La cartella dal vivo e i pezzi coperti nell'harness (D418): i conti di `ui/vivo.js`, con node (cosa e' nato o cambiato, le cartelle con dentro un segno, i segni che scadono dopo dieci minuti, chi lavora in quale cartella, l'ultimo file scritto per «segui»); la pagina rilegge solo quello che e' aperto, a finestra visibile, con «segui» spento di serie; i pezzi coperti si decidono con due pulsanti e restano solo della persona; il demone da' la data di ogni voce e la cartella di progetti e compiti; ogni frase nuova ha la sua traduzione. Senza node esce 2. |
 | `test_impostazioni.py` | Il pannello deve saper aggiungere, non solo scegliere; nella scheda Cervello si spuntano i motori e si scelgono tre voci, la consigliata le rimette, e si scrive solo con «Conferma», che il guscio ricontrolla, con le frasi anche in inglese (D379, D390). |
 | `test_installer.py` | L'installer chiede quattro cose, e scrive solo valori che qualcuno legge. |
 | `test_niente_cresce_per_sempre.py` | Nessun diario di NOVA puo' crescere per sempre. |

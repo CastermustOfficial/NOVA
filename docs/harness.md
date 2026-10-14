@@ -210,6 +210,15 @@ toccando. Ogni conversazione si apre in una scheda al centro; quella con un
 Dot ha anche i compiti e i loro passi. Il disegno e com'e' andata stanno in
 [`dots.md`](dots.md).
 
+**La cartella dal vivo** (D418): *Esplora* si rilegge da sola ogni 2,5
+secondi, solo la cartella aperta e le sottocartelle espanse, e solo a
+finestra visibile. Quello che nasce ha un segno verde, un file scritto da
+poco arancio, una cartella con dentro qualcosa di nuovo grigio; i segni
+durano dieci minuti. Accanto alla cartella di un compito c'e' il Dot che ci
+lavora. Il bottone «Segui», in cima a *Esplora*, apre da solo l'ultimo file
+scritto, ed e' spento di serie. I conti stanno in `ui/vivo.js`, che si prova
+da solo con node (`prove/progetto/test_harness_vivo.py`).
+
 ## Dopo
 
 - Le porzioni di Word seguite mentre si scrive, così il grassetto dentro un

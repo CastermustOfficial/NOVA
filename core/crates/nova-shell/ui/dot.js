@@ -49,6 +49,12 @@ const STA = {
   custode: ['decide i permessi', 'custode'],
   su_chiamata: ['su chiamata', 'chiamata'],
 };
+/* Come sta un progetto, come lo dice `dot.progetti`. */
+const STA_PROGETTO = {
+  prepara: 'si prepara', aspetta_il_via: 'aspetta il via', in_corso: 'in corso',
+  fermo: 'fermo', finito: 'finito', in_coda: 'in coda',
+};
+
 const NOME_STATO = {
   affidato: 'in coda', in_corso: 'in corso', in_attesa: 'in attesa', fatto: 'fatto',
   fallito: 'fallito', fermato: 'fermato', interrotto: 'interrotto',
@@ -76,6 +82,15 @@ const STILE = `
 .dot-file .ic.scritto{color:var(--brace)}
 .dot-file .ic.tolto{color:var(--pericolo)}
 .dot-file .chi{margin-left:auto;font-size:10px;color:var(--fioco);overflow:hidden;text-overflow:ellipsis;max-width:45%}
+.dot-progetto{display:flex;align-items:center;gap:8px;padding:5px 14px;font-size:12px;color:var(--mezzo)}
+.dot-progetto .n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dot-progetto small{color:var(--fioco);font-size:10.5px}
+.dot-progetto button,.dot-coperto button{margin-left:auto;font-size:11px;padding:3px 8px;border-radius:7px;border:1px solid var(--linea-2);color:var(--mezzo);flex:none}
+.dot-progetto button:hover,.dot-coperto button:hover{color:var(--inchiostro);background:var(--vetro-2)}
+.dot-coperto{margin:2px 12px 8px;padding:8px 10px;border:1px solid var(--linea-2);border-radius:8px;font-size:11.5px;color:var(--mezzo);display:flex;flex-direction:column;gap:6px}
+.dot-coperto code{font:12px var(--mono);color:var(--inchiostro);word-break:break-all}
+.dot-coperto .pulsanti{display:flex;gap:6px}
+.dot-coperto .pulsanti button{margin-left:0}
 .dot-modulo{margin:0 12px 10px;padding:10px;border:1px solid var(--linea-2);border-radius:9px;display:flex;flex-direction:column;gap:7px;font-size:12px}
 .dot-modulo input,.dot-modulo select{height:27px;border-radius:7px;border:1px solid var(--linea-2);background:var(--fondo);color:var(--inchiostro);padding:0 8px;font:12px var(--testo);outline:none}
 .dot-modulo label{display:flex;align-items:center;gap:6px;color:var(--mezzo)}
@@ -195,6 +210,8 @@ export function avviaDot(h) {
   document.head.appendChild(stile);
 
   let vista = null;           // l'ultima risposta di dot.vista, senza nome
+  let progetti = [];          // dot.progetti: nome, cartella, come sta (D418)
+  let coperti = [];           // guardiano.coperti: i pezzi da rivedere (D417, D418)
   let modulo = '';            // '', 'dot', 'gruppo' o 'chat': il modulo aperto a sinistra
   let linguetta = 'chat';     // 'chat', 'organigramma' o 'file'
   let cerca = '';             // il filtro delle chat
@@ -212,6 +229,9 @@ export function avviaDot(h) {
   async function carica() {
     try { vista = await chiama('dot.vista', { nome: '' }); }
     catch (e) { vista = { errore: String(e), dots: [], gruppi: [], file: [] }; }
+    // I progetti e i pezzi coperti: se non si leggono, la vista c'e' lo stesso.
+    try { progetti = (await chiama('dot.progetti', {}))?.progetti || []; } catch (_) { progetti = []; }
+    try { coperti = (await chiama('guardiano.coperti', {}))?.pezzi || []; } catch (_) { coperti = []; }
     disegnaVista();
     return vista;
   }
@@ -226,9 +246,9 @@ export function avviaDot(h) {
       html += `<div class="dot-nota"><b>${esc(T('I Dot sono spenti'))}</b> (${esc(vista.accesi.perche)}). ${esc(T('Si accendono nelle impostazioni, alla voce «I Dot».'))}</div>`;
     }
     html += `<div class="dot-linguette">${[['chat', T('Chat')], ['organigramma', T('Organigramma')], ['file', T('File')]]
-      .map(([k, t]) => `<button data-linguetta="${k}" class="${linguetta === k ? 'si' : ''}">${esc(t)}${k === 'chat' && nonLetti() ? ` <b>${nonLetti()}</b>` : ''}</button>`).join('')}</div>`;
+      .map(([k, t]) => `<button data-linguetta="${k}" class="${linguetta === k ? 'si' : ''}">${esc(t)}${k === 'chat' && nonLetti() ? ` <b>${nonLetti()}</b>` : ''}${k === 'file' && coperti.length ? ` <b>${coperti.length}</b>` : ''}</button>`).join('')}</div>`;
     if (linguetta === 'chat') html += vistaChat();
-    else if (linguetta === 'file') html += `<div class="albero">${alberoFile()}</div>`;
+    else if (linguetta === 'file') html += `${vistaProgetti()}${vistaCoperti()}<div class="sez"><span>${esc(T('File toccati'))}</span></div><div class="albero">${alberoFile()}</div>`;
     else html += vistaOrganigramma();
     el.innerHTML = html;
     lega(el);
@@ -351,6 +371,30 @@ export function avviaDot(h) {
     return html + r.map(d => giu(d, 2, visti)).join('');
   }
 
+  /* Le cartelle dei progetti (D418): un clic le apre in Esplora, che si
+     rilegge da sola mentre i Dot lavorano. */
+  function vistaProgetti() {
+    let html = `<div class="sez"><span>${esc(T('Progetti'))}</span></div>`;
+    if (!progetti.length) return html + `<div class="dot-vuoto">${esc(T('Nessun progetto.'))}</div>`;
+    return html + progetti.map(p => `<div class="dot-progetto" title="${esc(p.cartella || '')}">
+      <span class="n">${esc(p.progetto)}</span><small>${esc(T(STA_PROGETTO[p.sta] || p.sta || ''))}</small>
+      ${p.cartella ? `<button data-dot-progetto="${esc(p.cartella)}">${esc(T('Apri la cartella'))}</button>` : ''}</div>`).join('');
+  }
+
+  /* I pezzi che il guardiano ha coperto nelle domande ai giudici fuori dal
+     PC (D417): li decide la persona, qui. Il pezzo si vede solo in questa
+     finestra: non va a nessun cervello. */
+  function vistaCoperti() {
+    if (!coperti.length) return '';
+    return `<div class="sez"><span>${esc(T('Pezzi coperti dal guardiano'))}</span></div>
+      <div class="dot-vuoto">${esc(T('Sono usciti coperti verso un giudice fuori dal PC. Se non sono segreti, da adesso il giudice li vede.'))}</div>`
+      + coperti.map((c, i) => `<div class="dot-coperto">
+        <code>${esc(c.pezzo)}</code>
+        <span>${esc(c.ultima_volta || '')} · ${esc(String(c.volte))} ${esc(T(c.volte === 1 ? 'volta' : 'volte'))}</span>
+        <span class="pulsanti"><button data-coperto="${i}" data-segreto="1">${esc(T('È un segreto'))}</button>
+        <button data-coperto="${i}" data-segreto="0">${esc(T('Non è un segreto'))}</button></span></div>`).join('');
+  }
+
   /* I file toccati come in Esplora: una cartella per livello, e le catene di
      cartelle con un figlio solo in una riga sola. */
   function alberoFile() {
@@ -436,6 +480,15 @@ export function avviaDot(h) {
       const k = n.dataset.dotCartella;
       if (fileChiusi.has(k)) fileChiusi.delete(k); else fileChiusi.add(k);
       disegnaVista();
+    });
+    el.querySelectorAll('[data-dot-progetto]').forEach(b => b.onclick = () => h.apriCartella?.(b.dataset.dotProgetto));
+    el.querySelectorAll('[data-coperto]').forEach(b => b.onclick = async () => {
+      const c = coperti[Number(b.dataset.coperto)];
+      if (!c) return;
+      el.querySelectorAll('[data-coperto]').forEach(x => { x.disabled = true; });
+      try { await chiama('guardiano.decidi', { pezzo: c.pezzo, segreto: b.dataset.segreto === '1' }); }
+      catch (e) { messaggio(String(e), 9000); }
+      await carica();
     });
     el.querySelectorAll('[data-dot-file]').forEach(n => n.onclick = () => {
       if (n.dataset.tolto === '1') { messaggio(T('Il file non c’è più: un Dot l’ha tolto di lì.'), 5000); return; }
@@ -812,5 +865,8 @@ export function avviaDot(h) {
     carica().then(() => h.pallino(nonLetti()));
   }
 
-  return { mostra, evento, mostrata, apri, PREFISSO };
+  /* I Dot della vista, per l'albero dal vivo: chi lavora in quale cartella. */
+  const dots = () => vista?.dots || [];
+
+  return { mostra, evento, mostrata, apri, dots, ricarica: carica, PREFISSO };
 }

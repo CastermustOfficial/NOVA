@@ -11878,3 +11878,14 @@ numero anche lui, e che il punto era un altro: le consegne vanno guardate
 tutte, e quello che non si sa se e' un segreto lo decide una persona, una
 volta (D417).
 
+## 14 ottobre 2026 — La cartella dal vivo
+
+Le sessioni azzerate, Gio ha chiesto di finire la cartella dal vivo prima di
+rimettere in moto i Dot. La scelta che conta e' stata non usare un
+osservatore del disco: rileggere ogni 2,5 secondi quello che e' aperto
+nell'albero e' lo stesso ritmo con cui la finestra guarda gia' le schede, e i
+conti stanno in un modulo che node prova da solo, senza accendere il guscio.
+La rilettura del codice prima del commit ha trovato due cose: una cartella
+chiusa in cui era nato un file non portava nessun segno, perche' si
+guardava solo dentro le cartelle lette; e l'albero chiedeva i Dot a
+`dot.js` prima che fosse avviato (D418).

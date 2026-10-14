@@ -44,6 +44,11 @@ const CONSENTITE: &[&str] = &[
     "dot.ferma",
     "dot.crea",
     "dot.gruppo",
+    // La cartella di un progetto, da aprire in Esplora (D418).
+    "dot.progetti",
+    // I pezzi coperti dal guardiano, da rivedere (D417, D418).
+    "guardiano.coperti",
+    "guardiano.decidi",
     "azione.ferma",
     "azione.stato",
     "approvazione.attese",

@@ -1209,7 +1209,16 @@ non si allenta: a un giudice di fuori la consegna parte con coperto il pezzo
 che sembra un segreto, e il resto si giudica. I pezzi coperti restano sul PC
 (`coperti.jsonl`); Gio dice se sono segreti (`guardiano.coperti`,
 `guardiano.decidi`, solo sue), e un pezzo non segreto da li' il giudice lo
-vede. Resta da fare: rivederli dall'harness invece che a comando.
+vede. Rivederli dall'harness invece che a comando e' venuto col D418.
+
+**La cartella dal vivo e i pezzi coperti nell'harness — fatto** (D418). In
+*Esplora* la cartella del progetto si rilegge da sola mentre i Dot lavorano:
+quello che nasce o cambia ha un segno per dieci minuti, una cartella chiusa
+con dentro qualcosa di nuovo lo porta anche lei, e accanto alla cartella di
+un compito c'e' il Dot che ci lavora. «Segui» apre da solo l'ultimo file
+scritto, ed e' spento di serie. Nella vista dei Dot, linguetta *File*, ci
+sono i progetti con la loro cartella e i pezzi coperti dal guardiano, con
+due pulsanti: e' un segreto, non lo e'.
 
 **Il via dopo un piano non fatto — fatto** (D411). Rimesso Claude, il via a
 S0ex1 lo fermava di nuovo nello stesso secondo: l'APM aspettava ancora il

@@ -944,7 +944,13 @@ pub fn vista(server: &Arc<Server>) -> Value {
                 "cervello": dot.cervello,
                 "a_parte": dot.mestiere.detto_a_parte(),
                 "sta": come_sta(&dot, &coda, in_corso),
-                "compito": ora.map(|x| json!({ "id": x.id, "testo": in_breve(&x.testo), "stato": x.stato })),
+                // La cartella del compito, se e' di un progetto: l'albero dal
+                // vivo dice chi ci lavora (D418).
+                "compito": ora.map(|x| json!({
+                    "id": x.id, "testo": in_breve(&x.testo), "stato": x.stato,
+                    "cartella": d::struttura::cartella_dal_testo(&x.testo)
+                        .map(|p| p.display().to_string()),
+                })),
                 "in_coda": coda.iter().filter(|x| x.stato == d::Stato::Affidato).count(),
                 "fatti": coda.iter().filter(|x| x.stato == d::Stato::Fatto).count(),
                 "posta_da_leggere": c.non_letta().len(),
