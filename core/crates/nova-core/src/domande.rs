@@ -127,6 +127,47 @@ pub async fn dopo_il_turno(
     Dopo::Riprendi(seguito)
 }
 
+/// Le domande che un Dot ha fatto lavorando a un compito di un progetto, con
+/// le risposte, dal diario del progetto: (a chi, la domanda, la risposta).
+/// Le vede il capo che giudica (D420). Un compito rifatto le ha tutte, anche
+/// quelle della volta prima: sono dello stesso compito del piano.
+pub fn fatte(dot: &str, compito: &d::Compito) -> Vec<(String, String, String)> {
+    let Some((progetto, incarico)) = pr::progetto_dal_testo(&compito.testo) else {
+        return Vec::new();
+    };
+    pr::leggi(&crate::progetti::radice(&progetto))
+        .into_iter()
+        .filter_map(|e| match e {
+            Evento::Domanda {
+                da,
+                a,
+                incarico: i,
+                domanda,
+                risposta,
+                ..
+            } if da == dot && i == incarico => Some((a, domanda, risposta)),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Il messaggio di un turno con in coda la posta arrivata mentre il Dot
+/// lavorava (D420), che da li' risulta letta. Senza posta nuova, il
+/// messaggio com'e'.
+pub fn con_la_posta_arrivata(c: &d::Cartella, compito: u64, messaggio: String) -> String {
+    let posta = c.non_letta();
+    let (t, letta) = d::con_la_posta_arrivata(&messaggio, &posta);
+    let Some(n) = letta else {
+        return messaggio;
+    };
+    if let Err(e) = c.segna_letta(n) {
+        tracing::warn!(errore = %e, "la posta letta non si segna");
+    }
+    let quanti = posta.iter().filter(|m| m.n <= n).count();
+    diario(c, compito, json!({ "tipo": "posta", "messaggi": quanti }));
+    t
+}
+
 /// Una riga nel diario del Dot.
 fn diario(c: &d::Cartella, compito: u64, campi: serde_json::Value) {
     let mut riga = json!({ "quando": crate::decisioni::adesso(), "compito": compito });

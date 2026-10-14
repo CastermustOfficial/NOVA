@@ -18,10 +18,13 @@ Un progetto con due Dot e un cervello finto. Si guarda che:
 3. le domande restano scritte nel diario del progetto, e nella chat del
    progetto con il messaggio `ALLA CHAT:`;
 4. il capo, invece del voto, puo' fare una domanda al Dot: il Dot risponde,
-   e il capo vota con la risposta;
+   e il capo vota con la risposta; e vede le domande che il Dot ha fatto
+   lavorando, con le risposte portate da NOVA (D420);
 5. i limiti: tre volte per compito per il Dot, due per il capo, e poi si
    consegna e si vota;
-6. un compito che non e' di un progetto resta com'era: le righe sono la
+6. una domanda continua sulle righe sotto, e un messaggio arrivato nella
+   chat mentre il Dot lavora gli arriva al turno dopo (D420);
+7. un compito che non e' di un progetto resta com'era: le righe sono la
    consegna.
 
 Esce 2 — «qui non si puo' provare» — se il demone non e' costruito.
@@ -129,8 +132,10 @@ class Cervello(BaseHTTPRequestHandler):
             testo(self, "E' il nome utente GitHub di Gio, non una password.")
         elif q.startswith("Le risposte alle tue domande:"):
             nota("dot_riprende", q)
-            if "chiede sempre" in "".join(m.get("content") or "" for m in corpo["messages"]):
+            if "«e ancora?»" in q:
                 testo(self, "CHIEDO A legale: e ancora?")
+            elif "«ecco i termini, alla lettera:" in q:
+                testo(self, "Consegna 1.4: letti i termini col legale.")
             else:
                 testo(self, "Consegna 1.2: misure fatte. Il legale dice ok, le misure di 1.1 "
                             "stanno in materiale/misure.csv.\nALLA CHAT: le misure di 1.2 sono pronte")
@@ -143,6 +148,13 @@ class Cervello(BaseHTTPRequestHandler):
                         "ALLA CHAT: comincio le misure di 1.2")
         elif "chiede sempre" in q:
             testo(self, "CHIEDO A legale: e ancora?")
+        elif "leggi i termini" in q:
+            # Mentre il Dot lavora, nella chat del progetto arriva un
+            # messaggio: lo deve leggere al turno dopo, non al compito dopo.
+            capacita("dot.scrivi", a="gruppo:prova", testo="il controllore ha finito le misure")
+            testo(self, "Li ho letti.\nCHIEDO A legale: ecco i termini, alla lettera:\n"
+                        "You may not use the Services\nto develop competing models.\n"
+                        "Si applicano ad Antigravity?")
         elif "fuori dai progetti" in q:
             testo(self, "Fatto.\nCHIEDO A legale: questa riga resta")
         else:
@@ -296,6 +308,11 @@ try:
     controlla("il voto arriva", [x["voto"] for x in v] == [8], str(v))
     controlla("il capo sapeva che puo' chiedere",
               bool(visto["capo"]) and "`DOMANDA: <la domanda al Dot>`" in visto["capo"][0])
+    primo = visto["capo"][0] if visto["capo"] else ""
+    controlla("e sapeva cosa aveva chiesto il Dot, con le risposte portate da NOVA (D420)",
+              "Le ha portate NOVA, che le ha registrate: sono vere" in primo
+              and "- A legale: «posso usare il corpus Gutenberg?»\n  Risposta: ESITO: ok" in primo
+              and "- A controllore: «dove sono le misure di 1.1?»" in primo, primo[:700])
     a = visto["dot_al_capo"][0] if visto["dot_al_capo"] else ""
     controlla("la domanda e' arrivata al Dot, nella sua conversazione",
               "«4exodus» e' una password o un nome utente?" in a and "non cambiare file" in a, a[:300])
@@ -322,7 +339,26 @@ try:
     controlla("il capo chiede due volte, poi vota", [x["voto"] for x in v] == [7]
               and len(visto["capo"]) - prima_capo == 3, f"{v} {len(visto['capo']) - prima_capo}")
 
-    print("\n6. fuori dai progetti non cambia niente")
+    print("\n6. una domanda su piu' righe, e la chat letta mentre si lavora (D420)")
+    prima_legale = len(visto["legale"])
+    prima_riprende = len(visto["dot_riprende"])
+    id4 = capacita("dot.affida", nome="misuratore",
+                   compito=compito_del_progetto("1.4", "leggi i termini"))["compito"]
+    c = aspetta("misuratore", id4)
+    controlla("il compito e' fatto", c.get("stato") == "fatto"
+              and c.get("esito", "").startswith("Consegna 1.4"), str(c)[:300])
+    q = visto["legale"][prima_legale] if len(visto["legale"]) > prima_legale else ""
+    controlla("al legale arriva la domanda intera, con le righe sotto",
+              "ecco i termini, alla lettera:\nYou may not use the Services\nto develop competing models.\n"
+              "Si applicano ad Antigravity?" in q, q[-500:])
+    r = visto["dot_riprende"][prima_riprende] if len(visto["dot_riprende"]) > prima_riprende else ""
+    controlla("il messaggio arrivato intanto c'e' nel turno dopo",
+              "Messaggi arrivati mentre lavoravi:" in r and "il controllore ha finito le misure" in r, r[-400:])
+    controlla("e il diario dice che l'ha letto",
+              any(x.get("tipo") == "posta" and x.get("compito") == id4 and x.get("messaggi") == 1
+                  for x in righe(cartella_nova / "dots" / "misuratore" / "diario.jsonl")))
+
+    print("\n7. fuori dai progetti non cambia niente")
     prima_legale = len(visto["legale"])
     id3 = capacita("dot.affida", nome="controllore", compito="un compito fuori dai progetti")["compito"]
     c = aspetta("controllore", id3)

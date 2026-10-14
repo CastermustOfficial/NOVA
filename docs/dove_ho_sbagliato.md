@@ -2955,3 +2955,32 @@ supposto invece di chiedere e' diventato il D419.
 La regola: quello che dice un giudice e' un'ipotesi sua, anche quando parla
 di sicurezza; prima di riferirlo come un fatto si guarda la cosa, e se non
 la si e' guardata lo si dice.
+
+## La domanda che stava in una riga
+
+Il 14 ottobre, scrivendo il D419, ho deciso che una domanda di un Dot fosse
+la riga `CHIEDO A <chi>: ...` e basta, senza chiedermi cosa succede a una
+domanda lunga. La prova aveva solo domande di una riga. La sera
+*amministrazione* ha mandato al legale il testo dei termini di Antigravity
+su piu' righe, e al legale e' arrivata solo la prima: ha risposto che il
+testo non c'era, e il Dot ha dovuto rifarlo due volte. Me ne sono accorto
+leggendo le risposte del legale nel diario del progetto. Corretto col D420:
+la domanda continua sulle righe sotto fino alla domanda dopo, e la prova ne
+ha una su quattro righe.
+
+La regola: un formato che scrive un modello si prova anche col caso lungo e
+col caso brutto, non solo con quello che si ha in mente scrivendolo.
+
+## Il disco pieno che era mio
+
+Il 14 ottobre sera Gio ha visto il disco C quasi pieno, 1,6 GB liberi, e
+ha pensato ai Dot. Misurato, il grosso era mio: `core\target\debug` sul
+suo PC era arrivato a 77,6 GB, a forza di giri della suite su Windows con
+la compilazione incrementale accesa, e non l'avevo mai guardato. Nella
+cache dei modelli, 124 GB, l'unico recente era uno da 0,9 GB del 13
+ottobre, probabilmente dei Dot; il resto sono modelli scaricati mesi prima. Corretto: tolto
+`target\debug`, che si ricostruisce, e lo script della suite su Windows
+gira senza compilazione incrementale.
+
+La regola: quello che lascio sul PC di sviluppo lo misuro anch'io, a ogni giro;
+e prima di dire di chi e' un guasto lo si misura.

@@ -584,6 +584,10 @@ compito lungo non la vede. **Cosa costerebbe.** Uno strumento di sola
 lettura nel collegamento MCP dei Dot, e la regola su quando guardarla, per
 non farla leggere a ogni passo.
 
+**Fatta col D420** (14 ottobre), senza strumento: la posta arrivata mentre il
+Dot lavora entra nel messaggio del turno dopo, con qualunque cervello, e un
+turno senza posta nuova resta com'e'. Resta qui com'era nata.
+
 ## Il collega che risponde coi suoi file
 
 Nata col D419. **Cosa.** Quando un Dot chiede a un collega, far rispondere

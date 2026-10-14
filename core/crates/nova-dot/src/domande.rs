@@ -81,56 +81,82 @@ fn dopo<'a>(riga: &'a str, segno: &str) -> Option<&'a str> {
         .then(|| &riga[segno.len()..])
 }
 
-/// Divide quello che il Dot ha detto. Le righe dentro un blocco di codice
+/// Se la riga apre una domanda: a chi, e la prima riga della domanda (che
+/// puo' essere vuota, se la domanda comincia sotto).
+fn apre_domanda(p: &str) -> Option<(String, String)> {
+    let x = dopo(p, CHIEDO)?;
+    // «CHIEDO A legale: …», «CHIEDO AL legale: …», «CHIEDO ALL'APM: …»
+    let x = x
+        .strip_prefix("LL'")
+        .or_else(|| x.strip_prefix("ll'"))
+        .or_else(|| x.strip_prefix('L').or_else(|| x.strip_prefix('l')))
+        .unwrap_or(x);
+    let (a, domanda) = x.split_once(':')?;
+    let a = a
+        .trim()
+        .trim_matches(['«', '»', '"', '\'', '<', '>'])
+        .trim()
+        .to_lowercase();
+    (!a.is_empty()).then(|| (a, domanda.trim().to_string()))
+}
+
+/// Se la riga e' un messaggio alla chat, il messaggio.
+fn alla_chat(p: &str) -> Option<String> {
+    let m = dopo(p, ALLA_CHAT)?.trim_start().strip_prefix(':')?.trim();
+    (!m.is_empty()).then(|| m.to_string())
+}
+
+/// Divide quello che il Dot ha detto.
+///
+/// Una domanda comincia con la riga `CHIEDO A <chi>:` e continua sulle righe
+/// sotto, fino alla domanda dopo o a un messaggio alla chat (D420): il 14
+/// ottobre il testo dei termini di Antigravity, mandato al legale su piu'
+/// righe, e' arrivato tagliato alla prima. Un messaggio alla chat e' una
+/// riga sola. Prima della prima domanda, le righe dentro un blocco di codice
 /// non contano: una consegna che spiega il formato non e' una domanda.
 pub fn dividi(t: &str) -> Detto {
     let mut d = Detto::default();
     let mut resto = Vec::new();
     let mut in_codice = false;
+    // La domanda che si sta leggendo: a chi, la riga com'era, e le righe
+    // della domanda.
+    type Aperta = Option<(String, String, Vec<String>)>;
+    let mut aperta: Aperta = None;
+    let chiudi = |aperta: &mut Aperta, d: &mut Detto, resto: &mut Vec<String>| {
+        if let Some((a, com_era, righe)) = aperta.take() {
+            let testo = righe.join("\n").trim().to_string();
+            if testo.is_empty() {
+                // Una domanda senza niente dentro non e' una domanda.
+                resto.push(com_era);
+            } else {
+                d.domande.push(Domanda { a, testo });
+            }
+        }
+    };
     for riga in t.lines() {
-        if riga.trim_start().starts_with("```") {
+        let codice = riga.trim_start().starts_with("```");
+        if !in_codice {
+            let p = pulita(riga);
+            if let Some((a, prima)) = apre_domanda(&p) {
+                chiudi(&mut aperta, &mut d, &mut resto);
+                aperta = Some((a, riga.to_string(), vec![prima]));
+                continue;
+            }
+            if let Some(m) = alla_chat(&p) {
+                chiudi(&mut aperta, &mut d, &mut resto);
+                d.alla_chat.push(m);
+                continue;
+            }
+        }
+        if codice {
             in_codice = !in_codice;
-            resto.push(riga);
-            continue;
         }
-        if in_codice {
-            resto.push(riga);
-            continue;
+        match aperta.as_mut() {
+            Some((_, _, righe)) => righe.push(riga.to_string()),
+            None => resto.push(riga.to_string()),
         }
-        let p = pulita(riga);
-        if let Some(x) = dopo(&p, CHIEDO) {
-            // «CHIEDO A legale: …», «CHIEDO AL legale: …», «CHIEDO ALL'APM: …»
-            let x = x
-                .strip_prefix("LL'")
-                .or_else(|| x.strip_prefix("ll'"))
-                .or_else(|| x.strip_prefix('L').or_else(|| x.strip_prefix('l')))
-                .unwrap_or(x);
-            if let Some((a, domanda)) = x.split_once(':') {
-                let a = a
-                    .trim()
-                    .trim_matches(['«', '»', '"', '\'', '<', '>'])
-                    .trim()
-                    .to_lowercase();
-                let domanda = domanda.trim();
-                if !a.is_empty() && !domanda.is_empty() {
-                    d.domande.push(Domanda {
-                        a,
-                        testo: domanda.to_string(),
-                    });
-                    continue;
-                }
-            }
-        }
-        if let Some(x) = dopo(&p, ALLA_CHAT) {
-            if let Some(m) = x.trim_start().strip_prefix(':') {
-                if !m.trim().is_empty() {
-                    d.alla_chat.push(m.trim().to_string());
-                    continue;
-                }
-            }
-        }
-        resto.push(riga);
     }
+    chiudi(&mut aperta, &mut d, &mut resto);
     d.resto = resto.join("\n").trim().to_string();
     d
 }
@@ -197,8 +223,9 @@ pub fn regola(chiede: &str, squadra: &[String]) -> String {
         "\n\nSe per andare avanti ti serve una risposta che non hai (un parere del legale, una \
          decisione dell'APM, un chiarimento da un collega), non inventarla e non scriverla tu al \
          posto suo: chiedila. Chiudi la risposta con una riga per domanda, cosi': \
-         `{CHIEDO} <chi>: <la domanda>`, dove <chi> e' uno fra {a_chi}. Quel turno non e' la \
-         consegna: NOVA porta la domanda, la risposta ti torna in questo stesso compito, e \
+         `{CHIEDO} <chi>: <la domanda>`, dove <chi> e' uno fra {a_chi}; la domanda puo' \
+         continuare sulle righe sotto, fino alla domanda dopo, e le domande vanno in fondo. \
+         Quel turno non e' la consegna: NOVA porta la domanda, la risposta ti torna in questo stesso compito, e \
          allora continui. Puoi farlo al massimo {GIRI_PER_COMPITO} volte per compito. Per dire \
          qualcosa a tutta la squadra senza aspettare, scrivi una riga `{ALLA_CHAT}: <il \
          messaggio>`: va nella chat del progetto, gli altri la leggono al loro prossimo \
@@ -343,11 +370,42 @@ mod prove {
     #[test]
     fn nel_codice_e_senza_domanda_non_e_una_domanda() {
         let t = "Il formato:\n```\nCHIEDO A legale: esempio\nALLA CHAT: esempio\n```\n\
-                 CHIEDO A legale:\nCHIEDO A : vuota\nALLA CHAT:\nChiedo a tutti di leggere.";
+                 CHIEDO A : vuota\nALLA CHAT:\nChiedo a tutti di leggere.\nCHIEDO A legale:";
         let d = dividi(t);
         assert!(d.domande.is_empty(), "{:?}", d.domande);
         assert!(d.alla_chat.is_empty());
-        assert_eq!(d.resto, t);
+        assert_eq!(d.resto, t, "anche la domanda vuota in fondo resta com'era");
+    }
+
+    #[test]
+    fn una_domanda_continua_sulle_righe_sotto() {
+        // D420: il 14 ottobre i termini mandati al legale su piu' righe sono
+        // arrivati tagliati alla prima.
+        let t = "Premessa.\n\
+                 CHIEDO A legale: ecco i termini, alla lettera:\n\
+                 ```\nYou may not use the Services\nALLA CHAT: dentro il codice non conta\n```\n\
+                 Si applicano ad Antigravity?\n\
+                 CHIEDO A apm:\nchi decide il budget?\n\
+                 ALLA CHAT: fatto\n\
+                 Fine.";
+        let d = dividi(t);
+        assert_eq!(
+            d.domande,
+            vec![
+                Domanda {
+                    a: "legale".into(),
+                    testo: "ecco i termini, alla lettera:\n```\nYou may not use the Services\n\
+                            ALLA CHAT: dentro il codice non conta\n```\nSi applicano ad Antigravity?"
+                        .into()
+                },
+                Domanda {
+                    a: "apm".into(),
+                    testo: "chi decide il budget?".into()
+                },
+            ]
+        );
+        assert_eq!(d.alla_chat, vec!["fatto".to_string()]);
+        assert_eq!(d.resto, "Premessa.\nFine.");
     }
 
     #[test]

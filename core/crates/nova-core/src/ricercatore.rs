@@ -124,10 +124,13 @@ impl Lavoro<'_> {
     /// con la risposta, finche' non risponde davvero: il piano e i passi
     /// vedono solo quello. Il revisore no: giudica, e non chiede.
     async fn turno(&mut self, testo: &str, cervello: &str, per: &str) -> Result<Svolto, String> {
-        let mut svolto = self.un_turno(testo, cervello, per).await?;
         if per == "revisione" {
-            return Ok(svolto);
+            return self.un_turno(testo, cervello, per).await;
         }
+        // La posta arrivata intanto (D420): quella di prima e' gia' nel
+        // testo del compito.
+        let testo = crate::domande::con_la_posta_arrivata(self.c, self.compito.id, testo.to_string());
+        let mut svolto = self.un_turno(&testo, cervello, per).await?;
         while let Fine::Risposto(t) = &svolto.fine {
             let dopo = crate::domande::dopo_il_turno(
                 self.server,
@@ -144,6 +147,8 @@ impl Lavoro<'_> {
                     break;
                 }
                 crate::domande::Dopo::Riprendi(seguito) => {
+                    let seguito =
+                        crate::domande::con_la_posta_arrivata(self.c, self.compito.id, seguito);
                     svolto = self.un_turno(&seguito, cervello, per).await?;
                 }
             }

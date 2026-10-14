@@ -1150,7 +1150,7 @@ mod prove {
         p.lavori.clear();
         let solo = squadra_e_chat(&p, "dati", None);
         assert!(solo.contains("Adesso non lavora nessun altro.") && !solo.contains("gruppo"), "{solo}");
-        assert!(solo.contains("uno fra legale, apm. Quel turno"), "{solo}");
+        assert!(solo.contains("uno fra legale, apm; la domanda puo' continuare"), "{solo}");
     }
 
     #[test]

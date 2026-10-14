@@ -77,6 +77,8 @@ pub async fn giudica(
     if let Ok(r) = std::fs::read_to_string(c.rapporto(compito.id)) {
         consegna = format!("{consegna}\n\nIl rapporto:\n{}", r.trim());
     }
+    // Le domande che ha fatto lavorando, come le ha portate NOVA (D420).
+    let consegna = p::con_le_domande_del_dot(&consegna, &crate::domande::fatte(&dot.nome, compito));
     let in_casa = grande.in_casa();
     let solo_locale = crate::dalla_configurazione::scala(&cfg).solo_locale;
     // La consegna intera, o quanto ci sta nella finestra del modello di

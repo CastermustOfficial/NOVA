@@ -1875,6 +1875,13 @@ async fn lavora(
         } else {
             format!("{}{aggiunta}", d::domanda(compito))
         };
+        // Dal secondo turno, la posta arrivata intanto (D420): quella di
+        // prima e' gia' nella prima domanda.
+        let testo = if giro > 0 {
+            crate::domande::con_la_posta_arrivata(c, compito.id, testo)
+        } else {
+            testo
+        };
         // Il cervello di AR, se l'ha scelto lui (D397): da li' parte ogni
         // turno del compito.
         let r = crate::agente::turno_in(

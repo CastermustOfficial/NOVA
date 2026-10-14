@@ -188,6 +188,30 @@ pub fn domanda(giudice: &str, dot: &Dot, compito: &str, consegna: &str, massimo:
     )
 }
 
+/// La consegna con in testa le domande che il Dot ha fatto durante il
+/// compito (D419) e le risposte, come le ha portate NOVA (D420). Il 14
+/// ottobre il capo ha bocciato 1.25 perche' la risposta del legale «arriva 4
+/// secondi dopo la domanda, con provenienza Utente/legale»: non sapeva che
+/// le domande le porta NOVA, e l'ha presa per una risposta inventata.
+/// Ogni voce e' (a chi, la domanda, la risposta).
+pub fn con_le_domande_del_dot(consegna: &str, domande: &[(String, String, String)]) -> String {
+    if domande.is_empty() {
+        return consegna.to_string();
+    }
+    let mut t = String::from(
+        "Le domande che il Dot ha fatto durante il compito, con le risposte. Le ha portate NOVA, \
+         che le ha registrate: sono vere, non scritte dal Dot.",
+    );
+    for (a, q, r) in domande {
+        t.push_str(&format!(
+            "\n\n- A {a}: «{}»\n  Risposta: {}",
+            tagliato(q, RISPOSTA_DEL_DOT),
+            tagliato(r, RISPOSTA_DEL_DOT).replace('\n', "\n  ")
+        ));
+    }
+    format!("{t}\n\nLa consegna del Dot:\n{}", consegna.trim())
+}
+
 /// La domanda al capo con le domande che ha gia' fatto e le risposte del
 /// Dot. `ancora`: se puo' chiedere ancora.
 pub fn con_le_risposte(domanda: &str, scambi: &[(String, String)], ancora: bool) -> String {
@@ -501,6 +525,19 @@ mod prove {
         let a = al_dot("apm", "cos'e' 4exodus?");
         assert!(a.starts_with("Il tuo capo, «apm», prima di darti il voto") && a.contains("cos'e' 4exodus?"), "{a}");
         assert!(a.contains("non cambiare file"), "{a}");
+    }
+
+    #[test]
+    fn il_capo_sa_cosa_ha_chiesto_il_dot() {
+        assert_eq!(con_le_domande_del_dot("la consegna", &[]), "la consegna");
+        let t = con_le_domande_del_dot(
+            "la consegna",
+            &[("legale".into(), "posso usare Qwen2-VL?".into(), "ESITO: ok\ncon la licenza".into())],
+        );
+        assert!(t.starts_with("Le domande che il Dot ha fatto durante il compito"), "{t}");
+        assert!(t.contains("Le ha portate NOVA, che le ha registrate: sono vere"), "{t}");
+        assert!(t.contains("- A legale: «posso usare Qwen2-VL?»\n  Risposta: ESITO: ok\n  con la licenza"), "{t}");
+        assert!(t.ends_with("La consegna del Dot:\nla consegna"), "{t}");
     }
 
     #[test]

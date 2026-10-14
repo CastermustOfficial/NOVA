@@ -1232,6 +1232,12 @@ consegna intera. Le domande restano nel diario del progetto, nella chat e
 nei passi del compito nell'harness. Resta aperto: un collega risponde dalle
 sue consegne, non coi suoi file.
 
+**La chat letta mentre si lavora — fatto** (D420). La posta arrivata mentre
+un Dot lavora gli arriva al turno dopo, non al compito dopo: un collega che
+risponde lo si sente quando serve. E una domanda puo' stare su piu' righe:
+continua fino alla domanda dopo. Il capo che giudica vede le domande che il
+Dot ha fatto lavorando, con le risposte, e sa che le ha portate NOVA.
+
 **Il via dopo un piano non fatto — fatto** (D411). Rimesso Claude, il via a
 S0ex1 lo fermava di nuovo nello stesso secondo: l'APM aspettava ancora il
 compito dell'Architetto andato male la sera prima. Adesso il via di un

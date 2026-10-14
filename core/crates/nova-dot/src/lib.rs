@@ -667,10 +667,37 @@ pub struct Messaggio {
 /// [`POSTA_IN_DOMANDA`] caratteri ci si ferma, e lo si dice; torna anche
 /// fino a che numero si e' letto.
 pub fn con_la_posta(domanda: &str, posta: &[Messaggio]) -> (String, Option<u64>) {
+    posta_in_coda(
+        domanda,
+        posta,
+        "Messaggi arrivati prima di questo compito:",
+        "(Ci sono altri messaggi: li leggerai al prossimo compito.)",
+    )
+}
+
+/// Il messaggio di un turno con in coda la posta arrivata mentre il Dot
+/// lavorava (D420): la chat del progetto si legge fra un turno e l'altro,
+/// non solo al compito dopo, cosi' un collega che risponde lo si sente
+/// mentre serve.
+pub fn con_la_posta_arrivata(messaggio: &str, posta: &[Messaggio]) -> (String, Option<u64>) {
+    posta_in_coda(
+        messaggio,
+        posta,
+        "Messaggi arrivati mentre lavoravi:",
+        "(Ci sono altri messaggi: li leggerai al prossimo turno.)",
+    )
+}
+
+fn posta_in_coda(
+    domanda: &str,
+    posta: &[Messaggio],
+    titolo: &str,
+    altri: &str,
+) -> (String, Option<u64>) {
     if posta.is_empty() {
         return (domanda.to_string(), None);
     }
-    let mut t = format!("{domanda}\n\nMessaggi arrivati prima di questo compito:");
+    let mut t = format!("{domanda}\n\n{titolo}");
     let mut letto = None;
     let mut usati = 0usize;
     for m in posta {
@@ -683,7 +710,8 @@ pub fn con_la_posta(domanda: &str, posta: &[Messaggio]) -> (String, Option<u64>)
         };
         let riga = format!("\n- da {}{dove}: {}", m.da, m.testo.trim());
         if usati > 0 && usati + riga.chars().count() > POSTA_IN_DOMANDA {
-            t.push_str("\n(Ci sono altri messaggi: li leggerai al prossimo compito.)");
+            t.push('\n');
+            t.push_str(altri);
             break;
         }
         usati += riga.chars().count();
@@ -1450,6 +1478,11 @@ mod prove_squadra {
         c.segna_letta(1).unwrap();
         assert_eq!(c.letta_fino_a(), 3, "segnare meno non torna indietro");
         assert_eq!(con_la_posta("d", &[]), ("d".to_string(), None));
+        // D420: la posta arrivata mentre si lavora, fra un turno e l'altro.
+        let (t, letto) = con_la_posta_arrivata("Continua.", &posta);
+        assert!(t.starts_with("Continua.\n\nMessaggi arrivati mentre lavoravi:\n- da "), "{t}");
+        assert_eq!(letto, Some(3));
+        assert_eq!(con_la_posta_arrivata("x", &[]), ("x".to_string(), None));
         let _ = std::fs::remove_dir_all(&d);
     }
 

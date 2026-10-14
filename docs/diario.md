@@ -11906,3 +11906,10 @@ La scelta che conta e' stata non aggiungere uno strumento ma una riga di
 testo, `CHIEDO A`: la scrive qualunque cervello, e NOVA la legge dopo il
 turno. Lo stesso per il capo, che una domanda la fa con `DOMANDA:` al posto
 del voto (D419).
+
+La sera, un'ora dopo il riavvio, la cosa funzionava: quattro domande al
+legale, otto messaggi nella chat, e 1.25, fermo dalla mattina, chiuso col
+parere avuto. Ma Gio vedeva pochi scambi fra colleghi, e aveva ragione per
+un motivo che non era il D419: la chat si leggeva solo al compito dopo, e
+un compito puo' durare mezz'ora. E una domanda al legale era arrivata
+tagliata, per colpa mia (D420).
