@@ -618,6 +618,13 @@ export const LINGUE = {
     'Segui: apre da solo l’ultimo file scritto': 'Follow: opens the last written file by itself',
     'Segui: si apre da solo l’ultimo file scritto.': 'Follow: the last written file opens by itself.',
     'Segui spento.': 'Follow off.',
+    /* --- harness: le domande dei Dot (D419) --- */
+    'chiede a': 'asks',
+    'il capo chiede': 'the boss asks',
+    'alla chat': 'to the chat',
+    'domande finite': 'no more questions',
+    'voto': 'mark',
+    'pezzi coperti': 'covered pieces',
   },
 };
 

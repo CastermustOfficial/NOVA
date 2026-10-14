@@ -184,6 +184,18 @@ pub enum Evento {
     Ripreso { quando: String, tetto: f64 },
     /// Il progetto e' finito, col resoconto.
     Finito { quando: String, resoconto: String },
+    /// Un Dot, mentre lavorava a un compito, ha chiesto qualcosa al legale,
+    /// all'APM o a un collega, e questa e' la risposta (D419). Non cambia lo
+    /// stato del progetto: resta scritto, perche' un parere chiesto e avuto
+    /// si ritrova.
+    Domanda {
+        quando: String,
+        da: String,
+        a: String,
+        incarico: String,
+        domanda: String,
+        risposta: String,
+    },
 }
 
 /// Dove sta un progetto.
@@ -444,6 +456,7 @@ impl Progetto {
                         p.lavori.remove(crate::struttura::INCARICO_PAPER);
                     }
                 }
+                Evento::Domanda { .. } => {}
                 Evento::Finito { resoconto, .. } => {
                     p.dove = DoveSta::Finito;
                     p.resoconto.clone_from(resoconto);
@@ -675,14 +688,31 @@ pub fn squadra_e_chat(p: &Progetto, chi: &str, gruppo: Option<&str>) -> String {
     });
     if let Some(g) = gruppo {
         t.push_str(&format!(
-            " La chat del progetto e' il gruppo «{g}»: se ti serve qualcosa da un altro Dot, o \
-             hai trovato qualcosa che serve agli altri, scrivilo li' (dot.scrivi a «gruppo:{g}»). \
-             Gli altri lo leggono al loro prossimo compito, e lo legge Gio. Le consegne degli \
-             altri sono nella cartella del progetto, e l'indice le elenca: leggi quelle che ti \
-             servono."
+            " La chat del progetto e' il gruppo «{g}»: se hai trovato qualcosa che serve agli \
+             altri, scrivilo li', con una riga `{chat}: <il messaggio>` (o con dot.scrivi a \
+             «gruppo:{g}», se hai gli strumenti di NOVA). Gli altri lo leggono al loro prossimo \
+             compito, e lo legge Gio. Le consegne degli altri sono nella cartella del progetto, \
+             e l'indice le elenca: leggi quelle che ti servono.",
+            chat = crate::domande::ALLA_CHAT,
         ));
     }
+    // Chiedere mentre si lavora (D419): al legale, all'APM, a un collega.
+    let squadra: Vec<String> = squadra.iter().map(|s| (*s).to_string()).collect();
+    t.push_str(&crate::domande::regola(chi, &squadra));
     t
+}
+
+/// Il progetto e il compito del piano di un compito, dal suo testo: quello
+/// che [`testo_del_compito`] scrive in testa. `None` per un compito che non
+/// e' di un progetto.
+pub fn progetto_dal_testo(testo: &str) -> Option<(String, String)> {
+    let dopo = testo.trim_start().strip_prefix("Progetto «")?;
+    let (nome, resto) = dopo.split_once('»')?;
+    let (_, compito) = resto.split_once(". Compito ")?;
+    let (incarico, _) = compito.split_once(" del piano:")?;
+    let (nome, incarico) = (nome.trim(), incarico.trim());
+    (!nome.is_empty() && !incarico.is_empty() && !incarico.contains('\n'))
+        .then(|| (nome.to_string(), incarico.to_string()))
 }
 
 /// Il messaggio con cui l'APM chiede il via: il piano, la squadra, il
@@ -1113,9 +1143,38 @@ mod prove {
         assert!(t.contains("La squadra del progetto: dati, qualita, ricerca."), "{t}");
         assert!(t.contains("Adesso lavorano: ricerca (1.1), dati (1.6)."), "{t}");
         assert!(t.contains("dot.scrivi a «gruppo:s0ex1»") && t.contains("lo legge Gio"), "{t}");
+        // D419: anche chi lavora con una CLI senza gli strumenti di NOVA
+        // scrive alla chat, e chiede mentre lavora.
+        assert!(t.contains("con una riga `ALLA CHAT: <il messaggio>`"), "{t}");
+        assert!(t.contains("`CHIEDO A <chi>: <la domanda>`, dove <chi> e' uno fra legale, apm, dati, ricerca"), "{t}");
         p.lavori.clear();
         let solo = squadra_e_chat(&p, "dati", None);
         assert!(solo.contains("Adesso non lavora nessun altro.") && !solo.contains("gruppo"), "{solo}");
+        assert!(solo.contains("uno fra legale, apm. Quel turno"), "{solo}");
+    }
+
+    #[test]
+    fn dal_testo_del_compito_si_sa_di_che_progetto_e() {
+        let p = Progetto::da("s0ex1", &base()).unwrap();
+        let pi = piano();
+        let mut i = pi.fasi[0].incarichi[1].clone();
+        // Un «. Compito … del piano:» dentro il testo del compito non inganna.
+        i.cosa = format!("{}. Compito 9.9 del piano: no", i.cosa);
+        let testo = testo_del_compito(&p, &pi, &pi.fasi[0], &i);
+        assert_eq!(progetto_dal_testo(&testo), Some(("s0ex1".into(), i.id.clone())), "{testo}");
+        assert_eq!(progetto_dal_testo("Compito qualunque"), None);
+        assert_eq!(progetto_dal_testo("Progetto «»: niente"), None);
+        // Una riga del diario che non cambia niente si rilegge.
+        let mut e = base();
+        let prima = Progetto::da("s0ex1", &e).unwrap();
+        e.push(Evento::Domanda {
+            quando: t(), da: "dati".into(), a: "legale".into(), incarico: "1.25".into(),
+            domanda: "si puo'?".into(), risposta: "ESITO: ok".into(),
+        });
+        let riga = serde_json::to_string(e.last().unwrap()).unwrap();
+        assert!(riga.starts_with("{\"tipo\":\"domanda\""), "{riga}");
+        assert_eq!(eventi(&riga), vec![e.last().unwrap().clone()]);
+        assert_eq!(Progetto::da("s0ex1", &e).unwrap(), prima);
     }
 
     #[test]

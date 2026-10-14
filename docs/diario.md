@@ -11889,3 +11889,20 @@ La rilettura del codice prima del commit ha trovato due cose: una cartella
 chiusa in cui era nato un file non portava nessun segno, perche' si
 guardava solo dentro le cartelle lette; e l'albero chiedeva i Dot a
 `dot.js` prima che fosse avviato (D418).
+
+## 14 ottobre 2026 — Chiedere invece di supporre
+
+Ripartito S0ex1, nel pomeriggio la fase 1 si e' fermata di nuovo, e il
+motivo era lo stesso di tre problemi diversi: nessuno chiedeva. Il Dot che
+doveva avere il parere del legale non poteva chiederlo, e se l'e' scritto
+da solo. Il capo ha bocciato una «password» che era il nome utente di Gio,
+e io l'ho ripetuto a Gio come un fatto. E i Dot su Antigravity non potevano
+scrivere nella chat del progetto che avevamo fatto il giorno prima, perche'
+la chat passava da uno strumento di NOVA, e fra le CLI ce l'ha solo Claude.
+Gio l'ha detto in una riga: la comunicazione serve a non rifare le cose
+cento volte.
+
+La scelta che conta e' stata non aggiungere uno strumento ma una riga di
+testo, `CHIEDO A`: la scrive qualunque cervello, e NOVA la legge dopo il
+turno. Lo stesso per il capo, che una domanda la fa con `DOMANDA:` al posto
+del voto (D419).

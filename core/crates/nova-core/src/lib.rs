@@ -35,6 +35,7 @@ pub mod caps_riparazione;
 pub mod clm;
 pub mod dati;
 pub mod decisioni;
+pub mod domande;
 pub mod dot;
 pub mod dot_accesi;
 pub mod modelli;

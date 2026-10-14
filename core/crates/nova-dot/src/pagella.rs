@@ -39,8 +39,23 @@ pub const ULTIME: usize = 5;
 /// Quante bocciature, fra le ultime [`ULTIME`], fanno salire il Dot.
 pub const BOCCIATE_PER_SALIRE: usize = 2;
 
-/// Quanto della consegna entra nella domanda al capo.
-pub const CONSEGNA_IN_DOMANDA: usize = 6_000;
+/// Quanto del compito entra nella domanda al capo.
+pub const COMPITO_IN_DOMANDA: usize = 6_000;
+
+/// Quanto della consegna entra nella domanda a un capo fuori dal PC (D419).
+/// Fino al D418 erano 6.000 caratteri, come il compito: il 14 ottobre otto
+/// voti di S0ex1 su undici da 6 in giu' dicevano che la consegna era tagliata
+/// o che i file non si aprivano, e il capo bocciava quello che non vedeva.
+pub const CONSEGNA_FUORI: usize = 60_000;
+
+/// La consegna entra almeno per tanto anche col modello di casa.
+pub const CONSEGNA_MINIMA: usize = 6_000;
+
+/// Quante domande puo' fare il capo al Dot prima di dare il voto (D419).
+pub const DOMANDE_DEL_CAPO: usize = 2;
+
+/// Quanto di una risposta del Dot torna al capo.
+pub const RISPOSTA_DEL_DOT: usize = 4_000;
 
 /// Quanti gettoni ha il capo per rispondere: due righe.
 pub const GETTONI: u32 = 200;
@@ -108,6 +123,35 @@ impl Giudizio {
     }
 }
 
+/// Quanto della consegna entra nella domanda al capo. Fuori dal PC
+/// [`CONSEGNA_FUORI`]; col modello di casa quanto ci sta nella sua finestra
+/// (`contesto`, in gettoni): due caratteri per gettone, tolti novemila
+/// gettoni per il compito, le regole, le domande al Dot con le risposte e il
+/// voto. Un conto prudente: in italiano un gettone e' piu' di due caratteri.
+pub fn consegna_in_domanda(in_casa: bool, contesto: i64) -> usize {
+    if !in_casa {
+        return CONSEGNA_FUORI;
+    }
+    let posto = usize::try_from(contesto.saturating_sub(9_000)).unwrap_or(0) * 2;
+    posto.clamp(CONSEGNA_MINIMA, CONSEGNA_FUORI)
+}
+
+/// La consegna nella domanda: intera se ci sta, se no tagliata, e al capo si
+/// dice quanto manca e come saperlo.
+fn consegna_per_il_capo(t: &str, massimo: usize) -> String {
+    let t = t.trim();
+    let tutta = t.chars().count();
+    if tutta <= massimo {
+        return t.to_string();
+    }
+    let corto: String = t.chars().take(massimo).collect();
+    format!(
+        "{}\n[… tagliata qui: la consegna intera e' di {tutta} caratteri, e ne vedi {massimo}. \
+         Quello che non vedi chiedilo al Dot con una DOMANDA: non giudicarlo come mancante.]",
+        corto.trim_end()
+    )
+}
+
 /// Taglia un testo a `massimo` caratteri, e lo dice.
 fn tagliato(t: &str, massimo: usize) -> String {
     let t = t.trim();
@@ -119,21 +163,75 @@ fn tagliato(t: &str, massimo: usize) -> String {
 }
 
 /// La domanda al capo: chi giudica, chi ha lavorato, il compito, la
-/// consegna, e come rispondere. Due righe in risposta: pochi gettoni.
-pub fn domanda(giudice: &str, dot: &Dot, compito: &str, consegna: &str) -> String {
+/// consegna (fino a `massimo` caratteri, [`consegna_in_domanda`]), e come
+/// rispondere. Due righe in risposta: pochi gettoni. O una domanda al Dot
+/// (D419): il capo non ha i file, il Dot si'.
+pub fn domanda(giudice: &str, dot: &Dot, compito: &str, consegna: &str, massimo: usize) -> String {
     format!(
         "{SEGNO} Sei «{giudice}», il capo di «{nome}» nell'azienda dei Dot. Il suo ruolo: {ruolo}\n\
          Giudica la sua consegna: se fa quello che il compito chiede, se e' corretta e \
          completa. Non rifarla.\n\n\
          Il compito:\n{compito}\n\n\
          La consegna:\n{consegna}\n\n\
+         Non hai i file del Dot: li ha lui. Se per giudicare ti manca qualcosa (cosa vuol dire \
+         un dato, cosa c'e' in un file, la parte di consegna che non vedi, se una cosa che \
+         sembra un errore lo e'), non supporre e non provare ad aprire niente: invece del voto \
+         rispondi con una riga sola, `DOMANDA: <la domanda al Dot>`. Il Dot ti risponde, e poi \
+         giudichi. Puoi chiedere al massimo {DOMANDE_DEL_CAPO} volte.\n\n\
          Rispondi con due righe e nient'altro:\n\
          VOTO: <da 1 a 10; sotto {BOCCIATO_SOTTO} si rifa'>\n\
          PERCHE: <una riga>",
         nome = dot.nome,
         ruolo = dot.ruolo.trim(),
-        compito = tagliato(compito, CONSEGNA_IN_DOMANDA),
-        consegna = tagliato(consegna, CONSEGNA_IN_DOMANDA),
+        compito = tagliato(compito, COMPITO_IN_DOMANDA),
+        consegna = consegna_per_il_capo(consegna, massimo),
+    )
+}
+
+/// La domanda al capo con le domande che ha gia' fatto e le risposte del
+/// Dot. `ancora`: se puo' chiedere ancora.
+pub fn con_le_risposte(domanda: &str, scambi: &[(String, String)], ancora: bool) -> String {
+    if scambi.is_empty() {
+        return domanda.to_string();
+    }
+    let mut t = format!("{domanda}\n\nLe tue domande, e le risposte del Dot:");
+    for (q, r) in scambi {
+        t.push_str(&format!(
+            "\n\nDOMANDA: {}\nRISPOSTA DEL DOT: {}",
+            q.trim(),
+            tagliato(r, RISPOSTA_DEL_DOT)
+        ));
+    }
+    t.push_str(if ancora {
+        "\n\nAdesso dai il voto, o fai un'altra domanda."
+    } else {
+        "\n\nNon puoi piu' chiedere: dai il voto con quello che hai, nelle due righe."
+    });
+    t
+}
+
+/// La domanda del capo al Dot, se ha risposto con quella invece che col
+/// voto. Un voto c'e' gia': allora vale il voto.
+pub fn leggi_domanda(risposta: &str) -> Option<String> {
+    if leggi(risposta).is_some() {
+        return None;
+    }
+    risposta.lines().find_map(|riga| {
+        let r = riga.replace("**", "").replace('`', "");
+        let r = r.trim().trim_start_matches(['-', '*']).trim();
+        let (k, v) = r.split_once(':')?;
+        (k.trim().eq_ignore_ascii_case("DOMANDA") && !v.trim().is_empty())
+            .then(|| v.trim().to_string())
+    })
+}
+
+/// Quello che si chiede al Dot a nome del capo.
+pub fn al_dot(capo: &str, domanda: &str) -> String {
+    format!(
+        "Il tuo capo, «{capo}», prima di darti il voto su questo compito ti chiede:\n{}\n\n\
+         Rispondi solo a questo, con quello che sai e che vedi nei file. Non rifare il lavoro e \
+         non cambiare file: e' una domanda, non un compito.",
+        domanda.trim()
     )
 }
 
@@ -350,7 +448,8 @@ mod prove {
             "ricerca",
             &d,
             "riassumi il contratto",
-            &"x".repeat(CONSEGNA_IN_DOMANDA + 10),
+            &"x".repeat(CONSEGNA_MINIMA + 10),
+            CONSEGNA_MINIMA,
         );
         assert!(
             q.starts_with("[giudizio del capo] Sei «ricerca», il capo di «lettore»"),
@@ -361,14 +460,57 @@ mod prove {
                 && q.contains("Il compito:\nriassumi il contratto")
         );
         assert!(
-            q.contains("… (tagliato)")
+            q.contains("[… tagliata qui: la consegna intera e' di 6010 caratteri, e ne vedi 6000.")
                 && q.ends_with("VOTO: <da 1 a 10; sotto 6 si rifa'>\nPERCHE: <una riga>"),
             "{q}"
         );
+        // D419: il capo sa che non ha i file e che puo' chiedere.
+        assert!(q.contains("Non hai i file del Dot") && q.contains("`DOMANDA: <la domanda al Dot>`"), "{q}");
+        assert!(q.contains("al massimo 2 volte"), "{q}");
+        // Una consegna che ci sta arriva intera.
+        let intera = domanda("ricerca", &d, "c", &"y".repeat(50_000), consegna_in_domanda(false, 0));
+        assert!(intera.contains(&"y".repeat(50_000)) && !intera.contains("tagliata qui"));
         assert!(
             !q.contains("[piano]") && !q.contains("[risorse]"),
             "i segni degli altri sono altri"
         );
+    }
+
+    #[test]
+    fn il_capo_chiede_prima_di_votare() {
+        // D419: «4exodus» era un nome utente, e il capo l'ha preso per una
+        // password senza chiedere.
+        assert_eq!(
+            leggi_domanda("DOMANDA: «4exodus» e' una password o un nome utente?"),
+            Some("«4exodus» e' una password o un nome utente?".into())
+        );
+        assert_eq!(leggi_domanda("**Domanda:** cosa c'e' in materiale/?"), Some("cosa c'e' in materiale/?".into()));
+        assert_eq!(leggi_domanda("VOTO: 7\nPERCHE: va\nDOMANDA: e poi?"), None, "col voto vale il voto");
+        assert_eq!(leggi_domanda("DOMANDA:"), None);
+        assert_eq!(leggi_domanda("non so"), None);
+        let base = "la domanda";
+        assert_eq!(con_le_risposte(base, &[], true), base);
+        let scambi = vec![("cos'e' 4exodus?".to_string(), "il nome utente GitHub di Gio".to_string())];
+        let t = con_le_risposte(base, &scambi, true);
+        assert!(t.contains("DOMANDA: cos'e' 4exodus?\nRISPOSTA DEL DOT: il nome utente GitHub di Gio"), "{t}");
+        assert!(t.ends_with("o fai un'altra domanda."), "{t}");
+        let t = con_le_risposte(base, &scambi, false);
+        assert!(t.ends_with("Non puoi piu' chiedere: dai il voto con quello che hai, nelle due righe."), "{t}");
+        let lunga = vec![("q".to_string(), "r".repeat(RISPOSTA_DEL_DOT + 1))];
+        assert!(con_le_risposte(base, &lunga, false).contains("… (tagliato)"));
+        let a = al_dot("apm", "cos'e' 4exodus?");
+        assert!(a.starts_with("Il tuo capo, «apm», prima di darti il voto") && a.contains("cos'e' 4exodus?"), "{a}");
+        assert!(a.contains("non cambiare file"), "{a}");
+    }
+
+    #[test]
+    fn quanto_della_consegna_vede_il_capo() {
+        assert_eq!(consegna_in_domanda(false, 0), CONSEGNA_FUORI);
+        assert_eq!(consegna_in_domanda(false, 4_096), CONSEGNA_FUORI, "fuori dal PC non conta la finestra di casa");
+        // 16.384 gettoni, la finestra di serie del modello di casa.
+        assert_eq!(consegna_in_domanda(true, 16_384), 14_768);
+        assert_eq!(consegna_in_domanda(true, 4_096), CONSEGNA_MINIMA);
+        assert_eq!(consegna_in_domanda(true, 1_000_000), CONSEGNA_FUORI);
     }
 
     #[test]

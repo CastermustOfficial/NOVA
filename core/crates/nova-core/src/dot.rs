@@ -1587,6 +1587,60 @@ pub(crate) fn salva(c: &d::Cartella, nome: &str, s: &Sessione) {
     }
 }
 
+/// Il Dot risponde a una domanda nella sua conversazione, con i suoi file e
+/// i suoi strumenti, a partire da `cervello` (D419): la usa il capo che,
+/// prima di dare il voto, chiede invece di supporre. Non e' un compito: non
+/// va in coda e non si giudica.
+pub(crate) async fn rispondi(
+    server: &Arc<Server>,
+    c: &d::Cartella,
+    nome: &str,
+    compito: u64,
+    testo: &str,
+    cervello: &str,
+) -> Result<String, String> {
+    let dot = c.dot()?;
+    let cfg = con_piu_tempo(&nova_configurazione::dove::leggi());
+    let mut s = conversazione_di(c, &dot, &cfg);
+    let esecutore = EsecutoreDemone {
+        server: server.clone(),
+        chi: Chi::Dot(nome.to_string()),
+        viste: None,
+        sola_lettura: false,
+    };
+    let sessione = format!("dot:{nome}");
+    let mut domanda = testo.to_string();
+    for giro in 0..RISPOSTA_IN_TURNI {
+        let r = crate::agente::turno_in(
+            server, &cfg, &mut s, &domanda, &sessione, false, "", &esecutore, cervello,
+        )
+        .await;
+        salva(c, nome, &s);
+        let svolto = r.map_err(|e| e.to_string())?;
+        let _ = c.diario(&json!({
+            "quando": adesso(),
+            "compito": compito,
+            "tipo": "turno",
+            "per": "risposta al capo",
+            "giro": giro + 1,
+            "esito": crate::agente::esito_di(&svolto.fine).0,
+            "cervello": svolto.cervello,
+            "strumenti": svolto.strumenti_usati,
+            "secondi": (svolto.durata * 10.0).round() / 10.0,
+        }));
+        match svolto.fine {
+            Fine::Risposto(t) => return Ok(t),
+            Fine::PassiFiniti(_) => domanda = "Continua, e rispondi alla domanda del capo.".into(),
+            Fine::Fermato => return Err("fermato col «fermati» di Nova".into()),
+            Fine::Rotto(e) => return Err(e),
+        }
+    }
+    Err(format!("non ha risposto in {RISPOSTA_IN_TURNI} turni"))
+}
+
+/// In quanti turni il Dot risponde al capo.
+const RISPOSTA_IN_TURNI: usize = 3;
+
 /// Fa un compito e, se finisce bene, lo fa giudicare dal capo (D401). Una
 /// consegna bocciata si rifa' un gradino piu' su, finche' passa o si arriva
 /// in cima. Il compito parte dal cervello del Dot, se AR gliene ha dato uno
@@ -1801,8 +1855,18 @@ async fn lavora(
         sola_lettura: false,
     };
     let sessione = format!("dot:{nome}");
-    for giro in 0..d::TURNI_PER_COMPITO {
-        let testo = if giro > 0 {
+    // Le domande del Dot mentre lavora (D419): un turno che chiede non e' la
+    // consegna, e il turno dopo comincia con le risposte.
+    let mut giri_di_domande = 0;
+    let mut seguito: Option<String> = None;
+    // I turni con cui riprende dopo le risposte non si contano.
+    for giro in 0..d::TURNI_PER_COMPITO + d::domande::GIRI_PER_COMPITO {
+        if giro - giri_di_domande >= d::TURNI_PER_COMPITO {
+            break;
+        }
+        let testo = if let Some(t) = seguito.take() {
+            t
+        } else if giro > 0 {
             d::continua(compito)
         } else if riprende {
             format!("{}{aggiunta}", d::ripresa(compito))
@@ -1845,7 +1909,14 @@ async fn lavora(
             "secondi": (svolto.durata * 10.0).round() / 10.0,
         }));
         match svolto.fine {
-            Fine::Risposto(t) => return (d::Stato::Fatto, t),
+            Fine::Risposto(t) => {
+                match crate::domande::dopo_il_turno(server, c, nome, compito, &t, &mut giri_di_domande)
+                    .await
+                {
+                    crate::domande::Dopo::Consegna(t) => return (d::Stato::Fatto, t),
+                    crate::domande::Dopo::Riprendi(t) => seguito = Some(t),
+                }
+            }
             Fine::PassiFiniti(_) => continue,
             Fine::Fermato => return (d::Stato::Fermato, "fermato col «fermati» di Nova".into()),
             Fine::Rotto(e) => return (d::Stato::Fallito, e),

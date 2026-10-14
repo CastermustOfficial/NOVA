@@ -1220,6 +1220,18 @@ scritto, ed e' spento di serie. Nella vista dei Dot, linguetta *File*, ci
 sono i progetti con la loro cartella e i pezzi coperti dal guardiano, con
 due pulsanti: e' un segreto, non lo e'.
 
+**I Dot chiedono invece di supporre — fatto** (D419). Il 14 ottobre la fase
+1 di S0ex1 si e' fermata su un parere del legale che nessuno aveva chiesto,
+e il capo ha bocciato una «password» che era un nome utente. Adesso, in un
+compito di un progetto, un Dot chiude il turno con `CHIEDO A <chi>: ...` e
+la risposta del legale, dell'APM o di un collega gli torna nello stesso
+compito; con `ALLA CHAT: ...` scrive nella chat del progetto. Funziona con
+qualunque cervello, anche con Antigravity, che gli strumenti di NOVA non li
+ha. Il capo, prima del voto, puo' fare due domande al Dot, e vede la
+consegna intera. Le domande restano nel diario del progetto, nella chat e
+nei passi del compito nell'harness. Resta aperto: un collega risponde dalle
+sue consegne, non coi suoi file.
+
 **Il via dopo un piano non fatto — fatto** (D411). Rimesso Claude, il via a
 S0ex1 lo fermava di nuovo nello stesso secondo: l'APM aspettava ancora il
 compito dell'Architetto andato male la sera prima. Adesso il via di un

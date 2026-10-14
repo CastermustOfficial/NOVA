@@ -15,7 +15,9 @@ Il secondo passo di `docs/dots.md`. Un Dot col mestiere di ricercatore:
   quello che c'e' entra nelle sue domande e non in quelle di Nova;
 - in un compito di un progetto (D416) salva le pagine lette nella cartella
   del compito, e ci scrive il rapporto: una fonte salvata li' e' «salvata»,
-  non «da verificare».
+  non «da verificare»;
+- in un compito di un progetto (D419) un passo puo' chiedere al legale, e
+  riprende con la risposta.
 
 I cervelli sono finti: un server compatibile OpenAI con due modelli,
 «piccolo» e «grande», che risponde secondo il modello e la domanda, e si
@@ -163,6 +165,21 @@ class Cervello(BaseHTTPRequestHandler):
             genere = "nova: " + genere
         dopo_strumento = ultimo.get("role") == "tool"
         arrivate.append((modello, genere + (" dopo lo strumento" if dopo_strumento else ""), intera))
+        # Le domande dei Dot mentre lavorano (D419), nella sezione 10.
+        if intera.startswith("[domanda di un Dot] Sei il legale"):
+            testo(self, "ESITO: problemi\nSolo brevi estratti, col diritto di citazione.")
+            return
+        if intera.startswith("Le risposte alle tue domande:"):
+            testo(self, "# Il parere sulle citazioni\n\nSolo brevi estratti.\n\n## Fonti\n")
+            return
+        if genere == "piano" and "il parere sulle citazioni" in domanda:
+            testo(self, json.dumps({"passi": [
+                {"tipo": "scrivi", "cosa": "scrivi il rapporto dopo aver chiesto al legale",
+                 "cervello": "grande"}]}))
+            return
+        if genere == "passo 1" and "dopo aver chiesto al legale" in domanda:
+            testo(self, "CHIEDO A legale: posso citare l'articolo per intero?")
+            return
         if modello == "piccolo" and "guasto" in domanda and genere.startswith("passo"):
             manda(self, 500, {"error": "il piccolo e' guasto"})
             return
@@ -522,6 +539,45 @@ try:
     controlla("e l'esito dice dove e quante",
               f"Rapporto in {rapporto}." in c.get("esito", "")
               and "1 salvata nel progetto" in c.get("esito", ""), c.get("esito", ""))
+
+    print("\n10. un passo chiede al legale, e riprende con la risposta (D419)")
+    progetto = Path(casa) / "Documents" / "Dots_Project" / "r"
+    progetto.mkdir(parents=True, exist_ok=True)
+    (progetto / "progetto.jsonl").write_text(
+        json.dumps({"tipo": "creato", "quando": "2026-10-14T09:00:00", "numero": 1,
+                    "richiesta": "Uno stato dell'arte."}) + "\n"
+        + json.dumps({"tipo": "fermo", "quando": "2026-10-14T09:01:00", "perche": "a mano"}) + "\n",
+        encoding="utf-8")
+    # Di nuovo coi due cervelli finti a indirizzo, senza Claude: chi
+    # risponde e' il piu' grande che risponde a un indirizzo.
+    cfg = json.loads((cartella_nova / "config.json").read_text(encoding="utf-8"))
+    cfg["brains"]["routing"]["scala"] = ["piccolo", "grande"]
+    cfg["brains"]["routing"]["tiers"] = {"piccolo": {"brain": "locale", "model": "piccolo"},
+                                         "grande": {"brain": "locale", "model": "grande"}}
+    (cartella_nova / "config.json").write_text(json.dumps(cfg, ensure_ascii=False), encoding="utf-8")
+    prima = len(arrivate)
+    id6 = rpc("dot/affida", nome="ricercatore",
+              testo="Progetto «r», fase 1 «Fonti» (consegna: un rapporto). Compito 1.5 del piano:\n"
+                    "il parere sulle citazioni")["id"]
+    c = aspetta(id6)
+    controlla("il compito e' fatto", c.get("stato") == "fatto", str(c))
+    al_legale = [q for m, _, q in arrivate[prima:] if q.startswith("[domanda di un Dot] Sei il legale")]
+    controlla("la domanda e' andata al legale, una volta",
+              len(al_legale) == 1 and "posso citare l'articolo per intero?" in al_legale[0]
+              and "Uno stato dell'arte." in al_legale[0], str(al_legale)[:400])
+    seguito = [q for _, _, q in arrivate[prima:] if q.startswith("Le risposte alle tue domande:")]
+    controlla("e il passo riprende con la risposta",
+              len(seguito) == 1 and "- A legale: «posso citare l'articolo per intero?»\n"
+              "  Risposta: ESITO: problemi" in seguito[0], str(seguito)[:400])
+    rapporto = DOT / "rapporti" / f"{id6}.md"
+    testo_r = rapporto.read_text(encoding="utf-8") if rapporto.is_file() else ""
+    controlla("il rapporto e' quello dopo la risposta, senza la domanda",
+              "Solo brevi estratti." in testo_r and "CHIEDO" not in testo_r, testo_r[:300])
+    domande = [json.loads(x) for x in (progetto / "progetto.jsonl").read_text(encoding="utf-8").splitlines()
+               if '"domanda"' in x]
+    controlla("e la domanda resta nel diario del progetto",
+              [(d["da"], d["a"], d["incarico"]) for d in domande] == [("ricercatore", "legale", "1.5")],
+              str(domande)[:300])
 finally:
     if processo.poll() is None:
         processo.kill()

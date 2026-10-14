@@ -662,6 +662,14 @@ export function avviaDot(h) {
     if (t === 'salita') return `${T('sale')}: ${p.da} → ${p.a}${p.motivo ? ' · ' + p.motivo : ''}`;
     if (t === 'rapporto') return `${T('rapporto')}: ${nomeDi(p.file || '')}`;
     if (t === 'vault') return p.errore ? `${T('vault')}: ${p.errore}` : `${T('vault')}: ${p.slug || ''}`;
+    // Le domande mentre si lavora e prima del voto (D419): si vedono con la
+    // risposta, perche' Gio sappia chi ha chiesto cosa.
+    if (t === 'domanda') return `${T('chiede a')} ${p.a}: «${p.domanda}» → ${p.risposta || ''}`;
+    if (t === 'domanda_del_capo') return `${T('il capo chiede')}: «${p.domanda}» → ${p.risposta || ''}`;
+    if (t === 'alla_chat') return `${T('alla chat')}: ${p.testo || ''}${p.errore ? ' · ' + p.errore : ''}`;
+    if (t === 'domande_finite') return T('domande finite');
+    if (t === 'voto') return `${T('voto')} ${p.voto}${p.perche ? ' · ' + p.perche : ''}`;
+    if (t === 'coperti') return `${T('pezzi coperti')}: ${p.quanti}`;
     return t || '';
   }
 

@@ -42,6 +42,7 @@ pub mod azienda;
 pub mod clm;
 pub mod consegna;
 pub mod custode;
+pub mod domande;
 pub mod gruppi;
 pub mod pagella;
 pub mod piano;

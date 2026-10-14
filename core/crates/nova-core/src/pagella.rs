@@ -77,44 +77,88 @@ pub async fn giudica(
     if let Ok(r) = std::fs::read_to_string(c.rapporto(compito.id)) {
         consegna = format!("{consegna}\n\nIl rapporto:\n{}", r.trim());
     }
-    let domanda = p::domanda(giudice, dot, &compito.testo, &consegna);
     let in_casa = grande.in_casa();
     let solo_locale = crate::dalla_configurazione::scala(&cfg).solo_locale;
-    // Il pezzo che sembra un segreto si copre, e il resto si giudica (D417).
-    let domanda = match crate::custode::da_chiedere(
-        Decisione::GiudizioDelCapo,
-        giudice,
+    // La consegna intera, o quanto ci sta nella finestra del modello di
+    // casa (D419).
+    let massimo = p::consegna_in_domanda(
         in_casa,
-        &domanda,
-        solo_locale,
-    ) {
-        Ok(d) => {
-            if !d.coperti.is_empty() {
-                crate::custode::annota_coperti(
-                    giudice,
-                    &format!("il giudizio del compito {} di {}", compito.id, dot.nome),
-                    &d.coperti,
-                );
-                diario(c, compito.id, json!({ "tipo": "coperti", "quanti": d.coperti.len() }));
+        crate::dalla_configurazione::modello_di_casa(&cfg).contesto,
+    );
+    let base = p::domanda(giudice, dot, &compito.testo, &consegna, massimo);
+    // Il capo puo' chiedere al Dot prima di votare (D419): chi ha i file e'
+    // lui, e un capo che suppone boccia per niente.
+    let mut scambi: Vec<(String, String)> = Vec::new();
+    let g = loop {
+        let ancora = scambi.len() < p::DOMANDE_DEL_CAPO;
+        let domanda = p::con_le_risposte(&base, &scambi, ancora);
+        // Il pezzo che sembra un segreto si copre, e il resto si giudica (D417).
+        let domanda = match crate::custode::da_chiedere(
+            Decisione::GiudizioDelCapo,
+            giudice,
+            in_casa,
+            &domanda,
+            solo_locale,
+        ) {
+            Ok(d) => {
+                if !d.coperti.is_empty() {
+                    crate::custode::annota_coperti(
+                        giudice,
+                        &format!("il giudizio del compito {} di {}", compito.id, dot.nome),
+                        &d.coperti,
+                    );
+                    diario(c, compito.id, json!({ "tipo": "coperti", "quanti": d.coperti.len() }));
+                }
+                d.domanda
             }
-            d.domanda
+            Err(e) => {
+                non_giudicato(e);
+                return None;
+            }
+        };
+        let detto = match grande.chiedi(&domanda, p::GETTONI).await {
+            Ok(d) => d,
+            Err(e) => {
+                non_giudicato(e);
+                return None;
+            }
+        };
+        if let Some(g) = p::leggi(&detto) {
+            break g;
         }
-        Err(e) => {
-            non_giudicato(e);
+        let Some(q) = p::leggi_domanda(&detto).filter(|_| ancora) else {
+            let corto: String = detto.chars().take(300).collect();
+            non_giudicato(format!("il voto non si legge: «{corto}»"));
             return None;
-        }
-    };
-    let detto = match grande.chiedi(&domanda, p::GETTONI).await {
-        Ok(d) => d,
-        Err(e) => {
-            non_giudicato(e);
-            return None;
-        }
-    };
-    let Some(g) = p::leggi(&detto) else {
-        let corto: String = detto.chars().take(300).collect();
-        non_giudicato(format!("il voto non si legge: «{corto}»"));
-        return None;
+        };
+        let risposta = match crate::dot::rispondi(
+            server,
+            c,
+            &dot.nome,
+            compito.id,
+            &p::al_dot(giudice, &q),
+            usato,
+        )
+        .await
+        {
+            Ok(r) => r,
+            Err(e) => format!("(il Dot non ha potuto rispondere: {e})"),
+        };
+        diario(
+            c,
+            compito.id,
+            json!({
+                "tipo": "domanda_del_capo",
+                "giudice": giudice,
+                "domanda": q,
+                "risposta": d::domande::tagliato(&risposta, 1_000),
+            }),
+        );
+        server.ctx.bus.emit(
+            "dot.domanda_del_capo",
+            json!({ "dot": dot.nome, "id": compito.id, "giudice": giudice, "domanda": q }),
+        );
+        scambi.push((q, risposta));
     };
 
     let quando = crate::decisioni::adesso();

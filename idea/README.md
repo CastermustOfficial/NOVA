@@ -584,6 +584,25 @@ compito lungo non la vede. **Cosa costerebbe.** Uno strumento di sola
 lettura nel collegamento MCP dei Dot, e la regola su quando guardarla, per
 non farla leggere a ogni passo.
 
+## Il collega che risponde coi suoi file
+
+Nata col D419. **Cosa.** Quando un Dot chiede a un collega, far rispondere
+il collega con la sua CLI e i suoi file, invece che col cervello grande
+dalle sue consegne. **Perche'.** Un collega che ha fatto le misure sa cosa
+c'e' nei suoi file meglio di quello che ne ha scritto nella consegna.
+**Cosa costerebbe.** Un turno nella conversazione del collega mentre magari
+sta lavorando: due turni insieme sulla stessa conversazione vanno messi in
+fila, e il collega spende la sua quota per la domanda di un altro.
+
+## Le domande della revisione di fase
+
+Nata col D419. **Cosa.** Lasciar chiedere anche alla revisione di fase e al
+legale dell'APM, come al capo: una domanda al Dot che ha fatto il compito,
+prima del giudizio. **Perche'.** Giudicano dalle consegne e senza mani,
+come il capo prima del D419: quello che non vedono lo suppongono.
+**Cosa costerebbe.** Le stesse righe del capo nelle domande dell'APM, e chi
+risponde: il Dot del compito di cui si parla.
+
 ## La cartella dal vivo senza rileggere
 
 Nata col D418. **Cosa.** Un osservatore del disco nel guscio che dice alla

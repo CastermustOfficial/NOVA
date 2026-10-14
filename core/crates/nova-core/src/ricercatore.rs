@@ -64,6 +64,9 @@ struct Lavoro<'a> {
     /// La cartella del compito, se e' un compito di un progetto (D416): li'
     /// vanno le pagine lette e il rapporto.
     cartella: Option<std::path::PathBuf>,
+    /// Quante volte, in questo compito, il Dot si e' fermato a chiedere
+    /// (D419).
+    domande: usize,
 }
 
 /// Com'e' finito un passo.
@@ -116,9 +119,41 @@ impl Lavoro<'_> {
         self.server.ctx.bus.emit("dot.passo", e);
     }
 
-    /// Un turno nella conversazione del Dot, a partire da `cervello`. La
-    /// conversazione si salva dopo, comunque sia andata.
+    /// Un turno nella conversazione del Dot, a partire da `cervello`. Se il
+    /// Dot chiede qualcosa (D419), la domanda si porta e il turno riprende
+    /// con la risposta, finche' non risponde davvero: il piano e i passi
+    /// vedono solo quello. Il revisore no: giudica, e non chiede.
     async fn turno(&mut self, testo: &str, cervello: &str, per: &str) -> Result<Svolto, String> {
+        let mut svolto = self.un_turno(testo, cervello, per).await?;
+        if per == "revisione" {
+            return Ok(svolto);
+        }
+        while let Fine::Risposto(t) = &svolto.fine {
+            let dopo = crate::domande::dopo_il_turno(
+                self.server,
+                self.c,
+                &self.nome,
+                self.compito,
+                t,
+                &mut self.domande,
+            )
+            .await;
+            match dopo {
+                crate::domande::Dopo::Consegna(t) => {
+                    svolto.fine = Fine::Risposto(t);
+                    break;
+                }
+                crate::domande::Dopo::Riprendi(seguito) => {
+                    svolto = self.un_turno(&seguito, cervello, per).await?;
+                }
+            }
+        }
+        Ok(svolto)
+    }
+
+    /// Un turno solo nella conversazione del Dot, a partire da `cervello`. La
+    /// conversazione si salva dopo, comunque sia andata.
+    async fn un_turno(&mut self, testo: &str, cervello: &str, per: &str) -> Result<Svolto, String> {
         let esito = crate::agente::turno_in(
             self.server,
             &self.cfg,
@@ -335,6 +370,7 @@ pub async fn lavora(
         ciechi,
         cieco: false,
         cartella: d::struttura::cartella_dal_testo(&compito.testo),
+        domande: 0,
         cfg,
     };
     let cima = l.cima();

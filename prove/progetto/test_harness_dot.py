@@ -11,6 +11,8 @@ pagina senza accenderla:
   demone;
 - la vista c'e', le schede dei Dot non si ricordano e non vanno con la
   domanda a NOVA;
+- nei passi di un compito si vedono le domande dei Dot e del capo, con la
+  risposta (D419);
 - ogni frase ha la sua traduzione.
 """
 import re
@@ -90,6 +92,14 @@ controlla("quello che si e' visto lo ricorda la finestra, e se non puo' non si r
           and "try { localStorage.setItem(DEPOSITO_VISTI, JSON.stringify(visti)); } catch (_) {}" in DOT
           and "try { visti = JSON.parse(localStorage.getItem(DEPOSITO_VISTI) || '{}') || {}; } catch (_) { visti = {}; }" in DOT)
 controlla("una chat fra di loro ha la sua linguetta", "s.cosa === 'fra' ? 'CHAT'" in HARNESS)
+
+print("\n4b. nei passi di un compito si vedono le domande, con la risposta (D419)")
+passi = DOT.split("function passoInParole(p) {")[1].split("\n  }\n")[0]
+for tipo in ("domanda", "domanda_del_capo", "alla_chat", "voto"):
+    controlla(f"il passo «{tipo}» ha le sue parole", f"if (t === '{tipo}')" in passi)
+controlla("la domanda si vede con la risposta",
+          "${T('chiede a')} ${p.a}: «${p.domanda}» → ${p.risposta || ''}" in passi
+          and "${T('il capo chiede')}: «${p.domanda}» → ${p.risposta || ''}" in passi)
 
 print("\n5. ogni frase ha la sua traduzione")
 frasi = {m.group(2) for m in re.finditer(r"""\bT\((['"])(.+?)\1\)""", DOT)}

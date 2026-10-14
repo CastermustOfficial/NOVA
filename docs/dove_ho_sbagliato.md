@@ -2940,3 +2940,18 @@ La regola: un segno che deve vedersi su una cosa che non si legge si prova
 proprio su quella, chiusa; e quello che una funzione usa deve esistere in
 ogni momento in cui la si puo' chiamare, non solo in quello in cui la si
 chiama di solito.
+
+## La password che era un nome utente
+
+Il 14 ottobre ho scritto a Gio che una sua password era uscita dal PC: il
+capo, nel voto di un compito di S0ex1, diceva di aver letto «quella che
+sembra la password dell'account Hugging Face di Gio», e io l'ho riportato
+come un fatto, consigliandogli di cambiarla. Non avevo guardato cosa fosse.
+Quando Gio ha chiesto di capirne il motivo, la parola era nel `git config`
+del suo PC come `user.name`, e il Dot l'aveva scritta accanto all'email,
+come nome dell'account. L'ho corretto con Gio subito, e il motivo per cui il capo ha
+supposto invece di chiedere e' diventato il D419.
+
+La regola: quello che dice un giudice e' un'ipotesi sua, anche quando parla
+di sicurezza; prima di riferirlo come un fatto si guarda la cosa, e se non
+la si e' guardata lo si dice.

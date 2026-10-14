@@ -100,7 +100,7 @@ fn tenuti(p: &Progetto, versione: u32, da_fase: Option<u32>) -> Vec<String> {
 }
 
 /// Un passo nel diario del progetto, e il racconto e il ToDo riscritti.
-fn annota(nome: &str, e: Evento) {
+pub(crate) fn annota(nome: &str, e: Evento) {
     let dir = cartella(nome);
     if let Err(x) = pr::annota(&dir, &e) {
         tracing::warn!(progetto = nome, errore = %x, "il diario del progetto non si scrive");
@@ -1278,16 +1278,31 @@ async fn chiedi_al_grande(
     domanda: &str,
     gettoni: u32,
 ) -> Option<(String, String)> {
+    match chiedi_per_il_progetto(nome, chi, domanda, gettoni).await {
+        Ok(x) => Some(x),
+        Err(e) => {
+            ferma_e_di(server, nome, &e);
+            None
+        }
+    }
+}
+
+/// Una domanda al cervello piu' grande per il progetto `nome`, a nome di
+/// `chi`: la domanda passa dal guardiano (D417), e la spesa, se c'e', si
+/// scrive nel progetto. Torna la risposta e il cervello che l'ha data, o
+/// perche' non c'e'. La usano i controlli dell'APM e chi risponde alle
+/// domande dei Dot (D419), che non ferma il progetto se non risponde.
+pub(crate) async fn chiedi_per_il_progetto(
+    nome: &str,
+    chi: &str,
+    domanda: &str,
+    gettoni: u32,
+) -> Result<(String, String), String> {
     let cfg = nova_configurazione::dove::leggi();
     // Un cervello a indirizzo, o Claude Code senza mani (D405).
     let Some(grande) = crate::giudice::Giudice::dalla_scala(&crate::agente::scala_di(&cfg), |_| false)
     else {
-        ferma_e_di(
-            server,
-            nome,
-            &format!("{chi} non ha a chi chiedere: {}", crate::giudice::SENZA_GIUDICE),
-        );
-        return None;
+        return Err(format!("{chi} non ha a chi chiedere: {}", crate::giudice::SENZA_GIUDICE));
     };
     let in_casa = grande.in_casa();
     let solo_locale = crate::dalla_configurazione::scala(&cfg).solo_locale;
@@ -1303,18 +1318,12 @@ async fn chiedi_al_grande(
             crate::custode::annota_coperti(chi, &format!("il progetto «{nome}»"), &d.coperti);
             d.domanda
         }
-        Err(e) => {
-            ferma_e_di(server, nome, &format!("{chi} non ha potuto guardare: {e}"));
-            return None;
-        }
+        Err(e) => return Err(format!("{chi} non ha potuto guardare: {e}")),
     };
-    let detto = match grande.chiedi(&domanda, gettoni).await {
-        Ok(d) => d,
-        Err(e) => {
-            ferma_e_di(server, nome, &format!("{chi} non ha risposto: {e}"));
-            return None;
-        }
-    };
+    let detto = grande
+        .chiedi(&domanda, gettoni)
+        .await
+        .map_err(|e| format!("{chi} non ha risposto: {e}"))?;
     if a_consumo(&cfg, grande.nome()) {
         annota(
             nome,
@@ -1325,7 +1334,7 @@ async fn chiedi_al_grande(
             },
         );
     }
-    Some((detto, grande.nome().to_string()))
+    Ok((detto, grande.nome().to_string()))
 }
 
 /// Un controllo nel registro delle decisioni (D404).
