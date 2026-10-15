@@ -590,6 +590,33 @@ impl Progetto {
             .collect()
     }
 
+    /// I compiti pronti che si affidano adesso (D424): tutti, tranne quelli
+    /// che usano la scheda video quando ce n'e' gia' uno aperto; e di quelli,
+    /// uno alla volta. Il 15 ottobre 1.33 e 1.34 di S0ex1, due misure, sono
+    /// andati insieme sulla stessa scheda.
+    pub fn da_affidare_in<'a>(
+        &self,
+        piano: &Piano,
+        f: &'a piano::Fase,
+    ) -> Vec<&'a piano::Incarico> {
+        let mut scheda = piano
+            .incarichi()
+            .any(|i| i.scheda && self.lavori.get(&i.id).is_some_and(|l| l.stato.is_none()));
+        self.pronti_in(f)
+            .into_iter()
+            .filter(|i| {
+                if !i.scheda {
+                    return true;
+                }
+                if scheda {
+                    return false;
+                }
+                scheda = true;
+                true
+            })
+            .collect()
+    }
+
     /// Se in una fase non c'e' piu' niente da fare: nessun compito aperto, e
     /// nessuno da affidare. Quelli che restano aspettano un compito andato
     /// male, e non si potranno fare.
@@ -692,6 +719,11 @@ pub fn tetto_toccato(speso: f64, tetto: f64) -> bool {
     tetto > 0.0 && speso >= tetto * SOGLIA_DEL_TETTO
 }
 
+/// Quello che sa chi ha un compito sulla scheda video (D424).
+pub const SCHEDA_TUA: &str = "\nQuesto compito usa la scheda video: finche' non hai finito, NOVA \
+non fa partire altri compiti che la usano. Se la trovi occupata, la occupa un programma che non e' \
+di NOVA.";
+
 /// Il compito per un Dot: il progetto, la fase, cosa fare, e le consegne
 /// dei compiti da cui dipende.
 pub fn testo_del_compito(
@@ -706,6 +738,9 @@ pub fn testo_del_compito(
     );
     if !p.cartella.is_empty() {
         t.push_str(&format!("\nI file del progetto sono in «{}».", p.cartella));
+    }
+    if i.scheda {
+        t.push_str(SCHEDA_TUA);
     }
     let prima: Vec<String> = i
         .dopo
@@ -1217,6 +1252,51 @@ mod prove {
         let solo = squadra_e_chat(&p, "dati", None);
         assert!(solo.contains("Adesso non lavora nessun altro.") && !solo.contains("gruppo"), "{solo}");
         assert!(solo.contains("uno fra legale, apm; la domanda puo' continuare"), "{solo}");
+    }
+
+    #[test]
+    fn la_scheda_video_un_compito_alla_volta() {
+        // D424: il 15 ottobre 1.33 e 1.34 di S0ex1 hanno misurato insieme.
+        let pi = piano::leggi(
+            "# Piano: p\nObiettivo: o\n## Fase 1: Banco\nConsegna: c\nFatta quando: f\n\
+             - 1.1 [dati] misurare A (scheda video)\n- 1.2 [dati] misurare B (scheda video)\n\
+             - 1.3 [ricerca] leggere\n- 1.4 [qualita] ripetere A (scheda video) (dopo 1.1)\n",
+            1,
+        )
+        .unwrap()
+        .0;
+        let f = &pi.fasi[0];
+        let ids = |v: Vec<&piano::Incarico>| v.iter().map(|i| i.id.clone()).collect::<Vec<_>>();
+        let mut p = Progetto::da("p", &base()).unwrap();
+        p.lavori.clear();
+        assert_eq!(
+            ids(p.da_affidare_in(&pi, f)),
+            ["1.1", "1.3"],
+            "delle due misure pronte ne parte una"
+        );
+        let lavoro = |stato| Lavoro {
+            dot: "dati".into(),
+            compito: 1,
+            stato,
+            esito: String::new(),
+        };
+        p.lavori.insert("1.1".into(), lavoro(None));
+        assert_eq!(
+            ids(p.da_affidare_in(&pi, f)),
+            ["1.3"],
+            "con una misura aperta le altre aspettano"
+        );
+        assert_eq!(ids(p.pronti_in(f)), ["1.2", "1.3"], "ma restano pronte");
+        p.lavori.insert("1.1".into(), lavoro(Some(Stato::Fatto)));
+        assert_eq!(
+            ids(p.da_affidare_in(&pi, f)),
+            ["1.2", "1.3"],
+            "chiusa la prima, parte la seconda, e la ripetizione aspetta il suo turno"
+        );
+        // Chi ha il compito lo sa.
+        let t = testo_del_compito(&p, &pi, f, &f.incarichi[1]);
+        assert!(t.contains("Questo compito usa la scheda video"), "{t}");
+        assert!(!testo_del_compito(&p, &pi, f, &f.incarichi[2]).contains("scheda video"));
     }
 
     #[test]

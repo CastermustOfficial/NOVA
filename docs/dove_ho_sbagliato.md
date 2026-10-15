@@ -3014,3 +3014,34 @@ formattato e il mio.
 
 La regola: uno strumento che riscrive i file si lancia sui file del lavoro,
 non sul crate; e prima del commit si guarda quanti file cambiano.
+
+## Le misure insieme sulla stessa scheda
+
+Il 15 ottobre, col D422, ho fatto partire insieme i compiti che non
+dipendono l'uno dall'altro, con un aiuto per ogni reparto occupato. Non mi
+sono chiesto cosa condividono: la scheda video e' una sola, e due misure
+insieme si sporcano a vicenda. Il giorno prima, sei compiti si erano chiusi
+a vuoto proprio perche' la scheda era occupata; e nello stesso commit
+avevo scritto il D423, perche' una misura vuole la scheda libera. Alle 15:34 1.33 e 1.34 sono
+partiti insieme, e alle 16:02 1.35 mentre 1.33 andava ancora. Me ne sono
+accorto la sera, cercando perche' il progetto fosse fermo, leggendo nella
+chat del progetto il messaggio di *dati-aiuto-1* con i PID delle due misure.
+Corretto col D424: i compiti sulla scheda vanno uno alla volta, e le tre
+misure si rifanno.
+
+La regola: prima di far andare insieme due cose, si guarda cosa usano
+tutte e due: la scheda, un file, una quota. Insieme vuol dire anche nello
+stesso posto.
+
+## Il nome che non si chiude mai
+
+Nel D423 ho fatto aspettare un programma per nome, e nella prova il nome
+era unico, «giocofinto». Un Dot ha scritto «python.exe», e sul PC ne erano
+accesi altri quattro, dell'estensione di Claude, che non si chiudono mai: il
+progetto e' rimasto fermo dalle 16:38 alle 20:00, e l'attesa sarebbe finita
+alle 21:51. Me ne sono accorto quando Gio ha chiesto come andava. Corretto
+col D425: col PID si aspetta quel processo, e col solo nome al massimo
+un'ora.
+
+La regola: un'attesa su qualcosa che dice un modello ha sempre un limite
+corto, e la prova usa anche il nome che non va, non solo quello pulito.

@@ -622,6 +622,26 @@ AR e' stato chiesto piu' di una volta. **Cosa costerebbe.** Un evento nel
 diario del progetto («nessun aiuto per dati») con l'ora, e la regola su
 quanto vale: fino al prossimo compito chiuso del reparto, o per un tempo.
 
+## Una consegna che e' un pezzo di lavoro
+
+Nata col D425. **Cosa.** Riconoscere una consegna che non e' una consegna:
+il 15 ottobre quella di 1.35 cominciava con «Sto eseguendo la ripetizione
+indipendente», ed e' stata presa come fatta. **Perche'.** Un compito chiuso
+cosi' non ha i risultati, e chi viene dopo parte da niente. **Cosa
+costerebbe.** Prima capire perche' e' successo (il turno della CLI finito a
+meta', o il Dot che ha scritto e basta), poi un controllo dell'APM o del
+capo, e una prova col caso.
+
+## I compiti sulla scheda video senza il segno
+
+Nata col D424. **Cosa.** Accorgersi di un compito che usa la scheda video
+anche se l'Architetto non l'ha segnato con «(scheda video)». **Perche'.**
+Uno alla volta vale solo per i compiti segnati: un segno dimenticato fa
+tornare due misure insieme. **Cosa costerebbe.** Un controllo dell'APM sul
+piano (un compito di misura di *dati* o *qualita* senza segno lo si chiede
+all'Architetto), o un Dot che dice «uso la scheda» al primo turno e NOVA
+che trattiene gli altri.
+
 ## La scheda video vista da NOVA
 
 Nata col D423. **Cosa.** Sapere da soli se la scheda video e' occupata, e
@@ -631,6 +651,9 @@ se ne accorge misura con la scheda occupata. **Cosa costerebbe.** I
 contatori della GPU per processo, che su Windows ci sono, ma a PC fermo una
 WebView ne segnava il 18%: serve un elenco di chi non conta e una soglia
 misurata su piu' PC, o la memoria video usata per processo, da misurare.
+Non `nvidia-smi --query-compute-apps`: il 15 ottobre, sul PC di sviluppo,
+elencava ogni processo con un contesto grafico, dal browser a `explorer.exe`
+(D425).
 
 ## La cartella dal vivo senza rileggere
 

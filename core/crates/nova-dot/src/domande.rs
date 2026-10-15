@@ -273,8 +273,8 @@ pub fn regola(chiede: &str, squadra: &[String]) -> String {
          qualcosa a tutta la squadra senza aspettare, scrivi una riga `{ALLA_CHAT}: <il \
          messaggio>`: va nella chat del progetto, gli altri la leggono al loro prossimo \
          compito, e la legge Gio. Se ti serve la scheda video e la occupa un altro programma, \
-         non consegnare a vuoto: scrivi una riga `{SCHEDA}: <il programma che la occupa>`, e \
-         NOVA ti fa riprendere quando quel programma e' chiuso.",
+         non consegnare a vuoto: scrivi una riga `{SCHEDA}: {COME_SI_ASPETTA}`, col PID se lo \
+         vedi, e NOVA ti fa riprendere quando quel programma e' chiuso.",
         a_chi = a_chi_si_chiede(chiede, squadra),
     )
 }
@@ -404,12 +404,113 @@ pub const HAI_RISPOSTO: &str = "Hai risposto ai colleghi. Adesso continua il tuo
 /// Quante volte, in un compito, si aspetta la scheda video (D423).
 pub const ATTESE_DELLA_SCHEDA: usize = 3;
 
+/// Come si scrive chi occupa la scheda video, dopo `ASPETTO LA SCHEDA
+/// VIDEO:` (D425).
+pub const COME_SI_ASPETTA: &str = "<il programma che la occupa> (PID <il numero>)";
+
+/// Chi occupa la scheda video, come l'ha scritto il Dot (D425): il nome del
+/// programma e i PID, se li ha scritti.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Occupata {
+    pub programma: String,
+    pub pid: Vec<u32>,
+}
+
+/// Legge chi occupa la scheda video da quello che il Dot ha scritto dopo
+/// `ASPETTO LA SCHEDA VIDEO:` (D425): «python.exe (PID 13008, 17312)»,
+/// «PID 13008», «League of Legends.exe». Il 15 ottobre un Dot ha scritto
+/// solo «python.exe», e sul PC erano accesi altri quattro Python che con la
+/// scheda non c'entravano: col PID si aspetta proprio quello.
+pub fn chi_occupa(detto: &str) -> Occupata {
+    // Minuscole ASCII: gli indici restano quelli del testo.
+    let basso = detto.to_ascii_lowercase();
+    let b = basso.as_bytes();
+    let mut pid: Vec<u32> = Vec::new();
+    let mut nome_fino = detto.find('(').unwrap_or(detto.len());
+    let mut da = 0;
+    while let Some(i) = basso[da..].find("pid").map(|i| da + i) {
+        let mut j = i + 3;
+        da = j;
+        if (i > 0 && b[i - 1].is_ascii_alphanumeric())
+            || (j < b.len() && b[j].is_ascii_alphanumeric())
+        {
+            continue;
+        }
+        nome_fino = nome_fino.min(i);
+        loop {
+            while j < b.len() && matches!(b[j], b' ' | b':' | b'=' | b'#' | b',' | b';') {
+                j += 1;
+            }
+            let k = j;
+            while j < b.len() && b[j].is_ascii_digit() {
+                j += 1;
+            }
+            if j > k {
+                if let Ok(n) = basso[k..j].parse::<u32>() {
+                    if !pid.contains(&n) {
+                        pid.push(n);
+                    }
+                }
+                continue;
+            }
+            if basso[j..].starts_with("e ") || basso[j..].starts_with("and ") {
+                j += if basso[j..].starts_with('e') { 2 } else { 4 };
+                continue;
+            }
+            break;
+        }
+        da = j;
+    }
+    let programma = detto[..nome_fino]
+        .trim()
+        .trim_end_matches([',', ';', ':', '-', '(', ' '])
+        .trim_matches(['«', '»', '"', '\'', '`', '.', ' '])
+        .trim()
+        .to_string();
+    Occupata { programma, pid }
+}
+
+/// «1 minuto», «60 minuti».
+fn in_minuti(n: u64) -> String {
+    if n == 1 {
+        "1 minuto".to_string()
+    } else {
+        format!("{n} minuti")
+    }
+}
+
+/// Chi occupa la scheda, a parole: «python.exe» (PID 13008), il programma
+/// col PID 13008, «gioco».
+pub fn descrivi(o: &Occupata) -> String {
+    let pid: Vec<String> = o.pid.iter().map(u32::to_string).collect();
+    match (o.programma.is_empty(), pid.is_empty()) {
+        (false, true) => format!("«{}»", o.programma),
+        (false, false) => format!("«{}» (PID {})", o.programma, pid.join(", ")),
+        (true, false) => format!("il programma col PID {}", pid.join(", ")),
+        (true, true) => "il programma".to_string(),
+    }
+}
+
 /// Il messaggio con cui si riprende quando il programma che occupava la
 /// scheda video e' chiuso (D423).
-pub fn scheda_libera(programma: &str) -> String {
+pub fn scheda_libera(o: &Occupata) -> String {
     format!(
-        "«{programma}» non e' piu' acceso: la scheda video e' libera. Riguardala, e continua il \
-         compito."
+        "{} non e' piu' acceso: la scheda video e' libera. Riguardala, e continua il compito.",
+        descrivi(o)
+    )
+}
+
+/// Il messaggio con cui si riprende quando il programma nominato senza PID
+/// e' ancora acceso dopo un'ora (D425): con lo stesso nome possono esserci
+/// programmi che con la scheda non c'entrano, e la riguarda il Dot.
+pub fn scheda_forse_altro(o: &Occupata, minuti: u64) -> String {
+    format!(
+        "{} e' ancora acceso dopo {}, ma con questo nome possono esserci anche \
+         programmi che con la scheda video non c'entrano. Riguarda se la scheda e' davvero \
+         occupata: se e' libera, continua il compito; se no, scrivi di nuovo `{SCHEDA}: \
+         {COME_SI_ASPETTA}`, col PID di chi la occupa.",
+        descrivi(o),
+        in_minuti(minuti)
     )
 }
 
@@ -417,19 +518,24 @@ pub fn scheda_libera(programma: &str) -> String {
 /// occupava la scheda (D423): il Dot non l'ha detto, o NOVA non sa vedere i
 /// programmi accesi.
 pub fn scheda_da_riguardare(minuti: u64) -> String {
+    let passati = if minuti == 1 {
+        "E' passato 1 minuto".to_string()
+    } else {
+        format!("Sono passati {minuti} minuti")
+    };
     format!(
-        "Sono passati {minuti} minuti. Riguarda se la scheda video e' libera: se si', continua \
-         il compito; se no, scrivi di nuovo `{SCHEDA}: <il programma che la occupa>`."
+        "{passati}. Riguarda se la scheda video e' libera: se si', continua il compito; se no, \
+         scrivi di nuovo `{SCHEDA}: {COME_SI_ASPETTA}`."
     )
 }
 
 /// Il messaggio con cui si riprende quando la scheda e' rimasta occupata
 /// oltre l'attesa massima (D423): il compito va com'e'.
-pub fn scheda_ancora_occupata(programma: &str, ore: u64) -> String {
+pub fn scheda_ancora_occupata(o: &Occupata, ore: u64) -> String {
     format!(
-        "«{programma}» e' ancora acceso dopo {ore} ore. Non aspettare oltre: consegna quello che \
-         hai, e scrivi in «Cosa non so» che la misura non e' fatta perche' la scheda era \
-         occupata."
+        "{} e' ancora acceso dopo {ore} ore. Non aspettare oltre: consegna quello che hai, e \
+         scrivi in «Cosa non so» che la misura non e' fatta perche' la scheda era occupata.",
+        descrivi(o)
     )
 }
 
@@ -447,11 +553,7 @@ pub fn stesso_programma(acceso: &str, nominato: &str) -> bool {
 /// Quello che torna a chi ha chiesto a un collega che non ha risposto in
 /// tempo (D421): risponde NOVA dalle sue consegne, e lo dice.
 pub fn non_ha_risposto(collega: &str, minuti: u64, ripiego: &str) -> String {
-    let quanto = if minuti == 1 {
-        "1 minuto".to_string()
-    } else {
-        format!("{minuti} minuti")
-    };
+    let quanto = in_minuti(minuti);
     format!(
         "(«{collega}» non ha risposto entro {quanto}: risponde NOVA dalle sue consegne.) {}",
         ripiego.trim()
@@ -588,7 +690,7 @@ mod prove {
         assert_eq!(dividi("Niente da aspettare.").scheda, None);
         let r = regola("dati", &[]);
         assert!(
-            r.contains("`ASPETTO LA SCHEDA VIDEO: <il programma che la occupa>`"),
+            r.contains("`ASPETTO LA SCHEDA VIDEO: <il programma che la occupa> (PID <il numero>)`, col PID"),
             "{r}"
         );
     }
@@ -648,13 +750,62 @@ mod prove {
             !stesso_programma("chrome.exe", ""),
             "senza nome non combacia niente"
         );
-        assert!(scheda_libera("gioco.exe").starts_with("«gioco.exe» non e' piu' acceso"));
+        let gioco = chi_occupa("gioco.exe");
+        assert!(scheda_libera(&gioco).starts_with("«gioco.exe» non e' piu' acceso"));
         assert!(
             scheda_da_riguardare(15).contains("Sono passati 15 minuti")
-                && scheda_da_riguardare(15)
-                    .contains("`ASPETTO LA SCHEDA VIDEO: <il programma che la occupa>`")
+                && scheda_da_riguardare(15).contains(
+                    "`ASPETTO LA SCHEDA VIDEO: <il programma che la occupa> (PID <il numero>)`"
+                )
         );
-        assert!(scheda_ancora_occupata("gioco", 6).contains("dopo 6 ore"));
+        assert!(scheda_ancora_occupata(&gioco, 6).contains("dopo 6 ore"));
+        assert!(scheda_da_riguardare(1).starts_with("E' passato 1 minuto. Riguarda"));
+        assert!(scheda_forse_altro(&gioco, 1).contains("acceso dopo 1 minuto, ma"));
+    }
+
+    #[test]
+    fn chi_occupa_la_scheda_col_pid() {
+        // D425: il 15 ottobre un Dot ha scritto «python.exe», e altri quattro
+        // Python accesi l'hanno fatto aspettare per niente.
+        let o = |p: &str, pid: &[u32]| Occupata {
+            programma: p.into(),
+            pid: pid.to_vec(),
+        };
+        assert_eq!(
+            chi_occupa("python.exe (PID 13008, 17312)"),
+            o("python.exe", &[13008, 17312])
+        );
+        assert_eq!(
+            chi_occupa("python.exe, pid: 13008 e PID 17312"),
+            o("python.exe", &[13008, 17312])
+        );
+        assert_eq!(chi_occupa("PID 13008"), o("", &[13008]));
+        assert_eq!(chi_occupa("pid=42 and 43"), o("", &[42, 43]));
+        assert_eq!(
+            chi_occupa("«League of Legends.exe»."),
+            o("League of Legends.exe", &[])
+        );
+        assert_eq!(
+            chi_occupa("python.exe (il banco di 1.34)"),
+            o("python.exe", &[])
+        );
+        assert_eq!(
+            chi_occupa("rapid.exe"),
+            o("rapid.exe", &[]),
+            "«pid» in una parola no"
+        );
+        assert_eq!(chi_occupa(""), o("", &[]));
+        assert_eq!(
+            descrivi(&chi_occupa("python.exe (PID 13008, 17312)")),
+            "«python.exe» (PID 13008, 17312)"
+        );
+        assert_eq!(descrivi(&chi_occupa("PID 7")), "il programma col PID 7");
+        let f = scheda_forse_altro(&chi_occupa("python.exe"), 60);
+        assert!(
+            f.starts_with("«python.exe» e' ancora acceso dopo 60 minuti")
+                && f.contains("col PID di chi la occupa"),
+            "{f}"
+        );
     }
 
     #[test]

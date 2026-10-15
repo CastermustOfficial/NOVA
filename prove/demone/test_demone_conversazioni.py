@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""I Dot si parlano davvero, e aspettano la scheda video libera (D421, D423).
+"""I Dot si parlano davvero, e aspettano la scheda video libera (D421, D423, D425).
 
 Il 15 ottobre Gio ha visto che nella chat di S0ex1 nessuno parlava con
 nessuno: le domande finivano nel gruppo come un monologo, e a un collega
@@ -17,7 +17,10 @@ Si guarda che:
 2. un collega che non risponde in tempo: risponde NOVA dalle sue consegne,
    e lo dice;
 3. un Dot che trova la scheda video occupata da un programma aspetta che
-   quel programma si chiuda, e poi riprende.
+   quel programma si chiuda, e poi riprende;
+4. col PID si aspetta proprio quel processo, non un altro con lo stesso
+   nome; col solo nome, dopo l'attesa massima la scheda la riguarda il Dot
+   (D425).
 
 Esce 2 — «qui non si puo' provare» — se il demone non e' costruito.
 """
@@ -64,6 +67,9 @@ def controlla(nome, condizione, dettaglio=""):
 casa = Path(tempfile.mkdtemp(prefix="nova-conversazioni-"))
 cartella_nova = casa / "NOVA"
 cartella_nova.mkdir(parents=True, exist_ok=True)
+
+#: Il PID del «gioco» che il Dot nomina nella sezione 4.
+PID_DEL_GIOCO = {"n": 0}
 
 #: Le domande arrivate al cervello finto, per chi le riceve, con l'ora.
 visto: dict[str, list[tuple[float, str]]] = {}
@@ -142,6 +148,18 @@ class Cervello(BaseHTTPRequestHandler):
         elif q.startswith("Le risposte alle tue domande:") and "«hai finito?»" in q:
             nota("dati_dopo_il_silenzio", q)
             testo(self, "Consegna 2.2: ho la risposta di NOVA.")
+        elif "misura col pid" in q:
+            nota("dati_pid", q)
+            testo(self, f"La scheda e' occupata.\nASPETTO LA SCHEDA VIDEO: giocofinto (PID {PID_DEL_GIOCO['n']})")
+        elif "(PID " in q and "non e' piu' acceso: la scheda video e' libera" in q:
+            nota("dati_pid_libera", q)
+            testo(self, "Consegna 4.1: misurato a scheda libera.")
+        elif "misura col nome" in q:
+            nota("dati_nome", q)
+            testo(self, "La scheda e' occupata.\nASPETTO LA SCHEDA VIDEO: giocofinto")
+        elif "e' ancora acceso dopo 1 minuto, ma con questo nome" in q:
+            nota("dati_forse_altro", q)
+            testo(self, "Consegna 4.2: la scheda era libera, ho misurato.")
         elif "misura col gioco" in q:
             nota("dati_gioco", q)
             testo(self, "La scheda e' occupata.\nASPETTO LA SCHEDA VIDEO: giocofinto")
@@ -159,7 +177,8 @@ threading.Thread(target=cervello.serve_forever, daemon=True).start()
 CONFIG = cartella_nova / "config.json"
 CONFIG.write_text(json.dumps({
     "kb": {"enabled": False},
-    "dots": {"accesi": "si", "secondi_per_rispondere": 8, "secondi_fra_i_controlli_della_scheda": 1},
+    "dots": {"accesi": "si", "secondi_per_rispondere": 8, "secondi_fra_i_controlli_della_scheda": 1,
+             "secondi_per_riguardare_la_scheda": 6},
     "server": {"host": "127.0.0.1", "port": cervello.server_address[1]},
     "brains": {"routing": {"scala": ["grande"], "tiers": {"grande": {"brain": "locale", "model": "grande"}},
                            "tetto_usd_sessione": 0}},
@@ -207,6 +226,7 @@ for k in ("http_proxy", "HTTP_PROXY", "https_proxy", "HTTPS_PROXY", "all_proxy",
 processo = subprocess.Popen([str(DEMONE), "--endpoint", endpoint, "--log", "warn"],
                             env=ambiente, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
 gioco = None
+altri: list[subprocess.Popen] = []
 
 
 def rpc(metodo, timeout=60, **params):
@@ -319,9 +339,56 @@ try:
               and libera[0] >= chiuso and c3.get("esito", "").startswith("Consegna 3.1"), str(c3)[:300])
     controlla("e il diario dice che la scheda e' tornata libera",
               any(x.get("tipo") == "scheda" and x.get("esito") == "libera" for x in diario("dati")))
+
+    print("\n4. col PID si aspetta proprio quello; col solo nome, al massimo un tempo (D425)")
+    # Il 15 ottobre un Dot ha scritto «python.exe», e altri quattro Python
+    # accesi, che con la scheda non c'entravano, l'hanno fatto aspettare.
+    primo = subprocess.Popen([str(GIOCO), *argomenti], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    secondo = subprocess.Popen([str(GIOCO), *argomenti], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    altri += [primo, secondo]
+    PID_DEL_GIOCO["n"] = primo.pid
+    time.sleep(0.5)
+    id4 = capacita("dot.affida", nome="dati", compito=compito("4.1", "misura col pid"))["compito"]
+    fine = time.time() + 30
+    while time.time() < fine and not any(x.get("tipo") == "aspetta_scheda" and x.get("compito") == id4
+                                         for x in diario("dati")):
+        time.sleep(0.2)
+    time.sleep(2)
+    controlla("il Dot aspetta il processo col suo PID",
+              not di("dati_pid_libera")
+              and any(x.get("tipo") == "aspetta_scheda" and x.get("compito") == id4
+                      and x.get("pid") == [primo.pid] and x.get("programma") == "giocofinto"
+                      for x in diario("dati")), str(diario("dati")[-2:]))
+    chiuso = time.time()
+    primo.kill()
+    primo.wait()
+    c4 = aspetta("dati", id4, secondi=60)
+    libera = [t for t, _ in visto.get("dati_pid_libera", [])]
+    controlla("chiuso quello, riprende anche se un altro col suo nome e' acceso",
+              c4.get("stato") == "fatto" and libera and libera[0] >= chiuso and secondo.poll() is None
+              and c4.get("esito", "").startswith("Consegna 4.1"), str(c4)[:300])
+    r4 = (di("dati_pid_libera") or [""])[0]
+    controlla("e il messaggio dice quale", f"«giocofinto» (PID {primo.pid}) non e' piu' acceso" in r4, r4[-300:])
+    inizio = time.time()
+    id5 = capacita("dot.affida", nome="dati", compito=compito("4.2", "misura col nome"))["compito"]
+    c5 = aspetta("dati", id5, secondi=60)
+    riguarda = [t for t, _ in visto.get("dati_forse_altro", [])]
+    controlla("col solo nome, e il programma ancora acceso, dopo l'attesa la riguarda il Dot",
+              c5.get("stato") == "fatto" and riguarda and riguarda[0] - inizio >= 5
+              and c5.get("esito", "").startswith("Consegna 4.2"), f"{c5} {riguarda} {inizio}"[:300])
+    r5 = (di("dati_forse_altro") or [""])[0]
+    controlla("sapendo che con quel nome puo' esserci altro, e come dare il PID",
+              "«giocofinto» e' ancora acceso dopo 1 minuto, ma con questo nome" in r5
+              and "(PID <il numero>)`, col PID di chi la occupa" in r5, r5[-400:])
+    controlla("e il diario lo dice",
+              any(x.get("tipo") == "scheda" and x.get("compito") == id5 and x.get("esito") == "da_riguardare"
+                  and x.get("programma") == "giocofinto" for x in diario("dati")))
 finally:
     if gioco is not None and gioco.poll() is None:
         gioco.kill()
+    for x in altri:
+        if x.poll() is None:
+            x.kill()
     processo.kill()
     cervello.shutdown()
 

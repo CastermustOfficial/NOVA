@@ -11942,3 +11942,27 @@ prova dell'APM, nel progetto con due compiti per lo stesso Dot, AR e' stato
 chiesto piu' di una volta: quando non trova un aiuto, il compito dopo per lo
 stesso reparto glielo richiede. Non e' un errore, ma costa una domanda al
 cervello grande ogni volta, ed e' fra le idee.
+
+## 15 ottobre 2026, sera — Una misura alla volta
+
+Il metodo nuovo ha funzionato per tre ore: alle 14:57 sono partiti cinque
+compiti insieme, AR ha trovato tre aiuti, e alle 16:38 la fase 1 aveva
+chiuso nove compiti. Ma quando Gio ha chiesto come andava, il progetto
+era fermo da piu' di tre ore. *dati-aiuto-1* aspettava la scheda video per
+1.36, e aveva scritto «python.exe»: le misure che la occupavano erano
+script Python, ma finite quelle restavano accesi i quattro Python
+dell'estensione di Claude, e NOVA li avrebbe aspettati fino alle 21:51.
+
+Guardando perche' la scheda fosse occupata, e' venuto fuori un difetto piu'
+grosso, mio: gli aiuti del D422 avevano fatto partire insieme due misure
+sulla stessa scheda, 1.33 e 1.34, e poi 1.35 mentre 1.33 andava ancora. Lo
+aveva scritto lo stesso *dati-aiuto-1* nella chat del progetto, con i PID.
+Con Gio abbiamo fermato il progetto e corretto: i compiti sulla scheda li
+segna l'Architetto e vanno uno alla volta (D424), e chi aspetta la scheda
+da' il PID di chi la occupa (D425). Per sapere chi usa la scheda ho provato
+`nvidia-smi`: su Windows elenca ogni programma con una finestra, e non
+serve.
+
+Una cosa resta da guardare: la consegna di 1.35 comincia con «Sto
+eseguendo la ripetizione indipendente», cioe' e' un pezzo di lavoro, non
+una consegna. La rifara' il piano nuovo, ma il perche' va capito.

@@ -19,6 +19,7 @@ Deciso con Gio il 10 ottobre, sulla bozza. Nova passa un progetto all'APM
   col via si rifanno (D415);
 - un compito pronto per un reparto occupato va a un suo aiuto, che trova AR
   (D422);
+- i compiti sulla scheda video vanno uno alla volta (D424);
 - ogni compito dice la squadra del progetto e la sua chat, un gruppo col
   nome del progetto fatto dall'APM (D416).
 
@@ -733,6 +734,33 @@ try:
               str(squadra))
     trattieni.pop(("nono", "dati")).set()
     controlla("e il progetto finisce", aspetta("nono", {"finito", "fermo"}) == "finito", str(tipi("nono")))
+
+    print("\n12. i compiti sulla scheda video vanno uno alla volta (D424)")
+    # Il 15 ottobre 1.33 e 1.34 di S0ex1, due misure, sono andati insieme.
+    piani["decimo"] = ("# Piano: decimo\nObiettivo: due misure\n"
+                       "## Fase 1: Banco\nConsegna: le misure\nFatta quando: fatte\n"
+                       "- 1.1 [dati] misura la prima (scheda video)\n"
+                       "- 1.2 [qualita] misura la seconda (scheda video)\n"
+                       "- 1.3 [ricerca] leggi le fonti\n"
+                       "## Domande per te\n- niente\n")
+    trattieni[("decimo", "dati")] = threading.Event()
+    capacita("dot.progetto", nome="decimo", richiesta="Due misure.")
+    aspetta("decimo", {"aspetta_il_via", "fermo"})
+    capacita("dot.via", nome="decimo", tetto=10)
+    controlla("la prima misura e' in mano a dati, e sa che la scheda e' sua",
+              aspetta_che(lambda: any(g == "trattenuto" and p == "decimo" and "Questo compito usa la scheda video" in q
+                                      for g, p, q in arrivate)), str(tipi("decimo"))[-400:])
+    controlla("intanto parte il compito senza la scheda",
+              aspetta_che(lambda: any(g == "dot:ricerca" and "leggi le fonti" in q for g, _, q in arrivate)))
+    time.sleep(2)
+    controlla("ma non la seconda misura, finche' la prima e' aperta",
+              not any("misura la seconda" in q for g, _, q in arrivate if g.startswith("dot:")),
+              str([e for e in eventi("decimo") if e.get("tipo") == "affidato"]))
+    trattieni.pop(("decimo", "dati")).set()
+    controlla("chiusa la prima, parte la seconda",
+              aspetta_che(lambda: any(g == "dot:qualita" and "misura la seconda" in q for g, _, q in arrivate)),
+              str(tipi("decimo"))[-400:])
+    controlla("e il progetto finisce", aspetta("decimo", {"finito", "fermo"}) == "finito", str(tipi("decimo")))
 finally:
     processo.kill()
     cervello.shutdown()

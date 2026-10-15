@@ -99,6 +99,8 @@ passi = DOT.split("function passoInParole(p) {")[1].split("\n  }\n")[0]
 for tipo in ("domanda", "domanda_del_capo", "alla_chat", "voto",
              "risposta", "a_vicenda", "posta", "aspetta_scheda", "scheda"):
     controlla(f"il passo «{tipo}» ha le sue parole", f"if (t === '{tipo}')" in passi)
+controlla("l'attesa della scheda video dice anche i PID (D425)",
+          "${(p.pid || []).length ? ' (PID ' + p.pid.join(', ') + ')' : ''}" in passi)
 controlla("la domanda si vede con la risposta",
           "${T('chiede a')} ${p.a}: «${p.domanda}» → ${p.risposta || ''}" in passi
           and "${T('il capo chiede')}: «${p.domanda}» → ${p.risposta || ''}" in passi)

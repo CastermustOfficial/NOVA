@@ -1275,6 +1275,17 @@ quarto d'ora la riguarda il Dot; dopo sei ore consegna quello che ha.
 | **Ogni quanto si guarda la scheda video** | 60 secondi | `dots.secondi_fra_i_controlli_della_scheda` |
 | **Aiuti per ruolo** | 2 | `nova_dot::progetto::AIUTI_PER_RUOLO` |
 | **Attese della scheda per compito** | 3 | `nova_dot::domande::ATTESE_DELLA_SCHEDA` |
+| **Quanto si aspetta un programma nominato senza PID** | 60 minuti | `dots.secondi_per_riguardare_la_scheda` |
+
+**La scheda video, una misura alla volta — fatto** (D424, D425). Il 15
+ottobre, con gli aiuti del D422, due misure di S0ex1 sono partite insieme
+sulla stessa scheda, e si sono sporcate a vicenda; e un Dot che aspettava
+la scheda ha scritto «python.exe», mentre sul PC erano accesi altri quattro
+Python che con la scheda non c'entravano. Adesso l'Architetto segna con
+«(scheda video)» i compiti che la usano, e NOVA ne fa partire uno alla
+volta: gli altri compiti vanno avanti insieme. Chi aspetta la scheda scrive
+anche il PID di chi la occupa, e NOVA aspetta proprio quel processo; col
+solo nome aspetta al massimo un'ora, poi la riguarda il Dot.
 
 **Il via dopo un piano non fatto — fatto** (D411). Rimesso Claude, il via a
 S0ex1 lo fermava di nuovo nello stesso secondo: l'APM aspettava ancora il

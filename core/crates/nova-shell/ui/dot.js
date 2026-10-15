@@ -674,7 +674,7 @@ export function avviaDot(h) {
     if (t === 'risposta') return p.errore ? `${T('risposta ai colleghi')}: ${p.errore}` : `${T('risponde a')} ${p.a}: ${p.testo || ''}`;
     if (t === 'a_vicenda') return `${T('si aspettavano a vicenda con')} ${p.collega}: ${T('risponde NOVA')}`;
     if (t === 'posta') return `${T('messaggi letti')}: ${p.messaggi}`;
-    if (t === 'aspetta_scheda') return `${T('aspetta la scheda video')}${p.programma ? ': ' + p.programma : ''}`;
+    if (t === 'aspetta_scheda') return `${T('aspetta la scheda video')}${p.programma ? ': ' + p.programma : ''}${(p.pid || []).length ? ' (PID ' + p.pid.join(', ') + ')' : ''}`;
     if (t === 'scheda') return `${T('scheda video')}: ${T(p.esito === 'libera' ? 'libera' : p.esito === 'occupata' ? 'ancora occupata' : 'da riguardare')}`;
     return t || '';
   }

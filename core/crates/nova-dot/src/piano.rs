@@ -109,7 +109,12 @@ pub struct Incarico {
     /// I compiti da cui dipende: quelli senza dipendenze possono partire
     /// insieme.
     pub dopo: Vec<String>,
+    /// Usa la scheda video (D424): l'APM ne fa partire uno alla volta.
+    pub scheda: bool,
 }
+
+/// Il segno di un compito che usa la scheda video, nella sua riga (D424).
+pub const SEGNO_SCHEDA: &str = "(scheda video)";
 
 /// Una fase del piano.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -339,6 +344,7 @@ pub fn prompt() -> String {
          Fatta quando: <come si sa che e' finita>\n\
          - 1.1 [<chi>] <cosa fare>\n\
          - 1.2 [<chi>] <cosa fare> (dopo 1.1)\n\
+         - 1.3 [<chi>] <cosa fare> (scheda video) (dopo 1.2)\n\
          ## Rischi\n\
          - <un rischio>\n\
          ## Domande per te\n\
@@ -346,7 +352,9 @@ pub fn prompt() -> String {
          <chi> e' un reparto ({}), oppure «assumi: <ruolo>» per chi manca, o «assumi \
          ricercatore: <ruolo>» per un ricercatore: lo trova AR. Il legale non prende compiti: \
          lo chiama l'APM. Ogni compito ha un id <fase>.<numero>; «(dopo ...)» dice da quali \
-         compiti dipende, e quelli senza dipendenze partono insieme.",
+         compiti dipende, e quelli senza dipendenze partono insieme. «(scheda video)» segna un \
+         compito che usa la scheda video (una misura su un modello, un addestramento): NOVA ne fa \
+         partire uno alla volta, perche' due misure sulla stessa scheda si sporcano a vicenda.",
         azienda::PROMPT_ARCHITETTO,
         reparti.join(", "),
     )
@@ -500,7 +508,7 @@ fn leggi_chi(t: &str) -> Result<Chi, String> {
     ))
 }
 
-/// Un compito, dalla riga di elenco: `1.2 [chi] cosa (dopo 1.1)`.
+/// Un compito, dalla riga di elenco: `1.2 [chi] cosa (scheda video) (dopo 1.1)`.
 fn leggi_incarico(t: &str) -> Result<Incarico, String> {
     let (id, resto) = t.split_once(char::is_whitespace).unwrap_or((t, ""));
     let id = id.trim_end_matches([':', '.']).to_string();
@@ -524,17 +532,33 @@ fn leggi_incarico(t: &str) -> Result<Incarico, String> {
     let chi = leggi_chi(chi).map_err(|e| format!("compito {id}: {e}"))?;
     let mut cosa = cosa.trim().to_string();
     let mut dopo = Vec::new();
-    if cosa.ends_with(')') {
-        if let Some(i) = cosa.to_lowercase().rfind("(dopo ") {
-            let dentro = cosa[i + "(dopo ".len()..cosa.len() - 1].to_string();
-            for d in dentro.split(',').flat_map(|x| x.split(" e ")) {
-                let d = d.trim();
-                if !d.is_empty() {
-                    dopo.push(d.to_string());
-                }
-            }
-            cosa = cosa[..i].trim().to_string();
+    let mut scheda = false;
+    // «(scheda video)» e «(dopo ...)» in fondo, in un ordine o nell'altro.
+    loop {
+        let n = cosa.len();
+        if n >= SEGNO_SCHEDA.len()
+            && cosa
+                .get(n - SEGNO_SCHEDA.len()..)
+                .is_some_and(|x| x.eq_ignore_ascii_case(SEGNO_SCHEDA))
+        {
+            scheda = true;
+            cosa = cosa[..n - SEGNO_SCHEDA.len()].trim().to_string();
+            continue;
         }
+        if cosa.ends_with(')') {
+            if let Some(i) = cosa.to_ascii_lowercase().rfind("(dopo ") {
+                let dentro = cosa[i + "(dopo ".len()..cosa.len() - 1].to_string();
+                for d in dentro.split(',').flat_map(|x| x.split(" e ")) {
+                    let d = d.trim();
+                    if !d.is_empty() {
+                        dopo.push(d.to_string());
+                    }
+                }
+                cosa = cosa[..i].trim().to_string();
+                continue;
+            }
+        }
+        break;
     }
     if cosa.is_empty() {
         return Err(format!("compito {id}: non dice cosa fare"));
@@ -544,6 +568,7 @@ fn leggi_incarico(t: &str) -> Result<Incarico, String> {
         cosa,
         chi,
         dopo,
+        scheda,
     })
 }
 
@@ -855,6 +880,9 @@ pub fn scrivi(p: &Piano) -> String {
         ));
         for i in &f.incarichi {
             t.push_str(&format!("- {} [{}] {}", i.id, chi_scritto(&i.chi), i.cosa));
+            if i.scheda {
+                t.push_str(&format!(" {SEGNO_SCHEDA}"));
+            }
             if !i.dopo.is_empty() {
                 t.push_str(&format!(" (dopo {})", i.dopo.join(", ")));
             }
@@ -1249,6 +1277,45 @@ di amministrazione o di revisione non si ripete"
             d.contains("Il piano di adesso, versione 2:\n# Piano: p")
                 && d.contains("rispetto alla versione 2"),
             "{d}"
+        );
+    }
+
+    #[test]
+    fn la_scheda_video_si_segna_nel_compito() {
+        // D424: il 15 ottobre 1.33 e 1.34 di S0ex1 hanno misurato insieme
+        // sulla stessa scheda.
+        let base = "# Piano: x\nObiettivo: o\n## Fase 1: a\nConsegna: c\nFatta quando: f\n";
+        let (p, _) = leggi(
+            &format!(
+                "{base}- 1.1 [dati] misurare A (scheda video)\n\
+                 - 1.2 [qualita] ripetere A (scheda video) (dopo 1.1)\n\
+                 - 1.3 [dati] misurare B (dopo 1.1) (Scheda Video)\n\
+                 - 1.4 [ricerca] leggere, senza la scheda video\n"
+            ),
+            1,
+        )
+        .unwrap();
+        let i: Vec<&Incarico> = p.incarichi().collect();
+        assert_eq!(
+            i.iter().map(|x| x.scheda).collect::<Vec<_>>(),
+            [true, true, true, false]
+        );
+        assert_eq!(i[1].dopo, ["1.1"]);
+        assert_eq!(i[1].cosa, "ripetere A");
+        assert_eq!(i[2].dopo, ["1.1"], "anche col segno dopo le dipendenze");
+        assert_eq!(i[2].cosa, "misurare B");
+        assert_eq!(i[3].cosa, "leggere, senza la scheda video");
+        let scritto = scrivi(&p);
+        assert!(
+            scritto.contains("- 1.2 [qualita] ripetere A (scheda video) (dopo 1.1)\n"),
+            "{scritto}"
+        );
+        assert_eq!(leggi(&scritto, 1).unwrap().0, p);
+        let pr = prompt();
+        assert!(
+            pr.contains("- 1.3 [<chi>] <cosa fare> (scheda video) (dopo 1.2)")
+                && pr.contains("NOVA ne fa partire uno alla volta"),
+            "{pr}"
         );
     }
 

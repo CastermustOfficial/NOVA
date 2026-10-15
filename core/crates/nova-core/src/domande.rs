@@ -66,6 +66,11 @@ pub const SECONDI_PER_RISPONDERE: u64 = 30 * 60;
 /// `dots.secondi_fra_i_controlli_della_scheda`.
 pub const SECONDI_FRA_I_CONTROLLI: u64 = 60;
 
+/// Quanto si aspetta, al massimo, un programma nominato senza PID (D425),
+/// prima di farla riguardare al Dot. Si cambia con
+/// `dots.secondi_per_riguardare_la_scheda`.
+pub const SECONDI_PER_RIGUARDARE_LA_SCHEDA: u64 = 60 * 60;
+
 /// Quanti controlli si aspettano, quando non si sa cosa occupa la scheda,
 /// prima di farla riguardare al Dot: un quarto d'ora coi valori di serie.
 pub const CONTROLLI_SENZA_NOME: u64 = 15;
@@ -360,16 +365,20 @@ pub async fn rispondi_da_libero(server: &Arc<Server>, c: &d::Cartella, nome: &st
 }
 
 /// Aspetta che il programma che occupa la scheda video si chiuda (D423), e
-/// torna il messaggio con cui il Dot riprende. Non si sa cosa la occupa, o
-/// NOVA non vede i programmi accesi: si aspetta un quarto d'ora, e la
-/// riguarda il Dot. Oltre l'attesa massima dei Dot, il compito va com'e'.
+/// torna il messaggio con cui il Dot riprende. Coi PID (D425) si aspetta
+/// proprio quei processi, fino all'attesa massima dei Dot; col solo nome al
+/// massimo un'ora, poi la riguarda il Dot, perche' con lo stesso nome possono
+/// esserci programmi che con la scheda non c'entrano. Non si sa cosa la
+/// occupa, o NOVA non vede i programmi accesi: si aspetta un quarto d'ora, e
+/// la riguarda il Dot.
 async fn aspetta_la_scheda(
     server: &Arc<Server>,
     c: &d::Cartella,
     nome: &str,
     compito: u64,
-    programma: &str,
+    detto: &str,
 ) -> String {
+    let o = dd::chi_occupa(detto);
     let ogni = secondi_da_configurazione(
         "secondi_fra_i_controlli_della_scheda",
         SECONDI_FRA_I_CONTROLLI,
@@ -377,21 +386,23 @@ async fn aspetta_la_scheda(
     diario(
         c,
         compito,
-        json!({ "tipo": "aspetta_scheda", "programma": programma }),
+        json!({ "tipo": "aspetta_scheda", "programma": o.programma, "pid": o.pid }),
     );
     server.ctx.bus.emit(
         "dot.aspetta_scheda",
-        json!({ "dot": nome, "id": compito, "programma": programma }),
+        json!({ "dot": nome, "id": compito, "programma": o.programma, "pid": o.pid }),
     );
     let acceso = || -> Option<bool> {
         let tutti = nova_platform::processi::elenca().ok()?;
-        Some(
+        Some(if o.pid.is_empty() {
             tutti
                 .iter()
-                .any(|p| dd::stesso_programma(&p.nome, programma)),
-        )
+                .any(|p| dd::stesso_programma(&p.nome, &o.programma))
+        } else {
+            tutti.iter().any(|p| o.pid.contains(&p.pid))
+        })
     };
-    if programma.trim().is_empty() || acceso().is_none() {
+    if (o.programma.is_empty() && o.pid.is_empty()) || acceso().is_none() {
         let secondi = ogni * CONTROLLI_SENZA_NOME;
         tokio::time::sleep(Duration::from_secs(secondi)).await;
         diario(
@@ -401,26 +412,39 @@ async fn aspetta_la_scheda(
         );
         return dd::scheda_da_riguardare(secondi.div_ceil(60));
     }
-    let fine = nova_platform::orologio::adesso() + crate::dot::ATTESA_MASSIMA_S;
+    let limite = if o.pid.is_empty() {
+        secondi_da_configurazione(
+            "secondi_per_riguardare_la_scheda",
+            SECONDI_PER_RIGUARDARE_LA_SCHEDA,
+        ) as i64
+    } else {
+        crate::dot::ATTESA_MASSIMA_S
+    };
+    let fine = nova_platform::orologio::adesso() + limite;
     loop {
         if acceso() == Some(false) {
             diario(
                 c,
                 compito,
-                json!({ "tipo": "scheda", "esito": "libera", "programma": programma }),
+                json!({ "tipo": "scheda", "esito": "libera", "programma": o.programma, "pid": o.pid }),
             );
-            return dd::scheda_libera(programma);
+            return dd::scheda_libera(&o);
         }
         if nova_platform::orologio::adesso() >= fine {
+            if o.pid.is_empty() {
+                diario(
+                    c,
+                    compito,
+                    json!({ "tipo": "scheda", "esito": "da_riguardare", "programma": o.programma }),
+                );
+                return dd::scheda_forse_altro(&o, (limite as u64).div_ceil(60));
+            }
             diario(
                 c,
                 compito,
-                json!({ "tipo": "scheda", "esito": "occupata", "programma": programma }),
+                json!({ "tipo": "scheda", "esito": "occupata", "programma": o.programma, "pid": o.pid }),
             );
-            return dd::scheda_ancora_occupata(
-                programma,
-                (crate::dot::ATTESA_MASSIMA_S / 3600) as u64,
-            );
+            return dd::scheda_ancora_occupata(&o, (limite / 3600) as u64);
         }
         tokio::time::sleep(Duration::from_secs(ogni)).await;
     }

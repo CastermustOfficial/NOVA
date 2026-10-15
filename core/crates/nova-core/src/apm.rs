@@ -874,8 +874,8 @@ async fn lavora(server: &Arc<Server>, p: &Progetto) -> bool {
         // si chiede (o si ferma, se ne ha avute troppe).
         return rivedi_la_fase(server, p, f.n, "la fase non e' andata").await;
     }
-    // I compiti pronti.
-    let pronti = p.pronti_in(f);
+    // I compiti pronti, e quelli sulla scheda video uno alla volta (D424).
+    let pronti = p.da_affidare_in(&pi, f);
     if !pronti.is_empty() {
         let radice = cartella(&p.nome);
         // Piu' Dot insieme (D422): chi e' occupato passa il compito a un
