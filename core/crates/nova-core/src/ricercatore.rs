@@ -65,8 +65,8 @@ struct Lavoro<'a> {
     /// vanno le pagine lette e il rapporto.
     cartella: Option<std::path::PathBuf>,
     /// Quante volte, in questo compito, il Dot si e' fermato a chiedere
-    /// (D419).
-    domande: usize,
+    /// (D419) o ad aspettare la scheda video (D423).
+    domande: crate::domande::Conto,
 }
 
 /// Com'e' finito un passo.
@@ -129,7 +129,13 @@ impl Lavoro<'_> {
         }
         // La posta arrivata intanto (D420): quella di prima e' gia' nel
         // testo del compito.
-        let testo = crate::domande::con_la_posta_arrivata(self.c, self.compito.id, testo.to_string());
+        let testo = crate::domande::con_la_posta_arrivata(
+            self.server,
+            self.c,
+            &self.nome,
+            self.compito.id,
+            testo.to_string(),
+        );
         let mut svolto = self.un_turno(&testo, cervello, per).await?;
         while let Fine::Risposto(t) = &svolto.fine {
             let dopo = crate::domande::dopo_il_turno(
@@ -147,8 +153,13 @@ impl Lavoro<'_> {
                     break;
                 }
                 crate::domande::Dopo::Riprendi(seguito) => {
-                    let seguito =
-                        crate::domande::con_la_posta_arrivata(self.c, self.compito.id, seguito);
+                    let seguito = crate::domande::con_la_posta_arrivata(
+                        self.server,
+                        self.c,
+                        &self.nome,
+                        self.compito.id,
+                        seguito,
+                    );
                     svolto = self.un_turno(&seguito, cervello, per).await?;
                 }
             }
@@ -375,7 +386,7 @@ pub async fn lavora(
         ciechi,
         cieco: false,
         cartella: d::struttura::cartella_dal_testo(&compito.testo),
-        domande: 0,
+        domande: crate::domande::Conto::default(),
         cfg,
     };
     let cima = l.cima();

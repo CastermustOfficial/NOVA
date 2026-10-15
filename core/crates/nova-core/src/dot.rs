@@ -80,6 +80,11 @@ pub struct Dots {
     /// I motori che hanno finito la quota (D414): fino a quando, in secondi
     /// dall'epoca. Serve a dirlo a Nova una volta, non una per Dot.
     quote: std::sync::Mutex<HashMap<String, i64>>,
+    /// Le domande fra colleghi che aspettano risposta (D421).
+    pub(crate) aperte: std::sync::Mutex<Vec<crate::domande::Aperta>>,
+    /// Chi sta aspettando la risposta di chi (D421): due Dot che si
+    /// aspettano a vicenda non si devono fermare tutti e due.
+    pub(crate) in_attesa: std::sync::Mutex<HashMap<String, String>>,
 }
 
 /// Come si parla al ciclo di un Dot.
@@ -96,6 +101,14 @@ pub struct Maniglia {
 impl Dots {
     fn maniglia(&self, nome: &str) -> Option<Arc<Maniglia>> {
         self.maniglie.lock().ok()?.get(nome).cloned()
+    }
+
+    /// Sveglia il ciclo di un Dot, se e' acceso (D421): un collega gli ha
+    /// fatto una domanda, e se e' libero risponde subito.
+    pub(crate) fn sveglia(&self, nome: &str) {
+        if let Some(m) = self.maniglia(nome) {
+            m.sveglia.notify_one();
+        }
     }
 }
 
@@ -1001,6 +1014,11 @@ fn conversazioni() -> Vec<Value> {
         let Ok(dot) = c.dot() else { continue };
         let posta = c.posta();
         tutta.extend(posta.iter().cloned());
+        // E quello che ha mandato (D421): le domande fra colleghi e le loro
+        // risposte stanno solo li', perche' non finiscano due volte nella
+        // posta di chi le ha gia' avute nel compito. Un messaggio che sta
+        // anche nella posta di chi l'ha ricevuto conta una volta.
+        tutta.extend(c.inviati());
         if !dot.mestiere.prende_compiti() {
             continue;
         }
@@ -1072,6 +1090,7 @@ pub fn fra(chi: &str) -> Result<Value, String> {
     for n in d::elenco(&base()) {
         if let Ok(c) = cartella(&n) {
             tutta.extend(c.posta());
+            tutta.extend(c.inviati());
         }
     }
     let messaggi = d::vista::fra_di_loro(&tutta)
@@ -1229,6 +1248,11 @@ async fn ciclo(server: Arc<Server>, nome: String, m: Arc<Maniglia>) {
         }
         let coda = c.compiti();
         let Some(compito) = d::prossimo(&coda).cloned() else {
+            // Libero, con dei colleghi che aspettano una risposta (D421):
+            // risponde adesso, poi aspetta.
+            if !crate::domande::aspettano(&server, &nome).is_empty() {
+                crate::domande::rispondi_da_libero(&server, &c, &nome).await;
+            }
             m.sveglia.notified().await;
             continue;
         };
@@ -1239,7 +1263,12 @@ async fn ciclo(server: Arc<Server>, nome: String, m: Arc<Maniglia>) {
         let dot = c.dot().ok();
         let capo = dot.as_ref().map(|x| x.capo.clone()).unwrap_or_default();
         let (posta, letta) = d::con_la_posta("", &c.non_letta());
-        let aggiunta = format!("{}{posta}", d::squadra(&capo, &sottoposti(&nome)));
+        // E le domande dei colleghi che aspettano la sua risposta (D421).
+        let aggiunta = format!(
+            "{}{posta}{}",
+            d::squadra(&capo, &sottoposti(&nome)),
+            d::domande::domande_per_te(&crate::domande::aspettano(&server, &nome))
+        );
         if let Some(n) = letta {
             let _ = c.segna_letta(n);
         }
@@ -1598,6 +1627,7 @@ pub(crate) async fn rispondi(
     compito: u64,
     testo: &str,
     cervello: &str,
+    per: &str,
 ) -> Result<String, String> {
     let dot = c.dot()?;
     let cfg = con_piu_tempo(&nova_configurazione::dove::leggi());
@@ -1621,7 +1651,7 @@ pub(crate) async fn rispondi(
             "quando": adesso(),
             "compito": compito,
             "tipo": "turno",
-            "per": "risposta al capo",
+            "per": per,
             "giro": giro + 1,
             "esito": crate::agente::esito_di(&svolto.fine).0,
             "cervello": svolto.cervello,
@@ -1630,7 +1660,7 @@ pub(crate) async fn rispondi(
         }));
         match svolto.fine {
             Fine::Risposto(t) => return Ok(t),
-            Fine::PassiFiniti(_) => domanda = "Continua, e rispondi alla domanda del capo.".into(),
+            Fine::PassiFiniti(_) => domanda = "Continua, e rispondi alla domanda.".into(),
             Fine::Fermato => return Err("fermato col «fermati» di Nova".into()),
             Fine::Rotto(e) => return Err(e),
         }
@@ -1857,11 +1887,12 @@ async fn lavora(
     let sessione = format!("dot:{nome}");
     // Le domande del Dot mentre lavora (D419): un turno che chiede non e' la
     // consegna, e il turno dopo comincia con le risposte.
-    let mut giri_di_domande = 0;
+    let mut conto = crate::domande::Conto::default();
     let mut seguito: Option<String> = None;
-    // I turni con cui riprende dopo le risposte non si contano.
-    for giro in 0..d::TURNI_PER_COMPITO + d::domande::GIRI_PER_COMPITO {
-        if giro - giri_di_domande >= d::TURNI_PER_COMPITO {
+    // I turni con cui riprende dopo le risposte, dopo aver risposto a un
+    // collega o dopo aver aspettato la scheda video non si contano.
+    for giro in 0..d::TURNI_PER_COMPITO + crate::domande::Conto::MASSIMO_FUORI {
+        if giro - conto.fuori.min(giro) >= d::TURNI_PER_COMPITO {
             break;
         }
         let testo = if let Some(t) = seguito.take() {
@@ -1878,7 +1909,7 @@ async fn lavora(
         // Dal secondo turno, la posta arrivata intanto (D420): quella di
         // prima e' gia' nella prima domanda.
         let testo = if giro > 0 {
-            crate::domande::con_la_posta_arrivata(c, compito.id, testo)
+            crate::domande::con_la_posta_arrivata(server, c, nome, compito.id, testo)
         } else {
             testo
         };
@@ -1917,8 +1948,7 @@ async fn lavora(
         }));
         match svolto.fine {
             Fine::Risposto(t) => {
-                match crate::domande::dopo_il_turno(server, c, nome, compito, &t, &mut giri_di_domande)
-                    .await
+                match crate::domande::dopo_il_turno(server, c, nome, compito, &t, &mut conto).await
                 {
                     crate::domande::Dopo::Consegna(t) => return (d::Stato::Fatto, t),
                     crate::domande::Dopo::Riprendi(t) => seguito = Some(t),

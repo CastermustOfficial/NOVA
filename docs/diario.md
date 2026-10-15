@@ -11913,3 +11913,32 @@ parere avuto. Ma Gio vedeva pochi scambi fra colleghi, e aveva ragione per
 un motivo che non era il D419: la chat si leggeva solo al compito dopo, e
 un compito puo' durare mezz'ora. E una domanda al legale era arrivata
 tagliata, per colpa mia (D420).
+
+## 15 ottobre 2026 — Parlarsi davvero, in piu' alla volta
+
+La mattina Gio ha chiesto perche' i Dot andassero cosi' piano, e ha visto
+che le loro chat stavano tutte nel gruppo, senza nessuno che parlasse con
+nessuno. Le due cose avevano la stessa radice: l'azienda era fatta di Dot
+che lavoravano da soli e in fila. Il 14 ottobre nove compiti erano andati
+uno dopo l'altro; la sera sei compiti di misura si erano chiusi a vuoto in
+cinque minuti, perche' la scheda video era occupata da un gioco; e la fase
+1 era arrivata a 1.38 anche perche' il metodo faceva ripetere ogni
+risultato, rapporti compresi.
+
+Con Gio abbiamo deciso tre cose, e le ho fatte insieme: il collega risponde
+lui, e chi chiede aspetta (D421); un reparto occupato ha degli aiuti, e si
+ripete solo quello che si misura o si conta (D422); un compito che ha
+bisogno della scheda video aspetta che si liberi (D423). Per la scheda ho
+scartato i contatori della GPU: a PC fermo una WebView ne usava il 18%, e
+una soglia avrebbe sbagliato nei due versi. Il nome del programma, che il
+Dot vede, e' piu' sicuro.
+
+Scrivendo la prova sono venute fuori tre cose. Una risposta scritta prima
+della consegna si mangiava la consegna, perche' una risposta continua fino
+alla riga per NOVA dopo: le risposte vanno in fondo, e la regola lo dice.
+Nella conversazione dell'harness la risposta compariva prima della domanda
+quando arrivava nello stesso secondo, e adesso viene sempre dopo. E nella
+prova dell'APM, nel progetto con due compiti per lo stesso Dot, AR e' stato
+chiesto piu' di una volta: quando non trova un aiuto, il compito dopo per lo
+stesso reparto glielo richiede. Non e' un errore, ma costa una domanda al
+cervello grande ogni volta, ed e' fra le idee.

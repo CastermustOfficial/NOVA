@@ -17,6 +17,8 @@ Deciso con Gio il 10 ottobre, sulla bozza. Nova passa un progetto all'APM
 - il tetto: contano i cervelli a consumo; al 90% si ferma;
 - fermato il progetto, i suoi compiti ancora in coda escono dalla coda, e
   col via si rifanno (D415);
+- un compito pronto per un reparto occupato va a un suo aiuto, che trova AR
+  (D422);
 - ogni compito dice la squadra del progetto e la sua chat, un gruppo col
   nome del progetto fatto dall'APM (D416).
 
@@ -705,6 +707,32 @@ try:
               aspetta("ottavo", {"finito", "fermo"}) == "finito"
               and any(g == "dot:dati" and "il secondo lavoro" in q for g, _, q in arrivate),
               str(tipi("ottavo")))
+
+    print("\n11. un reparto occupato ha un aiuto, e i compiti vanno insieme (D422)")
+    # Il 14 ottobre nove compiti di S0ex1 sono andati uno dopo l'altro.
+    piani["nono"] = ("# Piano: nono\nObiettivo: due lavori insieme\n"
+                     "## Fase 1: Lavoro\nConsegna: due cose\nFatta quando: fatte\n"
+                     "- 1.1 [dati] il lavoro primo\n- 1.2 [dati] il lavoro secondo\n"
+                     "## Domande per te\n- niente\n")
+    trattieni[("nono", "dati")] = threading.Event()
+    per_ar.append('{"scelta": "assumi", "nome": "dati-aiuto", "ruolo": "Aiuta i dati.", '
+                  '"mestiere": "generico", "cervello": "piccolo", "perche": "dati e\' occupato"}')
+    capacita("dot.progetto", nome="nono", richiesta="Due lavori insieme.")
+    aspetta("nono", {"aspetta_il_via", "fermo"})
+    capacita("dot.via", nome="nono", tetto=10)
+    controlla("mentre dati tiene il primo, il secondo lo fa il suo aiuto",
+              aspetta_che(lambda: any(g == "dot:dati-aiuto" and "il lavoro secondo" in q
+                                      for g, _, q in arrivate)), str(tipi("nono"))[-400:])
+    a_ar = [q for g, _, q in arrivate if g == "ar" and "un aiuto per «dati», che e' occupato, "
+            "per il progetto «nono»" in q]
+    controlla("l'aiuto l'ha trovato AR, sapendo per chi e perche'", len(a_ar) == 1,
+              str([q[:200] for q in a_ar]))
+    squadra = [e for e in eventi("nono") if e.get("tipo") == "squadra"]
+    controlla("e sta nella squadra come aiuto di dati",
+              any(e.get("ruolo") == "dati (aiuto 1)" and e.get("dot") == "dati-aiuto" for e in squadra),
+              str(squadra))
+    trattieni.pop(("nono", "dati")).set()
+    controlla("e il progetto finisce", aspetta("nono", {"finito", "fermo"}) == "finito", str(tipi("nono")))
 finally:
     processo.kill()
     cervello.shutdown()

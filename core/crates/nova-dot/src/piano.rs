@@ -69,8 +69,11 @@ pub const COMPITI_MASSIMI: usize = 200;
 pub const PROGETTO_MASSIMO: usize = 48;
 
 /// Il metodo che il piano deve seguire (D407).
-pub const METODO: &str = "Il metodo: ogni compito di ricerca o di dati che produce un risultato \
-ha dopo di se' un compito [qualita] che lo ripete, e un risultato non ripetuto non e' un risultato. \
+pub const METODO: &str = "Il metodo: si ripete in modo indipendente, con un compito [qualita] \
+dopo, solo quello che si misura o si conta: misure, conteggi, hash, prove, e le fonti di una \
+ricerca. Una misura non ripetuta non e' un risultato. Un compito di scrittura, di organizzazione, \
+di amministrazione o di revisione non si ripete. I compiti che non dipendono l'uno dall'altro non \
+metterli in fila: partono insieme, e se tocca allo stesso reparto NOVA gli da' un aiuto. \
 Il paper finale non metterlo nel piano: lo scrive la scrittura alla fine, quando tutte le fasi sono \
 fatte. Nessun compito cambia NOVA, la sua configurazione o le impostazioni dei programmi \
 dell'utente: un cambio che ti sembra utile scrivilo in «Domande per te», e lo decide l'utente. \
@@ -1209,7 +1212,21 @@ mod prove {
             "il segno del piano del ricercatore e' un altro: {d}"
         );
         // Il metodo del D407: la qualita' ripete, il paper non e' nel piano.
-        assert!(d.contains(METODO) && METODO.contains("[qualita] che lo ripete"), "{d}");
+        assert!(
+            d.contains(METODO)
+                && METODO.contains(
+                    "con un compito [qualita] \
+dopo, solo quello che si misura o si conta"
+                ),
+            "{d}"
+        );
+        // D422: non si ripete tutto, e quello che non dipende parte insieme.
+        assert!(METODO.contains(
+            "Un compito di scrittura, di organizzazione, \
+di amministrazione o di revisione non si ripete"
+        ));
+        assert!(METODO
+            .contains("partono insieme, e se tocca allo stesso reparto NOVA gli da' un aiuto"));
         assert!(d.find(METODO) < d.find("Rispondi solo col piano"), "{d}");
         // D410: nessun compito cambia NOVA; un cambio utile e' una domanda.
         assert!(METODO.contains("Nessun compito cambia NOVA") && METODO.contains("«Domande per te»"));

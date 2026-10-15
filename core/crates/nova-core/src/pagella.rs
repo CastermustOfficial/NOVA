@@ -140,6 +140,7 @@ pub async fn giudica(
             compito.id,
             &p::al_dot(giudice, &q),
             usato,
+            "risposta al capo",
         )
         .await
         {

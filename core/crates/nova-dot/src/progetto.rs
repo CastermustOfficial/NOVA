@@ -24,7 +24,7 @@
 //!
 //! Qui ci sono le regole e le parole; chi le fa girare e' `nova_core::apm`.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -196,6 +196,37 @@ pub enum Evento {
         domanda: String,
         risposta: String,
     },
+}
+
+/// Quanti aiuti puo' avere chi fa un ruolo del piano (D422), oltre a lui:
+/// piu' Dot insieme finiscono prima, ma consumano le quote insieme.
+pub const AIUTI_PER_RUOLO: usize = 2;
+
+/// Chi fa un compito pronto (D422).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ChiLibero {
+    /// Chi lo fa di solito, ed e' libero.
+    Lui(String),
+    /// Un suo aiuto, libero.
+    Aiuto(String),
+    /// Un aiuto da trovare con AR, per questo ruolo; `di` e' chi lo fa di
+    /// solito.
+    DaTrovare { ruolo: String, di: String },
+    /// Sono tutti occupati: il compito va in coda a chi lo fa di solito.
+    InCoda(String),
+}
+
+/// Il ruolo di chi fa un compito: il reparto, o il ruolo da assumere.
+pub fn ruolo_di(chi: &Chi) -> String {
+    match chi {
+        Chi::Reparto(r) => r.clone(),
+        Chi::Assumi { ruolo, .. } => ruolo.clone(),
+    }
+}
+
+/// Come si chiama nella squadra il `k`-esimo aiuto di un ruolo.
+pub fn ruolo_dell_aiuto(ruolo: &str, k: usize) -> String {
+    format!("{ruolo} (aiuto {k})")
 }
 
 /// Dove sta un progetto.
@@ -492,6 +523,41 @@ impl Progetto {
             Chi::Reparto(r) => Some(r.clone()),
             Chi::Assumi { ruolo, .. } => self.squadra.get(ruolo).cloned(),
         }
+    }
+
+    /// I Dot che hanno un compito aperto nel progetto.
+    pub fn occupati(&self) -> BTreeSet<String> {
+        self.lavori
+            .values()
+            .filter(|l| l.stato.is_none())
+            .map(|l| l.dot.clone())
+            .collect()
+    }
+
+    /// Chi fa un compito pronto, se chi lo fa di solito e' occupato (D422):
+    /// lui, se e' libero; se no un suo aiuto libero; se no un aiuto da
+    /// trovare, fino a [`AIUTI_PER_RUOLO`]; se no lui, e il compito aspetta
+    /// in coda. `occupati` sono i Dot che hanno un compito aperto, compresi
+    /// quelli appena affidati.
+    pub fn chi_e_libero(&self, chi: &Chi, occupati: &BTreeSet<String>) -> Option<ChiLibero> {
+        let primo = self.chi_fa(chi)?;
+        if !occupati.contains(&primo) {
+            return Some(ChiLibero::Lui(primo));
+        }
+        let base = ruolo_di(chi);
+        let aiuti: Vec<&String> = (1..=AIUTI_PER_RUOLO)
+            .filter_map(|k| self.squadra.get(&ruolo_dell_aiuto(&base, k)))
+            .collect();
+        if let Some(a) = aiuti.iter().find(|a| !occupati.contains(**a)) {
+            return Some(ChiLibero::Aiuto((*a).clone()));
+        }
+        if aiuti.len() < AIUTI_PER_RUOLO {
+            return Some(ChiLibero::DaTrovare {
+                ruolo: ruolo_dell_aiuto(&base, aiuti.len() + 1),
+                di: primo,
+            });
+        }
+        Some(ChiLibero::InCoda(primo))
     }
 
     /// La fase su cui si lavora: la prima non finita bene.
@@ -1151,6 +1217,82 @@ mod prove {
         let solo = squadra_e_chat(&p, "dati", None);
         assert!(solo.contains("Adesso non lavora nessun altro.") && !solo.contains("gruppo"), "{solo}");
         assert!(solo.contains("uno fra legale, apm; la domanda puo' continuare"), "{solo}");
+    }
+
+    #[test]
+    fn un_compito_pronto_va_a_chi_e_libero() {
+        // D422: il 14 ottobre nove compiti di S0ex1 sono andati uno dopo
+        // l'altro, e due di «ricerca» si sono messi in fila.
+        let mut p = Progetto::da("s0ex1", &base()).unwrap();
+        p.lavori.clear();
+        p.squadra.clear();
+        let reparto = Chi::Reparto("ricerca".into());
+        let nessuno = BTreeSet::new();
+        assert_eq!(
+            p.chi_e_libero(&reparto, &nessuno),
+            Some(ChiLibero::Lui("ricerca".into()))
+        );
+        let mut occ: BTreeSet<String> = ["ricerca".to_string()].into();
+        assert_eq!(
+            p.chi_e_libero(&reparto, &occ),
+            Some(ChiLibero::DaTrovare {
+                ruolo: "ricerca (aiuto 1)".into(),
+                di: "ricerca".into()
+            })
+        );
+        p.squadra
+            .insert("ricerca (aiuto 1)".into(), "ricercatore-2".into());
+        assert_eq!(
+            p.chi_e_libero(&reparto, &occ),
+            Some(ChiLibero::Aiuto("ricercatore-2".into()))
+        );
+        occ.insert("ricercatore-2".into());
+        assert_eq!(
+            p.chi_e_libero(&reparto, &occ),
+            Some(ChiLibero::DaTrovare {
+                ruolo: "ricerca (aiuto 2)".into(),
+                di: "ricerca".into()
+            })
+        );
+        p.squadra
+            .insert("ricerca (aiuto 2)".into(), "ricercatore-3".into());
+        occ.insert("ricercatore-3".into());
+        assert_eq!(
+            p.chi_e_libero(&reparto, &occ),
+            Some(ChiLibero::InCoda("ricerca".into())),
+            "al massimo due aiuti"
+        );
+        // Un ruolo da assumere senza nessuno non ha chi lo fa.
+        let assumi = Chi::Assumi {
+            ruolo: "sviluppatore".into(),
+            mestiere: Mestiere::Generico,
+        };
+        assert_eq!(p.chi_e_libero(&assumi, &nessuno), None);
+        p.squadra.insert("sviluppatore".into(), "sviluppo".into());
+        assert_eq!(
+            p.chi_e_libero(&assumi, &nessuno),
+            Some(ChiLibero::Lui("sviluppo".into()))
+        );
+        // Chi ha un compito aperto e' occupato.
+        p.lavori.insert(
+            "1.1".into(),
+            Lavoro {
+                dot: "sviluppo".into(),
+                compito: 3,
+                stato: None,
+                esito: String::new(),
+            },
+        );
+        p.lavori.insert(
+            "1.2".into(),
+            Lavoro {
+                dot: "dati".into(),
+                compito: 4,
+                stato: Some(Stato::Fatto),
+                esito: String::new(),
+            },
+        );
+        assert_eq!(p.occupati(), ["sviluppo".to_string()].into());
     }
 
     #[test]

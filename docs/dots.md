@@ -1238,6 +1238,44 @@ risponde lo si sente quando serve. E una domanda puo' stare su piu' righe:
 continua fino alla domanda dopo. Il capo che giudica vede le domande che il
 Dot ha fatto lavorando, con le risposte, e sa che le ha portate NOVA.
 
+**I Dot si parlano davvero — fatto** (D421). Il 15 ottobre Gio ha visto
+che le chat dei Dot erano tutte nel gruppo, e che nessuno parlava con
+nessuno: ogni domanda finiva nella chat del progetto, e al posto del
+collega rispondeva il cervello grande. Adesso una domanda a un collega va a
+lui. Se sta lavorando la trova nel messaggio del suo turno dopo, se e'
+libero subito; risponde con `RISPONDO A <chi>: ...`, coi suoi file, e
+continua il suo lavoro. Chi ha chiesto aspetta, fino a mezz'ora
+(`dots.secondi_per_rispondere`); poi risponde NOVA dalle consegne del
+collega, e lo dice. Due Dot che si chiederebbero a vicenda non si
+aspettano. La domanda e la risposta stanno nella conversazione fra i due,
+firmate da chi le ha scritte, e Gio le vede nell'harness; nella chat del
+progetto resta quello che un Dot scrive con `ALLA CHAT:`.
+
+**Piu' Dot insieme, e meno ripetizioni — fatto** (D422). Il 14 ottobre
+nove compiti di S0ex1 sono andati uno dopo l'altro. Adesso un compito
+pronto per un reparto occupato va a un suo aiuto, e se non ne ha uno libero
+AR ne trova uno, fino a due per ruolo («dati (aiuto 1)», «dati (aiuto
+2)»); se non lo trova, il compito aspetta in coda come prima. E il metodo
+dell'Architetto cambia: si ripete in modo indipendente solo quello che si
+misura o si conta (misure, conteggi, hash, prove, le fonti di una ricerca),
+non un rapporto o un compito di organizzazione; i compiti che non dipendono
+l'uno dall'altro partono insieme.
+
+**La scheda video occupata — fatto** (D423). La sera del 14 ottobre sei
+compiti di misura si sono chiusi a vuoto in cinque minuti: la scheda video
+era occupata da un gioco. Adesso un Dot che la trova occupata scrive
+`ASPETTO LA SCHEDA VIDEO: <il programma>`, e NOVA lo fa riprendere quando
+quel programma e' chiuso, guardando ogni minuto
+(`dots.secondi_fra_i_controlli_della_scheda`). Senza il nome, dopo un
+quarto d'ora la riguarda il Dot; dopo sei ore consegna quello che ha.
+
+| | Di serie | Si cambia con |
+|---|---|---|
+| **Quanto si aspetta un collega** | 30 minuti | `dots.secondi_per_rispondere` |
+| **Ogni quanto si guarda la scheda video** | 60 secondi | `dots.secondi_fra_i_controlli_della_scheda` |
+| **Aiuti per ruolo** | 2 | `nova_dot::progetto::AIUTI_PER_RUOLO` |
+| **Attese della scheda per compito** | 3 | `nova_dot::domande::ATTESE_DELLA_SCHEDA` |
+
 **Il via dopo un piano non fatto — fatto** (D411). Rimesso Claude, il via a
 S0ex1 lo fermava di nuovo nello stesso secondo: l'APM aspettava ancora il
 compito dell'Architetto andato male la sera prima. Adesso il via di un

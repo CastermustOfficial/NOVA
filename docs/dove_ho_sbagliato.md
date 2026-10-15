@@ -2984,3 +2984,33 @@ gira senza compilazione incrementale.
 
 La regola: quello che lascio sul PC di sviluppo lo misuro anch'io, a ogni giro;
 e prima di dire di chi e' un guasto lo si misura.
+
+## La risposta che si mangiava la consegna
+
+Il 15 ottobre, scrivendo il D421, ho fatto continuare una risposta a un
+collega (`RISPONDO A <chi>:`) fino alla riga per NOVA dopo, come una
+domanda, e ho detto nella regola di rispondere «poi continua quello che
+stavi facendo». Un Dot che risponde in testa al turno e poi consegna
+avrebbe messo la consegna dentro la risposta: al collega arrivava tutto, e
+il compito restava senza consegna. Me ne sono accorto con la prova nuova,
+che aveva la risposta prima della consegna, come avrebbe fatto un modello
+che segue la regola alla lettera. Corretto prima del commit: le risposte
+vanno in fondo, dopo tutto il resto, e la regola lo dice.
+
+La regola: quando un formato ha un blocco che continua fino a un segno, la
+regola scritta per il modello dice dove va il blocco, e la prova lo mette
+anche dove non deve stare.
+
+## Il formato di tutto il codice
+
+Lo stesso giorno, per formattare i file che avevo toccato, ho lanciato
+`cargo fmt` sui due crate interi. NOVA non e' formattato con rustfmt (in CI
+il controllo del formato non ferma niente), e cosi' ho riformattato 48 file
+che non c'entravano, e righe gia' scritte negli otto che c'entravano. Me ne
+sono accorto dal conto dei file cambiati. Corretto prima del commit: i file
+non toccati rimessi com'erano, e negli altri tolte le righe riformattate
+che non erano mie, con un'unione a tre vie fra il file di prima, lo stesso
+formattato e il mio.
+
+La regola: uno strumento che riscrive i file si lancia sui file del lavoro,
+non sul crate; e prima del commit si guarda quanti file cambiano.

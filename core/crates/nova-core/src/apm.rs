@@ -707,6 +707,51 @@ async fn trova_la_squadra(server: &Arc<Server>, p: &Progetto, pi: &piano::Piano)
     true
 }
 
+/// Chi fa un compito pronto (D422): chi lo fa di solito se e' libero, se no
+/// un suo aiuto libero, se no un aiuto nuovo che trova AR. Se AR non ne
+/// trova uno libero, il compito va in coda a chi lo fa di solito.
+async fn chi_lo_fa(
+    server: &Arc<Server>,
+    p: &Progetto,
+    chi: &piano::Chi,
+    occupati: &std::collections::BTreeSet<String>,
+) -> Option<String> {
+    match p.chi_e_libero(chi, occupati)? {
+        pr::ChiLibero::Lui(d) | pr::ChiLibero::Aiuto(d) | pr::ChiLibero::InCoda(d) => Some(d),
+        pr::ChiLibero::DaTrovare { ruolo, di } => {
+            let ricercatore = d::Cartella::di(&crate::dot::base(), &di)
+                .and_then(|c| c.dot())
+                .is_ok_and(|x| x.mestiere == d::Mestiere::Ricercatore);
+            let bisogno = format!(
+                "{ruolo}{}: un aiuto per «{di}», che e' occupato, per il progetto «{}». Fa lo \
+                 stesso lavoro, su un altro compito.",
+                if ricercatore { " (un ricercatore)" } else { "" },
+                p.nome
+            );
+            match crate::risorse::assumi(server, &bisogno, "", "").await {
+                Ok(v) => match v.get("dot").and_then(Value::as_str) {
+                    Some(nuovo) if !occupati.contains(nuovo) => {
+                        annota(
+                            &p.nome,
+                            Evento::Squadra {
+                                quando: adesso(),
+                                ruolo,
+                                dot: nuovo.to_string(),
+                            },
+                        );
+                        Some(nuovo.to_string())
+                    }
+                    _ => Some(di),
+                },
+                Err(e) => {
+                    tracing::warn!(progetto = %p.nome, errore = %e, "AR non trova un aiuto");
+                    Some(di)
+                }
+            }
+        }
+    }
+}
+
 /// Il lavoro, fase dopo fase.
 async fn lavora(server: &Arc<Server>, p: &Progetto) -> bool {
     if p.piano_chiesto.is_some() {
@@ -833,10 +878,14 @@ async fn lavora(server: &Arc<Server>, p: &Progetto) -> bool {
     let pronti = p.pronti_in(f);
     if !pronti.is_empty() {
         let radice = cartella(&p.nome);
+        // Piu' Dot insieme (D422): chi e' occupato passa il compito a un
+        // suo aiuto, e se non ne ha uno libero AR ne trova uno.
+        let mut occupati = p.occupati();
         for i in pronti {
-            let Some(dot) = p.chi_fa(&i.chi) else {
+            let Some(dot) = chi_lo_fa(server, p, &i.chi, &occupati).await else {
                 continue;
             };
+            occupati.insert(dot.clone());
             // Un compito, una cartella, nel suo reparto (D407).
             let rel = st::cartella_del_compito(i);
             let dentro = radice.join(&rel);

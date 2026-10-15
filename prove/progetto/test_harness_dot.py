@@ -93,9 +93,11 @@ controlla("quello che si e' visto lo ricorda la finestra, e se non puo' non si r
           and "try { visti = JSON.parse(localStorage.getItem(DEPOSITO_VISTI) || '{}') || {}; } catch (_) { visti = {}; }" in DOT)
 controlla("una chat fra di loro ha la sua linguetta", "s.cosa === 'fra' ? 'CHAT'" in HARNESS)
 
-print("\n4b. nei passi di un compito si vedono le domande, con la risposta (D419)")
+print("\n4b. nei passi di un compito si vedono le domande con la risposta, le risposte ai colleghi "
+      "e la scheda video (D419, D421, D423)")
 passi = DOT.split("function passoInParole(p) {")[1].split("\n  }\n")[0]
-for tipo in ("domanda", "domanda_del_capo", "alla_chat", "voto"):
+for tipo in ("domanda", "domanda_del_capo", "alla_chat", "voto",
+             "risposta", "a_vicenda", "posta", "aspetta_scheda", "scheda"):
     controlla(f"il passo «{tipo}» ha le sue parole", f"if (t === '{tipo}')" in passi)
 controlla("la domanda si vede con la risposta",
           "${T('chiede a')} ${p.a}: «${p.domanda}» → ${p.risposta || ''}" in passi
@@ -104,11 +106,12 @@ controlla("la domanda si vede con la risposta",
 print("\n5. ogni frase ha la sua traduzione")
 frasi = {m.group(2) for m in re.finditer(r"""\bT\((['"])(.+?)\1\)""", DOT)}
 # Le parole che passano da T() senza essere scritte li': come sta un Dot
-# (il primo di ogni coppia in STA), lo stato di un compito, il mestiere.
+# (il primo di ogni coppia in STA), lo stato di un compito, il mestiere, e
+# come sta la scheda video (D423).
 sta = DOT.split("const STA = {")[1].split("};")[0]
 stati = DOT.split("const NOME_STATO = {")[1].split("};")[0]
 frasi |= set(re.findall(r"\[\s*'([^']+)'", sta)) | set(re.findall(r":\s*'([^']+)'", stati))
-frasi |= {"GRUPPO", "SCHEMA", "I Dot"}
+frasi |= {"GRUPPO", "SCHEMA", "I Dot", "libera", "ancora occupata", "da riguardare"}
 # I mestieri e le frasi di chi non prende compiti li scrive il demone
 # (`nova_dot::Mestiere`, D395): si leggono dal suo codice, cosi' un mestiere
 # nuovo senza traduzione si vede qui.

@@ -19,6 +19,12 @@
 //! - `ALLA CHAT: <messaggio>` — nella chat del progetto, senza aspettare:
 //!   gli altri lo leggono al loro prossimo compito, e lo legge Gio.
 //!
+//! Dal D421 una domanda a un collega e' una conversazione fra loro due: va
+//! nella sua posta, e risponde lui, con una riga `RISPONDO A <chi>: ...`,
+//! fra un turno e l'altro del suo lavoro o, se e' libero, subito. Dal D423
+//! un Dot che trova la scheda video occupata scrive `ASPETTO LA SCHEDA
+//! VIDEO: <il programma>`, e riprende quando quel programma e' chiuso.
+//!
 //! Qui ci sono le parole e come si leggono; chi fa rispondere e chi scrive
 //! nella chat e' `nova_core::domande`.
 
@@ -29,6 +35,12 @@ pub const CHIEDO: &str = "CHIEDO A";
 
 /// Come comincia la riga di un messaggio alla chat del progetto.
 pub const ALLA_CHAT: &str = "ALLA CHAT";
+
+/// Come comincia la risposta a un collega che ha chiesto (D421).
+pub const RISPONDO: &str = "RISPONDO A";
+
+/// La riga di chi aspetta che la scheda video sia libera (D423).
+pub const SCHEDA: &str = "ASPETTO LA SCHEDA VIDEO";
 
 /// Quante volte, in un compito, un Dot puo' fermarsi a chiedere.
 pub const GIRI_PER_COMPITO: usize = 3;
@@ -53,12 +65,18 @@ pub struct Domanda {
     pub testo: String,
 }
 
-/// Quello che un Dot ha detto in un turno, diviso: le domande, i messaggi
-/// alla chat, e il resto, che e' la consegna se non ci sono domande.
+/// Quello che un Dot ha detto in un turno, diviso: le domande, le risposte
+/// ai colleghi, i messaggi alla chat, se aspetta la scheda video, e il
+/// resto, che e' la consegna se non ci sono domande.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Detto {
     pub domande: Vec<Domanda>,
+    /// Le risposte ai colleghi (D421): `a` e' chi aveva chiesto.
+    pub risposte: Vec<Domanda>,
     pub alla_chat: Vec<String>,
+    /// Aspetta la scheda video (D423): il programma che la occupa, o vuoto
+    /// se non l'ha detto.
+    pub scheda: Option<String>,
     pub resto: String,
 }
 
@@ -81,10 +99,11 @@ fn dopo<'a>(riga: &'a str, segno: &str) -> Option<&'a str> {
         .then(|| &riga[segno.len()..])
 }
 
-/// Se la riga apre una domanda: a chi, e la prima riga della domanda (che
-/// puo' essere vuota, se la domanda comincia sotto).
-fn apre_domanda(p: &str) -> Option<(String, String)> {
-    let x = dopo(p, CHIEDO)?;
+/// Se la riga apre una domanda (`CHIEDO A`) o una risposta (`RISPONDO A`):
+/// a chi, e la prima riga (che puo' essere vuota, se il testo comincia
+/// sotto).
+fn apre(p: &str, segno: &str) -> Option<(String, String)> {
+    let x = dopo(p, segno)?;
     // «CHIEDO A legale: …», «CHIEDO AL legale: …», «CHIEDO ALL'APM: …»
     let x = x
         .strip_prefix("LL'")
@@ -100,6 +119,18 @@ fn apre_domanda(p: &str) -> Option<(String, String)> {
     (!a.is_empty()).then(|| (a, domanda.trim().to_string()))
 }
 
+/// Se la riga dice che aspetta la scheda video: il programma che la occupa,
+/// o vuoto.
+fn aspetta_scheda(p: &str) -> Option<String> {
+    let x = dopo(p, SCHEDA)?.trim();
+    let nome = x.strip_prefix(':').unwrap_or(x).trim();
+    Some(
+        nome.trim_matches(['«', '»', '"', '\'', '.'])
+            .trim()
+            .to_string(),
+    )
+}
+
 /// Se la riga e' un messaggio alla chat, il messaggio.
 fn alla_chat(p: &str) -> Option<String> {
     let m = dopo(p, ALLA_CHAT)?.trim_start().strip_prefix(':')?.trim();
@@ -109,25 +140,29 @@ fn alla_chat(p: &str) -> Option<String> {
 /// Divide quello che il Dot ha detto.
 ///
 /// Una domanda comincia con la riga `CHIEDO A <chi>:` e continua sulle righe
-/// sotto, fino alla domanda dopo o a un messaggio alla chat (D420): il 14
+/// sotto, fino alla domanda dopo o a un'altra riga per NOVA (D420): il 14
 /// ottobre il testo dei termini di Antigravity, mandato al legale su piu'
-/// righe, e' arrivato tagliato alla prima. Un messaggio alla chat e' una
-/// riga sola. Prima della prima domanda, le righe dentro un blocco di codice
-/// non contano: una consegna che spiega il formato non e' una domanda.
+/// righe, e' arrivato tagliato alla prima. Lo stesso una risposta a un
+/// collega, `RISPONDO A <chi>:` (D421). Un messaggio alla chat e la riga
+/// della scheda video sono una riga sola. Prima della prima domanda o
+/// risposta, le righe dentro un blocco di codice non contano: una consegna
+/// che spiega il formato non e' una domanda.
 pub fn dividi(t: &str) -> Detto {
     let mut d = Detto::default();
     let mut resto = Vec::new();
     let mut in_codice = false;
-    // La domanda che si sta leggendo: a chi, la riga com'era, e le righe
-    // della domanda.
-    type Aperta = Option<(String, String, Vec<String>)>;
+    // Quello che si sta leggendo: se e' una risposta, a chi, la riga
+    // com'era, e le righe.
+    type Aperta = Option<(bool, String, String, Vec<String>)>;
     let mut aperta: Aperta = None;
     let chiudi = |aperta: &mut Aperta, d: &mut Detto, resto: &mut Vec<String>| {
-        if let Some((a, com_era, righe)) = aperta.take() {
+        if let Some((risposta, a, com_era, righe)) = aperta.take() {
             let testo = righe.join("\n").trim().to_string();
             if testo.is_empty() {
                 // Una domanda senza niente dentro non e' una domanda.
                 resto.push(com_era);
+            } else if risposta {
+                d.risposte.push(Domanda { a, testo });
             } else {
                 d.domande.push(Domanda { a, testo });
             }
@@ -137,9 +172,12 @@ pub fn dividi(t: &str) -> Detto {
         let codice = riga.trim_start().starts_with("```");
         if !in_codice {
             let p = pulita(riga);
-            if let Some((a, prima)) = apre_domanda(&p) {
+            let nuova = apre(&p, CHIEDO)
+                .map(|x| (false, x))
+                .or_else(|| apre(&p, RISPONDO).map(|x| (true, x)));
+            if let Some((risposta, (a, prima))) = nuova {
                 chiudi(&mut aperta, &mut d, &mut resto);
-                aperta = Some((a, riga.to_string(), vec![prima]));
+                aperta = Some((risposta, a, riga.to_string(), vec![prima]));
                 continue;
             }
             if let Some(m) = alla_chat(&p) {
@@ -147,12 +185,17 @@ pub fn dividi(t: &str) -> Detto {
                 d.alla_chat.push(m);
                 continue;
             }
+            if let Some(nome) = aspetta_scheda(&p) {
+                chiudi(&mut aperta, &mut d, &mut resto);
+                d.scheda = Some(nome);
+                continue;
+            }
         }
         if codice {
             in_codice = !in_codice;
         }
         match aperta.as_mut() {
-            Some((_, _, righe)) => righe.push(riga.to_string()),
+            Some((_, _, _, righe)) => righe.push(riga.to_string()),
             None => resto.push(riga.to_string()),
         }
     }
@@ -229,7 +272,9 @@ pub fn regola(chiede: &str, squadra: &[String]) -> String {
          allora continui. Puoi farlo al massimo {GIRI_PER_COMPITO} volte per compito. Per dire \
          qualcosa a tutta la squadra senza aspettare, scrivi una riga `{ALLA_CHAT}: <il \
          messaggio>`: va nella chat del progetto, gli altri la leggono al loro prossimo \
-         compito, e la legge Gio.",
+         compito, e la legge Gio. Se ti serve la scheda video e la occupa un altro programma, \
+         non consegnare a vuoto: scrivi una riga `{SCHEDA}: <il programma che la occupa>`, e \
+         NOVA ti fa riprendere quando quel programma e' chiuso.",
         a_chi = a_chi_si_chiede(chiede, squadra),
     )
 }
@@ -319,14 +364,108 @@ pub fn risposte(r: &[(Domanda, String)], rimaste: usize) -> String {
 pub const BASTA: &str = "Non puoi piu' chiedere in questo compito. Consegna con quello che hai, e \
 quello che manca scrivilo in «Cosa non so».";
 
-/// La domanda e la risposta nella chat del progetto, perche' le vedano gli
-/// altri e Gio.
-pub fn in_chat(compito: &str, d: &Domanda, risposta: &str) -> String {
+/// Le domande dei colleghi che aspettano la risposta di un Dot (D421), in
+/// coda al messaggio di un suo turno: chi chiede, e cosa. Vuoto se non ce
+/// ne sono. Si ripetono a ogni turno finche' non risponde: chi chiede sta
+/// aspettando.
+pub fn domande_per_te(domande: &[(String, String)]) -> String {
+    if domande.is_empty() {
+        return String::new();
+    }
+    let mut t = String::from("\n\nDomande dei colleghi, che aspettano la tua risposta:");
+    for (da, q) in domande {
+        t.push_str(&format!(
+            "\n- da {da}: «{}»",
+            tagliato(q, RISPOSTA_AL_DOT).replace('\n', "\n  ")
+        ));
+    }
+    t.push_str(&format!(
+        "\nRispondi a ognuno con una riga `{RISPONDO} <chi>: <la risposta>`, anche su piu' \
+         righe, con quello che sai e che vedi nei tuoi file. Le risposte vanno in fondo, dopo \
+         tutto il resto: una risposta continua fino alla riga per NOVA dopo, o alla fine. Poi \
+         continua quello che stavi facendo."
+    ));
+    t
+}
+
+/// Il messaggio con cui si chiede a un Dot libero di rispondere ai colleghi
+/// (D421): non ha un compito, e loro aspettano.
+pub fn rispondi_ai_colleghi(domande: &[(String, String)]) -> String {
     format!(
-        "Per il compito {compito} ho chiesto a {a}: «{q}»\nRisposta: {r}",
-        a = d.a,
-        q = d.testo.trim(),
-        r = tagliato(risposta, 2_000),
+        "Non hai compiti adesso, ma dei colleghi ti hanno fatto una domanda.{}",
+        domande_per_te(domande)
+    )
+}
+
+/// Quando un Dot ha risposto ai colleghi e basta, senza andare avanti: si
+/// continua (D421).
+pub const HAI_RISPOSTO: &str = "Hai risposto ai colleghi. Adesso continua il tuo compito.";
+
+/// Quante volte, in un compito, si aspetta la scheda video (D423).
+pub const ATTESE_DELLA_SCHEDA: usize = 3;
+
+/// Il messaggio con cui si riprende quando il programma che occupava la
+/// scheda video e' chiuso (D423).
+pub fn scheda_libera(programma: &str) -> String {
+    format!(
+        "«{programma}» non e' piu' acceso: la scheda video e' libera. Riguardala, e continua il \
+         compito."
+    )
+}
+
+/// Il messaggio con cui si riprende dopo un'attesa senza sapere cosa
+/// occupava la scheda (D423): il Dot non l'ha detto, o NOVA non sa vedere i
+/// programmi accesi.
+pub fn scheda_da_riguardare(minuti: u64) -> String {
+    format!(
+        "Sono passati {minuti} minuti. Riguarda se la scheda video e' libera: se si', continua \
+         il compito; se no, scrivi di nuovo `{SCHEDA}: <il programma che la occupa>`."
+    )
+}
+
+/// Il messaggio con cui si riprende quando la scheda e' rimasta occupata
+/// oltre l'attesa massima (D423): il compito va com'e'.
+pub fn scheda_ancora_occupata(programma: &str, ore: u64) -> String {
+    format!(
+        "«{programma}» e' ancora acceso dopo {ore} ore. Non aspettare oltre: consegna quello che \
+         hai, e scrivi in «Cosa non so» che la misura non e' fatta perche' la scheda era \
+         occupata."
+    )
+}
+
+/// Se un programma acceso e' quello che il Dot ha nominato: lo stesso nome,
+/// maiuscole o no, con o senza `.exe`.
+pub fn stesso_programma(acceso: &str, nominato: &str) -> bool {
+    let n = |t: &str| {
+        let t = t.trim().to_lowercase();
+        t.strip_suffix(".exe").unwrap_or(&t).trim().to_string()
+    };
+    let (a, b) = (n(acceso), n(nominato));
+    !b.is_empty() && a == b
+}
+
+/// Quello che torna a chi ha chiesto a un collega che non ha risposto in
+/// tempo (D421): risponde NOVA dalle sue consegne, e lo dice.
+pub fn non_ha_risposto(collega: &str, minuti: u64, ripiego: &str) -> String {
+    let quanto = if minuti == 1 {
+        "1 minuto".to_string()
+    } else {
+        format!("{minuti} minuti")
+    };
+    format!(
+        "(«{collega}» non ha risposto entro {quanto}: risponde NOVA dalle sue consegne.) {}",
+        ripiego.trim()
+    )
+}
+
+/// Quello che torna a chi ha chiesto a un collega che sta aspettando una
+/// risposta proprio da lui (D421): non si aspettano a vicenda, e risponde
+/// NOVA dalle consegne del collega.
+pub fn aspetta_te(collega: &str, ripiego: &str) -> String {
+    format!(
+        "(«{collega}» sta aspettando una tua risposta, e non puo' risponderti adesso: risponde \
+         NOVA dalle sue consegne.) {}",
+        ripiego.trim()
     )
 }
 
@@ -409,6 +548,116 @@ mod prove {
     }
 
     #[test]
+    fn le_risposte_ai_colleghi_e_la_scheda_video() {
+        // D421: chi ha ricevuto una domanda risponde con RISPONDO A, anche su
+        // piu' righe, e continua il suo lavoro.
+        let t = "Ho misurato.\n\
+                 RISPONDO A dati: le misure di 1.1\nstanno in materiale/misure.csv\n\
+                 **Rispondo a** «qualita»: si', ripetile\n\
+                 ALLA CHAT: misure pronte\n\
+                 Continuo.";
+        let d = dividi(t);
+        assert_eq!(
+            d.risposte,
+            vec![
+                Domanda {
+                    a: "dati".into(),
+                    testo: "le misure di 1.1\nstanno in materiale/misure.csv".into()
+                },
+                Domanda {
+                    a: "qualita".into(),
+                    testo: "si', ripetile".into()
+                },
+            ]
+        );
+        assert!(d.domande.is_empty());
+        assert_eq!(d.alla_chat, vec!["misure pronte".to_string()]);
+        assert_eq!(d.resto, "Ho misurato.\nContinuo.");
+        // D423: la scheda video, col programma o senza.
+        let d = dividi("La GPU e' occupata.\nASPETTO LA SCHEDA VIDEO: League of Legends.exe");
+        assert_eq!(d.scheda, Some("League of Legends.exe".into()));
+        assert_eq!(d.resto, "La GPU e' occupata.");
+        assert_eq!(
+            dividi("- **aspetto la scheda video**").scheda,
+            Some(String::new())
+        );
+        assert_eq!(
+            dividi("Aspetto la scheda video: «gioco».").scheda,
+            Some("gioco".into())
+        );
+        assert_eq!(dividi("Niente da aspettare.").scheda, None);
+        let r = regola("dati", &[]);
+        assert!(
+            r.contains("`ASPETTO LA SCHEDA VIDEO: <il programma che la occupa>`"),
+            "{r}"
+        );
+    }
+
+    #[test]
+    fn come_si_risponde_a_un_collega() {
+        assert_eq!(domande_per_te(&[]), "");
+        let t = domande_per_te(&[
+            ("dati".into(), "dove sono\nle misure?".into()),
+            ("ricerca".into(), "quale fonte?".into()),
+        ]);
+        assert!(
+            t.starts_with(
+                "\n\nDomande dei colleghi, che aspettano la tua risposta:\n\
+                           - da dati: «dove sono\n  le misure?»\n- da ricerca: «quale fonte?»"
+            ),
+            "{t}"
+        );
+        assert!(t.contains("`RISPONDO A <chi>: <la risposta>`"), "{t}");
+        assert!(
+            t.contains("Le risposte vanno in fondo, dopo tutto il resto"),
+            "{t}"
+        );
+        // Quello che insegna, dividi lo legge.
+        assert_eq!(dividi("RISPONDO A dati: si'").risposte.len(), 1);
+        let libero = rispondi_ai_colleghi(&[("dati".into(), "dove?".into())]);
+        assert!(
+            libero.starts_with(
+                "Non hai compiti adesso, ma dei colleghi ti hanno fatto una domanda.\n\nDomande"
+            ),
+            "{libero}"
+        );
+        assert!(non_ha_risposto("qualita", 1, "x").contains("entro 1 minuto:"));
+        assert!(
+            aspetta_te("dati", " forse ").starts_with("(«dati» sta aspettando una tua risposta")
+        );
+        assert!(aspetta_te("dati", " forse ").ends_with("dalle sue consegne.) forse"));
+        let n = non_ha_risposto("qualita", 30, " stanno in materiale ");
+        assert_eq!(
+            n,
+            "(«qualita» non ha risposto entro 30 minuti: risponde NOVA dalle sue consegne.) stanno in materiale"
+        );
+    }
+
+    #[test]
+    fn la_scheda_video() {
+        assert!(stesso_programma(
+            "League of Legends.exe",
+            "league of legends"
+        ));
+        assert!(stesso_programma("giocofinto", "GiocoFinto.exe"));
+        assert!(
+            !stesso_programma("League of Legends.exe", "League"),
+            "il nome intero, non un pezzo"
+        );
+        assert!(
+            !stesso_programma("chrome.exe", ""),
+            "senza nome non combacia niente"
+        );
+        assert!(scheda_libera("gioco.exe").starts_with("«gioco.exe» non e' piu' acceso"));
+        assert!(
+            scheda_da_riguardare(15).contains("Sono passati 15 minuti")
+                && scheda_da_riguardare(15)
+                    .contains("`ASPETTO LA SCHEDA VIDEO: <il programma che la occupa>`")
+        );
+        assert!(scheda_ancora_occupata("gioco", 6).contains("dopo 6 ore"));
+    }
+
+    #[test]
     fn si_chiede_solo_a_chi_c_e() {
         let squadra = vec!["dati".to_string(), "qualita".to_string()];
         assert_eq!(chi("legale", "dati", &squadra), Ok(Chi::Legale));
@@ -483,11 +732,6 @@ mod prove {
         );
         assert!(r.contains("ancora 2 volte"), "{r}");
         assert!(risposte(&[(d.clone(), "x".into())], 0).contains("Non puoi piu' chiedere"));
-        let c = in_chat("1.25", &d, "ESITO: ok");
-        assert_eq!(
-            c,
-            "Per il compito 1.25 ho chiesto a legale: «si puo'?»\nRisposta: ESITO: ok"
-        );
         let lunga = "a".repeat(RISPOSTA_AL_DOT + 10);
         assert!(risposte(&[(d, lunga)], 1).contains("… (tagliato)"));
     }

@@ -598,6 +598,11 @@ c'e' nei suoi file meglio di quello che ne ha scritto nella consegna.
 sta lavorando: due turni insieme sulla stessa conversazione vanno messi in
 fila, e il collega spende la sua quota per la domanda di un altro.
 
+**Fatta col D421** (15 ottobre): il collega risponde lui, coi suoi file, fra
+un turno e l'altro del suo lavoro o subito se e' libero, e chi chiede
+aspetta. I due turni non vanno mai insieme: la domanda entra nel turno dopo.
+Resta qui com'era nata.
+
 ## Le domande della revisione di fase
 
 Nata col D419. **Cosa.** Lasciar chiedere anche alla revisione di fase e al
@@ -606,6 +611,26 @@ prima del giudizio. **Perche'.** Giudicano dalle consegne e senza mani,
 come il capo prima del D419: quello che non vedono lo suppongono.
 **Cosa costerebbe.** Le stesse righe del capo nelle domande dell'APM, e chi
 risponde: il Dot del compito di cui si parla.
+
+## AR chiesto una volta sola per un reparto occupato
+
+Nata col D422. **Cosa.** Quando AR non trova un aiuto libero per un reparto
+occupato, ricordarselo per un po', invece di richiederglielo al compito
+dopo per lo stesso reparto. **Perche'.** Ogni richiesta e' una domanda al
+cervello grande, e nella prova dell'APM, con due compiti per lo stesso Dot,
+AR e' stato chiesto piu' di una volta. **Cosa costerebbe.** Un evento nel
+diario del progetto («nessun aiuto per dati») con l'ora, e la regola su
+quanto vale: fino al prossimo compito chiuso del reparto, o per un tempo.
+
+## La scheda video vista da NOVA
+
+Nata col D423. **Cosa.** Sapere da soli se la scheda video e' occupata, e
+da chi, senza aspettare che il Dot lo scriva. **Perche'.** Un Dot che non
+sa il nome del programma aspetta un quarto d'ora alla cieca, e uno che non
+se ne accorge misura con la scheda occupata. **Cosa costerebbe.** I
+contatori della GPU per processo, che su Windows ci sono, ma a PC fermo una
+WebView ne segnava il 18%: serve un elenco di chi non conta e una soglia
+misurata su piu' PC, o la memoria video usata per processo, da misurare.
 
 ## La cartella dal vivo senza rileggere
 

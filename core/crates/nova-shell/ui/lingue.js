@@ -625,6 +625,17 @@ export const LINGUE = {
     'domande finite': 'no more questions',
     'voto': 'mark',
     'pezzi coperti': 'covered pieces',
+    /* --- harness: le conversazioni fra i Dot e la scheda video (D421, D423) --- */
+    'risposta ai colleghi': 'answer to colleagues',
+    'risponde a': 'answers',
+    'si aspettavano a vicenda con': 'they were waiting for each other with',
+    'risponde NOVA': 'NOVA answers',
+    'messaggi letti': 'messages read',
+    'aspetta la scheda video': 'waits for the graphics card',
+    'scheda video': 'graphics card',
+    'libera': 'free',
+    'ancora occupata': 'still busy',
+    'da riguardare': 'to check again',
   },
 };
 

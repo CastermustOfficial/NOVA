@@ -14,9 +14,10 @@ Un progetto con due Dot e un cervello finto. Si guarda che:
    domanda va al legale e a un collega, e la risposta gli torna nello stesso
    compito, che poi consegna senza le righe per NOVA;
 2. chi risponde sa cosa serve: il legale la richiesta del progetto e il
-   compito, il collega le sue consegne;
-3. le domande restano scritte nel diario del progetto, e nella chat del
-   progetto con il messaggio `ALLA CHAT:`;
+   compito; il collega, libero, risponde lui, nella sua conversazione (D421);
+3. le domande restano scritte nel diario del progetto e nella conversazione
+   fra chi chiede e chi risponde, e nella chat del progetto va il messaggio
+   `ALLA CHAT:` (D421: non piu' le domande, come un monologo);
 4. il capo, invece del voto, puo' fare una domanda al Dot: il Dot risponde,
    e il capo vota con la risposta; e vede le domande che il Dot ha fatto
    lavorando, con le risposte portate da NOVA (D420);
@@ -114,9 +115,9 @@ class Cervello(BaseHTTPRequestHandler):
         if q.startswith("[domanda di un Dot] Sei il legale"):
             nota("legale", q)
             testo(self, "ESITO: ok\nIl corpus Gutenberg e' di pubblico dominio.")
-        elif q.startswith("[domanda di un Dot] Sei «controllore»"):
+        elif q.startswith("Non hai compiti adesso, ma dei colleghi ti hanno fatto una domanda."):
             nota("collega", q)
-            testo(self, "Stanno in materiale/misure.csv, nella cartella di 1.1.")
+            testo(self, "RISPONDO A misuratore: Stanno in materiale/misure.csv, nella cartella di 1.1.")
         elif q.startswith("[giudizio del capo]"):
             nota("capo", q)
             if "Non puoi piu' chiedere" in q:
@@ -282,9 +283,12 @@ try:
               "Comprimere i testi senza perdita." in q and "«misuratore» lavora a questo compito:" in q
               and "misura il punto di partenza" in q and "posso usare il corpus Gutenberg?" in q, q[:600])
     q = visto["collega"][0] if visto["collega"] else ""
-    controlla("il collega ha il suo ruolo e le sue consegne",
-              "Il tuo ruolo: Ripete le misure degli altri." in q
-              and "- 1.1 (fatto): Le misure di 1.1 stanno in materiale/misure.csv" in q, q[:600])
+    controlla("il collega, libero, risponde lui, e sa chi chiede e cosa (D421)",
+              "- da misuratore: «dove sono le misure di 1.1?»" in q and "`RISPONDO A <chi>: <la risposta>`" in q,
+              q[:600])
+    controlla("la sua risposta e' nel suo diario",
+              any(x.get("tipo") == "risposta" and x.get("a") == "misuratore" and x.get("aspettava") is True
+                  for x in righe(cartella_nova / "dots" / "controllore" / "diario.jsonl")))
 
     print("\n3. le domande restano scritte")
     domande = [e for e in righe(PROGETTO / "progetto.jsonl") if e.get("tipo") == "domanda"]
@@ -294,14 +298,23 @@ try:
               and domande[0]["risposta"].startswith("ESITO: ok"), json.dumps(domande, ensure_ascii=False)[:500])
     chat = righe(cartella_nova / "dots" / "gruppi" / "prova.jsonl")
     detti = [m["testo"] for m in chat if m.get("da") == "misuratore"]
-    controlla("nella chat del progetto: il messaggio, le domande con le risposte, e quello alla fine",
-              len(detti) == 4 and detti[0] == "comincio le misure di 1.2"
-              and detti[1].startswith("Per il compito 1.2 ho chiesto a legale: «posso usare il corpus Gutenberg?»")
-              and detti[3] == "le misure di 1.2 sono pronte", json.dumps(detti, ensure_ascii=False)[:600])
+    controlla("nella chat del progetto solo i messaggi alla chat, non le domande (D421)",
+              detti == ["comincio le misure di 1.2", "le misure di 1.2 sono pronte"],
+              json.dumps(detti, ensure_ascii=False)[:600])
+    fra = capacita("dot.vista", nome="fra:controllore,misuratore").get("messaggi", [])
+    controlla("la domanda e la risposta sono nella conversazione fra i due, che si vede nell'harness",
+              [(m["da"], m["testo"]) for m in fra]
+              == [("misuratore", "dove sono le misure di 1.1?"),
+                  ("controllore", "Stanno in materiale/misure.csv, nella cartella di 1.1.")],
+              json.dumps(fra, ensure_ascii=False)[:600])
+    legale = capacita("dot.vista", nome="fra:legale,misuratore").get("messaggi", [])
+    controlla("e quella col legale, firmata da lui",
+              [m["da"] for m in legale] == ["misuratore", "legale"]
+              and legale[1]["testo"].startswith("ESITO: ok"), json.dumps(legale, ensure_ascii=False)[:600])
     diario = righe(cartella_nova / "dots" / "misuratore" / "diario.jsonl")
     controlla("e nel diario del Dot",
               sum(1 for x in diario if x.get("tipo") == "domanda" and x.get("compito") == id1) == 2
-              and sum(1 for x in diario if x.get("tipo") == "alla_chat" and "errore" not in x) == 4)
+              and sum(1 for x in diario if x.get("tipo") == "alla_chat" and "errore" not in x) == 2)
 
     print("\n4. il capo chiede al Dot prima di votare")
     v = voti("misuratore", id1)
