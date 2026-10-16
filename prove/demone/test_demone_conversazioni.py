@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""I Dot si parlano davvero, e aspettano la scheda video libera (D421, D423, D425).
+"""I Dot si parlano davvero, aspettano la scheda video libera e chiedono all'utente (D421, D423, D425, D427).
 
 Il 15 ottobre Gio ha visto che nella chat di S0ex1 nessuno parlava con
 nessuno: le domande finivano nel gruppo come un monologo, e a un collega
@@ -20,7 +20,10 @@ Si guarda che:
    quel programma si chiuda, e poi riprende;
 4. col PID si aspetta proprio quel processo, non un altro con lo stesso
    nome; col solo nome, dopo l'attesa massima la scheda la riguarda il Dot
-   (D425).
+   (D425);
+5. una domanda all'utente gli arriva da Nova, e il compito aspetta la sua
+   risposta, che non finisce anche nella posta; se non risponde in tempo,
+   il Dot va avanti e lo sa (D427).
 
 Esce 2 — «qui non si puo' provare» — se il demone non e' costruito.
 """
@@ -160,6 +163,18 @@ class Cervello(BaseHTTPRequestHandler):
         elif "e' ancora acceso dopo 1 minuto, ma con questo nome" in q:
             nota("dati_forse_altro", q)
             testo(self, "Consegna 4.2: la scheda era libera, ho misurato.")
+        elif "chiedi all'utente che tace" in q and not q.startswith("Le risposte"):
+            nota("dati_utente_tace", q)
+            testo(self, "CHIEDO A utente: e adesso?")
+        elif q.startswith("Le risposte alle tue domande:") and "«e adesso?»" in q:
+            nota("dati_senza_utente", q)
+            testo(self, "Consegna 5.2: vado avanti da solo.")
+        elif "chiedi all'utente" in q and not q.startswith("Le risposte"):
+            nota("dati_utente", q)
+            testo(self, "CHIEDO A utente: posso chiudere il gioco?")
+        elif q.startswith("Le risposte alle tue domande:") and "«posso chiudere il gioco?»" in q:
+            nota("dati_dall_utente", q)
+            testo(self, "Consegna 5.1: l'utente ha risposto.")
         elif "misura col gioco" in q:
             nota("dati_gioco", q)
             testo(self, "La scheda e' occupata.\nASPETTO LA SCHEDA VIDEO: giocofinto")
@@ -178,7 +193,7 @@ CONFIG = cartella_nova / "config.json"
 CONFIG.write_text(json.dumps({
     "kb": {"enabled": False},
     "dots": {"accesi": "si", "secondi_per_rispondere": 8, "secondi_fra_i_controlli_della_scheda": 1,
-             "secondi_per_riguardare_la_scheda": 6},
+             "secondi_per_riguardare_la_scheda": 6, "secondi_per_l_utente": 6},
     "server": {"host": "127.0.0.1", "port": cervello.server_address[1]},
     "brains": {"routing": {"scala": ["grande"], "tiers": {"grande": {"brain": "locale", "model": "grande"}},
                            "tetto_usd_sessione": 0}},
@@ -247,6 +262,15 @@ def aspetta(nome, id_, secondi=90):
             break
         time.sleep(0.2)
     return c
+
+
+def aspetta_che_la(condizione, secondi=30):
+    fine = time.time() + secondi
+    while time.time() < fine:
+        if condizione():
+            return True
+        time.sleep(0.2)
+    return condizione()
 
 
 def righe(f):
@@ -383,6 +407,40 @@ try:
     controlla("e il diario lo dice",
               any(x.get("tipo") == "scheda" and x.get("compito") == id5 and x.get("esito") == "da_riguardare"
                   and x.get("programma") == "giocofinto" for x in diario("dati")))
+
+    print("\n5. una domanda all'utente gli arriva da Nova, e il compito aspetta (D427)")
+    # Il 15 ottobre i Dot di S0ex1 avevano bisogno di una decisione di Gio,
+    # e non avevano modo di chiedergliela.
+    id6 = capacita("dot.affida", nome="dati", compito=compito("5.1", "chiedi all'utente"))["compito"]
+    controlla("la domanda e' nel diario del Dot",
+              aspetta_che_la(lambda: any(x.get("tipo") == "all_utente" and x.get("compito") == id6
+                                         for x in diario("dati"))))
+    a_nova = [m for m in righe(cartella_nova / "dots" / "dati" / "inviati.jsonl") if m.get("a") == "nova"]
+    controlla("ed e' arrivata a Nova, con chi chiede, il compito e come rispondere",
+              a_nova and a_nova[-1]["testo"].startswith(
+                  "«dati» ha una domanda per te, per il compito 5.1 del progetto «conv»:\n"
+                  "posso chiudere il gioco?") and "Nova non risponde al posto tuo." in a_nova[-1]["testo"],
+              str(a_nova[-1:])[:400])
+    controlla("il Dot aspetta", not di("dati_dall_utente"))
+    r = capacita("dot.scrivi", a="dati", testo="Si', chiudilo pure.")
+    controlla("la risposta dell'utente va al compito che la aspetta",
+              r.get("consegnato") is True and "aspettava" in r.get("nota", ""), str(r))
+    c6 = aspetta("dati", id6, secondi=30)
+    r6 = (di("dati_dall_utente") or [""])[0]
+    controlla("e il Dot riprende con la risposta, e consegna",
+              "Risposta: Si', chiudilo pure." in r6 and c6.get("stato") == "fatto"
+              and c6.get("esito", "").startswith("Consegna 5.1"), f"{r6[-300:]} {c6}"[:500])
+    controlla("e non la ritrova anche nella posta",
+              not any("chiudilo pure" in (m.get("testo") or "")
+                      for m in righe(cartella_nova / "dots" / "dati" / "posta.jsonl")))
+    id7 = capacita("dot.affida", nome="dati", compito=compito("5.2", "chiedi all'utente che tace"))["compito"]
+    c7 = aspetta("dati", id7, secondi=60)
+    r7 = (di("dati_senza_utente") or [""])[0]
+    controlla("se l'utente non risponde in tempo, il Dot va avanti e lo sa",
+              "(L'utente non ha risposto entro 1 minuto." in r7 and c7.get("stato") == "fatto"
+              and c7.get("esito", "").startswith("Consegna 5.2"), f"{r7[-300:]} {c7}"[:500])
+    controlla("e una risposta che arriva dopo va nella posta, come un messaggio",
+              capacita("dot.scrivi", a="dati", testo="Scusa, ero via.").get("messaggio") is not None)
 finally:
     if gioco is not None and gioco.poll() is None:
         gioco.kill()

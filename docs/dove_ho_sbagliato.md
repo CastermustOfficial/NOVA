@@ -3045,3 +3045,46 @@ un'ora.
 
 La regola: un'attesa su qualcosa che dice un modello ha sempre un limite
 corto, e la prova usa anche il nome che non va, non solo quello pulito.
+
+## La frase che diceva una cosa falsa
+
+Nel D424 ho scritto nel testo di ogni compito sulla scheda video: «Se la
+trovi occupata, la occupa un programma che non e' di NOVA». Non l'avevo
+controllato: CLM, il giudice di NOVA, il demone lo accendeva all'avvio, e
+la sera del 15 ottobre teneva piu' di 10 GB della scheda. I Dot hanno
+creduto alla frase, hanno trattato il `llama-server` come un programma da
+chiedere a Gio, e la fase e' fallita tre volte. Me ne sono accorto il 16,
+leggendo le consegne di 1.33. Poi ho fatto un secondo errore nella stessa
+direzione: l'ho detto a Gio come se fosse il modello di casa, prima di
+guardare la configurazione. Corretto col D426: CLM lascia la scheda quando
+serve a una misura, e la frase adesso e' vera.
+
+La regola: una frase che NOVA dice ai Dot come un fatto si verifica sul
+codice come un numero; e il nome di un processo si guarda alla fonte (la
+riga di comando, la configurazione) prima di dire di chi e'.
+
+## Le chiavi stampate
+
+Il 16 ottobre, per sapere quali modelli locali erano accesi, ho stampato
+intere le sezioni della configurazione di Gio, compresa quella della voce,
+con le chiavi di ElevenLabs e di Gemini. Sono rimaste nella conversazione,
+non sono andate altrove, e l'ho detto a Gio subito. Me ne sono accorto
+leggendo l'uscita.
+
+La regola: dalla configurazione si leggono solo i campi che servono, per
+nome; una sezione intera si stampa solo dopo aver tolto le chiavi.
+
+## La descrizione che rubava contesto
+
+Il 16 ottobre, col D427, ho allungato di una frase la descrizione di
+`dot.scrivi`, per dire che un Dot che aspettava una risposta la riceve
+subito. Non ho pensato che le descrizioni degli strumenti stanno nel
+contesto del modello di casa, e che la prova lo misura: su Windows, dove gli
+strumenti sono di piu', restavano 1.996 token alla conversazione invece dei
+2.000 minimi. Me ne sono accorto con la suite di Windows, prima del commit.
+Corretto togliendo la frase, che dice gia' la risposta di `dot.scrivi`:
+sul Linux di sviluppo restano 2.023 token.
+
+La regola: la descrizione di uno strumento costa a ogni domanda, e si
+allunga solo se serve davvero; dopo averla cambiata si guarda la prova del
+contesto sui due sistemi.

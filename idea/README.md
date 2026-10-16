@@ -642,6 +642,32 @@ piano (un compito di misura di *dati* o *qualita* senza segno lo si chiede
 all'Architetto), o un Dot che dice «uso la scheda» al primo turno e NOVA
 che trattiene gli altri.
 
+## I modelli locali spenti quando non servono, tutti
+
+Nata col D426. **Cosa.** Fare per il modello di casa e per la voce locale
+quello che il D426 fa per CLM: accesi quando servono, spenti dopo un po'
+senza uso, e il modello di casa fuori dalla scheda durante una misura dei
+Dot. **Perche'.** Gio, il 16 ottobre: quello che non si usa non deve stare
+acceso. Il modello di casa, una volta acceso, resta acceso finche' il
+demone non si chiude; Kokoro, la voce locale, resta in memoria (circa 600
+MB) dopo il primo uso, se `voice.scarica_voce_dopo_s` e' 0, com'e' di serie.
+**Cosa costerebbe.** Per il modello di casa: un'ora dell'ultimo uso in ogni
+turno che lo chiede (anche quando ci si arriva salendo, che oggi non passa
+da `assicura`), e una decisione con Gio su cosa fa la chat quando e' l'unico
+cervello e c'e' una misura. Per Kokoro: un valore di serie diverso da 0, nel
+Python e nel Rust insieme.
+
+## Un compito che aspetta, non fatto
+
+Nata col D427. **Cosa.** Uno stato «in attesa» per un compito che non puo'
+andare avanti per una cosa che non dipende dal Dot, invece di «fatto».
+**Perche'.** Il 16 ottobre 1.36 e 1.34 si sono chiusi «In attesa della
+scheda video» come fatti, e il capo ha dato 8 scrivendo «non vale come
+fatto». Il D427 toglie il caso piu' frequente (la decisione dell'utente),
+non gli altri. **Cosa costerebbe.** Un esito in piu' fra quelli dei Dot, il
+capo che lo puo' dire, e l'APM che lo rimette in coda quando la cosa
+cambia.
+
 ## La scheda video vista da NOVA
 
 Nata col D423. **Cosa.** Sapere da soli se la scheda video e' occupata, e

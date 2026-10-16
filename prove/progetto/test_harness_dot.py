@@ -93,11 +93,12 @@ controlla("quello che si e' visto lo ricorda la finestra, e se non puo' non si r
           and "try { visti = JSON.parse(localStorage.getItem(DEPOSITO_VISTI) || '{}') || {}; } catch (_) { visti = {}; }" in DOT)
 controlla("una chat fra di loro ha la sua linguetta", "s.cosa === 'fra' ? 'CHAT'" in HARNESS)
 
-print("\n4b. nei passi di un compito si vedono le domande con la risposta, le risposte ai colleghi "
-      "e la scheda video (D419, D421, D423)")
+print("\n4b. nei passi di un compito si vedono le domande con la risposta, le risposte ai colleghi, "
+      "la scheda video e le domande all'utente (D419, D421, D423, D427)")
 passi = DOT.split("function passoInParole(p) {")[1].split("\n  }\n")[0]
 for tipo in ("domanda", "domanda_del_capo", "alla_chat", "voto",
-             "risposta", "a_vicenda", "posta", "aspetta_scheda", "scheda"):
+             "risposta", "a_vicenda", "posta", "aspetta_scheda", "scheda",
+             "all_utente", "dall_utente"):
     controlla(f"il passo «{tipo}» ha le sue parole", f"if (t === '{tipo}')" in passi)
 controlla("l'attesa della scheda video dice anche i PID (D425)",
           "${(p.pid || []).length ? ' (PID ' + p.pid.join(', ') + ')' : ''}" in passi)

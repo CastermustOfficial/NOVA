@@ -575,6 +575,9 @@ async fn rispondi(
     if let dd::Chi::Collega(n) = &chi {
         return chiedi_al_collega(server, c, p, progetto, chiede, compito, n, q).await;
     }
+    if chi == dd::Chi::Utente {
+        return chiedi_all_utente(server, c, progetto, chiede, compito, q).await;
+    }
     let quando = crate::decisioni::adesso();
     let r = dal_cervello_grande(p, progetto, chiede, compito, q, &chi).await;
     // La conversazione fra chi chiede e chi risponde, per l'harness.
@@ -589,6 +592,67 @@ async fn rispondi(
         }
     }
     r
+}
+
+/// Quanto si aspetta la risposta dell'utente, di serie (D427): l'attesa
+/// massima dei Dot. Si cambia con `dots.secondi_per_l_utente`.
+pub const SECONDI_PER_L_UTENTE: u64 = crate::dot::ATTESA_MASSIMA_S as u64;
+
+/// Chiede all'utente, tramite Nova, e aspetta la sua risposta (D427). Il 15
+/// ottobre i Dot di S0ex1 avevano bisogno di una decisione di Gio, e non
+/// avevano modo di chiedergliela: la fase e' fallita tre volte.
+async fn chiedi_all_utente(
+    server: &Arc<Server>,
+    c: &d::Cartella,
+    progetto: &str,
+    chiede: &str,
+    compito: &d::Compito,
+    q: &dd::Domanda,
+) -> String {
+    let secondi = secondi_da_configurazione("secondi_per_l_utente", SECONDI_PER_L_UTENTE);
+    let incarico = pr::progetto_dal_testo(&compito.testo)
+        .map(|(_, i)| i)
+        .unwrap_or_default();
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    if let Ok(mut m) = server.dots.per_l_utente.lock() {
+        m.insert(chiede.to_string(), tx);
+    }
+    let testo = dd::all_utente(chiede, progetto, &incarico, &q.testo);
+    if let Err(e) = crate::dot::scrivi(server, chiede, d::DA_NOVA, &testo) {
+        if let Ok(mut m) = server.dots.per_l_utente.lock() {
+            m.remove(chiede);
+        }
+        return format!("(nessuna risposta: la domanda non arriva all'utente: {e})");
+    }
+    diario(
+        c,
+        compito.id,
+        json!({ "tipo": "all_utente", "domanda": dd::tagliato(&q.testo, 1_000) }),
+    );
+    // Con la voce accesa, glielo si dice anche (come la fine di un progetto).
+    let cfg = crate::caps_voce::configurazione_utente().unwrap_or_else(|| json!({}));
+    if crate::dot::si_dice_a_voce(&cfg, crate::live::in_corso()) {
+        let bus = server.ctx.bus.clone();
+        let frase = format!("{chiede} ha una domanda per te, sul progetto {progetto}.");
+        tokio::spawn(async move { crate::caps_voce::annuncia(bus, &frase).await });
+    }
+    match tokio::time::timeout(Duration::from_secs(secondi), rx).await {
+        Ok(Ok(r)) => {
+            diario(c, compito.id, json!({ "tipo": "dall_utente" }));
+            r
+        }
+        _ => {
+            if let Ok(mut m) = server.dots.per_l_utente.lock() {
+                m.remove(chiede);
+            }
+            diario(
+                c,
+                compito.id,
+                json!({ "tipo": "dall_utente", "esito": "non_ha_risposto" }),
+            );
+            dd::utente_non_ha_risposto(secondi.div_ceil(60))
+        }
+    }
 }
 
 /// Chiede a un collega, e aspetta la sua risposta (D421). Se il collega sta
@@ -667,6 +731,10 @@ async fn dal_cervello_grande(
     chi: &dd::Chi,
 ) -> String {
     let (chi_e, sa) = match chi {
+        // All'utente risponde l'utente (D427): qui non si arriva.
+        dd::Chi::Utente => {
+            return "(nessuna risposta: la domanda e' dell'utente, e risponde lui)".into()
+        }
         dd::Chi::Legale => {
             let note = if p.note_legali.is_empty() {
                 String::new()
@@ -720,6 +788,7 @@ async fn dal_cervello_grande(
         dd::Chi::Legale => d::azienda::NOME_LEGALE.to_string(),
         dd::Chi::Apm => d::azienda::NOME_APM.to_string(),
         dd::Chi::Collega(n) => n.clone(),
+        dd::Chi::Utente => dd::UTENTE.to_string(),
     };
     match crate::apm::chiedi_per_il_progetto(progetto, &per, &domanda, dd::GETTONI).await {
         Ok((r, _)) if !r.trim().is_empty() => r.trim().to_string(),

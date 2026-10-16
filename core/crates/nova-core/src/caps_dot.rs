@@ -642,8 +642,7 @@ impl Capability for ScriviCap {
     fn info(&self) -> CapabilityInfo {
         CapabilityInfo {
             name: "dot.scrivi".into(),
-            description: "Messaggio a uno o piu' Dot (con la virgola), a gruppo:<nome> o a nova. \
-                          Un Dot lo legge al suo prossimo compito."
+            description: "Messaggio a uno o piu' Dot (con la virgola), a gruppo:<nome> o a nova."
                 .into(),
             risk: Risk::Safe,
             category: "dot".into(),

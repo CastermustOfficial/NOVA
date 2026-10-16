@@ -85,6 +85,10 @@ pub struct Dots {
     /// Chi sta aspettando la risposta di chi (D421): due Dot che si
     /// aspettano a vicenda non si devono fermare tutti e due.
     pub(crate) in_attesa: std::sync::Mutex<HashMap<String, String>>,
+    /// I Dot che aspettano una risposta dall'utente (D427): il primo
+    /// messaggio di Nova a quel Dot e' la risposta.
+    pub(crate) per_l_utente:
+        std::sync::Mutex<HashMap<String, tokio::sync::oneshot::Sender<String>>>,
 }
 
 /// Come si parla al ciclo di un Dot.
@@ -714,6 +718,26 @@ pub fn scrivi(server: &Arc<Server>, da: &str, a: &str, testo: &str) -> Result<Va
             }
             if let Some((chi, cosa)) = a_parte(&c) {
                 return Err(format!("{chi} non legge la posta: {cosa}"));
+            }
+            // La risposta dell'utente a una sua domanda (D427): gli arriva
+            // subito, nel compito che la aspetta, e non anche nella posta.
+            if da == d::DA_NOVA {
+                let aspetta = server
+                    .dots
+                    .per_l_utente
+                    .lock()
+                    .ok()
+                    .and_then(|mut m| m.remove(&nome));
+                if let Some(tx) = aspetta {
+                    if tx.send(testo.trim().to_string()).is_ok() {
+                        evento(&nome);
+                        return Ok(json!({
+                            "a": nome,
+                            "consegnato": true,
+                            "nota": "era la risposta che aspettava: continua il compito"
+                        }));
+                    }
+                }
             }
             let n = c.imbuca(da, &nome, testo.trim(), &quando)?;
             evento(&nome);

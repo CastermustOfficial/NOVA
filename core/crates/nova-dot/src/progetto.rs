@@ -590,6 +590,13 @@ impl Progetto {
             .collect()
     }
 
+    /// Se un compito che usa la scheda video e' aperto (D424, D426).
+    pub fn scheda_aperta(&self, piano: &Piano) -> bool {
+        piano
+            .incarichi()
+            .any(|i| i.scheda && self.lavori.get(&i.id).is_some_and(|l| l.stato.is_none()))
+    }
+
     /// I compiti pronti che si affidano adesso (D424): tutti, tranne quelli
     /// che usano la scheda video quando ce n'e' gia' uno aperto; e di quelli,
     /// uno alla volta. Il 15 ottobre 1.33 e 1.34 di S0ex1, due misure, sono
@@ -599,9 +606,7 @@ impl Progetto {
         piano: &Piano,
         f: &'a piano::Fase,
     ) -> Vec<&'a piano::Incarico> {
-        let mut scheda = piano
-            .incarichi()
-            .any(|i| i.scheda && self.lavori.get(&i.id).is_some_and(|l| l.stato.is_none()));
+        let mut scheda = self.scheda_aperta(piano);
         self.pronti_in(f)
             .into_iter()
             .filter(|i| {
@@ -721,8 +726,8 @@ pub fn tetto_toccato(speso: f64, tetto: f64) -> bool {
 
 /// Quello che sa chi ha un compito sulla scheda video (D424).
 pub const SCHEDA_TUA: &str = "\nQuesto compito usa la scheda video: finche' non hai finito, NOVA \
-non fa partire altri compiti che la usano. Se la trovi occupata, la occupa un programma che non e' \
-di NOVA.";
+non fa partire altri compiti che la usano, e CLM, il suo giudice, la lascia libera (D426). Se la \
+trovi occupata lo stesso, guarda chi la occupa e scrivilo con `ASPETTO LA SCHEDA VIDEO`.";
 
 /// Il compito per un Dot: il progetto, la fase, cosa fare, e le consegne
 /// dei compiti da cui dipende.
@@ -1247,11 +1252,11 @@ mod prove {
         // D419: anche chi lavora con una CLI senza gli strumenti di NOVA
         // scrive alla chat, e chiede mentre lavora.
         assert!(t.contains("con una riga `ALLA CHAT: <il messaggio>`"), "{t}");
-        assert!(t.contains("`CHIEDO A <chi>: <la domanda>`, dove <chi> e' uno fra legale, apm, dati, ricerca"), "{t}");
+        assert!(t.contains("`CHIEDO A <chi>: <la domanda>`, dove <chi> e' uno fra legale, apm, dati, ricerca, utente"), "{t}");
         p.lavori.clear();
         let solo = squadra_e_chat(&p, "dati", None);
         assert!(solo.contains("Adesso non lavora nessun altro.") && !solo.contains("gruppo"), "{solo}");
-        assert!(solo.contains("uno fra legale, apm; la domanda puo' continuare"), "{solo}");
+        assert!(solo.contains("uno fra legale, apm, utente; la domanda puo' continuare"), "{solo}");
     }
 
     #[test]
@@ -1280,7 +1285,9 @@ mod prove {
             stato,
             esito: String::new(),
         };
+        assert!(!p.scheda_aperta(&pi));
         p.lavori.insert("1.1".into(), lavoro(None));
+        assert!(p.scheda_aperta(&pi), "D426: la scheda e' di una misura");
         assert_eq!(
             ids(p.da_affidare_in(&pi, f)),
             ["1.3"],

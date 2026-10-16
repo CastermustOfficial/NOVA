@@ -636,6 +636,10 @@ export const LINGUE = {
     'libera': 'free',
     'ancora occupata': 'still busy',
     'da riguardare': 'to check again',
+    /* --- harness: le domande all'utente (D427) --- */
+    'chiede a te': 'asks you',
+    'hai risposto': 'you answered',
+    'non hai risposto in tempo': 'you did not answer in time',
   },
 };
 

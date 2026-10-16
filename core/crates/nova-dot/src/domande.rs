@@ -211,7 +211,12 @@ pub enum Chi {
     Apm,
     /// Un collega della squadra del progetto.
     Collega(String),
+    /// L'utente, per una decisione che spetta a lui (D427).
+    Utente,
 }
+
+/// Come si chiede all'utente (D427).
+pub const UTENTE: &str = "utente";
 
 /// A chi va una domanda, fra quelli a cui si puo' chiedere: il legale,
 /// l'APM, e la squadra del progetto senza chi chiede. Il nome sbagliato
@@ -227,6 +232,9 @@ pub fn chi(a: &str, chiede: &str, squadra: &[String]) -> Result<Chi, String> {
     }
     if a == azienda::NOME_APM {
         return Ok(Chi::Apm);
+    }
+    if a == UTENTE {
+        return Ok(Chi::Utente);
     }
     if a == chiede {
         return Err("non puoi chiedere a te stesso".into());
@@ -248,10 +256,10 @@ pub fn a_chi_si_chiede(chiede: &str, squadra: &[String]) -> String {
         .filter(|s| *s != chiede && *s != azienda::NOME_LEGALE && *s != azienda::NOME_APM)
         .collect();
     if colleghi.is_empty() {
-        format!("{}, {}", azienda::NOME_LEGALE, azienda::NOME_APM)
+        format!("{}, {}, {UTENTE}", azienda::NOME_LEGALE, azienda::NOME_APM)
     } else {
         format!(
-            "{}, {}, {}",
+            "{}, {}, {}, {UTENTE}",
             azienda::NOME_LEGALE,
             azienda::NOME_APM,
             colleghi.join(", ")
@@ -272,7 +280,9 @@ pub fn regola(chiede: &str, squadra: &[String]) -> String {
          allora continui. Puoi farlo al massimo {GIRI_PER_COMPITO} volte per compito. Per dire \
          qualcosa a tutta la squadra senza aspettare, scrivi una riga `{ALLA_CHAT}: <il \
          messaggio>`: va nella chat del progetto, gli altri la leggono al loro prossimo \
-         compito, e la legge Gio. Se ti serve la scheda video e la occupa un altro programma, \
+         compito, e la legge Gio. Una decisione che spetta all'utente (una scelta sua, un \
+         permesso, una spesa, un programma suo da chiudere) chiedila a `{UTENTE}`: NOVA \
+         gliela porta, e il compito aspetta la sua risposta. Se ti serve la scheda video e la occupa un altro programma, \
          non consegnare a vuoto: scrivi una riga `{SCHEDA}: {COME_SI_ASPETTA}`, col PID se lo \
          vedi, e NOVA ti fa riprendere quando quel programma e' chiuso.",
         a_chi = a_chi_si_chiede(chiede, squadra),
@@ -311,12 +321,15 @@ pub fn domanda_a(chi: &Chi, chi_e: &str, sa: &str, x: &Contesto, domanda: &str) 
         }
         Chi::Apm => {
             "Rispondi da APM: decidi se la decisione e' tua. Se e' dell'utente (il budget, le \
-             scelte inventive, una spesa) dillo, e non decidere al posto suo."
+             scelte inventive, una spesa) dillo, non decidere al posto suo, e di' al Dot di \
+             chiederla all'utente con `CHIEDO A utente`."
         }
         Chi::Collega(_) => {
             "Rispondi da collega, con quello che sai dalle tue consegne. Se non lo sai, dillo, \
              e di' dove guarderesti: non inventare."
         }
+        // All'utente risponde l'utente (D427): qui non ci arriva.
+        Chi::Utente => "Non rispondere al posto dell'utente: di' che la domanda e' sua.",
     };
     let sa = if sa.trim().is_empty() {
         String::new()
@@ -394,6 +407,33 @@ pub fn rispondi_ai_colleghi(domande: &[(String, String)]) -> String {
     format!(
         "Non hai compiti adesso, ma dei colleghi ti hanno fatto una domanda.{}",
         domande_per_te(domande)
+    )
+}
+
+/// La domanda di un Dot all'utente, come gli arriva da Nova (D427): chi
+/// chiede, per quale compito, cosa, e come si risponde.
+pub fn all_utente(dot: &str, progetto: &str, incarico: &str, domanda: &str) -> String {
+    format!(
+        "«{dot}» ha una domanda per te, per il compito {incarico} del progetto «{progetto}»:\n\
+         {}\n\n\
+         Il compito aspetta la tua risposta. Rispondi scrivendo a «{dot}», qui a Nova o nella \
+         sua chat nell'harness: Nova non risponde al posto tuo.",
+        domanda.trim()
+    )
+}
+
+/// Quello che torna a un Dot quando l'utente non ha risposto in tempo
+/// (D427).
+pub fn utente_non_ha_risposto(minuti: u64) -> String {
+    let quanto = if minuti >= 120 && minuti % 60 == 0 {
+        format!("{} ore", minuti / 60)
+    } else {
+        in_minuti(minuti)
+    };
+    format!(
+        "(L'utente non ha risposto entro {quanto}. Vai avanti con quello che sai; se la \
+         decisione e' sua e non si puo' supporre, non fare la parte che ne dipende, e scrivi in \
+         «Cosa non so» la domanda e cosa manca.)"
     )
 }
 
@@ -823,7 +863,32 @@ mod prove {
             .contains("te stesso"));
         let e = chi("gio", "dati", &squadra).unwrap_err();
         assert!(e.contains("legale, apm, qualita"), "{e}");
-        assert_eq!(a_chi_si_chiede("dati", &[]), "legale, apm");
+        assert_eq!(a_chi_si_chiede("dati", &[]), "legale, apm, utente");
+        // D427: una decisione dell'utente si chiede a lui.
+        assert_eq!(chi("utente", "dati", &squadra), Ok(Chi::Utente));
+        assert_eq!(chi("l'utente", "dati", &squadra), Ok(Chi::Utente));
+        assert!(e.contains("legale, apm, qualita, utente"), "{e}");
+    }
+
+    #[test]
+    fn la_domanda_all_utente() {
+        let r = regola("dati", &[]);
+        assert!(r.contains("chiedila a `utente`: NOVA gliela porta"), "{r}");
+        assert_eq!(
+            dividi("CHIEDO A utente: fermo il gioco?").domande[0].a,
+            "utente"
+        );
+        let a = all_utente("dati", "s0ex1", "1.36", " posso fermare CLM? ");
+        assert!(
+            a.starts_with(
+                "«dati» ha una domanda per te, per il compito 1.36 del progetto «s0ex1»:\n\
+                 posso fermare CLM?\n\nIl compito aspetta la tua risposta."
+            ) && a.ends_with("Nova non risponde al posto tuo."),
+            "{a}"
+        );
+        assert!(utente_non_ha_risposto(360).starts_with("(L'utente non ha risposto entro 6 ore."));
+        assert!(utente_non_ha_risposto(1).contains("entro 1 minuto."));
+        assert!(utente_non_ha_risposto(90).contains("entro 90 minuti."));
     }
 
     #[test]

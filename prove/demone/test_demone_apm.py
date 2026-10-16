@@ -19,7 +19,8 @@ Deciso con Gio il 10 ottobre, sulla bozza. Nova passa un progetto all'APM
   col via si rifanno (D415);
 - un compito pronto per un reparto occupato va a un suo aiuto, che trova AR
   (D422);
-- i compiti sulla scheda video vanno uno alla volta (D424);
+- i compiti sulla scheda video vanno uno alla volta, e finche' uno e'
+  aperto la scheda e' sua (D424, D426);
 - ogni compito dice la squadra del progetto e la sua chat, un gruppo col
   nome del progetto fatto dall'APM (D416).
 
@@ -756,11 +757,15 @@ try:
     controlla("ma non la seconda misura, finche' la prima e' aperta",
               not any("misura la seconda" in q for g, _, q in arrivate if g.startswith("dot:")),
               str([e for e in eventi("decimo") if e.get("tipo") == "affidato"]))
+    controlla("e la scheda e' della misura: i modelli di NOVA la lasciano (D426)",
+              capacita("dot.progetti").get("scheda_di_una_misura") is True)
     trattieni.pop(("decimo", "dati")).set()
     controlla("chiusa la prima, parte la seconda",
               aspetta_che(lambda: any(g == "dot:qualita" and "misura la seconda" in q for g, _, q in arrivate)),
               str(tipi("decimo"))[-400:])
     controlla("e il progetto finisce", aspetta("decimo", {"finito", "fermo"}) == "finito", str(tipi("decimo")))
+    controlla("e la scheda torna libera",
+              aspetta_che(lambda: capacita("dot.progetti").get("scheda_di_una_misura") is False))
 finally:
     processo.kill()
     cervello.shutdown()

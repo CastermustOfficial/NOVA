@@ -8,8 +8,12 @@
 //! ha, e oggi gli restano le parole: 20 su 34. Per lui c'e' CLM.
 //!
 //! CLM e' un secondo llama-server con Qwen3-8B (`--embeddings --pooling
-//! last`), che il demone accende all'avvio se `clm.attivo`, e le due teste di
-//! [`nova_clm`]. Si chiede solo quando le lettere non rispondono; decide
+//! last`), e le due teste di [`nova_clm`]. Dal D426 il demone non lo accende
+//! all'avvio: lo accende la prima domanda, che intanto si astiene, e lo
+//! spegne quando nessuno lo chiede da `clm.spegni_dopo_s` o quando la scheda
+//! video e' di una misura dei Dot. Il 15 ottobre, acceso all'avvio, ha tenuto
+//! 10-11 GB della scheda per tutta la notte, e le misure di S0ex1 non sono
+//! partite. Si chiede solo quando le lettere non rispondono; decide
 //! quando la sua prima scelta arriva alla soglia (`clm.soglia`), e sotto si
 //! astiene, e valgono le parole. Come le lettere, puo' solo aggiungere una
 //! salita, mai toglierla (D373).
@@ -26,6 +30,7 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
@@ -55,6 +60,8 @@ pub struct Impostazioni {
     /// Le soglie delle scelte dei Dot scritte nella configurazione
     /// (`clm.soglie`): cambiano quelle delle teste, non insegnano niente.
     pub soglie: std::collections::BTreeMap<String, f32>,
+    /// Dopo quanti secondi senza domande si spegne (D426).
+    pub spegni_dopo_s: u64,
 }
 
 /// La soglia, se la configurazione non ne dice una. Scelta sui casi nuovi,
@@ -63,6 +70,9 @@ pub const SOGLIA_PREDEFINITA: f32 = 0.8;
 /// La porta, se la configurazione non ne dice una: quella del modello di
 /// casa e' 8420, quella del banco 8499.
 pub const PORTA_PREDEFINITA: u16 = 8423;
+/// Dopo quanti secondi senza domande CLM si spegne, di serie (D426). Si
+/// cambia con `clm.spegni_dopo_s`.
+pub const SPEGNI_DOPO_S: u64 = 600;
 
 /// Le impostazioni dalla sezione `clm` della configurazione.
 pub fn impostazioni(cfg: &Value) -> Impostazioni {
@@ -95,6 +105,11 @@ pub fn impostazioni(cfg: &Value) -> Impostazioni {
                     .collect()
             })
             .unwrap_or_default(),
+        spegni_dopo_s: c
+            .get("spegni_dopo_s")
+            .and_then(Value::as_u64)
+            .filter(|s| *s > 0)
+            .unwrap_or(SPEGNI_DOPO_S),
     }
 }
 
@@ -190,18 +205,113 @@ pub async fn accendi(sup: &Arc<Supervisor>, cfg: &Value) -> Result<(), String> {
     Err(format!("il server di CLM non e' diventato pronto in tre minuti: {coda}"))
 }
 
-/// All'avvio del demone, se CLM e' acceso: di lato, il demone intanto
-/// risponde.
-pub fn avvia_se_attivo(sup: Arc<Supervisor>) {
-    let cfg = nova_configurazione::dove::leggi();
-    if !impostazioni(&cfg).attivo {
-        return;
+/// Dove si accende CLM: il supervisore del demone e il suo runtime, per
+/// accenderlo da una domanda che arriva fuori da un compito asincrono.
+struct Dove {
+    sup: Arc<Supervisor>,
+    rt: tokio::runtime::Handle,
+}
+
+static DOVE: OnceLock<Dove> = OnceLock::new();
+/// L'ultima volta che qualcuno l'ha chiesto, in secondi dall'epoca.
+static ULTIMA_DOMANDA: AtomicI64 = AtomicI64::new(0);
+/// Se si sta gia' accendendo.
+static SI_ACCENDE: AtomicBool = AtomicBool::new(false);
+
+/// Perche' CLM deve restare spento adesso, se deve (D426): spento nella
+/// configurazione, la scheda video di una misura dei Dot, o nessuno che lo
+/// chiede da `spegni_dopo_s`.
+pub fn perche_spento(
+    attivo: bool,
+    misura: bool,
+    fermo_da_s: i64,
+    spegni_dopo_s: u64,
+) -> Option<&'static str> {
+    if !attivo {
+        return Some("CLM e' spento (clm.attivo)");
     }
+    if misura {
+        return Some("la scheda video e' di una misura dei Dot");
+    }
+    if fermo_da_s >= spegni_dopo_s as i64 {
+        return Some("nessuno lo chiede da un po'");
+    }
+    None
+}
+
+/// Se il server di CLM l'ha acceso il demone, ed e' acceso.
+async fn acceso(sup: &Supervisor) -> bool {
+    sup.status()
+        .await
+        .iter()
+        .any(|s| s.name == NOME && s.running)
+}
+
+/// Spegne CLM, se l'ha acceso il demone (D426).
+pub async fn spegni(sup: &Supervisor, perche: &str) {
+    if acceso(sup).await && sup.stop(NOME).await.is_ok() {
+        tracing::info!(perche, "CLM spento");
+    }
+}
+
+/// All'avvio del demone (D426): non accende CLM, ma tiene a mente dove
+/// accenderlo, e guarda di lato quando spegnerlo.
+pub fn avvia(sup: Arc<Supervisor>) {
+    let rt = tokio::runtime::Handle::current();
+    let _ = DOVE.set(Dove {
+        sup: sup.clone(),
+        rt,
+    });
     tokio::spawn(async move {
-        if let Err(e) = accendi(&sup, &cfg).await {
-            tracing::warn!(errore = %e, "CLM non acceso");
+        loop {
+            let i = impostazioni(&nova_configurazione::dove::leggi());
+            let ogni = (i.spegni_dopo_s / 2).clamp(1, 30);
+            tokio::time::sleep(Duration::from_secs(ogni)).await;
+            let fermo_da =
+                nova_platform::orologio::adesso() - ULTIMA_DOMANDA.load(Ordering::SeqCst);
+            if let Some(m) = perche_spento(
+                i.attivo,
+                crate::scheda::di_una_misura(),
+                fermo_da,
+                i.spegni_dopo_s,
+            ) {
+                spegni(&sup, m).await;
+            }
         }
     });
+}
+
+/// Se qualcosa risponde alla porta di CLM.
+fn risponde(porta: u16) -> bool {
+    let a = std::net::SocketAddr::from(([127, 0, 0, 1], porta));
+    std::net::TcpStream::connect_timeout(&a, Duration::from_millis(300)).is_ok()
+}
+
+/// Prima di chiedere a CLM (D426): se la scheda e' di una misura no; se il
+/// server risponde si'; se no lo si accende di lato, e questa volta CLM si
+/// astiene.
+fn serve(i: &Impostazioni) -> Result<(), String> {
+    ULTIMA_DOMANDA.store(nova_platform::orologio::adesso(), Ordering::SeqCst);
+    if crate::scheda::di_una_misura() {
+        return Err("la scheda video e' di una misura dei Dot: CLM resta spento (D426)".into());
+    }
+    if risponde(i.porta) {
+        return Ok(());
+    }
+    let Some(d) = DOVE.get() else {
+        return Err("CLM e' spento".into());
+    };
+    if !SI_ACCENDE.swap(true, Ordering::SeqCst) {
+        let sup = d.sup.clone();
+        d.rt.spawn(async move {
+            let cfg = nova_configurazione::dove::leggi();
+            if let Err(e) = accendi(&sup, &cfg).await {
+                tracing::warn!(errore = %e, "CLM non acceso");
+            }
+            SI_ACCENDE.store(false, Ordering::SeqCst);
+        });
+    }
+    Err("CLM si sta accendendo: questa volta si astiene (D426)".into())
 }
 
 /// Le teste caricate, per cartella: si leggono una volta.
@@ -289,6 +399,7 @@ pub fn quale_cervello(
         return Err(m);
     }
     let t = teste(&i.teste)?;
+    serve(i)?;
     let url = i.url();
     let mut ids: Vec<&str> = categorie.iter().map(|(id, _)| id.as_str()).collect();
     ids.push(crate::giudizio_casa::NESSUNA);
@@ -350,6 +461,7 @@ pub fn scegli(i: &Impostazioni, scelta: &str, d: &nova_dot::clm::Domanda) -> Res
     let t = teste(&i.teste)?;
     let soglia = soglia_per(i, &t.soglie, scelta)
         .ok_or_else(|| format!("le teste di CLM non hanno imparato «{scelta}»"))?;
+    serve(i)?;
     let url = i.url();
     let za = d
         .candidati
@@ -415,7 +527,34 @@ mod prove {
         assert_eq!(i.porta, PORTA_PREDEFINITA);
         assert_eq!(i.soglia, SOGLIA_PREDEFINITA);
         assert_eq!(i.strati, 999);
+        assert_eq!(i.spegni_dopo_s, SPEGNI_DOPO_S);
         assert!(i.cosa_manca(&|_| true).unwrap().contains("spento"));
+    }
+
+    #[test]
+    fn si_accende_quando_serve_e_si_spegne_quando_non_serve() {
+        // D426: il 15 ottobre CLM, acceso all'avvio, ha tenuto la scheda
+        // video per tutta la notte, e le misure dei Dot non sono partite.
+        let i = impostazioni(&json!({"clm": {"attivo": true, "spegni_dopo_s": 120}}));
+        assert_eq!(i.spegni_dopo_s, 120);
+        assert_eq!(
+            impostazioni(&json!({"clm": {"spegni_dopo_s": 0}})).spegni_dopo_s,
+            SPEGNI_DOPO_S,
+            "zero non vuol dire mai"
+        );
+        assert_eq!(perche_spento(true, false, 30, 120), None);
+        assert_eq!(
+            perche_spento(true, false, 120, 120),
+            Some("nessuno lo chiede da un po'")
+        );
+        assert_eq!(
+            perche_spento(true, true, 0, 120),
+            Some("la scheda video e' di una misura dei Dot")
+        );
+        assert_eq!(
+            perche_spento(false, false, 0, 120),
+            Some("CLM e' spento (clm.attivo)")
+        );
     }
 
     #[test]

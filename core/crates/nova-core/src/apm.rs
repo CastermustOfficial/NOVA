@@ -460,7 +460,11 @@ pub fn stato(nome: &str) -> Result<Value, String> {
                 })
             })
             .collect();
-        return Ok(json!({ "progetti": tutti }));
+        return Ok(json!({
+            "progetti": tutti,
+            // Se la scheda video e' di una misura dei Dot (D426).
+            "scheda_di_una_misura": crate::scheda::di_una_misura(),
+        }));
     }
     let p =
         leggi(nome.trim()).ok_or_else(|| format!("non c'e' nessun progetto «{}»", nome.trim()))?;
@@ -499,8 +503,31 @@ pub fn avvia(server: &Arc<Server>) {
                     break;
                 }
             }
+            // La scheda video, se e' di una misura (D426).
+            la_scheda(&s, misura_aperta()).await;
         }
     });
+}
+
+/// Se il progetto attivo, in corso, ha aperto un compito che usa la scheda
+/// video (D424, D426).
+fn misura_aperta() -> bool {
+    attivo()
+        .filter(|p| p.dove == DoveSta::InCorso)
+        .and_then(|p| piano_di(&p).map(|(pi, _)| p.scheda_aperta(&pi)))
+        .unwrap_or(false)
+}
+
+/// Segna di chi e' la scheda video (D426): se diventa di una misura, CLM si
+/// spegne subito, prima che il Dot cominci.
+async fn la_scheda(server: &Arc<Server>, misura: bool) {
+    if crate::scheda::segna(misura) {
+        crate::clm::spegni(
+            &server.ctx.supervisor,
+            "la scheda video e' di una misura dei Dot",
+        )
+        .await;
+    }
 }
 
 /// Un passo del progetto attivo. `true` se ha fatto qualcosa: allora se ne
@@ -885,6 +912,9 @@ async fn lavora(server: &Arc<Server>, p: &Progetto) -> bool {
             let Some(dot) = chi_lo_fa(server, p, &i.chi, &occupati).await else {
                 continue;
             };
+            if i.scheda {
+                la_scheda(server, true).await;
+            }
             occupati.insert(dot.clone());
             // Un compito, una cartella, nel suo reparto (D407).
             let rel = st::cartella_del_compito(i);

@@ -78,6 +78,7 @@ pub mod risorse;
 pub mod ricette;
 pub mod righe;
 pub mod risveglio;
+pub mod scheda;
 pub mod segreti;
 pub mod server;
 pub mod supervisor;
@@ -199,9 +200,10 @@ pub async fn avvia_servizi(server: &Arc<Server>) {
     // Il catalogo dei modelli piu' recenti (D377): di lato, e prova solo
     // quello che la configurazione chiede di scegliere da solo.
     modelli::avvia_periodico();
-    // CLM, il giudice veloce per chi non ha le lettere (D378): solo se e'
-    // acceso, e di lato.
-    clm::avvia_se_attivo(server.ctx.supervisor.clone());
+    // CLM, il giudice veloce per chi non ha le lettere (D378): si accende
+    // quando serve, non all'avvio, e si spegne quando nessuno lo chiede o la
+    // scheda video e' di una misura dei Dot (D426).
+    clm::avvia(server.ctx.supervisor.clone());
     // I Dot (D382): ogni Dot che c'e' riprende i suoi compiti.
     dot::avvia_tutti(server);
     // La memoria: il vault, e la prima mappatura del PC se non e' mai stata

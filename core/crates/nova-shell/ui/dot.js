@@ -675,6 +675,9 @@ export function avviaDot(h) {
     if (t === 'a_vicenda') return `${T('si aspettavano a vicenda con')} ${p.collega}: ${T('risponde NOVA')}`;
     if (t === 'posta') return `${T('messaggi letti')}: ${p.messaggi}`;
     if (t === 'aspetta_scheda') return `${T('aspetta la scheda video')}${p.programma ? ': ' + p.programma : ''}${(p.pid || []).length ? ' (PID ' + p.pid.join(', ') + ')' : ''}`;
+    // Le domande all'utente (D427).
+    if (t === 'all_utente') return `${T('chiede a te')}: «${p.domanda || ''}»`;
+    if (t === 'dall_utente') return p.esito === 'non_ha_risposto' ? T('non hai risposto in tempo') : T('hai risposto');
     if (t === 'scheda') return `${T('scheda video')}: ${T(p.esito === 'libera' ? 'libera' : p.esito === 'occupata' ? 'ancora occupata' : 'da riguardare')}`;
     return t || '';
   }

@@ -1287,6 +1287,24 @@ volta: gli altri compiti vanno avanti insieme. Chi aspetta la scheda scrive
 anche il PID di chi la occupa, e NOVA aspetta proprio quel processo; col
 solo nome aspetta al massimo un'ora, poi la riguarda il Dot.
 
+**I modelli di NOVA lasciano la scheda — fatto** (D426). La sera del 15
+ottobre le misure non sono partite lo stesso: la scheda era occupata da CLM,
+il giudice di NOVA, acceso all'avvio con 10-11 GB. Adesso CLM si accende
+alla prima domanda, si spegne dopo dieci minuti senza domande, e finche'
+una misura e' aperta resta spento.
+
+**Le domande all'utente — fatto** (D427). Il 16 ottobre i Dot avevano
+bisogno di una decisione di Gio, e non avevano modo di chiedergliela: la
+fase e' fallita tre volte. Adesso un Dot scrive `CHIEDO A utente: ...`, la
+domanda arriva da Nova (e a voce, se la voce e' accesa), e il compito
+aspetta la risposta, fino a sei ore; si risponde scrivendo a quel Dot, da
+Nova o dall'harness. Gli altri compiti intanto vanno avanti.
+
+| | Di serie | Si cambia con |
+|---|---|---|
+| **Dopo quanto CLM si spegne senza domande** | 10 minuti | `clm.spegni_dopo_s` |
+| **Quanto si aspetta l'utente** | 6 ore | `dots.secondi_per_l_utente` |
+
 **Il via dopo un piano non fatto — fatto** (D411). Rimesso Claude, il via a
 S0ex1 lo fermava di nuovo nello stesso secondo: l'APM aspettava ancora il
 compito dell'Architetto andato male la sera prima. Adesso il via di un

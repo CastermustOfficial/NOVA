@@ -11966,3 +11966,28 @@ serve.
 Una cosa resta da guardare: la consegna di 1.35 comincia con «Sto
 eseguendo la ripetizione indipendente», cioe' e' un pezzo di lavoro, non
 una consegna. La rifara' il piano nuovo, ma il perche' va capito.
+
+## 16 ottobre 2026 — Il giudice che teneva la scheda
+
+Gio mi ha chiesto di fare da supervisore: guardare cosa fanno i Dot,
+registrare i problemi, capire come risolverli, e fare anche l'utente per
+vedere se la chat serve davvero. La prima supervisione ha trovato il
+progetto fermo dall'01:06. Dopo il D424 le misure andavano una alla volta,
+ma non partivano lo stesso: la scheda era occupata da un `llama-server` di
+NOVA con piu' di 10 GB. Ho pensato al modello di casa, e l'ho chiesto a Gio
+come se lo fosse; guardando la configurazione era CLM, il giudice, che il
+demone accendeva all'avvio. Gio ha risposto con un principio: quello che
+non si usa non deve stare acceso. CLM si usa, ma di rado: adesso si accende
+alla prima domanda e si spegne quando nessuno lo chiede, o quando la scheda
+serve a una misura (D426).
+
+La seconda cosa era piu' grave, perche' era la stessa del 14 ottobre:
+nessuno chiedeva a chi doveva decidere. I Dot hanno capito che serviva una
+decisione di Gio, l'Architetto ha fatto perfino un compito per
+«portargliela», e quel compito ha scritto una scheda in una cartella e un
+messaggio nella chat del progetto. A Gio non e' arrivato niente. Adesso un
+Dot chiede all'utente come chiede a un collega, e la domanda arriva da Nova
+(D427).
+
+Resta da capire perche' compiti come «In attesa della scheda video» si
+chiudano come fatti, col capo che scrive «non vale come fatto» e da' 8.
