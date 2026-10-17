@@ -207,7 +207,9 @@ bottoni della finestra si chiamano `finestra.*`.
 come Teams: le chat (con ogni Dot, i gruppi, quelle fra di loro), poi
 l'organigramma, che si vede anche come schema, e i file che i Dot stanno
 toccando. Ogni conversazione si apre in una scheda al centro; quella con un
-Dot ha anche i compiti e i loro passi. Il disegno e com'e' andata stanno in
+Dot ha anche i compiti e i loro passi. I messaggi, il testo dei compiti e
+gli esiti si leggono in markdown, con `markdown.js` come la chat di NOVA
+(D428). Il disegno e com'e' andata stanno in
 [`dots.md`](dots.md).
 
 **La cartella dal vivo** (D418): *Esplora* si rilegge da sola ogni 2,5

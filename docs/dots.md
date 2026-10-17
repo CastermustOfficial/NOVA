@@ -1305,6 +1305,12 @@ Nova o dall'harness. Gli altri compiti intanto vanno avanti.
 | **Dopo quanto CLM si spegne senza domande** | 10 minuti | `clm.spegni_dopo_s` |
 | **Quanto si aspetta l'utente** | 6 ore | `dots.secondi_per_l_utente` |
 
+**Le chat in markdown — fatto** (D428). I Dot scrivono tabelle, titoli ed
+elenchi, e l'harness li mostrava come testo: una tabella era una fila di
+`| :--- |`. Adesso i messaggi, il testo dei compiti e gli esiti si leggono
+in markdown, con lo stesso lettore delle risposte di NOVA, che sfugge
+l'HTML prima di trasformare.
+
 **Il via dopo un piano non fatto — fatto** (D411). Rimesso Claude, il via a
 S0ex1 lo fermava di nuovo nello stesso secondo: l'APM aspettava ancora il
 compito dell'Architetto andato male la sera prima. Adesso il via di un

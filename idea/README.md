@@ -722,3 +722,39 @@ un evento `deciso` nel diario del progetto, `decisioni.md` nella sua
 cartella, e il segno `[solo tu]` nel formato del piano. Aspetta le risposte
 di Gio alle cinque domande della bozza.
 
+## La VRAM dei Dot nelle impostazioni
+
+Nata la notte del 17 ottobre, supervisionando S0ex1. **Cosa.** Un valore
+di NOVA per quanta memoria video possono usare le misure dei Dot, e da
+quanta memoria occupata la scheda si considera di qualcun altro. **Perche'.**
+Oggi sono regole del piano: la soglia di 2.000 MiB l'aveva scritta
+l'Architetto nel compito 1.36, e col client di League aperto la scheda
+segnava fra 2.115 e 2.983 MiB: la misura avrebbe aspettato tutta la notte. Gio ha deciso: occupata sopra 4
+GB, 12 GB per i Dot; l'ho detto io all'Architetto, e lui l'ha messo nel
+piano. Un valore che decide l'utente non dovrebbe dipendere da come lo
+riscrive un Dot. **Cosa costerebbe.** Due chiavi in `dots`, il pannello, e
+la regola nel prompt dell'Architetto e dei Dot di misura letta da li'.
+
+## «CHIEDO A» col nome dell'utente
+
+Nata la notte del 17 ottobre, col primo uso del D427. **Cosa.** Accettare
+come destinatario anche il nome dell'utente («CHIEDO A Gio: ...»), o
+leggere solo la prima parola dopo «CHIEDO A». **Perche'.** Alle 07:26 il
+Dot di ricerca ha scritto «CHIEDO A gio di valutare la proposta...:»: il
+nome e' stato preso fino ai due punti, e la domanda e' tornata indietro con
+l'elenco di chi si puo' chiamare. Alle 07:30 ha richiesto bene a `utente`:
+quattro minuti persi, ma un modello piu' piccolo poteva non capirlo.
+**Cosa costerebbe.** Il nome dell'utente dalla configurazione in
+`a_chi_si_chiede`, o un analizzatore che si ferma alla prima parola, con
+le prove di `nova_dot::domande`.
+
+## Il cervello per una revisione
+
+Nata la notte del 17 ottobre. **Cosa.** Guardare chi sceglie il cervello
+per i compiti di revisione, e se il piu' piccolo basta. **Perche'.** La
+revisione di fine fase 1 di S0ex1 (1.9) e' andata alle 04:09 col cervello
+«orchestra», il gradino piu' basso, e ha preso 7. Non so ancora se e' un
+problema: la revisione chiude una fase intera, e il cervello che la fa
+decide se si va avanti. **Cosa costerebbe.** Prima una misura: il diario
+dei passi di 1.9, chi ha scelto il gradino e perche'; poi, se serve, un
+gradino minimo per le revisioni, come per le categorie che salgono.

@@ -45,9 +45,9 @@ Le prove del recinto di Windows (`nova-platform` e `nova-core`, solo `cfg(window
 - `misure/`: i banchi di prestazione, lanciati a mano sul PC con la scheda video.
 - `attrezzi/`: gli script lanciati a mano, compresi i giri di mutazione con cui si verifica che un banco gemello guardi davvero.
 
-## `prove/progetto/`: 31 prove
+## `prove/progetto/`: 32 prove
 
-Cosa serve: niente: guardano il repository stesso. Solo `test_harness_vivo.py` vuole anche node, e senza esce 2.
+Cosa serve: niente: guardano il repository stesso. Solo `test_harness_vivo.py` e `test_markdown.py` vogliono anche node, e senza escono 2.
 
 | prova | cosa controlla |
 |---|---|
@@ -65,6 +65,7 @@ Cosa serve: niente: guardano il repository stesso. Solo `test_harness_vivo.py` v
 | `test_harness_vivo.py` | La cartella dal vivo e i pezzi coperti nell'harness (D418): i conti di `ui/vivo.js`, con node (cosa e' nato o cambiato, le cartelle con dentro un segno, i segni che scadono dopo dieci minuti, chi lavora in quale cartella, l'ultimo file scritto per «segui»); la pagina rilegge solo quello che e' aperto, a finestra visibile, con «segui» spento di serie; i pezzi coperti si decidono con due pulsanti e restano solo della persona; il demone da' la data di ogni voce e la cartella di progetti e compiti; ogni frase nuova ha la sua traduzione. Senza node esce 2. |
 | `test_impostazioni.py` | Il pannello deve saper aggiungere, non solo scegliere; nella scheda Cervello si spuntano i motori e si scelgono tre voci, la consigliata le rimette, e si scrive solo con «Conferma», che il guscio ricontrolla, con le frasi anche in inglese (D379, D390). |
 | `test_installer.py` | L'installer chiede quattro cose, e scrive solo valori che qualcuno legge. |
+| `test_markdown.py` | Il markdown di NOVA (`ui/markdown.js`) e le chat dei Dot che lo usano (D428), con node: una tabella vera di un Dot diventa una tabella, col titolo, il grassetto e le colonne giuste; l'HTML scritto da chi scrive resta testo, anche nella tabella e nel codice; una riga con le barre e un separatore di colonne diverse non e' una tabella; `ui/dot.js` passa da `rendi` per i messaggi, il testo dei compiti e gli esiti, e le tabelle hanno il loro stile. Senza node esce 2. |
 | `test_niente_cresce_per_sempre.py` | Nessun diario di NOVA puo' crescere per sempre. |
 | `test_niente_dati_personali.py` | Niente dati personali nel repository: chiavi, percorsi `C:\Users\...` e il nome di chi ha la macchina («PC di» e un nome). |
 | `test_niente_due_volte.py` | Una costante pubblica vive in un crate solo, o e' dichiarato perche' no. |

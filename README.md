@@ -652,7 +652,8 @@ ogni Dot sotto il suo capo, che si vede anche come schema, col custode a
 parte; e i **File** che i Dot stanno toccando, come in *Esplora*, con chi li
 ha letti, scritti o tolti. Una conversazione si apre in una scheda accanto ai
 file; quella con un Dot dice chi e', cosa sta facendo, e ha i compiti coi
-passi di ognuno in mezzo ai messaggi. I rapporti si aprono nell'editor. Da
+passi di ognuno in mezzo ai messaggi, in markdown come le risposte di NOVA,
+tabelle comprese (D428). I rapporti si aprono nell'editor. Da
 li' a un Dot scrivi un messaggio, che legge al prossimo compito, o affidi un
 compito; per i Dot quello che scrivi tu e
 quello che scrive Nova sono la stessa cosa. Da li' si fanno anche nascere i

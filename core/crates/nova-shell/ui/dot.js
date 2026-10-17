@@ -26,10 +26,16 @@
    e' gia' visto lo ricorda questa finestra, per chi la guarda.
    ============================================================ */
 import { T } from './lingue.js';
+import { rendi } from './markdown.js';
 
 const PREFISSO = 'nova-dot:';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+/* I messaggi, i compiti e gli esiti in markdown, come le risposte di NOVA
+   (D428): i Dot scrivono tabelle, titoli ed elenchi, e da testo semplice
+   una tabella e' una fila di `| :--- |`. `rendi` sfugge l'HTML prima di
+   trasformare, quindi quello che scrive un Dot non diventa mai markup. */
+const md = s => `<div class="dot-md">${rendi(String(s ?? ''))}</div>`;
 const dataOra = q => (String(q || '').match(/(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/) || []).slice(1);
 function quando(q) {
   const [giorno, ore] = dataOra(q);
@@ -144,7 +150,7 @@ const STILE = `
 .dot-sotto button{padding:6px 10px;font-size:12px;color:var(--fioco);border-bottom:2px solid transparent}
 .dot-sotto button.si{color:var(--inchiostro);border-bottom-color:var(--brace)}
 .dot-filo{display:flex;flex-direction:column;gap:10px}
-.dot-msg{max-width:78%;padding:9px 12px;border-radius:12px;border:1px solid var(--linea);background:var(--vetro);white-space:pre-wrap;word-break:break-word;font-size:12.5px}
+.dot-msg{max-width:78%;padding:9px 12px;border-radius:12px;border:1px solid var(--linea);background:var(--vetro);word-break:break-word;font-size:12.5px}
 .dot-msg .da{font:10.5px var(--mono);color:var(--fioco);margin-bottom:3px;display:flex;gap:8px;flex-wrap:wrap;white-space:normal}
 .dot-msg.nostro{align-self:flex-end;background:var(--brace-08);border-color:rgba(232,115,74,.25)}
 .dot-msg.suo{align-self:flex-start}
@@ -154,8 +160,22 @@ const STILE = `
 .dot-compito .r1 .tag{margin-left:auto;font:9.5px var(--mono);letter-spacing:.08em;padding:2px 7px;border-radius:6px;border:1px solid var(--linea);color:var(--fioco);text-transform:uppercase}
 .dot-compito .r1 .tag.in_corso,.dot-compito .r1 .tag.in_attesa{color:var(--pensiero);border-color:rgba(122,162,247,.35)}
 .dot-compito .r1 .tag.fallito,.dot-compito .r1 .tag.interrotto{color:var(--pericolo);border-color:rgba(232,96,74,.35)}
-.dot-compito .testo{font-size:12.5px;white-space:pre-wrap;word-break:break-word}
-.dot-compito .esito{font-size:12.5px;color:var(--mezzo);white-space:pre-wrap;word-break:break-word;border-top:1px solid var(--linea);padding-top:6px}
+.dot-compito .testo{font-size:12.5px;word-break:break-word}
+.dot-compito .esito{font-size:12.5px;color:var(--mezzo);word-break:break-word;border-top:1px solid var(--linea);padding-top:6px}
+.dot-md{overflow-x:auto;max-width:100%}
+.dot-md p{margin:0 0 .45em}
+.dot-md>:last-child{margin-bottom:0}
+.dot-md ul,.dot-md ol{margin:0 0 .45em;padding-left:1.3em}
+.dot-md code{font-family:var(--mono);font-size:11.5px;background:rgba(255,255,255,.07);padding:1px 4px;border-radius:4px}
+.dot-md pre{background:rgba(0,0,0,.45);border:1px solid var(--linea);border-radius:8px;padding:8px 10px;overflow-x:auto;margin:.4em 0;white-space:pre}
+.dot-md pre code{background:none;padding:0}
+.dot-md table{border-collapse:collapse;margin:.4em 0;font-size:12px}
+.dot-md th,.dot-md td{border:1px solid var(--linea);padding:3px 7px;text-align:left;vertical-align:top}
+.dot-md th{color:var(--inchiostro);font-weight:600}
+.dot-md h3,.dot-md h4,.dot-md h5,.dot-md h6{font-size:13px;margin:.6em 0 .3em;color:var(--inchiostro)}
+.dot-md blockquote{margin:.3em 0;padding-left:9px;border-left:2px solid var(--linea-2);color:var(--mezzo)}
+.dot-md hr{border:0;border-top:1px solid var(--linea);margin:.5em 0}
+.dot-md a{color:var(--brace)}
 .dot-compito .vai{font:11.5px var(--mono);color:var(--brace);cursor:pointer;align-self:flex-start}
 .dot-compito .vai:hover{text-decoration:underline}
 .dot-passi{font:11px var(--mono);color:var(--fioco);border-left:2px solid var(--linea-2);padding-left:9px;display:flex;flex-direction:column;gap:2px}
@@ -636,11 +656,11 @@ export function avviaDot(h) {
       const nostro = m.da === 'nova';
       const dove = String(m.a).startsWith('gruppo:') ? ` · ${T('nel gruppo')} ${m.a.slice(7)}` : '';
       voci.push({ q: m.quando, html: `<div class="dot-msg ${nostro ? 'nostro' : 'suo'}"><div class="da">${esc(nostro ? T('Nova e tu') : m.da)}${esc(dove)} · ${esc(quando(m.quando))}
-        <span>${esc(m.letto ? T('letto') : T('da leggere al prossimo compito'))}</span></div>${esc(m.testo)}</div>` });
+        <span>${esc(m.letto ? T('letto') : T('da leggere al prossimo compito'))}</span></div>${md(m.testo)}</div>` });
     }
     for (const m of x.inviati || []) {
       const a = m.a === 'nova' ? T('Nova e te') : String(m.a).startsWith('gruppo:') ? `# ${m.a.slice(7)}` : m.a;
-      voci.push({ q: m.quando, html: `<div class="dot-msg suo"><div class="da">${esc(x.dot.nome)} → ${esc(a)} · ${esc(quando(m.quando))}</div>${esc(m.testo)}</div>` });
+      voci.push({ q: m.quando, html: `<div class="dot-msg suo"><div class="da">${esc(x.dot.nome)} → ${esc(a)} · ${esc(quando(m.quando))}</div>${md(m.testo)}</div>` });
     }
     voci.sort((a, b) => String(a.q).localeCompare(String(b.q)));
     if (!voci.length) return `<div class="dot-vuoto">${esc(T('Ancora niente: affidagli un compito, o scrivigli.'))}</div>`;
@@ -691,10 +711,10 @@ export function avviaDot(h) {
     const esito = chiuso && c.esito ? (c.esito.length > 600 ? c.esito.slice(0, 600) + '…' : c.esito) : '';
     return `<div class="dot-compito">
       <div class="r1"><b>${esc(T('Compito'))} n.${c.id}</b> · ${esc(da)} · ${esc(quando(c.affidato))}<span class="tag ${esc(c.stato)}">${esc(T(NOME_STATO[c.stato] || c.stato))}</span></div>
-      <div class="testo">${esc(c.testo)}</div>
+      <div class="testo">${md(c.testo)}</div>
       ${passi.length || squadra ? `<details class="dot-passi" data-passi="${c.id}"${aperti.has(c.id) ? ' open' : ''}><summary>${passi.length} ${esc(T('passi'))}</summary>
         ${passi.map(p => `<span>${esc(quando(p.quando))} ${esc(passoInParole(p))}</span>`).join('')}${squadra}</details>` : ''}
-      ${esito ? `<div class="esito">${esc(esito)}</div>` : ''}
+      ${esito ? `<div class="esito">${md(esito)}</div>` : ''}
       ${c.rapporto ? `<span class="vai" data-apri="${esc(c.rapporto)}">→ ${esc(T('il rapporto, nell’editor'))}</span>` : ''}
     </div>`;
   }
@@ -720,7 +740,7 @@ export function avviaDot(h) {
     const membri = x.gruppo.membri.map(m => `<span class="vai" data-dot="${esc(m)}">${esc(m)}</span>`).join('');
     const chat = (x.chat || []).map(m => {
       const nostro = m.da === 'nova';
-      return `<div class="dot-msg ${nostro ? 'nostro' : 'suo'}"><div class="da">${esc(nostro ? T('Nova e tu') : m.da)} · ${esc(quando(m.quando))}</div>${esc(m.testo)}</div>`;
+      return `<div class="dot-msg ${nostro ? 'nostro' : 'suo'}"><div class="da">${esc(nostro ? T('Nova e tu') : m.da)} · ${esc(quando(m.quando))}</div>${md(m.testo)}</div>`;
     }).join('');
     const tagliata = x.messaggi > (x.chat || []).length
       ? `<div class="dot-vuoto">${esc(T('Messaggi qui:'))} ${(x.chat || []).length} / ${x.messaggi}, ${esc(T('i più recenti.'))}</div>` : '';
@@ -749,7 +769,7 @@ export function avviaDot(h) {
       const a = String(m.a).split(',');
       const altri = x.membri.filter(n => n !== m.da);
       const verso = altri.every(n => a.includes(n)) ? '' : ` → ${a.join(', ')}`;
-      return `<div class="dot-msg ${nostro ? 'nostro' : 'suo'}"><div class="da">${esc(nostro ? T('Nova e tu') : m.da)}${esc(verso)} · ${esc(quando(m.quando))}</div>${esc(m.testo)}</div>`;
+      return `<div class="dot-msg ${nostro ? 'nostro' : 'suo'}"><div class="da">${esc(nostro ? T('Nova e tu') : m.da)}${esc(verso)} · ${esc(quando(m.quando))}</div>${md(m.testo)}</div>`;
     }).join('');
     return `<div class="dot-scorre">
       <div class="dot-chi"><div class="dot-faccia">${esc(x.membri.slice(0, 2).map(m => m.slice(0, 1)).join('·'))}</div>

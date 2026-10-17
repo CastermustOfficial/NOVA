@@ -11991,3 +11991,29 @@ Dot chiede all'utente come chiede a un collega, e la domanda arriva da Nova
 
 Resta da capire perche' compiti come «In attesa della scheda video» si
 chiudano come fatti, col capo che scrive «non vale come fatto» e da' 8.
+
+## 17 ottobre 2026 — Una notte a guardarli
+
+I Dot hanno lavorato tutta la notte, e io ho guardato ogni ora. La fase 1 di
+S0ex1 si e' chiusa alle 04:09, con tutte le misure ripetute e uguali:
+Qwen2.5-1.5B 10 risposte giuste su 18, Phi-3.5-vision 12 su 18, e i file da
+15.870 a 19.559 token che non stanno nei 12 GB. Le attese per la scheda
+video col PID hanno funzionato con ogni partita di League, e il client
+aperto non ha piu' bloccato niente dopo la soglia dei 4 GB decisa da Gio.
+
+Il risultato che conta e' di 2.3: le forme che un modello legge sono il
+testo e il dizionario, che non risparmiano token; le forme che li
+risparmiano, i modelli non le leggono. Per la fase 3 Gio ha approvato il
+testo, le tabelle senza perdita (F5-tab) e il dizionario, e vuole che le
+forme non testuali si misurino prima di scartarle. Alle 07:26 e' arrivata la
+prima domanda vera di un Dot all'utente (D427): il primo tentativo scriveva
+«CHIEDO A gio di ...:», e il nome e' stato preso fino ai due punti; quattro
+minuti dopo il Dot ha richiesto bene. Gio ha risposto alle 10:40, e il
+compito e' ripartito da dove aspettava.
+
+Leggendo le chat Gio ha visto una cosa che io leggevo dal diario e non
+dall'harness: i Dot scrivono in markdown, e nell'harness una tabella era una
+fila di `| :--- |`. Adesso le chat dei Dot usano lo stesso lettore delle
+risposte di NOVA (D428). Dalla notte restano tre idee: la memoria video dei
+Dot come impostazione di NOVA, «CHIEDO A» col nome dell'utente, e il
+cervello che fa le revisioni.

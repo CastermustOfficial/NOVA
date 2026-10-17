@@ -668,7 +668,8 @@ which can also be seen as a chart, with the keeper apart; and the **Files**
 the Dots are touching, as in *Explorer*, with who read, wrote or removed
 them. A conversation opens in a tab next to the files; the one with a Dot
 says who it is, what it is doing, and has the tasks with the steps of each
-one among the messages. Reports open in the editor. From there you send a Dot
+one among the messages, in markdown like NOVA's answers, tables included
+(D428). Reports open in the editor. From there you send a Dot
 a message, which it reads at the next task, or hand it a task; for the Dots
 what you write and what Nova writes are the same thing. Dots, groups and
 chats with several Dots can also be started from there. The files touched
