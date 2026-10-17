@@ -1175,7 +1175,11 @@ visti su S0ex1 la stessa sera.
   compiti fallivano tutti insieme e l'Architetto rifaceva il piano a vuoto.
   Adesso un compito che trova la quota finita resta in corso, aspetta l'ora
   detta dal fornitore e si rifa'; a Nova lo si dice una volta per motore.
-  Una quota che torna fra piu' di sei ore non si aspetta.
+  Una quota che torna fra piu' di sei ore non si aspetta. Dal D430 vale
+  anche per il limite di sessione di Claude Code («You've hit your session
+  limit · resets 5:10pm»), che il 17 ottobre ha fermato S0ex1: si aspetta
+  fino all'ora detta, e un revisore senza quota fa aspettare il compito
+  invece di lasciare il passo senza revisione.
 - **Fermare ferma davvero** (D415). Fermato il progetto, due `claude.exe`
   sono rimasti accesi: lo stop fermava il figlio diretto e non i nipoti, e
   il Dot passava al compito dopo dello stesso progetto. Adesso cade tutto

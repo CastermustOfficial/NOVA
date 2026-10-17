@@ -277,7 +277,9 @@ impl Lavoro<'_> {
     }
 
     /// Il giudizio del cervello grande su un passo. `None` se nel frattempo
-    /// qualcuno ha fermato tutto.
+    /// qualcuno ha fermato tutto; `Err` col perche', se il revisore ha
+    /// finito la quota (D430): il passo non si tiene senza revisione, il
+    /// compito aspetta che la quota torni e si rifa' (D414).
     async fn rivedi(
         &mut self,
         numero: usize,
@@ -285,7 +287,7 @@ impl Lavoro<'_> {
         passo: &r::Passo,
         cervello: &str,
         risultato: &str,
-    ) -> Option<r::Giudizio> {
+    ) -> Option<Result<r::Giudizio, String>> {
         let chiesta = r::richiesta_della_revisione(numero, quanti, passo, cervello, risultato);
         let cima = self.cima();
         let detto = match self.turno(&chiesta, &cima, "revisione").await {
@@ -296,6 +298,11 @@ impl Lavoro<'_> {
             },
             Err(e) => Err(e),
         };
+        if let Err(e) = &detto {
+            if nova_cervelli::cli::attesa_quota(e, crate::mondo::QUOTA_CLAUDE_S).is_some() {
+                return Some(Err(e.clone()));
+            }
+        }
         let giudizio = match &detto {
             Ok(t) => r::leggi_giudizio(t),
             Err(_) => r::Giudizio::Illeggibile,
@@ -312,7 +319,7 @@ impl Lavoro<'_> {
                 },
             }));
         }
-        Some(giudizio)
+        Some(Ok(giudizio))
     }
 
     /// Registra la scelta del cervello per un passo, con com'e' andata: nel
@@ -486,9 +493,18 @@ pub async fn lavora(
             } else if sotto_la_cima {
                 match l.rivedi(numero, quanti, passo, &arrivato, &testo).await {
                     None => return (d::Stato::Fermato, "fermato col «fermati» di Nova".into()),
-                    Some(r::Giudizio::Buono) => ("buono", None),
-                    Some(r::Giudizio::Illeggibile) => ("illeggibile", None),
-                    Some(r::Giudizio::Scarso(m)) => ("scarso", Some(m)),
+                    // Il 17 ottobre, col limite di Claude Code finito, le
+                    // revisioni risultavano «illeggibili» e i passi si
+                    // tenevano senza (D430).
+                    Some(Err(e)) => {
+                        return (
+                            d::Stato::Fallito,
+                            format!("la revisione del passo {numero} non si e' fatta: {e}"),
+                        )
+                    }
+                    Some(Ok(r::Giudizio::Buono)) => ("buono", None),
+                    Some(Ok(r::Giudizio::Illeggibile)) => ("illeggibile", None),
+                    Some(Ok(r::Giudizio::Scarso(m))) => ("scarso", Some(m)),
                 }
             } else {
                 ("senza_revisione", None)

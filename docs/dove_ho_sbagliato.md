@@ -3108,3 +3108,18 @@ La regola: quello che un Dot deve sapere per tutto il compito non si affida
 alla conversazione, che si taglia; si tiene a parte e si ripete a ogni
 passo. E una prova del D427 doveva guardare anche il passo dopo, non solo
 quello che ha chiesto.
+
+## Il controllo che non e' partito
+
+Il 17 ottobre alle 14:02 ho fatto il controllo dei Dot e ho chiesto il
+successivo per le 15:00. Lo strumento ha risposto che quell'ora era gia'
+passata: fra il controllo e la richiesta la sessione si era fermata, e
+quando e' ripresa erano le 17:42. Non avevo guardato l'ora prima di
+chiedere. Fra le 14:02 e le 17:42 nessuno ha guardato S0ex1, e proprio in
+quelle ore Claude Code ha finito il limite e il progetto si e' fermato
+(D430). Me ne sono accorto alle 17:42, rileggendo il progetto; il controllo
+dopo l'ho programmato alle 17:50.
+
+La regola: l'ora del controllo dopo si calcola dall'ora del sistema presa in
+quel momento, non da quella dell'ultimo controllo; e dopo averlo chiesto si
+guarda nella risposta dello strumento che sia programmato davvero.

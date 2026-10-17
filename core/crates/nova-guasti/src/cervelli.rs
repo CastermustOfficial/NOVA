@@ -19,8 +19,13 @@ use serde_json::Value;
 ///
 /// Sono di fornitori diversi e in lingue diverse apposta: il codice HTTP non
 /// basta — `429` a volte non arriva nemmeno, e il testo dice `overloaded`.
-pub const SEGNI_DI_LIMITE: [&str; 8] = [
+/// Claude Code dice anche «You've hit your session limit · resets 5:10pm»
+/// (il 17 ottobre, D430), «weekly limit» e «5-hour limit reached».
+pub const SEGNI_DI_LIMITE: [&str; 11] = [
     "usage limit",
+    "session limit",
+    "weekly limit",
+    "limit reached",
     "rate limit",
     "rate_limit",
     "limite di utilizzo",
@@ -259,6 +264,14 @@ mod prove {
         assert!(e_limite_uso("hai superato il LIMITE DI UTILIZZO"));
         assert!(e_limite_uso("HTTP 429"));
         assert!(e_limite_uso("model is overloaded"));
+        // D430: Claude Code, il 17 ottobre alle 15:55.
+        assert!(e_limite_uso(
+            "You've hit your session limit · resets 5:10pm (Europe/Rome)"
+        ));
+        assert!(e_limite_uso(
+            "You've hit your weekly limit · resets Oct 20, 5pm"
+        ));
+        assert!(e_limite_uso("5-hour limit reached ∙ resets 3pm"));
         assert!(!e_limite_uso("tutto bene"));
     }
 

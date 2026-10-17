@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""La quota finita di una CLI si aspetta (D414).
+"""La quota finita di una CLI si aspetta (D414), anche quella di Claude Code (D430).
 
 Il 13 ottobre alle 18:28 la quota di Antigravity e' finita. NOVA lo prendeva
 per un compito andato male: i compiti dei Dot sono falliti tutti nello stesso
@@ -11,7 +11,12 @@ Due Dot su una CLI finta che, la prima volta, risponde come Antigravity
 
 1. i compiti non risultano falliti: aspettano, e si fanno;
 2. la CLI riparte dopo il tempo detto, piu' il margine;
-3. il diario lo dice, e a Nova lo si dice una volta sola per motore.
+3. il diario lo dice, e a Nova lo si dice una volta sola per motore;
+4. Claude Code, che dice a che ora torna («You've hit your session limit ·
+   resets 5:10pm»), si aspetta fino a quell'ora, e il compito si fa (D430).
+   Il 17 ottobre, alle 15:55, quel limite e' finito: NOVA non l'ha
+   riconosciuto, e i compiti dei Dot sono falliti invece di aspettare le
+   17:10.
 
 Esce 2 — «qui non si puo' provare» — se il demone non e' costruito.
 """
@@ -81,6 +86,47 @@ FINTA.write_text(
     "    sys.exit(1)\n"
     "print('Fatto dopo la quota.')\n",
     encoding="utf-8")
+
+# Claude Code finto (D430): la prima volta per «il compito tre» ha finito il
+# limite di sessione, e torna al minuto dopo quello che viene fra 60 secondi,
+# detto come lo dice lui: l'ora del PC, in 12 ore. Poi lavora.
+TRACCIA_CLAUDE = Path(casa) / "claude.jsonl"
+SCRIPT_CLAUDE = Path(casa) / "claude_finto.py"
+SCRIPT_CLAUDE.write_text(
+    "import json, os, sys, time\n"
+    "domanda = sys.stdin.buffer.read().decode('utf-8')\n"
+    "tre = 'compito tre' in domanda\n"
+    "torna = ''\n"
+    "segno = os.path.join(r'" + str(GIA) + "', 'tre')\n"
+    "if tre and not os.path.exists(segno):\n"
+    "    open(segno, 'w').close()\n"
+    "    l = time.localtime(time.time() + 60)\n"
+    "    torna = '%d:%02d%s' % (l.tm_hour % 12 or 12, l.tm_min, 'pm' if l.tm_hour >= 12 else 'am')\n"
+    "    vero = time.mktime((l.tm_year, l.tm_mon, l.tm_mday, l.tm_hour, l.tm_min, 0, 0, 0, -1))\n"
+    "with open(r'" + str(TRACCIA_CLAUDE) + "', 'a', encoding='utf-8') as f:\n"
+    "    f.write(json.dumps({'quando': time.time(), 'tre': tre, 'torna': torna,\n"
+    "                        'alle': vero if torna else 0}) + '\\n')\n"
+    "if torna:\n"
+    "    print(json.dumps({'type': 'result', 'subtype': 'success', 'is_error': True, 'num_turns': 1,\n"
+    "                      'result': \"You've hit your session limit · resets \" + torna + ' (Europe/Rome)',\n"
+    "                      'session_id': 'sessione-finta'}))\n"
+    "elif '[giudizio del capo]' in domanda:\n"
+    "    print(json.dumps({'type': 'result', 'is_error': False, 'num_turns': 1,\n"
+    "                      'result': 'VOTO: 9\\nPERCHE: fatto', 'session_id': 'sessione-finta'}))\n"
+    "else:\n"
+    "    print(json.dumps({'type': 'result', 'is_error': False, 'num_turns': 1,\n"
+    "                      'result': 'Fatto dopo il limite di Claude.', 'session_id': 'sessione-finta'}))\n",
+    encoding="utf-8")
+if os.name == "nt":
+    CLAUDE = Path(casa) / "claude_finto.cmd"
+    CLAUDE.write_text(f'@"{sys.executable}" "{SCRIPT_CLAUDE}" %*\r\n', encoding="utf-8")
+else:
+    CLAUDE = Path(casa) / "claude_finto"
+    CLAUDE.write_text(f"#!{sys.executable}\n" + SCRIPT_CLAUDE.read_text(encoding="utf-8"), encoding="utf-8")
+    CLAUDE.chmod(0o755)
+# «Ha fatto l'accesso» vuol dire che il file delle credenziali c'e'.
+(Path(casa) / ".claude").mkdir(exist_ok=True)
+(Path(casa) / ".claude" / ".credentials.json").write_text("{}", encoding="utf-8")
 
 CONFIG = cartella_nova / "config.json"
 CONFIG.write_text(json.dumps({
@@ -180,6 +226,33 @@ try:
     controlla("il custode l'ha detto a Nova", "Finta ha finito la quota" in detto, detto[-300:])
     controlla("una volta sola, per due Dot", detto.count("Finta ha finito la quota") == 1,
               str(detto.count("Finta ha finito la quota")))
+
+    print("\n4. Claude Code dice a che ora torna, e si aspetta fino a quell'ora (D430)")
+    cfg = json.loads(CONFIG.read_text(encoding="utf-8"))
+    cfg["brains"]["claude_binary"] = str(CLAUDE)
+    cfg["brains"]["claude_timeout"] = 60
+    cfg["brains"]["routing"]["scala"] = ["claude"]
+    cfg["brains"]["routing"]["tiers"] = {"claude": {"brain": "claude", "model": "modello-finto"}}
+    CONFIG.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+    id3 = rpc("dot/affida", nome="primo", testo="il compito tre", da="utente")["id"]
+    c3 = aspetta("primo", id3, secondi=150)
+    controlla("il compito non fallisce: aspetta, e si fa",
+              c3.get("stato") == "fatto" and "Fatto dopo il limite di Claude." in c3.get("esito", ""), str(c3)[:300])
+    tre = [json.loads(r) for r in TRACCIA_CLAUDE.read_text(encoding="utf-8").splitlines() if r] \
+        if TRACCIA_CLAUDE.is_file() else []
+    # La prima volta, la seconda dopo l'attesa; poi il giudizio del capo,
+    # che ripete il compito.
+    tre = [x for x in tre if x["tre"]]
+    controlla("Claude e' ripartito dopo l'ora detta, piu' il margine",
+              len(tre) >= 2 and tre[1]["quando"] >= tre[0]["alle"] + 15
+              and tre[1]["quando"] < tre[0]["alle"] + 15 + 30,
+              f"{[(round(x['quando']), x['torna'], round(x['alle'])) for x in tre]}")
+    attese = [x for x in diario("primo") if x.get("tipo") == "aspetta_quota" and x.get("compito") == id3]
+    controlla("nel diario c'e' l'attesa di Claude Code, fino all'ora detta",
+              len(attese) == 1 and attese[0].get("motore") == "Claude Code"
+              and tre and attese[0].get("fino_a") == time.strftime("%H:%M", time.localtime(tre[0]["alle"] + 15)),
+              str(attese))
+    controlla("e Nova lo sa", "Claude Code ha finito la quota" in detto_dal_custode(), detto_dal_custode()[-300:])
 finally:
     if processo.poll() is None:
         processo.kill()

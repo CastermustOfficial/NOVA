@@ -619,9 +619,13 @@ def tipo_accesso() -> tuple[str, str]:
     return "sconosciuto", ""
 
 
-# frasi con cui Claude Code dice «hai finito la quota», non «non ci riesco»
+# frasi con cui Claude Code dice «hai finito la quota», non «non ci riesco»;
+# anche «You've hit your session limit · resets 5:10pm» (D430)
 _SEGNI_DI_LIMITE = (
     "usage limit",
+    "session limit",
+    "weekly limit",
+    "limit reached",
     "rate limit",
     "rate_limit",
     "limite di utilizzo",

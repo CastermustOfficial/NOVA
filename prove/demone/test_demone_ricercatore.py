@@ -18,7 +18,9 @@ Il secondo passo di `docs/dots.md`. Un Dot col mestiere di ricercatore:
   non «da verificare»;
 - in un compito di un progetto (D419) un passo puo' chiedere al legale, e
   riprende con la risposta;
-- la risposta dell'utente a un passo arriva anche ai passi dopo (D429).
+- la risposta dell'utente a un passo arriva anche ai passi dopo (D429);
+- un revisore che ha finito la quota non fa tenere il passo senza
+  revisione: il compito aspetta e si rifa' (D430).
 
 I cervelli sono finti: un server compatibile OpenAI con due modelli,
 «piccolo» e «grande», che risponde secondo il modello e la domanda, e si
@@ -333,7 +335,21 @@ SCRIPT_CLAUDE.write_text(
     "    sistema = argv[argv.index('--append-system-prompt') + 1]\n"
     "with open(r'" + str(TRACCIA_CLAUDE) + "', 'a', encoding='utf-8') as f:\n"
     "    f.write(json.dumps({'domanda': domanda, 'sistema': sistema}, ensure_ascii=False) + '\\n')\n"
-    "if domanda.lstrip().startswith('[passo 2 di 2: scrivi]') and 'la salvi in' in domanda:\n"
+    # La dodicesima parte (D430): il revisore ha finito il limite di
+    # sessione, la prima volta.
+    "import os\n"
+    "segno = r'" + str(Path(casa) / "limite_alla_revisione") + "'\n"
+    "if 'quota alla revisione' in domanda and domanda.lstrip().startswith('[piano]'):\n"
+    "    r = json.dumps({'passi': [{'tipo': 'scrivi', 'cosa': 'scrivi del limite', 'cervello': 'piccolo'}]})\n"
+    "elif domanda.lstrip().startswith('[revisione del passo 1 di 1]') and 'scrivi del limite' in domanda:\n"
+    "    if not os.path.exists(segno):\n"
+    "        open(segno, 'w').close()\n"
+    "        print(json.dumps({'type': 'result', 'subtype': 'success', 'is_error': True, 'num_turns': 1,\n"
+    "                          'result': \"You've hit your session limit · resets in 1s\",\n"
+    "                          'session_id': 'sessione-finta'}))\n"
+    "        sys.exit(0)\n"
+    "    r = 'BUONO'\n"
+    "elif domanda.lstrip().startswith('[passo 2 di 2: scrivi]') and 'la salvi in' in domanda:\n"
     "    r = ('# Rapporto di Claude\\n\\n## Fonti\\n- https://letta-da-claude.example/pagina\\n'\n"
     "         '- https://non-salvata.example/x\\n')\n"
     "elif domanda.lstrip().startswith('[passo 1 di 2') and 'la salvi in' in domanda:\n"
@@ -618,6 +634,24 @@ try:
               and "\n\nL'utente ha gia' risposto, in questo compito. Le sue risposte valgono: non "
                   "richiedergliele.\n- Alla domanda «approvi la proposta?» ha risposto: «Si', approvo.»"
               in dopo_la_risposta[0], str(dopo_la_risposta)[-500:])
+
+    print("\n12. un revisore senza quota non fa tenere il passo senza revisione (D430)")
+    # Il 17 ottobre Claude Code ha finito il limite di sessione: le
+    # revisioni dei passi risultavano «illeggibili», e i passi si tenevano.
+    scrivi_claude_finto()
+    prima = len(ricevuti_da_claude())
+    id8 = rpc("dot/affida", nome="ricercatore", testo="la quota alla revisione")["id"]
+    c = aspetta(id8, secondi=120)
+    controlla("il compito e' fatto", c.get("stato") == "fatto", str(c)[:300])
+    mio = [r for r in righe(DOT / "diario.jsonl") if r.get("compito") == id8]
+    controlla("ha aspettato la quota di Claude Code",
+              [(r.get("motore")) for r in mio if r.get("tipo") == "aspetta_quota"] == ["Claude Code"],
+              str([r for r in mio if r.get("tipo") == "aspetta_quota"]))
+    controlla("e nessuna revisione e' passata per illeggibile",
+              not any(r.get("tipo") == "revisione_illeggibile" for r in mio), str(mio)[-400:])
+    revisioni = [x for x in ricevuti_da_claude()[prima:]
+                 if x["domanda"].lstrip().startswith("[revisione del passo 1 di 1]")]
+    controlla("il passo e' stato rivisto, dopo l'attesa", len(revisioni) == 2, str(len(revisioni)))
 finally:
     if processo.poll() is None:
         processo.kill()

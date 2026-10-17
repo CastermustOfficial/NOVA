@@ -373,6 +373,57 @@ pub fn secondi_dichiarati(testo: &str) -> Option<i64> {
     visto.then_some(totale)
 }
 
+/// Quanto manca al ritorno della quota quando la CLI dice l'ora, come Claude
+/// Code: «You've hit your session limit · resets 5:10pm (Europe/Rome)» (D430).
+/// `ora` sono i secondi passati dalla mezzanotte, nel fuso del PC: l'ora
+/// detta e' quella del PC, e il fuso fra parentesi non si legge. Un'ora gia'
+/// passata e' quella di domani. `None` se non dice un'ora, o se dice un
+/// giorno («resets Oct 20, 5pm»), che si lascia all'attesa di serie.
+pub fn secondi_fino_alle(testo: &str, ora: i64) -> Option<i64> {
+    let basso = testo.to_lowercase();
+    let mut resto = &basso[basso.find("resets ")? + "resets ".len()..];
+    resto = resto.strip_prefix("at ").unwrap_or(resto);
+    let cifre = |s: &str| s.chars().take_while(char::is_ascii_digit).count();
+    let n = cifre(resto);
+    if n == 0 || n > 2 {
+        return None;
+    }
+    let mut ore: i64 = resto[..n].parse().ok()?;
+    resto = &resto[n..];
+    let mut minuti = 0;
+    let con_i_minuti = resto.starts_with(':');
+    if con_i_minuti {
+        let m = cifre(&resto[1..]);
+        if m != 2 {
+            return None;
+        }
+        minuti = resto[1..3].parse().ok()?;
+        resto = &resto[3..];
+    }
+    let resto = resto.trim_start();
+    if resto.starts_with("am") || resto.starts_with("pm") {
+        if !(1..=12).contains(&ore) {
+            return None;
+        }
+        ore %= 12;
+        if resto.starts_with("pm") {
+            ore += 12;
+        }
+    } else if !con_i_minuti || ore > 23 {
+        // «resets 5» non e' un'ora; «resets 17:10» si'.
+        return None;
+    }
+    if minuti > 59 {
+        return None;
+    }
+    let giorno = 24 * 3600;
+    let mut fra = ore * 3600 + minuti * 60 - ora.rem_euclid(giorno);
+    if fra <= 0 {
+        fra += giorno;
+    }
+    Some(fra)
+}
+
 /// Come si racconta lo stato di questa CLI.
 pub fn descrizione_stato(etichetta: &str, model: &str) -> String {
     format!(
@@ -406,6 +457,48 @@ mod prove {
         );
         assert_eq!(attesa_quota("Antigravity (Google) non ha prodotto output. boh", 900), None);
         assert_eq!(attesa_quota(&non_ha_risposto("Finta", 600), 900), None);
+    }
+
+    /// D430: Claude Code dice l'ora in cui torna, non fra quanto.
+    #[test]
+    fn la_quota_di_claude_torna_all_ora_detta() {
+        let detto = "You've hit your session limit · resets 5:10pm (Europe/Rome)";
+        let alle_15_55 = 15 * 3600 + 55 * 60;
+        assert_eq!(secondi_fino_alle(detto, alle_15_55), Some(75 * 60));
+        assert_eq!(
+            secondi_fino_alle("resets 3pm", 14 * 3600 + 30 * 60 + 20),
+            Some(29 * 60 + 40)
+        );
+        assert_eq!(secondi_fino_alle("Resets at 12am", 23 * 3600), Some(3600));
+        assert_eq!(secondi_fino_alle("resets 12pm", 11 * 3600), Some(3600));
+        assert_eq!(secondi_fino_alle("resets 17:10", 17 * 3600), Some(600));
+        assert_eq!(secondi_fino_alle("resets 9 am", 8 * 3600), Some(3600));
+        // Gia' passata: e' domani.
+        assert_eq!(
+            secondi_fino_alle(detto, 17 * 3600 + 20 * 60),
+            Some(24 * 3600 - 10 * 60)
+        );
+        assert_eq!(
+            secondi_fino_alle(detto, 17 * 3600 + 10 * 60),
+            Some(24 * 3600)
+        );
+        // L'ora del giorno si prende anche da un istante intero.
+        assert_eq!(
+            secondi_fino_alle(detto, 86_400 * 3 + alle_15_55),
+            Some(75 * 60)
+        );
+        assert_eq!(secondi_fino_alle("resets Oct 20, 5pm", 0), None);
+        assert_eq!(secondi_fino_alle("resets 5", 0), None);
+        assert_eq!(secondi_fino_alle("resets 13pm", 0), None);
+        assert_eq!(secondi_fino_alle("resets 25:00", 0), None);
+        assert_eq!(secondi_fino_alle("resets 5:7pm", 0), None);
+        assert_eq!(secondi_fino_alle("Resets in 2h4m26s", 0), None);
+        assert_eq!(secondi_fino_alle("session limit", 0), None);
+        let f = quota_finita("Claude Code", 4500, detto);
+        assert_eq!(
+            attesa_quota(&f, 900),
+            Some(("Claude Code".to_string(), 4500))
+        );
     }
 
     #[test]

@@ -602,8 +602,7 @@ impl<'a> MondoVero<'a> {
             // La quota finita non e' un guasto (D414): si dice fra quanto
             // torna, e chi aspetta sa cosa fare.
             Err(e) if nova_guasti::cervelli::e_limite_uso(&e) => {
-                let secondi =
-                    nova_cervelli::cli::secondi_dichiarati(&e).unwrap_or(QUOTA_CLAUDE_S);
+                let secondi = quando_torna(&e).unwrap_or(QUOTA_CLAUDE_S);
                 self.ultima.quota = Some(secondi);
                 return Err(nova_cervelli::cli::quota_finita(&d.etichetta, secondi, &e));
             }
@@ -710,13 +709,20 @@ impl<'a> MondoVero<'a> {
             .unwrap_or(false)
         {
             if nova_guasti::cervelli::e_limite_uso(&testo) {
-                // Quanto aspettare Claude Code non lo dice: il Python usa il
-                // quarto d'ora di `LimiteUso`, e qui pure.
-                self.ultima.quota = Some(QUOTA_CLAUDE_S);
-                return Err(format!(
-                    "Claude Code ha esaurito la quota: {}",
-                    testo.chars().take(300).collect::<String>()
-                ));
+                let detto = testo.chars().take(300).collect::<String>();
+                // Claude Code dice a che ora torna (D430): «You've hit your
+                // session limit · resets 5:10pm». Se non lo dice, il quarto
+                // d'ora di `LimiteUso` del Python, come prima.
+                return Err(match quando_torna(&testo) {
+                    Some(secondi) => {
+                        self.ultima.quota = Some(secondi);
+                        nova_cervelli::cli::quota_finita("Claude Code", secondi, &detto)
+                    }
+                    None => {
+                        self.ultima.quota = Some(QUOTA_CLAUDE_S);
+                        format!("Claude Code ha esaurito la quota: {detto}")
+                    }
+                });
             }
             return Err(nova_guasti::cervelli::perche_errore(&dati, c.d.max_turns));
         }
@@ -738,6 +744,16 @@ impl<'a> MondoVero<'a> {
 /// Quanto aspettare quando Claude Code dice di aver finito la quota senza
 /// dire fino a quando: il `riprova_fra_s` di ripiego di `LimiteUso`.
 pub const QUOTA_CLAUDE_S: i64 = 900;
+
+/// Fra quanti secondi torna la quota, se chi l'ha finita lo dice: «Resets in
+/// 2h4m26s» (Antigravity, D414) o «resets 5:10pm» (Claude Code, D430), con
+/// l'ora del PC.
+fn quando_torna(detto: &str) -> Option<i64> {
+    nova_cervelli::cli::secondi_dichiarati(detto).or_else(|| {
+        let ora = nova_platform::orologio::adesso();
+        nova_cervelli::cli::secondi_fino_alle(detto, ora + nova_platform::fuso_secondi(ora))
+    })
+}
 
 /// Chi e' l'utente, come lo chiama il Python (`getpass.getuser()`).
 fn utente() -> String {

@@ -12032,3 +12032,19 @@ Sono due difetti diversi con la stessa radice: che il Dot aspettava Gio lo
 sapeva solo il turno che aveva chiesto. Adesso lo sanno la scheda, che
 lo dice e mette il messaggio davanti, l'affida, che diventa la risposta, e
 il compito, che tiene le risposte e le porta a ogni passo (D429).
+
+## 17 ottobre 2026, sera — Il limite che non era un limite
+
+Riavviata NOVA col D429, ho trovato S0ex1 fermo dalle 16:50. Alle 15:55
+Claude Code aveva detto ai Dot «You've hit your session limit · resets
+5:10pm»; NOVA sa aspettare una quota finita dal 13 ottobre (D414), ma la
+riconosce da una lista di parole, e «session limit» non c'era. Cosi' tre
+compiti sono falliti, la fase non e' andata e il progetto si e' fermato
+venti minuti prima che il limite tornasse. Peggio, nei ricercatori il
+revisore senza quota diventava una revisione «illeggibile», e il passo del
+cervello piccolo restava senza che nessuno l'avesse guardato.
+
+Claude Code non dice fra quanto torna ma a che ora: adesso NOVA legge l'ora
+e aspetta fino a li' (D430). E io non me ne sono accorto per tre ore e
+mezza, perche' il controllo dopo quello delle 14:02 non era partito: e'
+scritto in `dove_ho_sbagliato.md`.
