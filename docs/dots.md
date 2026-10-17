@@ -913,6 +913,8 @@ prima del codice. Le parole stanno in `nova_dot::progetto`, il giro in
   all'Architetto quando riparte. Due cambi prima che l'Architetto ne veda
   uno li vede tutti e due. Una fase che non va, invece, si rifa' tutta:
   i compiti uguali si tengono solo quando il piano l'ha cambiato l'utente.
+  Dal D431 l'Architetto segna «(fatto)» i compiti gia' fatti che non vanno
+  rifatti, e quelli si tengono sempre, se sono fatti davvero.
 - **La fine**: il resoconto in chat come prima, e l'evento
   `dot.progetto_finito` con la frase «Il progetto X e' finito: il
   resoconto e' in chat.», detta con la voce accesa e mai durante una

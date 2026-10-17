@@ -891,6 +891,22 @@ pub fn tenuti(p: &Progetto, vecchio: &Piano, nuovo: &Piano, da_fase: u32) -> Vec
         .collect()
 }
 
+/// I compiti fatti, da `da_fase` in poi, che il piano nuovo segna «(fatto)»
+/// (D431): l'Architetto dice che non vanno rifatti, anche se una fase non e'
+/// andata o se ne ha cambiato il testo. Un compito segnato che non e' fatto
+/// si affida come gli altri.
+pub fn segnati_fatti(p: &Progetto, nuovo: &Piano, da_fase: u32) -> Vec<String> {
+    let fase_di = |id: &str| id.split('.').next().and_then(|x| x.parse::<u32>().ok());
+    p.lavori
+        .iter()
+        .filter(|(id, l)| {
+            fase_di(id).is_some_and(|f| f >= da_fase) && l.stato == Some(Stato::Fatto)
+        })
+        .filter(|(id, _)| nuovo.incarichi().any(|i| i.id == **id && i.fatto))
+        .map(|(id, _)| id.clone())
+        .collect()
+}
+
 /// Quanto costerebbe, alla stima del tetto, quel che resta da fare col
 /// piano nuovo: i compiti da `da_fase` in poi, meno quelli tenuti.
 pub fn costo_del_resto(nuovo: &Piano, da_fase: u32, tenuti: &[String]) -> f64 {
@@ -1677,6 +1693,71 @@ mod prove {
         assert!(!Progetto::da("p", &e).unwrap().aperto());
     }
 
+    /// D431: il 17 ottobre l'Architetto scriveva in prosa che 2.1, 2.2, 2.7
+    /// e 2.9 di S0ex1 erano gia' fatti; il piano nuovo dopo una fase non
+    /// andata li ha fatti rifare, e la consegna di 2.1 e' stata sovrascritta.
+    #[test]
+    fn un_piano_nuovo_tiene_i_fatti_segnati() {
+        let mut e = base();
+        e.extend([
+            Evento::Via {
+                quando: t(),
+                tetto: 2.0,
+            },
+            affidato("1.1", "ricerca", 4),
+            chiuso("1.1", Stato::Fatto),
+            affidato("1.2", "revisione", 5),
+            chiuso("1.2", Stato::Fatto),
+            affidato("2.2", "programmatore", 6),
+            chiuso("2.2", Stato::Fallito),
+        ]);
+        let p = Progetto::da("p", &e).unwrap();
+        let nuovo = piano::leggi(
+            &PIANO
+                .replace(
+                    "- 1.1 [ricerca] cercare\n",
+                    "- 1.1 [ricerca] cercare meglio (fatto)\n",
+                )
+                .replace(
+                    "- 2.2 [assumi: programmatore Rust] documentare\n",
+                    "- 2.2 [assumi: programmatore Rust] documentare (fatto)\n",
+                )
+                .replace(
+                    "Obiettivo: o\n",
+                    "Obiettivo: o\n## Cosa cambia\n- 1.1 e' fatto\n",
+                ),
+            2,
+        )
+        .unwrap()
+        .0;
+        assert_eq!(
+            segnati_fatti(&p, &nuovo, 1),
+            ["1.1"],
+            "1.1 e' segnato e fatto, anche col testo cambiato; 1.2 non e' segnato; 2.2 e' segnato \
+             ma non e' fatto"
+        );
+        assert!(
+            segnati_fatti(&p, &nuovo, 2).is_empty(),
+            "le fasi prima non si contano"
+        );
+        e.push(Evento::PianoPronto {
+            quando: t(),
+            versione: 2,
+            da_fase: Some(1),
+            tenuti: vec!["1.1".into()],
+        });
+        let dopo = Progetto::da("p", &e).unwrap();
+        assert_eq!(dopo.lavori.keys().collect::<Vec<_>>(), ["1.1"]);
+        assert_eq!(
+            dopo.pronti_in(&nuovo.fasi[0])
+                .iter()
+                .map(|i| i.id.as_str())
+                .collect::<Vec<_>>(),
+            ["1.2"],
+            "1.1 non si riaffida, 1.2 si'"
+        );
+    }
+
     #[test]
     fn un_piano_nuovo_tiene_i_fatti_uguali_e_dice_quanto_costa_il_resto() {
         let mut e = base();
@@ -1694,7 +1775,15 @@ mod prove {
         let nuovo = piano::leggi(&nuovo_testo, 2).unwrap().0;
         let t = tenuti(&p, &piano(), &nuovo, 1);
         assert_eq!(t, ["1.1"], "1.2 e' cambiato: si rifa'");
-        assert_eq!(costo_del_resto(&nuovo, 1, &t), 1.2, "quattro compiti da rifare");
+        assert!(
+            segnati_fatti(&p, &nuovo, 1).is_empty(),
+            "nessuno e' segnato"
+        );
+        assert_eq!(
+            costo_del_resto(&nuovo, 1, &t),
+            1.2,
+            "quattro compiti da rifare"
+        );
         let m = dopo_il_cambio(&p, &nuovo, "/x/piano-2.md", 1.2);
         assert!(m.starts_with("Il piano di «p» e' cambiato, versione 2. E' in /x/piano-2.md.\nCosa cambia:\n- 1.2 piu' severa"), "{m}");
         assert!(m.ends_with("si passa il tetto di 2.00 $: mi fermo, e aspetto il via con un tetto nuovo."), "{m}");

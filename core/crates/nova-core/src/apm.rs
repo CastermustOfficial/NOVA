@@ -87,16 +87,26 @@ fn piano_versione(nome: &str, versione: u32) -> Option<(piano::Piano, String)> {
     Some((pi, f.display().to_string()))
 }
 
-/// Il piano nuovo, cambiato dall'utente, e' pronto: i compiti fatti che
-/// lascia uguali, da `da_fase` in poi, non si rifanno (D403).
-fn tenuti(p: &Progetto, versione: u32, da_fase: Option<u32>) -> Vec<String> {
+/// Il piano nuovo e' pronto: i compiti fatti, da `da_fase` in poi, che non
+/// si rifanno. Sempre quelli che l'Architetto segna «(fatto)» (D431); se il
+/// piano l'ha cambiato l'utente (`anche_uguali`), anche quelli che lascia
+/// uguali (D403).
+fn tenuti(p: &Progetto, versione: u32, da_fase: Option<u32>, anche_uguali: bool) -> Vec<String> {
     let Some(n) = da_fase else {
         return Vec::new();
     };
-    match (piano_di(p), piano_versione(&p.nome, versione)) {
-        (Some((vecchio, _)), Some((nuovo, _))) => pr::tenuti(p, &vecchio, &nuovo, n),
-        _ => Vec::new(),
+    let Some((nuovo, _)) = piano_versione(&p.nome, versione) else {
+        return Vec::new();
+    };
+    let mut t = pr::segnati_fatti(p, &nuovo, n);
+    if anche_uguali {
+        if let Some((vecchio, _)) = piano_di(p) {
+            t.extend(pr::tenuti(p, &vecchio, &nuovo, n));
+        }
     }
+    t.sort();
+    t.dedup();
+    t
 }
 
 /// Un passo nel diario del progetto, e il racconto e il ToDo riscritti.
@@ -642,12 +652,10 @@ fn piano_pronto(server: &Arc<Server>, p: &Progetto) -> bool {
             // I compiti fatti e uguali restano solo se il piano l'ha cambiato
             // l'utente: una fase che non e' andata si rifa' tutta, anche dove
             // l'Architetto la lascia uguale, se no si giudicherebbero di
-            // nuovo le stesse consegne.
-            let tenuti = if p.piano_per_cambio {
-                tenuti(p, versione, fase)
-            } else {
-                Vec::new()
-            };
+            // nuovo le stesse consegne. Fuori che quelli che l'Architetto
+            // segna «(fatto)» (D431): il 17 ottobre li scriveva gia' fatti in
+            // prosa, e si rifacevano lo stesso, sovrascrivendo le consegne.
+            let tenuti = tenuti(p, versione, fase, p.piano_per_cambio);
             annota(
                 &p.nome,
                 Evento::PianoPronto {
@@ -799,7 +807,7 @@ async fn lavora(server: &Arc<Server>, p: &Progetto) -> bool {
                 quando: adesso(),
                 versione: ultima,
                 da_fase,
-                tenuti: tenuti(p, ultima, da_fase),
+                tenuti: tenuti(p, ultima, da_fase, true),
             },
         );
         return true;

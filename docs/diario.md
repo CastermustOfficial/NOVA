@@ -12048,3 +12048,17 @@ Claude Code non dice fra quanto torna ma a che ora: adesso NOVA legge l'ora
 e aspetta fino a li' (D430). E io non me ne sono accorto per tre ore e
 mezza, perche' il controllo dopo quello delle 14:02 non era partito: e'
 scritto in `dove_ho_sbagliato.md`.
+
+## 17 ottobre 2026, notte — «Sono gia' fatti»
+
+Due volte nello stesso pomeriggio l'Architetto ha scritto, nella consegna
+della fase 2, che 2.1, 2.2, 2.3 e 2.4 erano gia' fatti e non si
+rilanciavano, e due volte l'APM li ha riaffidati: lui leggeva l'elenco dei
+compiti, e una fase non andata, per una regola del D403, si rifa' tutta.
+Due Dot hanno capito e si sono rifiutati; gli altri hanno rifatto il lavoro,
+e la consegna di 2.1 e' stata sovrascritta. Se n'e' accorto il revisore di
+ricerca, prima di me.
+
+Quello che l'Architetto sapeva lo diceva in prosa, dove nessun programma lo
+legge. Adesso ha un segno, «(fatto)», come «(scheda video)», e il suo
+prompt dice cosa vuol dire (D431).

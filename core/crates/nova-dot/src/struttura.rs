@@ -543,7 +543,14 @@ mod prove {
     use crate::Mestiere;
 
     fn incarico(id: &str, cosa: &str, chi: Chi) -> Incarico {
-        Incarico { id: id.into(), cosa: cosa.into(), chi, dopo: Vec::new(), scheda: false }
+        Incarico {
+            id: id.into(),
+            cosa: cosa.into(),
+            chi,
+            dopo: Vec::new(),
+            scheda: false,
+            fatto: false,
+        }
     }
 
     #[test]

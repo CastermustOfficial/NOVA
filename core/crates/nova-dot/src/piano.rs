@@ -111,10 +111,16 @@ pub struct Incarico {
     pub dopo: Vec<String>,
     /// Usa la scheda video (D424): l'APM ne fa partire uno alla volta.
     pub scheda: bool,
+    /// L'Architetto, rivedendo il piano, dice che e' gia' fatto e non si
+    /// rifa' (D431): se lo e' davvero, la sua consegna resta.
+    pub fatto: bool,
 }
 
 /// Il segno di un compito che usa la scheda video, nella sua riga (D424).
 pub const SEGNO_SCHEDA: &str = "(scheda video)";
+
+/// Il segno di un compito gia' fatto che il piano rivisto tiene (D431).
+pub const SEGNO_FATTO: &str = "(fatto)";
 
 /// Una fase del piano.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -345,6 +351,7 @@ pub fn prompt() -> String {
          - 1.1 [<chi>] <cosa fare>\n\
          - 1.2 [<chi>] <cosa fare> (dopo 1.1)\n\
          - 1.3 [<chi>] <cosa fare> (scheda video) (dopo 1.2)\n\
+         - 1.4 [<chi>] <cosa fare> (fatto)\n\
          ## Rischi\n\
          - <un rischio>\n\
          ## Domande per te\n\
@@ -354,7 +361,10 @@ pub fn prompt() -> String {
          lo chiama l'APM. Ogni compito ha un id <fase>.<numero>; «(dopo ...)» dice da quali \
          compiti dipende, e quelli senza dipendenze partono insieme. «(scheda video)» segna un \
          compito che usa la scheda video (una misura su un modello, un addestramento): NOVA ne fa \
-         partire uno alla volta, perche' due misure sulla stessa scheda si sporcano a vicenda.",
+         partire uno alla volta, perche' due misure sulla stessa scheda si sporcano a vicenda. \
+         Quando rivedi il piano, «(fatto)» segna un compito gia' fatto che non va rifatto: resta \
+         nel piano, e la sua consegna resta quella che c'e'. Un compito fatto senza il segno, in \
+         una fase che non e' andata, si rifa' da capo.",
         azienda::PROMPT_ARCHITETTO,
         reparti.join(", "),
     )
@@ -508,7 +518,7 @@ fn leggi_chi(t: &str) -> Result<Chi, String> {
     ))
 }
 
-/// Un compito, dalla riga di elenco: `1.2 [chi] cosa (scheda video) (dopo 1.1)`.
+/// Un compito, dalla riga di elenco: `1.2 [chi] cosa (fatto) (scheda video) (dopo 1.1)`.
 fn leggi_incarico(t: &str) -> Result<Incarico, String> {
     let (id, resto) = t.split_once(char::is_whitespace).unwrap_or((t, ""));
     let id = id.trim_end_matches([':', '.']).to_string();
@@ -533,9 +543,20 @@ fn leggi_incarico(t: &str) -> Result<Incarico, String> {
     let mut cosa = cosa.trim().to_string();
     let mut dopo = Vec::new();
     let mut scheda = false;
-    // «(scheda video)» e «(dopo ...)» in fondo, in un ordine o nell'altro.
+    let mut fatto = false;
+    // «(fatto)», «(scheda video)» e «(dopo ...)» in fondo, in qualunque
+    // ordine.
     loop {
         let n = cosa.len();
+        if n >= SEGNO_FATTO.len()
+            && cosa
+                .get(n - SEGNO_FATTO.len()..)
+                .is_some_and(|x| x.eq_ignore_ascii_case(SEGNO_FATTO))
+        {
+            fatto = true;
+            cosa = cosa[..n - SEGNO_FATTO.len()].trim().to_string();
+            continue;
+        }
         if n >= SEGNO_SCHEDA.len()
             && cosa
                 .get(n - SEGNO_SCHEDA.len()..)
@@ -569,6 +590,7 @@ fn leggi_incarico(t: &str) -> Result<Incarico, String> {
         chi,
         dopo,
         scheda,
+        fatto,
     })
 }
 
@@ -880,6 +902,9 @@ pub fn scrivi(p: &Piano) -> String {
         ));
         for i in &f.incarichi {
             t.push_str(&format!("- {} [{}] {}", i.id, chi_scritto(&i.chi), i.cosa));
+            if i.fatto {
+                t.push_str(&format!(" {SEGNO_FATTO}"));
+            }
             if i.scheda {
                 t.push_str(&format!(" {SEGNO_SCHEDA}"));
             }
@@ -1277,6 +1302,55 @@ di amministrazione o di revisione non si ripete"
             d.contains("Il piano di adesso, versione 2:\n# Piano: p")
                 && d.contains("rispetto alla versione 2"),
             "{d}"
+        );
+    }
+
+    /// D431: il 17 ottobre l'Architetto scriveva in prosa che 2.1, 2.2,
+    /// 2.7 e 2.9 erano gia' fatti, e l'APM li riaffidava lo stesso.
+    #[test]
+    fn un_compito_gia_fatto_si_segna() {
+        let base = "# Piano: x\nObiettivo: o\n## Fase 1: a\nConsegna: c\nFatta quando: f\n";
+        let (p, _) = leggi(
+            &format!(
+                "{base}- 1.1 [dati] misurare A (fatto)\n\
+                 - 1.2 [qualita] ripetere A (scheda video) (Fatto) (dopo 1.1)\n\
+                 - 1.3 [dati] misurare B (dopo 1.1) (fatto) (scheda video)\n\
+                 - 1.4 [ricerca] leggere cosa e' stato fatto\n"
+            ),
+            1,
+        )
+        .unwrap();
+        let i: Vec<&Incarico> = p.incarichi().collect();
+        assert_eq!(
+            i.iter().map(|x| x.fatto).collect::<Vec<_>>(),
+            [true, true, true, false]
+        );
+        assert_eq!(
+            i.iter().map(|x| x.scheda).collect::<Vec<_>>(),
+            [false, true, true, false]
+        );
+        assert_eq!(i[0].cosa, "misurare A");
+        assert_eq!(
+            (i[1].cosa.as_str(), i[1].dopo.clone()),
+            ("ripetere A", vec!["1.1".to_string()])
+        );
+        assert_eq!(i[2].cosa, "misurare B");
+        assert_eq!(i[3].cosa, "leggere cosa e' stato fatto");
+        let scritto = scrivi(&p);
+        assert!(
+            scritto.contains("- 1.1 [dati] misurare A (fatto)\n"),
+            "{scritto}"
+        );
+        assert!(
+            scritto.contains("- 1.2 [qualita] ripetere A (fatto) (scheda video) (dopo 1.1)\n"),
+            "{scritto}"
+        );
+        assert_eq!(leggi(&scritto, 1).unwrap().0, p, "si rilegge uguale");
+        let pr = prompt();
+        assert!(pr.contains("- 1.4 [<chi>] <cosa fare> (fatto)"), "{pr}");
+        assert!(
+            pr.contains("«(fatto)» segna un compito gia' fatto che non va rifatto"),
+            "{pr}"
         );
     }
 

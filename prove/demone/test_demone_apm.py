@@ -96,6 +96,10 @@ arrivate: list[tuple[str, str, str]] = []
 trattieni: dict[tuple[str, str], threading.Event] = {}
 #: I piani diversi da quello di serie, per progetto.
 piani: dict[str, str] = {}
+#: I piani diversi da quello di serie, per progetto e versione (D431).
+piani_versione: dict[tuple[str, int], str] = {}
+#: I prompt di sistema con cui e' arrivato l'Architetto.
+sistemi_architetto: list[str] = []
 
 
 def piano(progetto, versione):
@@ -154,9 +158,11 @@ class Cervello(BaseHTTPRequestHandler):
                 return
         if "Sei l'Architetto dell'azienda dei Dot" in sistema:
             arrivate.append(("architetto", modello, domanda))
+            sistemi_architetto.append(sistema)
             m = re.search(r"Progetto «([^»]+)», versione (\d+)\.", domanda)
             if m:
-                testo(self, piani.get(m.group(1)) or piano(m.group(1), int(m.group(2))))
+                testo(self, piani_versione.get((m.group(1), int(m.group(2))))
+                      or piani.get(m.group(1)) or piano(m.group(1), int(m.group(2))))
             else:
                 testo(self, "non so")
             return
@@ -766,6 +772,36 @@ try:
     controlla("e il progetto finisce", aspetta("decimo", {"finito", "fermo"}) == "finito", str(tipi("decimo")))
     controlla("e la scheda torna libera",
               aspetta_che(lambda: capacita("dot.progetti").get("scheda_di_una_misura") is False))
+
+    print("\n13. un compito che l'Architetto segna «(fatto)» non si rifa' (D431)")
+    # Il 17 ottobre, dopo una fase di S0ex1 non andata, l'Architetto ha
+    # scritto in prosa che 2.1, 2.2, 2.7 e 2.9 erano gia' fatti; l'APM li ha
+    # riaffidati, e la consegna di 2.1 e' stata sovrascritta.
+    piani_versione[("tredici", 2)] = (
+        "# Piano: tredici\nObiettivo: un compressore\n"
+        "## Cosa cambia\n- 1.1 e' fatto e resta; si rifa' solo il rapporto\n"
+        "## Fase 1: Ricerca\nConsegna: un rapporto\nFatta quando: approvato\n"
+        "- 1.1 [dati] cercare i dati (fatto)\n- 1.2 [scrittura] scrivere il rapporto (dopo 1.1)\n"
+        "## Fase 2: Codice\nConsegna: il codice\nFatta quando: compila\n"
+        "- 2.1 [assumi: programmatore Rust] scrivere il codice (dopo 1.2)\n"
+        "## Domande per te\n- quanto puoi spendere?\n")
+    per_revisione.append("ESITO: non fatta\nPERCHE: il rapporto e' scarso")
+    per_ar.append('{"scelta": "riprendi", "dot": "rustico", "cervello": "piccolo", "perche": "c\'e\' gia\'"}')
+    capacita("dot.progetto", nome="tredici", richiesta="Un terzo compressore.")
+    aspetta("tredici", {"aspetta_il_via", "fermo"})
+    capacita("dot.via", nome="tredici", tetto=10)
+    s = aspetta("tredici", {"finito", "fermo"})
+    controlla("finisce", s == "finito", str(tipi("tredici"))[-400:])
+    pronto = [e for e in eventi("tredici") if e["tipo"] == "piano_pronto"]
+    controlla("il piano rivisto tiene 1.1, segnato «(fatto)»",
+              len(pronto) == 2 and pronto[1].get("da_fase") == 1 and pronto[1].get("tenuti") == ["1.1"],
+              str(pronto))
+    affidati = [e["incarico"] for e in eventi("tredici") if e["tipo"] == "affidato"]
+    controlla("1.1 si e' fatto una volta sola, 1.2 due",
+              affidati.count("1.1") == 1 and affidati.count("1.2") == 2, str(affidati))
+    controlla("e l'Architetto sa cosa vuol dire il segno",
+              bool(sistemi_architetto) and "«(fatto)» segna un compito gia' fatto che non va rifatto"
+              in sistemi_architetto[-1], sistemi_architetto[-1][-600:] if sistemi_architetto else "")
 finally:
     processo.kill()
     cervello.shutdown()
