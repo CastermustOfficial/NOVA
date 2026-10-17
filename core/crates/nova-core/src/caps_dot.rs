@@ -529,6 +529,23 @@ impl Capability for AffidaCap {
         let nome = arg_str(&args, "nome")?;
         let compito = arg_str(&args, "compito")?;
         let Chi::Dot(capo) = crate::agente::per_conto_di() else {
+            // Un Dot che aspetta la risposta dell'utente (D429): quello che
+            // gli si affida e' la risposta. Il 17 ottobre Gio ha risposto a
+            // ricerca col bottone «Affida come compito», e la risposta e'
+            // finita in coda dietro al compito che la aspetta.
+            if crate::dot::consegna_la_risposta(server, &nome, &compito) {
+                server.ctx.bus.emit(
+                    "dot.messaggio",
+                    json!({ "da": nova_dot::DA_NOVA, "a": nome.trim(), "testo": compito.trim() }),
+                );
+                return Ok(json!({
+                    "dot": nome.trim(),
+                    "risposta": true,
+                    "nota": "Aspettava la risposta dell'utente a una sua domanda: questo gli e' \
+                             arrivato come risposta, e il compito che la aspettava continua. Se \
+                             era un compito nuovo, affidalo di nuovo.",
+                }));
+            }
             let id = crate::dot::affida(server, &nome, &compito, nova_dot::DA_NOVA)
                 .map_err(|e| anyhow!(e))?;
             return Ok(json!({

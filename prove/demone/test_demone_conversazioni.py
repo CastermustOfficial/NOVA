@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""I Dot si parlano davvero, aspettano la scheda video libera e chiedono all'utente (D421, D423, D425, D427).
+"""I Dot si parlano davvero, aspettano la scheda video libera e chiedono all'utente (D421, D423, D425, D427, D429).
 
 Il 15 ottobre Gio ha visto che nella chat di S0ex1 nessuno parlava con
 nessuno: le domande finivano nel gruppo come un monologo, e a un collega
@@ -23,7 +23,11 @@ Si guarda che:
    (D425);
 5. una domanda all'utente gli arriva da Nova, e il compito aspetta la sua
    risposta, che non finisce anche nella posta; se non risponde in tempo,
-   il Dot va avanti e lo sa (D427).
+   il Dot va avanti e lo sa (D427);
+6. mentre aspetta l'utente la sua scheda lo dice; un compito affidato
+   intanto e' la risposta, e non va in coda; la stessa domanda rifatta nel
+   compito non arriva di nuovo all'utente, e torna la sua risposta di prima
+   (D429).
 
 Esce 2 — «qui non si puo' provare» — se il demone non e' costruito.
 """
@@ -125,6 +129,17 @@ class Cervello(BaseHTTPRequestHandler):
         elif q.startswith("[domanda di un Dot] Sei «qualita»"):
             nota("nova_per_qualita", q)
             testo(self, "Dalle consegne di qualita: le misure sono in materiale/.")
+        elif q.startswith("Le risposte alle tue domande:") and "ti ha gia' risposto" in q:
+            nota("dati_gia_risposto", q)
+            testo(self, "Consegna 6.1: uso quello che ha detto l'utente.")
+        elif q.startswith("Le risposte alle tue domande:") and "«quale modello uso?»" in q:
+            # La stessa domanda, scritta un po' diversa: e' quello che ha
+            # fatto ricerca il 17 ottobre, in un passo dopo.
+            nota("dati_modello_risposto", q)
+            testo(self, "Ci ripenso.\nCHIEDO A utente: Quale  modello uso")
+        elif "chiedi due volte all'utente" in q and not q.startswith("Le risposte"):
+            nota("dati_due_volte", q)
+            testo(self, "CHIEDO A utente: quale modello uso?")
         elif "lavoro lungo" in q and not q.startswith("Le risposte"):
             # qualita lavora: il primo turno dura, e intanto dati gli chiede
             # qualcosa. Alla fine chiede a dati, che lo sta aspettando.
@@ -441,6 +456,41 @@ try:
               and c7.get("esito", "").startswith("Consegna 5.2"), f"{r7[-300:]} {c7}"[:500])
     controlla("e una risposta che arriva dopo va nella posta, come un messaggio",
               capacita("dot.scrivi", a="dati", testo="Scusa, ero via.").get("messaggio") is not None)
+
+    print("\n6. la risposta all'utente non si perde e non si richiede (D429)")
+    # Il 17 ottobre Gio ha risposto a ricerca con «Affida come compito», e la
+    # risposta e' finita in coda; e prima ricerca gli aveva rifatto, parola
+    # per parola, una domanda a cui aveva gia' risposto.
+    controlla("prima della domanda la scheda non aspetta nessuno",
+              capacita("dot.vista", nome="dati").get("aspetta_te") is False)
+    id8 = capacita("dot.affida", nome="dati", compito=compito("6.1", "chiedi due volte all'utente"))["compito"]
+    controlla("la domanda arriva",
+              aspetta_che_la(lambda: any(x.get("tipo") == "all_utente" and x.get("compito") == id8
+                                         for x in diario("dati"))))
+    controlla("e la scheda del Dot dice che aspetta te",
+              capacita("dot.vista", nome="dati").get("aspetta_te") is True)
+    controlla("anche nella vista di tutti",
+              next((x for x in capacita("dot.vista")["dots"] if x["nome"] == "dati"), {}).get("aspetta_te") is True)
+    quanti = len(capacita("dot.stato", nome="dati")["compiti"])
+    r = capacita("dot.affida", nome="dati", compito="Il modello piccolo.")
+    controlla("un compito affidato intanto e' la risposta",
+              r.get("risposta") is True and "compito" not in r and "affidalo di nuovo" in r.get("nota", ""), str(r))
+    controlla("e non va in coda", len(capacita("dot.stato", nome="dati")["compiti"]) == quanti)
+    c8 = aspetta("dati", id8, secondi=30)
+    controlla("il Dot riprende con la risposta, e consegna",
+              c8.get("stato") == "fatto" and c8.get("esito", "").startswith("Consegna 6.1"), str(c8)[:300])
+    g = (di("dati_gia_risposto") or [""])[0]
+    controlla("la stessa domanda, rifatta, torna con la risposta di prima",
+              "La sua risposta era: «Il modello piccolo.». Non richiederla" in g, g[-400:])
+    controlla("e all'utente e' arrivata una volta sola",
+              sum(1 for x in diario("dati") if x.get("tipo") == "all_utente" and x.get("compito") == id8) == 1
+              and sum(1 for m in righe(cartella_nova / "dots" / "dati" / "inviati.jsonl")
+                      if m.get("a") == "nova" and "quale modello uso?" in m.get("testo", "")) == 1)
+    controlla("il diario dice che era gia' risposta",
+              any(x.get("tipo") == "domanda" and x.get("compito") == id8 and x.get("gia_risposta") is True
+                  for x in diario("dati")))
+    controlla("e la scheda non aspetta piu'",
+              capacita("dot.vista", nome="dati").get("aspetta_te") is False)
 finally:
     if gioco is not None and gioco.poll() is None:
         gioco.kill()

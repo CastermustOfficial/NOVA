@@ -12017,3 +12017,18 @@ fila di `| :--- |`. Adesso le chat dei Dot usano lo stesso lettore delle
 risposte di NOVA (D428). Dalla notte restano tre idee: la memoria video dei
 Dot come impostazione di NOVA, «CHIEDO A» col nome dell'utente, e il
 cervello che fa le revisioni.
+
+## 17 ottobre 2026, pomeriggio — Rispondere due volte
+
+Facendo l'utente per Gio ho visto la cosa che una prova non aveva visto:
+la sua risposta si e' persa due volte nello stesso compito. Prima ricerca,
+al passo dopo, gli ha rifatto la stessa domanda, parola per parola: la
+risposta era nella conversazione, e la conversazione di una CLI e' corta.
+Poi Gio ha risposto dalla scheda di ricerca, con il bottone che la scheda
+gli metteva davanti, e la risposta e' diventata un compito in coda dietro a
+quello che la aspettava. L'ho passata io come messaggio, con le sue parole.
+
+Sono due difetti diversi con la stessa radice: che il Dot aspettava Gio lo
+sapeva solo il turno che aveva chiesto. Adesso lo sanno la scheda, che
+lo dice e mette il messaggio davanti, l'affida, che diventa la risposta, e
+il compito, che tiene le risposte e le porta a ogni passo (D429).

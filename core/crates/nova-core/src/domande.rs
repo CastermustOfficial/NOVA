@@ -81,12 +81,15 @@ pub const SOLO_RISPOSTE: usize = 3;
 /// I turni di un compito che non contano fra quelli concessi: dopo le
 /// risposte a una domanda, dopo l'attesa della scheda video, e quelli in cui
 /// il Dot ha solo risposto ai colleghi.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Conto {
     pub domande: usize,
     pub scheda: usize,
     pub solo_risposte: usize,
     pub fuori: usize,
+    /// Le risposte dell'utente avute nel compito, con la domanda (D429):
+    /// una domanda uguale non gli si rifa', e i passi dopo le ricevono.
+    pub dall_utente: Vec<(String, String)>,
 }
 
 impl Conto {
@@ -236,17 +239,39 @@ async fn domande(
     let p = crate::apm::leggi(progetto);
     let mut risposte = Vec::new();
     for q in x.domande.iter().take(dd::DOMANDE_PER_GIRO) {
-        let r = rispondi(server, c, p.as_ref(), progetto, nome, compito, q).await;
-        diario(
-            c,
-            compito.id,
-            json!({
-                "tipo": "domanda",
-                "a": q.a,
-                "domanda": q.testo,
-                "risposta": dd::tagliato(&r, 1_000),
-            }),
-        );
+        // Una domanda all'utente a cui ha gia' risposto nel compito non gli
+        // si rifa' (D429): torna la sua risposta di prima.
+        let prima = matches!(dd::chi(&q.a, nome, &[]), Ok(dd::Chi::Utente))
+            .then(|| {
+                conto
+                    .dall_utente
+                    .iter()
+                    .find(|(d, _)| dd::stessa_domanda(d, &q.testo))
+                    .map(|(_, r)| r.clone())
+            })
+            .flatten();
+        let gia = prima.is_some();
+        let r = match prima {
+            Some(prima) => dd::gia_risposta(&prima),
+            None => {
+                let (r, dall_utente) =
+                    rispondi(server, c, p.as_ref(), progetto, nome, compito, q).await;
+                if let Some(a) = dall_utente {
+                    conto.dall_utente.push((q.testo.trim().to_string(), a));
+                }
+                r
+            }
+        };
+        let mut riga = json!({
+            "tipo": "domanda",
+            "a": q.a,
+            "domanda": q.testo,
+            "risposta": dd::tagliato(&r, 1_000),
+        });
+        if gia {
+            riga["gia_risposta"] = json!(true);
+        }
+        diario(c, compito.id, riga);
         crate::apm::annota(
             progetto,
             Evento::Domanda {
@@ -555,7 +580,8 @@ fn ruolo_di(nome: &str) -> String {
 /// La risposta a una domanda, o perche' non c'e': in tutti e due i casi e'
 /// un testo che torna al Dot, perche' sappia come stanno le cose. Un
 /// collega risponde lui (D421); il legale e l'APM col cervello grande, e la
-/// loro risposta resta nella conversazione con chi ha chiesto.
+/// loro risposta resta nella conversazione con chi ha chiesto. Il secondo
+/// valore e' la risposta dell'utente, se ha risposto lui (D429).
 async fn rispondi(
     server: &Arc<Server>,
     c: &d::Cartella,
@@ -564,16 +590,22 @@ async fn rispondi(
     chiede: &str,
     compito: &d::Compito,
     q: &dd::Domanda,
-) -> String {
+) -> (String, Option<String>) {
     let Some(p) = p else {
-        return format!("(nessuna risposta: il progetto «{progetto}» non si legge)");
+        return (
+            format!("(nessuna risposta: il progetto «{progetto}» non si legge)"),
+            None,
+        );
     };
     let chi = match dd::chi(&q.a, chiede, &squadra(p)) {
         Ok(x) => x,
-        Err(e) => return format!("(nessuna risposta: {e})"),
+        Err(e) => return (format!("(nessuna risposta: {e})"), None),
     };
     if let dd::Chi::Collega(n) = &chi {
-        return chiedi_al_collega(server, c, p, progetto, chiede, compito, n, q).await;
+        return (
+            chiedi_al_collega(server, c, p, progetto, chiede, compito, n, q).await,
+            None,
+        );
     }
     if chi == dd::Chi::Utente {
         return chiedi_all_utente(server, c, progetto, chiede, compito, q).await;
@@ -591,7 +623,7 @@ async fn rispondi(
             let _ = x.spedito(per, chiede, &r, &dopo_di(&quando).await);
         }
     }
-    r
+    (r, None)
 }
 
 /// Quanto si aspetta la risposta dell'utente, di serie (D427): l'attesa
@@ -600,7 +632,8 @@ pub const SECONDI_PER_L_UTENTE: u64 = crate::dot::ATTESA_MASSIMA_S as u64;
 
 /// Chiede all'utente, tramite Nova, e aspetta la sua risposta (D427). Il 15
 /// ottobre i Dot di S0ex1 avevano bisogno di una decisione di Gio, e non
-/// avevano modo di chiedergliela: la fase e' fallita tre volte.
+/// avevano modo di chiedergliela: la fase e' fallita tre volte. Torna il
+/// testo per il Dot e, se l'utente ha risposto, la sua risposta (D429).
 async fn chiedi_all_utente(
     server: &Arc<Server>,
     c: &d::Cartella,
@@ -608,7 +641,7 @@ async fn chiedi_all_utente(
     chiede: &str,
     compito: &d::Compito,
     q: &dd::Domanda,
-) -> String {
+) -> (String, Option<String>) {
     let secondi = secondi_da_configurazione("secondi_per_l_utente", SECONDI_PER_L_UTENTE);
     let incarico = pr::progetto_dal_testo(&compito.testo)
         .map(|(_, i)| i)
@@ -622,7 +655,10 @@ async fn chiedi_all_utente(
         if let Ok(mut m) = server.dots.per_l_utente.lock() {
             m.remove(chiede);
         }
-        return format!("(nessuna risposta: la domanda non arriva all'utente: {e})");
+        return (
+            format!("(nessuna risposta: la domanda non arriva all'utente: {e})"),
+            None,
+        );
     }
     diario(
         c,
@@ -639,7 +675,7 @@ async fn chiedi_all_utente(
     match tokio::time::timeout(Duration::from_secs(secondi), rx).await {
         Ok(Ok(r)) => {
             diario(c, compito.id, json!({ "tipo": "dall_utente" }));
-            r
+            (r.clone(), Some(r))
         }
         _ => {
             if let Ok(mut m) = server.dots.per_l_utente.lock() {
@@ -650,7 +686,7 @@ async fn chiedi_all_utente(
                 compito.id,
                 json!({ "tipo": "dall_utente", "esito": "non_ha_risposto" }),
             );
-            dd::utente_non_ha_risposto(secondi.div_ceil(60))
+            (dd::utente_non_ha_risposto(secondi.div_ceil(60)), None)
         }
     }
 }

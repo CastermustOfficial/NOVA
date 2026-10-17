@@ -17,7 +17,8 @@ Il secondo passo di `docs/dots.md`. Un Dot col mestiere di ricercatore:
   del compito, e ci scrive il rapporto: una fonte salvata li' e' «salvata»,
   non «da verificare»;
 - in un compito di un progetto (D419) un passo puo' chiedere al legale, e
-  riprende con la risposta.
+  riprende con la risposta;
+- la risposta dell'utente a un passo arriva anche ai passi dopo (D429).
 
 I cervelli sono finti: un server compatibile OpenAI con due modelli,
 «piccolo» e «grande», che risponde secondo il modello e la domanda, e si
@@ -77,6 +78,8 @@ fonti.write_text("Le supernove di tipo Ia: https://esempio.org/supernove\n", enc
 arrivate: list[tuple[str, str, str]] = []
 #: Le domande del custode al modello di casa (D384).
 permessi: list[str] = []
+# Le richieste del passo dopo la risposta dell'utente (sezione 11).
+dopo_la_risposta: list[str] = []
 
 PIANO_SUPERNOVE = {"passi": [
     {"tipo": "cerca", "cosa": "trova le fonti sulle supernove", "cervello": "piccolo"},
@@ -168,6 +171,22 @@ class Cervello(BaseHTTPRequestHandler):
         # Le domande dei Dot mentre lavorano (D419), nella sezione 10.
         if intera.startswith("[domanda di un Dot] Sei il legale"):
             testo(self, "ESITO: problemi\nSolo brevi estratti, col diritto di citazione.")
+            return
+        # Le risposte dell'utente nei passi dopo (D429), nella sezione 11.
+        if intera.startswith("Le risposte alle tue domande:") and "«approvi la proposta?»" in intera:
+            testo(self, "La proposta e' pronta, e l'utente ha risposto.")
+            return
+        if genere == "piano" and "la decisione dell'utente" in domanda:
+            testo(self, json.dumps({"passi": [
+                {"tipo": "scrivi", "cosa": "chiedi all'utente se approva la proposta", "cervello": "grande"},
+                {"tipo": "scrivi", "cosa": "registra la decisione dell'utente", "cervello": "grande"}]}))
+            return
+        if genere == "passo 1" and "chiedi all'utente se approva" in domanda:
+            testo(self, "CHIEDO A utente: approvi la proposta?")
+            return
+        if genere == "passo 2" and "registra la decisione dell'utente" in domanda:
+            dopo_la_risposta.append(intera)
+            testo(self, "# La decisione\n\nApprovata.\n\n## Fonti\n")
             return
         if intera.startswith("Le risposte alle tue domande:"):
             testo(self, "# Il parere sulle citazioni\n\nSolo brevi estratti.\n\n## Fonti\n")
@@ -578,6 +597,27 @@ try:
     controlla("e la domanda resta nel diario del progetto",
               [(d["da"], d["a"], d["incarico"]) for d in domande] == [("ricercatore", "legale", "1.5")],
               str(domande)[:300])
+
+    print("\n11. la risposta dell'utente arriva anche ai passi dopo (D429)")
+    # Il 17 ottobre il passo dopo quello che aveva avuto la risposta di Gio
+    # gliel'ha richiesta: nella conversazione tagliata non c'era piu'.
+    id7 = rpc("dot/affida", nome="ricercatore",
+              testo="Progetto «r», fase 1 «Fonti» (consegna: un rapporto). Compito 1.6 del piano:\n"
+                    "la decisione dell'utente")["id"]
+    fine = time.time() + 60
+    while time.time() < fine and not any(r.get("tipo") == "all_utente" and r.get("compito") == id7
+                                         for r in righe(DOT / "diario.jsonl")):
+        time.sleep(0.2)
+    r = rpc("capabilities/call", name="dot.scrivi", args={"a": "ricercatore", "testo": "Si', approvo."})
+    controlla("la domanda e' arrivata all'utente, e la risposta al passo",
+              r.get("consegnato") is True and "aspettava" in r.get("nota", ""), str(r))
+    c = aspetta(id7)
+    controlla("il compito e' fatto", c.get("stato") == "fatto", str(c)[:300])
+    controlla("il passo dopo riceve la risposta dell'utente",
+              len(dopo_la_risposta) == 1
+              and "\n\nL'utente ha gia' risposto, in questo compito. Le sue risposte valgono: non "
+                  "richiedergliele.\n- Alla domanda «approvi la proposta?» ha risposto: «Si', approvo.»"
+              in dopo_la_risposta[0], str(dopo_la_risposta)[-500:])
 finally:
     if processo.poll() is None:
         processo.kill()

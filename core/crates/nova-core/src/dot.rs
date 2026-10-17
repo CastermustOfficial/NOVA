@@ -620,6 +620,28 @@ fn metti_in_coda(
     Ok(id)
 }
 
+/// Se un Dot sta aspettando la risposta dell'utente a una sua domanda
+/// (D429): la sua scheda nell'harness lo dice.
+pub fn aspetta_l_utente(server: &Arc<Server>, nome: &str) -> bool {
+    server
+        .dots
+        .per_l_utente
+        .lock()
+        .is_ok_and(|m| m.contains_key(nome.trim()))
+}
+
+/// Da' a un Dot che la aspetta la risposta dell'utente (D427), nel compito
+/// che la aspetta. `false` se non ne aspetta nessuna.
+pub(crate) fn consegna_la_risposta(server: &Arc<Server>, nome: &str, testo: &str) -> bool {
+    let aspetta = server
+        .dots
+        .per_l_utente
+        .lock()
+        .ok()
+        .and_then(|mut m| m.remove(nome.trim()));
+    aspetta.is_some_and(|tx| tx.send(testo.trim().to_string()).is_ok())
+}
+
 /// Chi e' un Dot e com'e' la sua coda.
 pub fn stato(server: &Arc<Server>, nome: &str) -> Result<Value, String> {
     let c = cartella(nome)?;
@@ -721,23 +743,13 @@ pub fn scrivi(server: &Arc<Server>, da: &str, a: &str, testo: &str) -> Result<Va
             }
             // La risposta dell'utente a una sua domanda (D427): gli arriva
             // subito, nel compito che la aspetta, e non anche nella posta.
-            if da == d::DA_NOVA {
-                let aspetta = server
-                    .dots
-                    .per_l_utente
-                    .lock()
-                    .ok()
-                    .and_then(|mut m| m.remove(&nome));
-                if let Some(tx) = aspetta {
-                    if tx.send(testo.trim().to_string()).is_ok() {
-                        evento(&nome);
-                        return Ok(json!({
-                            "a": nome,
-                            "consegnato": true,
-                            "nota": "era la risposta che aspettava: continua il compito"
-                        }));
-                    }
-                }
+            if da == d::DA_NOVA && consegna_la_risposta(server, &nome, testo) {
+                evento(&nome);
+                return Ok(json!({
+                    "a": nome,
+                    "consegnato": true,
+                    "nota": "era la risposta che aspettava: continua il compito"
+                }));
             }
             let n = c.imbuca(da, &nome, testo.trim(), &quando)?;
             evento(&nome);
@@ -991,6 +1003,8 @@ pub fn vista(server: &Arc<Server>) -> Value {
                 "in_coda": coda.iter().filter(|x| x.stato == d::Stato::Affidato).count(),
                 "fatti": coda.iter().filter(|x| x.stato == d::Stato::Fatto).count(),
                 "posta_da_leggere": c.non_letta().len(),
+                // Aspetta la risposta dell'utente a una sua domanda (D429).
+                "aspetta_te": aspetta_l_utente(server, &n),
             }))
         })
         .collect();
@@ -1174,6 +1188,9 @@ pub fn scheda(server: &Arc<Server>, nome: &str) -> Result<Value, String> {
         "inviati": c.inviati(),
         "passi": c.passi(),
         "file": d::vista::riassumi(&tocchi),
+        // Aspetta la risposta dell'utente a una sua domanda (D429): la
+        // scheda lo dice, e il bottone principale diventa il messaggio.
+        "aspetta_te": aspetta_l_utente(server, &dot.nome),
     }))
 }
 

@@ -191,6 +191,7 @@ const STILE = `
 .dot-scrivi textarea:focus{border-color:rgba(232,115,74,.55)}
 .dot-scrivi .fila{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .dot-scrivi .fila span{color:var(--fioco);font-size:11.5px;flex:1 1 auto;min-width:0}
+.dot-scrivi .aspetta{font-size:12px;color:var(--brace);background:var(--brace-08);border:1px solid rgba(232,115,74,.25);border-radius:8px;padding:6px 10px}
 
 .dot-schema{flex:1;overflow:auto;padding:22px 24px 40px;min-height:0}
 .dot-schema h3{font:10.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--fioco);margin:26px 0 10px}
@@ -635,10 +636,11 @@ export function avviaDot(h) {
     </div>${aParte
       ? `<div class="dot-scrivi"><div class="fila"><span>${esc(T(aParte))}</span></div></div>`
       : `<div class="dot-scrivi">
+        ${x.aspetta_te ? `<div class="aspetta">${esc(T('Aspetta la tua risposta a una sua domanda: scrivila qui e mandala come messaggio.'))}</div>` : ''}
         <textarea placeholder="${esc(T('Scrivi a') + ' ' + d.nome + '…')}">${esc(s.bozza || '')}</textarea>
         <div class="fila"><span>${esc(T('Un messaggio lo legge al prossimo compito. Un compito va in coda e lo fa da solo.'))}</span>
-          <button class="dot-btn" data-manda="messaggio">${esc(T('Manda come messaggio'))}</button>
-          <button class="dot-btn primo" data-manda="compito">${esc(T('Affida come compito'))}</button></div>
+          <button class="dot-btn${x.aspetta_te ? ' primo' : ''}" data-manda="messaggio">${esc(T('Manda come messaggio'))}</button>
+          <button class="dot-btn${x.aspetta_te ? '' : ' primo'}" data-manda="compito">${esc(T('Affida come compito'))}</button></div>
       </div>`}`;
   }
 
@@ -817,7 +819,10 @@ export function avviaDot(h) {
       try {
         if (b.dataset.manda === 'compito') {
           const r = await chiama('dot.affida', { nome: s.chi, compito: testo });
-          messaggio(`${T('Affidato a')} ${s.chi}: ${T('compito')} n.${r.compito}`, 5000);
+          // Se aspettava la tua risposta, quello che hai scritto e' la
+          // risposta, non un compito in coda (D429).
+          messaggio(r.risposta ? T('Era la risposta che aspettava: il compito continua.')
+            : `${T('Affidato a')} ${s.chi}: ${T('compito')} n.${r.compito}`, 5000);
         } else {
           await chiama('dot.scrivi', { a: s.cosa === 'gruppo' ? `gruppo:${s.chi}` : s.chi, testo });
           // Una chat a piu' voci nata adesso entra nella lista col primo

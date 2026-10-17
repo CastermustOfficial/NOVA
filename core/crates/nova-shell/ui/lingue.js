@@ -557,6 +557,8 @@ export const LINGUE = {
     'Scrivi al gruppo': 'Write to the group',
     'Un messaggio lo legge al prossimo compito. Un compito va in coda e lo fa da solo.': 'A message is read at the next task. A task is queued and done on its own.',
     'Manda come messaggio': 'Send as a message',
+    'Aspetta la tua risposta a una sua domanda: scrivila qui e mandala come messaggio.': 'Waiting for your answer to one of its questions: write it here and send it as a message.',
+    'Era la risposta che aspettava: il compito continua.': 'It was the answer it was waiting for: the task goes on.',
     'Affida come compito': 'Hand over as a task',
     'nel gruppo': 'in the group',
     'Nova e tu': 'Nova and you',

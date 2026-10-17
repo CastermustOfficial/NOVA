@@ -1300,6 +1300,14 @@ domanda arriva da Nova (e a voce, se la voce e' accesa), e il compito
 aspetta la risposta, fino a sei ore; si risponde scrivendo a quel Dot, da
 Nova o dall'harness. Gli altri compiti intanto vanno avanti.
 
+**La risposta non si perde — fatto** (D429). Il 17 ottobre un passo dopo
+quello che aveva avuto la risposta di Gio gliel'ha richiesta, e la seconda
+risposta di Gio, scritta con «Affida come compito», e' finita in coda.
+Adesso le risposte dell'utente vanno a ogni passo dopo del compito, e una
+domanda gia' risposta non gli si rifa'; la scheda di un Dot che aspetta te
+lo dice, e il bottone principale diventa il messaggio; e un compito
+affidato a un Dot che aspetta te e' la risposta.
+
 | | Di serie | Si cambia con |
 |---|---|---|
 | **Dopo quanto CLM si spegne senza domande** | 10 minuti | `clm.spegni_dopo_s` |

@@ -3088,3 +3088,23 @@ sul Linux di sviluppo restano 2.023 token.
 La regola: la descrizione di uno strumento costa a ogni domanda, e si
 allunga solo se serve davvero; dopo averla cambiata si guarda la prova del
 contesto sui due sistemi.
+
+## La risposta che credevo restasse
+
+Col D427, il 16 ottobre, ho fatto arrivare la risposta dell'utente come
+seguito del turno del Dot, e ho dato per scontato che da li' restasse nella
+sua conversazione per tutto il compito. Non e' cosi': a una CLI vanno solo
+gli ultimi sei messaggi, e prima la conversazione si taglia sul contesto del
+modello di casa, per sempre. Il 17 ottobre il passo dopo di ricerca ha
+rifatto a Gio la stessa domanda, e Gio ha dovuto rispondere due volte. Me ne
+sono accorto supervisionando i Dot, dal loro diario. Corretto col D429: le
+risposte dell'utente stanno nel conto del compito, vanno a ogni passo dopo,
+e una domanda gia' risposta non gli si rifa'. Nella stessa prova, Gio ha
+risposto con il bottone principale della scheda, «Affida come compito», e
+la risposta e' finita in coda: il bottone l'avevo lasciato principale anche
+quando il Dot aspetta lui.
+
+La regola: quello che un Dot deve sapere per tutto il compito non si affida
+alla conversazione, che si taglia; si tiene a parte e si ripete a ogni
+passo. E una prova del D427 doveva guardare anche il passo dopo, non solo
+quello che ha chiesto.

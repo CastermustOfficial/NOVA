@@ -758,3 +758,26 @@ problema: la revisione chiude una fase intera, e il cervello che la fa
 decide se si va avanti. **Cosa costerebbe.** Prima una misura: il diario
 dei passi di 1.9, chi ha scelto il gradino e perche'; poi, se serve, un
 gradino minimo per le revisioni, come per le categorie che salgono.
+
+## Il taglio della conversazione per le CLI
+
+Nata col D429. **Cosa.** Tagliare la conversazione di un Dot che lavora con
+una CLI sul contesto della CLI, non su quello del modello di casa.
+**Perche'.** Prima di ogni turno a una CLI, NOVA taglia la conversazione
+salvata con il conto del modello di casa (circa 16.000 token meno gli
+schemi degli strumenti, che a una CLI non vanno), e il taglio resta: i
+messaggi tolti spariscono anche dal disco. Alla CLI poi vanno comunque solo
+gli ultimi 6 messaggi. Il 17 ottobre la risposta di Gio a ricerca e' sparita
+cosi'; il D429 la porta a ogni passo, ma il resto della conversazione si
+perde allo stesso modo. **Cosa costerebbe.** Un tetto per ogni gradino in
+`MondoVero::taglia`, e una misura di quanto contesto hanno davvero le CLI
+che NOVA usa.
+
+## Togliere un compito in coda
+
+Nata col D429. **Cosa.** Un modo, dall'harness e da Nova, di togliere un
+compito affidato che non e' ancora cominciato. **Perche'.** Il 17 ottobre la
+risposta di Gio a ricerca e' diventata il compito 11, e non si poteva
+togliere: `dot.ferma` ferma solo quello in corso. **Cosa costerebbe.** Uno
+stato in piu' per i compiti, una capacita' solo della persona, e il bottone
+nella scheda.

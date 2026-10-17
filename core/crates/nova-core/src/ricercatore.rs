@@ -216,6 +216,10 @@ impl Lavoro<'_> {
         if let Some(dove) = &self.cartella {
             testo.push_str(&r::regola_delle_fonti(dove));
         }
+        // Le risposte dell'utente gia' avute nel compito (D429): il 17
+        // ottobre il passo dopo quello che le aveva avute le ha richieste,
+        // perche' nella conversazione tagliata non c'erano piu'.
+        testo.push_str(&d::domande::risposte_dell_utente(&self.domande.dall_utente));
         let mut dove = cervello.to_string();
         let mut secondi = 0.0;
         let mut strumenti: Vec<String> = Vec::new();

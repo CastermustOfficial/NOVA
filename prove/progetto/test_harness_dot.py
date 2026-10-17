@@ -13,6 +13,8 @@ pagina senza accenderla:
   domanda a NOVA;
 - nei passi di un compito si vedono le domande dei Dot e del capo, con la
   risposta (D419);
+- un Dot che aspetta la tua risposta: la scheda lo dice, e il bottone
+  principale diventa il messaggio (D429);
 - ogni frase ha la sua traduzione.
 """
 import re
@@ -105,6 +107,25 @@ controlla("l'attesa della scheda video dice anche i PID (D425)",
 controlla("la domanda si vede con la risposta",
           "${T('chiede a')} ${p.a}: «${p.domanda}» → ${p.risposta || ''}" in passi
           and "${T('il capo chiede')}: «${p.domanda}» → ${p.risposta || ''}" in passi)
+
+print("\n4c. un Dot che aspetta la tua risposta: la scheda lo dice, e il messaggio e' il bottone principale (D429)")
+# Il 17 ottobre Gio ha risposto a ricerca con «Affida come compito», che era
+# il bottone principale (e Ctrl+Invio): la risposta e' finita in coda dietro
+# al compito che la aspettava.
+pagina = DOT.split("function paginaDot(s) {")[1].split("\n  }\n")[0]
+controlla("la scheda dice che aspetta la tua risposta",
+          "${x.aspetta_te ? `<div class=\"aspetta\">${esc(T('Aspetta la tua risposta a una sua domanda: "
+          "scrivila qui e mandala come messaggio.'))}</div>` : ''}" in pagina)
+controlla("e allora il principale e' «Manda come messaggio», non «Affida come compito»",
+          '<button class="dot-btn${x.aspetta_te ? \' primo\' : \'\'}" data-manda="messaggio">' in pagina
+          and '<button class="dot-btn${x.aspetta_te ? \'\' : \' primo\'}" data-manda="compito">' in pagina
+          and 'data-manda="compito">' in pagina and 'class="dot-btn primo" data-manda="compito"' not in pagina)
+controlla("Ctrl+Invio preme il principale", "el.querySelector('[data-manda].primo')?.click()" in DOT)
+controlla("un affida che era la risposta lo dice",
+          "messaggio(r.risposta ? T('Era la risposta che aspettava: il compito continua.')" in DOT)
+DOT_CORE = (CORE / "dot.rs").read_text(encoding="utf-8")
+controlla("il demone lo dice nella scheda e nella vista",
+          DOT_CORE.count('"aspetta_te": aspetta_l_utente(server, ') == 2)
 
 print("\n5. ogni frase ha la sua traduzione")
 frasi = {m.group(2) for m in re.finditer(r"""\bT\((['"])(.+?)\1\)""", DOT)}

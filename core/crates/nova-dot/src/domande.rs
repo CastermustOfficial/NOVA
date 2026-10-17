@@ -437,6 +437,58 @@ pub fn utente_non_ha_risposto(minuti: u64) -> String {
     )
 }
 
+/// Se due domande all'utente sono la stessa (D429): uguali a meno di
+/// maiuscole, spazi e punteggiatura in fondo. Il 17 ottobre il Dot di
+/// ricerca ha rifatto a Gio, parola per parola, una domanda a cui Gio aveva
+/// risposto diciannove minuti prima, nello stesso compito.
+pub fn stessa_domanda(a: &str, b: &str) -> bool {
+    let pulita = |t: &str| {
+        t.split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .trim_end_matches(|c: char| c.is_ascii_punctuation() || c.is_whitespace())
+            .to_lowercase()
+    };
+    let (a, b) = (pulita(a), pulita(b));
+    !a.is_empty() && a == b
+}
+
+/// Quello che torna a un Dot che richiede all'utente una domanda a cui ha
+/// gia' risposto nel compito (D429): la risposta di prima, e l'utente non
+/// lo si disturba di nuovo.
+pub fn gia_risposta(risposta: &str) -> String {
+    format!(
+        "(L'utente ti ha gia' risposto a questa domanda, in questo compito. La sua risposta era: \
+         «{}». Non richiederla: vai avanti con questa.)",
+        tagliato(risposta, RISPOSTA_AL_DOT)
+    )
+}
+
+/// Quante lettere di una domanda all'utente si ripetono nei passi dopo.
+pub const DOMANDA_RICORDATA: usize = 600;
+
+/// Le risposte dell'utente gia' avute nel compito, in coda alla richiesta
+/// di ogni passo (D429): la conversazione si taglia su quel che resta del
+/// contesto, e un passo dopo non deve doverle ritrovare li'. Vuoto se non
+/// ce ne sono.
+pub fn risposte_dell_utente(r: &[(String, String)]) -> String {
+    if r.is_empty() {
+        return String::new();
+    }
+    let mut t = String::from(
+        "\n\nL'utente ha gia' risposto, in questo compito. Le sue risposte valgono: non \
+         richiedergliele.",
+    );
+    for (domanda, risposta) in r {
+        t.push_str(&format!(
+            "\n- Alla domanda «{}» ha risposto: «{}»",
+            tagliato(domanda, DOMANDA_RICORDATA).replace('\n', " "),
+            tagliato(risposta, RISPOSTA_AL_DOT).replace('\n', "\n  ")
+        ));
+    }
+    t
+}
+
 /// Quando un Dot ha risposto ai colleghi e basta, senza andare avanti: si
 /// continua (D421).
 pub const HAI_RISPOSTO: &str = "Hai risposto ai colleghi. Adesso continua il tuo compito.";
@@ -889,6 +941,37 @@ mod prove {
         assert!(utente_non_ha_risposto(360).starts_with("(L'utente non ha risposto entro 6 ore."));
         assert!(utente_non_ha_risposto(1).contains("entro 1 minuto."));
         assert!(utente_non_ha_risposto(90).contains("entro 90 minuti."));
+    }
+
+    /// Il 17 ottobre ricerca ha rifatto a Gio la stessa domanda nello stesso
+    /// compito (D429): la seconda volta torna la risposta di prima.
+    #[test]
+    fn la_stessa_domanda_all_utente_non_si_rifa() {
+        assert!(stessa_domanda(
+            "Valutare la proposta  e indicare\nla decisione:",
+            "valutare la proposta e indicare la decisione"
+        ));
+        assert!(!stessa_domanda("approvi F1?", "approvi F2?"));
+        assert!(!stessa_domanda("", "  "));
+        let g = gia_risposta(" 1 ok, 2 non escludo, 3 ok ");
+        assert_eq!(
+            g,
+            "(L'utente ti ha gia' risposto a questa domanda, in questo compito. La sua risposta \
+             era: «1 ok, 2 non escludo, 3 ok». Non richiederla: vai avanti con questa.)"
+        );
+        assert_eq!(risposte_dell_utente(&[]), "");
+        let r = risposte_dell_utente(&[
+            ("approvi\nla proposta?".into(), "si'".into()),
+            ("e le immagini?".into(), "si misurano\nprima".into()),
+        ]);
+        assert_eq!(
+            r,
+            "\n\nL'utente ha gia' risposto, in questo compito. Le sue risposte valgono: non \
+             richiedergliele.\n- Alla domanda «approvi la proposta?» ha risposto: «si'»\n- Alla \
+             domanda «e le immagini?» ha risposto: «si misurano\n  prima»"
+        );
+        let lunga = "x".repeat(DOMANDA_RICORDATA + 50);
+        assert!(risposte_dell_utente(&[(lunga, "ok".into())]).contains("… (tagliato)"));
     }
 
     #[test]
