@@ -277,6 +277,11 @@ else:
     GIOCO = casa / "giocofinto"
     argomenti = ["120"]
 shutil.copy(origine, GIOCO)
+if os.name != "nt" and subprocess.run([str(GIOCO), "0"], capture_output=True).returncode != 0:
+    # Dove `sleep` e' il programma unico di uutils (Ubuntu 26), la copia col
+    # nome nuovo non sa quale strumento e', e vuole il nome come primo
+    # argomento: «giocofinto 120» esce subito, «giocofinto sleep 120» dorme.
+    argomenti = ["sleep", "120"]
 
 endpoint = ("\\\\.\\pipe\\" + f"nova-conversazioni-{os.getpid()}" if os.name == "nt"
             else str(casa / "nova.sock"))

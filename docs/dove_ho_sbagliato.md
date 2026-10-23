@@ -3169,3 +3169,23 @@ La regola: NOVA, e ogni programma che scrive in `%APPDATA%`, si apre solo
 con `nova_ctl.ps1` o `Win32_Process.Create`, mai con `Start-Process` dalla
 PowerShell dell'app di Claude. E un file che NOVA non trova si guarda da un
 processo fuori dal pacchetto, prima di credere a quello che vedo io.
+
+## Credevo che una copia di `sleep` dormisse con qualunque nome
+
+Per avere un processo con un nome che non ha nessun altro, due prove del
+demone copiano `sleep` e lo chiamano `giocofinto` o `novabersaglio`
+(`test_demone_conversazioni.py` dal D423, `test_demone_app.py`). Sul
+runner `ubuntu-latest`, che dal 19 ottobre passa a Ubuntu 26, `sleep` e'
+il programma unico di uutils: chiamato con un nome che non conosce, prende
+il primo argomento come nome dello strumento, scrive «120:
+function/utility not found» ed esce. La CI del D432 (`a80f685`) e'
+caduta nei gemelli, sei controlli che col D432 non c'entrano: i processi
+che dovevano restare accesi non c'erano. Me ne sono accorto dalle
+annotazioni della CI, e l'ho rifatto qui installando `rust-coreutils`: con
+`sleep` di uutils le stesse sei righe rosse, con la correzione verdi.
+Adesso le due prove provano la copia con `0`, e se non esce bene la
+lanciano con `sleep` come primo argomento.
+
+La regola: un programma di sistema copiato con un altro nome non e' detto
+che resti lo stesso programma; prima di usarlo in una prova si guarda che
+faccia quello che serve.

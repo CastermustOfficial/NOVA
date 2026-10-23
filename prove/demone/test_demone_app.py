@@ -154,7 +154,12 @@ try:
         copia = Path(casa) / "novabersaglio"
         shutil.copy(shutil.which("sleep"), copia)
         copia.chmod(0o755)
-        bersaglio = subprocess.Popen([str(copia), "120"])
+        # Dove `sleep` e' il programma unico di uutils (Ubuntu 26), la copia
+        # col nome nuovo vuole il nome dello strumento come primo argomento.
+        dorme = ["120"]
+        if subprocess.run([str(copia), "0"], capture_output=True).returncode != 0:
+            dorme = ["sleep", "120"]
+        bersaglio = subprocess.Popen([str(copia), *dorme])
         time.sleep(0.5)
         with CoreClient(endpoint, timeout=30) as c:
             chi, g_chi = esito(c, "app.chiudi", {"name": "novabersaglio", "prova": True})
