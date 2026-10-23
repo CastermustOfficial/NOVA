@@ -271,17 +271,21 @@ def compito(incarico, cosa):
 if os.name == "nt":
     origine = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "ping.exe"
     GIOCO = casa / "giocofinto.exe"
-    argomenti = ["-n", "120", "127.0.0.1"]
+    COMANDO = [str(GIOCO), "-n", "120", "127.0.0.1"]
 else:
-    origine = Path(shutil.which("sleep") or "/bin/sleep")
+    # Una copia di bash che aspetta una riga che non arriva. Non una copia
+    # di `sleep`: dove e' il programma unico di uutils (Ubuntu 26), col nome
+    # nuovo non sa quale strumento e', ed esce subito.
+    origine = Path(shutil.which("bash") or "/bin/bash")
     GIOCO = casa / "giocofinto"
-    argomenti = ["120"]
+    COMANDO = [str(GIOCO), "-c", "read -t 120"]
 shutil.copy(origine, GIOCO)
-if os.name != "nt" and subprocess.run([str(GIOCO), "0"], capture_output=True).returncode != 0:
-    # Dove `sleep` e' il programma unico di uutils (Ubuntu 26), la copia col
-    # nome nuovo non sa quale strumento e', e vuole il nome come primo
-    # argomento: «giocofinto 120» esce subito, «giocofinto sleep 120» dorme.
-    argomenti = ["sleep", "120"]
+
+
+def accendi_il_gioco():
+    return subprocess.Popen(COMANDO, stdin=subprocess.PIPE,
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
 
 endpoint = ("\\\\.\\pipe\\" + f"nova-conversazioni-{os.getpid()}" if os.name == "nt"
             else str(casa / "nova.sock"))
@@ -397,7 +401,7 @@ try:
               not any("hai finito?" in q for q in di("altro")), str(di("altro"))[-300:])
 
     print("\n3. la scheda video occupata: si aspetta che il programma si chiuda (D423)")
-    gioco = subprocess.Popen([str(GIOCO), *argomenti], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    gioco = accendi_il_gioco()
     time.sleep(0.5)
     id3 = capacita("dot.affida", nome="dati", compito=compito("3.1", "misura col gioco"))["compito"]
     fine = time.time() + 30
@@ -420,8 +424,8 @@ try:
     print("\n4. col PID si aspetta proprio quello; col solo nome, al massimo un tempo (D425)")
     # Il 15 ottobre un Dot ha scritto «python.exe», e altri quattro Python
     # accesi, che con la scheda non c'entravano, l'hanno fatto aspettare.
-    primo = subprocess.Popen([str(GIOCO), *argomenti], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    secondo = subprocess.Popen([str(GIOCO), *argomenti], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    primo = accendi_il_gioco()
+    secondo = accendi_il_gioco()
     altri += [primo, secondo]
     PID_DEL_GIOCO["n"] = primo.pid
     time.sleep(0.5)

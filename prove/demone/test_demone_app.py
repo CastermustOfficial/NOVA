@@ -146,20 +146,17 @@ try:
     controlla("e un testo vuoto non chiude niente",
               g_nulla is not None and "vuoto" in g_nulla, repr(g_nulla))
 
-    if os.name != "nt" and shutil.which("sleep"):
-        # Un processo con un nome che non ha nessun altro: una copia di
-        # `sleep` che si chiama come vogliamo noi. Chiudere per nome
-        # qualcosa che potrebbe avere un omonimo sulla macchina non e' una
-        # prova, e' un rischio.
+    if os.name != "nt" and shutil.which("bash"):
+        # Un processo con un nome che non ha nessun altro: una copia di bash
+        # che si chiama come vogliamo noi, e aspetta una riga che non
+        # arriva. Chiudere per nome qualcosa che potrebbe avere un omonimo
+        # sulla macchina non e' una prova, e' un rischio. Non una copia di
+        # `sleep`: dove e' il programma unico di uutils (Ubuntu 26), col
+        # nome nuovo non sa quale strumento e', ed esce subito.
         copia = Path(casa) / "novabersaglio"
-        shutil.copy(shutil.which("sleep"), copia)
+        shutil.copy(shutil.which("bash"), copia)
         copia.chmod(0o755)
-        # Dove `sleep` e' il programma unico di uutils (Ubuntu 26), la copia
-        # col nome nuovo vuole il nome dello strumento come primo argomento.
-        dorme = ["120"]
-        if subprocess.run([str(copia), "0"], capture_output=True).returncode != 0:
-            dorme = ["sleep", "120"]
-        bersaglio = subprocess.Popen([str(copia), *dorme])
+        bersaglio = subprocess.Popen([str(copia), "-c", "read -t 120"], stdin=subprocess.PIPE)
         time.sleep(0.5)
         with CoreClient(endpoint, timeout=30) as c:
             chi, g_chi = esito(c, "app.chiudi", {"name": "novabersaglio", "prova": True})

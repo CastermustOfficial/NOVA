@@ -3183,9 +3183,20 @@ caduta nei gemelli, sei controlli che col D432 non c'entrano: i processi
 che dovevano restare accesi non c'erano. Me ne sono accorto dalle
 annotazioni della CI, e l'ho rifatto qui installando `rust-coreutils`: con
 `sleep` di uutils le stesse sei righe rosse, con la correzione verdi.
-Adesso le due prove provano la copia con `0`, e se non esce bene la
-lanciano con `sleep` come primo argomento.
+Con `5c12480` le due prove provavano la copia con `0`, e se non usciva
+bene la lanciavano con `sleep` come primo argomento.
+
+Non bastava: la CI di `5c12480` e' caduta negli stessi sei controlli. Il
+`rust-coreutils` che avevo installato qui e' quello di Ubuntu 24.04, la
+0.0.24, che con un nome che non conosce prova il primo argomento; la 0.12,
+installata qui con `cargo install coreutils`, risponde «unknown program
+'giocofinto'» qualunque cosa le si passi, anche con `sleep` come nome
+nel comando. Con la 0.12 il codice di `5c12480` da' qui gli stessi rossi
+della CI. Adesso il processo con un nome nostro e' una copia di bash che
+aspetta una riga che non arriva (`read -t 120`), e con la 0.12 le due
+prove sono verdi.
 
 La regola: un programma di sistema copiato con un altro nome non e' detto
 che resti lo stesso programma; prima di usarlo in una prova si guarda che
-faccia quello che serve.
+faccia quello che serve. E una correzione per un ambiente che non ho si
+prova con la versione di quell'ambiente, non con quella che ho sotto mano.
