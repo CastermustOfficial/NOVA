@@ -12062,3 +12062,23 @@ ricerca, prima di me.
 Quello che l'Architetto sapeva lo diceva in prosa, dove nessun programma lo
 legge. Adesso ha un segno, «(fatto)», come «(scheda video)», e il suo
 prompt dice cosa vuol dire (D431).
+
+## 23 ottobre 2026 — La ripartenza e la domanda citata
+
+Alla ripartenza di S0ex1, dopo cinque giorni di pausa, l'APM non vedeva il
+progetto: l'indice dei progetti, il registro delle decisioni e altri file
+erano nella copia di `%APPDATA%` che Windows tiene per l'app di Claude, da
+cui avevo aperto NOVA. L'errore e' mio, ed e' scritto in
+`dove_ho_sbagliato.md`. Con Gio li ho rimessi al loro posto, e alle 13:08
+NOVA e' ripartita col D431: il piano 31 ha rilanciato solo 2.19 e 2.20, le
+due ripetizioni di LLMZip fermate il 18 dalle partite e dallo spegnimento
+del PC, e tutte e due hanno consegnato senza disturbo.
+
+Poi ricerca, rifacendo la proposta delle famiglie, ha chiesto a Gio di
+approvarle, e Gio ha approvato: si esplora, non si scartano idee che possono
+funzionare. Nel rapporto, per documentare la domanda, ricerca l'ha citata
+con la sua riga `CHIEDO A utente:` fra apici, e NOVA l'ha letta come una
+domanda nuova, col rapporto attaccato sotto. Il Dot ha aspettato Gio di
+nuovo; gli ho ridato io la sua risposta, come lui ha voluto. Adesso una riga
+citata e' testo, e una domanda che comincia con una gia' risposta e' la
+stessa (D432).

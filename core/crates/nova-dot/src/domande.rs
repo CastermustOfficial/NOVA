@@ -80,15 +80,29 @@ pub struct Detto {
     pub resto: String,
 }
 
-/// La riga, senza quello che il Markdown ci mette intorno: `**`, un trattino
-/// d'elenco, una citazione.
+/// La riga, senza quello che il Markdown ci mette intorno: `**` e un
+/// trattino d'elenco. Una riga in una citazione non arriva qui ([`citata`]).
 fn pulita(riga: &str) -> String {
     riga.replace("**", "")
         .replace('`', "")
         .trim()
-        .trim_start_matches(['-', '*', '>'])
+        .trim_start_matches(['-', '*'])
         .trim()
         .to_string()
+}
+
+/// Se la riga cita una riga per NOVA invece di scriverla (D432): una
+/// citazione (`>`) o un segno fra apici inversi, anche dentro un elenco. Il
+/// 23 ottobre il Dot di ricerca, nel rapporto di 2.5, ha scritto come aveva
+/// chiesto a Gio: «> `CHIEDO A utente: per la Fase 3 propongo…`», con la
+/// risposta di Gio sotto. NOVA l'ha letta come una domanda nuova, con tutto
+/// il resto del rapporto attaccato, e il compito ha aspettato Gio di nuovo.
+/// Nelle conversazioni dei Dot di S0ex1 le 17 righe per NOVA vere sono
+/// tutte senza citazione e senza apici.
+fn citata(riga: &str) -> bool {
+    let r = riga.replace("**", "");
+    let r = r.trim_start().trim_start_matches(['-', '*']).trim_start();
+    r.starts_with('>') || r.starts_with('`')
 }
 
 /// Se la riga comincia con `segno` (maiuscole o no), quello che c'e' dopo.
@@ -146,7 +160,9 @@ fn alla_chat(p: &str) -> Option<String> {
 /// collega, `RISPONDO A <chi>:` (D421). Un messaggio alla chat e la riga
 /// della scheda video sono una riga sola. Prima della prima domanda o
 /// risposta, le righe dentro un blocco di codice non contano: una consegna
-/// che spiega il formato non e' una domanda.
+/// che spiega il formato non e' una domanda. E una riga che cita una riga
+/// per NOVA, in una citazione o fra apici inversi, non lo e' mai (D432,
+/// [`citata`]): e' testo, della domanda aperta o del resto.
 pub fn dividi(t: &str) -> Detto {
     let mut d = Detto::default();
     let mut resto = Vec::new();
@@ -170,7 +186,7 @@ pub fn dividi(t: &str) -> Detto {
     };
     for riga in t.lines() {
         let codice = riga.trim_start().starts_with("```");
-        if !in_codice {
+        if !in_codice && !citata(riga) {
             let p = pulita(riga);
             let nuova = apre(&p, CHIEDO)
                 .map(|x| (false, x))
@@ -437,11 +453,19 @@ pub fn utente_non_ha_risposto(minuti: u64) -> String {
     )
 }
 
-/// Se due domande all'utente sono la stessa (D429): uguali a meno di
-/// maiuscole, spazi e punteggiatura in fondo. Il 17 ottobre il Dot di
-/// ricerca ha rifatto a Gio, parola per parola, una domanda a cui Gio aveva
-/// risposto diciannove minuti prima, nello stesso compito.
-pub fn stessa_domanda(a: &str, b: &str) -> bool {
+/// Quanti caratteri deve avere una domanda gia' risposta perche' una
+/// domanda nuova che comincia con lei sia la stessa (D432): una domanda
+/// corta come «approvi?» puo' aprire una domanda diversa.
+pub const INIZIO_UGUALE: usize = 40;
+
+/// Se la domanda `nuova` all'utente e' la `prima`, a cui ha gia' risposto
+/// (D429): uguali a meno di maiuscole, spazi e punteggiatura in fondo. Il 17
+/// ottobre il Dot di ricerca ha rifatto a Gio, parola per parola, una
+/// domanda a cui Gio aveva risposto diciannove minuti prima, nello stesso
+/// compito. Dal D432 e' la stessa anche se la nuova comincia con la prima,
+/// lunga almeno [`INIZIO_UGUALE`] caratteri, e continua: il 23 ottobre la
+/// domanda di prima e' tornata con il resto del rapporto attaccato sotto.
+pub fn stessa_domanda(prima: &str, nuova: &str) -> bool {
     let pulita = |t: &str| {
         t.split_whitespace()
             .collect::<Vec<_>>()
@@ -449,8 +473,9 @@ pub fn stessa_domanda(a: &str, b: &str) -> bool {
             .trim_end_matches(|c: char| c.is_ascii_punctuation() || c.is_whitespace())
             .to_lowercase()
     };
-    let (a, b) = (pulita(a), pulita(b));
-    !a.is_empty() && a == b
+    let (prima, nuova) = (pulita(prima), pulita(nuova));
+    !prima.is_empty()
+        && (prima == nuova || (prima.chars().count() >= INIZIO_UGUALE && nuova.starts_with(&prima)))
 }
 
 /// Quello che torna a un Dot che richiede all'utente una domanda a cui ha
@@ -711,6 +736,44 @@ mod prove {
     }
 
     #[test]
+    fn una_riga_citata_non_e_per_nova() {
+        // D432: il 23 ottobre ricerca, nel rapporto, ha citato la domanda
+        // gia' fatta a Gio, e NOVA gliel'ha rifatta.
+        let t = "Consegna 2.5.\n\
+                 - Alla domanda fatta con la riga `CHIEDO A utente: ...` Gio ha risposto.\n\
+                 2. **La proposta:** e' stata chiesta con la riga:\n\
+                 \x20  > `CHIEDO A utente: per la Fase 3 propongo tre famiglie?`\n\
+                 3. **La risposta:** approva tutto.\n\
+                 > ALLA CHAT: citata\n\
+                 - `ASPETTO LA SCHEDA VIDEO: giocofinto (PID 7)`\n\
+                 **`RISPONDO A dati: citata`**\n\
+                 >CHIEDO A apm: anche senza spazio\n\
+                 Fine.";
+        let d = dividi(t);
+        assert!(d.domande.is_empty(), "{:?}", d.domande);
+        assert!(d.risposte.is_empty(), "{:?}", d.risposte);
+        assert!(d.alla_chat.is_empty(), "{:?}", d.alla_chat);
+        assert_eq!(d.scheda, None);
+        assert_eq!(d.resto, t, "la consegna resta intera");
+        // Dentro una domanda vera, una riga citata e' testo della domanda.
+        let d = dividi("CHIEDO A legale: questa clausola,\n> `ALLA CHAT: x`\nvale?\n- CHIEDO A apm: e il budget?");
+        assert_eq!(
+            d.domande,
+            vec![
+                Domanda {
+                    a: "legale".into(),
+                    testo: "questa clausola,\n> `ALLA CHAT: x`\nvale?".into()
+                },
+                Domanda {
+                    a: "apm".into(),
+                    testo: "e il budget?".into()
+                },
+            ]
+        );
+        assert!(d.alla_chat.is_empty());
+    }
+
+    #[test]
     fn una_domanda_continua_sulle_righe_sotto() {
         // D420: il 14 ottobre i termini mandati al legale su piu' righe sono
         // arrivati tagliati alla prima.
@@ -953,6 +1016,25 @@ mod prove {
         ));
         assert!(!stessa_domanda("approvi F1?", "approvi F2?"));
         assert!(!stessa_domanda("", "  "));
+        // D432: la domanda di prima, con il resto del rapporto attaccato.
+        let prima =
+            "per la Fase 3 propongo tre famiglie solo testuali; le approvi o le cambi, e perche'?";
+        assert!(stessa_domanda(
+            prima,
+            &format!(
+                "{}\n3. **Risposta:** Gio ha approvato.\n4. Il registro.",
+                prima.to_uppercase()
+            )
+        ));
+        assert!(
+            !stessa_domanda(&format!("{prima}\nE il corpus?"), prima),
+            "la nuova piu' corta non e' la stessa"
+        );
+        assert!(
+            !stessa_domanda("approvi?", "approvi? E il corpus di 1.4, lo tieni?"),
+            "sotto i caratteri di INIZIO_UGUALE si guarda solo l'uguale"
+        );
+        assert_eq!(INIZIO_UGUALE, 40);
         let g = gia_risposta(" 1 ok, 2 non escludo, 3 ok ");
         assert_eq!(
             g,

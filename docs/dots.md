@@ -1314,6 +1314,13 @@ domanda gia' risposta non gli si rifa'; la scheda di un Dot che aspetta te
 lo dice, e il bottone principale diventa il messaggio; e un compito
 affidato a un Dot che aspetta te e' la risposta.
 
+**Citare la domanda non e' rifarla — fatto** (D432). Il 23 ottobre ricerca,
+nel rapporto, ha scritto come aveva chiesto a Gio, citando la sua riga
+`CHIEDO A utente: ...` fra apici in una citazione, e NOVA gliel'ha rifatta,
+con il resto del rapporto attaccato sotto. Adesso una riga per NOVA in una
+citazione (`>`) o fra apici inversi e' testo, e una domanda che comincia
+con una gia' risposta e' la stessa.
+
 | | Di serie | Si cambia con |
 |---|---|---|
 | **Dopo quanto CLM si spegne senza domande** | 10 minuti | `clm.spegni_dopo_s` |

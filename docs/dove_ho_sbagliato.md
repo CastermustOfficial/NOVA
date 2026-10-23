@@ -3123,3 +3123,49 @@ dopo l'ho programmato alle 17:50.
 La regola: l'ora del controllo dopo si calcola dall'ora del sistema presa in
 quel momento, non da quella dell'ultimo controllo; e dopo averlo chiesto si
 guarda nella risposta dello strumento che sia programmato davvero.
+
+## Il controllo di quattro ore
+
+La notte fra il 17 e il 18 ottobre, fra il controllo di S0ex1 delle 21:12 e
+quello dopo sono passate quattro ore: il successivo e' arrivato all'01:22,
+invece che dopo i 45-60 minuti decisi con Gio. Il dettaglio di come e'
+successo non ce l'ho piu': quella parte della conversazione e' stata
+riassunta. So che e' lo stesso errore della voce sopra, il controllo dopo
+chiesto tardi, e me ne sono accorto rileggendo gli orari dei controlli.
+
+La regola, che si aggiunge a quella sopra: il controllo dopo si chiede per
+primo, appena comincia un controllo, non alla fine del lavoro che il
+controllo porta con se'.
+
+## I dati di NOVA nella copia dell'app di Claude, la seconda volta
+
+Il 23 ottobre, alla ripartenza di S0ex1, `dot.progetti` era vuoto e l'APM
+fermo: il file `%APPDATA%\NOVA\progetti.json` per NOVA non c'era. C'era
+solo nella copia privata che Windows tiene per l'app di Claude
+(`%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\NOVA`).
+La PowerShell con cui lavoro sul PC di sviluppo gira dentro il pacchetto
+dell'app di Claude, e per i processi del pacchetto Windows unisce
+`%APPDATA%` a quella copia. Quando ho aperto NOVA con `Start-Process` da
+li', NOVA e' rimasto dentro il pacchetto: a giudicare dalle date, i file
+gia' esistenti si scrivevano al loro posto, quelli nuovi o riscritti per
+intero finivano nella copia. Cosi' i diari dei Dot erano al posto giusto,
+ma `progetti.json`, `decisioni.jsonl`, `coperti.jsonl`,
+`non-segreti.json`, il `config.json` del 13 ottobre e 1525 file
+dell'harness no; i piu' vecchi della copia sono del 29 agosto. Il 18
+ottobre il PC si e' riacceso, NOVA e' ripartito fuori dal pacchetto e non
+li ha piu' visti. La regola la conoscevo gia', dalla voce «Leggevo una
+configurazione che NOVA non legge» del 10 ottobre, e `nova_ctl.ps1`,
+scritto quel giorno, apre NOVA con `Win32_Process.Create` proprio per
+questo; ma dopo, almeno dal 13 ottobre, NOVA e' girato di nuovo dentro il
+pacchetto: non l'avevo aperto con quello.
+
+Me ne sono accorto perche' `fs.read` di NOVA non trovava un file che la
+mia PowerShell vedeva. Corretto con Gio: NOVA chiuso, copia zip
+dell'`%APPDATA%\NOVA` vero, i file solo nella copia o piu' nuovi li' copiati
+al posto vero (tenendo i veri piu' nuovi, `modelli.json` e
+`harness\schede.json`), la copia rinominata `NOVA.msix-vecchio`.
+
+La regola: NOVA, e ogni programma che scrive in `%APPDATA%`, si apre solo
+con `nova_ctl.ps1` o `Win32_Process.Create`, mai con `Start-Process` dalla
+PowerShell dell'app di Claude. E un file che NOVA non trova si guarda da un
+processo fuori dal pacchetto, prima di credere a quello che vedo io.

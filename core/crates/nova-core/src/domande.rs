@@ -240,7 +240,8 @@ async fn domande(
     let mut risposte = Vec::new();
     for q in x.domande.iter().take(dd::DOMANDE_PER_GIRO) {
         // Una domanda all'utente a cui ha gia' risposto nel compito non gli
-        // si rifa' (D429): torna la sua risposta di prima.
+        // si rifa' (D429), neanche con altro attaccato sotto (D432): torna
+        // la sua risposta di prima.
         let prima = matches!(dd::chi(&q.a, nome, &[]), Ok(dd::Chi::Utente))
             .then(|| {
                 conto

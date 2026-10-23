@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""I Dot si parlano davvero, aspettano la scheda video libera e chiedono all'utente (D421, D423, D425, D427, D429).
+"""I Dot si parlano davvero, aspettano la scheda video libera e chiedono all'utente (D421, D423, D425, D427, D429, D432).
 
 Il 15 ottobre Gio ha visto che nella chat di S0ex1 nessuno parlava con
 nessuno: le domande finivano nel gruppo come un monologo, e a un collega
@@ -27,7 +27,11 @@ Si guarda che:
 6. mentre aspetta l'utente la sua scheda lo dice; un compito affidato
    intanto e' la risposta, e non va in coda; la stessa domanda rifatta nel
    compito non arriva di nuovo all'utente, e torna la sua risposta di prima
-   (D429).
+   (D429);
+7. una consegna che cita la domanda gia' fatta, in una citazione e fra
+   apici, e' la consegna, intera, e non una domanda nuova; e la domanda di
+   prima rifatta con altro attaccato sotto torna con la risposta di prima
+   (D432).
 
 Esce 2 — «qui non si puo' provare» — se il demone non e' costruito.
 """
@@ -123,6 +127,23 @@ class Cervello(BaseHTTPRequestHandler):
                   if m.get("role") == "user"), "")
         if q.startswith("[giudizio del capo]"):
             testo(self, "VOTO: 8\nPERCHE: va bene")
+        elif q.startswith("Le risposte alle tue domande:") and "«" + FAMIGLIE + "»" in q:
+            # Il 23 ottobre ricerca ha citato cosi', nel rapporto di 2.5, la
+            # domanda a cui Gio aveva gia' risposto.
+            nota("dati_cita", q)
+            testo(self, CITA)
+        elif q.startswith("Le risposte alle tue domande:") and "ti ha gia' risposto" in q and CORPUS.upper()[:30] in q:
+            nota("dati_corpus_gia", q)
+            testo(self, "Consegna 7.2: uso il corpus che ha detto l'utente.")
+        elif q.startswith("Le risposte alle tue domande:") and "«" + CORPUS + "»" in q:
+            nota("dati_corpus_risposto", q)
+            testo(self, f"Riprendo.\nCHIEDO A utente: {CORPUS.upper()}\n3. **Il registro:** l'ho aggiornato.")
+        elif "cita la domanda" in q and not q.startswith("Le risposte"):
+            nota("dati_famiglie", q)
+            testo(self, f"CHIEDO A utente: {FAMIGLIE}")
+        elif "riprendi la domanda" in q and not q.startswith("Le risposte"):
+            nota("dati_corpus", q)
+            testo(self, f"CHIEDO A utente: {CORPUS}")
         elif q.startswith("[domanda di un Dot] Sei «dati»"):
             nota("nova_per_dati", q)
             testo(self, "Dalle consegne di dati: il tokenizer e' quello di 1.6.")
@@ -200,6 +221,18 @@ class Cervello(BaseHTTPRequestHandler):
             nota("altro", q)
             testo(self, "Va bene.")
 
+
+#: Le domande all'utente della sezione 7, e la consegna che cita la prima.
+FAMIGLIE = "per la fase 3 propongo F1, F5-tab e F2-es: le approvi o le cambi, e perche'?"
+CORPUS = "quale corpus uso per la fase 3, quello di 1.4 o quello nuovo del 20 ottobre?"
+CITA = ("Consegna 7.1: le famiglie.\n"
+        "- Alla domanda fatta con la riga `CHIEDO A utente: ...` l'utente ha risposto.\n"
+        "2. **La proposta:** e' stata chiesta con la riga:\n"
+        f"   > `CHIEDO A utente: {FAMIGLIE}`\n"
+        "3. **La risposta:** approva tutto.\n"
+        "> ALLA CHAT: citata\n"
+        "- `ASPETTO LA SCHEDA VIDEO: giocofinto`\n"
+        "Fine.")
 
 cervello = ThreadingHTTPServer(("127.0.0.1", 0), Cervello)
 threading.Thread(target=cervello.serve_forever, daemon=True).start()
@@ -491,6 +524,44 @@ try:
                   for x in diario("dati")))
     controlla("e la scheda non aspetta piu'",
               capacita("dot.vista", nome="dati").get("aspetta_te") is False)
+
+    print("\n7. citare la domanda non e' rifarla (D432)")
+    # Il 23 ottobre ricerca ha scritto nel rapporto di 2.5 la domanda a cui
+    # Gio aveva gia' risposto, fra apici in una citazione, con la risposta
+    # sotto: NOVA gliel'ha rifatta, con il resto del rapporto attaccato.
+    id9 = capacita("dot.affida", nome="dati", compito=compito("7.1", "cita la domanda"))["compito"]
+    controlla("la domanda arriva",
+              aspetta_che_la(lambda: any(x.get("tipo") == "all_utente" and x.get("compito") == id9
+                                         for x in diario("dati"))))
+    r = capacita("dot.scrivi", a="dati", testo="Approvo tutto: si esplora.")
+    controlla("e la risposta va al compito", r.get("consegnato") is True, str(r))
+    c9 = aspetta("dati", id9, secondi=30)
+    controlla("la consegna che cita la domanda e' la consegna, intera",
+              c9.get("stato") == "fatto" and c9.get("esito", "") == CITA, str(c9)[:600])
+    controlla("all'utente la domanda e' arrivata una volta sola",
+              sum(1 for x in diario("dati") if x.get("tipo") == "all_utente" and x.get("compito") == id9) == 1
+              and sum(1 for m in righe(cartella_nova / "dots" / "dati" / "inviati.jsonl")
+                      if m.get("a") == "nova" and "propongo F1, F5-tab e F2-es" in m.get("testo", "")) == 1)
+    controlla("la riga citata della scheda video non fa aspettare, e quella della chat non va in chat",
+              not any(x.get("tipo") == "aspetta_scheda" and x.get("compito") == id9 for x in diario("dati"))
+              and not any("citata" in (m.get("testo") or "")
+                          for m in righe(cartella_nova / "dots" / "dati" / "inviati.jsonl")))
+    controlla("e la scheda non aspetta te",
+              capacita("dot.vista", nome="dati").get("aspetta_te") is False)
+    id10 = capacita("dot.affida", nome="dati", compito=compito("7.2", "riprendi la domanda"))["compito"]
+    controlla("una seconda domanda arriva",
+              aspetta_che_la(lambda: any(x.get("tipo") == "all_utente" and x.get("compito") == id10
+                                         for x in diario("dati"))))
+    capacita("dot.scrivi", a="dati", testo="Quello di 1.4.")
+    c10 = aspetta("dati", id10, secondi=30)
+    g = (di("dati_corpus_gia") or [""])[0]
+    controlla("rifatta con altro attaccato sotto, torna con la risposta di prima",
+              c10.get("stato") == "fatto" and c10.get("esito", "").startswith("Consegna 7.2")
+              and "La sua risposta era: «Quello di 1.4.». Non richiederla" in g, f"{c10} {g[-300:]}"[:600])
+    controlla("e all'utente e' arrivata una volta sola",
+              sum(1 for x in diario("dati") if x.get("tipo") == "all_utente" and x.get("compito") == id10) == 1
+              and any(x.get("tipo") == "domanda" and x.get("compito") == id10 and x.get("gia_risposta") is True
+                      for x in diario("dati")))
 finally:
     if gioco is not None and gioco.poll() is None:
         gioco.kill()
