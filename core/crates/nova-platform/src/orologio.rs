@@ -33,7 +33,42 @@ pub fn fuso_secondi(istante: i64) -> i64 {
 }
 
 #[cfg(windows)]
-pub fn fuso_secondi(_istante: i64) -> i64 {
+pub fn fuso_secondi(istante: i64) -> i64 {
+    use windows::Win32::Foundation::{FILETIME, SYSTEMTIME};
+    use windows::Win32::System::Time::{
+        FileTimeToSystemTime, SystemTimeToFileTime, SystemTimeToTzSpecificLocalTime,
+    };
+
+    // Il fuso **di quell'istante**, come `localtime_r` (D434): si porta
+    // l'istante sull'ora locale con le regole dell'ora legale del suo anno, e
+    // la differenza e' il fuso. Fino al D434 qui si guardava solo il fuso di
+    // adesso, e il 24 ottobre, il giorno prima del ritorno all'ora solare,
+    // l'automazione «ogni mattina» di domani cadeva alle 7 invece che alle 8.
+    const DAL_1601: i64 = 11_644_473_600;
+    const PER_SECONDO: i64 = 10_000_000;
+    let utc_100ns = (istante + DAL_1601) * PER_SECONDO;
+    let ft = FILETIME {
+        dwLowDateTime: utc_100ns as u32,
+        dwHighDateTime: (utc_100ns >> 32) as u32,
+    };
+    let mut utc = SYSTEMTIME::default();
+    let mut locale = SYSTEMTIME::default();
+    let mut fl = FILETIME::default();
+    let ok = unsafe {
+        FileTimeToSystemTime(&ft, &mut utc).is_ok()
+            && SystemTimeToTzSpecificLocalTime(None, &utc, &mut locale).is_ok()
+            && SystemTimeToFileTime(&locale, &mut fl).is_ok()
+    };
+    if !ok {
+        return fuso_di_adesso();
+    }
+    let locale_100ns = ((fl.dwHighDateTime as i64) << 32) | fl.dwLowDateTime as i64;
+    (locale_100ns - utc_100ns) / PER_SECONDO
+}
+
+/// Il fuso di adesso, se l'istante non si sa convertire.
+#[cfg(windows)]
+fn fuso_di_adesso() -> i64 {
     use windows::Win32::System::Time::{GetTimeZoneInformation, TIME_ZONE_INFORMATION};
 
     /// Quel che risponde `GetTimeZoneInformation` quando e' in vigore l'ora
@@ -79,6 +114,36 @@ mod prove {
             "fuso fuori dal mondo: {f}"
         );
         assert_eq!(f % 900, 0, "un fuso non e' mai spezzato cosi': {f}");
+    }
+
+    #[test]
+    fn il_fuso_e_quello_di_quel_giorno() {
+        // D434: d'inverno e d'estate il fuso di ogni istante e' un fuso vero;
+        // dove c'e' l'ora legale, i due differiscono di quella, anche se
+        // adesso e' l'altra stagione.
+        let gennaio = 1_768_478_400; // 15/01/2026 12:00 UTC
+        let luglio = 1_784_116_800; // 15/07/2026 12:00 UTC
+        for t in [gennaio, luglio] {
+            let f = fuso_secondi(t);
+            assert!((-12 * 3600..=14 * 3600).contains(&f), "{t}: {f}");
+            assert_eq!(f % 900, 0, "{t}: {f}");
+        }
+        #[cfg(windows)]
+        {
+            use windows::Win32::System::Time::{GetTimeZoneInformation, TIME_ZONE_INFORMATION};
+            let mut z = TIME_ZONE_INFORMATION::default();
+            unsafe { GetTimeZoneInformation(&mut z) };
+            let legale = if z.DaylightDate.wMonth != 0 {
+                i64::from(z.DaylightBias).abs() * 60
+            } else {
+                0
+            };
+            let d = (fuso_secondi(luglio) - fuso_secondi(gennaio)).abs();
+            assert_eq!(
+                d, legale,
+                "gennaio e luglio: {d} s, l'ora legale ne vale {legale}"
+            );
+        }
     }
 
     #[test]

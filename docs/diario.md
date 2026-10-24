@@ -12082,3 +12082,11 @@ domanda nuova, col rapporto attaccato sotto. Il Dot ha aspettato Gio di
 nuovo; gli ho ridato io la sua risposta, come lui ha voluto. Adesso una riga
 citata e' testo, e una domanda che comincia con una gia' risposta e' la
 stessa (D432).
+
+## 24 ottobre 2026 — L'ora legale di domani
+
+Provando il D433 sul PC Windows, la prova delle automazioni e' caduta per
+la prima volta: stanotte torna l'ora solare, e per «ogni mattina» di domani
+il demone diceva le 7 e il Python le 8. Il demone toglieva sempre il fuso di
+adesso, e su Windows non sapeva nemmeno chiedere quello di un altro giorno.
+Adesso lo chiede, e lo chiede per il giorno giusto (D434).

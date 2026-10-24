@@ -35,21 +35,23 @@ pub fn avvisi_percorso() -> PathBuf {
 
 // --------------------------------------------------------------- il tempo
 
-fn fuso() -> i64 {
-    nova_platform::fuso_secondi(nova_platform::orologio::adesso())
-}
-
 /// Un istante come l'ora dell'orologio.
 pub fn in_data(istante: f64) -> DataOra {
     let t = istante.floor() as i64;
     nova_calendario::da_istante(t, nova_platform::fuso_secondi(t))
 }
 
-/// L'ora dell'orologio come istante (col fuso di adesso).
+/// L'ora dell'orologio come istante, col fuso di quel giorno (D434), come
+/// `time.mktime` del Python. Col fuso di adesso, il 24 ottobre, il giorno
+/// prima del ritorno all'ora solare, «ogni mattina» delle 8 di domani cadeva
+/// alle 7. Il fuso si chiede due volte: la prima all'ora letta come se fosse
+/// UTC, la seconda all'istante che ne viene, per i giorni del cambio.
 pub fn in_istante(d: DataOra) -> f64 {
     let giorni = nova_calendario::giorni_dal_1970(d.anno, d.mese, d.giorno);
-    (giorni * 86400 + i64::from(d.ora) * 3600 + i64::from(d.minuto) * 60 + i64::from(d.secondo)
-        - fuso()) as f64
+    let come_utc =
+        giorni * 86400 + i64::from(d.ora) * 3600 + i64::from(d.minuto) * 60 + i64::from(d.secondo);
+    let prima = come_utc - nova_platform::fuso_secondi(come_utc);
+    (come_utc - nova_platform::fuso_secondi(prima)) as f64
 }
 
 pub fn adesso() -> f64 {
@@ -438,5 +440,19 @@ mod prove {
     fn andata_e_ritorno_dell_ora() {
         let d = DataOra::nuova(2026, 9, 27, 8, 30, 0);
         assert_eq!(in_data(in_istante(d)), d);
+    }
+
+    #[test]
+    fn andata_e_ritorno_in_ogni_stagione() {
+        // D434: col fuso di adesso, un'ora dell'altra stagione tornava
+        // spostata di quella dell'ora legale.
+        for d in [
+            DataOra::nuova(2026, 1, 15, 8, 0, 0),
+            DataOra::nuova(2026, 7, 15, 8, 0, 0),
+            DataOra::nuova(2026, 10, 25, 8, 0, 0),
+            DataOra::nuova(2026, 3, 29, 8, 0, 0),
+        ] {
+            assert_eq!(in_data(in_istante(d)), d, "{d:?}");
+        }
     }
 }
