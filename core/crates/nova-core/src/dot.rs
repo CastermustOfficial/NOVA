@@ -1740,9 +1740,14 @@ async fn lavora_e_giudica(
         server, c, nome, &per_lui, riprende, aggiunta, &mut usato, stato, esito,
     )
     .await;
-    // La CLI e' andata oltre il suo tempo (D410): il lavoro fatto e' sul
-    // disco, e il compito si riprova una volta, dicendogli di riprendere.
-    if stato == d::Stato::Fallito && nova_cervelli::cli::e_tempo_scaduto(&esito) {
+    // La CLI e' andata oltre il suo tempo (D410), o Claude Code si e' fermato
+    // sul tetto dei turni (D433): il lavoro fatto e' sul disco, e il compito
+    // si riprova una volta, dicendogli di riprendere. La conversazione del
+    // Dot e' salvata con la sessione di Claude, e il turno dopo la riprende.
+    // Il 24 ottobre il compito 3.15 di S0ex1 si e' fermato a 96 turni, e
+    // l'inventario si sarebbe rifatto solo dopo la revisione della fase.
+    let tetto = nova_guasti::cervelli::e_tetto_dei_turni(&esito);
+    if stato == d::Stato::Fallito && (tetto || nova_cervelli::cli::e_tempo_scaduto(&esito)) {
         let _ = c.diario(&json!({
             "quando": adesso(), "compito": compito.id, "tipo": "riprova", "perche": esito,
         }));
@@ -1751,7 +1756,11 @@ async fn lavora_e_giudica(
             .bus
             .emit("dot.riprova", json!({ "dot": nome, "id": compito.id, "perche": esito }));
         let mut ancora = per_lui.clone();
-        ancora.testo.push_str(d::DOPO_IL_TEMPO);
+        ancora.testo.push_str(if tetto {
+            d::DOPO_IL_TETTO
+        } else {
+            d::DOPO_IL_TEMPO
+        });
         usato.clear();
         (stato, esito) = lavora(server, c, nome, &ancora, riprende, aggiunta, &mut usato).await;
         (stato, esito) = finche_torna_la_quota(

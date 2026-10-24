@@ -41,11 +41,22 @@ pub fn e_limite_uso(testo: &str) -> bool {
     SEGNI_DI_LIMITE.iter().any(|s| t.contains(s))
 }
 
+/// Come [`spiega_subtype`] dice che Claude Code si e' fermato sul tetto dei
+/// turni (`error_max_turns`).
+pub const TETTO_DEI_TURNI: &str = "si e' fermato sul tetto dei turni, non su un guasto";
+
+/// Se un esito dice che Claude Code si e' fermato sul tetto dei turni, anche
+/// in mezzo ad altro testo. Un compito dei Dot fermato cosi' riprende una
+/// volta, nella stessa sessione (D433).
+pub fn e_tetto_dei_turni(testo: &str) -> bool {
+    testo.contains(TETTO_DEI_TURNI)
+}
+
 /// Cosa vuol dire ogni `subtype` che Claude Code mette nel suo JSON, detto a
 /// qualcuno che non ha voglia di leggere un tracciato.
 pub fn spiega_subtype(subtype: &str) -> &str {
     match subtype {
-        "error_max_turns" => "si e' fermato sul tetto dei turni, non su un guasto",
+        "error_max_turns" => TETTO_DEI_TURNI,
         "error_during_execution" => "si e' rotto qualcosa mentre lavorava",
         "error_prompt_too_long" => {
             "la conversazione e' diventata troppo lunga per il modello"
@@ -227,6 +238,22 @@ mod prove {
         assert!(m.contains("freno di spesa"));
         let senza = perche_errore(&json!({"subtype": "error_max_turns"}), 0);
         assert!(senza.contains("brains.claude_max_turns:"));
+    }
+
+    #[test]
+    fn il_tetto_dei_turni_si_riconosce() {
+        // D433: il 24 ottobre il compito 3.15 di S0ex1 e' finito cosi', e
+        // il Dot non l'ha ripreso.
+        let m = perche_errore(&json!({"subtype": "error_max_turns"}), 96);
+        assert!(e_tetto_dei_turni(&m), "{m}");
+        assert!(e_tetto_dei_turni(&format!(
+            "la revisione del passo 3 non si e' fatta: {m}"
+        )));
+        let altro = perche_errore(&json!({"subtype": "error_during_execution"}), 96);
+        assert!(!e_tetto_dei_turni(&altro), "{altro}");
+        assert!(!e_tetto_dei_turni(
+            "Claude Code non ha risposto entro 1800s"
+        ));
     }
 
     #[test]

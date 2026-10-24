@@ -579,6 +579,13 @@ pub const RIPRESO: &str =
 pub const DOPO_IL_TEMPO: &str = "\n\n(La volta prima il tempo e' finito prima della consegna: \
 quello che avevi fatto e' sul disco. Riprendi da li', non rifare da capo, e consegna.)";
 
+/// Quello che si aggiunge a un compito che riprende perche' Claude Code si
+/// e' fermato sul tetto dei turni (D433): la sessione e' la stessa, e il
+/// lavoro fatto e' sul disco.
+pub const DOPO_IL_TETTO: &str = "\n\n(La volta prima Claude Code si e' fermato sul tetto dei \
+turni prima della consegna: quello che avevi fatto e' sul disco e in questa conversazione. \
+Riprendi da li', non rifare da capo, e consegna.)";
+
 /// La regola di ogni Dot sui file di NOVA (D410).
 pub const NOVA_NON_SI_TOCCA: &str = "La cartella di NOVA, la sua configurazione e le \
 impostazioni dei programmi dell'utente non si toccano: se pensi che vadano cambiate, scrivilo \

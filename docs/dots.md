@@ -1121,7 +1121,7 @@ dell'utente, salvo una sua richiesta esplicita.
 | **Cosa si sorveglia** | `config.json`, `progetti.json` e il `dot.json` di ogni Dot: chi e' NOVA, dove stanno i progetti, chi e' ogni Dot. Dal D412 anche il registro delle decisioni, `decisioni.jsonl`. Il resto della cartella (diari, code, conversazioni) lo scrive NOVA di continuo. |
 | **Come** | Chi scrive per conto di NOVA lascia prima una copia buona in `copie-buone/`. Il demone confronta i file con le copie ogni 10 secondi mentre un Dot lavora, e quando un compito finisce; una differenza la riguarda dopo 300 ms, perche' puo' essere una scrittura di NOVA a meta'. |
 | **Chi l'ha fatto** | Un Dot solo al lavoro: il suo compito risulta non andato. Piu' Dot: non si sa chi, e non si accusa nessuno. In tutti e due i casi il file torna com'era, la versione estranea va da parte, e il custode lo dice a Nova. |
-| **Il tempo** | Un compito dei Dot ha almeno mezz'ora (`dots.secondi_per_compito`), la chat resta col tempo della CLI. Un compito oltre il tempo si riprova una volta, con la nota di riprendere dal disco. |
+| **Il tempo** | Un compito dei Dot ha almeno mezz'ora (`dots.secondi_per_compito`), la chat resta col tempo della CLI. Un compito oltre il tempo si riprova una volta, con la nota di riprendere dal disco; e uno che Claude Code ferma sul tetto dei turni riprende una volta, nella stessa sessione (D433). |
 | **Le domande** | Dopo un cambio a lavoro iniziato le «Domande per te» del piano nuovo arrivano in chat, come con la proposta. |
 
 - **Quello che cambia l'utente resta suo.** Con nessun Dot al lavoro il
@@ -1320,6 +1320,13 @@ nel rapporto, ha scritto come aveva chiesto a Gio, citando la sua riga
 con il resto del rapporto attaccato sotto. Adesso una riga per NOVA in una
 citazione (`>`) o fra apici inversi e' testo, e una domanda che comincia
 con una gia' risposta e' la stessa.
+
+**Il tetto dei turni non e' la fine del compito — fatto** (D433). Il 24
+ottobre l'inventario delle licenze di S0ex1 si e' fermato sul tetto dei
+turni di Claude Code (`brains.claude_max_turns`, 96), con la sessione
+ancora aperta, ed e' risultato non andato. Adesso un compito dei Dot
+fermato cosi' riprende una volta, nella stessa sessione, come quello andato
+oltre il tempo (D410).
 
 | | Di serie | Si cambia con |
 |---|---|---|

@@ -171,7 +171,7 @@ Cosa serve: un banco Rust costruito con `cargo`: la prova stampa la riga per cos
 | `test_semina_rust.py` | La prima mappatura del PC scrive in Rust gli stessi nodi del Python. |
 | `test_strumenti_rust.py` | Gli strumenti dichiarati allo stesso modo, in Rust. |
 
-## `prove/demone/`: 53 prove
+## `prove/demone/`: 54 prove
 
 Cosa serve: il binario `novad` costruito.
 
@@ -227,6 +227,7 @@ Cosa serve: il binario `novad` costruito.
 | `test_demone_schermo.py` | Lo schermo in un'immagine, dal demone. |
 | `test_demone_semina.py` | La prima mappatura del PC, fatta dal demone quando si accende (D365). |
 | `test_demone_sistema.py` | Gli appunti, il volume, le notifiche, l'ora e com'e' fatto il PC, dal demone. |
+| `test_demone_tetto_dei_turni.py` | Un compito dei Dot che Claude Code ferma sul tetto dei turni riprende (D433), con un Claude Code finto che si ferma quando la domanda lo chiede e, come quello vero, dice la sua sessione anche fermandosi: il compito riprende una volta, nella stessa sessione (`--resume`), con la nota di riprendere da dove era, e consegna; il diario ha la riga `riprova` col tetto dei turni; un compito che si ferma sul tetto anche la seconda volta riprende una volta sola e risulta non andato. Serve il demone costruito (`cargo build --release -p novad`). |
 | `test_demone_turno.py` | Il demone fa un turno intero da solo: chiede, esegue, risponde; e lascia la decisione, senza segreti. La conversazione si dimentica anche col nome vuoto, come la dimentica il guscio (D386). A un cervello in HTTP se ne offrono 58, coi Dot spenti a mano: i quattro dei Dot arrivano solo coi Dot accesi (D387, D388, D389). |
 | `test_demone_uno_solo.py` | Un demone solo (D413): due demoni accesi insieme sullo stesso indirizzo, con un Dot che ha un compito in coda; ne resta uno, l'altro se ne va subito con codice 3 e dice perche', quello rimasto risponde, il compito si fa una volta sola, e un terzo acceso dopo se ne va anche lui. |
 | `test_demone_web.py` | Il browser di NOVA, guidato dal demone, con un browser vero. |

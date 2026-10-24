@@ -12083,6 +12083,21 @@ nuovo; gli ho ridato io la sua risposta, come lui ha voluto. Adesso una riga
 citata e' testo, e una domanda che comincia con una gia' risposta e' la
 stessa (D432).
 
+## 24 ottobre 2026 — Le decisioni di Gio, e il tetto dei turni
+
+Gio ha deciso sui dubbi del legale: provenienza dei testi, fonti solo per
+uso interno, i suoi dati fuori da ogni cosa pubblica, log pseudonimizzati;
+l'inventario delle licenze di codice e modelli da fare; la domanda sui
+diritti, gia' chiusa il 12 ottobre, da non rifare; il brevetto da valutare
+secondo quanto conta la scoperta. Le sue parole sono andate al progetto come
+cambio, e il piano 32 ha messo l'inventario nella fase 3.
+
+L'inventario pero' si e' fermato dopo 26 minuti sul tetto dei turni di
+Claude Code. Non era un guasto, e la sessione era aperta: per un Dot era
+comunque un compito non andato, da rifare dopo la revisione della fase.
+Adesso riprende una volta, nella stessa sessione, come un compito andato
+oltre il tempo (D433).
+
 ## 24 ottobre 2026 — L'ora legale di domani
 
 Provando il D433 sul PC Windows, la prova delle automazioni e' caduta per
