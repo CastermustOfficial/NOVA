@@ -111,6 +111,15 @@ impl Lavoro<'_> {
         }
     }
 
+    /// Scrive quello che il compito ha fatto fin qui (D436). Se non si
+    /// scrive lo si dice nel log e si va avanti: il compito vale piu' del
+    /// file.
+    fn salva_ripresa(&self, ripresa: &r::Ripresa) {
+        if let Err(e) = self.c.salva_ripresa(ripresa) {
+            tracing::warn!(dot = %self.nome, errore = %e, "ripresa non scritta");
+        }
+    }
+
     fn evento(&self, campi: Value) {
         let mut e = json!({ "dot": self.nome, "id": self.compito.id });
         if let (Some(o), Value::Object(c)) = (e.as_object_mut(), campi) {
@@ -414,38 +423,77 @@ pub async fn lavora(
         }));
     }
 
-    // 1. Il piano, col cervello grande, o con quello di AR.
-    let mut chiesta = r::richiesta_del_piano(&compito.testo, &l.scala);
-    if compito.riprese > 0 {
-        chiesta.push_str(d::RIPRESO);
-    }
-    let chi_pianifica = di_ar.clone().unwrap_or_else(|| cima.clone());
-    let detto = match l.turno(&chiesta, &chi_pianifica, "piano").await {
-        Ok(s) => match s.fine {
-            Fine::Risposto(t) | Fine::PassiFiniti(t) => t,
-            Fine::Fermato => return (d::Stato::Fermato, "fermato col «fermati» di Nova".into()),
-            Fine::Rotto(e) => return (d::Stato::Fallito, format!("il piano non si e' fatto: {e}")),
-        },
-        Err(e) => return (d::Stato::Fallito, format!("il piano non si e' fatto: {e}")),
+    // 1. Il piano, col cervello grande, o con quello di AR. Se il compito si
+    // riprova (D436), il piano e i passi fatti sono gia' su disco: si riparte
+    // dal primo passo non fatto.
+    let mut ripresa = match c.ripresa(compito.id) {
+        Some(x) => {
+            l.diario(json!({
+                "tipo": "ripresa",
+                "passi_fatti": x.fatti.len(),
+                "di": x.piano.passi.len(),
+            }));
+            x
+        }
+        None => {
+            let mut chiesta = r::richiesta_del_piano(&compito.testo, &l.scala);
+            if compito.riprese > 0 {
+                chiesta.push_str(d::RIPRESO);
+            }
+            let chi_pianifica = di_ar.clone().unwrap_or_else(|| cima.clone());
+            let detto = match l.turno(&chiesta, &chi_pianifica, "piano").await {
+                Ok(s) => match s.fine {
+                    Fine::Risposto(t) | Fine::PassiFiniti(t) => t,
+                    Fine::Fermato => {
+                        return (d::Stato::Fermato, "fermato col «fermati» di Nova".into())
+                    }
+                    Fine::Rotto(e) => {
+                        return (d::Stato::Fallito, format!("il piano non si e' fatto: {e}"))
+                    }
+                },
+                Err(e) => return (d::Stato::Fallito, format!("il piano non si e' fatto: {e}")),
+            };
+            let piano = r::piano(&detto, &l.scala);
+            l.diario(json!({
+                "tipo": "piano",
+                "letto": piano.letto,
+                "note": piano.note,
+                "passi": piano.passi,
+            }));
+            r::Ripresa {
+                compito: compito.id,
+                piano,
+                fatti: Vec::new(),
+                salite: Default::default(),
+            }
+        }
     };
-    let piano = r::piano(&detto, &l.scala);
-    l.diario(json!({
-        "tipo": "piano",
-        "letto": piano.letto,
-        "note": piano.note,
-        "passi": piano.passi,
-    }));
+    l.salva_ripresa(&ripresa);
+    let piano = ripresa.piano.clone();
     let quanti = piano.passi.len();
     l.evento(json!({ "stato": "piano", "passi": quanti }));
 
     // 2. I passi, ognuno col suo cervello, e la revisione.
-    let mut fatti: Vec<r::Fatto> = Vec::new();
-    for (i, passo) in piano.passi.iter().enumerate() {
+    let mut fatti: Vec<r::Fatto> = std::mem::take(&mut ripresa.fatti);
+    for (i, passo) in piano.passi.iter().enumerate().skip(fatti.len()) {
         let numero = i + 1;
         let (mut cervello, mut scelto_da) = match &di_ar {
             Some(g) => (g.clone(), r::SceltoDa::Ar),
             None => (passo.cervello.clone(), passo.scelto_da),
         };
+        // Dove il compito e' gia' salito piu' volte, il passo parte piu' su
+        // (D435), e lo dice.
+        if let Some(su) = r::gradino_di_partenza(&cervello, &ripresa.salite, &l.scala) {
+            l.diario(json!({
+                "tipo": "parte_piu_su",
+                "passo": numero,
+                "da": cervello,
+                "a": su,
+                "salite": ripresa.salite,
+            }));
+            cervello = su;
+            scelto_da = r::SceltoDa::Salite;
+        }
         let mut rifatto: Option<(String, String)> = None;
         loop {
             l.evento(
@@ -524,6 +572,9 @@ pub async fn lavora(
                         "motivo": motivo,
                     }));
                     l.evento(json!({ "passo": numero, "di": quanti, "cervello": su, "stato": "sale", "da": arrivato }));
+                    *ripresa.salite.entry(arrivato.clone()).or_insert(0) += 1;
+                    ripresa.fatti.clone_from(&fatti);
+                    l.salva_ripresa(&ripresa);
                     rifatto = Some((arrivato, motivo));
                     cervello = su;
                     scelto_da = r::SceltoDa::Salita;
@@ -545,9 +596,13 @@ pub async fn lavora(
                 genere: passo.genere,
                 testo,
             });
+            ripresa.fatti.clone_from(&fatti);
+            l.salva_ripresa(&ripresa);
             break;
         }
     }
+    // I passi sono finiti: un compito che si rifacesse ripartirebbe da capo.
+    c.togli_ripresa();
 
     // 3. Il rapporto: la risposta dell'ultimo passo, con le fonti controllate.
     let corpo = fatti.last().map(|f| f.testo.clone()).unwrap_or_default();

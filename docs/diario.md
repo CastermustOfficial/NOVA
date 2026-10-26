@@ -12105,3 +12105,22 @@ la prima volta: stanotte torna l'ora solare, e per «ogni mattina» di domani
 il demone diceva le 7 e il Python le 8. Il demone toglieva sempre il fuso di
 adesso, e su Windows non sapeva nemmeno chiedere quello di un altro giorno.
 Adesso lo chiede, e lo chiede per il giorno giusto (D434).
+
+## 25 e 26 ottobre 2026 — Lo stress test
+
+Gio e' stato via buona parte del giorno e mi ha chiesto di rispondere ai Dot
+al suo posto, con ambizione: per lui S0ex1 e' uno stress test, per capire se
+i Dot lavorano bene e concludono qualcosa. I Dot sono stati onesti: 3.17 e
+3.18 hanno detto che la forma di oggi, sui documenti veri, costa token
+invece di risparmiarli. Ho chiesto un cambio, e il piano 33 ha messo prima
+del prototipo la ricerca di forme nuove sul corpus vero. Il controllo
+indipendente ha trovato incompleto l'inventario delle licenze due volte,
+finche' la v3 e' risultata esatta. E un aiuto di amministrazione ha
+chiesto al legale come registrare le mie risposte, perche' non diventassero
+contributi di Gio.
+
+Guardando i diari ho visto dove si perde tempo: il ricercatore rifaceva coi
+cervelli grandi passi che il revisore bocciava ogni volta, e dopo un passo
+scaduto rifaceva il piano e i passi gia' fatti. Adesso, dopo due salite, i
+passi dopo partono piu' su (D435), e una riprova riparte dal passo dove era
+(D436).

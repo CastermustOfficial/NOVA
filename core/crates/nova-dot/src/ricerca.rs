@@ -22,10 +22,10 @@
 //! deve sapere cosa hanno trovato i passi prima: per questo la richiesta li
 //! contiene, invece di contare su una memoria che un cervello su due non ha.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// Quanti passi al massimo ha un piano. Un piano piu' lungo si taglia: un
@@ -51,7 +51,7 @@ fonti. Cita solo pagine che hai letto davvero con gli strumenti in questo \
 compito: ogni indirizzo del rapporto si controlla contro quello che hai letto.";
 
 /// Che tipo di passo e'.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Genere {
     Cerca,
@@ -89,7 +89,7 @@ impl Genere {
 /// Chi ha scelto il cervello di un passo. E' quello che si registra per
 /// insegnare a scegliere: una scelta del piano, un ripiego, una salita del
 /// revisore sono tre cose diverse.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SceltoDa {
     /// Il cervello grande, nel piano.
@@ -101,6 +101,9 @@ pub enum SceltoDa {
     Salita,
     /// AR, che ha scelto il cervello di tutto il compito (D397).
     Ar,
+    /// Le salite gia' viste nel compito (D435): il passo parte un gradino
+    /// piu' su di quello scelto, senza aspettare di essere bocciato.
+    Salite,
 }
 
 impl SceltoDa {
@@ -110,12 +113,13 @@ impl SceltoDa {
             SceltoDa::Ripiego => "ripiego",
             SceltoDa::Salita => "salita",
             SceltoDa::Ar => "ar",
+            SceltoDa::Salite => "salite",
         }
     }
 }
 
 /// Un passo del piano.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Passo {
     pub genere: Genere,
     /// Cosa fare, come l'ha scritto il piano.
@@ -124,12 +128,12 @@ pub struct Passo {
     pub cervello: String,
     pub scelto_da: SceltoDa,
     /// Perche' un ripiego, se lo e'.
-    #[serde(skip_serializing_if = "String::is_empty")]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub perche: String,
 }
 
 /// Il piano letto.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Piano {
     pub passi: Vec<Passo>,
     /// Vero se il piano viene dal cervello grande; falso se non si leggeva e
@@ -305,11 +309,53 @@ pub fn tagliato(testo: &str, quanti: usize) -> String {
 }
 
 /// Un passo gia' fatto, per le richieste dei passi dopo.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Fatto {
     pub numero: usize,
     pub genere: Genere,
     pub testo: String,
+}
+
+/// Quante salite da un gradino, in un compito, bastano perche' i passi
+/// dopo partano un gradino piu' su (D435).
+pub const SALITE_PER_SALIRE: usize = 2;
+
+/// Il gradino da cui parte un passo, se le salite gia' viste nel compito lo
+/// alzano (D435): finche' dal gradino scelto il compito e' gia' salito
+/// [`SALITE_PER_SALIRE`] volte, si parte da quello sopra. Il 25 ottobre, nei
+/// compiti 3.5 e 3.17 di S0ex1, AR ha dato «rapido» a 15 passi di ricerca e
+/// il revisore ne ha fatti rifare 10 con «difficile»: ogni passo pagava la
+/// prova del gradino sotto. `None` se il passo parte da dove e' stato scelto.
+pub fn gradino_di_partenza(
+    scelto: &str,
+    salite: &BTreeMap<String, usize>,
+    scala: &[String],
+) -> Option<String> {
+    let inizio = scala.iter().position(|g| g == scelto)?;
+    let mut qui = inizio;
+    while qui + 1 < scala.len()
+        && salite.get(&scala[qui]).copied().unwrap_or(0) >= SALITE_PER_SALIRE
+    {
+        qui += 1;
+    }
+    (qui != inizio).then(|| scala[qui].clone())
+}
+
+/// Quello che un ricercatore ha gia' fatto di un compito, su disco (D436):
+/// il piano, i passi fatti e le salite. Se il compito si riprova, dopo un
+/// passo andato oltre il tempo o un riavvio, riparte dal primo passo non
+/// fatto invece di rifare il piano. Il 25 ottobre, in 3.20 di S0ex1, il
+/// passo 2 e' scaduto, e la riprova ha rifatto il piano e i passi 1 e 2:
+/// tre quarti d'ora.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Ripresa {
+    /// Il numero del compito: una ripresa di un altro compito non vale.
+    pub compito: u64,
+    pub piano: Piano,
+    pub fatti: Vec<Fatto>,
+    /// Quante volte, nel compito, si e' saliti da ogni gradino.
+    #[serde(default)]
+    pub salite: BTreeMap<String, usize>,
 }
 
 /// La domanda per un passo.
@@ -672,6 +718,41 @@ pub fn titolo(corpo: &str) -> Option<String> {
 #[cfg(test)]
 mod prove {
     use super::*;
+
+    #[test]
+    fn dopo_due_salite_si_parte_piu_su() {
+        // D435: il 25 ottobre 10 passi di «rapido» su 15 si sono rifatti.
+        let scala: Vec<String> = ["orchestra", "rapido", "difficile"]
+            .map(String::from)
+            .to_vec();
+        let mut salite = BTreeMap::new();
+        assert_eq!(gradino_di_partenza("rapido", &salite, &scala), None);
+        salite.insert("rapido".to_string(), 1);
+        assert_eq!(gradino_di_partenza("rapido", &salite, &scala), None);
+        salite.insert("rapido".to_string(), SALITE_PER_SALIRE);
+        assert_eq!(
+            gradino_di_partenza("rapido", &salite, &scala),
+            Some("difficile".into())
+        );
+        assert_eq!(
+            gradino_di_partenza("orchestra", &salite, &scala),
+            None,
+            "da orchestra non si e' salito"
+        );
+        salite.insert("orchestra".to_string(), 2);
+        assert_eq!(
+            gradino_di_partenza("orchestra", &salite, &scala),
+            Some("difficile".into()),
+            "si sale finche' il gradino sopra e' stato bocciato anche lui"
+        );
+        assert_eq!(
+            gradino_di_partenza("difficile", &salite, &scala),
+            None,
+            "sopra la cima non si va"
+        );
+        assert_eq!(gradino_di_partenza("altro", &salite, &scala), None);
+        assert_eq!(SceltoDa::Salite.nome(), "salite");
+    }
 
     fn scala() -> Vec<String> {
         vec![

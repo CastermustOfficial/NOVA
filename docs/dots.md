@@ -1328,6 +1328,14 @@ ancora aperta, ed e' risultato non andato. Adesso un compito dei Dot
 fermato cosi' riprende una volta, nella stessa sessione, come quello andato
 oltre il tempo (D410).
 
+**Il ricercatore impara nel compito, e non rifa' quello che ha — fatto**
+(D435, D436). Il 25 ottobre il revisore ha fatto rifare 10 passi su 15 che
+AR aveva dato a «rapido», e dopo un passo scaduto il ricercatore ha rifatto
+il piano e un passo gia' fatto. Adesso, dopo due salite dallo stesso
+cervello nel compito, i passi dopo partono gia' un gradino piu' su; e il
+piano, i passi fatti e le salite stanno su disco, cosi' una riprova o un
+riavvio ripartono dal primo passo non fatto.
+
 | | Di serie | Si cambia con |
 |---|---|---|
 | **Dopo quanto CLM si spegne senza domande** | 10 minuti | `clm.spegni_dopo_s` |

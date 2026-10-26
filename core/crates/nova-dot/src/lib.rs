@@ -579,6 +579,10 @@ pub const RIPRESO: &str =
 pub const DOPO_IL_TEMPO: &str = "\n\n(La volta prima il tempo e' finito prima della consegna: \
 quello che avevi fatto e' sul disco. Riprendi da li', non rifare da capo, e consegna.)";
 
+/// Il file, nella cartella del Dot, con quello che il ricercatore ha gia'
+/// fatto del compito in corso (D436).
+pub const RIPRESA: &str = "ripresa.json";
+
 /// Quello che si aggiunge a un compito che riprende perche' Claude Code si
 /// e' fermato sul tetto dei turni (D433): la sessione e' la stessa, e il
 /// lavoro fatto e' sul disco.
@@ -1005,6 +1009,26 @@ impl Cartella {
     }
 
     /// La conversazione salvata, se c'e' e si legge.
+    /// Quello che il ricercatore ha gia' fatto del compito `id` (D436), se
+    /// e' di quel compito.
+    pub fn ripresa(&self, id: u64) -> Option<ricerca::Ripresa> {
+        let t = std::fs::read_to_string(self.radice.join(RIPRESA)).ok()?;
+        serde_json::from_str::<ricerca::Ripresa>(&t)
+            .ok()
+            .filter(|r| r.compito == id)
+    }
+
+    /// Scrive quello che il ricercatore ha fatto fin qui, tutto insieme.
+    pub fn salva_ripresa(&self, r: &ricerca::Ripresa) -> Result<(), String> {
+        let testo = serde_json::to_string(r).map_err(|e| e.to_string())?;
+        scrivi_intero(&self.radice.join(RIPRESA), &testo)
+    }
+
+    /// Toglie la ripresa: il compito e' finito.
+    pub fn togli_ripresa(&self) {
+        let _ = std::fs::remove_file(self.radice.join(RIPRESA));
+    }
+
     pub fn conversazione(&self) -> Option<Conversazione> {
         let t = std::fs::read_to_string(self.radice.join("conversazione.json")).ok()?;
         serde_json::from_str(&t).ok()
@@ -1334,6 +1358,32 @@ mod prove {
         let conv = Conversazione { messaggi: vec![json!({"role": "system", "content": "s"})], claude: "x".into(), deleghe: 2 };
         c.salva_conversazione(&conv).unwrap();
         assert_eq!(c.conversazione().unwrap(), conv);
+        // D436: la ripresa del ricercatore vale solo per il suo compito, e
+        // finito il compito se ne va.
+        assert_eq!(c.ripresa(3), None);
+        let ripresa = ricerca::Ripresa {
+            compito: 3,
+            piano: ricerca::Piano {
+                passi: Vec::new(),
+                letto: true,
+                note: Vec::new(),
+            },
+            fatti: vec![ricerca::Fatto {
+                numero: 1,
+                genere: ricerca::Genere::Leggi,
+                testo: "letto".into(),
+            }],
+            salite: [("piccolo".to_string(), 2)].into_iter().collect(),
+        };
+        c.salva_ripresa(&ripresa).unwrap();
+        assert_eq!(c.ripresa(3), Some(ripresa));
+        assert_eq!(
+            c.ripresa(4),
+            None,
+            "una ripresa di un altro compito non vale"
+        );
+        c.togli_ripresa();
+        assert_eq!(c.ripresa(3), None);
         c.diario(&json!({"tipo": "prova"})).unwrap();
         std::fs::create_dir_all(base.join("Non-Valido")).unwrap();
         std::fs::write(base.join("Non-Valido").join("dot.json"), "{}").unwrap();

@@ -3200,3 +3200,15 @@ La regola: un programma di sistema copiato con un altro nome non e' detto
 che resti lo stesso programma; prima di usarlo in una prova si guarda che
 faccia quello che serve. E una correzione per un ambiente che non ho si
 prova con la versione di quell'ambiente, non con quella che ho sotto mano.
+
+## L'ora spostata di un'ora
+
+Il 25 ottobre, nel controllo delle 14:08, ho scritto a Gio che il compito
+3.5 si era chiuso «alle 14:35»: in `progetto.jsonl` c'era 13:35, che e' gia'
+l'ora di Roma, e io ci avevo aggiunto l'ora del fuso pensando che fosse UTC.
+Me ne sono accorto al controllo dopo, quando le 13:58 del diario venivano
+prima delle 14:07 del PC, e l'ho corretto con Gio.
+
+La regola: le ore di `progetto.jsonl` e dei diari dei Dot sono quelle del
+PC; si confrontano con l'ora del PC, non con quella del cloud, e non si
+convertono.

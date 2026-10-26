@@ -20,7 +20,11 @@ Il secondo passo di `docs/dots.md`. Un Dot col mestiere di ricercatore:
   riprende con la risposta;
 - la risposta dell'utente a un passo arriva anche ai passi dopo (D429);
 - un revisore che ha finito la quota non fa tenere il passo senza
-  revisione: il compito aspetta e si rifa' (D430).
+  revisione: il compito aspetta e si rifa' (D430);
+- dopo due salite dallo stesso cervello, i passi dopo del compito partono
+  gia' un gradino piu' su (D435);
+- un compito interrotto a meta' riprende dal primo passo non fatto, senza
+  rifare il piano ne' i passi gia' fatti (D436).
 
 I cervelli sono finti: un server compatibile OpenAI con due modelli,
 «piccolo» e «grande», che risponde secondo il modello e la domanda, e si
@@ -82,6 +86,8 @@ arrivate: list[tuple[str, str, str]] = []
 permessi: list[str] = []
 # Le richieste del passo dopo la risposta dell'utente (sezione 11).
 dopo_la_risposta: list[str] = []
+# Le volte che arriva il passo lungo della sezione 14 (D436).
+lunghi: list[float] = []
 
 PIANO_SUPERNOVE = {"passi": [
     {"tipo": "cerca", "cosa": "trova le fonti sulle supernove", "cervello": "piccolo"},
@@ -177,6 +183,33 @@ class Cervello(BaseHTTPRequestHandler):
         # Le risposte dell'utente nei passi dopo (D429), nella sezione 11.
         if intera.startswith("Le risposte alle tue domande:") and "«approvi la proposta?»" in intera:
             testo(self, "La proposta e' pronta, e l'utente ha risposto.")
+            return
+        # I passi deboli della sezione 13 (D435): il piccolo li fa male, il
+        # revisore li boccia.
+        if genere == "piano" and "passi deboli" in domanda:
+            testo(self, json.dumps({"passi": [
+                {"tipo": "leggi", "cosa": f"passo debole {i}", "cervello": "piccolo"} for i in range(1, 5)
+            ] + [{"tipo": "scrivi", "cosa": "scrivi il rapporto debole", "cervello": "piccolo"}]}))
+            return
+        if modello == "piccolo" and genere.startswith("passo") and "debole" in domanda:
+            testo(self, "DEBOLE")
+            return
+        if genere.startswith("revisione") and "<<<\nDEBOLE\n>>>" in domanda:
+            testo(self, "SCARSO: troppo debole")
+            return
+        # Il compito interrotto della sezione 14 (D436): il secondo passo, la
+        # prima volta, dura finche' il demone si spegne.
+        if genere == "piano" and "lavoro interrotto" in domanda:
+            testo(self, json.dumps({"passi": [
+                {"tipo": "leggi", "cosa": "primo passo da tenere", "cervello": "grande"},
+                {"tipo": "leggi", "cosa": "secondo passo lungo", "cervello": "grande"},
+                {"tipo": "scrivi", "cosa": "scrivi il rapporto interrotto", "cervello": "grande"}]}))
+            return
+        if genere == "passo 2" and "secondo passo lungo" in domanda:
+            lunghi.append(time.time())
+            if len(lunghi) == 1:
+                time.sleep(20)
+            testo(self, "Fatto il passo lungo.")
             return
         if genere == "piano" and "la decisione dell'utente" in domanda:
             testo(self, json.dumps({"passi": [
@@ -652,6 +685,71 @@ try:
     revisioni = [x for x in ricevuti_da_claude()[prima:]
                  if x["domanda"].lstrip().startswith("[revisione del passo 1 di 1]")]
     controlla("il passo e' stato rivisto, dopo l'attesa", len(revisioni) == 2, str(len(revisioni)))
+
+    # Le ultime due parti con la scala di prima, senza Claude.
+    cfg = json.loads((cartella_nova / "config.json").read_text(encoding="utf-8"))
+    cfg["brains"]["routing"]["scala"] = ["piccolo", "grande"]
+    cfg["brains"]["routing"]["tiers"] = {"piccolo": {"brain": "locale", "model": "piccolo"},
+                                         "grande": {"brain": "locale", "model": "grande"}}
+    (cartella_nova / "config.json").write_text(json.dumps(cfg, ensure_ascii=False), encoding="utf-8")
+
+    print("\n13. dopo due salite dallo stesso cervello, i passi partono piu' su (D435)")
+    # Il 25 ottobre AR ha dato «rapido» a 15 passi di ricerca, e il
+    # revisore ne ha fatti rifare 10 con «difficile».
+    prima = len(arrivate)
+    id9 = rpc("dot/affida", nome="ricercatore", testo="un compito di passi deboli")["id"]
+    c = aspetta(id9)
+    controlla("il compito e' fatto", c.get("stato") == "fatto", str(c)[:300])
+    # Un passo rifatto dal grande puo' usare uno strumento: conta il passo.
+    giro = [(m, g) for m, g, t in arrivate[prima:] if g.startswith("passo") and "strumento" not in g]
+    controlla("il piccolo fa solo i primi due passi, che il revisore boccia",
+              [g for m, g in giro if m == "piccolo"] == ["passo 1", "passo 2"], str(giro))
+    controlla("e i passi 3, 4 e 5 li fa subito il grande",
+              [g for m, g in giro if m == "grande"] == ["passo 1", "passo 2", "passo 3", "passo 4", "passo 5"],
+              str(giro))
+    controlla("le scelte dicono che sono partiti piu' su per le salite",
+              scelte(id9) == [(1, "piccolo", "piano", "piccolo", "scarso"),
+                              (1, "grande", "salita", "grande", "senza_revisione"),
+                              (2, "piccolo", "piano", "piccolo", "scarso"),
+                              (2, "grande", "salita", "grande", "senza_revisione"),
+                              (3, "grande", "salite", "grande", "senza_revisione"),
+                              (4, "grande", "salite", "grande", "senza_revisione"),
+                              (5, "grande", "salite", "grande", "senza_revisione")], str(scelte(id9)))
+    piu_su = [r for r in righe(DOT / "diario.jsonl") if r.get("tipo") == "parte_piu_su" and r.get("compito") == id9]
+    controlla("e il diario lo dice, passo per passo, con le salite",
+              [(r["passo"], r["da"], r["a"]) for r in piu_su] == [(3, "piccolo", "grande"), (4, "piccolo", "grande"),
+                                                                  (5, "piccolo", "grande")]
+              and piu_su[0].get("salite") == {"piccolo": 2}, str(piu_su)[:400])
+
+    print("\n14. un compito interrotto riprende dal primo passo non fatto (D436)")
+    # Il 25 ottobre il passo 2 di 3.20 e' scaduto, e la riprova ha rifatto
+    # il piano e il passo 1. Qui il demone si spegne a meta' del passo 2.
+    prima = len(arrivate)
+    id10 = rpc("dot/affida", nome="ricercatore", testo="un lavoro interrotto")["id"]
+    fine = time.time() + 60
+    while time.time() < fine and not lunghi:
+        time.sleep(0.2)
+    controlla("il passo 2 comincia", len(lunghi) == 1, str(lunghi))
+    ripresa = json.loads((DOT / "ripresa.json").read_text(encoding="utf-8")) if (DOT / "ripresa.json").is_file() else {}
+    controlla("e su disco ci sono il piano e il passo 1 fatto",
+              ripresa.get("compito") == id10 and len(ripresa.get("piano", {}).get("passi", [])) == 3
+              and [f["numero"] for f in ripresa.get("fatti", [])] == [1], str(ripresa)[:400])
+    processo.kill()
+    processo.wait()
+    processo = accendi()
+    c = aspetta(id10, secondi=90)
+    controlla("dopo il riavvio il compito e' fatto", c.get("stato") == "fatto", str(c)[:300])
+    mio = [(m, g, t) for m, g, t in arrivate[prima:] if "nova: " not in g]
+    controlla("il piano si e' fatto una volta sola",
+              sum(1 for m, g, t in mio if g == "piano" and "lavoro interrotto" in t) == 1,
+              str([(m, g) for m, g, t in mio]))
+    controlla("il passo 1 una volta sola, il passo 2 due volte",
+              sum(1 for m, g, t in mio if g == "passo 1" and "primo passo da tenere" in t) == 1
+              and len(lunghi) == 2, str([(m, g) for m, g, t in mio]))
+    controlla("il diario dice da dove ha ripreso",
+              [(r.get("passi_fatti"), r.get("di")) for r in righe(DOT / "diario.jsonl")
+               if r.get("tipo") == "ripresa" and r.get("compito") == id10] == [(1, 3)])
+    controlla("e finito il compito la ripresa non c'e' piu'", not (DOT / "ripresa.json").exists())
 finally:
     if processo.poll() is None:
         processo.kill()
