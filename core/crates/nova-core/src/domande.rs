@@ -627,9 +627,11 @@ async fn rispondi(
     (r, None)
 }
 
-/// Quanto si aspetta la risposta dell'utente, di serie (D427): l'attesa
-/// massima dei Dot. Si cambia con `dots.secondi_per_l_utente`.
-pub const SECONDI_PER_L_UTENTE: u64 = crate::dot::ATTESA_MASSIMA_S as u64;
+/// Quanto si aspetta la risposta dell'utente, di serie: un'ora (D439, Gio
+/// il 4 novembre; prima, dal D427, l'attesa massima dei Dot, sei ore). Poi
+/// il Dot va avanti con un'ipotesi. Si cambia con
+/// `dots.secondi_per_l_utente`.
+pub const SECONDI_PER_L_UTENTE: u64 = 3600;
 
 /// Chiede all'utente, tramite Nova, e aspetta la sua risposta (D427). Il 15
 /// ottobre i Dot di S0ex1 avevano bisogno di una decisione di Gio, e non
@@ -650,6 +652,10 @@ async fn chiedi_all_utente(
     let (tx, rx) = tokio::sync::oneshot::channel();
     if let Ok(mut m) = server.dots.per_l_utente.lock() {
         m.insert(chiede.to_string(), tx);
+    }
+    // Una domanda nuova: quella scaduta prima non aspetta piu' (D439).
+    if let Ok(mut m) = server.dots.scadute.lock() {
+        m.remove(chiede);
     }
     let testo = dd::all_utente(chiede, progetto, &incarico, &q.testo);
     if let Err(e) = crate::dot::scrivi(server, chiede, d::DA_NOVA, &testo) {
@@ -687,6 +693,16 @@ async fn chiedi_all_utente(
                 compito.id,
                 json!({ "tipo": "dall_utente", "esito": "non_ha_risposto" }),
             );
+            if let Ok(mut m) = server.dots.scadute.lock() {
+                m.insert(
+                    chiede.to_string(),
+                    (
+                        progetto.to_string(),
+                        incarico.clone(),
+                        q.testo.trim().to_string(),
+                    ),
+                );
+            }
             (dd::utente_non_ha_risposto(secondi.div_ceil(60)), None)
         }
     }
@@ -827,7 +843,7 @@ async fn dal_cervello_grande(
         dd::Chi::Collega(n) => n.clone(),
         dd::Chi::Utente => dd::UTENTE.to_string(),
     };
-    match crate::apm::chiedi_per_il_progetto(progetto, &per, &domanda, dd::GETTONI).await {
+    match crate::apm::chiedi_per_il_progetto(progetto, &per, &domanda, dd::GETTONI, false).await {
         Ok((r, _)) if !r.trim().is_empty() => r.trim().to_string(),
         Ok(_) => format!("(nessuna risposta: {per} non ha detto niente)"),
         Err(e) => format!("(nessuna risposta: {e})"),

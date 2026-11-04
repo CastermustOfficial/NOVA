@@ -60,12 +60,29 @@ pub fn chiedi(
     cartella: &str,
     fase: Option<u32>,
 ) -> Result<Value, String> {
+    let perche = fase.map_or(p::Perche::Utente, p::Perche::Fase);
+    chiedi_per(server, da, progetto, testo, cartella, perche)
+}
+
+/// Come [`chiedi`], col perche' detto intero: anche i dubbi del legale dopo
+/// una fase (D438), che chiede l'APM.
+pub fn chiedi_per(
+    server: &Arc<Server>,
+    da: &str,
+    progetto: &str,
+    testo: &str,
+    cartella: &str,
+    perche: p::Perche,
+) -> Result<Value, String> {
     crate::dot_accesi::se_spenti()?;
     let progetto = p::nome_del_progetto(progetto)?;
     if testo.trim().is_empty() {
-        return Err(match fase {
-            None => "all'Architetto serve sapere cosa si vuole fare".into(),
-            Some(n) => format!("all'Architetto serve sapere perche' la fase {n} non e' andata"),
+        return Err(match perche {
+            p::Perche::Utente => "all'Architetto serve sapere cosa si vuole fare".into(),
+            p::Perche::Fase(n) => {
+                format!("all'Architetto serve sapere perche' la fase {n} non e' andata")
+            }
+            p::Perche::Legale => "all'Architetto serve sapere che dubbi ha il legale".into(),
         });
     }
     let cartella = cartella.trim();
@@ -76,10 +93,17 @@ pub fn chiedi(
     }
     let dir = cartella_del_progetto(&progetto);
     let fatte = p::versioni(&dir);
-    let perche = match fase {
-        None => p::Perche::Utente,
-        Some(0) => return Err("le fasi si contano da 1".into()),
-        Some(n) => {
+    match perche {
+        p::Perche::Utente => {}
+        p::Perche::Fase(0) => return Err("le fasi si contano da 1".into()),
+        p::Perche::Legale => {
+            if fatte.is_empty() {
+                return Err(format!(
+                    "«{progetto}» non ha ancora un piano: prima il piano, poi i dubbi del legale"
+                ));
+            }
+        }
+        p::Perche::Fase(n) => {
             let Some(ultima) = fatte.last().copied() else {
                 return Err(format!(
                     "«{progetto}» non ha ancora un piano: prima il piano, poi le fasi"
@@ -106,9 +130,8 @@ pub fn chiedi(
                      volte da sola: ora decide l'utente. Diglielo, e chiedigli cosa cambiare."
                 ));
             }
-            p::Perche::Fase(n)
         }
-    };
+    }
     // Il progetto ha la sua cartella anche quando il piano lo chiede Nova
     // senza l'APM: li' vanno i piani (D407). Si crea solo adesso, a
     // richiesta accettata.
@@ -261,7 +284,7 @@ impl Lavoro<'_> {
     fn registra(&self, esito: &str, piano: Option<&p::Piano>, file: &str) {
         let fase = match self.r.perche {
             p::Perche::Fase(n) => Some(n),
-            p::Perche::Utente => None,
+            p::Perche::Utente | p::Perche::Legale => None,
         };
         let riga = crate::decisioni::riga_piano(
             &crate::decisioni::adesso(),
@@ -321,7 +344,7 @@ pub async fn lavora(
             }
         }
     };
-    if matches!(r.perche, p::Perche::Fase(_)) && precedente.is_none() {
+    if matches!(r.perche, p::Perche::Fase(_) | p::Perche::Legale) && precedente.is_none() {
         return (
             d::Stato::Fallito,
             format!("«{}» non ha un piano da rivedere", r.progetto),
@@ -377,6 +400,11 @@ pub async fn lavora(
 
     // 1. Legge quel che gli serve, e scrive il piano.
     let mut domanda = p::domanda(&l.r, l.versione, precedente.as_deref());
+    // Un esperimento (D440): niente compiti di legale e di amministrazione
+    // a ogni fase.
+    if crate::apm::leggi(&l.r.progetto).is_some_and(|x| x.esperimento) {
+        domanda.push_str(p::ESPERIMENTO);
+    }
     if compito.riprese > 0 {
         domanda.push_str(d::RIPRESO);
     }

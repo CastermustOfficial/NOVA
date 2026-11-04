@@ -89,6 +89,11 @@ pub struct Dots {
     /// messaggio di Nova a quel Dot e' la risposta.
     pub(crate) per_l_utente:
         std::sync::Mutex<HashMap<String, tokio::sync::oneshot::Sender<String>>>,
+    /// Le domande all'utente scadute senza risposta (D439), per Dot: il
+    /// progetto, il compito del piano e la domanda. Il primo messaggio di
+    /// Nova a quel Dot va anche al progetto, come cambio. Stanno solo in
+    /// memoria: dopo un riavvio la risposta va nella posta, come prima.
+    pub(crate) scadute: std::sync::Mutex<HashMap<String, (String, String, String)>>,
 }
 
 /// Come si parla al ciclo di un Dot.
@@ -753,6 +758,39 @@ pub fn scrivi(server: &Arc<Server>, da: &str, a: &str, testo: &str) -> Result<Va
             }
             let n = c.imbuca(da, &nome, testo.trim(), &quando)?;
             evento(&nome);
+            // La risposta a una domanda scaduta (D439): il compito e' andato
+            // avanti con un'ipotesi, e la risposta va al progetto come
+            // cambio, oltre che nella posta.
+            if da == d::DA_NOVA {
+                let scaduta = server
+                    .dots
+                    .scadute
+                    .lock()
+                    .ok()
+                    .and_then(|mut m| m.remove(&nome));
+                if let Some((progetto, incarico, domanda)) = scaduta {
+                    let cosa =
+                        nova_dot::domande::risposta_in_ritardo(&nome, &incarico, &domanda, testo);
+                    match crate::apm::cambia(server, &progetto, &cosa) {
+                        Ok(v) => {
+                            return Ok(json!({
+                                "a": nome,
+                                "messaggio": n,
+                                "cambio": progetto,
+                                "nota": format!(
+                                    "la sua domanda era scaduta e il compito e' andato avanti: la \
+                                     risposta va anche al progetto «{progetto}» come cambio ({})",
+                                    v.get("nota").and_then(Value::as_str).unwrap_or("")
+                                ),
+                            }));
+                        }
+                        Err(e) => tracing::warn!(
+                            dot = %nome, progetto = %progetto, errore = %e,
+                            "la risposta in ritardo non va al progetto"
+                        ),
+                    }
+                }
+            }
             Ok(json!({ "a": nome, "messaggio": n, "nota": "lo leggera' al prossimo compito" }))
         }
         Destinatario::Gruppo(g) => {

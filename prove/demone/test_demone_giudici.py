@@ -95,6 +95,9 @@ def eseguibile(nome, corpo):
 TRACCIA = casa / "claude_ricevuto.jsonl"
 #: Se c'e', Claude dice di essere partito con Bash: le mani che non deve avere.
 CON_LE_MANI = casa / "claude_con_le_mani"
+#: Se c'e', il legale ci mette i secondi scritti dentro prima di rispondere
+#: (D437); con «una volta» in fondo, la prima volta sola.
+LENTO = casa / "claude_lento"
 #: Quello che i giudici rispondono, per segno in testa alla domanda.
 RISPOSTE = {
     "[risorse]": '{"scelta": "assumi", "nome": "%s", "ruolo": "%s", "mestiere": "generico", '
@@ -109,6 +112,7 @@ CLAUDE = eseguibile("claude_finto", r'''
 import json, os, re, sys
 TRACCIA = r"''' + str(TRACCIA) + r'''"
 CON_LE_MANI = r"''' + str(CON_LE_MANI) + r'''"
+LENTO = r"''' + str(LENTO) + r'''"
 RISPOSTE = json.loads(r"""''' + json.dumps(RISPOSTE) + r'''""")
 domanda = sys.stdin.buffer.read().decode("utf-8")
 argv = sys.argv[1:]
@@ -117,6 +121,12 @@ with open(TRACCIA, "a", encoding="utf-8") as f:
                        ensure_ascii=False) + "\n")
 def dopo(n):
     return argv[argv.index(n) + 1] if n in argv else None
+if domanda.startswith("[legale]") and os.path.exists(LENTO):
+    import time
+    lento = open(LENTO, encoding="utf-8").read().split()
+    if lento[1:] == ["una", "volta"]:
+        os.remove(LENTO)
+    time.sleep(float(lento[0]))
 if dopo("--output-format") != "stream-json":
     print(json.dumps({"type": "result", "is_error": False, "result": "Consegna di claude.",
                       "session_id": "sessione-dot"}))
@@ -210,18 +220,22 @@ GRADINI = {"orchestra": {"brain": "mani"},
            "difficile": {"brain": "claude", "model": "modello-finto"}}
 
 
-def configura(scala=("orchestra", "difficile"), autonomia="autonomous"):
+def configura(scala=("orchestra", "difficile"), autonomia="autonomous", secondi=60,
+              per_compito=None):
+    dots = {"accesi": "si"}
+    if per_compito:
+        dots["secondi_per_compito"] = per_compito
     (cartella_nova / "config.json").write_text(json.dumps({
         "kb": {"enabled": False},
         # I Dot accesi a mano: in una casa senza abbonamenti ne' scheda video
         # NOVA li spegnerebbe da sola (D389).
-        "dots": {"accesi": "si"},
+        "dots": dots,
         "safety": {"autonomy": autonomia},
         "brains": {
             "api_base_url": f"http://127.0.0.1:{esterno.server_address[1]}",
             "api_model": "medio",
             "claude_binary": str(CLAUDE),
-            "claude_timeout": 60,
+            "claude_timeout": secondi,
             "cli": {"mani": {"etichetta": "Mani", "binary": str(MANI), "args": [],
                              "prompt": "stdin", "timeout": 60}},
             # Solo i gradini della scala: un gradino che sta in `tiers` e non
@@ -538,6 +552,56 @@ try:
     controlla("nella cronologia: chiesto, fermo, ripreso, chiesto di nuovo, pronto",
               eventi[:6] == ["creato", "piano_chiesto", "fermo", "ripreso", "piano_chiesto", "piano_pronto"],
               str(eventi))
+
+    print("\n8. un controllo oltre il suo tempo si riprova una volta, con piu' tempo (D437)")
+    # E' S0ex1 il 26 ottobre: la revisione della fase 3, con Claude, non ha
+    # risposto in 900 secondi, e il progetto si e' fermato senza riprovare.
+    # Qui Claude ha 3 secondi, un compito dei Dot 12, e il legale ne vuole 6.
+    def legali():
+        return [x for x in giudici() if genere(x) == "[legale]"]
+
+    def cronologia(cartella):
+        return [json.loads(r) for r in (cartella / "progetto.jsonl").read_text(encoding="utf-8").splitlines() if r]
+
+    # Un progetto alla volta: quello di prima finisce, prima.
+    capacita("dot.via", nome="ripreso", tetto=5)
+    controlla("il progetto di prima finisce", aspetta("ripreso", {"finito", "fermo"}) == "finito")
+    configura(secondi=3, per_compito=12)
+    LENTO.write_text("6 una volta", encoding="utf-8")
+    lento = casa / "progetto-lento"
+    lento.mkdir(exist_ok=True)
+    prima = len(legali())
+    capacita("dot.progetto", nome="lento", richiesta="Voglio un riassunto.", cartella=str(lento))
+    s = aspetta("lento", {"aspetta_il_via", "fermo"})
+    controlla("il legale la seconda volta risponde, e si arriva al via", s == "aspetta_il_via",
+              json.dumps(capacita("dot.progetti", nome="lento"), ensure_ascii=False)[:600])
+    controlla("Claude e' stato chiesto due volte, per il legale", len(legali()) - prima == 2,
+              str(len(legali()) - prima))
+    riprove = [e for e in cronologia(lento) if e["tipo"] == "riprova"]
+    controlla("nella cronologia una riprova, con chi e perche'",
+              len(riprove) == 1 and riprove[0].get("chi") == "il legale"
+              and "Claude Code non ha risposto entro 3s" in riprove[0].get("perche", ""),
+              json.dumps(riprove, ensure_ascii=False))
+
+    configura()
+    capacita("dot.via", nome="lento", tetto=5)
+    controlla("e col via finisce", aspetta("lento", {"finito", "fermo"}) == "finito")
+    configura(secondi=3, per_compito=5)
+    LENTO.write_text("8", encoding="utf-8")
+    lentissimo = casa / "progetto-lentissimo"
+    lentissimo.mkdir(exist_ok=True)
+    prima = len(legali())
+    capacita("dot.progetto", nome="lentissimo", richiesta="Voglio un altro riassunto.",
+             cartella=str(lentissimo))
+    s = aspetta("lentissimo", {"aspetta_il_via", "fermo"})
+    perche = capacita("dot.progetti", nome="lentissimo").get("perche_fermo", "")
+    controlla("non risponde nemmeno la seconda volta: si ferma, e dice che era la seconda",
+              s == "fermo" and "Claude Code non ha risposto entro 5s" in perche
+              and "era gia' la seconda volta, con piu' tempo" in perche, f"{s}: {perche[:300]}")
+    controlla("due volte, non di piu'", len(legali()) - prima == 2, str(len(legali()) - prima))
+    controlla("e una riprova sola nella cronologia",
+              sum(1 for e in cronologia(lentissimo) if e["tipo"] == "riprova") == 1)
+    LENTO.unlink()
 finally:
     processo.kill()
     esterno.shutdown()

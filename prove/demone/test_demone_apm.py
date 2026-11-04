@@ -12,7 +12,8 @@ Deciso con Gio il 10 ottobre, sulla bozza. Nova passa un progetto all'APM
 - a fine fase la revisione la guarda, e poi il legale; una fase che non va
   la rivede l'Architetto, e si rifa';
 - prima del rilascio il legale guarda tutto, e Nova riceve il resoconto;
-- il legale con dei dubbi dopo una fase lo ferma, e col via riparte;
+- i dubbi del legale dopo una fase diventano compiti delle fasi che restano
+  (D438); con dei dubbi prima del rilascio si ferma, e col via riparte;
 - un progetto alla volta: un secondo aspetta in coda;
 - il tetto: contano i cervelli a consumo; al 90% si ferma;
 - fermato il progetto, i suoi compiti ancora in coda escono dalla coda, e
@@ -22,7 +23,9 @@ Deciso con Gio il 10 ottobre, sulla bozza. Nova passa un progetto all'APM
 - i compiti sulla scheda video vanno uno alla volta, e finche' uno e'
   aperto la scheda e' sua (D424, D426);
 - ogni compito dice la squadra del progetto e la sua chat, un gruppo col
-  nome del progetto fatto dall'APM (D416).
+  nome del progetto fatto dall'APM (D416);
+- un esperimento: il legale guarda solo prima del rilascio, e l'Architetto
+  non mette compiti di legale e di amministrazione a ogni fase (D440).
 
 E Nova tramite (D403), deciso con Gio lo stesso giorno:
 
@@ -521,9 +524,14 @@ try:
               and radice("secondo") == casa / "Documents" / "Dots_Project" / "secondo")
     controlla("la fase 1 si e' rifatta", len(di("dot:dati")) - prima == 2, str(len(di("dot:dati")) - prima))
 
-    print("\n5. il legale ha dei dubbi dopo una fase: si ferma, e col via riparte")
-    per_legale.extend(["ESITO: ok", "ESITO: problemi\n- la licenza dei dati non permette di "
-                                    "ridistribuirli"])
+    print("\n5. i dubbi del legale dopo una fase diventano compiti; prima del rilascio si ferma (D438)")
+    # Gio, il 4 novembre: dopo una fase non ci si ferma mai. I dubbi vanno
+    # all'Architetto, che mette nelle fasi che restano i compiti per
+    # toglierli; ci si ferma solo prima del rilascio.
+    per_legale.extend(["ESITO: ok",
+                       "ESITO: problemi\n- la licenza dei dati non permette di ridistribuirli",
+                       "ESITO: ok",
+                       "ESITO: problemi\n- manca l'attribuzione degli autori dei dati"])
     per_ar.append('{"scelta": "riprendi", "dot": "rustico", "cervello": "piccolo", "perche": "c\'e\' gia\'"}')
     per_ar.append('{"scelta": "riprendi", "dot": "rustico", "cervello": "piccolo", "perche": "c\'e\' gia\'"}')
     capacita("dot.progetto", nome="terzo", richiesta="Un terzo compressore.")
@@ -531,17 +539,40 @@ try:
     controlla("un secondo progetto aspetta in coda", r.get("in_coda") is True and sta("quarto") == "in_coda",
               json.dumps(r))
     aspetta("terzo", {"aspetta_il_via", "fermo"})
+    prima_arch = len(di("architetto"))
     capacita("dot.via", nome="terzo", tetto=10)
     s = aspetta("terzo", {"fermo", "finito"})
     p = capacita("dot.progetti", nome="terzo")
-    controlla("fermo, col perche'",
-              s == "fermo" and "il legale ha dei dubbi dopo la fase 1: la licenza dei dati" in p["perche_fermo"],
+    controlla("non si ferma dopo la fase 1: si ferma solo prima del rilascio, col perche'",
+              s == "fermo" and "il legale ha dei dubbi prima del rilascio: manca l'attribuzione" in p["perche_fermo"]
+              and [e.get("perche", "").split(":")[0] for e in eventi("terzo") if e["tipo"] == "fermo"]
+              == ["il legale ha dei dubbi prima del rilascio"],
               json.dumps(p, ensure_ascii=False)[:500])
-    controlla("e l'ha detto a Nova", "Il progetto «terzo» e' fermo: il legale ha dei dubbi" in detti_a_nova()[-1])
+    arch = [x[2] for x in di("architetto")[prima_arch:] if "Progetto «terzo», versione 2." in x[2]]
+    controlla("i dubbi della fase 1 sono andati all'Architetto, e dicono che li chiede il legale",
+              len(arch) == 1 and "Cosa sistemare, lo chiede il legale dopo una fase, non l'utente" in arch[0]
+              and "Il legale, dopo la fase 1, ha questi dubbi:\n- la licenza dei dati non permette di "
+                  "ridistribuirli" in arch[0]
+              and "lo chiede l'utente" not in arch[0], arch[0][:600] if arch else str(len(arch)))
+    chiesti = [e for e in eventi("terzo") if e["tipo"] == "piano_chiesto"]
+    controlla("il piano nuovo rifa' dalla fase 2, e la fase 1 resta",
+              chiesti and chiesti[-1].get("cambio") is True and chiesti[-1].get("da_fase") == 2
+              and any(e["tipo"] == "piano_pronto" and e.get("versione") == 2 for e in eventi("terzo")),
+              json.dumps(chiesti, ensure_ascii=False))
+    coda_arch = rpc("dot/stato", nome="architetto").get("compiti", [])
+    controlla("il compito dell'Architetto dice chi lo chiede",
+              any("Rivedere il piano di «terzo»: i dubbi del legale" in c.get("testo", "")
+                  and "\nchiede: legale\n" in c.get("testo", "") for c in coda_arch),
+              str([c.get("testo", "")[:120] for c in coda_arch][-3:]))
+    controlla("e a Nova l'APM ha scritto il piano cambiato, e il fermo del rilascio",
+              any("Il piano di «terzo» e' cambiato, versione 2" in t for t in del_progetto("terzo"))
+              and "Il progetto «terzo» e' fermo: il legale ha dei dubbi prima del rilascio" in detti_a_nova()[-1],
+              str(del_progetto("terzo"))[-600:])
     dubbi = [json.loads(x) for x in (cartella_nova / "decisioni.jsonl").read_text(encoding="utf-8").splitlines()
              if '"controllo"' in x and '"terzo"' in x and '"problemi"' in x]
-    controlla("e il registro ha i problemi del legale",
-              len(dubbi) == 1 and "la licenza dei dati" in dubbi[0].get("perche", ""), str(dubbi))
+    controlla("e il registro ha i problemi del legale, tutti e due",
+              len(dubbi) == 2 and "la licenza dei dati" in dubbi[0].get("perche", "")
+              and "l'attribuzione" in dubbi[1].get("perche", ""), str(dubbi))
     controlla("intanto il quarto aspetta", sta("quarto") == "in_coda")
     r = capacita("dot.via", nome="terzo")
     controlla("col via riparte", r.get("ripreso") is True, json.dumps(r))
@@ -802,6 +833,45 @@ try:
     controlla("e l'Architetto sa cosa vuol dire il segno",
               bool(sistemi_architetto) and "«(fatto)» segna un compito gia' fatto che non va rifatto"
               in sistemi_architetto[-1], sistemi_architetto[-1][-600:] if sistemi_architetto else "")
+
+    print("\n14. un esperimento: il legale guarda solo prima del rilascio (D440)")
+    # Gio, il 4 novembre: S0ex1 e' uno stress test, e il legale e
+    # l'amministrazione a ogni fase rallentano la ricerca.
+    per_ar.append('{"scelta": "riprendi", "dot": "rustico", "cervello": "piccolo", "perche": "c\'e\' gia\'"}')
+    legali_prima = len(di("legale"))
+    arch_prima = len(di("architetto"))
+    r = capacita("dot.progetto", nome="prova-libera", richiesta="Un compressore da esplorare.",
+                 esperimento=True)
+    s = aspetta("prova-libera", {"aspetta_il_via", "fermo"})
+    controlla("arriva al via senza il legale dell'inizio",
+              s == "aspetta_il_via" and len(di("legale")) == legali_prima, f"{s} {len(di('legale')) - legali_prima}")
+    controlla("e nella cronologia e' un esperimento",
+              [e.get("esperimento") for e in eventi("prova-libera") if e["tipo"] == "modo"] == [True],
+              str(tipi("prova-libera")))
+    arch = [x[2] for x in di("architetto")[arch_prima:]]
+    controlla("l'Architetto sa che e' un esperimento, e non mette compiti di legale a ogni fase",
+              arch and "Questo progetto e' un esperimento" in arch[0]
+              and "Non mettere nelle fasi compiti di legale o di amministrazione" in arch[0],
+              arch[0][-500:] if arch else "")
+    capacita("dot.via", nome="prova-libera", tetto=10)
+    s = aspetta("prova-libera", {"finito", "fermo"})
+    quando = [x[2].split("«prova-libera» ", 1)[1].split(":", 1)[0] for x in di("legale")[legali_prima:]]
+    controlla("finisce, e il legale ha guardato una volta, prima del rilascio",
+              s == "finito" and quando == ["prima del rilascio"], f"{s} {quando}")
+    capacita("dot.progetto", nome="quindici", richiesta="Un altro compressore.")
+    r = capacita("dot.cambia_progetto", nome="quindici", esperimento="si'")
+    controlla("un progetto che c'e' diventa un esperimento, senza un cambio del piano",
+              r.get("esperimento") is True
+              and [e["tipo"] for e in eventi("quindici")].count("cambio") == 0
+              and [e.get("esperimento") for e in eventi("quindici") if e["tipo"] == "modo"] == [True],
+              json.dumps(r, ensure_ascii=False))
+    r = capacita("dot.cambia_progetto", nome="quindici", esperimento=False)
+    controlla("e torna com'era",
+              r.get("esperimento") is False
+              and [e.get("esperimento") for e in eventi("quindici") if e["tipo"] == "modo"] == [True, False],
+              json.dumps(r, ensure_ascii=False))
+    e = errore("dot.cambia_progetto", nome="quindici", esperimento="forse")
+    controlla("«forse» non e' si' o no", "e' si' o no" in e, e)
 finally:
     processo.kill()
     cervello.shutdown()

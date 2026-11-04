@@ -439,17 +439,32 @@ pub fn all_utente(dot: &str, progetto: &str, incarico: &str, domanda: &str) -> S
 }
 
 /// Quello che torna a un Dot quando l'utente non ha risposto in tempo
-/// (D427).
+/// (D427). Dal D439 il Dot va avanti con l'ipotesi piu' ambiziosa, e la
+/// scrive; una risposta che arriva dopo va al progetto come cambio.
 pub fn utente_non_ha_risposto(minuti: u64) -> String {
-    let quanto = if minuti >= 120 && minuti % 60 == 0 {
-        format!("{} ore", minuti / 60)
-    } else {
-        in_minuti(minuti)
+    let quanto = match (minuti / 60, minuti % 60) {
+        (1, 0) => "1 ora".to_string(),
+        (ore, 0) if ore > 1 => format!("{ore} ore"),
+        _ => in_minuti(minuti),
     };
     format!(
-        "(L'utente non ha risposto entro {quanto}. Vai avanti con quello che sai; se la \
-         decisione e' sua e non si puo' supporre, non fare la parte che ne dipende, e scrivi in \
-         «Cosa non so» la domanda e cosa manca.)"
+        "(L'utente non ha risposto entro {quanto}. Vai avanti con l'ipotesi piu' ambiziosa che il \
+         compito permette, fai anche la parte che ne dipende, e scrivi in «Cosa non so» la \
+         domanda e l'ipotesi che hai scelto: se l'utente risponde dopo, la sua risposta va al \
+         progetto come cambio. Una spesa, un permesso o un programma dell'utente da chiudere \
+         non si suppongono: quella parte non la fai.)"
+    )
+}
+
+/// Il cambio per il progetto quando l'utente risponde dopo l'attesa
+/// (D439): chi aveva chiesto, per che compito, la domanda e la risposta.
+pub fn risposta_in_ritardo(dot: &str, incarico: &str, domanda: &str, risposta: &str) -> String {
+    format!(
+        "L'utente ha risposto a «{dot}», per il compito {incarico}, dopo l'attesa: il compito era \
+         andato avanti con un'ipotesi sua. Se la risposta la cambia, rivedi quello che ne \
+         dipende.\nLa domanda: {}\nLa risposta: {}",
+        tagliato(domanda, 1_000),
+        risposta.trim()
     )
 }
 
@@ -1002,6 +1017,16 @@ mod prove {
             "{a}"
         );
         assert!(utente_non_ha_risposto(360).starts_with("(L'utente non ha risposto entro 6 ore."));
+        assert!(utente_non_ha_risposto(60).starts_with("(L'utente non ha risposto entro 1 ora."));
+        assert!(utente_non_ha_risposto(60).contains("con l'ipotesi piu' ambiziosa"));
+        assert!(utente_non_ha_risposto(120).contains("entro 2 ore."));
+        assert!(utente_non_ha_risposto(61).contains("entro 61 minuti."));
+        assert_eq!(
+            risposta_in_ritardo("dati", "5.2", " posso? ", " si' "),
+            "L'utente ha risposto a «dati», per il compito 5.2, dopo l'attesa: il compito era \
+             andato avanti con un'ipotesi sua. Se la risposta la cambia, rivedi quello che ne \
+             dipende.\nLa domanda: posso?\nLa risposta: si'"
+        );
         assert!(utente_non_ha_risposto(1).contains("entro 1 minuto."));
         assert!(utente_non_ha_risposto(90).contains("entro 90 minuti."));
     }

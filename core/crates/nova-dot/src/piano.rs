@@ -81,6 +81,13 @@ Un controllo gia' fatto non si rifa' senza un'evidenza nuova: se ti sembra da ri
 nel compito quale evidenza nuova lo chiede. I vincoli restano paletti da rispettare, non compiti \
 da ripetere.";
 
+/// Per il piano di un esperimento (D440, Gio il 4 novembre): in coda alla
+/// domanda all'Architetto.
+pub const ESPERIMENTO: &str = "\n\nQuesto progetto e' un esperimento: conta scoprire e misurare. \
+Il legale guarda il lavoro solo prima del rilascio. Non mettere nelle fasi compiti di legale o di \
+amministrazione, se non prima di un rilascio o di una spesa vera: un Dot con un dubbio che lo \
+blocca lo chiede al legale con la sua riga, mentre lavora.";
+
 /// Il segno in testa a ogni domanda all'Architetto.
 pub const SEGNO: &str = "[piano di sviluppo]";
 
@@ -216,7 +223,14 @@ pub enum Perche {
     /// La fase con quel numero non e' andata: fallita, o bocciata dalla
     /// revisione. Si rivede da sola, al piu' [`REVISIONI_PER_FASE`] volte.
     Fase(u32),
+    /// Il legale, dopo una fase, ha dei dubbi da sistemare (D438): il piano
+    /// mette nelle fasi che restano i compiti che servono. Non lo chiede
+    /// l'utente, e non fa ripartire il conto delle revisioni.
+    Legale,
 }
+
+/// Come la richiesta dice chi la fa, quando non e' l'utente ne' una fase.
+const CHIEDE: &str = "chiede";
 
 /// Cosa si chiede all'Architetto. Viaggia nel testo del compito, in coda
 /// all'Architetto: la prima riga e' per chi guarda la coda, le altre per
@@ -243,13 +257,19 @@ impl Richiesta {
                     self.progetto
                 )
             }
+            Perche::Legale => format!(
+                "Rivedere il piano di «{}»: i dubbi del legale",
+                self.progetto
+            ),
         };
         let mut t = format!("{titolo}\nprogetto: {}\n", self.progetto);
         if !self.cartella.trim().is_empty() {
             t.push_str(&format!("cartella: {}\n", self.cartella.trim()));
         }
-        if let Perche::Fase(n) = self.perche {
-            t.push_str(&format!("fase: {n}\n"));
+        match self.perche {
+            Perche::Fase(n) => t.push_str(&format!("fase: {n}\n")),
+            Perche::Legale => t.push_str(&format!("{CHIEDE}: {}\n", crate::azienda::NOME_LEGALE)),
+            Perche::Utente => {}
         }
         t.push('\n');
         t.push_str(self.testo.trim());
@@ -283,6 +303,7 @@ impl Richiesta {
                     }
                     perche = Perche::Fase(n);
                 }
+                CHIEDE if valore == crate::azienda::NOME_LEGALE => perche = Perche::Legale,
                 altro => return Err(format!("«{altro}» non e' una voce della richiesta")),
             }
         }
@@ -394,6 +415,12 @@ pub fn domanda(r: &Richiesta, versione: u32, precedente: Option<&str>) -> String
             r.testo.trim()
         )),
         (Perche::Utente, None) => t.push_str(&format!("La richiesta:\n{}", r.testo.trim())),
+        (Perche::Legale, _) => t.push_str(&format!(
+            "Cosa sistemare, lo chiede il legale dopo una fase, non l'utente: metti nelle fasi \
+             che restano i compiti che servono a toglierne i dubbi, senza rifare quello che e' \
+             gia' fatto.\n{}",
+            r.testo.trim()
+        )),
     }
     if let Some(p) = precedente {
         t.push_str(&format!(
@@ -1163,6 +1190,12 @@ mod prove {
                 perche: Perche::Fase(2),
                 testo: "la revisione l'ha bocciata: mancano le fonti".into(),
             },
+            Richiesta {
+                progetto: "spazi".into(),
+                cartella: "C:\\x".into(),
+                perche: Perche::Legale,
+                testo: "Il legale, dopo la fase 1, ha questi dubbi:\n- la licenza".into(),
+            },
         ] {
             let t = r.nel_compito();
             assert_eq!(Richiesta::dal_compito(&t).unwrap(), r, "{t}");
@@ -1177,6 +1210,26 @@ mod prove {
         assert_eq!(
             t,
             "Rivedere il piano di «p»: la fase 3 non e' andata\nprogetto: p\nfase: 3\n\nx"
+        );
+        let r = Richiesta {
+            progetto: "p".into(),
+            cartella: String::new(),
+            perche: Perche::Legale,
+            testo: "la licenza".into(),
+        };
+        assert_eq!(
+            r.nel_compito(),
+            "Rivedere il piano di «p»: i dubbi del legale\nprogetto: p\nchiede: legale\n\nla licenza"
+        );
+        let d = domanda(&r, 2, Some("# Piano: p"));
+        assert!(
+            d.contains("Cosa sistemare, lo chiede il legale dopo una fase, non l'utente")
+                && !d.contains("lo chiede l'utente"),
+            "{d}"
+        );
+        assert!(
+            Richiesta::dal_compito("Rivedere\nprogetto: p\nchiede: utente\n\nx").is_err(),
+            "chiede vale solo per il legale"
         );
         assert!(
             Richiesta::dal_compito("cerca le fonti").is_err(),

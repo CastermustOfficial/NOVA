@@ -161,6 +161,22 @@ fn numero(args: &Value, campo: &str) -> Result<Option<u64>> {
     }
 }
 
+/// Un si' o un no, se c'e' (D440): un booleano, o «si'», «no», «true»,
+/// «false» scritti; i modelli e la riga di comando scrivono l'uno e l'altro.
+fn si_o_no(args: &Value, campo: &str) -> Result<Option<bool>> {
+    match args.get(campo) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Bool(b)) => Ok(Some(*b)),
+        Some(Value::String(s)) => match s.trim().to_lowercase().trim_end_matches('\'') {
+            "" => Ok(None),
+            "si" | "sì" | "true" | "vero" => Ok(Some(true)),
+            "no" | "false" | "falso" => Ok(Some(false)),
+            _ => Err(anyhow!("«{campo}» e' si' o no, non «{s}»")),
+        },
+        Some(altro) => Err(anyhow!("«{campo}» e' si' o no, non {altro}")),
+    }
+}
+
 struct CreaCap;
 
 #[async_trait]
@@ -323,6 +339,12 @@ impl Capability for ProgettoCap {
                 ("nome", "string", "minuscole, cifre, trattini", true),
                 ("richiesta", "string", "cosa vuole l'utente, per intero", true),
                 ("cartella", "string", "dove stanno i file del progetto, o vuoto", false),
+                (
+                    "esperimento",
+                    "boolean",
+                    "un esperimento: il legale guarda solo prima del rilascio",
+                    false,
+                ),
             ]),
         }
     }
@@ -332,7 +354,8 @@ impl Capability for ProgettoCap {
         let nome = arg_str(&args, "nome")?;
         let richiesta = arg_str(&args, "richiesta")?;
         let cartella = arg_str_opt(&args, "cartella").unwrap_or_default();
-        crate::apm::crea(server, &nome, &richiesta, &cartella).map_err(|e| anyhow!(e))
+        let esperimento = si_o_no(&args, "esperimento")?.unwrap_or(false);
+        crate::apm::crea(server, &nome, &richiesta, &cartella, esperimento).map_err(|e| anyhow!(e))
     }
 }
 
@@ -423,13 +446,20 @@ impl Capability for CambiaProgettoCap {
         CapabilityInfo {
             name: "dot.cambia_progetto".into(),
             description: "Cambia un progetto dei Dot come chiede l'utente: l'Architetto rivede \
-                          il piano da dove si e' arrivati, le fasi fatte restano."
+                          il piano da dove si e' arrivati, le fasi fatte restano. Con \
+                          `esperimento`, lo fa diventare un esperimento o no."
                 .into(),
             risk: Risk::Safe,
             category: "dot".into(),
             schema: schema(&[
                 ("nome", "string", "il progetto", true),
-                ("cosa", "string", "cosa cambiare, con le parole dell'utente", true),
+                ("cosa", "string", "cosa cambiare, con le parole dell'utente", false),
+                (
+                    "esperimento",
+                    "boolean",
+                    "un esperimento: il legale guarda solo prima del rilascio",
+                    false,
+                ),
             ]),
         }
     }
@@ -437,8 +467,22 @@ impl Capability for CambiaProgettoCap {
     async fn call(&self, args: Value, _ctx: &Ctx) -> Result<Value> {
         let server = per_nova("cambiare un progetto")?;
         let nome = arg_str(&args, "nome")?;
-        let cosa = arg_str(&args, "cosa")?;
-        crate::apm::cambia(server, &nome, &cosa).map_err(|e| anyhow!(e))
+        let cosa = arg_str_opt(&args, "cosa").unwrap_or_default();
+        let esperimento = si_o_no(&args, "esperimento")?;
+        // Il modo prima del cambio (D440): il piano rivisto lo vede gia'.
+        let modo = match esperimento {
+            Some(e) => Some(crate::apm::modo(server, &nome, e).map_err(|e| anyhow!(e))?),
+            None => None,
+        };
+        match modo {
+            Some(m) if cosa.trim().is_empty() => Ok(m),
+            Some(m) => {
+                let mut c = crate::apm::cambia(server, &nome, &cosa).map_err(|e| anyhow!(e))?;
+                c["esperimento"] = m["esperimento"].clone();
+                Ok(c)
+            }
+            None => crate::apm::cambia(server, &nome, &cosa).map_err(|e| anyhow!(e)),
+        }
     }
 }
 

@@ -280,6 +280,7 @@ pub fn crea(
     nome: &str,
     richiesta: &str,
     cartella_file: &str,
+    esperimento: bool,
 ) -> Result<Value, String> {
     crate::dot_accesi::se_spenti()?;
     apm_c_e()?;
@@ -320,6 +321,15 @@ pub fn crea(
             cartella: cartella_file.to_string(),
         },
     );
+    if esperimento {
+        annota(
+            &nome,
+            Evento::Modo {
+                quando: adesso(),
+                esperimento,
+            },
+        );
+    }
     sveglia(server);
     let attivo = attivo();
     let in_coda = attivo.as_ref().is_some_and(|a| a.nome != nome);
@@ -449,6 +459,38 @@ pub fn cambia(server: &Arc<Server>, nome: &str, cosa: &str) -> Result<Value, Str
         _ => "l'Architetto rivede il piano, e poi l'APM ti richiede il via",
     };
     Ok(json!({ "progetto": p.nome, "sta": come_sta(&p, attivo().as_ref()), "nota": nota }))
+}
+
+/// Un progetto diventa un esperimento, o smette di esserlo (D440,
+/// `dot.cambia_progetto` con `esperimento`). Il piano di adesso resta: vale
+/// dal controllo dopo, e dal prossimo piano.
+pub fn modo(server: &Arc<Server>, nome: &str, esperimento: bool) -> Result<Value, String> {
+    crate::dot_accesi::se_spenti()?;
+    let p =
+        leggi(nome.trim()).ok_or_else(|| format!("non c'e' nessun progetto «{}»", nome.trim()))?;
+    if p.dove == DoveSta::Finito {
+        return Err(format!("il progetto «{}» e' finito", p.nome));
+    }
+    if p.esperimento != esperimento {
+        annota(
+            &p.nome,
+            Evento::Modo {
+                quando: adesso(),
+                esperimento,
+            },
+        );
+        sveglia(server);
+    }
+    Ok(json!({
+        "progetto": p.nome,
+        "esperimento": esperimento,
+        "nota": if esperimento {
+            "e' un esperimento: il legale guarda solo prima del rilascio, e il prossimo piano non \
+             ha compiti di legale e di amministrazione se non prima di un rilascio o di una spesa"
+        } else {
+            "non e' piu' un esperimento: il legale guarda all'inizio e dopo ogni fase"
+        },
+    }))
 }
 
 /// I progetti, o uno solo col suo racconto (`dot.progetti`).
@@ -593,7 +635,7 @@ async fn prepara(server: &Arc<Server>, p: &Progetto) -> bool {
         return piano_pronto(server, p);
     }
     if let Some(cosa) = &p.cambio {
-        return chiedi_il_cambio(server, p, cosa, 1);
+        return chiedi_il_cambio(server, p, cosa, 1, piano::Perche::Utente);
     }
     let Some((pi, file)) = piano_di(p) else {
         ferma_e_di(
@@ -603,7 +645,8 @@ async fn prepara(server: &Arc<Server>, p: &Progetto) -> bool {
         );
         return true;
     };
-    if p.legale_inizio.is_none() {
+    // Un esperimento (D440): il legale guarda solo prima del rilascio.
+    if p.legale_inizio.is_none() && !p.esperimento {
         let materia = format!("Il piano:\n{}", piano::scrivi(&pi));
         return legale(server, p, "all'inizio", &materia, None, false).await;
     }
@@ -866,10 +909,14 @@ async fn lavora(server: &Arc<Server>, p: &Progetto) -> bool {
     if fatto {
         return true;
     }
-    // Un cambio chiesto dall'utente (D403): non si affida altro, si lasciano
-    // finire i compiti in corso, e poi l'Architetto rivede il piano dalla
-    // fase di adesso.
-    if let Some(cosa) = &p.cambio {
+    // Un cambio chiesto dall'utente (D403), o i dubbi del legale dopo una
+    // fase (D438): non si affida altro, si lasciano finire i compiti in
+    // corso, e poi l'Architetto rivede il piano dalla fase di adesso.
+    let dubbi = p
+        .dubbi_da_sistemare
+        .as_ref()
+        .map(|(n, note)| pr::testo_dei_dubbi(*n, note));
+    if p.cambio.is_some() || dubbi.is_some() {
         if p.lavori.values().any(|l| l.stato.is_none()) {
             return false;
         }
@@ -877,14 +924,24 @@ async fn lavora(server: &Arc<Server>, p: &Progetto) -> bool {
             .fase_di_adesso(&pi)
             .map(|f| f.n)
             .unwrap_or_else(|| pi.fasi.iter().map(|f| f.n).max().unwrap_or(0) + 1);
-        return chiedi_il_cambio(server, p, cosa, da);
+        // Chi chiede si dice (D438): un dubbio del legale non e' una parola
+        // dell'utente.
+        let (cosa, perche) = match (&p.cambio, dubbi) {
+            (Some(c), None) => (c.clone(), piano::Perche::Utente),
+            (Some(c), Some(d)) => (
+                format!("{c}\n\nE in piu', non lo chiede l'utente: {d}"),
+                piano::Perche::Utente,
+            ),
+            (None, Some(d)) => (d, piano::Perche::Legale),
+            (None, None) => return false,
+        };
+        return chiedi_il_cambio(server, p, &cosa, da, perche);
     }
-    // Il legale dopo ogni fase fatta (Gio, 10 ottobre).
-    if let Some(f) = pi
-        .fasi
-        .iter()
-        .find(|f| p.fasi.get(&f.n) == Some(&true) && !p.legale_fasi.contains_key(&f.n))
-    {
+    // Il legale dopo ogni fase fatta (Gio, 10 ottobre), fuori che in un
+    // esperimento (D440).
+    if let Some(f) = pi.fasi.iter().find(|f| {
+        !p.esperimento && p.fasi.get(&f.n) == Some(&true) && !p.legale_fasi.contains_key(&f.n)
+    }) {
         let materia = format!(
             "La fase {} «{}», e quello che ha consegnato:\n{}",
             f.n,
@@ -1096,15 +1153,21 @@ async fn rivedi_la_fase(server: &Arc<Server>, p: &Progetto, n: u32, perche: &str
 
 /// Il cambio chiesto dall'utente va all'Architetto, che rivede il piano da
 /// `da_fase` in poi.
-fn chiedi_il_cambio(server: &Arc<Server>, p: &Progetto, cosa: &str, da_fase: u32) -> bool {
+fn chiedi_il_cambio(
+    server: &Arc<Server>,
+    p: &Progetto,
+    cosa: &str,
+    da_fase: u32,
+    perche: piano::Perche,
+) -> bool {
     let testo = pr::testo_del_cambio(cosa, Some(da_fase));
-    match crate::architetto::chiedi(
+    match crate::architetto::chiedi_per(
         server,
         d::azienda::NOME_APM,
         &p.nome,
         &testo,
         &cartella(&p.nome).display().to_string(),
-        None,
+        perche,
     ) {
         Ok(v) => {
             let id = v.get("compito").and_then(Value::as_u64).unwrap_or(0);
@@ -1280,7 +1343,9 @@ fn di_la_fine(server: &Arc<Server>, nome: &str) {
 }
 
 /// Il legale guarda. Con dei dubbi all'inizio si va avanti, e li vede
-/// l'utente nel via; dopo una fase o prima del rilascio ci si ferma.
+/// l'utente nel via; dopo una fase si va avanti, e i dubbi diventano
+/// compiti delle fasi che restano (D438, Gio il 4 novembre); prima del
+/// rilascio ci si ferma.
 async fn legale(
     server: &Arc<Server>,
     p: &Progetto,
@@ -1344,8 +1409,7 @@ async fn legale(
             &format!("dubbi {quando}: {}", note.join("; ")),
         );
     }
-    let inizio = fase.is_none() && !rilascio;
-    if !ok && !inizio {
+    if !ok && rilascio {
         ferma_e_di(
             server,
             &p.nome,
@@ -1358,6 +1422,12 @@ async fn legale(
 /// Una domanda al cervello piu' grande che risponde a un indirizzo, o a
 /// Claude Code senza mani se la scala non ne ha uno (D405). Se non si puo',
 /// il progetto si ferma e lo dice: un controllo che non c'e' non e' un si'.
+///
+/// Un controllo andato oltre il suo tempo si riprova una volta, col tempo
+/// di un compito dei Dot (`dots.secondi_per_compito`), come un compito
+/// (D437): il 26 ottobre la revisione della fase 3 di S0ex1 non ha risposto
+/// in 900 secondi, e il progetto si e' fermato. Se non risponde nemmeno la
+/// seconda volta, si ferma.
 async fn chiedi_al_grande(
     server: &Arc<Server>,
     nome: &str,
@@ -1365,13 +1435,26 @@ async fn chiedi_al_grande(
     domanda: &str,
     gettoni: u32,
 ) -> Option<(String, String)> {
-    match chiedi_per_il_progetto(nome, chi, domanda, gettoni).await {
-        Ok(x) => Some(x),
-        Err(e) => {
-            ferma_e_di(server, nome, &e);
-            None
-        }
+    let mut e = match chiedi_per_il_progetto(nome, chi, domanda, gettoni, false).await {
+        Ok(x) => return Some(x),
+        Err(e) => e,
+    };
+    if nova_cervelli::cli::e_tempo_scaduto(&e) {
+        annota(
+            nome,
+            Evento::Riprova {
+                quando: adesso(),
+                chi: chi.to_string(),
+                perche: e.clone(),
+            },
+        );
+        e = match chiedi_per_il_progetto(nome, chi, domanda, gettoni, true).await {
+            Ok(x) => return Some(x),
+            Err(e) => format!("{e}; era gia' la seconda volta, con piu' tempo"),
+        };
     }
+    ferma_e_di(server, nome, &e);
+    None
 }
 
 /// Una domanda al cervello piu' grande per il progetto `nome`, a nome di
@@ -1379,13 +1462,19 @@ async fn chiedi_al_grande(
 /// scrive nel progetto. Torna la risposta e il cervello che l'ha data, o
 /// perche' non c'e'. La usano i controlli dell'APM e chi risponde alle
 /// domande dei Dot (D419), che non ferma il progetto se non risponde.
+/// `piu_tempo` da' a Claude Code e alle CLI il tempo di un compito dei Dot
+/// (D437).
 pub(crate) async fn chiedi_per_il_progetto(
     nome: &str,
     chi: &str,
     domanda: &str,
     gettoni: u32,
+    piu_tempo: bool,
 ) -> Result<(String, String), String> {
-    let cfg = nova_configurazione::dove::leggi();
+    let mut cfg = nova_configurazione::dove::leggi();
+    if piu_tempo {
+        cfg = crate::dot::con_piu_tempo(&cfg);
+    }
     // Un cervello a indirizzo, o Claude Code senza mani (D405).
     let Some(grande) = crate::giudice::Giudice::dalla_scala(&crate::agente::scala_di(&cfg), |_| false)
     else {

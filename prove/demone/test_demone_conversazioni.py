@@ -496,8 +496,24 @@ try:
     controlla("se l'utente non risponde in tempo, il Dot va avanti e lo sa",
               "(L'utente non ha risposto entro 1 minuto." in r7 and c7.get("stato") == "fatto"
               and c7.get("esito", "").startswith("Consegna 5.2"), f"{r7[-300:]} {c7}"[:500])
-    controlla("e una risposta che arriva dopo va nella posta, come un messaggio",
-              capacita("dot.scrivi", a="dati", testo="Scusa, ero via.").get("messaggio") is not None)
+    controlla("e il Dot sa che va avanti con l'ipotesi piu' ambiziosa, e che la risposta puo' arrivare dopo",
+              "con l'ipotesi piu' ambiziosa che il compito permette" in r7
+              and "la sua risposta va al progetto come cambio" in r7, r7[-400:])
+    # D439: una risposta che arriva dopo va nella posta, e al progetto come
+    # cambio, una volta.
+    r = capacita("dot.scrivi", a="dati", testo="Scusa, ero via: usa il corpus nuovo.")
+    controlla("e una risposta che arriva dopo va nella posta, e al progetto come cambio (D439)",
+              r.get("messaggio") is not None and r.get("cambio") == "conv", str(r))
+    cambi = [e for e in (json.loads(x) for x in (PROGETTO / "progetto.jsonl").read_text(encoding="utf-8")
+                         .splitlines() if x) if e["tipo"] == "cambio"]
+    controlla("il cambio dice chi aveva chiesto, per che compito, la domanda e la risposta",
+              len(cambi) == 1 and cambi[0]["cosa"].startswith(
+                  "L'utente ha risposto a «dati», per il compito 5.2, dopo l'attesa")
+              and "La risposta: Scusa, ero via: usa il corpus nuovo." in cambi[0]["cosa"],
+              json.dumps(cambi, ensure_ascii=False)[:500])
+    r = capacita("dot.scrivi", a="dati", testo="Un'altra cosa.")
+    controlla("il messaggio dopo e' solo un messaggio",
+              r.get("messaggio") is not None and "cambio" not in r, str(r))
 
     print("\n6. la risposta all'utente non si perde e non si richiede (D429)")
     # Il 17 ottobre Gio ha risposto a ricerca con «Affida come compito», e la

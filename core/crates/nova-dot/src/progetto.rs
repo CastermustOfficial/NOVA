@@ -196,6 +196,34 @@ pub enum Evento {
         domanda: String,
         risposta: String,
     },
+    /// Un controllo dell'APM e' andato oltre il suo tempo, e si riprova una
+    /// volta con piu' tempo (D437): chi, e cosa aveva detto. Non cambia lo
+    /// stato del progetto.
+    Riprova {
+        quando: String,
+        chi: String,
+        perche: String,
+    },
+    /// Il progetto e' un esperimento, o non lo e' piu' (D440): il legale
+    /// guarda solo prima del rilascio, e il piano non ha compiti di legale e
+    /// di amministrazione se non prima di un rilascio o di una spesa.
+    Modo { quando: String, esperimento: bool },
+}
+
+/// Quante volte, in un progetto, i dubbi del legale dopo una fase vanno
+/// all'Architetto (D438). Ogni volta il piano si allunga, e la fase nuova
+/// ha di nuovo il legale: senza un tetto il progetto potrebbe non finire.
+/// Oltre, i dubbi restano scritti, e li guarda il legale del rilascio.
+pub const CAMBI_DEL_LEGALE: u32 = 3;
+
+/// Quello che l'Architetto riceve per i dubbi del legale dopo la fase `n`
+/// (D438): le note, una per riga.
+pub fn testo_dei_dubbi(n: u32, note: &[String]) -> String {
+    let mut t = format!("Il legale, dopo la fase {n}, ha questi dubbi:");
+    for x in note {
+        t.push_str(&format!("\n- {}", x.trim()));
+    }
+    t
 }
 
 /// Quanti aiuti puo' avere chi fa un ruolo del piano (D422), oltre a lui:
@@ -277,6 +305,15 @@ pub struct Progetto {
     pub piano_da_richiedere: bool,
     /// Il cambio chiesto dall'utente e non ancora passato all'Architetto.
     pub cambio: Option<String>,
+    /// I dubbi del legale dopo una fase, non ancora passati all'Architetto
+    /// (D438): la fase, e le note. Non fermano il progetto: diventano
+    /// compiti delle fasi che restano.
+    pub dubbi_da_sistemare: Option<(u32, Vec<String>)>,
+    /// Quante volte i dubbi del legale dopo una fase sono andati
+    /// all'Architetto: al piu' [`CAMBI_DEL_LEGALE`].
+    pub cambi_del_legale: u32,
+    /// Un esperimento (D440): il legale guarda solo prima del rilascio.
+    pub esperimento: bool,
     /// I ruoli del piano, e chi li fa.
     pub squadra: BTreeMap<String, String>,
     pub tetto: f64,
@@ -320,6 +357,9 @@ impl Progetto {
             legale_fasi: BTreeMap::new(),
             legale_rilascio: None,
             note_legali: Vec::new(),
+            dubbi_da_sistemare: None,
+            cambi_del_legale: 0,
+            esperimento: false,
             proposto: false,
             perche_fermo: String::new(),
             resoconto: String::new(),
@@ -354,6 +394,7 @@ impl Progetto {
                     p.piano_da_richiedere = false;
                     if *cambio && !*di_nuovo {
                         p.cambio = None;
+                        p.dubbi_da_sistemare = None;
                     }
                 }
                 Evento::PianoPronto {
@@ -390,6 +431,19 @@ impl Progetto {
                         p.legale_rilascio = Some(*ok);
                     } else if let Some(n) = fase {
                         p.legale_fasi.insert(*n, *ok);
+                        // Dubbi dopo una fase: vanno all'Architetto (D438),
+                        // finche' non sono troppi; poi li vede il legale
+                        // del rilascio, che guarda tutto.
+                        if !*ok && p.cambi_del_legale < CAMBI_DEL_LEGALE {
+                            p.cambi_del_legale += 1;
+                            let mut tutte = p
+                                .dubbi_da_sistemare
+                                .take()
+                                .map(|(_, v)| v)
+                                .unwrap_or_default();
+                            tutte.extend(note.iter().cloned());
+                            p.dubbi_da_sistemare = Some((*n, tutte));
+                        }
                     } else {
                         p.legale_inizio = Some(*ok);
                     }
@@ -487,7 +541,8 @@ impl Progetto {
                         p.lavori.remove(crate::struttura::INCARICO_PAPER);
                     }
                 }
-                Evento::Domanda { .. } => {}
+                Evento::Domanda { .. } | Evento::Riprova { .. } => {}
+                Evento::Modo { esperimento, .. } => p.esperimento = *esperimento,
                 Evento::Finito { resoconto, .. } => {
                     p.dove = DoveSta::Finito;
                     p.resoconto.clone_from(resoconto);
@@ -1642,6 +1697,66 @@ mod prove {
         ]);
         let p = Progetto::da("p", &prima).unwrap();
         assert_eq!((p.dove, p.proposto, p.legale_inizio), (DoveSta::Prepara, false, None));
+    }
+
+    /// I dubbi del legale dopo una fase aspettano l'Architetto (D438), al
+    /// piu' [`CAMBI_DEL_LEGALE`] volte; il piano chiesto per il cambio li
+    /// porta via. Quelli dell'inizio e del rilascio no.
+    #[test]
+    fn i_dubbi_del_legale_dopo_una_fase_aspettano_l_architetto() {
+        let legale = |fase: Option<u32>, rilascio: bool, nota: &str| Evento::Legale {
+            quando: t(),
+            fase,
+            rilascio,
+            ok: false,
+            note: vec![nota.into()],
+        };
+        let mut e = base();
+        e.extend([
+            legale(None, false, "all'inizio"),
+            Evento::Via {
+                quando: t(),
+                tetto: 0.0,
+            },
+            legale(Some(1), false, "la licenza"),
+        ]);
+        let p = Progetto::da("p", &e).unwrap();
+        assert_eq!(
+            p.dubbi_da_sistemare,
+            Some((1, vec!["la licenza".to_string()]))
+        );
+        assert_eq!(p.dove, DoveSta::InCorso, "non si ferma");
+        assert_eq!(
+            testo_dei_dubbi(1, &p.dubbi_da_sistemare.unwrap().1),
+            "Il legale, dopo la fase 1, ha questi dubbi:\n- la licenza"
+        );
+        e.push(Evento::PianoChiesto {
+            quando: t(),
+            compito: 9,
+            fase: None,
+            da_fase: Some(2),
+            cambio: true,
+            di_nuovo: false,
+        });
+        assert_eq!(Progetto::da("p", &e).unwrap().dubbi_da_sistemare, None);
+        for n in 2..=4 {
+            e.push(legale(Some(n), false, &format!("fase {n}")));
+        }
+        let p = Progetto::da("p", &e).unwrap();
+        assert_eq!(p.cambi_del_legale, CAMBI_DEL_LEGALE);
+        assert_eq!(
+            p.dubbi_da_sistemare,
+            Some((3, vec!["fase 2".to_string(), "fase 3".to_string()])),
+            "due fasi prima dell'Architetto vanno insieme, e la quarta volta non va piu'"
+        );
+        e.push(legale(None, true, "il rilascio"));
+        assert_eq!(
+            Progetto::da("p", &e)
+                .unwrap()
+                .dubbi_da_sistemare
+                .map(|d| d.0),
+            Some(3)
+        );
     }
 
     #[test]

@@ -838,9 +838,10 @@ bozza, prima del codice. Le regole e le parole stanno in
   e arriva a Nova in chat.
 - **Si ferma, e lo dice a Nova**: quando lo ferma l'utente
   (`dot.ferma_progetto`, che ferma anche i Dot che ci lavorano: i loro
-  compiti si rifaranno), quando il legale ha dei dubbi dopo una fase o
-  prima del rilascio, quando una fase non va per la terza volta, quando un
-  controllo non si e' potuto fare (nessun cervello con un indirizzo, una
+  compiti si rifaranno), quando il legale ha dei dubbi prima del rilascio
+  (dal D438 quelli dopo una fase diventano compiti, e non fermano), quando
+  una fase non va per la terza volta, quando un controllo non si e' potuto
+  fare (dal D437 uno andato oltre il tempo si riprova prima una volta) (nessun cervello con un indirizzo, una
   risposta che non si legge, «solo sul PC» acceso), e al 90% del tetto.
   Riparte con `dot.via`, col tetto nuovo se l'utente lo dice: ripartire
   dopo i dubbi del legale vuol dire che l'utente ha deciso di andare
@@ -870,8 +871,9 @@ bozza, prima del codice. Le regole e le parole stanno in
   ancora; ogni Dot ha la sua, e le consegne passano nei testi dei compiti.
 - **La vista dei progetti nell'harness**: oggi c'e' `progetto.md`, e
   `dot.progetti`.
-- **Il legale ferma, ma non spiega a chi deve cambiare cosa**: i suoi dubbi
-  vanno all'utente, non all'Architetto.
+- ~~**Il legale ferma, ma non spiega a chi deve cambiare cosa**: i suoi dubbi
+  vanno all'utente, non all'Architetto.~~ Fatto col D438: i dubbi dopo una
+  fase vanno all'Architetto.
 
 **Nova tramite — fatto** (D403). Deciso con Gio il 10 ottobre, sulla bozza,
 prima del codice. Le parole stanno in `nova_dot::progetto`, il giro in
@@ -1121,7 +1123,7 @@ dell'utente, salvo una sua richiesta esplicita.
 | **Cosa si sorveglia** | `config.json`, `progetti.json` e il `dot.json` di ogni Dot: chi e' NOVA, dove stanno i progetti, chi e' ogni Dot. Dal D412 anche il registro delle decisioni, `decisioni.jsonl`. Il resto della cartella (diari, code, conversazioni) lo scrive NOVA di continuo. |
 | **Come** | Chi scrive per conto di NOVA lascia prima una copia buona in `copie-buone/`. Il demone confronta i file con le copie ogni 10 secondi mentre un Dot lavora, e quando un compito finisce; una differenza la riguarda dopo 300 ms, perche' puo' essere una scrittura di NOVA a meta'. |
 | **Chi l'ha fatto** | Un Dot solo al lavoro: il suo compito risulta non andato. Piu' Dot: non si sa chi, e non si accusa nessuno. In tutti e due i casi il file torna com'era, la versione estranea va da parte, e il custode lo dice a Nova. |
-| **Il tempo** | Un compito dei Dot ha almeno mezz'ora (`dots.secondi_per_compito`), la chat resta col tempo della CLI. Un compito oltre il tempo si riprova una volta, con la nota di riprendere dal disco; e uno che Claude Code ferma sul tetto dei turni riprende una volta, nella stessa sessione (D433). |
+| **Il tempo** | Un compito dei Dot ha almeno mezz'ora (`dots.secondi_per_compito`), la chat resta col tempo della CLI. Un compito oltre il tempo si riprova una volta, con la nota di riprendere dal disco; e uno che Claude Code ferma sul tetto dei turni riprende una volta, nella stessa sessione (D433). Un controllo dell'APM oltre il tempo si riprova una volta, col tempo di un compito (D437). |
 | **Le domande** | Dopo un cambio a lavoro iniziato le «Domande per te» del piano nuovo arrivano in chat, come con la proposta. |
 
 - **Quello che cambia l'utente resta suo.** Con nessun Dot al lavoro il
@@ -1303,7 +1305,7 @@ una misura e' aperta resta spento.
 bisogno di una decisione di Gio, e non avevano modo di chiedergliela: la
 fase e' fallita tre volte. Adesso un Dot scrive `CHIEDO A utente: ...`, la
 domanda arriva da Nova (e a voce, se la voce e' accesa), e il compito
-aspetta la risposta, fino a sei ore; si risponde scrivendo a quel Dot, da
+aspetta la risposta, fino a sei ore (dal D439 un'ora); si risponde scrivendo a quel Dot, da
 Nova o dall'harness. Gli altri compiti intanto vanno avanti.
 
 **La risposta non si perde — fatto** (D429). Il 17 ottobre un passo dopo
@@ -1336,10 +1338,49 @@ cervello nel compito, i passi dopo partono gia' un gradino piu' su; e il
 piano, i passi fatti e le salite stanno su disco, cosi' una riprova o un
 riavvio ripartono dal primo passo non fatto.
 
+**I dubbi del legale dopo una fase diventano compiti — fatto** (D438). Il
+23 e il 26 ottobre il legale ha fermato S0ex1 dopo una fase per dubbi che
+si sistemano lavorando: la provenienza dei testi da documentare, un conto
+di file da spiegare. Gio ha deciso il 4 novembre: dopo una fase non ci si
+ferma mai. I dubbi vanno all'Architetto come un cambio, ma col perche'
+del legale (`Perche::Legale`, «Cosa sistemare, lo chiede il legale dopo
+una fase, non l'utente»), e il piano mette nelle fasi che restano i compiti
+per toglierli; al piu' tre volte per progetto (`CAMBI_DEL_LEGALE`), poi i
+dubbi restano scritti e li guarda il legale del rilascio. Prima del rilascio
+ci si ferma, come prima.
+
+**Un'ora per l'utente, poi un'ipotesi — fatto** (D439). Una domanda
+all'utente teneva fermo il compito fino a sei ore, e con lui la chiusura
+della fase. Adesso si aspetta un'ora (`dots.secondi_per_l_utente`); poi il
+Dot va avanti con l'ipotesi piu' ambiziosa che il compito permette, e la
+scrive in «Cosa non so». Una spesa, un permesso o un programma dell'utente
+da chiudere non si suppongono. Se l'utente risponde dopo, il primo
+messaggio di Nova a quel Dot va nella posta e anche al progetto, come
+cambio (`domande::risposta_in_ritardo`), con la domanda e chi l'aveva
+fatta. Le domande scadute stanno solo in memoria: dopo un riavvio la
+risposta va nella posta, come prima.
+
+**Il progetto esperimento — fatto** (D440). In uno stress test come S0ex1
+il legale a ogni fase, e i compiti di amministrazione nel piano, rallentano
+la ricerca. Un progetto puo' essere un esperimento: `dot.progetto` con
+`esperimento`, o per uno che c'e' `dot.cambia_progetto` con `esperimento`
+e senza `cosa` (la cronologia lo segna `modo`). In un esperimento il legale
+guarda solo prima del rilascio, e l'Architetto riceve in coda alla domanda
+`piano::ESPERIMENTO`: niente compiti di legale o di amministrazione nelle
+fasi, se non prima di un rilascio o di una spesa vera. Un Dot con un dubbio
+che lo blocca lo chiede al legale mentre lavora (D419).
+
+**Un controllo oltre il tempo non ferma il progetto — fatto** (D437). Il 26
+ottobre la revisione della fase 3 di S0ex1, chiesta a Claude Code, non ha
+risposto in 900 secondi, e il progetto si e' fermato. Adesso un controllo
+dell'APM andato oltre il tempo si rifa' una volta, col tempo di un compito
+dei Dot (`dots.secondi_per_compito`), e la cronologia lo segna `riprova`;
+se non risponde nemmeno la seconda volta, il progetto si ferma e lo dice.
+
 | | Di serie | Si cambia con |
 |---|---|---|
 | **Dopo quanto CLM si spegne senza domande** | 10 minuti | `clm.spegni_dopo_s` |
-| **Quanto si aspetta l'utente** | 6 ore | `dots.secondi_per_l_utente` |
+| **Quanto si aspetta l'utente** | 1 ora (D439; prima 6 ore) | `dots.secondi_per_l_utente` |
 
 **Le chat in markdown — fatto** (D428). I Dot scrivono tabelle, titoli ed
 elenchi, e l'harness li mostrava come testo: una tabella era una fila di

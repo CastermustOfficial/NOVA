@@ -12124,3 +12124,19 @@ cervelli grandi passi che il revisore bocciava ogni volta, e dopo un passo
 scaduto rifaceva il piano e i passi gia' fatti. Adesso, dopo due salite, i
 passi dopo partono piu' su (D435), e una riprova riparte dal passo dove era
 (D436).
+
+## 4 novembre 2026 — I controlli che vanno oltre il tempo
+
+Il PC di sviluppo si spegneva per la ciabatta, non per il carico: Gio l'ha
+cambiata, e si riprende dai punti aperti dello stress test. Il primo e' del
+26 ottobre: la revisione della fase 3 non ha risposto in quindici minuti, e
+il progetto si e' fermato, mentre un compito dei Dot nello stesso caso si
+riprova. Adesso si riprova anche un controllo dell'APM, una volta e col
+tempo di un compito (D437).
+
+Poi Gio ha deciso gli altri punti. Il legale dopo una fase non ferma piu'
+il progetto: i suoi dubbi vanno all'Architetto, detti suoi e non di Gio, e
+diventano compiti (D438). Una domanda a Gio aspetta un'ora, poi il Dot va
+avanti con l'ipotesi piu' ambiziosa, e se Gio risponde dopo la risposta va
+al progetto come cambio (D439). E un progetto puo' essere un esperimento,
+col legale solo prima del rilascio (D440): S0ex1 lo diventa.
