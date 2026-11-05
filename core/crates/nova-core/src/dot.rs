@@ -1806,6 +1806,42 @@ async fn lavora_e_giudica(
         )
         .await;
     }
+    // Il motore e' guasto (D441): una CLI che si chiude senza scrivere
+    // niente, o che va oltre il tempo anche alla riprova. Il compito sale al
+    // gradino sopra, una volta, invece di fallire. Il 4 novembre `agy` si
+    // chiudeva in 4 secondi, e il 5 andava oltre la mezz'ora: 4.2 e 4.5 di
+    // S0ex1 sono falliti sul gradino «rapido» con «difficile» libero.
+    if stato == d::Stato::Fallito && nova_cervelli::cli::motore_guasto(&esito) {
+        let scala = crate::pagella::scala(&nova_configurazione::dove::leggi());
+        let da = if usato.is_empty() {
+            per_lui.cervello.clone()
+        } else {
+            usato.clone()
+        };
+        if let Some(su) = d::pagella::sopra(&da, &scala) {
+            let _ = c.diario(&json!({
+                "quando": adesso(), "compito": compito.id, "tipo": "sale_dopo_il_guasto",
+                "da": da, "a": su, "perche": esito,
+            }));
+            server.ctx.bus.emit(
+                "dot.rifatto",
+                json!({ "dot": nome, "id": compito.id, "da": da, "a": su, "guasto": esito }),
+            );
+            per_lui.cervello.clone_from(&su);
+            let mut su_testo = per_lui.clone();
+            if nova_cervelli::cli::e_tempo_scaduto(&esito) {
+                su_testo.testo.push_str(d::DOPO_IL_TEMPO);
+            }
+            let mut nuovo = String::new();
+            (stato, esito) =
+                lavora(server, c, nome, &su_testo, riprende, aggiunta, &mut nuovo).await;
+            (stato, esito) = finche_torna_la_quota(
+                server, c, nome, &su_testo, riprende, aggiunta, &mut nuovo, stato, esito,
+            )
+            .await;
+            usato = if nuovo.is_empty() { su } else { nuovo };
+        }
+    }
     let Some(dot) = dot.filter(|x| x.mestiere.prende_compiti()) else {
         return (stato, esito);
     };

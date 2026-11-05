@@ -1123,7 +1123,7 @@ dell'utente, salvo una sua richiesta esplicita.
 | **Cosa si sorveglia** | `config.json`, `progetti.json` e il `dot.json` di ogni Dot: chi e' NOVA, dove stanno i progetti, chi e' ogni Dot. Dal D412 anche il registro delle decisioni, `decisioni.jsonl`. Il resto della cartella (diari, code, conversazioni) lo scrive NOVA di continuo. |
 | **Come** | Chi scrive per conto di NOVA lascia prima una copia buona in `copie-buone/`. Il demone confronta i file con le copie ogni 10 secondi mentre un Dot lavora, e quando un compito finisce; una differenza la riguarda dopo 300 ms, perche' puo' essere una scrittura di NOVA a meta'. |
 | **Chi l'ha fatto** | Un Dot solo al lavoro: il suo compito risulta non andato. Piu' Dot: non si sa chi, e non si accusa nessuno. In tutti e due i casi il file torna com'era, la versione estranea va da parte, e il custode lo dice a Nova. |
-| **Il tempo** | Un compito dei Dot ha almeno mezz'ora (`dots.secondi_per_compito`), la chat resta col tempo della CLI. Un compito oltre il tempo si riprova una volta, con la nota di riprendere dal disco; e uno che Claude Code ferma sul tetto dei turni riprende una volta, nella stessa sessione (D433). Un controllo dell'APM oltre il tempo si riprova una volta, col tempo di un compito (D437). |
+| **Il tempo** | Un compito dei Dot ha almeno mezz'ora (`dots.secondi_per_compito`), la chat resta col tempo della CLI. Un compito oltre il tempo si riprova una volta, con la nota di riprendere dal disco; e uno che Claude Code ferma sul tetto dei turni riprende una volta, nella stessa sessione (D433). Un controllo dell'APM oltre il tempo si riprova una volta, col tempo di un compito (D437). Un compito col motore guasto (nessuna uscita, o oltre il tempo anche alla riprova) sale una volta al gradino sopra (D441). |
 | **Le domande** | Dopo un cambio a lavoro iniziato le «Domande per te» del piano nuovo arrivano in chat, come con la proposta. |
 
 - **Quello che cambia l'utente resta suo.** Con nessun Dot al lavoro il
@@ -1369,6 +1369,13 @@ guarda solo prima del rilascio, e l'Architetto riceve in coda alla domanda
 `piano::ESPERIMENTO`: niente compiti di legale o di amministrazione nelle
 fasi, se non prima di un rilascio o di una spesa vera. Un Dot con un dubbio
 che lo blocca lo chiede al legale mentre lavora (D419).
+
+**Il motore guasto non fa fallire il compito — fatto** (D441). Il 4 e il 5
+novembre Antigravity si chiudeva senza scrivere niente, e poi andava oltre
+la mezz'ora: i compiti sul gradino «rapido» fallivano, con «difficile»
+libero. Adesso un compito il cui motore non scrive niente, o va oltre il
+tempo anche alla riprova, si rifa' una volta dal gradino sopra, e il diario
+lo segna `sale_dopo_il_guasto`.
 
 **Un controllo oltre il tempo non ferma il progetto — fatto** (D437). Il 26
 ottobre la revisione della fase 3 di S0ex1, chiesta a Claude Code, non ha

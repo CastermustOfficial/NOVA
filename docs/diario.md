@@ -12140,3 +12140,13 @@ diventano compiti (D438). Una domanda a Gio aspetta un'ora, poi il Dot va
 avanti con l'ipotesi piu' ambiziosa, e se Gio risponde dopo la risposta va
 al progetto come cambio (D439). E un progetto puo' essere un esperimento,
 col legale solo prima del rilascio (D440): S0ex1 lo diventa.
+
+## 5 novembre 2026 — Il motore guasto
+
+S0ex1 e' ripartito come esperimento, e la sera del 4 i compiti sul gradino
+«rapido» fallivano in 4 secondi: Antigravity, aggiornato il 30 ottobre, si
+chiudeva da solo. L'ho fermato. Con Gio abbiamo rimesso la versione del 24,
+il progetto e' ripartito, e poco dopo Antigravity si e' aggiornato da solo
+a una versione che funziona; ma 4.2 e' andato oltre la mezz'ora due volte
+ed e' fallito, sempre su «rapido». Adesso un compito il cui motore non
+risponde si rifa' una volta dal gradino sopra (D441).

@@ -282,7 +282,18 @@ pub fn cosa_ha_detto(etichetta: &str, stdout: &str, stderr: &str) -> Result<Stri
     }
     let e = nova_pitone::senza_bianchi(stderr);
     let e: String = e.chars().take(400).collect();
-    Err(format!("{etichetta} non ha prodotto output. {e}"))
+    Err(format!("{etichetta}{SENZA_USCITA} {e}"))
+}
+
+/// Il pezzo fisso della frase di [`cosa_ha_detto`] quando la CLI non scrive
+/// niente.
+const SENZA_USCITA: &str = " non ha prodotto output.";
+
+/// Se un esito dice che il motore e' guasto (D441): una CLI che non ha
+/// scritto niente (si e' chiusa, o non e' partita davvero), o che e' andata
+/// oltre il suo tempo. Un compito dei Dot cosi' sale al gradino sopra.
+pub fn motore_guasto(testo: &str) -> bool {
+    e_tempo_scaduto(testo) || testo.contains(SENZA_USCITA)
 }
 
 /// Quando la CLI non risponde entro il suo tempo. Claude Code lo dice con
@@ -510,6 +521,25 @@ mod prove {
         assert!(!e_tempo_scaduto("Finta non ha risposto entro s"));
         assert!(!e_tempo_scaduto("Finta non ha prodotto output."));
         assert!(!e_tempo_scaduto(""));
+    }
+
+    /// Il 4 novembre `agy` si chiudeva in 4 secondi senza scrivere niente, e
+    /// il 5 andava oltre la mezz'ora: tutti e due sono un motore guasto
+    /// (D441). Un errore che dice altro no.
+    #[test]
+    fn il_motore_guasto_si_riconosce() {
+        assert!(motore_guasto(
+            &cosa_ha_detto("Antigravity (Google)", "", "").unwrap_err()
+        ));
+        assert!(motore_guasto(
+            &cosa_ha_detto("Finta", " \n", "boh").unwrap_err()
+        ));
+        assert!(motore_guasto(&non_ha_risposto(
+            "Antigravity (Google)",
+            1800
+        )));
+        assert!(!motore_guasto("il piano non si legge"));
+        assert!(!motore_guasto(""));
     }
 
     fn m(r: &str, c: &str) -> Messaggio {
