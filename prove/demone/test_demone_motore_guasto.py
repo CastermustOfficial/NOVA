@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""Un compito dei Dot col motore guasto sale al gradino sopra (D441).
+"""Un compito dei Dot col motore guasto sale al gradino sopra (D441), e una
+consegna bocciata che il gradino sopra non rifa' resta (D442).
 
 Il 4 novembre `agy` (Antigravity) si chiudeva in 4 secondi senza scrivere
 niente, e i compiti 4.2 e 4.5 di S0ex1 sono falliti sul gradino «rapido»,
@@ -14,7 +15,10 @@ suo tempo, e un **Claude Code finto**, che consegna. Si guarda che:
    sopra, consegna, e il diario dice da dove a dove e perche';
 2. un compito su una CLI che va oltre il tempo si riprova prima sulla CLI
    (D410), poi sale, con la nota di riprendere dal disco;
-3. un compito che va bene sulla CLI resta sulla CLI.
+3. un compito che va bene sulla CLI resta sulla CLI;
+4. una consegna bocciata dal capo che il gradino sopra non riesce a rifare,
+   perche' va oltre il tempo anche alla riprova, resta com'era, fatta e con
+   la nota che il capo l'aveva bocciata (D442), invece di risultare fallita.
 
 Esce 2 — «qui non si puo' provare» — se il demone non e' costruito.
 """
@@ -102,11 +106,16 @@ with open(r"''' + str(TRACCIA_CLAUDE) + r'''", "a", encoding="utf-8") as f:
     f.write(json.dumps({"argv": argv, "domanda": domanda}, ensure_ascii=False) + "\n")
 if "stream-json" in argv:
     risposta = "VOTO: 8\nPERCHE: va bene"
+    if "LAVORO-BOCCIATO" in domanda and "Consegna della CLI." in domanda:
+        risposta = "VOTO: 3\nPERCHE: scarso"
     print(json.dumps({"type": "system", "subtype": "init", "tools": [], "mcp_servers": []}))
     print(json.dumps({"type": "assistant", "message": {"content": [{"type": "text", "text": risposta}]}}))
     print(json.dumps({"type": "result", "subtype": "success", "is_error": False, "result": risposta,
                       "session_id": "giudice"}))
 else:
+    if "LAVORO-BOCCIATO" in domanda:
+        import time
+        time.sleep(30)
     print(json.dumps({"type": "result", "is_error": False, "num_turns": 2,
                       "result": "Consegna di Claude.", "session_id": "sessione-del-dot"}))
 ''')
@@ -192,7 +201,7 @@ try:
 
     # Un Dot per prova: la conversazione di un Dot va da un compito all'altro,
     # e il segno di un compito arriverebbe anche alla CLI del compito dopo.
-    for n in ("muto", "lento", "tranquillo"):
+    for n in ("muto", "lento", "tranquillo", "bocciato"):
         rpc("dot/crea", nome=n, ruolo="Fai quello che ti si chiede.")
 
     print("\n1. la CLI si chiude senza scrivere niente: il compito sale al gradino sopra")
@@ -230,6 +239,25 @@ try:
     controlla("fatto dalla CLI", c.get("stato") == "fatto" and "Consegna della CLI." in c.get("esito", ""),
               str(c)[:300])
     controlla("e Claude non l'ha fatto", not a_claude("un lavoro tranquillo"))
+
+    print("\n4. bocciata, e il gradino sopra non la rifa': resta la consegna di prima (D442)")
+    # Il 5 novembre 4.4 di S0ex1 ha consegnato con «rapido» (voto 5); Claude
+    # Code e' andato oltre la mezz'ora a rifarlo, e il compito e' fallito.
+    id4 = rpc("dot/affida", nome="bocciato", testo="un LAVORO-BOCCIATO", da="utente")["id"]
+    c = aspetta("bocciato", id4)
+    controlla("il compito e' fatto, con la consegna della CLI e la nota della bocciatura",
+              c.get("stato") == "fatto" and c.get("esito", "").startswith("Consegna della CLI.")
+              and "Il capo aveva bocciato questa consegna" in c.get("esito", ""), str(c)[:400])
+    voci = [x.get("tipo") for x in diario("bocciato", id4)
+            if x.get("tipo") in ("voto", "rifatto", "riprova", "rifatto_non_andato")]
+    controlla("voto, rifatto, una riprova, e il rifacimento non andato",
+              voci == ["voto", "rifatto", "riprova", "rifatto_non_andato"], str(voci))
+    non = [x for x in diario("bocciato", id4) if x.get("tipo") == "rifatto_non_andato"]
+    controlla("che dice da chi, perche', e cosa resta",
+              non and non[0].get("da") == "difficile" and non[0].get("resta") == "rapido"
+              and "non ha risposto entro" in non[0].get("perche", ""), json.dumps(non, ensure_ascii=False))
+    controlla("Claude ci ha provato due volte", len(a_claude("un LAVORO-BOCCIATO")) == 2,
+              str(len(a_claude("un LAVORO-BOCCIATO"))))
 finally:
     processo.kill()
 

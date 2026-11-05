@@ -12150,3 +12150,8 @@ il progetto e' ripartito, e poco dopo Antigravity si e' aggiornato da solo
 a una versione che funziona; ma 4.2 e' andato oltre la mezz'ora due volte
 ed e' fallito, sempre su «rapido». Adesso un compito il cui motore non
 risponde si rifa' una volta dal gradino sopra (D441).
+
+Nel pomeriggio 4.4 ha consegnato con «rapido», il capo gli ha dato 5, e
+Claude, a rifarlo, e' andato oltre la mezz'ora: il compito e' risultato
+fallito, e la consegna di «rapido» persa. Adesso il rifacimento si riprova
+una volta, e se non va resta la consegna di prima (D442).

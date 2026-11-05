@@ -310,6 +310,12 @@ pub fn sopra(cervello: &str, scala: &[String]) -> Option<String> {
     scala.get(i + 1).cloned()
 }
 
+/// In coda alla consegna di prima, quando il rifacimento un gradino piu' su
+/// non e' andato (D442): chi la legge sa che il capo l'aveva bocciata.
+pub const RIFATTO_NON_ANDATO: &str =
+    "\n\n(Il capo aveva bocciato questa consegna, e il rifacimento un \
+gradino piu' su non e' andato: resta questa.)";
+
 /// Il gradino sotto `cervello` nella scala, se c'e'.
 pub fn sotto(cervello: &str, scala: &[String]) -> Option<String> {
     let i = scala.iter().position(|g| g == cervello)?;

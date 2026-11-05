@@ -1872,8 +1872,35 @@ async fn lavora_e_giudica(
         per_lui.cervello.clone_from(&su);
         per_lui.testo = d::pagella::rifai(&compito.testo, &g);
         rifatto = true;
+        // La consegna di prima, se il gradino sopra non ne fa una (D442).
+        let prima = (esito.clone(), usato.clone());
         let mut nuovo = String::new();
         (stato, esito) = lavora(server, c, nome, &per_lui, false, "", &mut nuovo).await;
+        // Il gradino sopra e' andato oltre il tempo: si riprova una volta,
+        // dal disco, come un compito (D410).
+        if stato == d::Stato::Fallito && nova_cervelli::cli::e_tempo_scaduto(&esito) {
+            let _ = c.diario(&json!({
+                "quando": adesso(), "compito": compito.id, "tipo": "riprova", "perche": esito,
+            }));
+            let mut ancora = per_lui.clone();
+            ancora.testo.push_str(d::DOPO_IL_TEMPO);
+            nuovo.clear();
+            (stato, esito) = lavora(server, c, nome, &ancora, false, "", &mut nuovo).await;
+        }
+        // Il rifacimento non e' andato (D442): resta la consegna di prima,
+        // bocciata ma fatta, e la revisione della fase la vede col suo voto.
+        // Il 5 novembre 4.4 di S0ex1 aveva consegnato con «rapido» (voto 5),
+        // Claude Code e' andato oltre la mezz'ora a rifarlo, e il compito e'
+        // risultato fallito, senza consegna.
+        if stato == d::Stato::Fallito {
+            let _ = c.diario(&json!({
+                "quando": adesso(), "compito": compito.id, "tipo": "rifatto_non_andato",
+                "da": su, "perche": esito, "resta": prima.1,
+            }));
+            stato = d::Stato::Fatto;
+            esito = format!("{}{}", prima.0, d::pagella::RIFATTO_NON_ANDATO);
+            break;
+        }
         usato = if nuovo.is_empty() { su } else { nuovo };
     }
     (stato, esito)
