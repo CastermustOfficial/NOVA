@@ -608,6 +608,13 @@ fn leggi_incarico(t: &str) -> Result<Incarico, String> {
         }
         break;
     }
+    // «Fatto» in testa, come «Fatto (riga 613): `rapporto.md` ...» (D443):
+    // il 5 novembre l'Architetto ha segnato cosi' 4.5, 4.23, 4.24 e 4.25 nel
+    // piano 38 di S0ex1, e l'APM li ha riaffidati. Il testo resta: dice dov'e'
+    // la consegna.
+    if fatto_in_testa(&cosa) {
+        fatto = true;
+    }
     if cosa.is_empty() {
         return Err(format!("compito {id}: non dice cosa fare"));
     }
@@ -619,6 +626,20 @@ fn leggi_incarico(t: &str) -> Result<Incarico, String> {
         scheda,
         fatto,
     })
+}
+
+/// Se il testo di un compito comincia con «Fatto», o col segno, come
+/// parola a se': «Fatto (riga 613)», «Fatto:», «Fatto.», «(fatto) ...».
+/// «Fattorizzare» no.
+fn fatto_in_testa(cosa: &str) -> bool {
+    let c = cosa.trim_start();
+    if c.get(..SEGNO_FATTO.len())
+        .is_some_and(|x| x.eq_ignore_ascii_case(SEGNO_FATTO))
+    {
+        return true;
+    }
+    c.get(..5).is_some_and(|x| x.eq_ignore_ascii_case("fatto"))
+        && c[5..].chars().next().is_none_or(|x| !x.is_alphanumeric())
 }
 
 /// Le dipendenze fanno un giro? Torna il giro, se c'e'.
@@ -1368,7 +1389,10 @@ di amministrazione o di revisione non si ripete"
                 "{base}- 1.1 [dati] misurare A (fatto)\n\
                  - 1.2 [qualita] ripetere A (scheda video) (Fatto) (dopo 1.1)\n\
                  - 1.3 [dati] misurare B (dopo 1.1) (fatto) (scheda video)\n\
-                 - 1.4 [ricerca] leggere cosa e' stato fatto\n"
+                 - 1.4 [ricerca] leggere cosa e' stato fatto\n\
+                 - 1.5 [assumi: ricercatore in tokenizzazione] Fatto (riga 613): `rapporto.md` con tre varianti\n\
+                 - 1.6 [amministrazione] Fatto: l'inventario. Non si rilancia.\n\
+                 - 1.7 [dati] Fattorizzare i conti\n"
             ),
             1,
         )
@@ -1376,11 +1400,16 @@ di amministrazione o di revisione non si ripete"
         let i: Vec<&Incarico> = p.incarichi().collect();
         assert_eq!(
             i.iter().map(|x| x.fatto).collect::<Vec<_>>(),
-            [true, true, true, false]
+            [true, true, true, false, true, true, false],
+            "D443: anche «Fatto» in testa, come parola a se'"
+        );
+        assert_eq!(
+            i[4].cosa, "Fatto (riga 613): `rapporto.md` con tre varianti",
+            "il testo resta"
         );
         assert_eq!(
             i.iter().map(|x| x.scheda).collect::<Vec<_>>(),
-            [false, true, true, false]
+            [false, true, true, false, false, false, false]
         );
         assert_eq!(i[0].cosa, "misurare A");
         assert_eq!(

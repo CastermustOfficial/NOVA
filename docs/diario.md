@@ -12155,3 +12155,10 @@ Nel pomeriggio 4.4 ha consegnato con «rapido», il capo gli ha dato 5, e
 Claude, a rifarlo, e' andato oltre la mezz'ora: il compito e' risultato
 fallito, e la consegna di «rapido» persa. Adesso il rifacimento si riprova
 una volta, e se non va resta la consegna di prima (D442).
+
+In serata la fase 4 non e' andata: 4.2, 4.4 e 4.7 sono falliti, i primi due
+prima delle correzioni di oggi, il terzo per due passi oltre la mezz'ora
+anche con Claude. Il piano 38 dell'Architetto diceva «Fatto (riga ...)» in
+testa ai compiti gia' fatti, invece del segno in fondo, e l'APM li ha
+riaffidati; i Dot se ne sono accorti da soli. Adesso anche «Fatto» in testa
+vale (D443).
