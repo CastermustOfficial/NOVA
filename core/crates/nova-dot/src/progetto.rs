@@ -210,6 +210,20 @@ pub enum Evento {
     Modo { quando: String, esperimento: bool },
 }
 
+/// Cosa Nova chiede all'utente quando NOVA si riaccende con un progetto in
+/// corso (D444): l'ha messo in pausa, e riprende col via.
+pub fn chiedi_se_riprendere(nome: &str, fermati: usize) -> String {
+    let compiti = match fermati {
+        0 => String::new(),
+        1 => " Il compito che era aperto si rifara' col via.".to_string(),
+        n => format!(" I {n} compiti che erano aperti si rifaranno col via."),
+    };
+    format!(
+        "NOVA si e' riaccesa con il progetto «{nome}» in corso, e l'ho messo in pausa.{compiti} \
+         Riprendo con i Dot? Se si', dammi il via (`dot.via`)."
+    )
+}
+
 /// Quante volte, in un progetto, i dubbi del legale dopo una fase vanno
 /// all'Architetto (D438). Ogni volta il piano si allunga, e la fase nuova
 /// ha di nuovo il legale: senza un tetto il progetto potrebbe non finire.
@@ -1697,6 +1711,19 @@ mod prove {
         ]);
         let p = Progetto::da("p", &prima).unwrap();
         assert_eq!((p.dove, p.proposto, p.legale_inizio), (DoveSta::Prepara, false, None));
+    }
+
+    #[test]
+    fn all_avvio_si_chiede_se_riprendere() {
+        assert_eq!(
+            chiedi_se_riprendere("s0ex1", 2),
+            "NOVA si e' riaccesa con il progetto «s0ex1» in corso, e l'ho messo in pausa. I 2 \
+             compiti che erano aperti si rifaranno col via. Riprendo con i Dot? Se si', dammi il \
+             via (`dot.via`)."
+        );
+        assert!(chiedi_se_riprendere("p", 1)
+            .contains(" Il compito che era aperto si rifara' col via. "));
+        assert!(chiedi_se_riprendere("p", 0).contains("in pausa. Riprendo"));
     }
 
     /// I dubbi del legale dopo una fase aspettano l'Architetto (D438), al

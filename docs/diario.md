@@ -12162,3 +12162,14 @@ anche con Claude. Il piano 38 dell'Architetto diceva «Fatto (riga ...)» in
 testa ai compiti gia' fatti, invece del segno in fondo, e l'APM li ha
 riaffidati; i Dot se ne sono accorti da soli. Adesso anche «Fatto» in testa
 vale (D443).
+
+## 6 novembre 2026 — Il giorno in cui i Dot hanno lavorato da soli
+
+I miei controlli sono arrivati con un giorno di ritardo, e S0ex1 e' andato
+avanti senza di me: dopo uno spegnimento del PC e' ripartito da solo, e la
+fase 4 ha chiuso quasi tutti i compiti. Gio se n'e' accorto dal piano di
+Claude quasi esaurito: si aspettava che Nova gli chiedesse se riprendere.
+Adesso glielo chiede (D444). Sulla scelta di 4.13, che toccava a lui, mi ha
+detto di rispondere io: ho approvato C v3 solo come riferimento, e ho
+chiesto G3 sui log per intero e una forma ibrida fra G4 e le correzioni.
+Finito questo giro, Gio vuole fermare S0ex1 per qualche giorno.

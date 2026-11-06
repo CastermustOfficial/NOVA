@@ -423,6 +423,44 @@ pub fn ferma(server: &Arc<Server>, nome: &str, perche: &str) -> Result<Value, St
     Ok(json!({ "progetto": p.nome, "fermo": true, "dot_fermati": fermati, "tolti_dalla_coda": tolti }))
 }
 
+/// Perche' un progetto e' in pausa dopo che NOVA si e' riaccesa (D444).
+pub const IN_PAUSA_ALL_AVVIO: &str =
+    "NOVA si e' riaccesa: il progetto e' in pausa, e riprende quando lo dici";
+
+/// All'avvio del demone un progetto in corso si mette in pausa (D444, Gio
+/// il 6 novembre): i suoi compiti aperti si fermano prima che i Dot
+/// ripartano, e si rifaranno col via; Nova chiede all'utente se
+/// riprendere. Il 6 novembre, dopo uno spegnimento, S0ex1 e' ripartito da
+/// solo e ha lavorato tutto il giorno, consumando il piano di Claude di
+/// Gio, che si aspettava una domanda.
+pub fn in_pausa_all_avvio(server: &Arc<Server>) {
+    for nome in crate::progetti::elenco() {
+        let Some(p) = leggi(&nome) else { continue };
+        if p.dove != DoveSta::InCorso {
+            continue;
+        }
+        annota(
+            &p.nome,
+            Evento::Fermo {
+                quando: adesso(),
+                perche: IN_PAUSA_ALL_AVVIO.to_string(),
+            },
+        );
+        let mut fermati = 0;
+        for l in p.lavori.values().filter(|l| l.stato.is_none()) {
+            if crate::dot::ferma_prima_di_partire(
+                &l.dot,
+                l.compito,
+                &format!("fermato col progetto «{}»: NOVA si e' riaccesa", p.nome),
+            ) {
+                fermati += 1;
+            }
+        }
+        tracing::info!(progetto = %p.nome, compiti = fermati, "progetto in pausa all'avvio");
+        a_nova(server, &pr::chiedi_se_riprendere(&p.nome, fermati));
+    }
+}
+
 /// L'utente vuole cambiare qualcosa (`dot.cambia_progetto`, D403). L'APM
 /// lascia finire i compiti in corso, non ne affida di nuovi, e chiede
 /// all'Architetto di rivedere il piano dalla fase di adesso: le fasi fatte

@@ -1371,6 +1371,13 @@ guarda solo prima del rilascio, e l'Architetto riceve in coda alla domanda
 fasi, se non prima di un rilascio o di una spesa vera. Un Dot con un dubbio
 che lo blocca lo chiede al legale mentre lavora (D419).
 
+**All'accensione, Nova chiede se riprendere — fatto** (D444). Il 6
+novembre, dopo uno spegnimento, S0ex1 e' ripartito da solo e ha lavorato
+tutto il giorno, a spese del piano di Claude di Gio. Adesso, quando NOVA si
+riaccende, un progetto in corso va in pausa, i suoi compiti aperti si
+fermano prima che i Dot ripartano e si rifaranno col via, e Nova chiede
+«Riprendo con i Dot?».
+
 **Il motore guasto non fa fallire il compito — fatto** (D441). Il 4 e il 5
 novembre Antigravity si chiudeva senza scrivere niente, e poi andava oltre
 la mezz'ora: i compiti sul gradino «rapido» fallivano, con «difficile»

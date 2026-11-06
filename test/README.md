@@ -171,7 +171,7 @@ Cosa serve: un banco Rust costruito con `cargo`: la prova stampa la riga per cos
 | `test_semina_rust.py` | La prima mappatura del PC scrive in Rust gli stessi nodi del Python. |
 | `test_strumenti_rust.py` | Gli strumenti dichiarati allo stesso modo, in Rust. |
 
-## `prove/demone/`: 55 prove
+## `prove/demone/`: 56 prove
 
 Cosa serve: il binario `novad` costruito.
 
@@ -209,6 +209,7 @@ Cosa serve: il binario `novad` costruito.
 | `test_demone_harness.py` | Le proposte di NOVA nell'harness, dal demone (D339). |
 | `test_demone_harness_strumenti.py` | Gli strumenti `harness_*` del demone contro quelli del Python (D344). |
 | `test_demone_impara.py` | A turno finito il demone impara i fatti durevoli, come `memory.py`. |
+| `test_demone_in_pausa_all_avvio.py` | Un progetto in corso, quando NOVA si riaccende, va in pausa e Nova chiede (D444), con un progetto scritto a mano gia' col via e una CLI finta che lavora a lungo: alla prima accensione il progetto va in pausa e Nova chiede anche senza compiti aperti; col via l'APM affida il compito; spento il demone a meta' e riacceso, il progetto e' fermo col perche' della riaccensione, il compito che era in corso e' fermato, la CLI non riparte, Nova chiede «Riprendo con i Dot?» col compito da rifare, e col via il compito si riaffida. Serve il demone costruito (`cargo build --release -p novad`). |
 | `test_demone_intoccabili.py` | I file che solo NOVA scrive e i compiti oltre il tempo (D410), con un Dot su una CLI finta che scrive su disco da sola, come Antigravity: all'accensione `config.json` e i Dot hanno la loro copia buona; un Dot che riscrive `config.json` lo ritrova com'era byte per byte, la sua versione e' da parte, il compito risulta non andato col perche' in testa all'esito, il diario lo dice e il custode lo scrive a Nova; un `dot.json` scritto da un Dot sparisce dall'elenco e resta da parte; un compito oltre il tempo si riprova una volta, con la nota di riprendere dal disco, e la prima volta ha avuto `dots.secondi_per_compito` e non il secondo della chat; un cambio dell'utente a Dot fermi resta suo e diventa la copia buona; un Dot licenziato non torna; una riga scritta da un Dot in `decisioni.jsonl` se ne va, quelle di NOVA restano e la versione del Dot e' da parte (D412). |
 | `test_demone_live.py` | Gemini Live nel demone (D386), con un server websocket finto scritto sul protocollo: le 30 voci per il pannello, con la scelta e da dove viene la chiave senza dirla; «Ascolta» manda la voce chiesta e il modello, mette la chiave nell'indirizzo e non nei messaggi, e torna cosa ha detto e quanto ha parlato; una voce che non c'e' diventa Kore; con `solo_locale` o senza chiave non si collega a niente; un modello non vede e non chiama le due capacita'; la chiave non finisce nei log, nemmeno a livello debug. |
 | `test_demone_memoria.py` | Il demone scrive nella memoria, e quello che scrive lo rilegge NOVA. |

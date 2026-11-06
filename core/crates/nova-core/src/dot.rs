@@ -339,6 +339,9 @@ pub fn avvia_tutti(server: &Arc<Server>) {
     // I file che solo NOVA scrive (D410): prima che un Dot cominci, quello
     // che c'e' si adotta; poi li si guarda mentre i Dot lavorano.
     crate::intoccabili::avvia(server);
+    // Un progetto in corso si mette in pausa, prima che i Dot riprendano i
+    // suoi compiti, e Nova chiede all'utente se riprendere (D444).
+    crate::apm::in_pausa_all_avvio(server);
     for nome in d::elenco(&base()) {
         avvia(server, &nome);
     }
@@ -1275,6 +1278,38 @@ pub fn ferma(server: &Arc<Server>, nome: &str) -> Result<bool, String> {
 /// Toglie dalla coda di un Dot un compito che non e' ancora cominciato
 /// (D415): lo si chiude «fermato», e chi l'ha affidato lo rifa' quando
 /// riparte. Uno gia' cominciato o chiuso non si tocca: `false`.
+/// Ferma un compito aperto (in coda, in corso o in attesa dei sottoposti)
+/// prima che il ciclo del Dot parta (D444): all'avvio del demone nessun
+/// compito sta girando, e quello rimasto «in corso» sul disco si
+/// riprenderebbe.
+pub fn ferma_prima_di_partire(nome: &str, id: u64, perche: &str) -> bool {
+    let Ok(c) = cartella(nome) else {
+        return false;
+    };
+    let aperto = c
+        .compiti()
+        .into_iter()
+        .find(|x| x.id == id)
+        .is_some_and(|x| {
+            matches!(
+                x.stato,
+                d::Stato::Affidato | d::Stato::InCorso | d::Stato::InAttesa
+            )
+        });
+    aperto
+        && c.annota(&d::Evento {
+            id,
+            stato: d::Stato::Fermato,
+            quando: adesso(),
+            testo: String::new(),
+            da: String::new(),
+            esito: perche.to_string(),
+            padre: None,
+            cervello: String::new(),
+        })
+        .is_ok()
+}
+
 pub fn ferma_in_coda(server: &Arc<Server>, nome: &str, id: u64, perche: &str) -> bool {
     let Ok(c) = cartella(nome) else {
         return false;
