@@ -121,6 +121,9 @@ pub struct Incarico {
     /// L'Architetto, rivedendo il piano, dice che e' gia' fatto e non si
     /// rifa' (D431): se lo e' davvero, la sua consegna resta.
     pub fatto: bool,
+    /// Cosa deve passare perche' sia fatto, per un compito di codice
+    /// (D445, [`crate::prova`]); vuoto, non ha una prova.
+    pub prova: String,
 }
 
 /// Il segno di un compito che usa la scheda video, nella sua riga (D424).
@@ -373,6 +376,7 @@ pub fn prompt() -> String {
          - 1.2 [<chi>] <cosa fare> (dopo 1.1)\n\
          - 1.3 [<chi>] <cosa fare> (scheda video) (dopo 1.2)\n\
          - 1.4 [<chi>] <cosa fare> (fatto)\n\
+         - 1.5 [<chi>] <cosa fare> (prova: <cosa deve passare>) (dopo 1.2)\n\
          ## Rischi\n\
          - <un rischio>\n\
          ## Domande per te\n\
@@ -385,7 +389,14 @@ pub fn prompt() -> String {
          partire uno alla volta, perche' due misure sulla stessa scheda si sporcano a vicenda. \
          Quando rivedi il piano, «(fatto)» segna un compito gia' fatto che non va rifatto: resta \
          nel piano, e la sua consegna resta quella che c'e'. Un compito fatto senza il segno, in \
-         una fase che non e' andata, si rifa' da capo.",
+         una fase che non e' andata, si rifa' da capo. «(prova: ...)» segna un compito di codice, \
+         e dice cosa deve passare perche' sia fatto, cioe' un controllo che si lancia con un \
+         comando: chi fa il compito scrive la prova, la lancia e dice com'e' andata, e NOVA non da' \
+         il compito per fatto se la prova non passa. Un compito di codice e' piccolo: un file o \
+         una funzione, che un cervello piccolo scrive in un turno. Un lavoro di codice grosso \
+         dividilo in compiti in fila, ognuno con la sua prova, e in ognuno scrivi i file, i nomi \
+         e cosa entra e cosa esce: chi lo fa non deve decidere il disegno. Non mettere la prova \
+         al compito di un ricercatore: lui consegna un rapporto.",
         azienda::PROMPT_ARCHITETTO,
         reparti.join(", "),
     )
@@ -571,8 +582,9 @@ fn leggi_incarico(t: &str) -> Result<Incarico, String> {
     let mut dopo = Vec::new();
     let mut scheda = false;
     let mut fatto = false;
-    // «(fatto)», «(scheda video)» e «(dopo ...)» in fondo, in qualunque
-    // ordine.
+    let mut prova = String::new();
+    // «(fatto)», «(scheda video)», «(prova: ...)» e «(dopo ...)» in fondo,
+    // in qualunque ordine.
     loop {
         let n = cosa.len();
         if n >= SEGNO_FATTO.len()
@@ -594,7 +606,20 @@ fn leggi_incarico(t: &str) -> Result<Incarico, String> {
             continue;
         }
         if cosa.ends_with(')') {
-            if let Some(i) = cosa.to_ascii_lowercase().rfind("(dopo ") {
+            // Quello dei due che comincia piu' in fondo e' l'ultimo segno: la
+            // prova puo' avere delle parentesi sue (D445).
+            let minuscolo = cosa.to_ascii_lowercase();
+            let i_dopo = minuscolo.rfind("(dopo ");
+            let i_prova = minuscolo.rfind(crate::prova::NEL_PIANO);
+            if let Some(i) = i_prova.filter(|i| i_dopo.is_none_or(|j| *i > j)) {
+                let dentro = cosa[i + crate::prova::NEL_PIANO.len()..cosa.len() - 1].trim();
+                if !dentro.is_empty() {
+                    prova = dentro.to_string();
+                }
+                cosa = cosa[..i].trim().to_string();
+                continue;
+            }
+            if let Some(i) = i_dopo {
                 let dentro = cosa[i + "(dopo ".len()..cosa.len() - 1].to_string();
                 for d in dentro.split(',').flat_map(|x| x.split(" e ")) {
                     let d = d.trim();
@@ -625,6 +650,7 @@ fn leggi_incarico(t: &str) -> Result<Incarico, String> {
         dopo,
         scheda,
         fatto,
+        prova,
     })
 }
 
@@ -955,6 +981,9 @@ pub fn scrivi(p: &Piano) -> String {
             }
             if i.scheda {
                 t.push_str(&format!(" {SEGNO_SCHEDA}"));
+            }
+            if !i.prova.is_empty() {
+                t.push_str(&format!(" {} {})", crate::prova::NEL_PIANO, i.prova));
             }
             if !i.dopo.is_empty() {
                 t.push_str(&format!(" (dopo {})", i.dopo.join(", ")));
@@ -1376,6 +1405,72 @@ di amministrazione o di revisione non si ripete"
             d.contains("Il piano di adesso, versione 2:\n# Piano: p")
                 && d.contains("rispetto alla versione 2"),
             "{d}"
+        );
+    }
+
+    /// D445: un compito di codice ha la sua prova, in fondo come gli altri
+    /// segni e in qualunque ordine, anche con delle parentesi dentro.
+    #[test]
+    fn la_prova_di_un_compito_si_legge_e_si_riscrive() {
+        let base = "# Piano: x\nObiettivo: o\n## Fase 1: a\nConsegna: c\nFatta quando: f\n";
+        let (p, _) = leggi(
+            &format!(
+                "{base}- 1.1 [dati] scrivere `lettore.py` (prova: `pytest prove/test_lettore.py` passa)\n\
+                 - 1.2 [qualita] scrivere `conta()` (Prova: conta(\"a b\") == 2) (dopo 1.1)\n\
+                 - 1.3 [dati] scrivere il banco (dopo 1.1, 1.2) (prova: il banco gira (anche a vuoto)) (scheda video)\n\
+                 - 1.4 [scrittura] descrivere la prova del nove\n\
+                 - 1.5 [dati] una prova vuota (prova: )\n"
+            ),
+            1,
+        )
+        .unwrap();
+        let i: Vec<&Incarico> = p.incarichi().collect();
+        assert_eq!(
+            i.iter().map(|x| x.prova.as_str()).collect::<Vec<_>>(),
+            [
+                "`pytest prove/test_lettore.py` passa",
+                "conta(\"a b\") == 2",
+                "il banco gira (anche a vuoto)",
+                "",
+                ""
+            ]
+        );
+        assert_eq!(
+            i.iter().map(|x| x.cosa.as_str()).collect::<Vec<_>>(),
+            [
+                "scrivere `lettore.py`",
+                "scrivere `conta()`",
+                "scrivere il banco",
+                "descrivere la prova del nove",
+                "una prova vuota"
+            ]
+        );
+        assert_eq!(i[1].dopo, ["1.1"]);
+        assert_eq!(
+            (i[2].dopo.clone(), i[2].scheda),
+            (vec!["1.1".to_string(), "1.2".to_string()], true)
+        );
+        let scritto = scrivi(&p);
+        assert!(
+            scritto.contains(
+                "- 1.3 [dati] scrivere il banco (scheda video) (prova: il banco gira (anche a vuoto)) (dopo 1.1, 1.2)\n"
+            ),
+            "{scritto}"
+        );
+        let (di_nuovo, _) = leggi(&scritto, 1).unwrap();
+        assert_eq!(
+            di_nuovo.incarichi().cloned().collect::<Vec<_>>(),
+            p.incarichi().cloned().collect::<Vec<_>>()
+        );
+        let pr = prompt();
+        assert!(
+            pr.contains("- 1.5 [<chi>] <cosa fare> (prova: <cosa deve passare>) (dopo 1.2)"),
+            "{pr}"
+        );
+        assert!(
+            pr.contains("«(prova: ...)» segna un compito di codice")
+                && pr.contains("Un compito di codice e' piccolo: un file o una funzione"),
+            "{pr}"
         );
     }
 

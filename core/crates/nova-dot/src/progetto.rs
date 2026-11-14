@@ -810,6 +810,10 @@ pub fn testo_del_compito(
         "Progetto «{}», fase {} «{}» (consegna: {}). Compito {} del piano:\n{}",
         p.nome, f.n, f.nome, f.consegna, i.id, i.cosa
     );
+    // La prova di un compito di codice, con la sua regola (D445).
+    if !i.prova.is_empty() {
+        t.push_str(&crate::prova::regola(&i.prova));
+    }
     if !p.cartella.is_empty() {
         t.push_str(&format!("\nI file del progetto sono in «{}».", p.cartella));
     }
@@ -954,7 +958,9 @@ pub fn tenuti(p: &Progetto, vecchio: &Piano, nuovo: &Piano, da_fase: u32) -> Vec
         .filter(|(id, _)| {
             let prima = vecchio.incarichi().find(|i| i.id == **id);
             let dopo = nuovo.incarichi().find(|i| i.id == **id);
-            matches!((prima, dopo), (Some(a), Some(b)) if a.cosa == b.cosa && a.chi == b.chi)
+            // Con un'altra prova e' un altro compito (D445).
+            matches!((prima, dopo), (Some(a), Some(b))
+                if a.cosa == b.cosa && a.chi == b.chi && a.prova == b.prova)
         })
         .map(|(id, _)| id.clone())
         .collect()
@@ -1467,6 +1473,33 @@ mod prove {
         assert_eq!(p.occupati(), ["sviluppo".to_string()].into());
     }
 
+    /// D445: la prova di un compito di codice arriva nel testo, con la sua
+    /// regola, subito dopo cosa fare; un compito senza prova non la nomina.
+    #[test]
+    fn la_prova_arriva_nel_testo_del_compito() {
+        let p = Progetto::da("s0ex1", &base()).unwrap();
+        let pi = piano();
+        let mut i = pi.fasi[1].incarichi[0].clone();
+        assert!(!testo_del_compito(&p, &pi, &pi.fasi[1], &i).contains(crate::prova::DEL_COMPITO));
+        i.prova = "`cargo test -p compressore` passa".into();
+        let testo = testo_del_compito(&p, &pi, &pi.fasi[1], &i);
+        assert!(
+            testo.contains(
+                "Compito 2.1 del piano:\nscrivere\nPROVA DEL COMPITO: `cargo test -p compressore` passa\n\
+                 Questo compito e' fatto quando la sua prova passa."
+            ),
+            "{testo}"
+        );
+        assert_eq!(
+            crate::prova::chiesta(&testo),
+            Some("`cargo test -p compressore` passa")
+        );
+        assert_eq!(
+            progetto_dal_testo(&testo),
+            Some(("s0ex1".into(), "2.1".into()))
+        );
+    }
+
     #[test]
     fn dal_testo_del_compito_si_sa_di_che_progetto_e() {
         let p = Progetto::da("s0ex1", &base()).unwrap();
@@ -1917,6 +1950,17 @@ mod prove {
         let nuovo = piano::leggi(&nuovo_testo, 2).unwrap().0;
         let t = tenuti(&p, &piano(), &nuovo, 1);
         assert_eq!(t, ["1.1"], "1.2 e' cambiato: si rifa'");
+        // Con una prova in piu' e' un altro compito (D445): si rifa'.
+        let con_prova = piano::leggi(
+            &PIANO.replace(
+                "- 1.1 [ricerca] cercare\n",
+                "- 1.1 [ricerca] cercare (prova: l'elenco c'e')\n",
+            ),
+            1,
+        )
+        .unwrap()
+        .0;
+        assert_eq!(tenuti(&p, &piano(), &con_prova, 1), ["1.2"]);
         assert!(
             segnati_fatti(&p, &nuovo, 1).is_empty(),
             "nessuno e' segnato"

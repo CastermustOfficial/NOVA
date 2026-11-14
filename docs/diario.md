@@ -12173,3 +12173,17 @@ Adesso glielo chiede (D444). Sulla scelta di 4.13, che toccava a lui, mi ha
 detto di rispondere io: ho approvato C v3 solo come riferimento, e ho
 chiesto G3 sui log per intero e una forma ibrida fra G4 e le correzioni.
 Finito questo giro, Gio vuole fermare S0ex1 per qualche giorno.
+
+## 14 novembre 2026 — Il piano al forte, il codice al debole
+
+Il 7 Gio ha fermato i Dot. Il 12 mi ha chiesto se sono finalmente veloci ed
+efficienti, e ho contato novembre: 31 ore di lavoro dei cervelli, quasi un
+terzo in turni rotti, 19 ore su Claude, e 15 voti su 38 sotto il 6. Piu'
+robusti si', veloci no. Gio ha proposto lo schema che ha visto funzionare
+altrove: il piano a un modello forte, il codice a uno piu' debole. Gli ho
+detto che NOVA lo fa gia' a meta', e che manca quello che lo fa rendere:
+compiti piccoli, e una prova che passa o non passa. Come esecutore ha
+tenuto Antigravity, e ha voluto che la prova la lanci solo il Dot, senza
+che NOVA esegua niente. Adesso un compito di codice ha la sua prova nel
+piano, e non e' fatto se non passa (D445). Si prova sul compito 5.1 di
+S0ex1.

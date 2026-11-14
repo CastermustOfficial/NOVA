@@ -47,6 +47,7 @@ pub mod gruppi;
 pub mod pagella;
 pub mod piano;
 pub mod progetto;
+pub mod prova;
 pub mod ricerca;
 pub mod risorse;
 pub mod struttura;

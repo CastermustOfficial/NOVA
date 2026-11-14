@@ -82,7 +82,7 @@ pub struct Detto {
 
 /// La riga, senza quello che il Markdown ci mette intorno: `**` e un
 /// trattino d'elenco. Una riga in una citazione non arriva qui ([`citata`]).
-fn pulita(riga: &str) -> String {
+pub(crate) fn pulita(riga: &str) -> String {
     riga.replace("**", "")
         .replace('`', "")
         .trim()
@@ -99,14 +99,14 @@ fn pulita(riga: &str) -> String {
 /// il resto del rapporto attaccato, e il compito ha aspettato Gio di nuovo.
 /// Nelle conversazioni dei Dot di S0ex1 le 17 righe per NOVA vere sono
 /// tutte senza citazione e senza apici.
-fn citata(riga: &str) -> bool {
+pub(crate) fn citata(riga: &str) -> bool {
     let r = riga.replace("**", "");
     let r = r.trim_start().trim_start_matches(['-', '*']).trim_start();
     r.starts_with('>') || r.starts_with('`')
 }
 
 /// Se la riga comincia con `segno` (maiuscole o no), quello che c'e' dopo.
-fn dopo<'a>(riga: &'a str, segno: &str) -> Option<&'a str> {
+pub(crate) fn dopo<'a>(riga: &'a str, segno: &str) -> Option<&'a str> {
     let testa = riga.get(..segno.len())?;
     testa
         .eq_ignore_ascii_case(segno)

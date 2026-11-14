@@ -1877,6 +1877,80 @@ async fn lavora_e_giudica(
             usato = if nuovo.is_empty() { su } else { nuovo };
         }
     }
+    // La prova di un compito di codice (D445): la lancia il Dot, e NOVA
+    // legge la riga che dice com'e' andata. Se non e' passata, o la consegna
+    // non lo dice, il compito non e' fatto: si rifa' una volta sullo stesso
+    // gradino, poi una volta dal gradino sopra; se non passa nemmeno li',
+    // risulta non andato. Il ricercatore consegna un rapporto, e non ha
+    // prove.
+    let con_prova = d::prova::chiesta(&compito.testo).is_some()
+        && dot
+            .as_ref()
+            .is_some_and(|x| x.mestiere == d::Mestiere::Generico);
+    let mut rifatti_per_la_prova = 0;
+    while con_prova {
+        let perche = match stato {
+            d::Stato::Fatto => {
+                if c.compiti()
+                    .iter()
+                    .find(|x| x.id == compito.id)
+                    .is_some_and(d::da_aspettare)
+                {
+                    break;
+                }
+                match d::prova::letta(&esito) {
+                    d::prova::Esito::Passata => break,
+                    altro => altro.perche(),
+                }
+            }
+            // Un rifacimento per la prova che non e' andato: si sale lo
+            // stesso, se c'e' ancora dove.
+            d::Stato::Fallito
+                if rifatti_per_la_prova > 0 && rifatti_per_la_prova < d::prova::RIFACIMENTI =>
+            {
+                format!("Il rifacimento non e' andato: {}", in_breve(&esito))
+            }
+            _ => break,
+        };
+        let da = if usato.is_empty() {
+            per_lui.cervello.clone()
+        } else {
+            usato.clone()
+        };
+        let con = if rifatti_per_la_prova == 0 {
+            Some(da.clone())
+        } else if rifatti_per_la_prova < d::prova::RIFACIMENTI {
+            d::pagella::sopra(
+                &da,
+                &crate::pagella::scala(&nova_configurazione::dove::leggi()),
+            )
+        } else {
+            None
+        };
+        let Some(con) = con else {
+            // Non c'e' piu' dove rifarlo: il compito non e' andato.
+            if stato == d::Stato::Fatto {
+                stato = d::Stato::Fallito;
+                esito = d::prova::non_passata(&perche, &esito);
+            }
+            break;
+        };
+        rifatti_per_la_prova += 1;
+        let _ = c.diario(&json!({
+            "quando": adesso(), "compito": compito.id, "tipo": "prova_non_passata",
+            "volta": rifatti_per_la_prova, "da": da, "a": con, "perche": perche,
+        }));
+        server.ctx.bus.emit(
+            "dot.rifatto",
+            json!({ "dot": nome, "id": compito.id, "da": da, "a": con, "prova": perche }),
+        );
+        per_lui.cervello.clone_from(&con);
+        let mut ancora = per_lui.clone();
+        ancora.testo = d::prova::rifai(&compito.testo, &perche);
+        let mut nuovo = String::new();
+        (stato, esito) = lavora(server, c, nome, &ancora, false, "", &mut nuovo).await;
+        usato = if nuovo.is_empty() { con } else { nuovo };
+    }
     let Some(dot) = dot.filter(|x| x.mestiere.prende_compiti()) else {
         return (stato, esito);
     };
@@ -1921,6 +1995,15 @@ async fn lavora_e_giudica(
             ancora.testo.push_str(d::DOPO_IL_TEMPO);
             nuovo.clear();
             (stato, esito) = lavora(server, c, nome, &ancora, false, "", &mut nuovo).await;
+        }
+        // Rifatto, ma la prova non passa piu' (D445): non e' andato, e resta
+        // la consegna di prima, che la prova l'aveva passata.
+        if con_prova && stato == d::Stato::Fatto {
+            let letta = d::prova::letta(&esito);
+            if letta != d::prova::Esito::Passata {
+                stato = d::Stato::Fallito;
+                esito = d::prova::non_passata(&letta.perche(), &esito);
+            }
         }
         // Il rifacimento non e' andato (D442): resta la consegna di prima,
         // bocciata ma fatta, e la revisione della fase la vede col suo voto.

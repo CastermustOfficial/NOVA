@@ -915,6 +915,8 @@ prima del codice. Le parole stanno in `nova_dot::progetto`, il giro in
   all'Architetto quando riparte. Due cambi prima che l'Architetto ne veda
   uno li vede tutti e due. Una fase che non va, invece, si rifa' tutta:
   i compiti uguali si tengono solo quando il piano l'ha cambiato l'utente.
+  Dal D445 «(prova: ...)» segna un compito di codice, e dice cosa deve
+  passare perche' sia fatto.
   Dal D431 l'Architetto segna «(fatto)» i compiti gia' fatti che non vanno
   rifatti, e quelli si tengono sempre, se sono fatti davvero. Dal D443
   vale anche «Fatto» in testa al compito, come «Fatto (riga 613): ...».
@@ -1370,6 +1372,17 @@ guarda solo prima del rilascio, e l'Architetto riceve in coda alla domanda
 `piano::ESPERIMENTO`: niente compiti di legale o di amministrazione nelle
 fasi, se non prima di un rilascio o di una spesa vera. Un Dot con un dubbio
 che lo blocca lo chiede al legale mentre lavora (D419).
+
+**Il piano al forte, il codice al debole, con una prova — fatto** (D445).
+A novembre i cervelli di S0ex1 hanno lavorato 31 ore: 9,6 in turni rotti,
+19 su Claude, e 15 voti su 38 sotto il 6. Deciso con Gio il 13 e il 14
+novembre. L'Architetto segna un compito di codice con «(prova: ...)» e lo
+tiene piccolo, un file o una funzione. Il Dot scrive la prova, la lancia
+lui, e chiude la consegna con `PROVA: passata` o `PROVA: fallita`; NOVA non
+lancia niente, legge la riga. Senza la riga, o con «fallita», il compito si
+rifa' una volta sullo stesso gradino, poi una volta dal gradino sopra, e se
+non passa nemmeno li' risulta non andato. Il voto del capo resta. Il
+ricercatore non ha prove: consegna un rapporto.
 
 **All'accensione, Nova chiede se riprendere — fatto** (D444). Il 6
 novembre, dopo uno spegnimento, S0ex1 e' ripartito da solo e ha lavorato

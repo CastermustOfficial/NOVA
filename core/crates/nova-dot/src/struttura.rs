@@ -550,6 +550,7 @@ mod prove {
             dopo: Vec::new(),
             scheda: false,
             fatto: false,
+            prova: String::new(),
         }
     }
 
