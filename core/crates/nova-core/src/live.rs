@@ -60,6 +60,9 @@ pub struct Scelte {
     /// «Solo sul PC» acceso: la voce non puo' uscire.
     pub solo_locale: bool,
     pub lingua: String,
+    /// La pulizia del microfono (D446): via il rumore, e silenzio vero
+    /// quando nessuno parla. Di serie accesa.
+    pub pulisci: bool,
 }
 
 fn testo(cfg: &Value, sezione: &str, campo: &str) -> String {
@@ -107,6 +110,11 @@ pub fn scelte(cfg: &Value, ambiente: &dyn Fn(&str) -> Option<String>) -> Scelte 
                 l
             }
         },
+        pulisci: cfg
+            .get("voice")
+            .and_then(|v| v.get("pulizia_microfono"))
+            .and_then(Value::as_bool)
+            .unwrap_or(true),
     }
 }
 
@@ -279,6 +287,7 @@ pub async fn conversa(
             istruzioni: nova_live::istruzioni(&s.lingua),
             funzioni: nova_live::funzioni(),
             ripresa: ripresa.clone(),
+            lingua: s.lingua.clone(),
         };
         verso
             .send(Message::Text(
@@ -589,15 +598,22 @@ pub async fn conversa_davvero(
     );
     let (tx, rx) = mpsc::channel::<Vec<i16>>(64);
     let nome = nome_microfono.clone();
+    // Il microfono si pulisce prima di mandarlo (D446): senza, il rumore
+    // della stanza arrivava al server gonfiato dal guadagno, e il server lo
+    // prendeva per l'utente che parla.
+    let mut ingresso =
+        nova_voce::pulizia::Ingresso::nuovo(s.pulisci, nova_live::FREQUENZA_INGRESSO);
+    let frequenza = ingresso.frequenza();
     let microfono = tokio::task::spawn_blocking(move || {
-        let mut picco = 0.0f32;
         nova_voce::dal_vivo::microfono(
             nome.as_deref(),
-            nova_live::FREQUENZA_INGRESSO,
+            frequenza,
             nova_live::MS_PER_PEZZO,
-            move |mut pezzo| {
-                picco = nova_voce::dal_vivo::con_guadagno(&mut pezzo, picco, nova_live::guadagno);
-                tx.blocking_send(nova_live::in_pcm16(&pezzo)).is_ok()
+            move |pezzo| {
+                let pezzo = ingresso.passa(pezzo, nova_live::guadagno);
+                // I primi pezzi aspettano il cancello: non c'e' ancora
+                // niente da mandare.
+                pezzo.is_empty() || tx.blocking_send(nova_live::in_pcm16(&pezzo)).is_ok()
             },
         )
     })
@@ -658,6 +674,7 @@ pub async fn prova_voce(s: &Scelte, voce: &str) -> Result<Value> {
         ),
         funzioni: json!([]),
         ripresa: None,
+        lingua: s.lingua.clone(),
     };
     verso
         .send(Message::Text(
@@ -763,6 +780,13 @@ mod prove {
         assert_eq!(dall_ambiente.chiave, "dall-ambiente");
         let di_serie = scelte(&json!({}), &ambiente_vuoto);
         assert!(!di_serie.attiva && !di_serie.interrompibile);
+        // D446: la pulizia del microfono e' accesa di serie, e si spegne.
+        assert!(di_serie.pulisci && s.pulisci);
+        let spenta = scelte(
+            &json!({ "voice": { "pulizia_microfono": false } }),
+            &ambiente_vuoto,
+        );
+        assert!(!spenta.pulisci);
         assert_eq!(
             (di_serie.voce.as_str(), di_serie.lingua.as_str()),
             (nova_live::VOCE_PREDEFINITA, "it")

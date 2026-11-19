@@ -704,6 +704,11 @@ class VoiceConfig:
     # Con le cuffie si puo' parlare sopra la voce; con le casse no, se no il
     # microfono sente la voce di NOVA e la prende per l'utente.
     live_interrompibile: bool = False
+    # La pulizia del microfono nella conversazione dal vivo (D446): toglie il
+    # rumore e manda silenzio vero quando nessuno parla. Senza, il rumore
+    # della stanza arriva al server gonfiato dal guadagno automatico, che lo
+    # prende per una voce e ci trova delle parole.
+    pulizia_microfono: bool = True
 
 
 @dataclass

@@ -1332,6 +1332,12 @@ async function disegnaDettaglioLive(){
       </div>
       <p class="aiuto">Solo con le cuffie: con le casse il microfono sentirebbe
         la voce di NOVA e la prenderebbe per la tua.</p></div>
+    <div class="campo"><label>Pulizia del microfono</label>
+      <div class="fila">
+        <button class="interruttore" id="swLivePulizia"></button>
+      </div>
+      <p class="aiuto">Toglie il rumore e manda silenzio quando non parli: senza,
+        un rumore puo' passare per la tua voce. Vale dalla prossima conversazione.</p></div>
     <p class="nota" id="liveStato">${esc(stato)}</p>
   </div></div>`;
   traduciDocumento(dove);
@@ -1345,6 +1351,7 @@ async function disegnaDettaglioLive(){
   $('liveScorda').onclick = async () => { await salva({ voice: { live_api_key: '' } }); disegnaDettaglioLive(); };
   $('liveVoce').onchange = ev => salva({ voice: { live_voce: ev.target.value } });
   interruttore('swLiveSopra', 'voice.live_interrompibile', false);
+  interruttore('swLivePulizia', 'voice.pulizia_microfono', true);
   $('liveAscolta').onclick = async () => {
     const esito = $('liveEsito');
     const b = $('liveAscolta');

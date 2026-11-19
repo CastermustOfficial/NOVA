@@ -201,6 +201,9 @@ pub struct Apertura {
     /// L'ultima maniglia di ripresa ricevuta, per riprendere la stessa
     /// conversazione su un collegamento nuovo.
     pub ripresa: Option<String>,
+    /// La lingua in cui si parla (`it`, `en`): un suggerimento per chi
+    /// trascrive il microfono (D446). Vuota, la lingua la indovina il server.
+    pub lingua: String,
 }
 
 /// Il nome del modello come lo vuole il server: `models/...`.
@@ -224,6 +227,15 @@ pub fn setup(a: &Apertura) -> Value {
     if let Some(h) = a.ripresa.as_deref().filter(|h| !h.is_empty()) {
         ripresa["handle"] = json!(h);
     }
+    // La lingua, per la trascrizione del microfono (D446): senza, il server
+    // la indovina, e il 19 novembre in un rumore ha sentito lo spagnolo
+    // («¿Qué», «saber»). E' un suggerimento: un'altra lingua si trascrive
+    // lo stesso.
+    let mut trascrizione = json!({});
+    let lingua = a.lingua.trim();
+    if !lingua.is_empty() {
+        trascrizione["languageCodes"] = json!([lingua]);
+    }
     json!({
         "setup": {
             "model": nome_modello(&a.modello),
@@ -235,13 +247,24 @@ pub fn setup(a: &Apertura) -> Value {
             },
             "systemInstruction": { "parts": [{ "text": a.istruzioni }] },
             "tools": [{ "functionDeclarations": a.funzioni }],
-            "inputAudioTranscription": {},
+            // Chi parla lo decide il server, ma con piu' prudenza (D446): di
+            // serie comincia ad ascoltare al primo suono, e un rumore basta a
+            // interrompere NOVA a meta' frase.
+            "realtimeInputConfig": {
+                "automaticActivityDetection": { "startOfSpeechSensitivity": INIZIO_PRUDENTE }
+            },
+            "inputAudioTranscription": trascrizione,
             "outputAudioTranscription": {},
             "contextWindowCompression": { "slidingWindow": {} },
             "sessionResumption": ripresa
         }
     })
 }
+
+/// Quanto e' pronto il server a dire «sta parlando»: il meno pronto dei due
+/// (`ai.google.dev/api/live`, `StartSensitivity`, letta il 19 novembre
+/// 2026; di serie e' `START_SENSITIVITY_HIGH`).
+pub const INIZIO_PRUDENTE: &str = "START_SENSITIVITY_LOW";
 
 /// Da campioni in virgola a PCM a 16 bit.
 pub fn in_pcm16(campioni: &[f32]) -> Vec<i16> {
@@ -504,8 +527,12 @@ pub const TACE_DA_MS: u64 = 300;
 /// sviluppo una frase normale arriva a 0,008 (`nova_voce::audio`). Il
 /// riconoscimento del parlato del server su un sussurro non sente. Il
 /// guadagno porta il picco recente verso [`PICCO_OBIETTIVO`], fino a
-/// [`GUADAGNO_MASSIMO`]: il silenzio di una stanza non si gonfia fino a
-/// sembrare voce.
+/// [`GUADAGNO_MASSIMO`].
+///
+/// Il tetto non basta a tenere basso il rumore: un fruscio a 0,004 per venti
+/// fa 0,08, e il server lo prende per una voce (19 novembre, D446). Per
+/// questo il guadagno si applica dopo la pulizia del microfono, e solo ai
+/// pezzi con la voce (`nova_voce::pulizia::Ingresso`).
 pub fn guadagno(picco_recente: f32) -> f32 {
     if !picco_recente.is_finite() || picco_recente <= 0.0 {
         return 1.0;
@@ -530,6 +557,7 @@ mod prove {
             istruzioni: istruzioni("it"),
             funzioni: funzioni(),
             ripresa: None,
+            lingua: "it".into(),
         }
     }
 
@@ -563,7 +591,21 @@ mod prove {
             x["tools"][0]["functionDeclarations"][0]["behavior"],
             "NON_BLOCKING"
         );
-        assert_eq!(x["inputAudioTranscription"], json!({}));
+        // D446: la lingua per chi trascrive, e il server piu' prudente nel
+        // dire che l'utente sta parlando.
+        assert_eq!(
+            x["inputAudioTranscription"],
+            json!({ "languageCodes": ["it"] })
+        );
+        assert_eq!(
+            x["realtimeInputConfig"],
+            json!({ "automaticActivityDetection": { "startOfSpeechSensitivity": "START_SENSITIVITY_LOW" } })
+        );
+        let senza_lingua = setup(&Apertura {
+            lingua: "  ".into(),
+            ..apertura()
+        });
+        assert_eq!(senza_lingua["setup"]["inputAudioTranscription"], json!({}));
         assert_eq!(x["outputAudioTranscription"], json!({}));
         assert_eq!(
             x["contextWindowCompression"],

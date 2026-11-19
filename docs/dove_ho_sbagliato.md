@@ -3212,3 +3212,22 @@ prima delle 14:07 del PC, e l'ho corretto con Gio.
 La regola: le ore di `progetto.jsonl` e dei diari dei Dot sono quelle del
 PC; si confrontano con l'ora del PC, non con quella del cloud, e non si
 convertono.
+
+## Il guadagno che gonfiava il rumore
+
+L'8 ottobre, nella voce dal vivo (D386), ho messo sul microfono un guadagno
+automatico fino a venti volte, e nel commento ho scritto che cosi' «il
+silenzio di una stanza non si gonfia fino a sembrare voce». Non l'avevo
+misurato. Il 9 ottobre Gemini Live ha risposto a parole mai dette, e l'ho
+scritto in `idea/` con due rimedi, senza farne nessuno. Il 19 novembre e'
+successo di nuovo a Gio, in una prova: «¿Qué», «saber», e NOVA che si
+interrompeva per scusarsi. Un fruscio a 0,004, per venti, arriva al server a
+0,08: abbastanza perche' lo prenda per una voce.
+
+Corretto col D446: il rumore si toglie prima, quando nessuno parla esce
+silenzio, e il guadagno lavora solo sui pezzi con la voce.
+
+La regola: una frase in un commento che dice cosa non puo' succedere e' una
+affermazione, e si misura prima di scriverla. E un difetto visto e scritto in
+`idea/` non e' corretto: se torna, e' lo stesso difetto, e la seconda volta
+costa di piu' a chi usa NOVA.

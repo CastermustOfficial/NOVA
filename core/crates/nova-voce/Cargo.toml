@@ -25,6 +25,10 @@ cpal = "0.15"
 # un runtime asincrono in piu' qui non servirebbe a niente. Con rustls, per non
 # dipendere dallo store dei certificati di sistema.
 ureq = { version = "2", features = ["json"] }
+# La pulizia del microfono (D446): RNNoise di Xiph riscritto in Rust, coi pesi
+# dentro. Niente DLL e niente modello da scaricare; senza i suoi programmi a
+# riga di comando, che porterebbero clap e hound.
+nnnoiseless = { version = "0.5", default-features = false }
 
 [dev-dependencies]
 serde_json.workspace = true

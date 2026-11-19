@@ -313,6 +313,10 @@ interrompe e confonde. **Cosa costerebbe.** Un campo nel `setup`, o una
 soglia nel guadagno, e una prova a voce con le stesse cuffie: va misurato
 quante parole finte spariscono e se le frasi dette piano arrivano ancora.
 
+**Fatta il 19 novembre** (D446), quando e' successo di nuovo («¿Qué»,
+«saber»): la sensibilita' del server e' bassa, la trascrizione ha la lingua,
+e il guadagno viene dopo la pulizia del microfono, solo sulla voce.
+
 ## Un modulo di riduzione del rumore per il microfono
 
 Chiesto il 9 ottobre. **Cosa.** Pulire il microfono prima che arrivi a
@@ -328,6 +332,15 @@ a 48 kHz quando la scheda non lo e', e una misura prima di accenderla di
 serie: le parole finte con e senza, il «Nova» riconosciuto con e senza, e
 quanto tempo costa ogni pezzo. Da decidere: sempre accesa, o una scelta nel
 pannello della voce.
+
+**Fatta il 19 novembre per la voce dal vivo** (D446, `nova_voce::pulizia`):
+accesa di serie, si spegne nel pannello; le misure sono nella riga del D446.
+**Restano aperte:** lo stesso per la conversazione classica e per il
+risveglio, dove c'e' whisper da rimisurare (le parole finte con e senza, il
+«Nova» riconosciuto con e senza); DeepFilterNet al posto di RNNoise, se in
+una stanza con altri rumori che cambiano (voci, televisione) non basta: toglie
+di piu', ma porta un motore di reti e un modello piu' grosso; e nessuna delle
+due toglie un'altra persona che parla vicino.
 
 ## Il guscio che accende due demoni insieme
 

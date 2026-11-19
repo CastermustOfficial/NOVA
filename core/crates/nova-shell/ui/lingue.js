@@ -207,6 +207,9 @@ export const LINGUE = {
     'Parlarle sopra': 'Talk over it',
     'Solo con le cuffie: con le casse il microfono sentirebbe la voce di NOVA e la prenderebbe per la tua.':
       'Headphones only: with speakers the microphone would hear NOVA’s voice and take it for yours.',
+    'Pulizia del microfono': 'Microphone clean-up',
+    "Toglie il rumore e manda silenzio quando non parli: senza, un rumore puo' passare per la tua voce. Vale dalla prossima conversazione.":
+      'Removes the noise and sends silence when you are not speaking: without it, a noise can pass for your voice. It applies from the next conversation.',
     'Mi collego…': 'Connecting…',
     "Ha risposto, ma l'altoparlante non suona: ": 'It answered, but the speaker does not play: ',
 

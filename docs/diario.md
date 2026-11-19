@@ -12187,3 +12187,16 @@ tenuto Antigravity, e ha voluto che la prova la lanci solo il Dot, senza
 che NOVA esegua niente. Adesso un compito di codice ha la sua prova nel
 piano, e non e' fatto se non passa (D445). Si prova sul compito 5.1 di
 S0ex1.
+
+## 19 novembre 2026 — Le parole che nessuno ha detto
+
+Gio provava la voce dal vivo, e nella trascrizione sono comparsi «¿Qué» e
+«saber» mentre non parlava: NOVA si e' interrotta due volte per scusarsi. Mi
+ha chiesto una cancellazione del rumore, come Krisp su Discord. Era gia'
+successo il 9 ottobre, e l'idea era scritta, con RNNoise come strada: non
+l'avevo mai fatta. Guardando il codice ho trovato che il guadagno automatico
+che avevo messo io gonfiava il rumore fino a venti volte, e che il commento
+diceva il contrario. Adesso il microfono passa da RNNoise, un cancello manda
+silenzio quando nessuno parla, e il guadagno lavora solo sulla voce (D446).
+L'ho misurato con una voce vera e dei rumori fatti da me; con la voce e il
+microfono di Gio lo dira' la sua prova.

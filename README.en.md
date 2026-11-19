@@ -1061,7 +1061,10 @@ NOVA through a function while it keeps talking; the chat shows the
 conversation. The name is still recognised on the PC, so nothing leaves it
 until "Nova"; after that the voice leaves the PC, and with `solo_locale`
 on Live does not start. If it does not answer, NOVA says so and carries on
-with the home voice.
+with the home voice. The microphone is cleaned before it is sent (D446):
+the noise is removed with RNNoise, and when you are not speaking the server
+gets silence, so a noise does not pass for your voice; it can be turned off
+in the panel, under **Microphone clean-up**.
 
 ## Performance and tuning
 

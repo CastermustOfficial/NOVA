@@ -1048,7 +1048,11 @@ di sceglierle. Live risponde subito e a voce, e il lavoro sul PC lo passa a
 NOVA con una funzione, mentre continua a parlare; la chat mostra la
 conversazione. Il nome si riconosce ancora sul PC, quindi fino a «Nova» non
 esce niente; dopo, la voce esce dal PC, e con `solo_locale` acceso Live non
-parte. Se non risponde, NOVA lo dice e continua con la voce di casa.
+parte. Se non risponde, NOVA lo dice e continua con la voce di casa. Il
+microfono si pulisce prima di mandarlo (D446): il rumore si toglie con
+RNNoise, e quando non parli al server arriva silenzio, cosi' un rumore non
+passa per la tua voce; si spegne nel pannello, alla voce **Pulizia del
+microfono**.
 
 ## Prestazioni e tuning
 
