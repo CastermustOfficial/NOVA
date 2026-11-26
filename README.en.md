@@ -1051,7 +1051,11 @@ pieces are downloaded when needed:
 
 Then it's switched on from the settings panel, under **Voice**. NOVA answers
 to its name: there is no dedicated wake-word model, it's whisper transcribing
-and the name opening the sentence.
+and the name opening the sentence. Instead of the name alone you can choose
+a phrase, like "Brilla Nova" (in the panel, **What you call it**, D447): with
+the name alone NOVA also wakes on "No, va bene" and on "Genova", with two
+words both are needed. While asleep, a "basta" said to someone else gets no
+answer: it only stops something that is actually running.
 
 After the name the conversation can go to **Gemini Live** (D386): in the
 panel, under **Conversation**, with a Gemini API key (or `GEMINI_API_KEY` in

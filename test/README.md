@@ -173,7 +173,12 @@ Cosa serve: un banco Rust costruito con `cargo`: la prova stampa la riga per cos
 
 ## `prove/demone/`: 57 prove
 
-Cosa serve: il binario `novad` costruito.
+Cosa serve: il binario `novad` costruito. Su Windows la cartella dei binari di
+prova va fra le esclusioni di Defender (`Add-MpPreference -ExclusionPath`, da
+amministratore): il 26 novembre, con le firme di quel giorno, Defender ha
+messo in quarantena a meta' suite il `novad.exe` appena costruito, lanciato
+dalle prove, come «Behavior:Win32/Execution.A!ml», e le prove dopo sono
+uscite con «WinError 225».
 
 | prova | cosa controlla |
 |---|---|

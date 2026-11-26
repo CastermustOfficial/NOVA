@@ -665,6 +665,8 @@ class VoiceConfig:
     # predefinito era un dispositivo virtuale, e un secondo endpoint delle
     # stesse cuffie consegnava zero mentre l'utente parlava.
     microfono: str = ""
+    # La parola di risveglio, o una frase di piu' parole come «Brilla Nova»
+    # (D447): col nome solo ci si sveglia anche per «No, va bene» e «Genova».
     wake_word: str = "nova"
     push_to_talk: str = "ctrl+alt+n"
     # voce: locale (Kokoro, nel demone) | elevenlabs | sapi | none

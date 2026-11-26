@@ -83,12 +83,19 @@ def eseguibile(nome, corpo):
 # Si ricorda ogni domanda, e consegna secondo il segno del compito. I segni
 # sono in maiuscolo, e ogni compito va a un reparto diverso: la conversazione
 # di un Dot va da un compito all'altro.
-TRACCIA_CLI = casa / "cli_ricevuto.jsonl"
+#
+# Ogni chiamata scrive un file suo, col tempo nel nome: i quattro compiti
+# partono insieme, e quattro processi che aggiungono righe allo stesso file
+# su Windows se ne possono perdere una (il 26 novembre, sul PC di sviluppo,
+# delle due chiamate di «LAVORO-MUTO» ne e' rimasta una).
+TRACCIA_CLI = casa / "cli_ricevuto"
+TRACCIA_CLI.mkdir()
 CLI = eseguibile("cli_finta", r'''
-import json, sys
+import json, os, sys, time
 domanda = sys.stdin.buffer.read().decode("utf-8")
-with open(r"''' + str(TRACCIA_CLI) + r'''", "a", encoding="utf-8") as f:
-    f.write(json.dumps({"domanda": domanda}, ensure_ascii=False) + "\n")
+with open(os.path.join(r"''' + str(TRACCIA_CLI) + r'''", f"{time.time_ns()}-{os.getpid()}.json"),
+          "w", encoding="utf-8") as f:
+    json.dump({"domanda": domanda}, f, ensure_ascii=False)
 rifa = "(Da rifare: la prova del compito non e' passata" in domanda
 if "LAVORO-BUONO" in domanda:
     print("Consegna della CLI: scritto `buona.py`.\n\nPROVA: passata\n`python prova_buona.py`: esce con 0")
@@ -108,13 +115,15 @@ else:
 # ------------------------------------------------------- il Claude finto
 # Da giudice (stream-json, senza strumenti) da' il voto e fa passare i
 # controlli; da Dot rifa' i compiti saliti a lui.
-TRACCIA_CLAUDE = casa / "claude_ricevuto.jsonl"
+TRACCIA_CLAUDE = casa / "claude_ricevuto"
+TRACCIA_CLAUDE.mkdir()
 CLAUDE = eseguibile("claude_finto", r'''
-import json, sys
+import json, os, sys, time
 domanda = sys.stdin.buffer.read().decode("utf-8")
 argv = sys.argv[1:]
-with open(r"''' + str(TRACCIA_CLAUDE) + r'''", "a", encoding="utf-8") as f:
-    f.write(json.dumps({"argv": argv, "domanda": domanda}, ensure_ascii=False) + "\n")
+with open(os.path.join(r"''' + str(TRACCIA_CLAUDE) + r'''", f"{time.time_ns()}-{os.getpid()}.json"),
+          "w", encoding="utf-8") as f:
+    json.dump({"argv": argv, "domanda": domanda}, f, ensure_ascii=False)
 if "stream-json" in argv:
     risposta = "ESITO: ok"
     if domanda.startswith("[giudizio del capo]"):
@@ -193,17 +202,29 @@ def righe(f: Path) -> list[dict]:
     return [json.loads(r) for r in f.read_text(encoding="utf-8").splitlines() if r] if f.is_file() else []
 
 
+def ricevuti(cartella: Path) -> list[dict]:
+    """Le chiamate a un programma finto, in ordine: un file per chiamata. Un
+    file ancora a meta' si salta, e si rilegge al giro dopo."""
+    fuori = []
+    for f in sorted(cartella.glob("*.json")):
+        try:
+            fuori.append(json.loads(f.read_text(encoding="utf-8")))
+        except (OSError, ValueError):
+            pass
+    return fuori
+
+
 def cronologia():
     return righe(PROGETTO / "progetto.jsonl")
 
 
 def alla_cli(segno):
-    return [x["domanda"] for x in righe(TRACCIA_CLI) if segno in x["domanda"]]
+    return [x["domanda"] for x in ricevuti(TRACCIA_CLI) if segno in x["domanda"]]
 
 
 def a_claude(segno):
     """Le volte che Claude ha fatto il compito, non quelle da giudice."""
-    return [x["domanda"] for x in righe(TRACCIA_CLAUDE)
+    return [x["domanda"] for x in ricevuti(TRACCIA_CLAUDE)
             if segno in x["domanda"] and "stream-json" not in x["argv"]]
 
 

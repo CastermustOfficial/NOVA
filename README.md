@@ -1039,7 +1039,11 @@ quando servono:
 
 Poi si accende dal pannello, alla voce **Voce**. NOVA risponde al proprio
 nome: non c'e' un modello apposta per la parola di richiamo, e' whisper che
-trascrive e il nome che apre la frase.
+trascrive e il nome che apre la frase. Al posto del nome solo si puo'
+scegliere una frase, come «Brilla Nova» (nel pannello, **Come la chiami**,
+D447): col nome solo NOVA si sveglia anche per «No, va bene» e per «Genova»,
+con due parole servono tutte e due. Da dormiente, un «basta» detto ad altri
+non ha risposta: ferma solo se c'e' qualcosa in corso.
 
 Dopo il nome la conversazione puo' andare a **Gemini Live** (D386): nel
 pannello, alla voce **Conversazione**, con una chiave della Gemini API (o

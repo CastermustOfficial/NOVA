@@ -64,3 +64,55 @@ fn tollera_la_punteggiatura_di_whisper() {
         );
     }
 }
+
+/// D447: una frase di due parole al posto del nome solo. Le parole servono
+/// tutte e due, in fila e in testa; quello che svegliava per sbaglio col
+/// nome solo non sveglia piu'.
+#[test]
+fn una_frase_di_risveglio_vuole_tutte_le_sue_parole() {
+    let frase = "Brilla Nova";
+    assert_eq!(
+        dopo_il_risveglio("Brilla, Nova. Che ore sono?", frase).as_deref(),
+        Some("che ore sono")
+    );
+    assert_eq!(dopo_il_risveglio("brilla nova", frase).as_deref(), Some(""));
+    assert_eq!(
+        dopo_il_risveglio("BRILLA NOVA! basta", frase).as_deref(),
+        Some("basta")
+    );
+    // Come whisper spezza e sporca il nome, anche dopo un'altra parola.
+    assert_eq!(
+        dopo_il_risveglio("Brilla, no va apri i progetti", frase).as_deref(),
+        Some("apri i progetti")
+    );
+    assert_eq!(
+        dopo_il_risveglio("Brillano va, ci sei?", frase).as_deref(),
+        Some("ci sei")
+    );
+    assert_eq!(
+        dopo_il_risveglio("Brilla innova, ci sei?", frase).as_deref(),
+        Some("ci sei")
+    );
+    // Una parola sola delle due non basta, e nemmeno in un altro ordine.
+    for no in [
+        "Nova, che ore sono",
+        "No, va bene cosi'",
+        "Genova e' bella",
+        "Innova sempre",
+        "brilla il sole",
+        "Nova brilla",
+        "brilla la stella nova",
+        "guarda come brilla nova",
+        "brilla rinnova",
+    ] {
+        assert!(
+            dopo_il_risveglio(no, frase).is_none(),
+            "sveglia per sbaglio: {no}"
+        );
+    }
+    // Tre parole, e la punteggiatura nella frase scelta.
+    assert_eq!(
+        dopo_il_risveglio("ehi brilla nova accendi", "Ehi, brilla Nova!").as_deref(),
+        Some("accendi")
+    );
+}

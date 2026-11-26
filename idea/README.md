@@ -794,3 +794,17 @@ risposta di Gio a ricerca e' diventata il compito 11, e non si poteva
 togliere: `dot.ferma` ferma solo quello in corso. **Cosa costerebbe.** Uno
 stato in piu' per i compiti, una capacita' solo della persona, e il bottone
 nella scheda.
+
+## Un modello apposta per la frase di risveglio
+
+Nata il 26 novembre, col D447. **Cosa.** Oggi la frase di risveglio si
+riconosce sul testo che whisper trascrive: ogni frase detta in casa si
+trascrive, e si guarda se comincia con la frase. Un modello di richiamo
+(openWakeWord, o simili) riconosce il suono della frase senza trascrivere
+il resto. **Perche'.** Sbaglia meno nei due versi, costa meno di whisper
+sempre acceso, e quello che si dice in casa non passa nemmeno da un
+trascrittore. **Cosa costerebbe.** Un modello addestrato sulla frase scelta
+(per «Brilla Nova» non ce n'e' uno pronto: va addestrato, con voci
+sintetiche), ONNX Runtime c'e' gia'; e la frase non sarebbe piu' libera, a
+meno di tenere whisper come ripiego per le frasi senza modello.
+

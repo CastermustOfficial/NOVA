@@ -56,7 +56,8 @@ Quando una voce si chiude la si sposta qui, con la data e il commit.
 - 09/10/2026: i Dot si accendono solo dove conviene: un interruttore nel pannello, di serie deciso da NOVA (D389, `eb0479a`).
 - 09/10/2026: i Dot parlano fra loro: ogni Dot puo' avere un capo, il capo aspetta e riprende, la posta si legge al compito dopo, i gruppi li fa Nova (D388, `48e72ab`).
 - 08/10/2026: Nova chiama i Dot: affida senza chiedere, fa nascere un Dot solo su richiesta, e la consegna arriva in chat e a voce (D387, `7e9b8f0`).
-- 19/11/2026: la pulizia del microfono nella voce dal vivo: RNNoise, il cancello che manda silenzio quando nessuno parla, il guadagno solo sulla voce, la lingua nella trascrizione e il server piu' prudente (D446; il commit si scrive nel prossimo).
+- 26/11/2026: una frase di risveglio al posto del nome solo, scelta nel pannello, e la fermata detta ad altri che non ha piu' risposta (D447; il commit si scrive nel prossimo).
+- 19/11/2026: la pulizia del microfono nella voce dal vivo: RNNoise, il cancello che manda silenzio quando nessuno parla, il guadagno solo sulla voce, la lingua nella trascrizione e il server piu' prudente (D446, `bfa524b`).
 - 08/10/2026: Gemini Live: dopo «Nova» la conversazione dal vivo, con le funzioni di NOVA, la chiave e le 30 voci nel pannello, da ascoltare prima di scegliere; e il guscio che dimentica davvero la conversazione del demone (D386, `7bea712`).
 - 08/10/2026: l'azienda dei Dot, il disegno: APM, AR che assume, la piramide, il via e il tetto per progetto, i Dot che restano (D385, `0efe9e8`).
 - 08/10/2026: il custode dei permessi: un Dot chiede a lui quando Nova chiederebbe all'utente, anche dal suo Claude Code, col modello di casa e se no il cervello grande (D384, `b257144`).

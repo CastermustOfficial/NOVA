@@ -159,6 +159,32 @@ fn e_una_fermata(testo: &str) -> bool {
     )
 }
 
+/// Se a una fermata detta a voce si da' retta (D447).
+///
+/// A conversazione aperta si', sempre: chi parla sta parlando a NOVA. Da
+/// dormiente o in pausa «basta» e «stop» si dicono a chiunque nella stanza:
+/// si da' retta solo se c'e' davvero qualcosa in corso da fermare, e se non
+/// c'e' si tace. Il 26 novembre NOVA rispondeva dal nulla «Non stavo facendo
+/// niente» a un «basta» detto ad altri.
+fn si_da_retta_alla_fermata(fase: u8, in_corso: usize) -> bool {
+    fase == SVEGLIA || in_corso > 0
+}
+
+/// Ferma quello che c'e' in corso e lo dice.
+async fn ferma_e_dillo(bus: &Bus) {
+    let quante = crate::interruzione::ferma(bus);
+    tracing::info!(quante, "fermata chiesta a voce");
+    crate::caps_voce::annuncia(
+        bus.clone(),
+        if quante > 0 {
+            "Va bene, mi fermo."
+        } else {
+            "Non stavo facendo niente."
+        },
+    )
+    .await;
+}
+
 /// Quanto silenzio chiude una frase.
 ///
 /// Piu' lungo in conversazione: chi parla si ferma a pensare, e tagliargli la
@@ -286,6 +312,9 @@ pub fn avvia(
             }
             let mic = microfono.clone();
             let cartella = cartella_ascolto.clone();
+            // La parola si rilegge a ogni ascolto (D447): cambiata nel
+            // pannello, vale dal giro dopo.
+            let parola = crate::caps_voce::parola_di_risveglio();
             let glossario = parola.clone();
             let silenzio = silenzio_per(fase_ora);
             let parole_prima = s.turni_di_parola.load(Ordering::SeqCst);
@@ -338,17 +367,14 @@ pub fn avvia(
                     // prima del cervello, perche' chi la dice sta aspettando che qualcosa
                     // smetta adesso.
                     if e_una_fermata(&testo) {
-                        let quante = crate::interruzione::ferma(&bus);
-                        tracing::info!(quante, "fermata chiesta a voce");
-                        crate::caps_voce::annuncia(
-                            bus.clone(),
-                            if quante > 0 {
-                                "Va bene, mi fermo."
-                            } else {
-                                "Non stavo facendo niente."
-                            },
-                        )
-                        .await;
+                        if si_da_retta_alla_fermata(
+                            fase_ora,
+                            crate::interruzione::quante_in_corso(),
+                        ) {
+                            ferma_e_dillo(&bus).await;
+                        } else {
+                            tracing::debug!("fermata detta ad altri, scartata");
+                        }
                         continue;
                     }
 
@@ -359,6 +385,12 @@ pub fn avvia(
                             bus.emit("voce.comando", json!({ "testo": testo, "primo": false }));
                         }
                         _ => match crate::caps_voce::dopo_il_risveglio(&testo, &parola) {
+                            // «Brilla Nova, basta»: chiamata per nome,
+                            // la fermata vale sempre, e non apre una
+                            // conversazione (D447).
+                            Some(comando) if e_una_fermata(&comando) => {
+                                ferma_e_dillo(&bus).await;
+                            }
                             Some(comando) => {
                                 tracing::info!("risvegliata");
                                 // Gemini Live, se e' scelta nel pannello: la
@@ -470,4 +502,38 @@ pub fn avvia(
         tracing::info!("risveglio spento");
     });
     true
+}
+
+#[cfg(test)]
+mod prove {
+    use super::*;
+
+    #[test]
+    fn le_fermate_sono_poche_e_intere() {
+        for f in ["Basta.", "  STOP! ", "Ferma tutto", "lascia perdere..."] {
+            assert!(e_una_fermata(f), "{f}");
+        }
+        for f in [
+            "basta cosi' per oggi",
+            "non mi basta",
+            "ferma la musica",
+            "",
+        ] {
+            assert!(!e_una_fermata(f), "{f}");
+        }
+    }
+
+    /// D447: un «basta» detto ad altri, a NOVA dormiente e ferma, non ha
+    /// risposta. A conversazione aperta, o con qualcosa in corso, si'.
+    #[test]
+    fn a_una_fermata_si_da_retta_solo_se_e_per_nova() {
+        assert!(!si_da_retta_alla_fermata(DORMIENTE, 0));
+        assert!(!si_da_retta_alla_fermata(IN_PAUSA, 0));
+        assert!(si_da_retta_alla_fermata(SVEGLIA, 0), "sta parlando a NOVA");
+        assert!(
+            si_da_retta_alla_fermata(DORMIENTE, 1),
+            "c'e' qualcosa da fermare"
+        );
+        assert!(si_da_retta_alla_fermata(IN_PAUSA, 3));
+    }
 }

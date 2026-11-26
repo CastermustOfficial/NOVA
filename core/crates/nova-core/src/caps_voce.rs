@@ -203,16 +203,38 @@ fn percorsi_ascolto() -> std::path::PathBuf {
         .join("ascolto")
 }
 
-fn parola_di_risveglio() -> String {
+/// La parola di risveglio di serie.
+pub const PAROLA_DI_SERIE: &str = "nova";
+
+/// La parola, o la frase, di risveglio scelta nel pannello (`voice.wake_word`).
+/// Si rilegge a ogni ascolto (D447): cambiata nel pannello, vale subito. Una
+/// parola vuota non sveglierebbe mai nessuno: torna quella di serie.
+pub(crate) fn parola_di_risveglio() -> String {
     configurazione_utente()
-        .and_then(|c| Some(c.get("voice")?.get("wake_word")?.as_str()?.to_string()))
-        .unwrap_or_else(|| "nova".to_string())
+        .and_then(|c| {
+            Some(
+                c.get("voice")?
+                    .get("wake_word")?
+                    .as_str()?
+                    .trim()
+                    .to_string(),
+            )
+        })
+        .filter(|p| p.chars().any(char::is_alphanumeric))
+        .unwrap_or_else(|| PAROLA_DI_SERIE.to_string())
 }
 
 /// La frase comincia con la parola di risveglio? Se si', cosa resta.
 ///
 /// Whisper non restituisce mai la stessa forma due volte — «Nova,», «Nova.»,
 /// «nova» — quindi si confronta sul nudo: solo lettere, tutto minuscolo.
+///
+/// La parola puo' essere una frase di piu' parole, come «Brilla Nova»
+/// (D447): il 26 novembre Gio ha detto che col nome solo NOVA si attiva
+/// sempre. «No, va bene» comincia come «Nova», e «Genova» e «innova» ci
+/// passano per le lettere davanti. Con due parole serve dirle tutte e due,
+/// in fila e in testa alla frase; la tolleranza sul nome resta, sull'ultima
+/// parola.
 pub fn dopo_il_risveglio(testo: &str, parola: &str) -> Option<String> {
     let nudo = |s: &str| {
         s.to_lowercase()
@@ -238,10 +260,21 @@ pub fn dopo_il_risveglio(testo: &str, parola: &str) -> Option<String> {
     // riconosce. Si guardano solo le prime parole: cosi' «no» e «va» in mezzo
     // a una frase non possono risvegliare niente per caso.
     let parole: Vec<&str> = pulito.split(' ').collect();
+    let chiavi: Vec<&str> = chiave.split(' ').collect();
     let bersaglio = chiave.replace(' ', "");
-    for quante in 1..=parole.len().min(3) {
+    // Di una frase: le parole prima dell'ultima, attaccate, e l'ultima, che
+    // e' il nome. Di una parola sola, davanti non c'e' niente.
+    let (ultima, prima) = chiavi.split_last()?;
+    let davanti = prima.concat();
+    for quante in 1..=parole.len().min(chiavi.len() + 2) {
         let unito = parole[..quante].concat();
-        if unito == bersaglio || attaccata_davanti(&unito, &bersaglio) {
+        // Il nome con una o due lettere di troppo, dopo le altre parole:
+        // «Brilla, innova».
+        let nome_sporco = !davanti.is_empty()
+            && unito
+                .strip_prefix(&davanti)
+                .is_some_and(|resto| attaccata_davanti(resto, ultima));
+        if unito == bersaglio || attaccata_davanti(&unito, &bersaglio) || nome_sporco {
             return Some(parole[quante..].join(" ").trim().to_string());
         }
     }

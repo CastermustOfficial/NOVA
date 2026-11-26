@@ -174,6 +174,9 @@ export const LINGUE = {
     "Scarica dopo un'ora": 'Unload after an hour',
     'Parola di risveglio': 'Wake word',
     'Il microfono resta aperto e si sveglia su «': 'The microphone stays open and wakes on "',
+    'Come la chiami': 'What you call it',
+    'Una frase di due parole, come «Brilla Nova», si attiva per sbaglio molto meno del nome solo. Vale subito.':
+      'A two-word phrase, like "Brilla Nova", wakes by mistake far less than the name alone. It applies at once.',
     /* I Dot (D389) */
     'I Dot': 'The Dots',
     'Accesi': 'On',

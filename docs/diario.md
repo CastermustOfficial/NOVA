@@ -12200,3 +12200,19 @@ diceva il contrario. Adesso il microfono passa da RNNoise, un cancello manda
 silenzio quando nessuno parla, e il guadagno lavora solo sulla voce (D446).
 L'ho misurato con una voce vera e dei rumori fatti da me; con la voce e il
 microfono di Gio lo dira' la sua prova.
+
+## 26 novembre 2026 — Brilla, Nova
+
+Gio dice che col nome solo NOVA si attiva sempre, e che a un «basta» detto
+per i fatti suoi risponde «non ho fatto niente». Le due cose erano scritte
+nel codice come scelte: «No, va» vale come «Nova» perche' whisper lo
+trascrive cosi', e le parole per fermarla si ascoltavano anche da
+dormiente. Adesso al posto del nome si puo' mettere una frase, come la
+«Brilla Nova» che ha proposto Gio: servono tutte e due le parole. E un «basta» a NOVA
+dormiente e ferma non ha piu' risposta (D447).
+
+Sul PC Windows la suite si e' fermata a meta': Defender, con le firme di
+oggi, ha preso il demone di prova appena costruito per un programma
+sospetto e l'ha tolto. Gio ha escluso la cartella dei binari di prova, e al
+secondo giro e' caduta una prova mia del D445, che perdeva una riga quando
+quattro processi scrivevano nello stesso file: corretta anche quella.

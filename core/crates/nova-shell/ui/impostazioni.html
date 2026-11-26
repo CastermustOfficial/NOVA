@@ -286,6 +286,11 @@ titoli invece si traducono davvero, perche' li' non c'e' nessun modello in mezzo
         <button class="interruttore" id="swRisveglio"></button>
       </div>
       <div class="riga" style="display:block">
+        <div class="info" style="margin-bottom:8px"><b>Come la chiami</b>
+          <span>Una frase di due parole, come «Brilla Nova», si attiva per sbaglio molto meno del nome solo. Vale subito.</span></div>
+        <input type="text" id="campoRisveglio" placeholder="nova" maxlength="40" aria-label="Come la chiami">
+      </div>
+      <div class="riga" style="display:block">
         <div class="info" style="margin-bottom:8px"><b>Conversazione</b>
           <span id="notaConversazione"></span></div>
         <select id="selConversazione">
@@ -1548,6 +1553,15 @@ function disegnaLegenda(){
     disegnaDettaglioLive();
   });
   $('ecoRisveglio').textContent = prendi('voice.wake_word','nova');
+  // La parola, o la frase, di risveglio (D447): si scrive quando si esce dal
+  // campo; vuota, torna quella di serie.
+  $('campoRisveglio').value = prendi('voice.wake_word','nova');
+  $('campoRisveglio').onchange = async ev => {
+    const parola = ev.target.value.trim().replace(/\s+/g, ' ') || 'nova';
+    ev.target.value = parola;
+    await salva({ voice: { wake_word: parola } });
+    $('ecoRisveglio').textContent = parola;
+  };
 
   const motore = $('selMotore');
   motore.value = prendi('voice.tts_engine','locale');

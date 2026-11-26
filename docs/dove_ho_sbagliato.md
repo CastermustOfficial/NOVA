@@ -3231,3 +3231,33 @@ La regola: una frase in un commento che dice cosa non puo' succedere e' una
 affermazione, e si misura prima di scriverla. E un difetto visto e scritto in
 `idea/` non e' corretto: se torna, e' lo stesso difetto, e la seconda volta
 costa di piu' a chi usa NOVA.
+
+## Il «basta» che non era per NOVA
+
+Le parole che fermano NOVA a voce sono un elenco, e nel commento avevo
+scritto che nessuna «ha un secondo significato plausibile rivolta a un
+assistente». Ma il controllo girava anche da dormiente, quando nessuno le
+sta parlando: il 26 novembre Gio ha detto «basta» a qualcun altro, e NOVA
+ha risposto «Non stavo facendo niente». Se n'e' accorto lui.
+
+Corretto col D447: da dormiente o in pausa alla fermata si da' retta solo
+se c'e' qualcosa in corso; altrimenti si tace.
+
+La regola: una frase vale per chi e' rivolta, e un microfono sempre aperto
+sente anche quello che non e' per lui. Prima di rispondere a una parola
+sentita da dormiente, ci dev'essere un motivo per credere che fosse per
+NOVA: il nome, o un lavoro in corso.
+
+## La prova che perdeva una riga
+
+Nella prova del D445 (`test_demone_prova_del_compito.py`) i due programmi
+finti scrivevano ogni chiamata in coda a un file solo, e i quattro compiti
+partono insieme. Il 26 novembre, sul PC Windows, delle due chiamate di un
+compito nel file ne e' rimasta una, e un controllo e' caduto: il demone aveva
+fatto bene, lo diceva il suo diario. Nei giri di prima era passata.
+
+Corretto col D447: ogni chiamata scrive un file suo, col tempo nel nome.
+
+La regola: piu' processi che partono insieme non scrivono nello stesso file,
+nemmeno in una prova; aggiungere in coda non e' un'operazione sola su ogni
+sistema.
