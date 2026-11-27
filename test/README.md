@@ -45,7 +45,7 @@ Le prove del recinto di Windows (`nova-platform` e `nova-core`, solo `cfg(window
 - `misure/`: i banchi di prestazione, lanciati a mano sul PC con la scheda video.
 - `attrezzi/`: gli script lanciati a mano, compresi i giri di mutazione con cui si verifica che un banco gemello guardi davvero.
 
-## `prove/progetto/`: 32 prove
+## `prove/progetto/`: 33 prove
 
 Cosa serve: niente: guardano il repository stesso. Solo `test_harness_vivo.py` e `test_markdown.py` vogliono anche node, e senza escono 2.
 
@@ -72,7 +72,8 @@ Cosa serve: niente: guardano il repository stesso. Solo `test_harness_vivo.py` e
 | `test_niente_finestre.py` | NOVA lavora dietro, non davanti: nessun processo apre una console. |
 | `test_nomi_degli_strumenti.py` | Ogni strumento nominato deve esistere, e col nome giusto. |
 | `test_nomi_strumenti.py` | I nomi degli strumenti nel prompt devono esistere davvero. |
-| `test_orb.py` | L'orb di Gio (D380): ogni stato che chiedono il bus del guscio, l'orb sul desktop, la chat, l'harness e la legenda esiste, il bifrost non c'e' piu', e l'icona e' un PNG con l'alfa e un .ico a piu' misure. |
+| `test_orb.py` | L'orb di Gio (D380): ogni stato che chiede il bus (dal D449 in `nova_proto::vista`), l'orb sul desktop, la chat, l'harness e la legenda esiste, il bifrost non c'e' piu', e l'icona e' un PNG con l'alfa e un .ico a piu' misure. |
+| `test_tablet.py` | NOVA su un altro dispositivo (D449): il programma del tablet (`core/tablet`) sta fuori dal workspace e usa `nova-portale` e `nova-proto`; la finestra apre `tablet.html` fra le pagine del guscio; la pagina chiede solo comandi che ci sono e sente solo canali che qualcuno manda; un invito aperto da fuori non abbina da solo; quello che si scrive entra come testo; ogni stato dell'orb ha le sue parole; le frasi ci sono anche in inglese. Il programma si costruisce a parte: `cd core/tablet && cargo tauri android init && cargo tauri android build --apk --target aarch64`, con `ANDROID_HOME` e `NDK_HOME`. |
 | `test_pannello_e_configurazione.py` | Il pannello scrive dove Python legge davvero. |
 | `test_ponte_col_guscio.py` | Il ponte fra la pagina e il guscio regge da tutte e due le parti. |
 | `test_primi_minuti.py` | «Cosa le chiedo?» e' la prima domanda, e non e' «come funziona». |

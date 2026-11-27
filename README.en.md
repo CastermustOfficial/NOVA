@@ -1074,8 +1074,21 @@ in the panel, under **Microphone clean-up**.
 ### The portal: another device
 
 A tablet can act as NOVA's screen, microphone and speaker, while the PC does
-the work (D448). For now there is the door on the PC; the tablet program and
-the voice through the portal are in progress.
+the work (D448). There are the door on the PC and the tablet program
+(`core/tablet`, D449), which shows the orb and the chat and can be written
+to; the voice through the portal is in progress.
+
+The tablet program is in Rust, with Tauri like the PC window, and is built
+for Android with the SDK and the NDK:
+
+```powershell
+cd core\tablet
+cargo tauri android init
+cargo tauri android build --apk --target aarch64
+```
+
+On the tablet you open the invitation from the panel, or paste it, and press
+**Pair**: from then on the tablet finds the PC by itself.
 
 The portal is **off by default**, because whoever comes in through it
 controls the PC. It is switched on from the settings panel, under

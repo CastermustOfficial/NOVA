@@ -1062,8 +1062,21 @@ microfono**.
 ### Il portale: un altro dispositivo
 
 Un tablet puo' fare da schermo, microfono e altoparlante di NOVA, mentre il
-lavoro lo fa il PC (D448). Per ora c'e' la porta sul PC; il programma del
-tablet e la voce attraverso il portale sono in lavorazione.
+lavoro lo fa il PC (D448). Ci sono la porta sul PC e il programma del tablet
+(`core/tablet`, D449), che mostra l'orb e la chat e a cui si scrive; la voce
+attraverso il portale e' in lavorazione.
+
+Il programma del tablet e' in Rust, con Tauri come la finestra del PC, e si
+costruisce per Android con l'SDK e l'NDK:
+
+```powershell
+cd core\tablet
+cargo tauri android init
+cargo tauri android build --apk --target aarch64
+```
+
+Sul tablet si apre l'invito del pannello, o lo si incolla, e si preme
+**Abbina**: da quel momento il tablet trova il PC da solo.
 
 Il portale e' **spento di serie**, perche' chi entra da li' comanda il PC.
 Si accende dal pannello, alla voce **Portale**; poi **Mostra il codice** fa

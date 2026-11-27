@@ -1,0 +1,10 @@
+{
+  "identifier": "default",
+  "description": "Quello che la pagina del tablet puo' chiedere al programma: i comandi suoi, e sentire gli eventi. In Tauri 2 cio' che non e' scritto qui viene negato in silenzio.",
+  "windows": ["tablet", "main"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "deep-link:default"
+  ]
+}

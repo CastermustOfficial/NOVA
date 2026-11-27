@@ -102,7 +102,15 @@ controlla("le firme dei comandi si leggono",
 chiamati: dict[str, set[str]] = {}
 visti_bene: set[tuple] = set()
 tutti_gli_invoke: list[tuple] = []
-pagine = sorted(list(UI.glob("*.html")) + list(UI.glob("*.js")))
+# `tablet.html` (D449) sta fra le pagine del guscio per riusarne l'orb e il
+# tema, ma la apre un altro programma (`core/tablet`), coi comandi suoi: che
+# quelli esistano lo guarda `test_tablet.py`.
+DEL_TABLET = {"tablet.html"}
+pagine = sorted(f for f in list(UI.glob("*.html")) + list(UI.glob("*.js"))
+                if f.name not in DEL_TABLET)
+controlla("la pagina del tablet c'e', ed e' di un altro programma",
+          all((UI / n).is_file() for n in DEL_TABLET)
+          and (RADICE / "core" / "tablet" / "src" / "lib.rs").is_file())
 controlla("le pagine ci sono", len(pagine) >= 4, f"trovate {len(pagine)}")
 
 for f in pagine:

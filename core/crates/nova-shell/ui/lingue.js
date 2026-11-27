@@ -238,6 +238,22 @@ export const LINGUE = {
     'Inquadralo dal dispositivo. Vale cinque minuti e una volta sola: poi sparisce.':
       'Scan it from the device. It works for five minutes and once: then it disappears.',
 
+    /* --- il tablet (D449) --- */
+    'Abbina questo dispositivo': 'Pair this device',
+    "Sul PC apri le impostazioni di NOVA, alla voce Portale, accendilo e premi «Mostra il codice». Poi apri l'invito su questo dispositivo, oppure incollalo qui sotto.": 'On the PC open NOVA’s settings, under Portal, turn it on and press “Show the code”. Then open the invitation on this device, or paste it below.',
+    "L'invito": 'The invitation',
+    'Abbina': 'Pair',
+    'Scrivi a NOVA': 'Write to NOVA',
+    'Invia': 'Send',
+    'qualcosa non va': 'something is wrong',
+    'aspetto un tuo ok sul PC': 'waiting for your ok on the PC',
+    'cerco il PC…': 'looking for the PC…',
+    'da abbinare al PC': 'to be paired with the PC',
+    'Collegata al PC': 'Connected to the PC',
+    'Cerco il PC…': 'Looking for the PC…',
+    'Porta al PC che risponde a: ': 'It leads to the PC that answers at: ',
+    "questo dispositivo non e' abbinato a NOVA, o e' stato dimenticato": 'this device is not paired with NOVA, or it has been forgotten',
+
     /* --- componenti --- */
     'Componenti': 'Components',
     'Cosa serve a ogni funzione, e cosa manca': 'What each feature needs, and what is missing',

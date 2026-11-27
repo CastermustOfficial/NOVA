@@ -376,6 +376,10 @@ ALTROVE = {
 #: dichiarazione, non una scappatoia: chi legge sa che quella riga non ha
 #: nessuno che la controlli dall'altra parte.
 SENZA_GEMELLO: dict[str, str] = {
+    # Gli argomenti del bus a cui si iscrive uno schermo che entra dal
+    # portale (D449). Il portale e il tablet esistono solo in Rust.
+    "ARGOMENTI_DI_UNO_SCHERMO": "gli argomenti del bus del demone a cui si iscrive il "
+                                "tablet; in Python non c'e' ne' il bus ne' il portale",
     # I nomi Python che il prompt usa e che nel demone si chiamano in un
     # altro modo. Il Python non traduce niente: i nomi del prompt sono gia'
     # i suoi (D347).

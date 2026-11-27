@@ -841,3 +841,26 @@ scrive in `portale.indirizzi`, e finisce nell'invito. *Perche'.* Il portale
 non va esposto su internet: una porta aperta sul router la trovano tutti.
 *Cosa costerebbe.* Niente codice; un programma in piu' sul PC e sul
 dispositivo, e per Tailscale un account, che decide Gio.
+
+## Il tablet: quello che non c'e' ancora
+
+Nate il 27 novembre, col D449.
+
+**Inquadrare il codice dal programma.** *Cosa.* Oggi l'invito si incolla, o
+si apre come indirizzo da un lettore di codici. Il programma potrebbe
+inquadrare il QR da se', con la videocamera. *Perche'.* Su un tablet che e'
+solo NOVA non c'e' un altro programma che legga i codici. *Cosa
+costerebbe.* I fotogrammi della videocamera e un lettore di QR in Rust
+(`rqrr`), piu' il permesso della videocamera.
+
+**Il discorso del PC sul tablet.** *Cosa.* Sul tablet si vedono lo stato
+dell'orb, la voce dal vivo e quello che si scrive dal tablet. Quello che si
+dice o si scrive al PC no: la cronologia la tiene il guscio, non il demone.
+*Perche'.* Chi passa dal PC al tablet vuole ritrovare il discorso. *Cosa
+costerebbe.* Portare la cronologia nel demone, con un evento per ogni
+battuta, e far leggere quella a tutti e due gli schermi.
+
+**Staccare il tablet dal tablet.** *Cosa.* Un comando nella pagina per
+togliere l'abbinamento. Oggi si toglie dal pannello del PC, con «Dimentica».
+*Perche'.* Per dare il tablet a qualcun altro senza passare dal PC. *Cosa
+costerebbe.* Poco: un comando, e chiudere il collegamento aperto.

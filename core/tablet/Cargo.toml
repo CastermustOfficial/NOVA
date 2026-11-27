@@ -1,0 +1,43 @@
+[package]
+name = "nova-tablet"
+version = "0.1.1"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT"
+description = "NOVA su un altro dispositivo: lo schermo che entra dal portale e mostra il NOVA del PC."
+
+# Fuori dal workspace di `core`: si costruisce per Android (`cargo tauri
+# android build`), con i suoi attrezzi e i suoi tempi, e non deve entrare in
+# ogni `cargo test --workspace`. Le regole del canale e cio' che uno schermo
+# mostra stanno nel workspace (`nova-portale`, `nova-proto`), dove si provano.
+[workspace]
+
+[lib]
+name = "nova_tablet"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+# L'invito si apre come indirizzo `nova://abbina?...`: da un lettore di
+# codici, o da chi prepara il dispositivo.
+tauri-plugin-deep-link = "2"
+nova-portale = { path = "../crates/nova-portale" }
+nova-proto = { path = "../crates/nova-proto" }
+tokio = { version = "1", features = ["rt", "sync", "time", "macros"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+anyhow = "1"
+
+# L'APK di prova si porta al dispositivo via cavo: senza simboli e'
+# dieci volte piu' piccolo.
+[profile.dev]
+debug = false
+strip = true
+opt-level = 1
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = true

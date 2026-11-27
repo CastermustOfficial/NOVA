@@ -12241,3 +12241,17 @@ Per il tablet esiste una versione di Ubuntu Touch, con kernel e driver di
 Samsung sotto e Linux sopra: e' la strada piu' vicina all'idea di Gio. E'
 costruita sui driver di Android 11 e il tablet e' su Android 14: se si
 installa da li' e' ancora da verificare.
+
+La sera stessa NOVA e' comparsa sul tablet (D449). Prima una prova a
+vuoto, per sapere se dal mio ambiente si costruisce un'app Android in Rust:
+si', con Tauri 2, lo stesso della finestra del PC, e sul Tab A8 una pagina
+ha chiesto una cosa a Rust e ha avuto risposta. Poi il programma vero, che
+e' quasi solo colla: le pagine sono quelle del guscio, il canale e' quello
+del portale, e quello che uno schermo mostra per un evento e' uscito dal
+guscio per stare dove lo leggono tutti e due. L'orb sul tablet e' lo stesso
+shader di quello sul desktop, e gira.
+
+Due inciampi di macchina, non di codice: il tablet dopo un riavvio resta
+bloccato finche' qualcuno non mette il PIN, e fino ad allora un'app appena
+installata non esiste; e Gradle, attraverso il proxy del mio ambiente,
+ogni tanto si prende un «troppe richieste» da Maven e va rilanciato.

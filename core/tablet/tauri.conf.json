@@ -1,0 +1,41 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "NOVA",
+  "version": "0.1.1",
+  "identifier": "io.nova.tablet",
+  "build": {
+    "frontendDist": "../crates/nova-shell/ui"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "tablet",
+        "title": "NOVA",
+        "url": "tablet.html",
+        "width": 800,
+        "height": 1280
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "mobile": [
+        { "scheme": ["nova"], "host": "abbina" }
+      ],
+      "desktop": {
+        "schemes": ["nova"]
+      }
+    }
+  },
+  "bundle": {
+    "active": false,
+    "icon": [
+      "../crates/nova-shell/icons/icon.png",
+      "../crates/nova-shell/icons/icon.ico"
+    ]
+  }
+}

@@ -11,6 +11,11 @@ use serde_json::Value;
 // pipe occupata vuole.
 pub mod canale;
 
+// Cosa mostra uno schermo per un evento del demone: lo stato dell'orb, la
+// riga «sto facendo...», le righe della chat. Per la finestra sul PC e per
+// il tablet (D449).
+pub mod vista;
+
 pub const PROTOCOL_VERSION: &str = "1.0";
 pub const SERVER_NAME: &str = "nova-core";
 

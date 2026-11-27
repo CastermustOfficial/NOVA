@@ -55,7 +55,9 @@ for riga in re.findall(r"^\s+(\w+):\s*\{([^}]*)\}", blocco, re.M):
     controlla(f"«{nome}» ha tutte le manopole", not mancano, str(mancano))
 
 print("\n2. chi chiede uno stato lo trova")
-BUS = (GUSCIO / "src" / "bus.rs").read_text(encoding="utf-8")
+# Dal D449 la traduzione degli eventi sta in `nova_proto::vista`: la usano la
+# finestra sul PC e il tablet.
+BUS = (RADICE / "core" / "crates" / "nova-proto" / "src" / "vista.rs").read_text(encoding="utf-8")
 fn = BUS[BUS.index("fn stato_da_evento"):BUS.index("fn passo_da_evento")]
 dal_bus = {s for s in re.findall(r'=> Some\("(\w+)"\)', fn)}
 controlla("il bus del guscio chiede degli stati", len(dal_bus) >= 6, str(dal_bus))

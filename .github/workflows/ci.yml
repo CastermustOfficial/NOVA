@@ -239,6 +239,25 @@ jobs:
             exit 1
           fi
 
+      # Il programma del tablet (D449) sta fuori dal workspace: si costruisce
+      # per Android, con attrezzi che qui non ci sono. Ma e' Rust come il
+      # resto, e usa le stesse librerie del guscio: qui si controlla che si
+      # compili, perche' un cambio a `nova-portale` o a `nova-proto` non lo
+      # rompa in silenzio.
+      - name: Il programma del tablet
+        if: runner.os == 'Linux'
+        working-directory: core/tablet
+        shell: bash
+        run: |
+          set +e
+          cargo check --all-targets 2>&1 | tee /tmp/tablet.log
+          esito=${PIPESTATUS[0]}
+          if [ "$esito" -ne 0 ]; then
+            perche=$(grep -E "^error" /tmp/tablet.log | head -5 | tr '\n' '|')
+            echo "::error::il programma del tablet non si compila: $perche"
+            exit 1
+          fi
+
       # Le prove Python **anche qui**, ed e' il punto di tutto CANT-9.
       #
       # Prima questo lavoro faceva solo `cargo test`, quindi di NOVA in Python

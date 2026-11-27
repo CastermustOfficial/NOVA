@@ -15,6 +15,10 @@ config.local.json
 
 # build Rust (~1 GB)
 core/target/
+# Il programma del tablet (D449): il suo build, e il progetto Android che
+# `cargo tauri android init` rigenera.
+core/tablet/target/
+core/tablet/gen/
 
 
 # materiale di lavoro delle revisioni fra modelli
