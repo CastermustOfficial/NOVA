@@ -894,6 +894,7 @@ core/crates/
   nova-cartelle/      whether a folder is being cloud-synced by someone else
   nova-voce/          speaking and listening at home: Kokoro, whisper.cpp; ElevenLabs optional
   nova-live/          Gemini Live: the messages of the live conversation
+  nova-portale/       the portal: the encrypted channel and the pairing for another device
   nova-browser/       the code that runs inside the page
   nova-cdp/           the protocol for talking to Edge and Chrome
   nova-harness/       documents and projects: find a position, propose, test
@@ -1069,6 +1070,27 @@ with the home voice. The microphone is cleaned before it is sent (D446):
 the noise is removed with RNNoise, and when you are not speaking the server
 gets silence, so a noise does not pass for your voice; it can be turned off
 in the panel, under **Microphone clean-up**.
+
+### The portal: another device
+
+A tablet can act as NOVA's screen, microphone and speaker, while the PC does
+the work (D448). For now there is the door on the PC; the tablet program and
+the voice through the portal are in progress.
+
+The portal is **off by default**, because whoever comes in through it
+controls the PC. It is switched on from the settings panel, under
+**Portal**; then **Show the code** brings up a QR code to scan from the
+device, which works for five minutes and once. The channel is encrypted
+(TLS 1.3), and the device only talks to the PC whose fingerprint it read in
+the code. Every paired device has its own **Forget**: it is disconnected at
+once and cannot come back.
+
+On Windows the port (47810 by default) must be opened in the firewall, as
+administrator. The portal must not be exposed to the internet: to use it
+away from home you need a private network between the PC and the device, and
+the PC's address on that network goes in `portale.indirizzi`. By default the
+portal listens on every network of the PC: `portale.ascolta` keeps it on one
+address only.
 
 ## Performance and tuning
 

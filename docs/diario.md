@@ -12216,3 +12216,28 @@ oggi, ha preso il demone di prova appena costruito per un programma
 sospetto e l'ha tolto. Gio ha escluso la cartella dei binari di prova, e al
 secondo giro e' caduta una prova mia del D445, che perdeva una riga quando
 quattro processi scrivevano nello stesso file: corretta anche quella.
+
+## 27 novembre 2026 — Il portale
+
+Gio ha rispolverato un tablet vecchio, un Galaxy Tab A8, e vuole che
+diventi «solo NOVA»: una specie di Alexa, dove sul tablet ci sono lo
+schermo, il microfono e l'altoparlante, e il lavoro lo fa il PC. Lui ci
+metterebbe sotto Linux, o un kernel giusto per i driver, e sopra tutto in
+Rust. Sul tablet si puo' fare quello che si vuole.
+
+Il primo pezzo e' dalla parte del PC, e serve qualunque cosa ci sia poi sul
+tablet: NOVA non aveva nessuna porta di rete, parlava solo con la sua
+finestra, su una pipe. Adesso ha il portale (D448): spento di serie, cifrato,
+e ci si entra solo con un codice che vale una volta, quello che il pannello
+mostra come QR. La parte piu' comoda e' stata scoprire che il demone serve
+un collegamento qualunque, purche' porti righe: dopo il saluto il tablet e'
+servito dalla stessa funzione che serve la finestra del PC.
+
+Il PC non vedeva il tablet per due motivi in fila: il primo cavo portava
+solo corrente, e col secondo il driver Samsung del 2022 non partiva (codice
+10). Tolto quello, Windows ha usato il suo, e il tablet ha risposto.
+
+Per il tablet esiste una versione di Ubuntu Touch, con kernel e driver di
+Samsung sotto e Linux sopra: e' la strada piu' vicina all'idea di Gio. E'
+costruita sui driver di Android 11 e il tablet e' su Android 14: se si
+installa da li' e' ancora da verificare.

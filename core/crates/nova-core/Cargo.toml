@@ -69,6 +69,9 @@ nova-decisioni = { path = "../nova-decisioni" }
 # `nova-live`; qui la websocket verso Google, con rustls e i certificati
 # compilati dentro, come `ureq`: niente store di sistema.
 nova-live = { path = "../nova-live" }
+# Il portale (D448): il canale cifrato e l'abbinamento per un altro
+# dispositivo. Qui la porta in ascolto e chi la accende.
+nova-portale = { path = "../nova-portale" }
 tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots"] }
 futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
 # Il web senza browser: cosa si chiede a DuckDuckGo, come si leggono i

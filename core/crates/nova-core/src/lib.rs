@@ -65,6 +65,7 @@ pub mod osserva;
 pub mod pagella;
 pub mod progetti;
 pub mod policy;
+pub mod portale;
 pub mod memoria;
 pub mod imparare;
 pub mod intoccabili;
@@ -181,6 +182,9 @@ pub fn build(config: Config) -> Result<Arc<Server>> {
 /// nessuno apra un pannello per dirglielo ogni volta.
 pub async fn avvia_servizi(server: &Arc<Server>) {
     caps_voce::avvia_se_richiesto(server.ctx.bus.clone());
+    // Il portale (D448): se il pannello lo vuole acceso, si riaccende col PC.
+    // Di serie e' spento, e qui non succede niente.
+    portale::applica(server).await;
     // Il recinto (D367): le cartelle uscite da `write_roots` mentre il demone
     // era spento perdono subito le voci, non al primo comando. Se non ci si
     // riesce lo si dice forte: ogni comando confinato si fermera' finche'

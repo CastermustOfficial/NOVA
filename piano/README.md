@@ -21,6 +21,7 @@ Deciso con Gio il 30 settembre: non ci sono scadenze, conta solo il risultato, e
 7. **Le compatibilità che sono codice.** Le CLI Codex e Qwen, nel menu e mai provate; i dialetti del tool calling di OpenRouter, Groq e Together; l'installatore per un utente senza diritti di amministratore.
 8. **Le ottimizzazioni aperte.** Gli schemi degli strumenti (circa 6.900 token, il blocco più grosso del prompt) e un prompt su misura per il modello di casa; lo speculative decoding; i round-trip del browser su un modulo intero; il modello di casa acceso all'avvio.
 9. **CANT-9, Mac e Linux alla pari.** Mancano la tastiera, le finestre e l'albero di accessibilità (AT-SPI2, Accessibility API), l'archivio delle credenziali, il recinto su macOS e l'avvio automatico. Servono macchine vere, e prima la decisione di Gio qui sotto.
+10. **Il tablet come portale di NOVA.** Chiesto da Gio il 27 novembre: un Galaxy Tab A8 che e' «solo NOVA», una specie di Alexa, col lavoro fatto dal PC. Fatta la porta sul PC (D448). Restano, in ordine: il programma del tablet in Rust, che si abbina con l'invito e mostra l'interfaccia di NOVA; la voce attraverso il portale (il microfono e l'altoparlante del tablet al posto di quelli del PC, con la frase di risveglio); il tablet ripulito, con NOVA come unica cosa che parte; e la strada Linux (Ubuntu Touch per il Tab A8, costruito sui driver di Android 11) da verificare partendo da Android 14. Fuori dal codice, e decisioni di Gio: aprire la porta nel firewall di Windows, e una rete privata per raggiungere il PC da fuori casa.
 
 ### Fuori dal codice
 
@@ -56,7 +57,8 @@ Quando una voce si chiude la si sposta qui, con la data e il commit.
 - 09/10/2026: i Dot si accendono solo dove conviene: un interruttore nel pannello, di serie deciso da NOVA (D389, `eb0479a`).
 - 09/10/2026: i Dot parlano fra loro: ogni Dot puo' avere un capo, il capo aspetta e riprende, la posta si legge al compito dopo, i gruppi li fa Nova (D388, `48e72ab`).
 - 08/10/2026: Nova chiama i Dot: affida senza chiedere, fa nascere un Dot solo su richiesta, e la consegna arriva in chat e a voce (D387, `7e9b8f0`).
-- 26/11/2026: una frase di risveglio al posto del nome solo, scelta nel pannello, e la fermata detta ad altri che non ha piu' risposta (D447; il commit si scrive nel prossimo).
+- 27/11/2026: il portale, la porta di rete da cui un altro dispositivo parla col NOVA del PC: spento di serie, cifrato, e si entra solo abbinati col codice del pannello (D448; il commit si scrive nel prossimo).
+- 26/11/2026: una frase di risveglio al posto del nome solo, scelta nel pannello, e la fermata detta ad altri che non ha piu' risposta (D447, `f8b753c`).
 - 19/11/2026: la pulizia del microfono nella voce dal vivo: RNNoise, il cancello che manda silenzio quando nessuno parla, il guadagno solo sulla voce, la lingua nella trascrizione e il server piu' prudente (D446, `bfa524b`).
 - 08/10/2026: Gemini Live: dopo «Nova» la conversazione dal vivo, con le funzioni di NOVA, la chiave e le 30 voci nel pannello, da ascoltare prima di scegliere; e il guscio che dimentica davvero la conversazione del demone (D386, `7bea712`).
 - 08/10/2026: l'azienda dei Dot, il disegno: APM, AR che assume, la piramide, il via e il tetto per progetto, i Dot che restano (D385, `0efe9e8`).

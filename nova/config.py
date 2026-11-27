@@ -728,6 +728,24 @@ class DotsConfig:
 
 
 @dataclass
+class PortaleConfig:
+    """Il portale: un altro dispositivo che parla col NOVA del PC (D448).
+
+    Un tablet abbinato fa da schermo, microfono e altoparlante; il lavoro lo
+    fa il PC. Chi entra di qui comanda il PC: per questo di serie e' spento,
+    e si entra solo abbinati, col codice che il pannello mostra.
+    """
+    acceso: bool = False
+    porta: int = 47810
+    # Su quale indirizzo del PC si ascolta: di serie su tutte le reti. Con
+    # l'indirizzo di una rete sola si ascolta solo li'.
+    ascolta: str = "0.0.0.0"
+    # Gli indirizzi in piu' da scrivere nell'invito, per quando il
+    # dispositivo non e' sulla rete di casa.
+    indirizzi: list = field(default_factory=list)
+
+
+@dataclass
 class ClmConfig:
     """CLM, il giudice veloce per chi non ha le lettere (D378).
 
@@ -758,6 +776,7 @@ class Config:
     brains: BrainsConfig = field(default_factory=BrainsConfig)
     clm: ClmConfig = field(default_factory=ClmConfig)
     dots: DotsConfig = field(default_factory=DotsConfig)
+    portale: PortaleConfig = field(default_factory=PortaleConfig)
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
     # Dove NOVA trova i fatti veri sull'utente. Vuoto = Documenti/NOVA/fascicolo.
     fascicolo: str = ""

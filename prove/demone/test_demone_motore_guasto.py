@@ -122,18 +122,21 @@ else:
 (casa / ".claude").mkdir(exist_ok=True)
 (casa / ".claude" / ".credentials.json").write_text("{}", encoding="utf-8")
 
-# La CLI ha 4 secondi (un compito dei Dot ne ha almeno tanti, D410), e
-# «LAVORO-LENTO» ne dorme 30.
+# La CLI ha 10 secondi (un compito dei Dot ne ha almeno tanti, D410), e
+# «LAVORO-LENTO» ne dorme 30: piu' dei 20 della riprova, che ha il doppio del
+# tempo (D437). Erano 4, e valevano anche per Claude: il 27 novembre, sul PC
+# Windows a meta' suite, al Claude finto non sono bastati per partire, e il
+# compito che doveva fare lui e' risultato fallito.
 (cartella_nova / "config.json").write_text(json.dumps({
     "kb": {"enabled": False},
     # I Dot accesi a mano: senza abbonamenti ne' scheda video NOVA li
     # spegnerebbe (D389).
-    "dots": {"accesi": "si", "secondi_per_compito": 4},
+    "dots": {"accesi": "si", "secondi_per_compito": 10},
     "brains": {
         "claude_binary": str(CLAUDE),
-        "claude_timeout": 4,
+        "claude_timeout": 10,
         "cli": {"finta": {"etichetta": "Finta", "binary": str(CLI), "args": [],
-                          "prompt": "stdin", "timeout": 4}},
+                          "prompt": "stdin", "timeout": 10}},
         "routing": {"scala": ["rapido", "difficile"],
                     "tiers": {"rapido": {"brain": "finta"},
                               "difficile": {"brain": "claude", "model": "modello-finto"}},

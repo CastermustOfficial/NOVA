@@ -3261,3 +3261,40 @@ Corretto col D447: ogni chiamata scrive un file suo, col tempo nel nome.
 La regola: piu' processi che partono insieme non scrivono nello stesso file,
 nemmeno in una prova; aggiungere in coda non e' un'operazione sola su ogni
 sistema.
+
+## Il collegamento lasciato cadere che restava iscritto
+
+Scrivendo il portale (D448), per far uscire un dispositivo dimenticato avevo
+messo il servizio del suo collegamento in gara con l'avviso «deve uscire»
+(`tokio::select!`): all'avviso il servizio si lasciava cadere. Ho creduto
+che lasciar cadere un futuro fermasse tutto quello che aveva avviato.
+`Server::servi` avvia due compiti a parte, chi scrive sul canale e chi gli
+inoltra gli eventi, e li ferma nelle sue ultime righe: lasciato cadere a
+meta', quelle righe non girano, i due compiti restano vivi, e il dispositivo
+dimenticato avrebbe continuato a ricevere gli eventi a cui era iscritto.
+
+Me ne sono accorto rileggendo come finisce `servi`, prima di provarlo.
+Corretto nello stesso D448: il taglio entra in `servi_finche`, che ferma
+subito chi scrive e chi inoltra, e la prova del demone dimentica un
+dispositivo mentre e' iscritto a tutti gli eventi e guarda che il canale si
+chiuda.
+
+La regola: prima di lasciar cadere un futuro si guarda cosa ha avviato con
+`spawn`; quello che ferma nelle sue ultime righe, lasciandolo cadere non lo
+ferma nessuno.
+
+## Quattro secondi per far partire un programma
+
+Nella prova del D441 (`test_demone_motore_guasto.py`) avevo dato quattro
+secondi alla CLI finta perche' la prova fosse corta, e gli stessi quattro
+valevano per il Claude finto, che doveva solo partire e rispondere. Ho
+creduto che un programma Python parta sempre in molto meno. Il 27 novembre,
+sul PC Windows a meta' suite, non gli sono bastati: «Claude Code non ha
+risposto entro 4s», e due controlli sono caduti. Da sola la prova passava,
+tre volte su tre.
+
+Corretto col D448: dieci secondi, e il lavoro lento ne dorme sempre trenta,
+piu' dei venti della riprova.
+
+La regola: il tempo dato a un programma finto in una prova e' il tempo per
+farlo partire su una macchina occupata, non quello che ci mette da solo.

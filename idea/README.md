@@ -808,3 +808,36 @@ trascrittore. **Cosa costerebbe.** Un modello addestrato sulla frase scelta
 sintetiche), ONNX Runtime c'e' gia'; e la frase non sarebbe piu' libera, a
 meno di tenere whisper come ripiego per le frasi senza modello.
 
+
+## Il portale: quello che non c'e' ancora
+
+Nate il 27 novembre, col D448.
+
+**Il gettone che non viaggia.** *Cosa.* Oggi il dispositivo entra mandando
+il suo gettone dentro il canale cifrato. Potrebbe invece dimostrare di
+averlo, firmando con il gettone un numero scelto dal PC e legato a quel
+canale. *Perche'.* Chi rubasse la chiave del certificato del PC potrebbe
+mettersi in mezzo e leggere il gettone; cosi' non lo leggerebbe mai.
+*Cosa costerebbe.* Un HMAC e l'esportatore di chiavi di TLS, da tutte e due
+le parti, e un saluto in due passi.
+
+**I dispositivi fra i file sorvegliati.** *Cosa.* `portale/dispositivi.json`
+con la sua copia buona, come `config.json` (D410). *Perche'.* Un programma
+che scrive dove vuole potrebbe aggiungerci un dispositivo suo; il demone lo
+leggerebbe alla prossima accensione. *Cosa costerebbe.* I file sorvegliati
+oggi stanno direttamente nella cartella di NOVA: va insegnata a
+`intoccabili` una sottocartella.
+
+**Cosa puo' chiedere un dispositivo.** *Cosa.* Oggi un dispositivo abbinato
+chiede tutto quello che chiede la finestra del PC. Un dispositivo potrebbe
+avere un livello: solo voce e chat, oppure tutto. *Perche'.* Un tablet in
+cucina non deve poter fare quello che fa chi siede al PC. *Cosa
+costerebbe.* Il livello nella riga del dispositivo, e un controllo sul
+metodo prima di servirlo.
+
+**Fuori casa senza aprire porte.** *Cosa.* Una rete privata fra il PC e il
+dispositivo (WireGuard, Tailscale): l'indirizzo del PC su quella rete si
+scrive in `portale.indirizzi`, e finisce nell'invito. *Perche'.* Il portale
+non va esposto su internet: una porta aperta sul router la trovano tutti.
+*Cosa costerebbe.* Niente codice; un programma in piu' sul PC e sul
+dispositivo, e per Tailscale un account, che decide Gio.

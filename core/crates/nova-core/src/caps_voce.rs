@@ -113,7 +113,7 @@ fn attesa_scarico() -> Option<std::time::Duration> {
 /// Lo stesso `config.json` che legge il resto di NOVA. Riletto a ogni
 /// controllo (uno ogni trenta secondi): cosi' cambiare l'impostazione ha
 /// effetto senza riavviare il demone.
-fn percorso_configurazione() -> Option<std::path::PathBuf> {
+pub(crate) fn percorso_configurazione() -> Option<std::path::PathBuf> {
     let base = if cfg!(windows) {
         std::path::PathBuf::from(std::env::var_os("APPDATA")?)
     } else {

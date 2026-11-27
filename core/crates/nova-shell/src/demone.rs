@@ -150,6 +150,21 @@ pub async fn chiama(capacita: &str, args: Value) -> Result<Value> {
     .await
 }
 
+/// Cosa il pannello puo' chiedere al portale (D448).
+const DEL_PORTALE: &[&str] = &["stato", "applica", "abbina", "dimentica"];
+
+/// Il portale: lo stato, accenderlo o spegnerlo come dice il pannello, un
+/// invito nuovo, dimenticare un dispositivo. Sono metodi diretti del demone e
+/// non capacita': li chiede la persona dal pannello, non un modello.
+pub async fn portale(fai: &str, params: Value) -> Result<Value> {
+    if !DEL_PORTALE.contains(&fai) {
+        return Err(anyhow!(
+            "«{fai}» non e' fra le cose che il pannello chiede al portale"
+        ));
+    }
+    metodo(&format!("portale/{fai}"), params, ATTESA_CAPACITA).await
+}
+
 /// Quanto si aspetta una capacita' qualunque: sono cose corte, e se non
 /// tornano e' perche' qualcosa si e' incastrato.
 const ATTESA_CAPACITA: u64 = 120;

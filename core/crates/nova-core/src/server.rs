@@ -187,6 +187,15 @@ impl Server {
                 .map(|c| json!({ "fermato": c }))
                 .map_err(|e| (codes::INVALID_PARAMS, e)),
 
+            // Il portale (D448). Metodi diretti e non capacita': chi fa
+            // entrare un dispositivo che comanda il PC e' la persona, dal
+            // pannello, non un modello.
+            "portale/stato" => Ok(crate::portale::stato()),
+            "portale/applica" => Ok(crate::portale::applica(self).await),
+            "portale/abbina" => crate::portale::abbina().map_err(|e| (codes::CAPABILITY_FAILED, e)),
+            "portale/dimentica" => crate::portale::dimentica(self, testo_di(&params, "id"))
+                .map_err(|e| (codes::CAPABILITY_FAILED, e)),
+
             "agente/dimentica" => {
                 let nome = params
                     .get("sessione")
@@ -383,6 +392,27 @@ impl Server {
     where
         S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Send + 'static,
     {
+        // Nessuno taglia la pipe del PC: chi tiene il filo non lo tira mai.
+        let (_mai, taglio) = tokio::sync::watch::channel(false);
+        self.servi_finche(stream, taglio).await
+    }
+
+    /// Serve un collegamento finche' non si chiude o finche' qualcuno non
+    /// lo taglia (D448): il portale taglia quello di un dispositivo
+    /// dimenticato, e tutti quando si spegne.
+    ///
+    /// Tagliato, al collegamento non si scrive piu' niente da subito —
+    /// nemmeno gli eventi a cui era iscritto, ne' la risposta a una richiesta
+    /// ancora in corso — e non se ne legge piu' niente. Una richiesta gia' in
+    /// corso finisce il suo lavoro: fermarla a meta' lascerebbe a meta' quello
+    /// che stava facendo sul PC.
+    pub(crate) async fn servi_finche<S>(
+        self: Arc<Self>,
+        stream: S,
+        mut taglio: tokio::sync::watch::Receiver<bool>,
+    ) where
+        S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Send + 'static,
+    {
         self.clients.fetch_add(1, Ordering::Relaxed);
         let (lettore, mut scrittore) = tokio::io::split(stream);
         let (tx, mut rx) = mpsc::channel::<String>(256);
@@ -436,6 +466,21 @@ impl Server {
             }
         });
 
+        // Al taglio chi scrive si ferma subito, anche se il giro qui sotto
+        // e' ancora dentro una richiesta.
+        let guardia = {
+            let (mut taglio, scrive, inoltra) = (
+                taglio.clone(),
+                scrittura.abort_handle(),
+                inoltro.abort_handle(),
+            );
+            tokio::spawn(async move {
+                tagliato(&mut taglio).await;
+                scrive.abort();
+                inoltra.abort();
+            })
+        };
+
         let mut righe = BufReader::new(lettore).lines();
         loop {
             let riga = tokio::select! {
@@ -444,6 +489,7 @@ impl Server {
                     _ => break,
                 },
                 _ = self.attendi_spegnimento() => break,
+                _ = tagliato(&mut taglio) => break,
             };
             if riga.trim().is_empty() {
                 continue;
@@ -531,6 +577,7 @@ impl Server {
         }
 
         drop(tx);
+        guardia.abort();
         inoltro.abort();
         let _ = scrittura.await;
         self.clients.fetch_sub(1, Ordering::Relaxed);
@@ -685,6 +732,14 @@ pub fn prendi(endpoint: &str) -> Result<Presa> {
 /// JSON, cioe' illeggibile. Il turno del demone non se ne accorgeva, perche'
 /// la stessa distinzione l'aveva gia' fatta in `MondoVero::esegui`: il buco
 /// era solo sulla porta da cui entra Claude Code.
+/// Aspetta che un collegamento venga tagliato. Se chi tiene il filo se ne
+/// va senza tirarlo, non lo tirera' piu' nessuno: si aspetta per sempre.
+async fn tagliato(taglio: &mut tokio::sync::watch::Receiver<bool>) {
+    if taglio.wait_for(|t| *t).await.is_err() {
+        std::future::pending::<()>().await;
+    }
+}
+
 /// Un parametro di testo, o vuoto.
 fn testo_di<'a>(params: &'a Value, chiave: &str) -> &'a str {
     params.get(chiave).and_then(Value::as_str).unwrap_or("")

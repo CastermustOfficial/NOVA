@@ -301,6 +301,27 @@ titoli invece si traducono davvero, perche' li' non c'e' nessun modello in mezzo
       <div id="dettaglioLive"></div>
     </section>
 
+    <!-- PORTALE -->
+    <section class="pannello scheda larga">
+      <div class="titolo-sez"><h3>Portale</h3><span class="coda" id="codaPortale"></span></div>
+      <div class="riga">
+        <div class="info"><b>Un altro dispositivo</b>
+          <span>Un tablet abbinato fa da schermo, microfono e altoparlante di NOVA: il lavoro lo fa questo PC. Chi entra da qui comanda il PC.</span></div>
+        <button class="interruttore" id="swPortale"></button>
+      </div>
+      <div class="riga" style="display:block">
+        <div class="info" style="margin-bottom:8px"><b>Abbina un dispositivo</b>
+          <span id="notaPortale"></span></div>
+        <button class="bottone secondo" id="btnAbbina" disabled>Mostra il codice</button>
+        <div id="qrPortale" style="display:none;margin-top:12px">
+          <div id="qrPortaleDisegno" style="background:#fff;padding:8px;border-radius:10px;width:256px;max-width:100%"></div>
+          <p class="nota" id="qrPortaleNota"></p>
+        </div>
+      </div>
+      <div id="dispositiviPortale"></div>
+      <p class="nota">Il codice vale una volta sola e per pochi minuti. Un dispositivo dimenticato esce subito e non rientra.</p>
+    </section>
+
     </div>
 
     <div class="fascia">
@@ -1415,6 +1436,84 @@ function interruttore(id, percorso, predefinito, alCambio){
     alCambio?.(nuovo);
   };
 }
+/* --- portale (D448) ---
+   Un altro dispositivo che parla col NOVA di questo PC. Acceso o spento sta
+   nella configurazione; il demone lo rilegge quando glielo si dice
+   (`applica`). I nomi dei dispositivi li scrive chi si abbina: entrano nella
+   pagina come testo, mai come HTML. */
+let scadeInvito = null;
+
+function nascondiInvito(){
+  clearTimeout(scadeInvito);
+  $('qrPortale').style.display = 'none';
+  $('qrPortaleDisegno').innerHTML = '';
+}
+
+async function disegnaPortale(stato){
+  if(!invoke) return;
+  try { stato = stato || await invoke('portale', { fai: 'stato' }); }
+  catch(e){ $('codaPortale').textContent = T('NON RISPONDE'); $('notaPortale').textContent = String(e); return; }
+  $('swPortale').classList.toggle('si', !!stato.acceso);
+  $('codaPortale').textContent = stato.in_ascolto ? `${T('IN ASCOLTO')} · ${stato.porta}`
+    : T(stato.errore ? 'NON PARTE' : 'SPENTO');
+  $('btnAbbina').disabled = !stato.in_ascolto;
+  $('notaPortale').textContent = stato.errore ? T('Non si accende: ') + stato.errore
+    : stato.in_ascolto ? T('Risponde a: ') + ((stato.indirizzi || []).join(', ') || '—')
+    : T('Accendi il portale, poi mostra il codice e inquadralo dal dispositivo.');
+  if(!stato.in_ascolto) nascondiInvito();
+  const cont = $('dispositiviPortale');
+  cont.textContent = '';
+  for(const d of (stato.dispositivi || [])){
+    const riga = document.createElement('div'); riga.className = 'riga';
+    const info = document.createElement('div'); info.className = 'info';
+    const nome = document.createElement('b'); nome.textContent = d.nome;
+    const quando = document.createElement('span');
+    quando.textContent = d.collegato ? T('Collegato adesso')
+      : T('Visto il ') + new Date(d.visto_il * 1000).toLocaleString();
+    info.append(nome, quando);
+    const via = document.createElement('button'); via.className = 'bottone secondo';
+    via.textContent = T('Dimentica');
+    via.onclick = async () => {
+      via.disabled = true;
+      try { await invoke('portale', { fai: 'dimentica', parametri: { id: d.id } }); }
+      catch(e){ diag('PORTALE: ' + e); }
+      disegnaPortale();
+    };
+    riga.append(info, via);
+    cont.append(riga);
+  }
+}
+
+function avviaPortale(){
+  $('swPortale').onclick = async () => {
+    const nuovo = !$('swPortale').classList.contains('si');
+    $('swPortale').classList.toggle('si', nuovo);
+    await salva({ portale: { acceso: nuovo } });
+    try { disegnaPortale(await invoke('portale', { fai: 'applica' })); }
+    catch(e){ diag('PORTALE: ' + e); disegnaPortale(); }
+  };
+  $('btnAbbina').onclick = async () => {
+    try {
+      const r = await invoke('portale', { fai: 'abbina' });
+      // Il disegno viene dal demone, fatto da NOVA: non porta testo di altri.
+      $('qrPortaleDisegno').innerHTML = r.qr;
+      const svg = $('qrPortaleDisegno').querySelector('svg');
+      if(svg){ svg.setAttribute('width', '100%'); svg.removeAttribute('height'); svg.style.display = 'block'; }
+      $('qrPortaleNota').textContent = T('Inquadralo dal dispositivo. Vale cinque minuti e una volta sola: poi sparisce.');
+      $('qrPortale').style.display = 'block';
+      clearTimeout(scadeInvito);
+      scadeInvito = setTimeout(nascondiInvito, r.vale_s * 1000);
+    } catch(e){ $('notaPortale').textContent = String(e); }
+  };
+  ascolta?.('nova://evento', ev => {
+    if(ev.payload?.topic !== 'portale.cambiato') return;
+    // Abbinato: il codice e' consumato, e non serve piu' mostrarlo.
+    if(ev.payload?.dati?.perche === 'collegato') nascondiInvito();
+    disegnaPortale();
+  });
+  disegnaPortale();
+}
+
 /* --- componenti ---
    Il pannello sapeva scegliere e non sapeva procurare: si cambiava motore
    della voce e restava il silenzio, senza che niente lo spiegasse. Cosa serve
@@ -1604,6 +1703,7 @@ function disegnaLegenda(){
   disegnaLegenda();
   disegnaLingua();
   disegnaDot();
+  avviaPortale();
   await disegnaComponenti();
   diag('ok · pronto');
   chiediStato();

@@ -170,7 +170,7 @@ async fn giro(app: &AppHandle, endpoint: &str) -> anyhow::Result<()> {
     let (lettore, mut scrittore) = tokio::io::split(stream);
     let sottoscrizione = json!({
         "jsonrpc": "2.0", "id": 1, "method": "events/subscribe",
-        "params": { "topics": ["stato.*", "approvazione.*", "proc.*", "voce.*", "ui.chat", "azione.*", "fs.cambiato", "agente.*"] }
+        "params": { "topics": ["stato.*", "approvazione.*", "proc.*", "voce.*", "ui.chat", "azione.*", "fs.cambiato", "agente.*", "portale.*"] }
     });
     scrittore.write_all(sottoscrizione.to_string().as_bytes()).await?;
     scrittore.write_all(b"\n").await?;

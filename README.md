@@ -881,6 +881,7 @@ core/crates/
   nova-cartelle/      se una cartella la sincronizza qualcun altro col cloud
   nova-voce/          voce e ascolto in casa: Kokoro, whisper.cpp; ElevenLabs a scelta
   nova-live/          Gemini Live: i messaggi della conversazione dal vivo
+  nova-portale/       il portale: il canale cifrato e l'abbinamento per un altro dispositivo
   nova-browser/       il codice che gira dentro la pagina
   nova-cdp/           il protocollo per parlare a Edge e Chrome
   nova-harness/       documenti e progetti: cercare una posizione, proporre, provare
@@ -1057,6 +1058,25 @@ microfono si pulisce prima di mandarlo (D446): il rumore si toglie con
 RNNoise, e quando non parli al server arriva silenzio, cosi' un rumore non
 passa per la tua voce; si spegne nel pannello, alla voce **Pulizia del
 microfono**.
+
+### Il portale: un altro dispositivo
+
+Un tablet puo' fare da schermo, microfono e altoparlante di NOVA, mentre il
+lavoro lo fa il PC (D448). Per ora c'e' la porta sul PC; il programma del
+tablet e la voce attraverso il portale sono in lavorazione.
+
+Il portale e' **spento di serie**, perche' chi entra da li' comanda il PC.
+Si accende dal pannello, alla voce **Portale**; poi **Mostra il codice** fa
+comparire un QR da inquadrare dal dispositivo, che vale cinque minuti e una
+volta sola. Il canale e' cifrato (TLS 1.3), e il dispositivo parla solo col
+PC di cui ha letto l'impronta nel codice. Ogni dispositivo abbinato ha il
+suo **Dimentica**: esce subito e non rientra.
+
+Su Windows la porta (di serie la 47810) va aperta nel firewall, da
+amministratore. Il portale non va esposto su internet: per usarlo da fuori
+casa serve una rete privata fra il PC e il dispositivo, e l'indirizzo del PC
+su quella rete si scrive in `portale.indirizzi`. Di serie il portale ascolta su
+tutte le reti del PC: `portale.ascolta` lo tiene su un indirizzo solo.
 
 ## Prestazioni e tuning
 

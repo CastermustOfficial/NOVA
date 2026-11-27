@@ -282,12 +282,13 @@ controlla("e sotto i 760 diventa una colonna sola",
 # in fondo alla pagina senza che nessuno se ne accorga.
 corpo = html[html.index('<div class="corpo">'):html.index('</body>')]
 schede = re.findall(r'<h3>([^<]+)</h3>', corpo)
-controlla("tutte e nove le schede sono dentro una fascia", len(schede) == 9,
+controlla("tutte e dieci le schede sono dentro una fascia", len(schede) == 10,
           str(schede))
 DENTRO = {
     # «I Dot» (D389) sta con le scelte che cambiano cosa NOVA sa fare.
     "Chi ragiona": ["Cervello", "Autonomia", "I Dot"],
-    "Come ti parla": ["Lingua", "L'orb", "Voce"],
+    # «Portale» (D448): un altro dispositivo da cui NOVA ti parla e ti sente.
+    "Come ti parla": ["Lingua", "L'orb", "Voce", "Portale"],
     "Com'e' messa": ["Componenti", "Stato", "Memoria"],
 }
 pezzi = re.split(r'<h2 class="titolo-fascia">([^\n<]+)', corpo)
@@ -301,7 +302,8 @@ controlla("e ognuna sta dove ci si aspetta", visto == DENTRO, str(visto))
 # ultime: le corte appaiate sopra, senza buchi.
 larghe = re.findall(r'<section class="pannello scheda larga">\s*<div class="titolo-sez"><h3>([^<]+)', corpo)
 controlla("le schede grosse prendono la riga intera",
-          set(larghe) == {"Cervello", "Autonomia", "I Dot", "Voce", "Memoria"}, str(larghe))
+          set(larghe) == {"Cervello", "Autonomia", "I Dot", "Voce", "Portale", "Memoria"},
+          str(larghe))
 for fascia, dentro in DENTRO.items():
     corte = [s for s in dentro if s not in larghe]
     lunghe = [s for s in dentro if s in larghe]
@@ -350,6 +352,48 @@ LINGUE_JS = (RADICE / "core" / "crates" / "nova-shell" / "ui" / "lingue.js").rea
 blocco = html[html.index("function nomeCervello"):html.index("function disegnaDettaglioCervello")]
 frasi = re.findall(r"""T\((['"])(.+?)\1\)""", blocco)
 controlla("le frasi della scheda ci sono", len(frasi) >= 20, str(len(frasi)))
+for _, frase in frasi:
+    chiave = frase.replace("\\'", "'")
+    controlla(f"  e in inglese: «{chiave[:40]}»",
+              f"'{chiave}':" in LINGUE_JS or f'"{chiave}":' in LINGUE_JS)
+
+
+print("\n12. il portale si accende, si abbina e si dimentica dal pannello (D448)")
+GUSCIO = RADICE / "core" / "crates" / "nova-shell" / "src"
+blocco = html[html.index("/* --- portale (D448)"):html.index("/* --- componenti ---")]
+controlla("l'interruttore scrive portale.acceso e poi lo fa applicare al demone",
+          re.search(r"salva\(\{ portale: \{ acceso: nuovo \} \}\);\s*"
+                    r"try \{ disegnaPortale\(await invoke\('portale', \{ fai: 'applica' \}\)\)",
+                    blocco) is not None)
+controlla("il codice si chiede al demone, e sparisce quando scade",
+          "invoke('portale', { fai: 'abbina' })" in blocco
+          and "setTimeout(nascondiInvito, r.vale_s * 1000)" in blocco)
+controlla("e sparisce appena un dispositivo si collega",
+          "perche === 'collegato') nascondiInvito()" in blocco)
+controlla("spento, il codice non si puo' chiedere",
+          "$('btnAbbina').disabled = !stato.in_ascolto" in blocco
+          and 'id="btnAbbina" disabled' in html)
+# Il nome lo sceglie chi si abbina: nella pagina entra come testo.
+controlla("il nome di un dispositivo entra come testo, mai come HTML",
+          "nome.textContent = d.nome" in blocco and "d.nome}" not in blocco
+          and "innerHTML" not in blocco.replace("$('qrPortaleDisegno').innerHTML", ""))
+controlla("ogni dispositivo ha il suo «Dimentica»",
+          "invoke('portale', { fai: 'dimentica', parametri: { id: d.id } })" in blocco)
+demone_rs = DEMONE.read_text(encoding="utf-8")
+controlla("il guscio chiede al portale solo quattro cose",
+          'const DEL_PORTALE: &[&str] = &["stato", "applica", "abbina", "dimentica"];' in demone_rs
+          and 'metodo(&format!("portale/{fai}")' in demone_rs)
+controlla("e le chiede come metodi diretti, non come capacita'",
+          not [c for c in re.findall(r'"([a-z_.]+)"', demone_rs[demone_rs.index("const CONSENTITE"):
+                                                            demone_rs.index("];", demone_rs.index("const CONSENTITE"))])
+               if c.startswith("portale")])
+controlla("il comando e' fra quelli che la pagina puo' chiamare",
+          re.search(r"registra_diagnostica,\s*portale,", (GUSCIO / "main.rs").read_text(encoding="utf-8")) is not None)
+controlla("e il guscio gira alla pagina gli eventi del portale",
+          '"portale.*"' in (GUSCIO / "bus.rs").read_text(encoding="utf-8"))
+frasi = re.findall(r"""T\((['"])(.+?)\1\)""", blocco) + [
+    ("'", f) for f in ("Portale", "Un altro dispositivo", "Abbina un dispositivo", "Mostra il codice")]
+controlla("le frasi del portale ci sono", len(frasi) >= 12, str(len(frasi)))
 for _, frase in frasi:
     chiave = frase.replace("\\'", "'")
     controlla(f"  e in inglese: «{chiave[:40]}»",

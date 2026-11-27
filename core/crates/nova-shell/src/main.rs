@@ -198,6 +198,17 @@ async fn demone_chiama(
         .map_err(|e| e.to_string())
 }
 
+/// Il portale (D448): il pannello lo guarda, lo accende, abbina e dimentica.
+#[tauri::command]
+async fn portale(
+    fai: String,
+    parametri: Option<serde_json::Value>,
+) -> Result<serde_json::Value, String> {
+    demone::portale(&fai, parametri.unwrap_or_else(|| serde_json::json!({})))
+        .await
+        .map_err(|e| e.to_string())
+}
+
 /// Una riga di diagnostica dalla pagina, su file.
 ///
 /// Serve quando l'interfaccia non funziona: chiedere all'utente di leggere
@@ -360,6 +371,7 @@ fn main() {
             parla,
             stato_sistema,
             registra_diagnostica,
+            portale,
             demone_chiama,
             componenti::componenti_elenco,
             componenti::componenti_scarica,

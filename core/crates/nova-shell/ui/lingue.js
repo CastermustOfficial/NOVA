@@ -216,6 +216,28 @@ export const LINGUE = {
     'Mi collego…': 'Connecting…',
     "Ha risposto, ma l'altoparlante non suona: ": 'It answered, but the speaker does not play: ',
 
+    /* --- portale (D448) --- */
+    'Portale': 'Portal',
+    'Un altro dispositivo': 'Another device',
+    'Un tablet abbinato fa da schermo, microfono e altoparlante di NOVA: il lavoro lo fa questo PC. Chi entra da qui comanda il PC.':
+      'A paired tablet acts as NOVA’s screen, microphone and speaker: this PC does the work. Whoever comes in through here controls the PC.',
+    'Abbina un dispositivo': 'Pair a device',
+    'Mostra il codice': 'Show the code',
+    'Il codice vale una volta sola e per pochi minuti. Un dispositivo dimenticato esce subito e non rientra.':
+      'The code works once and for a few minutes. A forgotten device is disconnected at once and cannot come back.',
+    'NON RISPONDE': 'NOT RESPONDING',
+    'IN ASCOLTO': 'LISTENING',
+    'NON PARTE': 'NOT STARTING',
+    'SPENTO': 'OFF',
+    'Non si accende: ': 'It does not start: ',
+    'Risponde a: ': 'It answers at: ',
+    'Accendi il portale, poi mostra il codice e inquadralo dal dispositivo.':
+      'Turn the portal on, then show the code and scan it from the device.',
+    'Collegato adesso': 'Connected now',
+    'Visto il ': 'Last seen ',
+    'Inquadralo dal dispositivo. Vale cinque minuti e una volta sola: poi sparisce.':
+      'Scan it from the device. It works for five minutes and once: then it disappears.',
+
     /* --- componenti --- */
     'Componenti': 'Components',
     'Cosa serve a ogni funzione, e cosa manca': 'What each feature needs, and what is missing',
