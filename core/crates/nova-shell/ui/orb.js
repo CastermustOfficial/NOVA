@@ -307,6 +307,45 @@ export function zoomPer(lato) {
   return lato < 48 ? 1.9 : 1.25;
 }
 
+/* L'orb che si regola da solo (D451).
+ *
+ * Ogni pixel dell'orb costa caro: 56 passi dentro la nuvola, e a ogni passo
+ * del rumore a quattro ottave. Sul PC l'orb e' largo 96 punti e la scheda
+ * video non se ne accorge. Sul tablet e' largo quanto mezzo schermo, e il 28
+ * novembre il Tab A8 (Mali-G52) ne faceva 5,5 al secondo a 576 pixel di
+ * lato; a 216 ne fa 32, a 144 ne fa 60: il tempo va coi pixel.
+ *
+ * Con `fluido: true` l'orb misura quanto dura un fotogramma e disegna meno
+ * pixel finche' non ci sta dentro; il canvas resta grande com'era, ed e' il
+ * browser a stirarlo. L'orb e' una nuvola, e stirata si vede poco. */
+
+/** Sopra questa durata media l'orb va a scatti: si disegnano meno pixel. */
+export const FOTOGRAMMA_LENTO_MS = 40;
+/** La durata a cui si punta quando si scende: poco piu' di 30 al secondo. */
+export const FOTOGRAMMA_BUONO_MS = 28;
+/** Sotto questa durata c'e' margine: si torna a disegnarne di piu'. */
+export const FOTOGRAMMA_SVELTO_MS = 18;
+/** Sotto questa parte del lato non si scende: sarebbe una macchia. */
+export const SCALA_MINIMA = 0.2;
+/** Ogni quanti fotogrammi si decide, e quanti se ne saltano dopo un cambio. */
+export const FOTOGRAMMI_PER_DECIDERE = 20;
+export const FOTOGRAMMI_DA_SALTARE = 5;
+
+/**
+ * La parte del lato da disegnare, sapendo quanto dura in media un
+ * fotogramma con quella di adesso. Il tempo va coi pixel, cioe' col quadrato
+ * del lato: per questo la radice. Fra lento e svelto non si tocca niente,
+ * se no l'orb cambierebbe grana di continuo.
+ */
+export function scalaPer(scala, mediaMs) {
+  if (!(mediaMs > 0)) return scala;
+  if (mediaMs > FOTOGRAMMA_LENTO_MS) {
+    return Math.max(SCALA_MINIMA, scala * Math.sqrt(FOTOGRAMMA_BUONO_MS / mediaMs) * 0.95);
+  }
+  if (mediaMs < FOTOGRAMMA_SVELTO_MS && scala < 1) return Math.min(1, scala * 1.2);
+  return scala;
+}
+
 /**
  * Attacca l'orb a un canvas. Ritorna un oggetto con `stato(nome)`,
  * `qualeStato()`, `livello(0..1)` (l'ampiezza della voce, quando c'e') e
@@ -314,7 +353,8 @@ export function zoomPer(lato) {
  */
 export function creaOrb(canvas, opzioni = {}) {
   let corrente = 'spento';
-  const nulla = { stato() {}, qualeStato() { return corrente; }, livello() {}, ferma() {}, disponibile: false };
+  const nulla = { stato() {}, qualeStato() { return corrente; }, quantoDisegna() { return { scala: 0, lato: 0 }; },
+                  livello() {}, ferma() {}, disponibile: false };
   const gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false });
   if (!gl) {
     ripiegoStatico(canvas);
@@ -349,8 +389,12 @@ export function creaOrb(canvas, opzioni = {}) {
               anim: u('uAnim'), wave: u('uWavePhase'), a: u('uA'), b: u('uB'), c: u('uC') };
 
   let zoom = opzioni.zoom ?? zoomPer(canvas.clientWidth || 48);
+  // La parte del lato che si disegna davvero (D451): 1 finche' la scheda
+  // video ci sta dietro.
+  const fluido = !!opzioni.fluido;
+  let scala = 1, sommaMs = 0, contati = 0, daSaltare = FOTOGRAMMI_DA_SALTARE;
   const ridimensiona = () => {
-    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1)) * scala;
     const larg = Math.max(1, Math.round((canvas.clientWidth || 48) * dpr));
     const alt = Math.max(1, Math.round((canvas.clientHeight || canvas.clientWidth || 48) * dpr));
     if (canvas.width !== larg || canvas.height !== alt) {
@@ -372,7 +416,7 @@ export function creaOrb(canvas, opzioni = {}) {
   const mouse = { x: 0, y: 0 };
   const suMouse = e => {
     const r = canvas.getBoundingClientRect();
-    const d = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const d = Math.max(1, Math.min(2, window.devicePixelRatio || 1)) * scala;
     mouse.x = Math.max(0, Math.min(e.clientX - r.left, r.width)) * d;
     mouse.y = Math.max(0, Math.min(r.height - (e.clientY - r.top), r.height)) * d;
   };
@@ -388,9 +432,28 @@ export function creaOrb(canvas, opzioni = {}) {
 
   const disegna = ora => {
     if (!vivo) return;
-    const dt = Math.min(0.1, (ora - ultimo) / 1000);
+    const passati = ora - ultimo;
+    const dt = Math.min(0.1, passati / 1000);
     ultimo = ora;
     quadro++;
+    // Quanto dura un fotogramma, e se serve quanti pixel disegnare. Una
+    // pausa lunga e' la pagina che era nascosta, non la scheda video: non si
+    // conta. Dopo un cambio i primi fotogrammi non si contano.
+    if (fluido && passati < 500) {
+      if (daSaltare > 0) daSaltare--;
+      else {
+        sommaMs += passati;
+        if (++contati >= FOTOGRAMMI_PER_DECIDERE) {
+          const nuova = scalaPer(scala, sommaMs / contati);
+          sommaMs = 0; contati = 0;
+          if (Math.abs(nuova - scala) > 0.01) {
+            scala = nuova;
+            daSaltare = FOTOGRAMMI_DA_SALTARE;
+            ridimensiona();
+          }
+        }
+      }
+    }
     const meta = STATI[corrente] || STATI.quiete;
     const k = 1 - Math.exp(-dt * 4.0);
     for (const n of MANOPOLE) cur[n] += (meta[n] - cur[n]) * k;
@@ -428,6 +491,8 @@ export function creaOrb(canvas, opzioni = {}) {
     disponibile: true,
     stato(nome) { if (STATI[nome]) corrente = nome; },
     qualeStato() { return corrente; },
+    /** Quanti pixel disegna adesso, e che parte sono del lato pieno (D451). */
+    quantoDisegna() { return { scala, lato: canvas.width }; },
     /** L'ampiezza della voce, da 0 a 1; mezzo secondo senza vale zero. */
     livello(v) { livello = Math.max(0, Math.min(1, +v || 0)); livelloQuando = performance.now(); },
     ferma() {

@@ -18,7 +18,9 @@ il sorgente, come per il pannello. Le regole del canale si provano in
 5. quello che si scrive sul dispositivo entra nella pagina come testo, e la
    pagina sta ferma sullo schermo, in verticale e in orizzontale;
 6. la pagina sa dire a parole ogni stato dell'orb;
-7. le frasi della pagina ci sono anche in inglese.
+7. le frasi della pagina ci sono anche in inglese;
+8. l'orb, che sul tablet e' grande, si regola da solo su quanti pixel
+   disegnare (D451).
 """
 import json
 import re
@@ -174,6 +176,61 @@ for frase in frasi:
     chiave = frase.replace("\\'", "'")
     controlla(f"  e in inglese: «{chiave[:40]}»",
               f"'{chiave}':" in LINGUE_JS or f'"{chiave}":' in LINGUE_JS)
+
+print("\n8. l'orb si regola da solo su quanti pixel disegnare (D451)")
+# Il 28 novembre sul Tab A8 l'orb, grande mezzo schermo, andava a 5,5
+# fotogrammi al secondo: ogni pixel costa caro, e la scheda video di un
+# tablet non e' quella del PC. Misurato li': il tempo va coi pixel.
+import shutil                                                    # noqa: E402
+import subprocess                                                # noqa: E402
+import tempfile                                                  # noqa: E402
+ORB = (GUSCIO / "ui" / "orb.js").read_text(encoding="utf-8")
+controlla("la pagina del tablet lo chiede", "creaOrb($('orb'), { fluido: true })" in PAGINA)
+altre = [f.name for f in sorted((GUSCIO / "ui").glob("*.html"))
+         if f.name != "tablet.html" and "fluido" in f.read_text(encoding="utf-8-sig")]
+controlla("le pagine del PC no: li' l'orb e' piccolo e resta com'era", not altre, str(altre))
+controlla("chi non lo chiede disegna tutti i pixel",
+          "const fluido = !!opzioni.fluido;" in ORB and "if (fluido && passati < 500) {" in ORB
+          and "let scala = 1," in ORB)
+controlla("la scala entra nel lato del canvas, non nella sua misura sulla pagina",
+          "const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1)) * scala;" in ORB
+          and "canvas.style" not in ORB)
+node = shutil.which("node")
+if node is None:
+    print("  [--] senza node la regola non si prova qui: resta il sorgente")
+else:
+    with tempfile.TemporaryDirectory() as tmp:
+        prova = Path(tmp) / "scala.mjs"
+        prova.write_text(
+            "const m = await import(" + json.dumps((GUSCIO / "ui" / "orb.js").as_uri()) + ");\n"
+            # Il Tab A8 come misurato: 182 ms a lato pieno, il tempo va col
+            # quadrato del lato, e lo schermo ne mostra uno ogni 16,7 ms.
+            "const tempo = s => Math.max(16.7, Math.ceil(182 * s * s / 16.7) * 16.7);\n"
+            "let s = 1; const passi = [];\n"
+            "for (let i = 0; i < 10; i++) { const t = tempo(s); passi.push([s, t]); s = m.scalaPer(s, t); }\n"
+            "console.log(JSON.stringify({ passi, minima: m.SCALA_MINIMA, lento: m.FOTOGRAMMA_LENTO_MS,\n"
+            "  fermo: m.scalaPer(0.5, 30), su: m.scalaPer(0.5, 16.7), pieno: m.scalaPer(1, 16.7),\n"
+            "  quasi: m.scalaPer(0.95, 16.7), fondo: m.scalaPer(0.21, 900), nan: m.scalaPer(0.7, NaN),\n"
+            "  zero: m.scalaPer(0.7, 0) }));\n", encoding="utf-8")
+        r = subprocess.run([node, str(prova)], capture_output=True, text=True, timeout=60)
+    try:
+        v = json.loads(r.stdout)
+    except ValueError:
+        v = None
+    controlla("la regola si prova con node", v is not None, (r.stderr or r.stdout)[-300:])
+    if v is not None:
+        passi = v["passi"]
+        controlla("da 182 ms a fotogramma scende subito a una grana che ci sta",
+                  passi[0] == [1, 183.7] and 0.3 < passi[1][0] < 0.45 and passi[1][1] <= v["lento"],
+                  str(passi[:2]))
+        controlla("e li' resta: la grana non cambia di continuo",
+                  all(p == passi[1] for p in passi[1:]), str(passi))
+        controlla("fra lento e svelto non si tocca niente", v["fermo"] == 0.5)
+        controlla("col margine risale, un po' alla volta, e mai oltre il lato pieno",
+                  abs(v["su"] - 0.6) < 1e-9 and v["pieno"] == 1 and v["quasi"] == 1, str(v))
+        controlla("non scende sotto il minimo, nemmeno su una scheda lentissima",
+                  v["fondo"] == v["minima"] == 0.2, str(v))
+        controlla("una misura che non c'e' non cambia niente", v["nan"] == 0.7 and v["zero"] == 0.7)
 
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for x in falliti:

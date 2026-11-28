@@ -3315,3 +3315,17 @@ Corretto col D450.
 La regola: una pagina per un dispositivo che si gira si prova nei due
 versi, con la tastiera aperta e richiusa; e un programma che tiene un filo
 si prova anche riaprendolo a filo gia' teso, non solo la prima volta.
+
+## L'orb grande mezzo schermo, senza misurare
+
+Nella pagina del tablet (D449) ho messo l'orb grande quanto mezzo schermo,
+e l'ho guardato solo nelle schermate: fermo, era bello. Ho creduto che se
+gira sul PC giri dappertutto. Sul PC e' largo 96 punti su una scheda video
+da gioco; sul Tab A8 erano 576 pixel di lato su una Mali-G52, e ne faceva
+5,5 al secondo. L'ha detto Gio il giorno dopo: «va a 2 fps».
+
+Corretto col D451: l'orb misura i suoi fotogrammi e si regola.
+
+La regola: una cosa che si muove si prova guardandola muoversi, e si
+misura sulla macchina dove andra', non su quella dove e' nata. Una
+schermata non dice quanti fotogrammi ci sono dietro.

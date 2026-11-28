@@ -12266,3 +12266,12 @@ Il tablet intanto era stato girato in orizzontale, e li' la pagina aveva
 due difetti che in verticale non si vedevano: dopo la tastiera restava
 spostata, con l'orb fuori dallo schermo, e riaperta a filo gia' teso diceva
 «cerco il PC» mentre era collegata. Corretti (D450).
+
+Nel pomeriggio Gio dice che sul tablet l'orb va a due fotogrammi al
+secondo, e che Android e' troppo pesante. L'ho misurato dal cavo: 5,5, e il
+colpevole e' l'orb, non Android. Fa un conto pesante per ogni pixel, e sul
+tablet l'avevo messo grande mezzo schermo; a un quarto dei pixel va quattro
+volte piu' svelto. Adesso si regola da solo (D451): 39 al secondo, e a
+guardarlo e' solo un po' piu' morbido. Un sistema piu' leggero sotto non
+l'avrebbe cambiato: la scheda video resta quella. La pulizia del tablet
+serve per la batteria e la memoria, e resta da fare.

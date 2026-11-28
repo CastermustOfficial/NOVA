@@ -10,7 +10,7 @@ che non si conosce. L'indice di tutte, una per una, sta in
 | `gemelli/` | 32 | un banco Rust costruito con `cargo` | esce 2 e stampa la riga per costruirlo |
 | `demone/` | 58 | il binario `novad` costruito | esce 2 |
 | `macchina/` | 16 | una macchina vera: Windows, uno schermo, l'audio, Chrome | esce 2 |
-| `progetto/` | 33 | niente: guarda il repository stesso; `test_harness_vivo.py` e `test_markdown.py` anche node | escono 2 solo quelle, senza node |
+| `progetto/` | 33 | niente: guarda il repository stesso; `test_harness_vivo.py` e `test_markdown.py` anche node | escono 2 solo quelle, senza node; `test_tablet.py` senza node salta la regola dell'orb |
 | `nova/` | 41 | niente: sono prove di unita' in puro Python | — |
 
 **Uscita 0 passata, 1 rossa, 2 «qui non si puo' fare».** Il 2 non e' un

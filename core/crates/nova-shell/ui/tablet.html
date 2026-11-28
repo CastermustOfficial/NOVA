@@ -111,7 +111,10 @@ const ascolta = tauri?.event?.listen;
 impostaLingua((navigator.language || 'it').slice(0, 2).toLowerCase());
 traduciDocumento();
 
-const orb = creaOrb($('orb'));
+// Grande com'e' qui, su un tablet l'orb non ci sta nei suoi fotogrammi: si
+// regola da solo su quanti pixel disegnare (D451).
+const orb = creaOrb($('orb'), { fluido: true });
+window.orb = orb;
 const DETTO = { quiete: 'a riposo', ascolto: 'ti ascolto', penso: 'ci penso',
   agisco: 'sto facendo', parlo: 'sto parlando', chiedo: 'aspetto un tuo ok sul PC',
   allarme: 'qualcosa non va', spento: 'cerco il PC…' };

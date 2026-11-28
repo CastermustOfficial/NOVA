@@ -58,7 +58,8 @@ Quando una voce si chiude la si sposta qui, con la data e il commit.
 - 09/10/2026: i Dot si accendono solo dove conviene: un interruttore nel pannello, di serie deciso da NOVA (D389, `eb0479a`).
 - 09/10/2026: i Dot parlano fra loro: ogni Dot puo' avere un capo, il capo aspetta e riprende, la posta si legge al compito dopo, i gruppi li fa Nova (D388, `48e72ab`).
 - 08/10/2026: Nova chiama i Dot: affida senza chiedere, fa nascere un Dot solo su richiesta, e la consegna arriva in chat e a voce (D387, `7e9b8f0`).
-- 28/11/2026: la pagina del tablet sta ferma sullo schermo anche dopo la tastiera, in orizzontale l'orb sta di fianco al discorso, e aperta gia' collegata non dice «cerco il PC» (D450; il commit si scrive nel prossimo).
+- 28/11/2026: l'orb si regola da solo su quanti pixel disegnare: sul tablet, dov'e' grande, andava a 5,5 fotogrammi al secondo, e adesso a 39 (D451; il commit si scrive nel prossimo).
+- 28/11/2026: la pagina del tablet sta ferma sullo schermo anche dopo la tastiera, in orizzontale l'orb sta di fianco al discorso, e aperta gia' collegata non dice «cerco il PC» (D450, `0be12a0`).
 - 27/11/2026: il programma del tablet, in Rust con Tauri per Android: si abbina con l'invito, tiene il filo col PC e mostra l'orb e la chat con le pagine del guscio (D449, `d45f665`).
 - 27/11/2026: il portale, la porta di rete da cui un altro dispositivo parla col NOVA del PC: spento di serie, cifrato, e si entra solo abbinati col codice del pannello (D448, `fbc4a91`).
 - 26/11/2026: una frase di risveglio al posto del nome solo, scelta nel pannello, e la fermata detta ad altri che non ha piu' risposta (D447, `f8b753c`).
