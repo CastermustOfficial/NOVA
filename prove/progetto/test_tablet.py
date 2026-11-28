@@ -15,7 +15,8 @@ il sorgente, come per il pannello. Le regole del canale si provano in
 3. la pagina chiede solo comandi che il programma ha, e sente solo canali
    che qualcuno manda;
 4. un invito aperto da fuori non abbina da solo: ci vuole chi preme;
-5. quello che si scrive sul dispositivo entra nella pagina come testo;
+5. quello che si scrive sul dispositivo entra nella pagina come testo, e la
+   pagina sta ferma sullo schermo, in verticale e in orizzontale;
 6. la pagina sa dire a parole ogni stato dell'orb;
 7. le frasi della pagina ci sono anche in inglese.
 """
@@ -125,6 +126,29 @@ controlla("solo quello che dice NOVA passa dal markdown",
           "if(da === 'nova') bolla.innerHTML = rendi(pulisci(testo));" in PAGINA
           and "else bolla.textContent = testo;" in PAGINA)
 controlla("e non c'e' altro HTML scritto dalla pagina", PAGINA.count("innerHTML") == 1)
+
+print("\n5b. la pagina sta ferma, in verticale e in orizzontale")
+# Il 27 novembre, col tablet in orizzontale, aperta e chiusa la tastiera la
+# pagina e' rimasta spostata e l'orb fuori dallo schermo: provata solo in
+# verticale.
+controlla("la pagina sta ferma sullo schermo: la tastiera non la porta via",
+          re.search(r"body\{position:fixed;inset:0;", PAGINA) is not None
+          and "html{overflow:hidden}" in PAGINA)
+controlla("e se il sistema la sposta lo stesso, torna a posto",
+          "window.addEventListener('scroll', fermo)" in PAGINA
+          and "window.visualViewport?.addEventListener('resize', fermo)" in PAGINA
+          and "window.scrollTo(0, 0)" in PAGINA)
+orizzontale = PAGINA[PAGINA.index("@media (orientation:landscape){"):PAGINA.index("</style>")]
+controlla("in orizzontale l'orb sta di fianco al discorso, non sopra",
+          "body{flex-direction:row}" in orizzontale and "#scena{flex:0 0 38vw" in orizzontale)
+controlla("e il discorso, il campo e l'invito stanno insieme nell'altra meta'",
+          re.search(r'<div id="lato">\s*<section id="abbina">', PAGINA) is not None
+          and re.search(r"</form>\s*</div>", PAGINA) is not None
+          and "#lato{flex:1 1 auto;min-width:0;min-height:0;" in PAGINA)
+controlla("una pagina che si apre gia' collegata non dice «cerco il PC»",
+          "else if(stato === 'spento') metti('quiete');" in PAGINA)
+controlla("appena abbinato non si apre la tastiera da sola",
+          "if(!abbinato && l?.abbinato) document.activeElement?.blur?.();" in PAGINA)
 
 print("\n6. la pagina sa dire a parole ogni stato dell'orb")
 fn = VISTA[VISTA.index("pub fn stato_da_evento"):VISTA.index("pub fn righe_per_la_chat")]

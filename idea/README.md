@@ -864,3 +864,11 @@ battuta, e far leggere quella a tutti e due gli schermi.
 togliere l'abbinamento. Oggi si toglie dal pannello del PC, con «Dimentica».
 *Perche'.* Per dare il tablet a qualcun altro senza passare dal PC. *Cosa
 costerebbe.* Poco: un comando, e chiudere il collegamento aperto.
+
+**La tastiera che stringe invece di spostare.** *Cosa.* Sul tablet, con la
+tastiera aperta, il sistema sposta tutta la finestra verso l'alto, e in
+orizzontale l'orb esce in parte dallo schermo finche' si scrive. La
+finestra potrebbe invece stringersi, e la pagina ridisporsi nello spazio
+che resta. *Perche'.* Mentre si scrive si vedrebbe ancora cosa sta facendo
+NOVA. *Cosa costerebbe.* Il modo della tastiera nel progetto Android
+(`adjustResize`), che oggi Tauri rigenera: va fissato dove non lo perda.

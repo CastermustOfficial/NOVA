@@ -3298,3 +3298,20 @@ piu' dei venti della riprova.
 
 La regola: il tempo dato a un programma finto in una prova e' il tempo per
 farlo partire su una macchina occupata, non quello che ci mette da solo.
+
+## Il tablet provato da un lato solo
+
+La pagina del tablet (D449) l'ho provata sul Tab A8 in verticale, com'era
+appoggiato: abbinamento, una frase, la risposta. Ho creduto che bastasse:
+la pagina e' una colonna, e una colonna in orizzontale e' solo piu' bassa.
+Il 28 novembre il tablet era in orizzontale, e aperta e chiusa la tastiera
+la pagina e' rimasta spostata, con l'orb fuori dallo schermo. Nello stesso
+giro ho visto che una pagina aperta col filo gia' teso diceva «cerco il PC»:
+anche questo non l'avevo provato, perche' abbinavo sempre a pagina aperta.
+
+Me ne sono accorto guardando la schermata dopo l'abbinamento al NOVA vero.
+Corretto col D450.
+
+La regola: una pagina per un dispositivo che si gira si prova nei due
+versi, con la tastiera aperta e richiusa; e un programma che tiene un filo
+si prova anche riaprendolo a filo gia' teso, non solo la prima volta.

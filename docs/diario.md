@@ -12255,3 +12255,14 @@ Due inciampi di macchina, non di codice: il tablet dopo un riavvio resta
 bloccato finche' qualcuno non mette il PIN, e fino ad allora un'app appena
 installata non esiste; e Gradle, attraverso il proxy del mio ambiente,
 ogni tanto si prende un «troppe richieste» da Maven e va rilanciato.
+
+## 28 novembre 2026 — Il tablet sul NOVA vero
+
+Poco dopo mezzanotte Gio ha acceso il portale, e il tablet si e' abbinato
+al suo NOVA dalla rete di casa: nella scheda Portale e' comparso «SM-X200»,
+collegato. Fino a li' l'avevo provato solo con un NOVA di prova, dal cavo.
+
+Il tablet intanto era stato girato in orizzontale, e li' la pagina aveva
+due difetti che in verticale non si vedevano: dopo la tastiera restava
+spostata, con l'orb fuori dallo schermo, e riaperta a filo gia' teso diceva
+«cerco il PC» mentre era collegata. Corretti (D450).

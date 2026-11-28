@@ -9,17 +9,25 @@
 
      In scena c'e' l'orb, grande, e sotto quello che sta facendo, a parole.
      Il discorso scorre sotto, e in fondo si scrive. Niente menu, niente
-     finestre: e' una cosa a cui si parla, non un programma da usare. */
-  body{display:flex;flex-direction:column;height:100dvh;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+     finestre: e' una cosa a cui si parla, non un programma da usare.
+
+     La pagina sta ferma sullo schermo (`position:fixed`): quando si apre la
+     tastiera il sistema fa scorrere il documento per mostrare il campo, e
+     chiusa la tastiera non lo rimetteva a posto. Il 27 novembre, col tablet
+     in orizzontale, l'orb e' rimasto fuori dallo schermo. */
+  html{overflow:hidden}
+  body{position:fixed;inset:0;height:auto;display:flex;flex-direction:column;
+       padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
        -webkit-user-select:none;user-select:none}
   #scena{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;padding:4vh 24px 1vh}
+  #lato{flex:1 1 auto;min-width:0;min-height:0;display:flex;flex-direction:column}
   #orb{width:min(46vw,34vh);height:min(46vw,34vh);display:block}
   #detto{margin-top:1.2vh;font-size:19px;color:var(--inchiostro);min-height:1.4em;text-align:center}
   #linea{margin-top:6px;font-size:13px;color:var(--mezzo);min-height:1.3em;text-align:center}
   #linea.guaio{color:var(--attenzione)}
   .bottone:disabled{opacity:.4}
 
-  #discorso{flex:1 1 auto;overflow-y:auto;padding:12px max(20px,6vw);display:flex;flex-direction:column;gap:10px;
+  #discorso{flex:1 1 auto;min-height:0;overflow-y:auto;padding:12px max(20px,6vw);display:flex;flex-direction:column;gap:10px;
             -webkit-user-select:text;user-select:text}
   .battuta{display:flex;max-width:100%}
   .battuta.tua{justify-content:flex-end}
@@ -51,6 +59,19 @@
   #abbina #erroreAbbina{color:#f0a698;min-height:1.5em}
   body.da-abbinare #abbina{display:flex}
   body.da-abbinare #discorso, body.da-abbinare #scrivi{display:none}
+
+  /* In orizzontale l'orb sta a sinistra e il discorso a destra: uno sopra
+     l'altro, con la tastiera aperta non resterebbe posto per nessuno dei
+     due. */
+  @media (orientation:landscape){
+    body{flex-direction:row}
+    #scena{flex:0 0 38vw;justify-content:center;padding:2vh 16px}
+    #orb{width:min(30vw,58vh);height:min(30vw,58vh)}
+    #discorso{padding:16px 28px 12px 8px}
+    #scrivi{padding:10px 28px 16px 8px}
+    #abbina{padding:0 36px 2vh 8px;justify-content:center}
+    #invito{min-height:80px}
+  }
 </style>
 <body class="da-abbinare">
 <div id="scena">
@@ -59,6 +80,7 @@
   <div id="linea"></div>
 </div>
 
+<div id="lato">
 <section id="abbina">
   <h2>Abbina questo dispositivo</h2>
   <p>Sul PC apri le impostazioni di NOVA, alla voce Portale, accendilo e premi «Mostra il codice». Poi apri l'invito su questo dispositivo, oppure incollalo qui sotto.</p>
@@ -73,6 +95,7 @@
   <input type="text" id="campo" placeholder="Scrivi a NOVA" autocomplete="off" enterkeyhint="send" aria-label="Scrivi a NOVA">
   <button class="bottone primo" id="btnInvia" type="submit">Invia</button>
 </form>
+</div>
 
 <script type="module">
 import { creaOrb } from './orb.js';
@@ -116,6 +139,10 @@ function battuta(da, testo){
 let collegato = false;
 function mostraLinea(l){
   collegato = !!l?.collegato;
+  // Appena abbinato, il campo dell'invito sparisce e il sistema passerebbe
+  // il fuoco al campo per scrivere, aprendo la tastiera senza che nessuno
+  // l'abbia chiesta.
+  if(!abbinato && l?.abbinato) document.activeElement?.blur?.();
   abbinato = !!l?.abbinato;
   document.body.classList.toggle('da-abbinare', !l?.abbinato);
   const el = $('linea');
@@ -123,7 +150,11 @@ function mostraLinea(l){
   el.textContent = !l?.abbinato ? '' : collegato ? T('Collegata al PC') : T('Cerco il PC…');
   if(!l?.abbinato) $('erroreAbbina').textContent = l?.errore ? T(l.errore) : $('erroreAbbina').textContent;
   $('btnInvia').disabled = !collegato;
+  // Lo stato dell'orb arriva con gli eventi. Una pagina che si apre a filo
+  // gia' teso non ha sentito il primo: collegata vuol dire almeno a riposo,
+  // non «cerco il PC».
   if(!collegato) metti('spento');
+  else if(stato === 'spento') metti('quiete');
   spiega();
 }
 
@@ -179,6 +210,12 @@ ascolta?.('nova://voce', ev => {
   const testo = String(ev.payload?.testo || '');
   if(testo.trim()) battuta(ev.payload?.da === 'utente' ? 'utente' : 'nova', testo);
 });
+
+/* Il documento non deve scorrere mai: se il sistema lo sposta per la
+   tastiera, lo si rimette a posto. */
+const fermo = () => { if(window.scrollX || window.scrollY) window.scrollTo(0, 0); };
+window.addEventListener('scroll', fermo);
+window.visualViewport?.addEventListener('resize', fermo);
 
 if(invoke){
   invoke('linea').then(mostraLinea).catch(() => {});
