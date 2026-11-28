@@ -254,6 +254,23 @@ impl Collegamento {
         }
     }
 
+    /// Manda una cosa al demone senza aspettare risposta (D455): cosi'
+    /// viaggia il microfono, dieci pezzi al secondo. Non aspetta nemmeno il
+    /// posto in coda: se il canale e' indietro il pezzo si perde, che per una
+    /// voce dal vivo e' meglio che arrivare tardi. Dice se e' partito.
+    pub fn manda(&self, metodo: &str, params: Value) -> bool {
+        if *self.chiuso.borrow() {
+            return false;
+        }
+        let riga = json!({ "jsonrpc": "2.0", "method": metodo, "params": params });
+        self.scrivi.try_send(riga.to_string()).is_ok()
+    }
+
+    /// Il canale si e' chiuso: non partira' piu' niente.
+    pub fn e_chiuso(&self) -> bool {
+        *self.chiuso.borrow()
+    }
+
     /// Aspetta che il canale si chiuda.
     pub async fn finito(&self) {
         let mut chiuso = self.chiuso.clone();
@@ -275,7 +292,8 @@ mod prove {
     /// Un PC finto che dopo il saluto parla come il demone quanto basta:
     /// «eco» risponde coi parametri, «due» risponde prima alla seconda
     /// richiesta, «evento» manda un evento, «errore» risponde con un errore,
-    /// «muto» non risponde, «chiudi» chiude.
+    /// «muto» non risponde, «chiudi» chiude. Di ogni notifica (una riga
+    /// senza numero) tiene il conto, e «notifiche» lo dice con l'ultima.
     async fn pc(nome: &str) -> (Identita, Arc<Soglia>, u16, std::path::PathBuf) {
         let dir = std::env::temp_dir().join(format!("nova-cliente-{nome}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -301,8 +319,13 @@ mod prove {
                     let (lettore, mut scrittore) = tokio::io::split(canale);
                     let mut righe = BufReader::new(lettore).lines();
                     let mut tenuta: Option<Value> = None;
+                    let mut notifiche: Vec<Value> = Vec::new();
                     while let Ok(Some(riga)) = righe.next_line().await {
                         let v: Value = serde_json::from_str(&riga).unwrap();
+                        if v.get("id").is_none() {
+                            notifiche.push(v);
+                            continue;
+                        }
                         let risposta =
                             |r: Value| format!("{}\n", json!({ "id": v["id"], "result": r }));
                         let fuori = match v["method"].as_str().unwrap() {
@@ -330,6 +353,10 @@ mod prove {
                                 json!({ "id": v["id"], "error": { "code": -32001, "message": "non si puo'" } })
                             ),
                             "muto" => continue,
+                            "notifiche" => risposta(json!({
+                                "quante": notifiche.len(),
+                                "ultima": notifiche.last(),
+                            })),
                             _ => break,
                         };
                         if scrittore.write_all(fuori.as_bytes()).await.is_err() {
@@ -479,6 +506,38 @@ mod prove {
             .await
             .unwrap_err();
         assert!(e.to_string().contains("non ha risposto a «muto»"), "{e}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// D455: il microfono viaggia a notifiche, senza risposta e in ordine.
+    #[tokio::test]
+    async fn una_notifica_parte_senza_aspettare_risposta() {
+        let (identita, soglia, porta, dir) = pc("notifiche").await;
+        let i = invito(&identita, &soglia, porta, &["127.0.0.1"]);
+        let (_, canale) = abbina(&i, "").await.unwrap();
+        let (c, _eventi) = Collegamento::avvia(canale);
+        assert!(!c.e_chiuso());
+        for n in 0..10i16 {
+            assert!(c.manda(crate::voce::METODO_DEL_PEZZO, crate::voce::pezzo(&[n, -n])));
+        }
+        // La richiesta parte dopo le notifiche, sullo stesso canale: quando
+        // torna, il PC le ha lette tutte.
+        let v = c.chiedi("notifiche", json!({}), POCO).await.unwrap();
+        assert_eq!(v["quante"], 10);
+        assert_eq!(v["ultima"]["method"], "voce/pezzo");
+        assert!(
+            v["ultima"].get("id").is_none(),
+            "una notifica non ha numero"
+        );
+        assert_eq!(
+            crate::voce::leggi_il_pezzo(&v["ultima"]["params"]).unwrap(),
+            vec![9, -9]
+        );
+        // A canale chiuso non parte, e lo dice.
+        let _ = c.chiedi("chiudi", json!({}), POCO).await;
+        tokio::time::timeout(POCO, c.finito()).await.unwrap();
+        assert!(!c.manda("voce/pezzo", json!({})));
+        assert!(c.e_chiuso());
         let _ = std::fs::remove_dir_all(dir);
     }
 

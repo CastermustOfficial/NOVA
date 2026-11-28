@@ -18,8 +18,13 @@
 //!   canali che usa il guscio sul PC (`nova_proto::vista::per_la_pagina`):
 //!   l'orb e la chat sono le stesse.
 //!
+//! - **Apre il microfono** finche' il filo e' teso ([`voce`], D455), e manda
+//!   al PC quello che sente: la frase di risveglio la riconosce il PC.
+//!
 //! Le regole del canale stanno in `nova-portale`, e li' si provano; qui c'e'
 //! solo la colla con la finestra.
+
+mod voce;
 
 use nova_portale::cliente::{self, Abbinamento, Collegamento};
 use nova_portale::invito::Invito;
@@ -47,6 +52,13 @@ const CANALE_LINEA: &str = "nova://linea";
 
 /// Il canale su cui la pagina riceve un invito aperto da fuori.
 const CANALE_INVITO: &str = "nova://invito";
+
+/// Il canale su cui la pagina sente se il microfono e' aperto (D455).
+const CANALE_MICROFONO: &str = "nova://microfono";
+
+/// Ogni quanto si riprova ad aprire il microfono che non si apre: di solito
+/// manca il permesso, e chi ha il tablet in mano lo sta dando.
+const RIPROVA_IL_MICROFONO: Duration = Duration::from_secs(5);
 
 /// Quanto si aspetta fra un tentativo e l'altro di trovare il PC: da qui...
 const PAUSA_CORTA: Duration = Duration::from_millis(500);
@@ -76,6 +88,8 @@ struct Tablet {
     orb: Mutex<String>,
     /// L'invito aperto da fuori che la pagina non ha ancora letto.
     invito: Mutex<Option<String>>,
+    /// Il microfono: se e' aperto, e se no perche' (D455).
+    microfono: Mutex<Value>,
     /// Sveglia chi tiene il filo: c'e' un abbinamento nuovo.
     riprova: Notify,
 }
@@ -88,11 +102,19 @@ impl Tablet {
         let _ = app.emit(CANALE_LINEA, self.linea_con_l_orb());
     }
 
-    /// Il filo, con l'ultimo stato dell'orb.
+    /// Il filo, con l'ultimo stato dell'orb e del microfono.
     fn linea_con_l_orb(&self) -> Value {
         let mut linea = self.linea.lock().unwrap().clone();
         linea["orb"] = json!(*self.orb.lock().unwrap());
+        linea["microfono"] = self.microfono.lock().unwrap().clone();
         linea
+    }
+
+    /// Cambia com'e' il microfono e lo dice alla pagina.
+    fn di_il_microfono(&self, app: &AppHandle, aperto: bool, errore: &str) {
+        let com_e = json!({ "aperto": aperto, "errore": errore });
+        *self.microfono.lock().unwrap() = com_e.clone();
+        let _ = app.emit(CANALE_MICROFONO, com_e);
     }
 
     /// Manda alla pagina i messaggi di un evento, e tiene lo stato dell'orb.
@@ -123,6 +145,30 @@ async fn fase_della_voce(c: &Collegamento) -> String {
     .and_then(|r| r.get("fase").and_then(Value::as_str).map(str::to_string))
     // Se il PC non lo dice, a riposo: e' il caso di gran lunga piu' lungo.
     .unwrap_or_else(|| FASE_A_RIPOSO.to_string())
+}
+
+/// Tiene aperto il microfono finche' questo filo e' teso (D455). Se non si
+/// apre lo dice alla pagina e riprova: il permesso si da' una volta, e non
+/// deve servire riaprire il programma.
+async fn tieni_il_microfono(app: AppHandle, t: Arc<Tablet>, filo: Arc<Collegamento>) {
+    loop {
+        let per_il_microfono = filo.clone();
+        let aperto = tokio::task::spawn_blocking(move || voce::apri(per_il_microfono)).await;
+        match aperto {
+            Ok(Ok(microfono)) => {
+                t.di_il_microfono(&app, true, "");
+                filo.finito().await;
+                drop(microfono);
+                return;
+            }
+            Ok(Err(e)) => t.di_il_microfono(&app, false, &format!("{e:#}")),
+            Err(e) => t.di_il_microfono(&app, false, &e.to_string()),
+        }
+        tokio::select! {
+            _ = tokio::time::sleep(RIPROVA_IL_MICROFONO) => {}
+            _ = filo.finito() => return,
+        }
+    }
 }
 
 /// Tiene il filo col PC, per sempre.
@@ -166,12 +212,21 @@ async fn tieni_il_filo(app: AppHandle, t: Arc<Tablet>) {
                     Ok(_) => {
                         pausa = PAUSA_CORTA;
                         let fase = fase_della_voce(&c).await;
-                        *t.collegamento.lock().unwrap() = Some(c);
+                        *t.collegamento.lock().unwrap() = Some(c.clone());
                         t.gira(&app, "voce.fase", &json!({ "fase": fase }));
                         t.di(&app, true, true, "");
+                        // A filo teso il microfono si apre, e a filo caduto
+                        // si chiude: buttato il compito, si butta con lui.
+                        let microfono = tauri::async_runtime::spawn(tieni_il_microfono(
+                            app.clone(),
+                            t.clone(),
+                            c,
+                        ));
                         while let Some(evento) = eventi.recv().await {
                             t.gira(&app, &evento.topic, &evento.dati);
                         }
+                        microfono.abort();
+                        t.di_il_microfono(&app, false, "");
                         *t.collegamento.lock().unwrap() = None;
                         *t.orb.lock().unwrap() = ORB_SENZA_PC.to_string();
                         t.di(&app, true, false, "");
@@ -267,6 +322,7 @@ pub fn run() {
                 linea: Mutex::new(json!({ "abbinato": false, "collegato": false, "errore": "" })),
                 orb: Mutex::new(ORB_SENZA_PC.to_string()),
                 invito: Mutex::new(None),
+                microfono: Mutex::new(json!({ "aperto": false, "errore": "" })),
                 riprova: Notify::new(),
             });
             app.manage(t.clone());

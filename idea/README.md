@@ -909,3 +909,20 @@ batteria lo schermo si spegne comunque dopo dieci minuti. *Cosa
 costerebbe.* La finestra sa gia' se e' sotto carica (ci tiene acceso lo
 schermo): dovrebbe dirlo alla pagina, e l'orb avrebbe di nuovo due
 andature. Da fare solo se Gio lo vuole: a scatti non gli e' piaciuto.
+
+**Il microfono del tablet solo quando c'e' suono.** *Cosa.* Oggi il tablet
+manda il microfono al PC sempre, anche nel silenzio (D455): circa 345 kbit
+al secondo. Potrebbe mandare solo quando sente qualcosa. *Perche'.* In casa
+non pesa; fuori casa, sulla rete del telefono, sono piu' di 150 MB l'ora. *Cosa
+costerebbe.* Una regola sul tablet che decide cos'e' suono, col secondo
+prima (la parola di risveglio comincia sotto la soglia) e la coda dopo, e
+sul PC un modo di ritagliare la frase che non misuri il fondo della stanza
+dai primi pezzi che arrivano: e' il punto dove si perde la frase di
+risveglio, e va provato con voci vere.
+
+**La pulizia del microfono del tablet.** *Cosa.* La conversazione dal vivo
+pulisce il microfono del PC dal rumore (D446); quello del tablet no.
+*Perche'.* Il tablet sta in una stanza, lontano dalla bocca: di rumore ne
+sente di piu' di una cuffia. *Cosa costerebbe.* RNNoise lavora a 48 kHz e i
+pezzi arrivano a 16: o il tablet manda a 48 (tre volte i dati), o si prova
+se pulire una voce riportata a 48 funziona lo stesso.

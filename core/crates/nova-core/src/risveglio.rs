@@ -26,7 +26,8 @@
 //! deve diventare un registro di quello che si dice in casa.
 
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 use serde_json::json;
 
@@ -51,7 +52,27 @@ pub struct Stato {
     /// Quante volte NOVA ha aperto bocca. Vedi `apri_bocca`.
     pub turni_di_parola: AtomicU64,
     pub fase: AtomicU8,
+    /// Il risveglio l'ha spento qualcuno a mano (`ferma`): non ascolta
+    /// nessun orecchio, nemmeno quelli lontani, finche' non lo si riaccende.
+    pub fermato: AtomicBool,
+    /// Di chi e' la conversazione, e da quando (D455). Vedi [`rivendica`].
+    padrone: Mutex<(String, Option<Instant>)>,
+    /// L'ultima volta che si e' dato retta a una fermata.
+    ultima_fermata: Mutex<Option<Instant>>,
 }
+
+/// Il nome dell'orecchio del PC fra i padroni della conversazione. Gli
+/// orecchi lontani hanno l'identificativo del loro dispositivo.
+pub const IL_PC: &str = "";
+
+/// Per quanto, dopo che un orecchio ha preso la conversazione, un altro che
+/// si sente chiamare non la prende: e' la stessa frase sentita in due. Chi
+/// finisce prima di trascrivere la tiene.
+pub const STESSA_FRASE: Duration = Duration::from_secs(5);
+
+/// Per quanto una fermata gia' ascoltata non si ascolta di nuovo: «basta»
+/// sentito da due orecchi ferma una volta sola, e si dice una volta sola.
+pub const STESSA_FERMATA: Duration = Duration::from_secs(3);
 
 pub fn stato() -> &'static Arc<Stato> {
     static S: OnceLock<Arc<Stato>> = OnceLock::new();
@@ -61,6 +82,9 @@ pub fn stato() -> &'static Arc<Stato> {
             bocca_aperta: AtomicBool::new(false),
             turni_di_parola: AtomicU64::new(0),
             fase: AtomicU8::new(DORMIENTE),
+            fermato: AtomicBool::new(false),
+            padrone: Mutex::new((IL_PC.to_string(), None)),
+            ultima_fermata: Mutex::new(None),
         })
     })
 }
@@ -108,7 +132,116 @@ pub fn stato_a_riposo() -> &'static str {
 pub fn ferma() {
     let s = stato();
     s.acceso.store(false, Ordering::SeqCst);
+    s.fermato.store(true, Ordering::SeqCst);
     s.fase.store(DORMIENTE, Ordering::SeqCst);
+    *s.padrone.lock().unwrap() = (IL_PC.to_string(), None);
+}
+
+/// La conversazione e' di un orecchio solo (D455).
+///
+/// Con un orecchio solo non serviva dirlo. Con due, il PC e un dispositivo
+/// nella stessa stanza sentono la stessa frase: senza un padrone NOVA si
+/// sveglierebbe due volte, e da sveglia manderebbe al cervello ogni frase
+/// due volte. La regola: chi si sente chiamare prova a prendere la
+/// conversazione, e la prende se non e' gia' aperta per un altro e se un
+/// altro non l'ha presa da meno di [`STESSA_FRASE`]. Da sveglia ascolta solo
+/// il padrone. Chiusa o in pausa, la riprende chi si sente chiamare.
+pub fn rivendica(chi: &str) -> bool {
+    rivendica_alle(chi, Instant::now())
+}
+
+fn rivendica_alle(chi: &str, ora: Instant) -> bool {
+    let s = stato();
+    let mut p = s.padrone.lock().unwrap();
+    if p.0 != chi {
+        if s.fase.load(Ordering::SeqCst) == SVEGLIA {
+            return false;
+        }
+        if p.1
+            .is_some_and(|quando| ora.saturating_duration_since(quando) < STESSA_FRASE)
+        {
+            return false;
+        }
+    }
+    *p = (chi.to_string(), Some(ora));
+    true
+}
+
+/// La conversazione e' di questo orecchio.
+pub fn e_il_padrone(chi: &str) -> bool {
+    stato().padrone.lock().unwrap().0 == chi
+}
+
+/// Di chi e' la conversazione: [`IL_PC`], o l'identificativo di un
+/// dispositivo.
+pub fn padrone() -> String {
+    stato().padrone.lock().unwrap().0.clone()
+}
+
+/// Un orecchio lontano se ne va (il dispositivo si e' scollegato): se la
+/// conversazione era sua torna al PC, e se era aperta va in pausa. Senza,
+/// resterebbe aperta per un orecchio che non c'e' piu', e nessun altro
+/// ascolterebbe.
+pub fn lascia(bus: &Bus, chi: &str) {
+    let s = stato();
+    {
+        let mut p = s.padrone.lock().unwrap();
+        if p.0 != chi || chi == IL_PC {
+            return;
+        }
+        *p = (IL_PC.to_string(), None);
+    }
+    if s.fase.load(Ordering::SeqCst) == SVEGLIA {
+        imposta_fase(bus, IN_PAUSA);
+    }
+}
+
+/// A questa fermata si da' retta? Si', se non se n'e' appena ascoltata una.
+fn fermata_nuova(ora: Instant) -> bool {
+    let mut u = stato().ultima_fermata.lock().unwrap();
+    if u.is_some_and(|quando| ora.saturating_duration_since(quando) < STESSA_FERMATA) {
+        return false;
+    }
+    *u = Some(ora);
+    true
+}
+
+/// Da dove ascolta un ciclo del risveglio (D455): dal microfono del PC, o
+/// dal microfono di un dispositivo del portale.
+#[derive(Clone)]
+pub enum Orecchio {
+    /// Il microfono del PC, per pezzo di nome; senza, il predefinito.
+    DelPc(Option<String>),
+    Lontano(Arc<crate::orecchi::Lontano>),
+}
+
+impl Orecchio {
+    /// Il suo nome fra i padroni della conversazione.
+    pub fn chi(&self) -> &str {
+        match self {
+            Orecchio::DelPc(_) => IL_PC,
+            Orecchio::Lontano(o) => &o.id,
+        }
+    }
+
+    /// Una frase, fino al silenzio: la stessa attesa e lo stesso massimo per
+    /// tutti gli orecchi. Blocca.
+    fn ascolta(&self, silenzio: f32) -> anyhow::Result<nova_voce::Ascolto> {
+        match self {
+            Orecchio::DelPc(mic) => {
+                nova_voce::ascolta_con_attesa(mic.as_deref(), 8.0, 20.0, silenzio, 16_000)
+            }
+            Orecchio::Lontano(o) => o.ascolta(8.0, 20.0, silenzio, 16_000),
+        }
+    }
+
+    /// Il ciclo di questo orecchio deve andare avanti?
+    fn continua(&self) -> bool {
+        match self {
+            Orecchio::DelPc(_) => stato().acceso.load(Ordering::SeqCst),
+            Orecchio::Lontano(o) => o.vivo(),
+        }
+    }
 }
 
 /// La cambia chi riceve la risposta del cervello.
@@ -217,7 +350,7 @@ enum DalVivo {
 /// La conversazione con Gemini Live dopo il nome (D386). Chi ha chiamato
 /// NOVA va ascoltato comunque: se Live non parte o cade, lo si dice e si
 /// continua con la voce del PC. L'evento `voce.live.errore` dice perche'.
-async fn dal_vivo(bus: &Bus, microfono: &Option<String>, comando: &str, riprende: bool) -> DalVivo {
+async fn dal_vivo(bus: &Bus, orecchio: &Orecchio, comando: &str, riprende: bool) -> DalVivo {
     let cfg = crate::caps_voce::configurazione_utente().unwrap_or_else(|| json!({}));
     let scelte = crate::live::scelte(&cfg, &|n| std::env::var(n).ok());
     if !scelte.attiva {
@@ -234,10 +367,14 @@ async fn dal_vivo(bus: &Bus, microfono: &Option<String>, comando: &str, riprende
         (Ok(()), None) => Err(anyhow::anyhow!("il demone non e' ancora pronto")),
         (Ok(()), Some(server)) => {
             let primo = (!comando.trim().is_empty()).then(|| comando.to_string());
+            let microfono = match orecchio {
+                Orecchio::DelPc(nome) => crate::live::Microfono::DelPc(nome.clone()),
+                Orecchio::Lontano(o) => crate::live::Microfono::Lontano(o.dal_vivo()),
+            };
             crate::live::conversa_davvero(
                 server.clone(),
                 &scelte,
-                microfono.clone(),
+                microfono,
                 primo,
                 riprende,
                 &mut aperta,
@@ -280,228 +417,303 @@ pub fn avvia(
     if s.acceso.swap(true, Ordering::SeqCst) {
         return false;
     }
-    s.fase.store(DORMIENTE, Ordering::SeqCst);
+    s.fermato.store(false, Ordering::SeqCst);
+    // Se la conversazione e' di un orecchio lontano, accendere il microfono
+    // del PC non gliela toglie.
+    if e_il_padrone(IL_PC) {
+        s.fase.store(DORMIENTE, Ordering::SeqCst);
+    }
     tokio::spawn(async move {
         tracing::info!(parola = %parola, "risveglio acceso");
         bus.emit("risveglio.acceso", json!({ "parola": parola }));
+        ciclo(bus.clone(), Orecchio::DelPc(microfono), cartella_ascolto).await;
         let s = stato();
-        let mut errori_di_fila = 0u32;
-        // Il microfono muto e' uno stato, non un guasto: si dice una volta e
-        // si continua a guardare, piu' di rado.
-        let mut muto = false;
-        // Rete di sicurezza: in conversazione aperta, dopo un lungo
-        // silenzio non si resta svegli all'infinito. Non e' un elenco di
-        // parole di chiusura: e' solo 'se non parli piu', mi metto da
-        // parte'. Il 'fine' resta una decisione del cervello.
-        let mut ultimo_attivo = std::time::Instant::now();
-        const INATTIVITA: std::time::Duration = std::time::Duration::from_secs(60);
+        s.acceso.store(false, Ordering::SeqCst);
+        if e_il_padrone(IL_PC) {
+            s.fase.store(DORMIENTE, Ordering::SeqCst);
+            bus.emit("stato.cambiato", json!({ "stato": "quiete" }));
+        }
+        bus.emit("risveglio.spento", json!({ "motivo": "fermato" }));
+        tracing::info!("risveglio spento");
+    });
+    true
+}
 
-        while s.acceso.load(Ordering::SeqCst) {
-            if s.bocca_aperta.load(Ordering::SeqCst) {
+/// Accende il ciclo per l'orecchio di un dispositivo (D455), al suo primo
+/// pezzo. Va avanti finche' il dispositivo e' collegato; ascolta solo se il
+/// risveglio e' chiesto nel pannello, non e' stato spento a mano e il motore
+/// di ascolto c'e'. Non dipende dal microfono del PC: un PC senza microfono
+/// si puo' chiamare dal tablet.
+pub fn avvia_lontano(
+    bus: Bus,
+    orecchio: Arc<crate::orecchi::Lontano>,
+    cartella_ascolto: std::path::PathBuf,
+) {
+    tokio::spawn(async move {
+        tracing::info!(dispositivo = %orecchio.nome, "un orecchio lontano ascolta");
+        bus.emit(
+            "voce.orecchio",
+            json!({ "id": orecchio.id, "nome": orecchio.nome, "aperto": true }),
+        );
+        let chi = orecchio.id.clone();
+        let nome = orecchio.nome.clone();
+        ciclo(bus.clone(), Orecchio::Lontano(orecchio), cartella_ascolto).await;
+        lascia(&bus, &chi);
+        bus.emit(
+            "voce.orecchio",
+            json!({ "id": chi, "nome": nome, "aperto": false }),
+        );
+        tracing::info!(dispositivo = %nome, "l'orecchio lontano si e' chiuso");
+    });
+}
+
+/// Il ciclo di un orecchio: ascolta una frase, la trascrive, e decide.
+async fn ciclo(bus: Bus, orecchio: Orecchio, cartella_ascolto: std::path::PathBuf) {
+    let s = stato();
+    let chi = orecchio.chi().to_string();
+    let del_pc = matches!(orecchio, Orecchio::DelPc(_));
+    let mut errori_di_fila = 0u32;
+    // Il microfono muto e' uno stato, non un guasto: si dice una volta e
+    // si continua a guardare, piu' di rado.
+    let mut muto = false;
+    // Rete di sicurezza: in conversazione aperta, dopo un lungo
+    // silenzio non si resta svegli all'infinito. Non e' un elenco di
+    // parole di chiusura: e' solo 'se non parli piu', mi metto da
+    // parte'. Il 'fine' resta una decisione del cervello.
+    let mut ultimo_attivo = std::time::Instant::now();
+    const INATTIVITA: std::time::Duration = std::time::Duration::from_secs(60);
+
+    while orecchio.continua() {
+        if s.bocca_aperta.load(Ordering::SeqCst) {
+            ultimo_attivo = std::time::Instant::now();
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            continue;
+        }
+        // Un orecchio lontano non ha un interruttore suo: segue quello
+        // del pannello, e si ferma se il risveglio e' stato spento.
+        if !del_pc
+            && (s.fermato.load(Ordering::SeqCst)
+                || !crate::caps_voce::risveglio_richiesto()
+                || !nova_voce::Trascrittore::pronto(&cartella_ascolto))
+        {
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            continue;
+        }
+        let fase_ora = s.fase.load(Ordering::SeqCst);
+        // A conversazione aperta ascolta solo l'orecchio che ce l'ha
+        // (D455): gli altri sentirebbero le stesse frasi.
+        if fase_ora == SVEGLIA && !e_il_padrone(&chi) {
+            ultimo_attivo = std::time::Instant::now();
+            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+            continue;
+        }
+        if fase_ora == SVEGLIA && ultimo_attivo.elapsed() >= INATTIVITA {
+            // Silenzio prolungato: si mette in pausa da sola. La
+            // conversazione resta, il nome la riapre con un 'riprendiamo'.
+            tracing::info!("silenzio prolungato: in pausa");
+            imposta_fase(&bus, IN_PAUSA);
+            continue;
+        }
+        let orecchio_ora = orecchio.clone();
+        let cartella = cartella_ascolto.clone();
+        // La parola si rilegge a ogni ascolto (D447): cambiata nel
+        // pannello, vale dal giro dopo.
+        let parola = crate::caps_voce::parola_di_risveglio();
+        let glossario = parola.clone();
+        let silenzio = silenzio_per(fase_ora);
+        let parole_prima = s.turni_di_parola.load(Ordering::SeqCst);
+
+        let esito =
+            tokio::task::spawn_blocking(move || -> anyhow::Result<Option<(String, f32)>> {
+                let a = orecchio_ora.ascolta(silenzio)?;
+                if !a.ha_parlato || a.campioni.is_empty() {
+                    tracing::debug!(picco = a.picco, "giro a vuoto");
+                    return Ok(None);
+                }
+                let mut t = nova_voce::Trascrittore::nuovo(&cartella, "it")?;
+                t.glossario = vec![glossario];
+                Ok(Some((t.trascrivi(&a.campioni, a.frequenza)?, a.picco)))
+            })
+            .await;
+
+        // Se NOVA ha parlato mentre questo pezzo veniva registrato, il
+        // pezzo contiene la sua voce: si butta senza trascriverlo.
+        if s.turni_di_parola.load(Ordering::SeqCst) != parole_prima
+            || s.bocca_aperta.load(Ordering::SeqCst)
+        {
+            tracing::debug!("scartato: NOVA ha parlato mentre ascoltava");
+            continue;
+        }
+
+        match esito {
+            Ok(Ok(Some((testo, picco)))) => {
+                errori_di_fila = 0;
                 ultimo_attivo = std::time::Instant::now();
-                tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-                continue;
-            }
-            let fase_ora = s.fase.load(Ordering::SeqCst);
-            if fase_ora == SVEGLIA && ultimo_attivo.elapsed() >= INATTIVITA {
-                // Silenzio prolungato: si mette in pausa da sola. La
-                // conversazione resta, il nome la riapre con un 'riprendiamo'.
-                tracing::info!("silenzio prolungato: in pausa");
-                imposta_fase(&bus, IN_PAUSA);
-                continue;
-            }
-            let mic = microfono.clone();
-            let cartella = cartella_ascolto.clone();
-            // La parola si rilegge a ogni ascolto (D447): cambiata nel
-            // pannello, vale dal giro dopo.
-            let parola = crate::caps_voce::parola_di_risveglio();
-            let glossario = parola.clone();
-            let silenzio = silenzio_per(fase_ora);
-            let parole_prima = s.turni_di_parola.load(Ordering::SeqCst);
-
-            let esito =
-                tokio::task::spawn_blocking(move || -> anyhow::Result<Option<(String, f32)>> {
-                    let a =
-                        nova_voce::ascolta_con_attesa(mic.as_deref(), 8.0, 20.0, silenzio, 16_000)?;
-                    if !a.ha_parlato || a.campioni.is_empty() {
-                        tracing::debug!(picco = a.picco, "giro a vuoto");
-                        return Ok(None);
-                    }
-                    let mut t = nova_voce::Trascrittore::nuovo(&cartella, "it")?;
-                    t.glossario = vec![glossario];
-                    Ok(Some((t.trascrivi(&a.campioni, a.frequenza)?, a.picco)))
-                })
-                .await;
-
-            // Se NOVA ha parlato mentre questo pezzo veniva registrato, il
-            // pezzo contiene la sua voce: si butta senza trascriverlo.
-            if s.turni_di_parola.load(Ordering::SeqCst) != parole_prima
-                || s.bocca_aperta.load(Ordering::SeqCst)
-            {
-                tracing::debug!("scartato: NOVA ha parlato mentre ascoltava");
-                continue;
-            }
-
-            match esito {
-                Ok(Ok(Some((testo, picco)))) => {
-                    errori_di_fila = 0;
-                    ultimo_attivo = std::time::Instant::now();
-                    if muto {
-                        muto = false;
+                if muto {
+                    muto = false;
+                    if del_pc {
                         bus.emit("voce.muto", json!({ "muto": false }));
                     }
-                    if testo.trim().is_empty() {
-                        continue;
-                    }
-                    // Il testo solo a «debug»: a livello normale si vede che
-                    // c'e' stato del parlato, non cosa diceva.
-                    tracing::info!(
-                        picco,
-                        caratteri = testo.chars().count(),
-                        fase = nome_fase(fase_ora),
-                        "parlato"
-                    );
-                    tracing::debug!(testo = %testo, "trascritto");
+                }
+                if testo.trim().is_empty() {
+                    continue;
+                }
+                // Il testo solo a «debug»: a livello normale si vede che
+                // c'e' stato del parlato, non cosa diceva.
+                tracing::info!(
+                    picco,
+                    caratteri = testo.chars().count(),
+                    fase = nome_fase(fase_ora),
+                    "parlato"
+                );
+                tracing::debug!(testo = %testo, "trascritto");
 
-                    // Prima di ogni altra cosa: e' una richiesta di fermarsi? Va vista qui,
-                    // prima del cervello, perche' chi la dice sta aspettando che qualcosa
-                    // smetta adesso.
-                    if e_una_fermata(&testo) {
-                        if si_da_retta_alla_fermata(
-                            fase_ora,
-                            crate::interruzione::quante_in_corso(),
-                        ) {
-                            ferma_e_dillo(&bus).await;
-                        } else {
-                            tracing::debug!("fermata detta ad altri, scartata");
-                        }
-                        continue;
+                // Prima di ogni altra cosa: e' una richiesta di fermarsi? Va vista qui,
+                // prima del cervello, perche' chi la dice sta aspettando che qualcosa
+                // smetta adesso.
+                if e_una_fermata(&testo) {
+                    if !si_da_retta_alla_fermata(fase_ora, crate::interruzione::quante_in_corso()) {
+                        tracing::debug!("fermata detta ad altri, scartata");
+                    } else if fermata_nuova(Instant::now()) {
+                        ferma_e_dillo(&bus).await;
+                    } else {
+                        tracing::debug!("fermata gia' sentita da un altro orecchio");
                     }
+                    continue;
+                }
 
-                    match fase_ora {
-                        SVEGLIA => {
-                            // Conversazione aperta: tutto va al cervello, il
-                            // nome non serve piu'.
-                            bus.emit("voce.comando", json!({ "testo": testo, "primo": false }));
-                        }
-                        _ => match crate::caps_voce::dopo_il_risveglio(&testo, &parola) {
-                            // «Brilla Nova, basta»: chiamata per nome,
-                            // la fermata vale sempre, e non apre una
-                            // conversazione (D447).
-                            Some(comando) if e_una_fermata(&comando) => {
+                match fase_ora {
+                    SVEGLIA => {
+                        // Conversazione aperta: tutto va al cervello, il
+                        // nome non serve piu'.
+                        bus.emit("voce.comando", json!({ "testo": testo, "primo": false }));
+                    }
+                    _ => match crate::caps_voce::dopo_il_risveglio(&testo, &parola) {
+                        // «Brilla Nova, basta»: chiamata per nome,
+                        // la fermata vale sempre, e non apre una
+                        // conversazione (D447).
+                        Some(comando) if e_una_fermata(&comando) => {
+                            if fermata_nuova(Instant::now()) {
                                 ferma_e_dillo(&bus).await;
                             }
-                            Some(comando) => {
-                                tracing::info!("risvegliata");
-                                // Gemini Live, se e' scelta nel pannello: la
-                                // conversazione la tiene lei, fino a «fine»
-                                // o «pausa». Se non parte, si continua con la
-                                // voce di sempre e lo si dice (D386).
-                                match dal_vivo(&bus, &microfono, &comando, fase_ora == IN_PAUSA).await {
-                                    DalVivo::NonScelta => {}
-                                    DalVivo::NonPartita => {
-                                        // Il saluto l'ha gia' fatto l'avviso;
-                                        // la domanda detta col nome no.
-                                        if !comando.trim().is_empty() {
-                                            bus.emit(
-                                                "voce.comando",
-                                                json!({ "testo": comando, "primo": true }),
-                                            );
-                                        }
-                                        ultimo_attivo = std::time::Instant::now();
-                                        continue;
+                        }
+                        // Chiamata, ma la conversazione l'ha appena
+                        // presa un altro orecchio: e' la stessa frase
+                        // sentita in due (D455).
+                        Some(_) if !rivendica(&chi) => {
+                            tracing::debug!("chiamata gia' sentita da un altro orecchio");
+                        }
+                        Some(comando) => {
+                            tracing::info!(orecchio = %chi, "risvegliata");
+                            // Gemini Live, se e' scelta nel pannello: la
+                            // conversazione la tiene lei, fino a «fine»
+                            // o «pausa». Se non parte, si continua con la
+                            // voce di sempre e lo si dice (D386).
+                            match dal_vivo(&bus, &orecchio, &comando, fase_ora == IN_PAUSA).await {
+                                DalVivo::NonScelta => {}
+                                DalVivo::NonPartita => {
+                                    // Il saluto l'ha gia' fatto l'avviso;
+                                    // la domanda detta col nome no.
+                                    if !comando.trim().is_empty() {
+                                        bus.emit(
+                                            "voce.comando",
+                                            json!({ "testo": comando, "primo": true }),
+                                        );
                                     }
-                                    DalVivo::Finita | DalVivo::Caduta => {
-                                        ultimo_attivo = std::time::Instant::now();
-                                        continue;
-                                    }
+                                    ultimo_attivo = std::time::Instant::now();
+                                    continue;
                                 }
-                                imposta_fase(&bus, SVEGLIA);
-                                bus.emit(
-                                    "voce.risveglio",
-                                    json!({
-                                        "testo": testo,
-                                        "comando": comando,
-                                        "riprende": fase_ora == IN_PAUSA,
-                                    }),
-                                );
-                                // Una parola, subito: chi ha chiamato deve
-                                // sapere di essere stato sentito senza dover
-                                // guardare lo schermo.
-                                let saluto = if fase_ora == IN_PAUSA {
-                                    // Anche qui una frase, non una parola: e'
-                                    // la prima cosa che il sintetizzatore
-                                    // legge, e su una parola sola sbaglia
-                                    // lingua.
-                                    "Riprendiamo pure.".to_string()
-                                } else {
-                                    crate::caps_voce::saluto_di_risveglio()
-                                };
-                                crate::caps_voce::annuncia(bus.clone(), &saluto).await;
-                                // Se dopo il nome c'era gia' altro, e' gia' un
-                                // comando: «Nova, che ore sono» non deve
-                                // costringere a ripetere la domanda.
-                                if !comando.trim().is_empty() {
-                                    bus.emit(
-                                        "voce.comando",
-                                        json!({ "testo": comando, "primo": true }),
-                                    );
+                                DalVivo::Finita | DalVivo::Caduta => {
+                                    ultimo_attivo = std::time::Instant::now();
+                                    continue;
                                 }
                             }
-                            None => tracing::debug!("non diretto a NOVA, scartato"),
-                        },
-                    }
+                            imposta_fase(&bus, SVEGLIA);
+                            bus.emit(
+                                "voce.risveglio",
+                                json!({
+                                    "testo": testo,
+                                    "comando": comando,
+                                    "riprende": fase_ora == IN_PAUSA,
+                                }),
+                            );
+                            // Una parola, subito: chi ha chiamato deve
+                            // sapere di essere stato sentito senza dover
+                            // guardare lo schermo.
+                            let saluto = if fase_ora == IN_PAUSA {
+                                // Anche qui una frase, non una parola: e'
+                                // la prima cosa che il sintetizzatore
+                                // legge, e su una parola sola sbaglia
+                                // lingua.
+                                "Riprendiamo pure.".to_string()
+                            } else {
+                                crate::caps_voce::saluto_di_risveglio()
+                            };
+                            crate::caps_voce::annuncia(bus.clone(), &saluto).await;
+                            // Se dopo il nome c'era gia' altro, e' gia' un
+                            // comando: «Nova, che ore sono» non deve
+                            // costringere a ripetere la domanda.
+                            if !comando.trim().is_empty() {
+                                bus.emit(
+                                    "voce.comando",
+                                    json!({ "testo": comando, "primo": true }),
+                                );
+                            }
+                        }
+                        None => tracing::debug!("non diretto a NOVA, scartato"),
+                    },
                 }
-                Ok(Ok(None)) => {
-                    errori_di_fila = 0;
-                    if muto {
-                        // Il braccetto e' stato abbassato: si riprende senza
-                        // che nessuno debba riavviare niente.
-                        muto = false;
-                        tracing::info!("il microfono e' tornato a sentire");
+            }
+            Ok(Ok(None)) => {
+                errori_di_fila = 0;
+                if muto {
+                    // Il braccetto e' stato abbassato: si riprende senza
+                    // che nessuno debba riavviare niente.
+                    muto = false;
+                    tracing::info!("il microfono e' tornato a sentire");
+                    if del_pc {
                         bus.emit("voce.muto", json!({ "muto": false }));
                     }
                 }
-                Ok(Err(e)) => {
-                    if let Some(m) = e.downcast_ref::<nova_voce::MicrofonoMuto>() {
-                        // Non conta come errore: spegnere il risveglio qui
-                        // vorrebbe dire che chi abbassa il braccetto e chiama
-                        // NOVA non ottiene niente, e non puo' sapere perche'.
-                        if !muto {
-                            muto = true;
-                            tracing::warn!(errore = %m, "il microfono non consegna niente");
+            }
+            Ok(Err(e)) => {
+                if let Some(m) = e.downcast_ref::<nova_voce::MicrofonoMuto>() {
+                    // Non conta come errore: spegnere il risveglio qui
+                    // vorrebbe dire che chi abbassa il braccetto e chiama
+                    // NOVA non ottiene niente, e non puo' sapere perche'.
+                    if !muto {
+                        muto = true;
+                        tracing::warn!(errore = %m, "il microfono non consegna niente");
+                        // Il pannello parla del microfono del PC: un
+                        // dispositivo che tace non e' quel guasto.
+                        if del_pc {
                             bus.emit(
                                 "voce.muto",
                                 json!({ "muto": true, "microfono": m.microfono,
                                         "motivo": format!("{m}") }),
                             );
                         }
-                        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-                        continue;
                     }
-                    errori_di_fila += 1;
-                    tracing::warn!(errore = %e, "ascolto fallito");
-                    if errori_di_fila >= 5 {
-                        bus.emit("risveglio.spento", json!({ "motivo": format!("{e}") }));
-                        s.acceso.store(false, Ordering::SeqCst);
-                        break;
-                    }
-                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                    continue;
                 }
-                Err(e) => {
-                    tracing::warn!(errore = %e, "compito di ascolto interrotto");
-                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                errori_di_fila += 1;
+                tracing::warn!(errore = %e, "ascolto fallito");
+                // Cinque errori di fila spengono il microfono del PC. Un
+                // orecchio lontano vive quanto il suo dispositivo: riprova.
+                if errori_di_fila >= 5 && del_pc {
+                    bus.emit("risveglio.spento", json!({ "motivo": format!("{e}") }));
+                    s.acceso.store(false, Ordering::SeqCst);
+                    break;
                 }
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            }
+            Err(e) => {
+                tracing::warn!(errore = %e, "compito di ascolto interrotto");
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             }
         }
-        let s = stato();
-        s.acceso.store(false, Ordering::SeqCst);
-        s.fase.store(DORMIENTE, Ordering::SeqCst);
-        bus.emit("risveglio.spento", json!({ "motivo": "fermato" }));
-        bus.emit("stato.cambiato", json!({ "stato": "quiete" }));
-        tracing::info!("risveglio spento");
-    });
-    true
+    }
 }
 
 #[cfg(test)]
@@ -535,5 +747,93 @@ mod prove {
             "c'e' qualcosa da fermare"
         );
         assert!(si_da_retta_alla_fermata(IN_PAUSA, 3));
+    }
+
+    /// D455: con due orecchi nella stessa stanza la conversazione e' di uno
+    /// solo. E' l'unica prova che tocca lo stato del risveglio, che e' uno
+    /// per tutto il programma: per questo e' una sola, in fila.
+    #[test]
+    fn la_conversazione_e_di_un_orecchio_solo() {
+        let bus = Bus::new();
+        let mut eventi = bus.subscribe();
+        let s = stato();
+        let t0 = Instant::now();
+        let dopo = |secondi: u64| t0 + Duration::from_secs(secondi);
+        s.fase.store(DORMIENTE, Ordering::SeqCst);
+        *s.padrone.lock().unwrap() = (IL_PC.to_string(), None);
+
+        // Di serie la conversazione e' del PC, e il PC la prende quando vuole.
+        assert!(e_il_padrone(IL_PC));
+        assert!(rivendica_alle(IL_PC, t0));
+        // La stessa frase, sentita un attimo dopo dal tablet: e' gia' presa.
+        assert!(!rivendica_alle("tablet", dopo(1)));
+        assert!(!rivendica_alle("tablet", dopo(4)));
+        assert!(e_il_padrone(IL_PC) && !e_il_padrone("tablet"));
+        // Chi ce l'ha la riprende quando vuole.
+        assert!(rivendica_alle(IL_PC, dopo(2)));
+        // Passata la finestra, a conversazione chiusa, chiamata dal tablet
+        // e' del tablet.
+        assert!(rivendica_alle("tablet", dopo(2) + STESSA_FRASE));
+        assert_eq!(padrone(), "tablet");
+        // E adesso e' il PC che sente la stessa frase in ritardo.
+        assert!(!rivendica_alle(IL_PC, dopo(8)));
+
+        // A conversazione aperta non la prende nessun altro, per quanto
+        // tempo passi.
+        s.fase.store(SVEGLIA, Ordering::SeqCst);
+        assert!(!rivendica_alle(IL_PC, dopo(3600)));
+        assert!(rivendica_alle("tablet", dopo(3600)));
+        // In pausa la riprende chi si sente chiamare.
+        s.fase.store(IN_PAUSA, Ordering::SeqCst);
+        assert!(rivendica_alle(IL_PC, dopo(7300)));
+        assert!(e_il_padrone(IL_PC));
+
+        // Il tablet prende la conversazione, la apre, e si scollega: torna
+        // al PC e va in pausa, invece di restare aperta per nessuno.
+        assert!(rivendica_alle("tablet", dopo(7400)));
+        s.fase.store(SVEGLIA, Ordering::SeqCst);
+        lascia(&bus, "un altro");
+        assert!(e_il_padrone("tablet"), "chi non ce l'ha non la lascia");
+        assert_eq!(fase(), SVEGLIA);
+        lascia(&bus, "tablet");
+        assert!(e_il_padrone(IL_PC));
+        assert_eq!(fase(), IN_PAUSA);
+        let e = eventi.try_recv().expect("il cambio di fase si dice");
+        assert_eq!(
+            (e.topic.as_str(), e.data["fase"].as_str()),
+            ("voce.fase", Some("in_pausa"))
+        );
+        // Il PC non «se ne va»: lasciare a nome suo non cambia niente.
+        s.fase.store(SVEGLIA, Ordering::SeqCst);
+        lascia(&bus, IL_PC);
+        assert_eq!(fase(), SVEGLIA);
+
+        // Spegnere il risveglio a mano ferma tutti gli orecchi e chiude.
+        s.fase.store(IN_PAUSA, Ordering::SeqCst);
+        assert!(rivendica_alle("tablet", dopo(9000)));
+        ferma();
+        assert!(s.fermato.load(Ordering::SeqCst));
+        assert!(e_il_padrone(IL_PC));
+        assert_eq!(fase(), DORMIENTE);
+        s.fermato.store(false, Ordering::SeqCst);
+
+        // «Basta» sentito da due orecchi ferma una volta sola.
+        *s.ultima_fermata.lock().unwrap() = None;
+        assert!(fermata_nuova(t0));
+        assert!(!fermata_nuova(dopo(1)));
+        assert!(!fermata_nuova(dopo(2)));
+        assert!(fermata_nuova(t0 + STESSA_FERMATA));
+    }
+
+    #[test]
+    fn ogni_orecchio_ha_il_suo_nome_fra_i_padroni() {
+        assert_eq!(Orecchio::DelPc(None).chi(), IL_PC);
+        assert_eq!(Orecchio::DelPc(Some("cuffie".into())).chi(), IL_PC);
+        let o = crate::orecchi::arriva("prova-chi", "Tab A8", &[0i16; 16]).unwrap();
+        let lontano = Orecchio::Lontano(o);
+        assert_eq!(lontano.chi(), "prova-chi");
+        assert!(lontano.continua(), "finche' il dispositivo e' collegato");
+        crate::orecchi::chiudi("prova-chi");
+        assert!(!lontano.continua());
     }
 }

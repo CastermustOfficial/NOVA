@@ -30,7 +30,7 @@ pub use elevenlabs::{ElevenLabs, QuotaFinita};
 pub use espeak::Espeak;
 pub use fonemi::Fonemizzatore;
 pub use kokoro::{Kokoro, FREQUENZA, MAX_FONEMI};
-pub use audio::{ascolta, ascolta_con_attesa, ascolta_da, dispositivi, in_wav, ricampiona,
+pub use audio::{ascolta, ascolta_con_attesa, ascolta_da, ascolta_dai_raccolti, dispositivi, in_wav, ricampiona,
                 riproduci, Ascolto, MicrofonoMuto};
 pub use ascolto::Trascrittore;
 pub use scribe::Scribe;

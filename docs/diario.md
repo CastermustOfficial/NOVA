@@ -12319,3 +12319,22 @@ risparmiare corrente. Le particelle non c'entravano. Gliel'ho detto, e ha
 scelto di togliere il freno: adesso a riposo l'orb gira a 33 al secondo
 (D454). Costa corrente, e l'ho misurata: attaccato al PC il tablet si
 scaricava a 236 mA, adesso a 492.
+
+La sera Gio chiede se adesso il tablet si usa gia' a voce. No: mostra
+l'orb, ci si scrive, ma il microfono e l'altoparlante sono ancora quelli
+del PC. E' il pezzo che manca, e lo divido in tre: l'orecchio, la bocca, e
+chi risponde quando il PC e il tablet sentono la stessa frase. Perche' Gio,
+alla domanda su chi deve ascoltare, ha risposto: tutti e due.
+
+L'orecchio (D455). Il tablet apre il microfono e lo manda al PC, che ci
+cerca la frase di risveglio come fa sul suo. Gli avevo scritto che il
+tablet avrebbe mandato solo quando c'e' suono; letto il ciclo della voce,
+ho cambiato: manda sempre, cosi' la regola e' una sola, quella collaudata,
+e gliel'ho detto. La cosa che non mi aspettavo e' che «tutti e due» chiede
+subito un padrone della conversazione: le fasi della voce sono una sola per
+tutto il programma, e con due orecchi nella stessa stanza NOVA si sarebbe
+svegliata due volte.
+
+Il microfono in Rust per Android si costruisce al primo colpo, con la
+stessa libreria del PC. La frase detta davvero al tablet resta da provare
+col tablet in mano: per ora la risposta esce dal PC.

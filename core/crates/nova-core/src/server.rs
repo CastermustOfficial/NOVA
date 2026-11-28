@@ -33,6 +33,12 @@ pub struct Server {
     chiuso: std::sync::atomic::AtomicBool,
 }
 
+/// Il dispositivo del portale che un collegamento sta servendo (D455).
+pub(crate) struct Ospite {
+    pub id: String,
+    pub nome: String,
+}
+
 /// Per chi lavora un collegamento (D384).
 enum Legame {
     /// Per Nova, o per la persona: come sempre.
@@ -394,7 +400,7 @@ impl Server {
     {
         // Nessuno taglia la pipe del PC: chi tiene il filo non lo tira mai.
         let (_mai, taglio) = tokio::sync::watch::channel(false);
-        self.servi_finche(stream, taglio).await
+        self.servi_finche(stream, taglio, None).await
     }
 
     /// Serve un collegamento finche' non si chiude o finche' qualcuno non
@@ -406,10 +412,16 @@ impl Server {
     /// ancora in corso — e non se ne legge piu' niente. Una richiesta gia' in
     /// corso finisce il suo lavoro: fermarla a meta' lascerebbe a meta' quello
     /// che stava facendo sul PC.
+    ///
+    /// `ospite` e' il dispositivo del portale che si sta servendo; dalla pipe
+    /// del PC non c'e'. Solo un ospite puo' mandare il suo microfono
+    /// (`voce/pezzo`, D455): i pezzi diventano il suo orecchio, che si
+    /// chiude quando il collegamento finisce.
     pub(crate) async fn servi_finche<S>(
         self: Arc<Self>,
         stream: S,
         mut taglio: tokio::sync::watch::Receiver<bool>,
+        ospite: Option<Ospite>,
     ) where
         S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Send + 'static,
     {
@@ -434,6 +446,8 @@ impl Server {
         // Per chi lavora questo collegamento: per Nova, o per un Dot che si e'
         // presentato col suo gettone (D384).
         let mut legato = Legame::Nessuno;
+        // Questo collegamento ha mandato il microfono del suo dispositivo.
+        let mut ha_un_orecchio = false;
 
         // inoltro degli eventi sottoscritti
         let bus_tx = tx.clone();
@@ -507,6 +521,30 @@ impl Server {
                 }
             };
 
+            // Il microfono di un dispositivo (D455): dieci pezzi al secondo,
+            // senza risposta. Prima di tutto il resto, e fuori dal giro delle
+            // richieste: non e' una cosa che si chiede a NOVA.
+            if req.method == nova_portale::voce::METODO_DEL_PEZZO {
+                if let Some(o) = &ospite {
+                    let vuoti = json!({});
+                    match nova_portale::voce::leggi_il_pezzo(req.params.as_ref().unwrap_or(&vuoti))
+                    {
+                        Ok(campioni) => {
+                            ha_un_orecchio = true;
+                            if let Some(nuovo) = crate::orecchi::arriva(&o.id, &o.nome, &campioni) {
+                                crate::caps_voce::ascolta_anche(self.ctx.bus.clone(), nuovo);
+                            }
+                        }
+                        Err(perche) => {
+                            tracing::debug!(dispositivo = %o.nome, perche = %perche, "un pezzo di voce scartato");
+                        }
+                    }
+                    continue;
+                }
+                // Dalla pipe del PC nessuno manda un microfono: la richiesta
+                // prosegue e trova che il metodo non c'e'.
+            }
+
             // Il Claude Code di un Dot dice per chi lavora prima di tutto il
             // resto: da li' in poi ogni richiesta gira per conto del Dot, col
             // suo vault e coi permessi del custode. Un gettone che non e' di
@@ -576,6 +614,11 @@ impl Server {
             }
         }
 
+        // Il dispositivo che mandava il suo microfono se n'e' andato: il
+        // suo orecchio si chiude, e il ciclo che lo ascoltava finisce.
+        if let (true, Some(o)) = (ha_un_orecchio, &ospite) {
+            crate::orecchi::chiudi(&o.id);
+        }
         drop(tx);
         guardia.abort();
         inoltro.abort();

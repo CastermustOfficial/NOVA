@@ -1076,7 +1076,10 @@ in the panel, under **Microphone clean-up**.
 A tablet can act as NOVA's screen, microphone and speaker, while the PC does
 the work (D448). There are the door on the PC and the tablet program
 (`core/tablet`, D449), which shows the orb and the chat and can be written
-to; the voice through the portal is in progress.
+to. Of the voice there is the ear (D455): the tablet's microphone reaches
+the PC, the wake phrase also works when said to the tablet, and the
+conversation belongs to the device that heard it first. For now the answer
+comes out of the PC: the tablet's speaker is in progress.
 
 The tablet program is in Rust, with Tauri like the PC window, and is built
 for Android with the SDK and the NDK. This is the debug build, signed with
@@ -1095,8 +1098,8 @@ and the field to write in.
 To make it a tablet that is **only NOVA** (D452) there is
 `core/tablet/prepara.sh`, which runs on the tablet over the cable after a
 factory reset with no accounts: it switches off the programs that are not
-needed, removes the screen lock and sets NOVA as the home screen. From then
-on the tablet boots into NOVA. `prepara.sh indietro` puts everything back.
+needed, gives NOVA the microphone permission, removes the screen lock and
+sets NOVA as the home screen. From then on the tablet boots into NOVA. `prepara.sh indietro` puts everything back.
 
 ```powershell
 adb install core\tablet\gen\android\app\build\outputs\apk\arm64\debug\app-arm64-debug.apk

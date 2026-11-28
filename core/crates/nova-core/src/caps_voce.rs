@@ -639,6 +639,14 @@ pub fn avvia_se_richiesto(bus: crate::bus::Bus) {
     crate::risveglio::avvia(bus, microfono_scelto(), cartella, parola_di_risveglio());
 }
 
+/// Un dispositivo del portale ha cominciato a mandare il suo microfono
+/// (D455): da adesso si ascolta anche da li', con lo stesso motore e la
+/// stessa frase di risveglio. Se il risveglio nel pannello e' spento, o il
+/// motore manca, l'orecchio resta aperto e sordo finche' non cambia.
+pub fn ascolta_anche(bus: crate::bus::Bus, orecchio: Arc<crate::orecchi::Lontano>) {
+    crate::risveglio::avvia_lontano(bus, orecchio, percorsi_ascolto());
+}
+
 /// Dice una frase breve senza passare dalle capacita'.
 ///
 /// Serve al ciclo di risveglio: quando NOVA si sveglia deve rispondere

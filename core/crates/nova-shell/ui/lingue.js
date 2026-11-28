@@ -248,6 +248,7 @@ export const LINGUE = {
     'qualcosa non va': 'something is wrong',
     'aspetto un tuo ok sul PC': 'waiting for your ok on the PC',
     'cerco il PC…': 'looking for the PC…',
+    'il microfono non si apre: non ti sento': 'the microphone will not open: I cannot hear you',
     'da abbinare al PC': 'to be paired with the PC',
     'Porta al PC che risponde a: ': 'It leads to the PC that answers at: ',
     "questo dispositivo non e' abbinato a NOVA, o e' stato dimenticato": 'this device is not paired with NOVA, or it has been forgotten',

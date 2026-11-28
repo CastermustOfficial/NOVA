@@ -13,6 +13,7 @@
 #   le app di Samsung, i servizi che lavorano in sottofondo). Li SPEGNE, non
 #   li cancella: stanno nella parte del sistema che non si scrive, e
 #   «indietro» li riaccende tutti;
+# - da' a NOVA il permesso del microfono (D455);
 # - toglie il blocco dello schermo;
 # - mette NOVA come schermata di casa, e per ultima spegne quella di Samsung:
 #   da li' in poi all'accensione, e col tasto Home, c'e' NOVA.
@@ -207,6 +208,12 @@ for p in $(elenco); do
 done
 echo "spenti: $spenti; gia' spenti: $gia; non presenti: $assenti"
 [ -n "$rifiutati" ] && echo "il sistema non ha lasciato spegnere:$rifiutati"
+
+# Il microfono (D455): NOVA e' una cosa a cui si parla. Dato da qui, il
+# programma non lo chiede a schermo.
+pm grant "$NOVA" android.permission.RECORD_AUDIO >/dev/null 2>&1 \
+  && echo "NOVA puo' usare il microfono" \
+  || echo "il permesso del microfono non si e' potuto dare: lo chiedera' NOVA a schermo"
 
 # Niente blocco dello schermo: all'accensione si arriva dritti a NOVA.
 locksettings set-disabled true >/dev/null 2>&1

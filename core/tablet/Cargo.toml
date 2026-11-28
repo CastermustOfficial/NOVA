@@ -29,6 +29,9 @@ nova-proto = { path = "../crates/nova-proto" }
 tokio = { version = "1", features = ["rt", "sync", "time", "macros"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 anyhow = "1"
+# Il microfono del dispositivo (D455), con la stessa libreria e la stessa
+# versione che il PC usa per il suo (`nova-voce`): su Android passa da Oboe.
+cpal = "0.15"
 
 # L'APK di prova si porta al dispositivo via cavo: senza simboli e'
 # dieci volte piu' piccolo.

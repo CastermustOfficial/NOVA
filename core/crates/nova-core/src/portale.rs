@@ -380,7 +380,14 @@ async fn accendi_davvero(
                     }
                     let _ = taglia.send(true);
                 });
-                server.clone().servi_finche(canale, taglio).await;
+                let ospite = crate::server::Ospite {
+                    id: id.clone(),
+                    nome: dispositivo.nome.clone(),
+                };
+                server
+                    .clone()
+                    .servi_finche(canale, taglio, Some(ospite))
+                    .await;
                 guardiano.abort();
                 if let Some(n) = collegati.lock().unwrap().get_mut(&id) {
                     *n = n.saturating_sub(1);

@@ -3423,3 +3423,22 @@ Uno scambio fra come si vede e quanto costa non lo decido io: lo dico a
 Gio con i due numeri, cosa vedra' e cosa risparmia, e sceglie lui. E quando
 dice che una cosa va male, prima di fare il rimedio che propone misuro
 dove va male: qui il suo rimedio non avrebbe cambiato niente.
+
+## La promessa fatta prima di leggere il codice
+
+Chiedendo a Gio chi dovesse ascoltare fra il PC e il tablet, nella domanda
+ho scritto che il tablet avrebbe mandato il microfono «solo quando c'e'
+suono». Non avevo ancora letto come il PC ritaglia una frase: misura il
+fondo della stanza nel primo mezzo secondo, e da li' decide cos'e' voce.
+Con pezzi che arrivano solo quando c'e' suono quel fondo sarebbe stato la
+voce stessa, e la frase di risveglio persa. Nella stessa risposta ho anche
+detto «256 kbit/s»: sono i campioni; sul filo, in base64, sono 345.
+
+Me ne sono accorto leggendo `ascolta_con_attesa` per separare la regola dal
+microfono. Corretto col D455, prima di scrivere una riga: il tablet manda
+sempre, e l'ho detto a Gio, col perche'.
+
+La regola: in una domanda a Gio ci metto solo cose che ho gia' verificato.
+Un dettaglio di come funzionera', scritto per rassicurare prima di aver
+letto il codice, e' una promessa: se poi non regge, devo tornare a dirlo.
+E un numero lo scrivo dopo averlo contato, con l'unita' di cio' che misura.

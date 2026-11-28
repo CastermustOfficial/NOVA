@@ -21,7 +21,8 @@
 //! Qui stanno le due meta' del canale, senza demone: [`identita`] (il
 //! certificato), [`abbinamento`] (codici, gettoni, dispositivi), [`invito`]
 //! (il codice da inquadrare), [`saluto`] (la prima riga), [`tls`], e
-//! [`cliente`]: il dispositivo dalla sua parte (D449).
+//! [`cliente`]: il dispositivo dalla sua parte (D449). In [`voce`] c'e' la forma
+//! in cui il microfono del dispositivo viaggia verso il PC (D455).
 
 pub mod abbinamento;
 pub mod cliente;
@@ -29,6 +30,7 @@ pub mod identita;
 pub mod invito;
 pub mod saluto;
 pub mod tls;
+pub mod voce;
 
 /// La porta su cui il portale ascolta, se il pannello non ne dice un'altra.
 pub const PORTA_DI_SERIE: u16 = 47_810;

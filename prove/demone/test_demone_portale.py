@@ -391,6 +391,58 @@ try:
     controlla("corretto, parte e l'errore sparisce",
               stato.get("in_ascolto") is True and "errore" not in stato, json.dumps(stato))
     controlla("e il dispositivo dimenticato da spento non c'e' piu'", stato.get("dispositivi") == [])
+
+    print("\n10. il microfono di un dispositivo diventa un orecchio (D455)")
+    # Un decimo di secondo di silenzio a 16 kHz, come lo manda il tablet.
+    PEZZO = {"pcm": base64.b64encode(b"\0\0" * 1600).decode()}
+
+    def evento_orecchio(chi, secondi=15):
+        """Il prossimo evento «voce.orecchio» che arriva a questo dispositivo."""
+        fine = time.time() + secondi
+        while time.time() < fine:
+            try:
+                r = chi.riga(max(0.1, fine - time.time()))
+            except socket.timeout:
+                return None
+            if r is None:
+                return None
+            if r.get("method") == "event" and r["params"].get("topic") == "voce.orecchio":
+                return r["params"]["data"]
+        return None
+
+    codice = dict(p.split("=", 1) for p in rpc("portale/abbina")["invito"].split("&"))["c"]
+    d = Dispositivo()
+    d.manda({"fai": "abbina", "codice": codice, "nome": "tablet che ascolta"})
+    r = d.riga()
+    controlla("un dispositivo abbinato e collegato", r is not None and r.get("ok") is True, json.dumps(r))
+    ident, gettone = r["id"], r["gettone"]
+    # Un secondo collegamento dello stesso dispositivo, che guarda e basta.
+    occhio = Dispositivo()
+    occhio.manda({"fai": "entra", "id": ident, "gettone": gettone})
+    controlla("e un secondo collegamento che guarda", (occhio.riga() or {}).get("ok") is True)
+    for chi in (d, occhio):
+        chi.chiedi("events/subscribe", {"topics": ["voce.orecchio"]})
+    for _ in range(3):
+        d.manda({"jsonrpc": "2.0", "method": "voce/pezzo", "params": PEZZO})
+    e = evento_orecchio(d)
+    controlla("al primo pezzo nasce il suo orecchio, e si dice",
+              e == {"id": ident, "nome": "tablet che ascolta", "aperto": True}, json.dumps(e))
+    controlla("lo sa anche chi guarda", evento_orecchio(occhio) == e)
+    d.manda({"jsonrpc": "2.0", "method": "voce/pezzo", "params": {"pcm": "non sono campioni"}})
+    d.manda({"jsonrpc": "2.0", "method": "voce/pezzo", "params": {}})
+    r = d.chiedi("ping", ident=7)
+    controlla("un pezzo che non si legge si butta, e il canale resta",
+              r is not None and "pong" in r.get("result", {}), json.dumps(r))
+    controlla("dalla pipe del PC nessuno manda un microfono: il metodo non c'e'",
+              "metodo sconosciuto: voce/pezzo" in errore_di("voce/pezzo", **PEZZO),
+              errore_di("voce/pezzo", **PEZZO))
+    d.chiudi()
+    e = evento_orecchio(occhio)
+    controlla("quando il dispositivo esce il suo orecchio si chiude",
+              e == {"id": ident, "nome": "tablet che ascolta", "aperto": False}, json.dumps(e))
+    occhio.chiudi()
+    controlla("e si dimentica come gli altri",
+              rpc("portale/dimentica", id=ident) == {"dimenticato": True})
 finally:
     processo.kill()
 

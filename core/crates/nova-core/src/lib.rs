@@ -61,6 +61,7 @@ pub mod giudice;
 pub mod giudizio_casa;
 pub mod live;
 pub mod interruzione;
+pub mod orecchi;
 pub mod osserva;
 pub mod pagella;
 pub mod progetti;

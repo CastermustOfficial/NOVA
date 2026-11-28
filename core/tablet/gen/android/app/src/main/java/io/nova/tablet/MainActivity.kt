@@ -4,6 +4,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.Manifest
 import android.os.BatteryManager
 import android.os.Bundle
 import android.view.WindowManager
@@ -23,6 +25,9 @@ import androidx.core.view.WindowInsetsControllerCompat
  *   sistema, se no una batteria vecchia dura un paio d'ore.
  * - Con la tastiera aperta la pagina si stringe nello spazio che resta,
  *   invece di scorrere via: mentre si scrive si vede ancora l'orb.
+ * - Chiede il permesso del microfono (D455): e' una cosa a cui si parla. Lo
+ *   chiede una volta, all'apertura; su un dispositivo preparato dal cavo
+ *   (`prepara.sh`) il permesso c'e' gia', e non chiede niente.
  */
 class MainActivity : TauriActivity() {
   private val corrente = object : BroadcastReceiver() {
@@ -37,6 +42,7 @@ class MainActivity : TauriActivity() {
     nascondiLeBarre()
     faiPostoAllaTastiera()
     tieniAcceso(sottoCarica())
+    chiediIlMicrofono()
     val quando = IntentFilter().apply {
       addAction(Intent.ACTION_POWER_CONNECTED)
       addAction(Intent.ACTION_POWER_DISCONNECTED)
@@ -52,6 +58,13 @@ class MainActivity : TauriActivity() {
   override fun onWindowFocusChanged(hasFocus: Boolean) {
     super.onWindowFocusChanged(hasFocus)
     if (hasFocus) nascondiLeBarre()
+  }
+
+  /** Senza il permesso il microfono non si apre: lo si chiede a chi ha il dispositivo in mano. */
+  private fun chiediIlMicrofono() {
+    if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+      requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), RICHIESTA_DEL_MICROFONO)
+    }
   }
 
   /** Il dispositivo e' attaccato alla corrente? */
@@ -78,5 +91,10 @@ class MainActivity : TauriActivity() {
     val barre = WindowCompat.getInsetsController(window, window.decorView)
     barre.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     barre.hide(WindowInsetsCompat.Type.systemBars())
+  }
+
+  private companion object {
+    /** Il numero con cui si riconosce la risposta alla richiesta del microfono. */
+    const val RICHIESTA_DEL_MICROFONO = 455
   }
 }

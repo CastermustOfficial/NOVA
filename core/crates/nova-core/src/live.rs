@@ -581,11 +581,41 @@ impl Drop for Aperta {
     }
 }
 
+/// Da dove arriva la voce di chi parla, in una conversazione dal vivo
+/// (D455).
+pub enum Microfono {
+    /// Il microfono del PC, per pezzo di nome; senza, il predefinito.
+    DelPc(Option<String>),
+    /// Il microfono di un dispositivo del portale: i suoi pezzi da 100 ms a
+    /// 16 kHz, cosi' come arrivano (`orecchi::Lontano::dal_vivo`).
+    Lontano(mpsc::Receiver<Vec<i16>>),
+}
+
+/// Il microfono del PC aperto, o il compito che passa i pezzi di un
+/// dispositivo: si chiude quando lo si butta.
+enum Aperto {
+    DelPc(#[allow(dead_code)] nova_voce::dal_vivo::Microfono),
+    Lontano(tokio::task::JoinHandle<()>),
+}
+
+impl Drop for Aperto {
+    fn drop(&mut self) {
+        if let Aperto::Lontano(compito) = self {
+            compito.abort();
+        }
+    }
+}
+
+/// I campioni di un dispositivo, da interi a virgola.
+fn da_pcm16(pcm: &[i16]) -> Vec<f32> {
+    pcm.iter().map(|c| *c as f32 / 32768.0).collect()
+}
+
 /// La conversazione col microfono e l'altoparlante veri, dopo il risveglio.
 pub async fn conversa_davvero(
     server: Arc<crate::server::Server>,
     s: &Scelte,
-    nome_microfono: Option<String>,
+    da: Microfono,
     primo: Option<String>,
     riprende: bool,
     aperta: &mut bool,
@@ -597,28 +627,49 @@ pub async fn conversa_davvero(
             .map_err(|e| anyhow!("{e}"))??,
     );
     let (tx, rx) = mpsc::channel::<Vec<i16>>(64);
-    let nome = nome_microfono.clone();
-    // Il microfono si pulisce prima di mandarlo (D446): senza, il rumore
-    // della stanza arrivava al server gonfiato dal guadagno, e il server lo
-    // prendeva per l'utente che parla.
-    let mut ingresso =
-        nova_voce::pulizia::Ingresso::nuovo(s.pulisci, nova_live::FREQUENZA_INGRESSO);
-    let frequenza = ingresso.frequenza();
-    let microfono = tokio::task::spawn_blocking(move || {
-        nova_voce::dal_vivo::microfono(
-            nome.as_deref(),
-            frequenza,
-            nova_live::MS_PER_PEZZO,
-            move |pezzo| {
-                let pezzo = ingresso.passa(pezzo, nova_live::guadagno);
-                // I primi pezzi aspettano il cancello: non c'e' ancora
-                // niente da mandare.
-                pezzo.is_empty() || tx.blocking_send(nova_live::in_pcm16(&pezzo)).is_ok()
-            },
-        )
-    })
-    .await
-    .map_err(|e| anyhow!("{e}"))??;
+    let microfono = match da {
+        Microfono::DelPc(nome) => {
+            // Il microfono si pulisce prima di mandarlo (D446): senza, il
+            // rumore della stanza arrivava al server gonfiato dal guadagno, e
+            // il server lo prendeva per l'utente che parla.
+            let mut ingresso =
+                nova_voce::pulizia::Ingresso::nuovo(s.pulisci, nova_live::FREQUENZA_INGRESSO);
+            let frequenza = ingresso.frequenza();
+            Aperto::DelPc(
+                tokio::task::spawn_blocking(move || {
+                    nova_voce::dal_vivo::microfono(
+                        nome.as_deref(),
+                        frequenza,
+                        nova_live::MS_PER_PEZZO,
+                        move |pezzo| {
+                            let pezzo = ingresso.passa(pezzo, nova_live::guadagno);
+                            // I primi pezzi aspettano il cancello: non c'e'
+                            // ancora niente da mandare.
+                            pezzo.is_empty()
+                                || tx.blocking_send(nova_live::in_pcm16(&pezzo)).is_ok()
+                        },
+                    )
+                })
+                .await
+                .map_err(|e| anyhow!("{e}"))??,
+            )
+        }
+        Microfono::Lontano(mut pezzi) => {
+            // I pezzi di un dispositivo arrivano gia' a 16 kHz. Il guadagno
+            // e' quello del microfono del PC; la pulizia no: RNNoise lavora a
+            // 48 kHz, e su una voce salita da 16 non e' stato provato.
+            let mut ingresso =
+                nova_voce::pulizia::Ingresso::nuovo(false, nova_live::FREQUENZA_INGRESSO);
+            Aperto::Lontano(tokio::spawn(async move {
+                while let Some(pezzo) = pezzi.recv().await {
+                    let pezzo = ingresso.passa(da_pcm16(&pezzo), nova_live::guadagno);
+                    if !pezzo.is_empty() && tx.send(nova_live::in_pcm16(&pezzo)).await.is_err() {
+                        break;
+                    }
+                }
+            }))
+        }
+    };
     let mani: Arc<dyn Mani> = Arc::new(ManiDiNova {
         server: server.clone(),
     });

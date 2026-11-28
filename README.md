@@ -1063,8 +1063,11 @@ microfono**.
 
 Un tablet puo' fare da schermo, microfono e altoparlante di NOVA, mentre il
 lavoro lo fa il PC (D448). Ci sono la porta sul PC e il programma del tablet
-(`core/tablet`, D449), che mostra l'orb e la chat e a cui si scrive; la voce
-attraverso il portale e' in lavorazione.
+(`core/tablet`, D449), che mostra l'orb e la chat e a cui si scrive. Della
+voce c'e' l'orecchio (D455): il microfono del tablet arriva al PC, la frase
+di risveglio vale anche detta al tablet, e la conversazione e' del
+dispositivo che l'ha sentita per primo. La risposta per ora esce dal PC:
+l'altoparlante del tablet e' in lavorazione.
 
 Il programma del tablet e' in Rust, con Tauri come la finestra del PC, e si
 costruisce per Android con l'SDK e l'NDK. Questa e' la versione di prova,
@@ -1083,8 +1086,9 @@ campo per scrivere.
 
 Per farne un tablet che e' **solo NOVA** (D452) c'e' `core/tablet/prepara.sh`,
 che gira sul tablet dal cavo dopo un ripristino di fabbrica senza account:
-spegne i programmi che non servono, toglie il blocco dello schermo e mette
-NOVA come schermata di casa. Da li' il tablet si accende su NOVA.
+spegne i programmi che non servono, da' a NOVA il permesso del microfono,
+toglie il blocco dello schermo e mette NOVA come schermata di casa. Da li'
+il tablet si accende su NOVA.
 `prepara.sh indietro` rimette tutto com'era.
 
 ```powershell

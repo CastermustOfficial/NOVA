@@ -329,6 +329,27 @@ pub fn ascolta_con_attesa(nome: Option<&str>, attesa_inizio_s: f32, massimo_s: f
     };
     flusso.play().context("avvio dell'ascolto")?;
 
+    let esito = ascolta_dai_raccolti(
+        &raccolti, frequenza_scheda, &nome_usato, attesa_inizio_s, massimo_s, silenzio_s, frequenza,
+    );
+    drop(flusso);
+    esito
+}
+
+/// L'ascolto di una frase su campioni che qualcun altro sta raccogliendo
+/// (D455).
+///
+/// Fino al D454 chi ascoltava era chi apriva il microfono del PC, e le due
+/// cose stavano nella stessa funzione. Con la voce dal portale i campioni
+/// arrivano anche da un altro dispositivo, e la regola dev'essere la stessa:
+/// stesso fondo misurato all'inizio, stessa soglia, stesso margine prima
+/// della prima parola. Qui c'e' solo la regola: `raccolti` sono i campioni
+/// mono arrivati da quando si e' cominciato ad ascoltare, a
+/// `frequenza_sorgente`, e chi li produce continua ad aggiungerne in coda.
+pub fn ascolta_dai_raccolti(raccolti: &Arc<Mutex<Vec<f32>>>, frequenza_sorgente: u32,
+                            nome_usato: &str, attesa_inizio_s: f32, massimo_s: f32,
+                            silenzio_s: f32, frequenza: u32) -> Result<Ascolto> {
+    let frequenza_scheda = frequenza_sorgente;
     let passo = Duration::from_millis(100);
     let mut fondo: Option<f32> = None;
     let mut misurati = 0usize;
@@ -391,7 +412,6 @@ pub fn ascolta_con_attesa(nome: Option<&str>, attesa_inizio_s: f32, massimo_s: f
             break;          // nessuno ha parlato entro l'attesa
         }
     }
-    drop(flusso);
 
     let tutti = raccolti.lock().unwrap().clone();
     // Prima dell'inizio si tiene quasi un secondo intero. Non e' prudenza
@@ -408,7 +428,7 @@ pub fn ascolta_con_attesa(nome: Option<&str>, attesa_inizio_s: f32, massimo_s: f
     // torna come ascolto senza parlato (`ha_parlato` falso), e chi chiama non
     // lo manda a trascrivere.
     if e_spento(picco_totale) {
-        return Err(MicrofonoMuto { microfono: nome_usato, picco: picco_totale }.into());
+        return Err(MicrofonoMuto { microfono: nome_usato.to_string(), picco: picco_totale }.into());
     }
     let mut campioni = campioni;
     let guadagno = normalizza(&mut campioni, 0.75);
@@ -417,7 +437,7 @@ pub fn ascolta_con_attesa(nome: Option<&str>, attesa_inizio_s: f32, massimo_s: f
         frequenza,
         picco: picco_totale,
         fermato_dal_silenzio,
-        microfono: nome_usato,
+        microfono: nome_usato.to_string(),
         ha_parlato,
         guadagno,
     })
@@ -484,5 +504,72 @@ mod prove {
             assert!(!e_spento(silenzio), "{silenzio} e' una stanza silenziosa");
         }
         assert!(!e_spento(PAVIMENTO), "il parlato piu' piano non e' spento");
+    }
+
+    /// Qualcuno che raccoglie campioni a 16 kHz come farebbe un microfono, o
+    /// un dispositivo dal portale: un pezzo da 100 ms ogni 100 ms. `forte`
+    /// dice, pezzo per pezzo, se li' si parla (un tono a 220 Hz) o c'e' solo
+    /// il fruscio della stanza.
+    fn raccoglie(forte: impl Fn(usize) -> bool + Send + 'static, pezzi: usize)
+        -> Arc<Mutex<Vec<f32>>> {
+        let raccolti = Arc::new(Mutex::new(Vec::new()));
+        let dentro = Arc::clone(&raccolti);
+        std::thread::spawn(move || {
+            let mut seme = 12345u32;
+            for i in 0..pezzi {
+                let mut pezzo = Vec::with_capacity(1600);
+                for k in 0..1600usize {
+                    seme = seme.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                    let fruscio = ((seme >> 8) as f32 / (1u32 << 24) as f32 - 0.5) * 0.001;
+                    let n = (i * 1600 + k) as f32;
+                    let tono = (n * 220.0 * std::f32::consts::TAU / 16_000.0).sin() * 0.2;
+                    let voce = if forte(i) { tono } else { 0.0 };
+                    pezzo.push(fruscio + voce);
+                }
+                dentro.lock().unwrap().extend_from_slice(&pezzo);
+                std::thread::sleep(Duration::from_millis(100));
+            }
+        });
+        raccolti
+    }
+
+    /// D455: la regola dell'ascolto vale per campioni raccolti da chiunque,
+    /// non solo dal microfono del PC.
+    #[test]
+    fn una_frase_fra_due_silenzi_si_ritaglia_dai_campioni_di_chiunque() {
+        // Un secondo di stanza, un secondo di voce, poi di nuovo la stanza.
+        let raccolti = raccoglie(|i| (10..20).contains(&i), 60);
+        let a = ascolta_dai_raccolti(&raccolti, 16_000, "dal portale", 5.0, 10.0, 0.6, 16_000)
+            .unwrap();
+        assert!(a.ha_parlato, "la voce si e' sentita");
+        assert!(a.fermato_dal_silenzio, "e la frase e' finita col silenzio, non col tempo");
+        assert_eq!(a.microfono, "dal portale");
+        assert_eq!(a.frequenza, 16_000);
+        assert!(a.picco > 0.05, "picco {}", a.picco);
+        // Dentro ci sono il margine prima della voce, la voce e il silenzio
+        // che l'ha chiusa: piu' di un secondo, e non tutta l'attesa.
+        let secondi = a.campioni.len() as f32 / 16_000.0;
+        assert!((1.5..4.0).contains(&secondi), "{secondi} s");
+        assert!(a.guadagno > 1.0, "il parlato piano si porta a un livello utile");
+    }
+
+    #[test]
+    fn una_stanza_dove_nessuno_parla_non_e_un_guasto() {
+        let raccolti = raccoglie(|_| false, 40);
+        let a = ascolta_dai_raccolti(&raccolti, 16_000, "dal portale", 1.2, 10.0, 0.6, 16_000)
+            .unwrap();
+        assert!(!a.ha_parlato);
+        assert!(!a.fermato_dal_silenzio);
+    }
+
+    #[test]
+    fn chi_non_consegna_niente_e_muto_col_suo_nome() {
+        let raccolti = Arc::new(Mutex::new(Vec::new()));
+        let e = ascolta_dai_raccolti(&raccolti, 16_000, "tablet", 0.5, 1.0, 0.3, 16_000)
+            .err()
+            .expect("senza campioni non c'e' ascolto");
+        let muto = e.downcast_ref::<MicrofonoMuto>().expect("e' un microfono muto");
+        assert_eq!(muto.microfono, "tablet");
+        assert_eq!(muto.picco, 0.0);
     }
 }

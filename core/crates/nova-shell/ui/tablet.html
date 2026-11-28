@@ -183,6 +183,16 @@ $('lato').addEventListener('pointerdown', () => {
   if(!document.body.classList.contains('solo-orb')) soloOrb(false);
 });
 
+/* Il microfono (D455). Il tablet si usa a voce: se il microfono non si apre
+   (di solito manca il permesso) NOVA non sente, e chi parla deve saperlo
+   senza andarlo a cercare. Sta scritto sotto l'orb finche' non si apre. */
+function mostraMicrofono(m){
+  const sordo = abbinato && collegato && !m?.aperto && !!m?.errore;
+  const el = $('linea');
+  el.classList.toggle('guaio', (abbinato && !collegato) || sordo);
+  el.textContent = sordo ? T('il microfono non si apre: non ti sento') : '';
+}
+
 /* Il filo col PC: abbinato o no, collegato o no. */
 function mostraLinea(l){
   collegato = !!l?.collegato;
@@ -194,9 +204,7 @@ function mostraLinea(l){
   abbinato = !!l?.abbinato;
   if(appenaAbbinato || !abbinato) soloOrb(abbinato);
   document.body.classList.toggle('da-abbinare', !l?.abbinato);
-  const el = $('linea');
-  el.classList.toggle('guaio', !!l?.abbinato && !collegato);
-  el.textContent = '';
+  mostraMicrofono(l?.microfono);
   if(!l?.abbinato) $('erroreAbbina').textContent = l?.errore ? T(l.errore) : $('erroreAbbina').textContent;
   $('btnInvia').disabled = !collegato;
   // Lo stato dell'orb arriva con gli eventi, e una pagina che si apre a
@@ -251,6 +259,7 @@ $('scrivi').addEventListener('submit', async ev => {
 
 ascolta?.('nova://linea', ev => mostraLinea(ev.payload));
 ascolta?.('nova://invito', ev => arrivaInvito(String(ev.payload || '')));
+ascolta?.('nova://microfono', ev => mostraMicrofono(ev.payload));
 ascolta?.('nova://stato', ev => { if(collegato) metti(String(ev.payload?.stato || 'quiete')); });
 ascolta?.('nova://passo', ev => { passo = String(ev.payload?.testo || ''); spiega(); });
 ascolta?.('nova://voce', ev => {

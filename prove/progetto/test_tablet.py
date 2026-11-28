@@ -549,6 +549,84 @@ elif v is not None:
               and v["riposoLento"]["lati"] == v["lento"]["lati"] and v["riposoLento"]["disegni"] == 400,
               str([v["riposoLento"], v["lento"]]))
 
+print("\n15. l'orecchio: il microfono del tablet arriva al PC (D455)")
+# Deciso con Gio il 28 novembre: sul tablet si parla, e ascoltano tutti e
+# due, il PC e il tablet. Riconoscere la frase di risveglio resta al PC: il
+# tablet apre il microfono e manda quello che sente.
+VOCE_RS = (TABLET / "src" / "voce.rs").read_text(encoding="utf-8")
+CRATES = RADICE / "core" / "crates"
+VOCE_PORTALE = (CRATES / "nova-portale" / "src" / "voce.rs").read_text(encoding="utf-8")
+SERVER_RS = (CRATES / "nova-core" / "src" / "server.rs").read_text(encoding="utf-8")
+RISVEGLIO_RS = (CRATES / "nova-core" / "src" / "risveglio.rs").read_text(encoding="utf-8")
+ORECCHI_RS = (CRATES / "nova-core" / "src" / "orecchi.rs").read_text(encoding="utf-8")
+del_pc = re.search(r'^cpal = "([^"]+)"', (CRATES / "nova-voce" / "Cargo.toml").read_text(encoding="utf-8"), re.M)
+del_tablet = re.search(r'^cpal = "([^"]+)"', CARGO, re.M)
+controlla("il microfono del tablet usa la libreria del microfono del PC, alla stessa versione",
+          del_pc is not None and del_tablet is not None and del_pc.group(1) == del_tablet.group(1),
+          f"{del_pc and del_pc.group(1)} / {del_tablet and del_tablet.group(1)}")
+controlla("ma non si porta dietro la voce del PC, coi suoi motori",
+          re.search(r"^nova-voce\s*=", CARGO, re.M) is None and "nova_voce" not in LIB + VOCE_RS)
+controlla("il programma dichiara che usa il microfono, e lo chiede a chi ha il tablet in mano",
+          '<uses-permission android:name="android.permission.RECORD_AUDIO" />' in MANIFESTO
+          and "chiediIlMicrofono()" in FINESTRA.split("override fun onCreate")[1].split("override fun")[0]
+          and "requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), RICHIESTA_DEL_MICROFONO)" in FINESTRA
+          and "checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED"
+          in FINESTRA)
+controlla("lo script di preparazione gli da' il permesso dal cavo, dopo aver visto che NOVA c'e'",
+          'pm grant "$NOVA" android.permission.RECORD_AUDIO' in fa)
+controlla("i pezzi hanno una forma sola, che i due capi leggono uguale",
+          'pub const METODO_DEL_PEZZO: &str = "voce/pezzo";' in VOCE_PORTALE
+          and "pub const FREQUENZA_DEL_MICROFONO: u32 = 16_000;" in VOCE_PORTALE
+          and "pub const MS_DI_UN_PEZZO: u32 = 100;" in VOCE_PORTALE
+          and "use nova_portale::voce::{pezzo, Pezzi, METODO_DEL_PEZZO};" in VOCE_RS
+          and "nova_portale::voce::leggi_il_pezzo(" in SERVER_RS)
+controlla("il microfono manda senza aspettare risposta, e se il filo cade si chiude da solo",
+          "if !filo.manda(METODO_DEL_PEZZO, pezzo(&p)) && filo.e_chiuso() {" in VOCE_RS
+          and "ferma.store(true, Ordering::SeqCst);" in VOCE_RS)
+filo = LIB[LIB.index("async fn tieni_il_filo("):LIB.index("/// Com'e' il filo col PC, per la pagina che si apre.")]
+controlla("si apre a filo teso e si chiude a filo caduto",
+          re.search(r"let microfono = tauri::async_runtime::spawn\(tieni_il_microfono\(\s*app\.clone\(\),\s*"
+                    r"t\.clone\(\),\s*c,\s*\)\);\s*while let Some\(evento\) = eventi\.recv\(\)\.await \{[^}]*\}\s*"
+                    r"microfono\.abort\(\);", filo) is not None
+          and filo.count("tieni_il_microfono(") == 1)
+tiene = LIB[LIB.index("async fn tieni_il_microfono("):LIB.index("/// Tiene il filo col PC, per sempre.")]
+controlla("se non si apre lo dice alla pagina e riprova, senza riaprire il programma",
+          "const RIPROVA_IL_MICROFONO: Duration = Duration::from_secs(5);" in LIB
+          and 't.di_il_microfono(&app, false, &format!("{e:#}"))' in tiene
+          and "tokio::time::sleep(RIPROVA_IL_MICROFONO)" in tiene and "filo.finito() => return" in tiene)
+controlla("la pagina che si apre dopo lo trova col filo",
+          'linea["microfono"] = self.microfono.lock().unwrap().clone();' in LIB
+          and "mostraMicrofono(l?.microfono);" in PAGINA)
+controlla("un microfono che non si apre sta scritto sotto l'orb",
+          "el.textContent = sordo ? T('il microfono non si apre: non ti sento') : '';" in PAGINA
+          and "const sordo = abbinato && collegato && !m?.aperto && !!m?.errore;" in PAGINA)
+ospite = SERVER_RS[SERVER_RS.index("if req.method == nova_portale::voce::METODO_DEL_PEZZO {"):
+                   SERVER_RS.index("// Il Claude Code di un Dot dice per chi lavora")]
+controlla("il PC prende un microfono solo da un dispositivo del portale, mai dalla sua pipe",
+          ospite.count("if let Some(o) = &ospite {") == 1
+          and "crate::orecchi::arriva(&o.id, &o.nome, &campioni)" in ospite
+          and "self.servi_finche(stream, taglio, None).await" in SERVER_RS
+          and "servi_finche(canale, taglio, Some(ospite))" in
+          (CRATES / "nova-core" / "src" / "portale.rs").read_text(encoding="utf-8"))
+controlla("e quando il dispositivo esce il suo orecchio si chiude",
+          re.search(r"if let \(true, Some\(o\)\) = \(ha_un_orecchio, &ospite\) \{\s*crate::orecchi::chiudi\(&o\.id\);",
+                    SERVER_RS) is not None)
+controlla("dal tablet si ascolta con la regola del microfono del PC",
+          "nova_voce::ascolta_dai_raccolti(" in ORECCHI_RS
+          and "Orecchio::Lontano(o) => o.ascolta(8.0, 20.0, silenzio, 16_000)," in RISVEGLIO_RS
+          and "nova_voce::ascolta_con_attesa(mic.as_deref(), 8.0, 20.0, silenzio, 16_000)" in RISVEGLIO_RS)
+ciclo = RISVEGLIO_RS[RISVEGLIO_RS.index("async fn ciclo("):RISVEGLIO_RS.index("#[cfg(test)]")]
+controlla("a conversazione aperta ascolta solo l'orecchio che ce l'ha",
+          "if fase_ora == SVEGLIA && !e_il_padrone(&chi) {" in ciclo
+          and "Some(_) if !rivendica(&chi) => {" in ciclo
+          and ciclo.index("Some(_) if !rivendica(&chi) => {") < ciclo.index("match dal_vivo(&bus, &orecchio,"))
+controlla("spento il risveglio, non ascolta nemmeno l'orecchio lontano",
+          re.search(r"if !del_pc\s*&& \(s\.fermato\.load\(Ordering::SeqCst\)\s*"
+                    r"\|\| !crate::caps_voce::risveglio_richiesto\(\)", ciclo) is not None
+          and "s.fermato.store(true, Ordering::SeqCst);" in RISVEGLIO_RS)
+controlla("dal tablet parte anche la conversazione dal vivo",
+          "Orecchio::Lontano(o) => crate::live::Microfono::Lontano(o.dal_vivo())," in RISVEGLIO_RS)
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for x in falliti:
     print("  FALLITO:", x)
