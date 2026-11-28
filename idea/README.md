@@ -900,10 +900,12 @@ sull'inizio); restavano i passaggi da uno stato all'altro, il livello
 della voce che dal vivo muove l'orb e in un filmato no, e un filmato per
 ogni misura di schermo, per otto stati.
 
-**Piu' pixel a riposo.** *Cosa.* A riposo l'orb del tablet fa un
-fotogramma ogni 120 ms (D452) ma coi pixel trovati per farne trenta al
-secondo: in quei 120 ms ce ne starebbero il doppio per lato. *Perche'.* A
-riposo e' come l'orb si vede quasi sempre. *Cosa costerebbe.* Una seconda
-grana, e il cambio di grana a ogni risveglio; e corrente, perche' la
-scheda video lavorerebbe tutto il tempo invece che un quarto: da fare solo
-sotto carica, semmai.
+**Il freno a riposo, ma solo a batteria.** *Cosa.* Il D452 a riposo
+disegnava l'orb una volta ogni 120 ms; Gio l'ha visto andare a scatti e il
+D454 l'ha tolto. Si potrebbe rimetterlo solo quando il tablet non e' sotto
+carica. *Perche'.* Senza freno la scheda video lavora sempre: attaccato
+alla porta USB del PC il tablet passava da 236 a 492 mA di scarica. A
+batteria lo schermo si spegne comunque dopo dieci minuti. *Cosa
+costerebbe.* La finestra sa gia' se e' sotto carica (ci tiene acceso lo
+schermo): dovrebbe dirlo alla pagina, e l'orb avrebbe di nuovo due
+andature. Da fare solo se Gio lo vuole: a scatti non gli e' piaciuto.

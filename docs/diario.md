@@ -12311,3 +12311,11 @@ prendendoli per pause; con l'orb grande e il disegno pieno duravano 590 ms
 tutti, e l'orb restava fermo a 1,7 al secondo. Col disegno leggero il
 tablet non ci arrivava: l'ho trovato solo perche' volevo un numero preciso
 da scrivere in un commento.
+
+Gio lo guarda e dice che va a pochi fotogrammi, e di togliere un quarto
+delle particelle. Prima di toglierle ho contato i disegni veri sul tablet:
+a riposo erano 7 al secondo, e li avevo voluti io, poche ore prima, per
+risparmiare corrente. Le particelle non c'entravano. Gliel'ho detto, e ha
+scelto di togliere il freno: adesso a riposo l'orb gira a 33 al secondo
+(D454). Costa corrente, e l'ho misurata: attaccato al PC il tablet si
+scaricava a 236 mA, adesso a 492.

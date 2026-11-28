@@ -392,9 +392,6 @@ export const PAUSA_MS = 500;
  *  l'orb pieno a 1080 pixel di lato ci metteva 590 ms a fotogramma: nessuno
  *  si contava, e restava li' a 1,7 al secondo. */
 export const LUNGHI_DI_FILA = 3;
-/** A riposo l'orb e' quasi fermo: gli basta un fotogramma ogni tanto (D452).
- *  Su un tablet a batteria ogni fotogramma disegnato e' corrente. */
-export const A_RIPOSO_OGNI_MS = 120;
 
 /**
  * La parte del lato da disegnare, sapendo quanto dura in media un
@@ -458,9 +455,10 @@ export function creaOrb(canvas, opzioni = {}) {
   // video ci sta dietro.
   const fluido = !!opzioni.fluido;
   let scala = 1, sommaMs = 0, contati = 0, daSaltare = FOTOGRAMMI_DA_SALTARE, lunghi = 0;
-  // La grana e' trovata: fino ad allora si disegna e si misura anche a
-  // riposo. Un orb che si accende a riposo, se no, resterebbe al lato
-  // pieno a disegnare fotogrammi da un quinto di secondo l'uno.
+  // La grana e' trovata: lo dice `quantoDisegna` a chi misura. A riposo
+  // l'orb si disegna e si misura come da sveglio: il D452 gli dava un
+  // fotogramma ogni 120 ms per risparmiare corrente, e Gio l'ha visto
+  // andare a scatti (D454).
   let tarato = false;
   const ridimensiona = () => {
     const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1)) * scala;
@@ -502,13 +500,6 @@ export function creaOrb(canvas, opzioni = {}) {
 
   const disegna = ora => {
     if (!vivo) return;
-    // A riposo si disegna ogni tanto: l'orb spento quasi non si muove, e
-    // chi lo guarda non vede la differenza. Vale per chi ha chiesto
-    // `fluido`, cioe' per chi ha un orb grande su una macchina piccola.
-    if (fluido && tarato && corrente === 'spento' && ora - ultimo < A_RIPOSO_OGNI_MS) {
-      raf = requestAnimationFrame(disegna);
-      return;
-    }
     const passati = ora - ultimo;
     const dt = Math.min(0.1, passati / 1000);
     ultimo = ora;
@@ -517,11 +508,7 @@ export function creaOrb(canvas, opzioni = {}) {
     // pausa lunga e' la pagina che era nascosta, non la scheda video: non si
     // conta, a meno che non siano lunghi tutti. Dopo un cambio i primi
     // fotogrammi non si contano.
-    if (fluido && tarato && corrente === 'spento') {
-      // A riposo i fotogrammi sono radi apposta: non dicono niente della
-      // scheda video, e alla ripresa i primi non si contano.
-      sommaMs = 0; contati = 0; daSaltare = FOTOGRAMMI_DA_SALTARE;
-    } else if (fluido && passati < PAUSA_MS) {
+    if (fluido && passati < PAUSA_MS) {
       lunghi = 0;
       if (daSaltare > 0) daSaltare--;
       else {

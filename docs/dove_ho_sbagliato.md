@@ -3400,3 +3400,26 @@ La regola: una soglia che scarta i casi strani si prova anche quando
 strani lo sono tutti. E una regola misurata a una grandezza si rimisura
 quando la grandezza cambia: da 576 a 1080 pixel di lato il tempo e' piu'
 che triplicato.
+
+## Il risparmio che nessuno aveva chiesto
+
+Col D452 ho fatto disegnare l'orb a riposo una volta ogni 120 ms, per
+risparmiare corrente, e nel codice ho scritto che «chi lo guarda non vede
+la differenza». Non l'aveva guardato nessuno: io lo vedevo in schermate
+ferme. E nel resoconto del D453 ho dato a Gio i fotogrammi «mentre parla»
+e i pixel «a riposo», senza dire che a riposo i fotogrammi erano 7. A
+riposo e' come l'orb sta quasi sempre: Gio ha visto un orb a scatti e ha
+pensato che il tablet non ce la facesse, tanto da proporre di togliere un
+quarto delle particelle.
+
+Me ne sono accorto contando i disegni sul tablet prima di toccare le
+particelle: 7,4 al secondo a riposo, da 30 a 43 da sveglio.
+
+Corretto col D454: il freno non c'e' piu', per scelta di Gio.
+
+La regola: e' la terza volta in due giorni che decido io come si vede una
+cosa che guarda Gio (l'orb grande senza misurare, l'orb sgranato, questo).
+Uno scambio fra come si vede e quanto costa non lo decido io: lo dico a
+Gio con i due numeri, cosa vedra' e cosa risparmia, e sceglie lui. E quando
+dice che una cosa va male, prima di fare il rimedio che propone misuro
+dove va male: qui il suo rimedio non avrebbe cambiato niente.

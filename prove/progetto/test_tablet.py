@@ -197,7 +197,7 @@ altre = [f.name for f in sorted((GUSCIO / "ui").glob("*.html"))
          if f.name != "tablet.html" and "fluido" in f.read_text(encoding="utf-8-sig")]
 controlla("le pagine del PC no: li' l'orb e' piccolo e resta com'era", not altre, str(altre))
 controlla("chi non lo chiede disegna tutti i pixel",
-          "const fluido = !!opzioni.fluido;" in ORB and "} else if (fluido && passati < PAUSA_MS) {" in ORB
+          "const fluido = !!opzioni.fluido;" in ORB and "    if (fluido && passati < PAUSA_MS) {" in ORB
           and "let scala = 1," in ORB)
 controlla("la scala entra nel lato del canvas, non nella sua misura sulla pagina",
           "const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1)) * scala;" in ORB
@@ -354,15 +354,8 @@ controlla("e la voce che dorme e' l'orb spento, come sul PC",
 controlla("il programma tiene l'ultimo stato dell'orb per la pagina che si apre dopo",
           'linea["orb"] = json!(*self.orb.lock().unwrap());' in LIB
           and "t.linea_con_l_orb()" in LIB)
-controlla("a riposo l'orb si disegna di rado, e quei fotogrammi non si contano",
-          "export const A_RIPOSO_OGNI_MS = 120;" in ORB
-          and "if (fluido && tarato && corrente === 'spento' && ora - ultimo < A_RIPOSO_OGNI_MS) {" in ORB
-          and "if (fluido && tarato && corrente === 'spento') {" in ORB)
-# Acceso a riposo, l'orb partiva al lato pieno e ci restava: a riposo non
-# misurava, e disegnava fotogrammi da un quinto di secondo l'uno.
-controlla("ma prima trova la sua grana, anche se si accende a riposo",
-          "let tarato = false;" in ORB and "} else {\n            tarato = true;" in ORB
-          and "new ResizeObserver(() => { tarato = false; ridimensiona(); })" in ORB)
+# Il D452 a riposo disegnava l'orb un fotogramma ogni 120 ms: il D454 l'ha
+# tolto, e le sue prove stanno al punto 14.
 
 print("\n12. l'orb alleggerito: piu' nitido, e piu' grande (D453)")
 # Il 28 novembre Gio, dell'orb sul tablet: «si e' fluido ma la qualita' e'
@@ -469,8 +462,8 @@ else:
         prova.write_text(
             # Un browser finto quanto basta: un canvas, una scheda video che
             # dice sempre di si', e i fotogrammi che li chiama la prova.
-            "let adesso = 1000, prossimo = null;\n"
-            "const gl = new Proxy({}, { get: () => () => true });\n"
+            "let adesso = 1000, prossimo = null, disegni = 0;\n"
+            "const gl = new Proxy({}, { get: (_, k) => k === 'drawArrays' ? () => { disegni++; } : () => true });\n"
             "globalThis.window = { devicePixelRatio: 1.5, addEventListener() {}, removeEventListener() {},\n"
             "  matchMedia: () => ({ matches: false }) };\n"
             "globalThis.ResizeObserver = class { observe() {} disconnect() {} };\n"
@@ -484,6 +477,7 @@ else:
             "function giro(msAlPieno, opzioni, fotogrammi, pause = [], stato = 'parlo') {\n"
             "  const canvas = { clientWidth: 720, clientHeight: 720, width: 0, height: 0, getContext: () => gl,\n"
             "    getBoundingClientRect: () => ({ left: 0, top: 0, width: 720, height: 720 }) };\n"
+            "  disegni = 0;\n"
             "  const orb = m.creaOrb(canvas, opzioni); orb.stato(stato);\n"
             "  const tempo = () => Math.max(16.7, Math.ceil(msAlPieno * (canvas.width / 1080) ** 2 / 16.7) * 16.7);\n"
             "  const lati = [canvas.width];\n"
@@ -492,7 +486,7 @@ else:
             "    const f = prossimo; prossimo = null; f(adesso);\n"
             "    if (canvas.width !== lati[lati.length - 1]) lati.push(canvas.width);\n"
             "  }\n"
-            "  const fine = { lati, tempo: tempo(), ...orb.quantoDisegna() };\n"
+            "  const fine = { lati, tempo: tempo(), disegni, ...orb.quantoDisegna() };\n"
             "  orb.ferma();\n"
             "  return fine;\n"
             "}\n"
@@ -505,6 +499,10 @@ else:
             "  duePause: giro(16.7, { fluido: true }, 200, [50, 51]),\n"
             "  senza: giro(590, {}, 30),\n"
             "  lentissimo: giro(20000, { fluido: true }, 400),\n"
+            "  riposo: giro(16.7, { fluido: true }, 300, [], 'spento'),\n"
+            "  sveglio: giro(16.7, { fluido: true }, 300),\n"
+            "  riposoLento: giro(182 * (1080 / 576) ** 2 * 0.75, { fluido: true }, 400, [], 'spento'),\n"
+            "  riposoSenza: giro(16.7, {}, 300, [], 'spento'),\n"
             "}));\n", encoding="utf-8")
         r = subprocess.run([node, str(prova)], capture_output=True, text=True, timeout=60)
     try:
@@ -531,6 +529,25 @@ else:
         controlla("su una scheda lentissima si ferma al minimo, senza girare in tondo",
                   abs(v["lentissimo"]["scala"] - 0.2) < 1e-9 and len(v["lentissimo"]["lati"]) == 2,
                   str(v["lentissimo"]))
+
+print("\n14. a riposo l'orb gira come da sveglio (D454)")
+# Il 28 novembre Gio, del tablet: «va a pochi fps». Misurato dal cavo: a
+# riposo 7,4 fotogrammi al secondo, da sveglio da 30 a 43. Era il freno del
+# D452, un fotogramma ogni 120 ms per risparmiare corrente. Gio ha scelto di
+# toglierlo.
+controlla("il freno a riposo non c'e' piu': nessuno stato ha una regola sua nel disegnare",
+          "A_RIPOSO" not in ORB and "corrente === 'spento'" not in ORB
+          and "if (fluido && passati < PAUSA_MS) {" in ORB)
+if node is None:
+    print("  [--] senza node l'orb non si accende qui: resta il sorgente")
+elif v is not None:
+    controlla("a riposo disegna ogni fotogramma, come da sveglio",
+              v["riposo"]["disegni"] == 300 and v["sveglio"]["disegni"] == 300
+              and v["riposoSenza"]["disegni"] == 300, str([v["riposo"], v["sveglio"]]))
+    controlla("e a riposo trova la sua grana come da sveglio, su una scheda lenta",
+              v["riposoLento"]["tarato"] is True and 18 <= v["riposoLento"]["tempo"] <= 40
+              and v["riposoLento"]["lati"] == v["lento"]["lati"] and v["riposoLento"]["disegni"] == 400,
+              str([v["riposoLento"], v["lento"]]))
 
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for x in falliti:
