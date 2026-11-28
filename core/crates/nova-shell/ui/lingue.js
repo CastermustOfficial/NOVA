@@ -249,8 +249,6 @@ export const LINGUE = {
     'aspetto un tuo ok sul PC': 'waiting for your ok on the PC',
     'cerco il PC…': 'looking for the PC…',
     'da abbinare al PC': 'to be paired with the PC',
-    'Collegata al PC': 'Connected to the PC',
-    'Cerco il PC…': 'Looking for the PC…',
     'Porta al PC che risponde a: ': 'It leads to the PC that answers at: ',
     "questo dispositivo non e' abbinato a NOVA, o e' stato dimenticato": 'this device is not paired with NOVA, or it has been forgotten',
 

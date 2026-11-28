@@ -12275,3 +12275,18 @@ volte piu' svelto. Adesso si regola da solo (D451): 39 al secondo, e a
 guardarlo e' solo un po' piu' morbido. Un sistema piu' leggero sotto non
 l'avrebbe cambiato: la scheda video resta quella. La pulizia del tablet
 serve per la batteria e la memoria, e resta da fare.
+
+Poi il tablet e' stato ripristinato, e Gio ha chiesto la cosa che voleva
+dall'inizio: che si accenda su NOVA, non su Android. Sotto Android resta, ma
+non si vede: NOVA e' la schermata di casa, a tutto schermo, senza blocco, e
+centotredici programmi di Google e di Samsung sono spenti (D452). Dopo il
+riavvio c'era NOVA, gia' ricollegata al PC.
+
+Due cose le ha viste lui guardandolo. Che un tablet a cui si parla non ha
+bisogno di una chat sempre aperta: basta l'orb, e il resto al tocco. E che
+a riposo l'orb era troppo acceso: avevo messo io «quiete» a ogni
+collegamento, che e' l'orb sveglio, senza chiedere al PC se la voce
+dormisse.
+
+Il ripristino ha mostrato anche un difetto del portale: il tablet era
+sparito da un'ora e il PC lo dava ancora collegato.

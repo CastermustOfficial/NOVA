@@ -3329,3 +3329,35 @@ Corretto col D451: l'orb misura i suoi fotogrammi e si regola.
 La regola: una cosa che si muove si prova guardandola muoversi, e si
 misura sulla macchina dove andra', non su quella dove e' nata. Una
 schermata non dice quanti fotogrammi ci sono dietro.
+
+## Il tablet sparito che risultava collegato
+
+Scrivendo il portale (D448) ho creduto che un collegamento che si chiude si
+noti sempre: chi legge riceve la fine, e il servizio smette. E' vero quando
+l'altro capo saluta. Il 28 novembre il tablet e' stato ripristinato ai dati
+di fabbrica mentre era collegato: nessun saluto, e sul canale nessuno
+scriveva. Un'ora dopo il pannello del PC lo dava ancora «collegato», e
+l'avrebbe dato per sempre.
+
+Me ne sono accorto chiedendo lo stato del portale prima di abbinarlo di
+nuovo. Corretto col D452: i due capi chiedono al sistema di tenere d'occhio
+il canale.
+
+La regola: un canale di rete si prova anche staccando la spina all'altro
+capo, non solo chiudendolo bene. La prova del D448 chiudeva sempre bene.
+
+## L'orb «a riposo» che era quello sveglio
+
+Nel programma del tablet (D449) a ogni collegamento mandavo alla pagina lo
+stato «quiete», e sotto ci scrivevo «a riposo». Ho creduto che «quiete»
+fosse il riposo. Nei quattro stati di Gio e' l'orb sveglio, con le onde; a
+riposo, cioe' con la voce che dorme, sul PC l'orb e' «spento», e lo dice una
+funzione che si chiama proprio `stato_a_riposo`. Il D450 ha poi ripetuto
+l'errore nella pagina. L'ha visto Gio: «perche' l'orb e' attiva se e' a
+riposo?».
+
+Corretto col D452: il programma chiede al PC la fase della voce.
+
+La regola: uno stato non si inventa da questa parte del filo; si chiede a
+chi lo sa. E il nome di uno stato si legge dove lo usa chi l'ha fatto, non
+nel dizionario.

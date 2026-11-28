@@ -15,10 +15,12 @@ config.local.json
 
 # build Rust (~1 GB)
 core/target/
-# Il programma del tablet (D449): il suo build, e il progetto Android che
-# `cargo tauri android init` rigenera.
+# Il programma del tablet (D449): il suo build e gli schemi che Tauri
+# rigenera. Il progetto Android (`gen/android`) invece e' nel repository dal
+# D452: ha il manifesto e la finestra di NOVA, e i suoi `.gitignore` tengono
+# fuori quello che si rigenera.
 core/tablet/target/
-core/tablet/gen/
+core/tablet/gen/schemas/
 
 
 # materiale di lavoro delle revisioni fra modelli

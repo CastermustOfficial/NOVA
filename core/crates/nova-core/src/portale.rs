@@ -342,6 +342,9 @@ async fn accendi_davvero(
             let (mut esce, collegati) = (fuori_a.subscribe(), collegati_a.clone());
             tokio::spawn(async move {
                 let _ = tcp.set_nodelay(true);
+                // Un dispositivo che sparisce senza salutare (la corrente,
+                // il Wi-Fi, un ripristino) dopo un minuto risulta scollegato.
+                let _ = nova_portale::tls::tieni_d_occhio(&tcp);
                 let Ok(Ok(mut canale)) =
                     tokio::time::timeout(STRETTA_DI_MANO, accettatore.accept(tcp)).await
                 else {

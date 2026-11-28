@@ -20,7 +20,11 @@ il sorgente, come per il pannello. Le regole del canale si provano in
 6. la pagina sa dire a parole ogni stato dell'orb;
 7. le frasi della pagina ci sono anche in inglese;
 8. l'orb, che sul tablet e' grande, si regola da solo su quanti pixel
-   disegnare (D451).
+   disegnare (D451);
+9. la finestra fa di un tablet una cosa che e' solo NOVA, e lo script che lo
+   prepara spegne senza cancellare e non tocca cio' che serve (D452);
+10. un capo che sparisce senza salutare si nota (D452);
+11. il tablet si usa a voce: c'e' solo l'orb, e a riposo e' a riposo (D452).
 """
 import json
 import re
@@ -63,7 +67,8 @@ controlla("il canale e' quello di nova-portale",
           and "use nova_portale::cliente::{self, Abbinamento, Collegamento};" in LIB)
 controlla("e cio' che mostra e' quello di nova-proto",
           'nova-proto = { path = "../crates/nova-proto" }' in CARGO
-          and "per_la_pagina(&evento.topic, &evento.dati)" in LIB
+          and "t.gira(&app, &evento.topic, &evento.dati)" in LIB
+          and "for (canale, messaggio) in per_la_pagina(topic, dati)" in LIB
           and '"topics": ARGOMENTI_DI_UNO_SCHERMO' in LIB)
 
 print("\n2. la finestra apre la pagina del tablet, fra le pagine del guscio")
@@ -148,9 +153,11 @@ controlla("e il discorso, il campo e l'invito stanno insieme nell'altra meta'",
           and re.search(r"</form>\s*</div>", PAGINA) is not None
           and "#lato{flex:1 1 auto;min-width:0;min-height:0;" in PAGINA)
 controlla("una pagina che si apre gia' collegata non dice «cerco il PC»",
-          "else if(stato === 'spento') metti('quiete');" in PAGINA)
+          "metti(collegato ? (l?.orb || 'spento') : 'spento');" in PAGINA
+          and ": !collegato ? T('cerco il PC…')" in PAGINA)
 controlla("appena abbinato non si apre la tastiera da sola",
-          "if(!abbinato && l?.abbinato) document.activeElement?.blur?.();" in PAGINA)
+          "const appenaAbbinato = !abbinato && !!l?.abbinato;" in PAGINA
+          and "if(appenaAbbinato) document.activeElement?.blur?.();" in PAGINA)
 
 print("\n6. la pagina sa dire a parole ogni stato dell'orb")
 fn = VISTA[VISTA.index("pub fn stato_da_evento"):VISTA.index("pub fn righe_per_la_chat")]
@@ -171,7 +178,7 @@ frasi += re.findall(r'<button[^>]*>([^<]+)</button>', PAGINA)
 frasi += re.findall(r'pub const NON_ABBINATO: &str = "([^"]+)";',
                     (RADICE / "core" / "crates" / "nova-portale" / "src" / "saluto.rs").read_text(encoding="utf-8"))
 frasi = sorted(set(frasi))
-controlla("le frasi della pagina ci sono", len(frasi) >= 18, str(len(frasi)))
+controlla("le frasi della pagina ci sono", len(frasi) >= 15, str(len(frasi)))
 for frase in frasi:
     chiave = frase.replace("\\'", "'")
     controlla(f"  e in inglese: «{chiave[:40]}»",
@@ -231,6 +238,131 @@ else:
         controlla("non scende sotto il minimo, nemmeno su una scheda lentissima",
                   v["fondo"] == v["minima"] == 0.2, str(v))
         controlla("una misura che non c'e' non cambia niente", v["nan"] == 0.7 and v["zero"] == 0.7)
+
+print("\n9. un tablet che e' solo NOVA: la finestra, e lo script che lo prepara (D452)")
+ANDROID = TABLET / "gen" / "android"
+MANIFESTO = (ANDROID / "app" / "src" / "main" / "AndroidManifest.xml").read_text(encoding="utf-8")
+FINESTRA = (ANDROID / "app" / "src" / "main" / "java" / "io" / "nova" / "tablet"
+            / "MainActivity.kt").read_text(encoding="utf-8")
+ignorati = (RADICE / ".gitignore").read_text(encoding="utf-8").splitlines()
+controlla("il progetto Android e' nel repository: ha il manifesto e la finestra di NOVA",
+          "core/tablet/gen/" not in ignorati and "core/tablet/gen/schemas/" in ignorati
+          and "core/tablet/target/" in ignorati)
+principale = MANIFESTO[MANIFESTO.index("<intent-filter>"):MANIFESTO.index("</intent-filter>")]
+controlla("NOVA puo' essere la schermata di casa",
+          "android.intent.action.MAIN" in principale
+          and '<category android:name="android.intent.category.HOME" />' in principale
+          and '<category android:name="android.intent.category.DEFAULT" />' in principale
+          and '<category android:name="android.intent.category.LAUNCHER" />' in principale)
+controlla("a tutto schermo: le barre si nascondono, e ogni volta che torna in primo piano",
+          "barre.hide(WindowInsetsCompat.Type.systemBars())" in FINESTRA
+          and re.search(r"override fun onWindowFocusChanged\(hasFocus: Boolean\) \{\s*"
+                        r"super\.onWindowFocusChanged\(hasFocus\)\s*if \(hasFocus\) nascondiLeBarre\(\)",
+                        FINESTRA) is not None)
+controlla("lo schermo resta acceso solo sotto carica",
+          "tieniAcceso(sottoCarica())" in FINESTRA
+          and "tieniAcceso(intento?.action == Intent.ACTION_POWER_CONNECTED)" in FINESTRA
+          and "addAction(Intent.ACTION_POWER_DISCONNECTED)" in FINESTRA
+          and "else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)" in FINESTRA
+          and FINESTRA.count("addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)") == 1)
+controlla("con la tastiera la pagina si stringe invece di scorrere via",
+          'android:windowSoftInputMode="adjustResize"' in MANIFESTO
+          and "margini.getInsets(WindowInsetsCompat.Type.ime()).bottom" in FINESTRA)
+
+PREPARA = (TABLET / "prepara.sh").read_text(encoding="utf-8")
+controlla("lo script di preparazione ha gli a capo di Unix: gira sul tablet", "\r" not in PREPARA)
+elenco = PREPARA[PREPARA.index('DA_SPEGNERE="') + len('DA_SPEGNERE="'):PREPARA.index('\n"\n\nelenco()')]
+nomi = [r.split("#")[0].strip() for r in elenco.splitlines()]
+nomi = [n for n in nomi if n]
+controlla("l'elenco di cosa spegnere si legge", len(nomi) > 80, str(len(nomi)))
+controlla("sono nomi di pacchetti, uno per riga",
+          all(re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+", n) for n in nomi),
+          str([n for n in nomi if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+", n)]))
+controlla("nessuno due volte", len(nomi) == len(set(nomi)),
+          str(sorted({n for n in nomi if nomi.count(n) > 1})))
+# Quello senza cui il tablet non mostra NOVA, non si scrive o non parte.
+INTOCCABILI = ("com.google.android.webview", "com.samsung.android.honeyboard", "com.android.systemui",
+               "com.android.settings", "com.android.shell", "com.android.providers.settings",
+               "com.android.bluetooth", "com.google.android.permissioncontroller",
+               "com.google.android.packageinstaller", "com.sec.android.app.camera", "io.nova.tablet")
+toccati = [n for n in nomi if n in INTOCCABILI or "knox" in n.replace("knox.analytics", "")
+           or n.startswith("com.samsung.android.kgclient") or "networkstack" in n or ".wifi." in n]
+controlla("non spegne il WebView, la tastiera, le Impostazioni, il sistema, ne' Knox", not toccati,
+          str(toccati))
+fa = PREPARA[PREPARA.index('if ! fra "$PRESENTI" "$NOVA"; then'):]
+controlla("senza NOVA installata non fa niente",
+          re.search(r'if ! fra "\$PRESENTI" "\$NOVA"; then\s*echo [^\n]+\s*exit 1', fa) is not None)
+controlla("spegne, non cancella: e quello che non si lascia spegnere lo toglie solo a questo utente",
+          'pm disable-user --user 0 "$p"' in fa and 'pm uninstall -k --user 0 "$p"' in fa
+          and "pm uninstall --user" not in fa and "rm -" not in PREPARA)
+casa = fa[fa.index("cmd package set-home-activity"):]
+controlla("la schermata di casa di Samsung si spegne per ultima, e solo se NOVA ha preso il suo posto",
+          re.search(r'if \[ "\$casa" = "\$NOVA/\.MainActivity" \]; then\s*'
+                    r'pm disable-user --user 0 "\$CASA_DI_SAMSUNG"', casa) is not None
+          and fa.count('"$CASA_DI_SAMSUNG"') == 1
+          and re.search(r"else\s*echo [^\n]+\s*exit 1\s*fi", casa) is not None)
+indietro = PREPARA[PREPARA.index('if [ "$1" = "indietro" ]; then'):PREPARA.index('if ! fra "$PRESENTI" "$NOVA"')]
+controlla("«indietro» riaccende tutto e rimette la schermata di casa di Samsung",
+          'pm enable "$CASA_DI_SAMSUNG"' in indietro and 'pm enable "$p"' in indietro
+          and 'cmd package install-existing --user 0 "$p"' in indietro
+          and "cmd package set-home-activity" in indietro)
+sh = shutil.which("sh")
+if sh is None:
+    print("  [--] senza sh la sintassi dello script non si prova qui")
+else:
+    r = subprocess.run([sh, "-n", str(TABLET / "prepara.sh")], capture_output=True, text=True, timeout=30)
+    controlla("lo script si legge senza errori di sintassi", r.returncode == 0, r.stderr[-300:])
+
+print("\n10. un capo che sparisce senza salutare si nota (D452)")
+PORTALE_RS = (RADICE / "core" / "crates" / "nova-core" / "src" / "portale.rs").read_text(encoding="utf-8")
+TLS_RS = (RADICE / "core" / "crates" / "nova-portale" / "src" / "tls.rs").read_text(encoding="utf-8")
+accetta = PORTALE_RS[PORTALE_RS.index("ascolto.accept()"):PORTALE_RS.index("soglia.accogli(&mut canale)")]
+controlla("il PC tiene d'occhio ogni collegamento che accetta, prima del saluto",
+          "nova_portale::tls::tieni_d_occhio(&tcp)" in accetta)
+collega = TLS_RS[TLS_RS.index("pub async fn collega("):TLS_RS.index("#[cfg(test)]")]
+controlla("e il dispositivo tiene d'occhio il PC", "tieni_d_occhio(&tcp)" in collega)
+
+print("\n11. a voce: sullo schermo c'e' solo l'orb, e a riposo e' a riposo (D452)")
+# Il 28 novembre Gio: il tablet si usa a voce, e finche' nessuno tocca lo
+# schermo ci dev'essere solo l'orb al centro. E a riposo l'orb era quello
+# sveglio: a ogni collegamento il programma metteva «quiete» senza chiedere
+# al PC in che fase fosse la voce.
+controlla("il resto della pagina si nasconde, e l'orb va al centro",
+          "body.solo-orb #lato{display:none}" in PAGINA
+          and "body.solo-orb #scena{flex:1 1 auto;justify-content:center" in PAGINA)
+controlla("un tocco sull'orb fa comparire il discorso, un altro lo toglie",
+          "$('scena').addEventListener('click', () => soloOrb(!document.body.classList.contains('solo-orb')));"
+          in PAGINA)
+solo = PAGINA[PAGINA.index("function soloOrb(si){"):PAGINA.index("/* Il filo col PC")]
+controlla("dopo mezzo minuto senza toccare torna solo l'orb, ma non mentre si scrive",
+          "const TORNA_SOLO_DOPO_MS = 30000;" in PAGINA
+          and "else tornaSolo = setTimeout(seFermoTornaSolo, TORNA_SOLO_DOPO_MS);" in solo
+          and "if(scrive) tornaSolo = setTimeout(seFermoTornaSolo, TORNA_SOLO_DOPO_MS);" in solo)
+controlla("da abbinare l'invito si vede sempre",
+          "document.body.classList.toggle('solo-orb', si && abbinato);" in solo
+          and "if(!abbinato) return;" in solo
+          and "if(appenaAbbinato || !abbinato) soloOrb(abbinato);" in PAGINA)
+controlla("a riposo sotto l'orb non c'e' scritto niente",
+          "const SENZA_PAROLE = new Set(['spento', 'quiete']);" in PAGINA
+          and "passo || (SENZA_PAROLE.has(stato) ? '' : T(DETTO[stato] || stato))" in PAGINA)
+controlla("appena collegato il programma chiede al PC in che fase e' la voce",
+          '"name": "voce.fase"' in LIB and 't.gira(&app, "voce.fase", &json!({ "fase": fase }));' in LIB
+          and 'emit("nova://stato", json!({ "stato": "quiete" }))' not in LIB)
+controlla("e la voce che dorme e' l'orb spento, come sul PC",
+          re.search(r'"voce\.fase" => match[^}]*Some\("dormiente"\) \| Some\("in_pausa"\) => Some\("spento"\)',
+                    VISTA, re.S) is not None)
+controlla("il programma tiene l'ultimo stato dell'orb per la pagina che si apre dopo",
+          'linea["orb"] = json!(*self.orb.lock().unwrap());' in LIB
+          and "t.linea_con_l_orb()" in LIB)
+controlla("a riposo l'orb si disegna di rado, e quei fotogrammi non si contano",
+          "export const A_RIPOSO_OGNI_MS = 120;" in ORB
+          and "if (fluido && tarato && corrente === 'spento' && ora - ultimo < A_RIPOSO_OGNI_MS) {" in ORB
+          and "if (fluido && tarato && corrente === 'spento') {" in ORB)
+# Acceso a riposo, l'orb partiva al lato pieno e ci restava: a riposo non
+# misurava, e disegnava fotogrammi da un quinto di secondo l'uno.
+controlla("ma prima trova la sua grana, anche se si accende a riposo",
+          "let tarato = false;" in ORB and "} else {\n            tarato = true;" in ORB
+          and "new ResizeObserver(() => { tarato = false; ridimensiona(); })" in ORB)
 
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for x in falliti:

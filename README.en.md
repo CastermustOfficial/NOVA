@@ -1079,16 +1079,30 @@ the work (D448). There are the door on the PC and the tablet program
 to; the voice through the portal is in progress.
 
 The tablet program is in Rust, with Tauri like the PC window, and is built
-for Android with the SDK and the NDK:
+for Android with the SDK and the NDK. This is the debug build, signed with
+Android's debug key: one to distribute needs a key of its own.
 
 ```powershell
 cd core\tablet
-cargo tauri android init
-cargo tauri android build --apk --target aarch64
+cargo tauri android build --apk --target aarch64 --debug --split-per-abi
 ```
 
 On the tablet you open the invitation from the panel, or paste it, and press
-**Pair**: from then on the tablet finds the PC by itself.
+**Pair**: from then on the tablet finds the PC by itself. It is used by
+voice: the screen shows only the orb, and a tap brings up the conversation
+and the field to write in.
+
+To make it a tablet that is **only NOVA** (D452) there is
+`core/tablet/prepara.sh`, which runs on the tablet over the cable after a
+factory reset with no accounts: it switches off the programs that are not
+needed, removes the screen lock and sets NOVA as the home screen. From then
+on the tablet boots into NOVA. `prepara.sh indietro` puts everything back.
+
+```powershell
+adb install core\tablet\gen\android\app\build\outputs\apk\arm64\debug\app-arm64-debug.apk
+adb push core\tablet\prepara.sh /data/local/tmp/prepara.sh
+adb shell sh /data/local/tmp/prepara.sh
+```
 
 The portal is **off by default**, because whoever comes in through it
 controls the PC. It is switched on from the settings panel, under

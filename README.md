@@ -1067,16 +1067,31 @@ lavoro lo fa il PC (D448). Ci sono la porta sul PC e il programma del tablet
 attraverso il portale e' in lavorazione.
 
 Il programma del tablet e' in Rust, con Tauri come la finestra del PC, e si
-costruisce per Android con l'SDK e l'NDK:
+costruisce per Android con l'SDK e l'NDK. Questa e' la versione di prova,
+firmata con la chiave di prova di Android: per una da distribuire serve una
+chiave propria.
 
 ```powershell
 cd core\tablet
-cargo tauri android init
-cargo tauri android build --apk --target aarch64
+cargo tauri android build --apk --target aarch64 --debug --split-per-abi
 ```
 
 Sul tablet si apre l'invito del pannello, o lo si incolla, e si preme
-**Abbina**: da quel momento il tablet trova il PC da solo.
+**Abbina**: da quel momento il tablet trova il PC da solo. Si usa a voce:
+sullo schermo c'e' solo l'orb, e un tocco fa comparire il discorso e il
+campo per scrivere.
+
+Per farne un tablet che e' **solo NOVA** (D452) c'e' `core/tablet/prepara.sh`,
+che gira sul tablet dal cavo dopo un ripristino di fabbrica senza account:
+spegne i programmi che non servono, toglie il blocco dello schermo e mette
+NOVA come schermata di casa. Da li' il tablet si accende su NOVA.
+`prepara.sh indietro` rimette tutto com'era.
+
+```powershell
+adb install core\tablet\gen\android\app\build\outputs\apk\arm64\debug\app-arm64-debug.apk
+adb push core\tablet\prepara.sh /data/local/tmp/prepara.sh
+adb shell sh /data/local/tmp/prepara.sh
+```
 
 Il portale e' **spento di serie**, perche' chi entra da li' comanda il PC.
 Si accende dal pannello, alla voce **Portale**; poi **Mostra il codice** fa

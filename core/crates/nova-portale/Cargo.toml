@@ -26,5 +26,8 @@ base64 = "0.22"
 subtle = "2"
 # I segreti vengono dal generatore del sistema.
 getrandom = "0.3"
+# Accorgersi di un capo che sparisce senza salutare (D452): le opzioni del
+# socket che tokio non espone. La stessa versione che usa tokio.
+socket2 = "0.6"
 # Il codice di abbinamento come QR, per il pannello.
 qrcode = { version = "0.14", default-features = false, features = ["svg"] }

@@ -330,6 +330,9 @@ export const SCALA_MINIMA = 0.2;
 /** Ogni quanti fotogrammi si decide, e quanti se ne saltano dopo un cambio. */
 export const FOTOGRAMMI_PER_DECIDERE = 20;
 export const FOTOGRAMMI_DA_SALTARE = 5;
+/** A riposo l'orb e' quasi fermo: gli basta un fotogramma ogni tanto (D452).
+ *  Su un tablet a batteria ogni fotogramma disegnato e' corrente. */
+export const A_RIPOSO_OGNI_MS = 120;
 
 /**
  * La parte del lato da disegnare, sapendo quanto dura in media un
@@ -393,6 +396,10 @@ export function creaOrb(canvas, opzioni = {}) {
   // video ci sta dietro.
   const fluido = !!opzioni.fluido;
   let scala = 1, sommaMs = 0, contati = 0, daSaltare = FOTOGRAMMI_DA_SALTARE;
+  // La grana e' trovata: fino ad allora si disegna e si misura anche a
+  // riposo. Un orb che si accende a riposo, se no, resterebbe al lato
+  // pieno a disegnare fotogrammi da un quinto di secondo l'uno.
+  let tarato = false;
   const ridimensiona = () => {
     const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1)) * scala;
     const larg = Math.max(1, Math.round((canvas.clientWidth || 48) * dpr));
@@ -405,7 +412,8 @@ export function creaOrb(canvas, opzioni = {}) {
     gl.viewport(0, 0, larg, alt);
   };
   ridimensiona();
-  const osservatore = new ResizeObserver(ridimensiona);
+  // Se cambia la misura sulla pagina cambiano i pixel: la grana si ritrova.
+  const osservatore = new ResizeObserver(() => { tarato = false; ridimensiona(); });
   osservatore.observe(canvas);
   gl.clearColor(0, 0, 0, 0);
 
@@ -432,6 +440,13 @@ export function creaOrb(canvas, opzioni = {}) {
 
   const disegna = ora => {
     if (!vivo) return;
+    // A riposo si disegna ogni tanto: l'orb spento quasi non si muove, e
+    // chi lo guarda non vede la differenza. Vale per chi ha chiesto
+    // `fluido`, cioe' per chi ha un orb grande su una macchina piccola.
+    if (fluido && tarato && corrente === 'spento' && ora - ultimo < A_RIPOSO_OGNI_MS) {
+      raf = requestAnimationFrame(disegna);
+      return;
+    }
     const passati = ora - ultimo;
     const dt = Math.min(0.1, passati / 1000);
     ultimo = ora;
@@ -439,7 +454,11 @@ export function creaOrb(canvas, opzioni = {}) {
     // Quanto dura un fotogramma, e se serve quanti pixel disegnare. Una
     // pausa lunga e' la pagina che era nascosta, non la scheda video: non si
     // conta. Dopo un cambio i primi fotogrammi non si contano.
-    if (fluido && passati < 500) {
+    if (fluido && tarato && corrente === 'spento') {
+      // A riposo i fotogrammi sono radi apposta: non dicono niente della
+      // scheda video, e alla ripresa i primi non si contano.
+      sommaMs = 0; contati = 0; daSaltare = FOTOGRAMMI_DA_SALTARE;
+    } else if (fluido && passati < 500) {
       if (daSaltare > 0) daSaltare--;
       else {
         sommaMs += passati;
@@ -449,7 +468,10 @@ export function creaOrb(canvas, opzioni = {}) {
           if (Math.abs(nuova - scala) > 0.01) {
             scala = nuova;
             daSaltare = FOTOGRAMMI_DA_SALTARE;
+            tarato = false;
             ridimensiona();
+          } else {
+            tarato = true;
           }
         }
       }
@@ -492,7 +514,7 @@ export function creaOrb(canvas, opzioni = {}) {
     stato(nome) { if (STATI[nome]) corrente = nome; },
     qualeStato() { return corrente; },
     /** Quanti pixel disegna adesso, e che parte sono del lato pieno (D451). */
-    quantoDisegna() { return { scala, lato: canvas.width }; },
+    quantoDisegna() { return { scala, lato: canvas.width, tarato }; },
     /** L'ampiezza della voce, da 0 a 1; mezzo secondo senza vale zero. */
     livello(v) { livello = Math.max(0, Math.min(1, +v || 0)); livelloQuando = performance.now(); },
     ferma() {

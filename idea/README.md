@@ -872,3 +872,18 @@ finestra potrebbe invece stringersi, e la pagina ridisporsi nello spazio
 che resta. *Perche'.* Mentre si scrive si vedrebbe ancora cosa sta facendo
 NOVA. *Cosa costerebbe.* Il modo della tastiera nel progetto Android
 (`adjustResize`), che oggi Tauri rigenera: va fissato dove non lo perda.
+
+**NOVA da cui non si esce.** *Cosa.* Sul tablet le barre di Android tornano
+un attimo strisciando dal bordo, e da li' si arriva alle Impostazioni. NOVA
+potrebbe essere la padrona del dispositivo e tenerlo bloccato su di se'.
+*Perche'.* Un dispositivo che e' solo NOVA non deve poter finire altrove
+per sbaglio. *Cosa costerebbe.* Un pezzo di codice Android (il ricevitore
+dell'amministratore e il blocco sull'attivita'), e l'abbinamento come
+padrone dal cavo, che si puo' fare solo su un tablet senza account.
+
+**Un WebView aggiornato sul tablet.** *Cosa.* Dopo il ripristino il WebView
+del Tab A8 e' tornato quello di fabbrica, la versione 120 del 2023; prima
+era la 157. Senza il negozio di Google non si aggiorna da solo. *Perche'.*
+La finestra di NOVA e' il WebView: le correzioni di sicurezza passano di
+li'. *Cosa costerebbe.* Scaricare il pacchetto del WebView e installarlo
+dal cavo, ogni tanto; o riaccendere solo per quello il negozio.
