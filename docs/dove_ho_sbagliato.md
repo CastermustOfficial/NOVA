@@ -3442,3 +3442,29 @@ La regola: in una domanda a Gio ci metto solo cose che ho gia' verificato.
 Un dettaglio di come funzionera', scritto per rassicurare prima di aver
 letto il codice, e' una promessa: se poi non regge, devo tornare a dirlo.
 E un numero lo scrivo dopo averlo contato, con l'unita' di cio' che misura.
+
+## Installato senza averlo mai fatto partire
+
+Il programma del tablet col microfono (D455) l'ho costruito, ho visto che
+si costruiva, e ho scritto a Gio che il microfono in Rust su Android «si
+puo' fare». Per esserne sicuro avevo guardato da quali librerie dipendeva
+la prova: non c'era quella del C++, e l'ho preso per buono. Ho creduto che
+se si costruisce e non chiede librerie strane, parte. Era la domanda
+sbagliata: non contava da chi dipendeva, ma quali simboli restavano da
+trovare, ed erano venticinque. Poi il cavo non andava, non ho potuto
+provarlo sul tablet, e ho committato lo stesso; tornato il cavo l'ho
+installato sul tablet che e' solo NOVA, dove quel programma e' la
+schermata di casa. Non partiva: quasi due minuti senza niente sullo
+schermo, con Gio davanti.
+
+Me ne sono accorto perche' dopo l'installazione il programma non aveva un
+processo. Ho rimesso l'APK di prima e l'ho detto a Gio.
+
+Corretto col D456: la libreria del C++ collegata, e `controlla_apk.sh`.
+
+La regola: «si costruisce» non e' «parte», e a Gio dico «si puo' fare»
+solo di una cosa che ho visto partire. Un programma per un dispositivo si
+committa dopo averlo fatto partire su quel dispositivo; se il dispositivo
+non c'e', lo dico e aspetto. E sul tablet che e' solo NOVA un APK nuovo si
+installa cosi': prima il controllo, poi l'installazione con quello di
+prima pronto, e subito dopo si guarda che il processo ci sia.

@@ -1079,6 +1079,10 @@ cd core\tablet
 cargo tauri android build --apk --target aarch64 --debug --split-per-abi
 ```
 
+Un APK che si costruisce puo' non partire: prima di installarlo si guarda
+che la sua libreria chieda ad Android solo cose che Android ha (D456), con
+`sh core/tablet/controlla_apk.sh percorso/dell.apk` (vuole `NDK_HOME`).
+
 Sul tablet si apre l'invito del pannello, o lo si incolla, e si preme
 **Abbina**: da quel momento il tablet trova il PC da solo. Si usa a voce:
 sullo schermo c'e' solo l'orb, e un tocco fa comparire il discorso e il

@@ -12338,3 +12338,12 @@ svegliata due volte.
 Il microfono in Rust per Android si costruisce al primo colpo, con la
 stessa libreria del PC. La frase detta davvero al tablet resta da provare
 col tablet in mano: per ora la risposta esce dal PC.
+
+Poi l'errore della giornata. Il cavo del tablet non andava, e la versione
+col microfono l'avevo solo costruita. Tornato il cavo, l'ho installata:
+non partiva. Sul tablet che e' solo NOVA vuol dire schermo vuoto, e Gio
+l'aveva li' davanti. Ho rimesso quella di prima in meno di due minuti, e
+gliel'ho detto subito. Mancava la libreria del C++, che il microfono su Android si
+porta dietro; costruendo non si vede, si vede al primo avvio. Corretto, e
+adesso c'e' un controllo che guarda dentro l'APK prima di installarlo
+(D456): su quello sbagliato elenca i venticinque simboli che mancavano.

@@ -627,6 +627,40 @@ controlla("spento il risveglio, non ascolta nemmeno l'orecchio lontano",
 controlla("dal tablet parte anche la conversazione dal vivo",
           "Orecchio::Lontano(o) => crate::live::Microfono::Lontano(o.dal_vivo())," in RISVEGLIO_RS)
 
+print("\n16. il programma col microfono si carica (D456)")
+# Il 28 novembre l'APK del D455 si costruiva, si installava, e all'avvio non
+# si caricava: Oboe e' C++, e la libreria del C++ non era collegata. Sul
+# tablet che e' solo NOVA vuol dire nessuna schermata.
+COSTRUZIONE = (TABLET / "build.rs").read_text(encoding="utf-8")
+android = re.search(r'if std::env::var\("CARGO_CFG_TARGET_OS"\)\.as_deref\(\) == Ok\("android"\) \{(.*?)\n    \}',
+                    COSTRUZIONE, re.S)
+controlla("su Android la libreria del C++ si collega, statica e in fondo alla riga",
+          android is not None
+          and 'println!("cargo:rustc-link-arg=-lc++_static");' in android.group(1)
+          and 'println!("cargo:rustc-link-arg=-lc++abi");' in android.group(1)
+          and "tauri_build::build()" in COSTRUZIONE)
+CONTROLLA = (TABLET / "controlla_apk.sh").read_text(encoding="utf-8")
+controlla("c'e' il controllo da fare prima di installare, e gira dove gira l'NDK",
+          "\r" not in CONTROLLA and CONTROLLA.startswith("#!/bin/sh\n")
+          and "--undefined-only" in CONTROLLA and "--defined-only" in CONTROLLA
+          and '[ "$guai" -eq 0 ] || exit 1' in CONTROLLA)
+controlla("guarda i simboli che servono davvero, non quelli deboli",
+          "awk '$1 == \"U\" {print $2}'" in CONTROLLA)
+controlla("e la versione minima di Android la legge dal progetto",
+          "minSdk" in CONTROLLA and re.search(r"minSdk\s*=\s*\d+",
+                                              (ANDROID / "app" / "build.gradle.kts").read_text(encoding="utf-8")))
+if sh is None:
+    print("  [--] senza sh la sintassi del controllo non si prova qui")
+else:
+    r = subprocess.run([sh, "-n", str(TABLET / "controlla_apk.sh")], capture_output=True, text=True, timeout=30)
+    controlla("il controllo si legge senza errori di sintassi", r.returncode == 0, r.stderr[-300:])
+    r = subprocess.run([sh, str(TABLET / "controlla_apk.sh")], capture_output=True, text=True, timeout=30)
+    controlla("senza un APK dice come si usa, e non dice che va bene",
+              r.returncode == 2 and "uso: sh controlla_apk.sh" in r.stderr, r.stderr[-200:])
+for nome in ("README.md", "README.en.md"):
+    controlla(f"  {nome} lo dice a chi costruisce",
+              "core/tablet/controlla_apk.sh" in (RADICE / nome).read_text(encoding="utf-8"))
+
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for x in falliti:
     print("  FALLITO:", x)
