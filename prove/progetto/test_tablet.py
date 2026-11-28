@@ -192,12 +192,12 @@ import shutil                                                    # noqa: E402
 import subprocess                                                # noqa: E402
 import tempfile                                                  # noqa: E402
 ORB = (GUSCIO / "ui" / "orb.js").read_text(encoding="utf-8")
-controlla("la pagina del tablet lo chiede", "creaOrb($('orb'), { fluido: true })" in PAGINA)
+controlla("la pagina del tablet lo chiede", "creaOrb($('orb'), { fluido: true, " in PAGINA)
 altre = [f.name for f in sorted((GUSCIO / "ui").glob("*.html"))
          if f.name != "tablet.html" and "fluido" in f.read_text(encoding="utf-8-sig")]
 controlla("le pagine del PC no: li' l'orb e' piccolo e resta com'era", not altre, str(altre))
 controlla("chi non lo chiede disegna tutti i pixel",
-          "const fluido = !!opzioni.fluido;" in ORB and "if (fluido && passati < 500) {" in ORB
+          "const fluido = !!opzioni.fluido;" in ORB and "} else if (fluido && passati < PAUSA_MS) {" in ORB
           and "let scala = 1," in ORB)
 controlla("la scala entra nel lato del canvas, non nella sua misura sulla pagina",
           "const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1)) * scala;" in ORB
@@ -363,6 +363,174 @@ controlla("a riposo l'orb si disegna di rado, e quei fotogrammi non si contano",
 controlla("ma prima trova la sua grana, anche se si accende a riposo",
           "let tarato = false;" in ORB and "} else {\n            tarato = true;" in ORB
           and "new ResizeObserver(() => { tarato = false; ridimensiona(); })" in ORB)
+
+print("\n12. l'orb alleggerito: piu' nitido, e piu' grande (D453)")
+# Il 28 novembre Gio, dell'orb sul tablet: «si e' fluido ma la qualita' e'
+# pessima», e «riduciamo solo in numero di particelle e basta». Disegnare meno pixel
+# (D451) teneva i fotogrammi a spese della nitidezza: qui si alleggerisce il
+# disegno, e nello stesso tempo ci stanno piu' pixel.
+controlla("la pagina del tablet chiede il disegno leggero: 14 passi, 2 strati",
+          "const PASSI_SUL_TABLET = 14, STRATI_SUL_TABLET = 2;" in PAGINA
+          and "creaOrb($('orb'), { fluido: true, passi: PASSI_SUL_TABLET, strati: STRATI_SUL_TABLET });"
+          in PAGINA)
+chiamate = {f.name: re.findall(r"(?<!function )creaOrb\(([^;]*)\);", f.read_text(encoding="utf-8-sig"))
+            for f in sorted((GUSCIO / "ui").glob("*.html"))}
+chiamate = {n: c for n, c in chiamate.items() if c}
+controlla("le pagine con l'orb si trovano", len(chiamate) >= 5 and "tablet.html" in chiamate,
+          str(sorted(chiamate)))
+controlla("sul PC l'orb resta quello di Gio: nessun'altra pagina chiede passi o strati",
+          not [n for n, c in chiamate.items()
+               if n != "tablet.html" and any("passi" in x or "strati" in x for x in c)], str(chiamate))
+controlla("l'orb compila il disegno che gli chiedono, e senza richieste quello pieno",
+          "compila(gl, gl.FRAGMENT_SHADER, disegno({ passi: opzioni.passi, strati: opzioni.strati }))" in ORB
+          and "compila(gl, gl.FRAGMENT_SHADER, FRAG)" not in ORB)
+controlla("solo l'orb: grande quasi quanto lo schermo, e in una misura sola",
+          "body.solo-orb #orb{width:min(90vw,90vh);height:min(90vw,90vh)}" in PAGINA
+          and PAGINA.count("body.solo-orb #orb{") == 1)
+controlla("le parole stanno sopra il fondo dell'orb: l'orb resta al centro esatto",
+          "body.solo-orb #scena{flex:1 1 auto;justify-content:center;padding:0;position:relative}" in PAGINA
+          and "body.solo-orb #detto{position:absolute;left:0;right:0;bottom:7vh;margin:0}" in PAGINA
+          and "body.solo-orb #linea{position:absolute;left:0;right:0;bottom:3.5vh;margin:0}" in PAGINA)
+if node is None:
+    print("  [--] senza node il disegno leggero non si prova qui: resta il sorgente")
+else:
+    with tempfile.TemporaryDirectory() as tmp:
+        prova = Path(tmp) / "disegno.mjs"
+        prova.write_text(
+            "const m = await import(" + json.dumps((GUSCIO / "ui" / "orb.js").as_uri()) + ");\n"
+            "const pieno = m.disegno();\n"
+            "const righe = s => s.split('\\n');\n"
+            "const diverse = s => { const a = righe(pieno), b = righe(s);\n"
+            "  return { tolte: a.filter(r => !b.includes(r)), messe: b.filter(r => !a.includes(r)) }; };\n"
+            "const uguale = o => m.disegno(o) === pieno;\n"
+            "console.log(JSON.stringify({ pieno, passi: m.PASSI_PIENI, strati: m.STRATI_PIENI, minimi: m.PASSI_MINIMI,\n"
+            "  detti: uguale({ passi: 56, strati: 4 }), vuoto: uguale({}), assenti: uguale({ passi: undefined, strati: undefined }),\n"
+            "  nulli: uguale({ passi: null, strati: null }), troppi: uguale({ passi: 1000, strati: 9 }),\n"
+            "  storti: uguale({ passi: 'x', strati: NaN }),\n"
+            "  tablet: diverse(m.disegno({ passi: 14, strati: 2 })), tre: diverse(m.disegno({ passi: 16, strati: 3 })),\n"
+            "  soloPassi: diverse(m.disegno({ passi: 28 })), fondo: diverse(m.disegno({ passi: 1, strati: 0 })),\n"
+            "  tondi: m.disegno({ passi: 13.6, strati: 2.4 }) === m.disegno({ passi: 14, strati: 2 }) }));\n",
+            encoding="utf-8")
+        r = subprocess.run([node, str(prova)], capture_output=True, text=True, timeout=60)
+    try:
+        v = json.loads(r.stdout)
+    except ValueError:
+        v = None
+    controlla("il disegno si prova con node", v is not None, (r.stderr or r.stdout)[-300:])
+    if v is not None:
+        pieno = v["pieno"]
+        controlla("il disegno pieno e' quello di Gio: 56 passi, 4 strati, e niente di aggiunto",
+                  v["passi"] == 56 and v["strati"] == 4
+                  and pieno.count("const int   STEPS = 56;") == 1
+                  and pieno.count("for (int i = 0; i < 4; i++){") == 1
+                  and "  return v;\n}" in pieno and "guscio" not in pieno
+                  and "float shellN = fbm(dir * 3.0 + vec3(0.0, 0.0, cyc));" in pieno
+                  and pieno in ORB)
+        controlla("senza richieste, o con richieste che non sono numeri, e' il disegno pieno",
+                  v["detti"] and v["vuoto"] and v["assenti"] and v["nulli"] and v["troppi"] and v["storti"],
+                  str({k: v[k] for k in ("detti", "vuoto", "assenti", "nulli", "troppi", "storti")}))
+        ONDA = ["      float guscio = exp(-pow((r - waveR) / 0.045, 2.0)) * waveA;",
+                "      float wave = 0.0;",
+                "      if (guscio > 0.0005) wave = guscio * (0.4 + 0.9 * fbm(dir * 3.0 + vec3(0.0, 0.0, cyc))) * 3.0;"]
+        ONDA_PIENA = ["      float shellN = fbm(dir * 3.0 + vec3(0.0, 0.0, cyc));",
+                      "      float wave = exp(-pow((r - waveR) / 0.045, 2.0)) * waveA * (0.4 + 0.9 * shellN) * 3.0;"]
+
+        def cambia_solo(d, passi, strati, fattore):
+            tolte = ["    const int   STEPS = 56;"] + (
+                ["  for (int i = 0; i < 4; i++){", "  return v;"] if strati != 4 else []) + ONDA_PIENA
+            messe = [f"    const int   STEPS = {passi};"] + (
+                [f"  for (int i = 0; i < {strati}; i++){{", f"  return v * {fattore};"] if strati != 4 else []) + ONDA
+            return sorted(d["tolte"]) == sorted(tolte) and sorted(d["messe"]) == sorted(messe)
+        # Meno strati sommano meno (0,75 invece di 0,9375 con due): la somma
+        # si riporta a quella di quattro, se no le striature si diradano.
+        controlla("quello del tablet cambia solo i passi, gli strati e l'onda d'urto",
+                  cambia_solo(v["tablet"], 14, 2, "1.25000"), str(v["tablet"]))
+        controlla("con tre strati la somma si riporta a quella di quattro",
+                  cambia_solo(v["tre"], 16, 3, "1.07143"), str(v["tre"]))
+        controlla("chi chiede solo meno passi tiene i quattro strati",
+                  cambia_solo(v["soloPassi"], 28, 4, ""), str(v["soloPassi"]))
+        controlla("sotto otto passi e uno strato non si scende",
+                  v["minimi"] == 8 and cambia_solo(v["fondo"], 8, 1, "1.87500"), str(v["fondo"]))
+        controlla("i numeri con la virgola si arrotondano", v["tondi"] is True)
+
+print("\n13. l'orb grande non resta inchiodato al lato pieno (D453)")
+# Provando l'orb grande col disegno pieno, il 28 novembre sul Tab A8: 1080
+# pixel di lato, 590 ms a fotogramma, 1,7 al secondo, e li' restava. La
+# regola del D451 scartava i fotogrammi oltre il mezzo secondo come pause
+# (la pagina nascosta), e cosi' non ne contava nessuno.
+controlla("un fotogramma lungo da solo e' una pausa, tre di fila sono la scheda video",
+          "export const PAUSA_MS = 500;" in ORB and "export const LUNGHI_DI_FILA = 3;" in ORB
+          and "} else if (fluido && ++lunghi >= LUNGHI_DI_FILA) {" in ORB)
+if node is None:
+    print("  [--] senza node l'orb non si accende qui: resta il sorgente")
+else:
+    with tempfile.TemporaryDirectory() as tmp:
+        prova = Path(tmp) / "inchiodato.mjs"
+        prova.write_text(
+            # Un browser finto quanto basta: un canvas, una scheda video che
+            # dice sempre di si', e i fotogrammi che li chiama la prova.
+            "let adesso = 1000, prossimo = null;\n"
+            "const gl = new Proxy({}, { get: () => () => true });\n"
+            "globalThis.window = { devicePixelRatio: 1.5, addEventListener() {}, removeEventListener() {},\n"
+            "  matchMedia: () => ({ matches: false }) };\n"
+            "globalThis.ResizeObserver = class { observe() {} disconnect() {} };\n"
+            "globalThis.requestAnimationFrame = f => { prossimo = f; return 1; };\n"
+            "globalThis.cancelAnimationFrame = () => {};\n"
+            "Object.defineProperty(globalThis, 'performance', { value: { now: () => adesso }, configurable: true });\n"
+            "const m = await import(" + json.dumps((GUSCIO / "ui" / "orb.js").as_uri()) + ");\n"
+            "// `msAlPieno`: quanto dura un fotogramma a 1080 pixel di lato; il tempo va coi pixel,\n"
+            "// e lo schermo ne mostra uno ogni 16,7 ms. `pause`: a quali fotogrammi la pagina\n"
+            "// resta nascosta per dieci secondi.\n"
+            "function giro(msAlPieno, opzioni, fotogrammi, pause = [], stato = 'parlo') {\n"
+            "  const canvas = { clientWidth: 720, clientHeight: 720, width: 0, height: 0, getContext: () => gl,\n"
+            "    getBoundingClientRect: () => ({ left: 0, top: 0, width: 720, height: 720 }) };\n"
+            "  const orb = m.creaOrb(canvas, opzioni); orb.stato(stato);\n"
+            "  const tempo = () => Math.max(16.7, Math.ceil(msAlPieno * (canvas.width / 1080) ** 2 / 16.7) * 16.7);\n"
+            "  const lati = [canvas.width];\n"
+            "  for (let i = 0; i < fotogrammi; i++) {\n"
+            "    adesso += pause.includes(i) ? 10000 : tempo();\n"
+            "    const f = prossimo; prossimo = null; f(adesso);\n"
+            "    if (canvas.width !== lati[lati.length - 1]) lati.push(canvas.width);\n"
+            "  }\n"
+            "  const fine = { lati, tempo: tempo(), ...orb.quantoDisegna() };\n"
+            "  orb.ferma();\n"
+            "  return fine;\n"
+            "}\n"
+            "console.log(JSON.stringify({\n"
+            "  pieno: giro(590, { fluido: true }, 400),\n"
+            "  primi: giro(590, { fluido: true }, 2),\n"
+            "  terzo: giro(590, { fluido: true }, 3),\n"
+            "  lento: giro(182 * (1080 / 576) ** 2 * 0.75, { fluido: true }, 400),\n"
+            "  pausa: giro(16.7, { fluido: true }, 200, [50]),\n"
+            "  duePause: giro(16.7, { fluido: true }, 200, [50, 51]),\n"
+            "  senza: giro(590, {}, 30),\n"
+            "  lentissimo: giro(20000, { fluido: true }, 400),\n"
+            "}));\n", encoding="utf-8")
+        r = subprocess.run([node, str(prova)], capture_output=True, text=True, timeout=60)
+    try:
+        v = json.loads(r.stdout)
+    except ValueError:
+        v = None
+    controlla("l'orb si accende in un browser finto", v is not None, (r.stderr or r.stdout)[-400:])
+    if v is not None:
+        controlla("parte dal lato pieno: 720 punti su uno schermo a 1,5 sono 1080 pixel",
+                  v["pieno"]["lati"][0] == 1080 and v["primi"]["lati"] == [1080], str(v["primi"]))
+        controlla("a 590 ms a fotogramma al terzo fotogramma scende: non resta li'",
+                  len(v["terzo"]["lati"]) == 2 and v["terzo"]["lati"][1] < 300, str(v["terzo"]["lati"]))
+        controlla("e scende a una grana che sta nei suoi fotogrammi, dove si ferma",
+                  v["pieno"]["tarato"] is True and 18 <= v["pieno"]["tempo"] <= 40
+                  and v["pieno"]["lati"] == v["terzo"]["lati"], str(v["pieno"]))
+        controlla("sotto il mezzo secondo la regola e' quella di prima",
+                  v["lento"]["tarato"] is True and 18 <= v["lento"]["tempo"] <= 40
+                  and len(v["lento"]["lati"]) == 2, str(v["lento"]))
+        controlla("una pausa, o due di fila, non cambiano niente",
+                  v["pausa"]["lati"] == [1080] and v["duePause"]["lati"] == [1080]
+                  and v["pausa"]["scala"] == 1, str([v["pausa"], v["duePause"]]))
+        controlla("chi non chiede `fluido` resta al lato pieno comunque",
+                  v["senza"]["lati"] == [1080] and v["senza"]["scala"] == 1, str(v["senza"]))
+        controlla("su una scheda lentissima si ferma al minimo, senza girare in tondo",
+                  abs(v["lentissimo"]["scala"] - 0.2) < 1e-9 and len(v["lentissimo"]["lati"]) == 2,
+                  str(v["lentissimo"]))
 
 print(f"\n{passati} passati, {len(falliti)} falliti")
 for x in falliti:

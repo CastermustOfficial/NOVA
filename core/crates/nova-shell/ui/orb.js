@@ -273,6 +273,60 @@ void main(){
   mainImage(fragColor, gl_FragCoord.xy);
 }`;
 
+/* L'orb leggero (D453).
+ *
+ * Quasi tutto il costo dell'orb sta nel giro dentro la nuvola: per ogni
+ * pixel 56 passi, e a ogni passo quattordici letture di rumore (tre nuvole
+ * a quattro strati, piu' due per la polvere). Su una scheda video piccola
+ * il conto non torna, e disegnare meno pixel (D451) lo fa tornare a spese
+ * della nitidezza: il 28 novembre Gio, del tablet: «si e' fluido ma la
+ * qualita' e' pessima». Ha scelto di alleggerire l'orb, invece di
+ * registrarlo.
+ *
+ * `disegno({ passi, strati })` da' lo stesso disegno con meno passi nella
+ * nuvola e meno strati di rumore: ogni passo e' piu' lungo, quindi la luce
+ * resta quella, con meno profondita' e una grana meno fine. Nella versione
+ * leggera il rumore dell'onda d'urto si legge solo vicino all'onda, dov'e'
+ * l'unico posto in cui conta. Senza opzioni il disegno e' quello di Gio,
+ * lettera per lettera. */
+
+/** I passi nella nuvola e gli strati di rumore dell'orb di Gio. */
+export const PASSI_PIENI = 56;
+export const STRATI_PIENI = 4;
+/** Sotto questi passi la nuvola si sgrana in fasce: non si scende. */
+export const PASSI_MINIMI = 8;
+
+/** Il sorgente del disegno dell'orb, pieno o alleggerito. */
+export function disegno({ passi, strati } = {}) {
+  // Un numero che non c'e', o che non e' un numero, e' il disegno pieno: nel
+  // sorgente finirebbe un «NaN», e l'orb sparirebbe.
+  const fra = (v, minimo, pieno) => (v == null || !Number.isFinite(+v))
+    ? pieno : Math.max(minimo, Math.min(pieno, Math.round(+v)));
+  passi = fra(passi, PASSI_MINIMI, PASSI_PIENI);
+  strati = fra(strati, 1, STRATI_PIENI);
+  if (passi === PASSI_PIENI && strati === STRATI_PIENI) return FRAG;
+  const cambia = (testo, cosa, con) => {
+    if (!testo.includes(cosa)) throw new Error(`il disegno dell'orb e' cambiato: non trovo «${cosa}»`);
+    return testo.replace(cosa, con);
+  };
+  let f = FRAG;
+  f = cambia(f, `const int   STEPS = ${PASSI_PIENI};`, `const int   STEPS = ${passi};`);
+  // Meno strati sommano meno: si riporta la somma a quella di quattro, se
+  // no le soglie che fanno le striature ne lascerebbero passare di meno.
+  if (strati !== STRATI_PIENI) {
+    const pieno = 1 - 0.5 ** STRATI_PIENI, ridotto = 1 - 0.5 ** strati;
+    f = cambia(f, `for (int i = 0; i < ${STRATI_PIENI}; i++){`, `for (int i = 0; i < ${strati}; i++){`);
+    f = cambia(f, '    a *= 0.5;\n  }\n  return v;', `    a *= 0.5;\n  }\n  return v * ${(pieno / ridotto).toFixed(5)};`);
+  }
+  // L'onda d'urto e' un guscio sottile: lontano dal guscio, o senza onda,
+  // il suo rumore si moltiplica per meno di cinque decimillesimi, e non si
+  // vede. Li' non si legge.
+  f = cambia(f,
+    '      float shellN = fbm(dir * 3.0 + vec3(0.0, 0.0, cyc));\n      float wave = exp(-pow((r - waveR) / 0.045, 2.0)) * waveA * (0.4 + 0.9 * shellN) * 3.0;',
+    '      float guscio = exp(-pow((r - waveR) / 0.045, 2.0)) * waveA;\n      float wave = 0.0;\n      if (guscio > 0.0005) wave = guscio * (0.4 + 0.9 * fbm(dir * 3.0 + vec3(0.0, 0.0, cyc))) * 3.0;');
+  return f;
+}
+
 function compila(gl, tipo, sorgente) {
   const s = gl.createShader(tipo);
   gl.shaderSource(s, sorgente);
@@ -330,6 +384,14 @@ export const SCALA_MINIMA = 0.2;
 /** Ogni quanti fotogrammi si decide, e quanti se ne saltano dopo un cambio. */
 export const FOTOGRAMMI_PER_DECIDERE = 20;
 export const FOTOGRAMMI_DA_SALTARE = 5;
+/** Un fotogramma piu' lungo di cosi' e' la pagina che era nascosta, non la
+ *  scheda video: da solo non si conta. */
+export const PAUSA_MS = 500;
+/** Ma tanti cosi' di fila non sono una pausa: e' la scheda video che non ce
+ *  la fa proprio, e si scende subito (D453). Il 28 novembre sul Tab A8
+ *  l'orb pieno a 1080 pixel di lato ci metteva 590 ms a fotogramma: nessuno
+ *  si contava, e restava li' a 1,7 al secondo. */
+export const LUNGHI_DI_FILA = 3;
 /** A riposo l'orb e' quasi fermo: gli basta un fotogramma ogni tanto (D452).
  *  Su un tablet a batteria ogni fotogramma disegnato e' corrente. */
 export const A_RIPOSO_OGNI_MS = 120;
@@ -364,7 +426,7 @@ export function creaOrb(canvas, opzioni = {}) {
     return nulla;
   }
   const vs = compila(gl, gl.VERTEX_SHADER, VERT);
-  const fs = compila(gl, gl.FRAGMENT_SHADER, FRAG);
+  const fs = compila(gl, gl.FRAGMENT_SHADER, disegno({ passi: opzioni.passi, strati: opzioni.strati }));
   const prog = gl.createProgram();
   if (!vs || !fs || !prog) {
     ripiegoStatico(canvas);
@@ -395,7 +457,7 @@ export function creaOrb(canvas, opzioni = {}) {
   // La parte del lato che si disegna davvero (D451): 1 finche' la scheda
   // video ci sta dietro.
   const fluido = !!opzioni.fluido;
-  let scala = 1, sommaMs = 0, contati = 0, daSaltare = FOTOGRAMMI_DA_SALTARE;
+  let scala = 1, sommaMs = 0, contati = 0, daSaltare = FOTOGRAMMI_DA_SALTARE, lunghi = 0;
   // La grana e' trovata: fino ad allora si disegna e si misura anche a
   // riposo. Un orb che si accende a riposo, se no, resterebbe al lato
   // pieno a disegnare fotogrammi da un quinto di secondo l'uno.
@@ -453,12 +515,14 @@ export function creaOrb(canvas, opzioni = {}) {
     quadro++;
     // Quanto dura un fotogramma, e se serve quanti pixel disegnare. Una
     // pausa lunga e' la pagina che era nascosta, non la scheda video: non si
-    // conta. Dopo un cambio i primi fotogrammi non si contano.
+    // conta, a meno che non siano lunghi tutti. Dopo un cambio i primi
+    // fotogrammi non si contano.
     if (fluido && tarato && corrente === 'spento') {
       // A riposo i fotogrammi sono radi apposta: non dicono niente della
       // scheda video, e alla ripresa i primi non si contano.
       sommaMs = 0; contati = 0; daSaltare = FOTOGRAMMI_DA_SALTARE;
-    } else if (fluido && passati < 500) {
+    } else if (fluido && passati < PAUSA_MS) {
+      lunghi = 0;
       if (daSaltare > 0) daSaltare--;
       else {
         sommaMs += passati;
@@ -474,6 +538,17 @@ export function creaOrb(canvas, opzioni = {}) {
             tarato = true;
           }
         }
+      }
+    } else if (fluido && ++lunghi >= LUNGHI_DI_FILA) {
+      // Una pausa e' un fotogramma lungo fra tanti corti; questi sono lunghi
+      // uno dopo l'altro.
+      lunghi = 0;
+      const nuova = scalaPer(scala, passati);
+      if (nuova < scala) {
+        scala = nuova;
+        sommaMs = 0; contati = 0; daSaltare = FOTOGRAMMI_DA_SALTARE;
+        tarato = false;
+        ridimensiona();
       }
     }
     const meta = STATI[corrente] || STATI.quiete;

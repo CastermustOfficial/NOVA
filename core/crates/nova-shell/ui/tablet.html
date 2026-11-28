@@ -60,10 +60,14 @@
   body.da-abbinare #abbina{display:flex}
   body.da-abbinare #discorso, body.da-abbinare #scrivi{display:none}
 
-  /* Solo l'orb: al centro, piu' grande, e nient'altro. */
+  /* Solo l'orb: al centro, grande quasi quanto lo schermo, e nient'altro.
+     Le parole, quando ci sono, stanno sopra il fondo del canvas, dov'e'
+     gia' buio: cosi' l'orb e' al centro esatto, con o senza parole. */
   body.solo-orb #lato{display:none}
-  body.solo-orb #scena{flex:1 1 auto;justify-content:center;padding:0 24px}
-  body.solo-orb #orb{width:min(56vw,56vh);height:min(56vw,56vh)}
+  body.solo-orb #scena{flex:1 1 auto;justify-content:center;padding:0;position:relative}
+  body.solo-orb #orb{width:min(90vw,90vh);height:min(90vw,90vh)}
+  body.solo-orb #detto{position:absolute;left:0;right:0;bottom:7vh;margin:0}
+  body.solo-orb #linea{position:absolute;left:0;right:0;bottom:3.5vh;margin:0}
 
   /* In orizzontale l'orb sta a sinistra e il discorso a destra: uno sopra
      l'altro, con la tastiera aperta non resterebbe posto per nessuno dei
@@ -73,7 +77,6 @@
     #scena{flex:0 0 38vw;justify-content:center;padding:2vh 16px}
     #orb{width:min(30vw,58vh);height:min(30vw,58vh)}
     body.solo-orb #scena{flex:1 1 auto}
-    body.solo-orb #orb{width:min(56vw,56vh);height:min(56vw,56vh)}
     #discorso{padding:16px 28px 12px 8px}
     #scrivi{padding:10px 28px 16px 8px}
     #abbina{padding:0 36px 2vh 8px;justify-content:center}
@@ -119,8 +122,14 @@ impostaLingua((navigator.language || 'it').slice(0, 2).toLowerCase());
 traduciDocumento();
 
 // Grande com'e' qui, su un tablet l'orb non ci sta nei suoi fotogrammi: si
-// regola da solo su quanti pixel disegnare (D451).
-const orb = creaOrb($('orb'), { fluido: true });
+// regola da solo su quanti pixel disegnare (D451). E lo disegna alleggerito
+// (D453): meno passi nella nuvola e meno strati di rumore, cosi' nello stesso
+// tempo ci stanno piu' del doppio dei pixel per lato. Sul Tab A8, il 28
+// novembre, con l'orb largo 720 punti (1080 pixel): col disegno pieno 216
+// pixel di lato a 26 al secondo, con 16 passi e 3 strati 429 a 31, con 14 e
+// 2 479 a 38.
+const PASSI_SUL_TABLET = 14, STRATI_SUL_TABLET = 2;
+const orb = creaOrb($('orb'), { fluido: true, passi: PASSI_SUL_TABLET, strati: STRATI_SUL_TABLET });
 window.orb = orb;
 const DETTO = { quiete: 'a riposo', ascolto: 'ti ascolto', penso: 'ci penso',
   agisco: 'sto facendo', parlo: 'sto parlando', chiedo: 'aspetto un tuo ok sul PC',

@@ -3361,3 +3361,42 @@ Corretto col D452: il programma chiede al PC la fase della voce.
 La regola: uno stato non si inventa da questa parte del filo; si chiede a
 chi lo sa. E il nome di uno stato si legge dove lo usa chi l'ha fatto, non
 nel dizionario.
+
+## L'orb fluido ma sgranato
+
+Col D451 ho fatto tornare i fotogrammi dell'orb sul tablet togliendo
+pixel, e ho scritto che «l'orb e' una nuvola, e stirata si vede poco».
+L'avevo guardata in una schermata presa dal cavo, rimpicciolita, non sullo
+schermo del tablet. E avevo scartato l'altra strada, meno passi nella
+nuvola, perche' «cambia l'aspetto dell'orb di Gio»: senza provarla, e
+senza chiederlo a Gio. Erano 238 pixel stirati su 672. Gio, col tablet in
+mano: «sembra in 120p», «la qualita' e' pessima».
+
+Corretto col D453: l'orb del tablet ha meno passi e meno strati, e piu'
+del doppio dei pixel per lato. L'ha scelto Gio su un confronto affiancato.
+
+La regola: quando per far tornare un conto bisogna sacrificare qualcosa,
+si provano tutte le cose sacrificabili e si mostrano affiancate a chi deve
+guardarle, prima di decidere. E una cosa fatta per uno schermo si giudica
+su quello schermo, alla sua misura.
+
+## La regola che scartava proprio i fotogrammi peggiori
+
+Sempre nel D451: per non contare le pause (la pagina nascosta) la regola
+dell'orb scartava ogni fotogramma piu' lungo di mezzo secondo. Ho creduto
+che un fotogramma cosi' lungo potesse essere solo una pausa. Con l'orb a
+1080 pixel di lato e il disegno pieno, sul Tab A8 duravano 590 ms tutti:
+la regola non ne contava nessuno, e l'orb restava al lato pieno a 1,7
+fotogrammi al secondo. Proprio il caso per cui la regola esiste.
+
+Me ne sono accorto misurando il disegno pieno alla misura nuova, per
+scrivere un numero in un commento. Col disegno leggero il tablet non ci
+arrivava, e non l'avrei visto.
+
+Corretto col D453: un fotogramma lungo da solo e' una pausa, tre di fila
+sono la scheda video.
+
+La regola: una soglia che scarta i casi strani si prova anche quando
+strani lo sono tutti. E una regola misurata a una grandezza si rimisura
+quando la grandezza cambia: da 576 a 1080 pixel di lato il tempo e' piu'
+che triplicato.

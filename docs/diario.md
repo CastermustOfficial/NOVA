@@ -12290,3 +12290,24 @@ dormisse.
 
 Il ripristino ha mostrato anche un difetto del portale: il tablet era
 sparito da un'ora e il PC lo dava ancora collegato.
+
+Piu' tardi Gio guarda l'orb sul tablet e dice quello che i numeri non
+dicevano: e' fluido, ma «la qualita' e' pessima», sembra in 120p, e lo
+schermo e' buono. Per tenere i fotogrammi avevo tolto pixel: 238 di lato,
+stirati su 672. Propone dei filmati gia' pronti; ne scrivo il registratore,
+e intanto lui ci ripensa: meno particelle e basta, senza complicarsi la
+vita. Ha ragione lui due volte: sull'orb, che e' suo, e sulla strada piu'
+corta.
+
+Ho provato le combinazioni sul tablet e gliele ho mandate affiancate. Con
+14 passi nella nuvola invece di 56, e 2 strati di rumore invece di 4, nello
+stesso tempo ci stanno piu' del doppio dei pixel per lato, e l'orb si
+riconosce (D453). Sul PC resta quello di prima, lettera per lettera. E
+adesso riempie lo schermo: il 90% del lato corto.
+
+Misurando ho trovato un difetto del giorno stesso. La regola che fa
+scendere i pixel scartava i fotogrammi piu' lunghi di mezzo secondo,
+prendendoli per pause; con l'orb grande e il disegno pieno duravano 590 ms
+tutti, e l'orb restava fermo a 1,7 al secondo. Col disegno leggero il
+tablet non ci arrivava: l'ho trovato solo perche' volevo un numero preciso
+da scrivere in un commento.

@@ -887,3 +887,23 @@ era la 157. Senza il negozio di Google non si aggiorna da solo. *Perche'.*
 La finestra di NOVA e' il WebView: le correzioni di sicurezza passano di
 li'. *Cosa costerebbe.* Scaricare il pacchetto del WebView e installarlo
 dal cavo, ogni tanto; o riaccendere solo per quello il negozio.
+
+**L'orb registrato.** *Cosa.* Invece di disegnare l'orb dal vivo sul
+tablet, registrarlo fuori linea a tutta qualita', stato per stato, in
+filmati che girano in tondo, e sul tablet riprodurli. L'ha proposto Gio il
+28 novembre, e lo stesso giorno l'ha scartato per il disegno leggero
+(D453): «meglio non complicarsi troppo la vita». *Perche'.* Sarebbe l'orb
+pieno, a 56 passi, anche su una scheda video piccola. *Cosa costerebbe.*
+Il registratore era scritto (un orologio finto che fa avanzare l'orb un
+trentesimo di secondo alla volta, e la coda di ogni giro sciolta
+sull'inizio); restavano i passaggi da uno stato all'altro, il livello
+della voce che dal vivo muove l'orb e in un filmato no, e un filmato per
+ogni misura di schermo, per otto stati.
+
+**Piu' pixel a riposo.** *Cosa.* A riposo l'orb del tablet fa un
+fotogramma ogni 120 ms (D452) ma coi pixel trovati per farne trenta al
+secondo: in quei 120 ms ce ne starebbero il doppio per lato. *Perche'.* A
+riposo e' come l'orb si vede quasi sempre. *Cosa costerebbe.* Una seconda
+grana, e il cambio di grana a ogni risveglio; e corrente, perche' la
+scheda video lavorerebbe tutto il tempo invece che un quarto: da fare solo
+sotto carica, semmai.
